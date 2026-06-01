@@ -453,7 +453,7 @@ function pickCreditsUsed(table: PlanTable | null, period: string, screens: numbe
 function Label({ children }: { children: React.ReactNode }) {
 
   return (
-    <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
+    <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">
       {children}
     </label>
   );
@@ -467,7 +467,7 @@ function Input({ className = "", ...props }: InputProps) {
   return (
     <input
       {...props}
-      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors dark:[color-scheme:dark] ${className}`}
+      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors dark:[color-scheme:dark] ${className}`}
     />
   );
 }
@@ -512,7 +512,7 @@ function Select({ className = "", ...props }: React.SelectHTMLAttributes<HTMLSel
   return (
     <select
       {...props}
-      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     />
   );
 }
@@ -531,7 +531,7 @@ function Switch({
 
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="text-xs text-slate-700 dark:text-white/70">{label}</span>
+      <span className="text-xs text-slate-700 dark:text-muted-foreground">{label}</span>
       <button
         type="button"
         onClick={() => !disabled && onChange(!checked)} // ✅ NOVO
@@ -539,7 +539,7 @@ function Switch({
         className={`relative w-12 h-7 rounded-full transition-colors border ${
           checked
             ? "bg-emerald-600 border-emerald-600"
-            : "bg-slate-200 dark:bg-white/10 border-slate-300 dark:border-white/10"
+            : "bg-slate-200 dark:bg-white/10 border-slate-300 dark:border-border"
         } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`} // ✅ NOVO
         aria-pressed={checked}
       >
@@ -576,7 +576,7 @@ function PhoneRow({
     <div>
       <Label>{label}</Label>
       <div className="flex gap-2">
-        <div className="h-10 min-w-[160px] px-3 bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg flex items-center text-xs font-bold text-slate-700 dark:text-white">
+        <div className="h-10 min-w-[160px] px-3 bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-border rounded-lg flex items-center text-xs font-bold text-slate-700 dark:text-white">
           {countryLabel || "—"}
         </div>
 
@@ -3561,8 +3561,8 @@ function buildM3uUrlSilent(overrideUser?: string, overridePass?: string): string
       confirmText: "Fechar",
       cancelText: "Editar Servidor", // ✅ Nome do botão
       details: serverDomains.map((dns, idx) => (
-        <div key={idx} className="flex items-center justify-between bg-white dark:bg-black/20 p-2.5 rounded-lg border border-slate-200 dark:border-white/10 mb-1.5 shadow-sm">
-          <span className="font-mono text-xs text-slate-600 dark:text-white/70 truncate mr-2 select-all">
+        <div key={idx} className="flex items-center justify-between bg-white dark:bg-black/20 p-2.5 rounded-lg border border-slate-200 dark:border-border mb-1.5 shadow-sm">
+          <span className="font-mono text-xs text-slate-600 dark:text-muted-foreground truncate mr-2 select-all">
             {dns}
           </span>
           <button
@@ -3572,7 +3572,7 @@ function buildM3uUrlSilent(overrideUser?: string, overridePass?: string): string
               navigator.clipboard.writeText(dns);
               addToast("success", "Copiado", "DNS copiada com sucesso!");
             }}
-            className="p-1.5 text-slate-400 dark:text-white/40 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-slate-100 dark:hover:bg-white/10 rounded transition-colors shrink-0"
+            className="p-1.5 text-slate-400 dark:text-muted-foreground hover:text-sky-600 dark:hover:text-sky-400 hover:bg-slate-100 dark:hover:bg-white/10 rounded transition-colors shrink-0"
             title="Copiar"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -3749,14 +3749,13 @@ if (!isEditing && registerRenewal && !isTrialMode) {
   }}
 >
 <div
-  className="w-full max-w-lg sm:max-w-2xl bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl flex flex-col overflow-hidden min-h-0 max-h-[90vh] transition-all animate-in fade-in zoom-in-95 duration-200"
-  style={{ maxHeight: "90dvh" }}
+  className="w-full max-w-lg sm:max-w-2xl bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl flex flex-col overflow-hidden min-h-0 max-h-[90vh] transition-all animate-in fade-in zoom-in-95 duration-200 max-h-[90dvh]"
   onPointerDown={(e) => e.stopPropagation()} // Impede que o clique dentro do modal vaze para o fundo
 >
 
           {/* HEADER */}
 
-          <div className="px-6 py-4 border-b border-slate-200 dark:border-white/10 flex justify-between items-center bg-slate-50 dark:bg-white/5 rounded-t-xl shrink-0">
+          <div className="px-6 py-4 border-b border-slate-200 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5 rounded-t-xl shrink-0">
 
             <h2 className="text-base font-bold text-slate-800 dark:text-white truncate">
 
@@ -3770,7 +3769,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
               type="button"
 
-              className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 dark:text-white/40 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 dark:text-muted-foreground transition-colors"
 
             >
 
@@ -3784,7 +3783,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
           {/* ABAS */}
 
-          <div className="flex justify-center border-b border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/5 px-4 py-2">
+          <div className="flex justify-center border-b border-slate-200 dark:border-border bg-slate-50/50 dark:bg-white/5 px-4 py-2">
 
             <div className="flex bg-slate-200/50 dark:bg-black/20 rounded-lg p-1 w-full sm:w-auto overflow-x-auto">
 
@@ -3810,7 +3809,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                       ? "bg-white dark:bg-white/10 text-emerald-600 dark:text-emerald-400 shadow-sm"
 
-                      : "text-slate-500 dark:text-white/40 hover:text-slate-800 dark:hover:text-white"
+                      : "text-slate-500 dark:text-muted-foreground hover:text-slate-800 dark:hover:text-white"
 
                   }`}
 
@@ -3832,9 +3831,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
           <div
 
-  className="p-3 sm:p-4 overflow-y-auto overscroll-contain space-y-3 flex-1 min-h-0 bg-white dark:bg-[#161b22] custom-scrollbar"
-
-  style={{ WebkitOverflowScrolling: "touch" }}
+  className="p-3 sm:p-4 overflow-y-auto overscroll-contain space-y-3 flex-1 min-h-0 bg-white dark:bg-card custom-scrollbar"
 
 >
 
@@ -3999,7 +3996,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
             confirmText: "Fechar",
             cancelText: "",
             details: lines.map((line, i) => (
-              <div key={i} className="text-xs text-slate-700 dark:text-white/80 py-1 border-b border-slate-100 dark:border-white/5 last:border-0">
+              <div key={i} className="text-xs text-slate-700 dark:text-white/80 py-1 border-b border-slate-100 dark:border-border last:border-0">
                 {line}
               </div>
             )),
@@ -4017,7 +4014,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                 {/* CONTATO SECUNDÁRIO (TOGGLE) */}
                 {!showSecondary ? (
-                  <div className="pt-2 mt-4 border-t border-slate-200 dark:border-white/10 flex justify-between items-center">
+                  <div className="pt-2 mt-4 border-t border-slate-200 dark:border-border flex justify-between items-center">
                     <Label> </Label>
                     <button
                       type="button"
@@ -4028,7 +4025,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                     </button>
                   </div>
                 ) : (
-                  <div className="pt-2 mt-4 border-t border-slate-200 dark:border-white/10 space-y-4 animate-in slide-in-from-top-2 duration-300">
+                  <div className="pt-2 mt-4 border-t border-slate-200 dark:border-border space-y-4 animate-in slide-in-from-top-2 duration-300">
                     <div className="flex justify-between items-center">
                       <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Contato Secundário</h3>
                       <button
@@ -4123,7 +4120,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                     </div>
 
                     {/* DIVISOR PARA SEPARAR DO RESTANTE */}
-                    <div className="pt-2 pb-1 border-b border-slate-200 dark:border-white/10"></div>
+                    <div className="pt-2 pb-1 border-b border-slate-200 dark:border-border"></div>
                   </div>
                 )}
 
@@ -4142,8 +4139,8 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                   </div>
 
                   <div className="pt-0 sm:pt-[18px]">
-                    <div className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg flex items-center justify-between gap-3">
-                      <span className="text-xs text-slate-600 dark:text-white/70 whitespace-nowrap">
+                    <div className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg flex items-center justify-between gap-3">
+                      <span className="text-xs text-slate-600 dark:text-muted-foreground whitespace-nowrap">
                         Aceita msg?
                       </span>
                       <Switch
@@ -4194,7 +4191,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                      placeholder="Anote detalhes importantes sobre este cliente..."
 
-                     className="w-full h-20 px-3 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-all"
+                     className="w-full h-20 px-3 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-all"
 
                    />
 
@@ -4218,7 +4215,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                 {/* CARD ACESSO */}
 
-                <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-3">
+                <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-border space-y-3">
 
                    <div className="flex justify-between items-center gap-3">
 
@@ -4230,7 +4227,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                       <div className="flex items-center gap-2">
 
-                        <span className="text-[10px] text-slate-400 dark:text-white/40 font-bold hidden sm:inline">Tecnologia:</span>
+                        <span className="text-[10px] text-slate-400 dark:text-muted-foreground font-bold hidden sm:inline">Tecnologia:</span>
 
                         {technology === "Personalizado" ? (
 
@@ -4242,7 +4239,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                                     onChange={(e) => setCustomTechnology(e.target.value)}
 
-                                    className="h-8 w-[140px] sm:w-[180px] pl-2 pr-8 text-xs font-bold text-slate-700 dark:text-white bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded outline-none focus:border-emerald-500/50 transition-all"
+                                    className="h-8 w-[140px] sm:w-[180px] pl-2 pr-8 text-xs font-bold text-slate-700 dark:text-white bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded outline-none focus:border-emerald-500/50 transition-all"
 
                                     placeholder="Digite..."
 
@@ -4292,7 +4289,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                                 disabled={trialProvider === "FAST" || trialProvider === "NATV"}
 
-                                className={`h-8 w-[100px] px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded text-xs font-bold text-slate-700 dark:text-white outline-none transition-all ${
+                                className={`h-8 w-[100px] px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded text-xs font-bold text-slate-700 dark:text-white outline-none transition-all ${
 
                                   (trialProvider === "FAST" || trialProvider === "NATV") 
 
@@ -4354,7 +4351,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="sm:col-span-2">
                         <div className="flex justify-between items-center mb-1">
-                          <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider">
+                          <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground uppercase tracking-wider">
                             Servidor *
                           </label>
                           {serverDomains.length > 0 && (
@@ -4384,7 +4381,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                                 navigator.clipboard.writeText(username);
                                 addToast("success", "Copiado!", "Usuário copiado para a área de transferência.");
                               }}
-                              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 dark:text-white/40 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-200 dark:hover:bg-white/10 rounded transition-colors"
+                              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 dark:text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-200 dark:hover:bg-white/10 rounded transition-colors"
                               title="Copiar usuário"
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -4407,7 +4404,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                                 navigator.clipboard.writeText(password);
                                 addToast("success", "Copiado!", "Senha copiada para a área de transferência.");
                               }}
-                              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 dark:text-white/40 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-200 dark:hover:bg-white/10 rounded transition-colors"
+                              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 dark:text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-200 dark:hover:bg-white/10 rounded transition-colors"
                               title="Copiar senha"
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -4522,7 +4519,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
 
 
-                <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-3">
+                <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-border space-y-3">
 
   <div className="flex justify-between items-center gap-3">
 
@@ -4532,7 +4529,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
     <div className="flex items-center gap-2">
 
-      <span className="text-[10px] text-slate-400 dark:text-white/40 font-bold hidden sm:inline">
+      <span className="text-[10px] text-slate-400 dark:text-muted-foreground font-bold hidden sm:inline">
 
         Tabela:
 
@@ -4546,7 +4543,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
             setSelectedTableId(e.target.value);
             setPriceTouched(false); // ✅ FORÇA O RECÁLCULO IMEDIATO
         }}
-        className="h-8 w-[120px] px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded text-xs font-bold text-slate-700 dark:text-white outline-none cursor-pointer hover:border-emerald-500/50 transition-all truncate"
+        className="h-8 w-[120px] px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded text-xs font-bold text-slate-700 dark:text-white outline-none cursor-pointer hover:border-emerald-500/50 transition-all truncate"
       >
 
         {tables.map((t) => (
@@ -4667,7 +4664,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
       <Label>Moeda</Label>
 
-      <div className="h-10 w-full bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg flex items-center justify-center text-sm font-bold text-slate-700 dark:text-white">
+      <div className="h-10 w-full bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-border rounded-lg flex items-center justify-center text-sm font-bold text-slate-700 dark:text-white">
 
         {currency}
 
@@ -4753,7 +4750,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                 {/* VENCIMENTO */}
 
-                <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-3">
+                <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-border space-y-3">
 
    {/* ✅ NOVO: Header com Período ao lado direito (só para teste) */}
 
@@ -4767,7 +4764,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
   <div className="flex items-center gap-2">
 
-    <span className="text-[10px] text-slate-400 dark:text-white/40 font-bold hidden sm:inline">Período:</span>
+    <span className="text-[10px] text-slate-400 dark:text-muted-foreground font-bold hidden sm:inline">Período:</span>
 
     <select
 
@@ -4795,7 +4792,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
   }
 
-  className={`h-7 w-[70px] px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded text-xs font-bold text-slate-700 dark:text-white outline-none transition-all ${
+  className={`h-7 w-[70px] px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded text-xs font-bold text-slate-700 dark:text-white outline-none transition-all ${
 
     trialHoursLocked ? "opacity-70 cursor-not-allowed" : "cursor-pointer hover:border-emerald-500/50"
 
@@ -4842,7 +4839,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                         <Label>Hora</Label>
                         <div className="flex gap-2">
                            <Input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} className="dark:[color-scheme:dark]" />
-                           <button type="button" onClick={() => setDueTime("23:59")} className="px-2 rounded-lg bg-slate-200 dark:bg-white/10 text-[10px] font-bold text-slate-600 dark:text-white/70 hover:bg-slate-300 dark:hover:bg-white/20 border border-slate-300 dark:border-white/20 whitespace-nowrap" title="Fim do dia">23:59</button>
+                           <button type="button" onClick={() => setDueTime("23:59")} className="px-2 rounded-lg bg-slate-200 dark:bg-white/10 text-[10px] font-bold text-slate-600 dark:text-muted-foreground hover:bg-slate-300 dark:hover:bg-white/20 border border-slate-300 dark:border-white/20 whitespace-nowrap" title="Fim do dia">23:59</button>
                         </div>
                       </div>
                    </div>
@@ -4873,7 +4870,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                                   ? "bg-sky-50 border-sky-200 dark:bg-sky-500/10 dark:border-sky-500/20" 
 
-                                  : "bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-white/10"
+                                  : "bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-border"
 
                               } ${!hasIntegration ? "opacity-50 cursor-not-allowed" : "h-full"}`}
 
@@ -4893,7 +4890,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                                     </span>
 
-                                    <span className="text-[10px] text-slate-400 dark:text-white/40">
+                                    <span className="text-[10px] text-slate-400 dark:text-muted-foreground">
 
                                       {hasIntegration ? "Criar direto no painel" : "Sem integração"}
 
@@ -4913,17 +4910,17 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                             {/* COLUNA DIREITA: WhatsApp Empilhado */}
 
-                            <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 flex flex-col gap-3">
+                            <div className="p-3 rounded-xl border border-slate-200 dark:border-border bg-white dark:bg-white/5 flex flex-col gap-3">
 
                               <div
 
                                 onClick={() => setSendTrialWhats(!sendTrialWhats)}
 
-                                className="h-10 px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-between gap-3 shrink-0"
+                                className="h-10 px-3 rounded-lg border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-between gap-3 shrink-0"
 
                               >
 
-                                <span className="text-xs font-bold text-slate-600 dark:text-white/70">
+                                <span className="text-xs font-bold text-slate-600 dark:text-muted-foreground">
 
                                   Enviar msg teste?
 
@@ -4984,7 +4981,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                                     onChange={(e) => setMessageContent(e.target.value)}
 
-                                    className="w-full h-full min-h-[60px] px-3 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-all"
+                                    className="w-full h-full min-h-[60px] px-3 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-all"
 
                                     placeholder="Digite a mensagem de teste..."
 
@@ -5020,7 +5017,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                                   className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
                                     syncWithServer 
                                       ? "bg-sky-50 border-sky-200 dark:bg-sky-500/10 dark:border-sky-500/20" 
-                                      : "bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-white/10"
+                                      : "bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-border"
                                   } ${!hasIntegration ? "opacity-50 cursor-not-allowed" : ""}`}
                                 >
                                   <div className="flex items-center gap-2">
@@ -5029,7 +5026,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                                       <span className={`text-xs font-bold block ${syncWithServer ? "text-sky-700 dark:text-sky-400" : "text-slate-500"}`}>
                                         Sincronizar Painel
                                       </span>
-                                      <span className="text-[9px] text-slate-400 dark:text-white/40">
+                                      <span className="text-[9px] text-slate-400 dark:text-muted-foreground">
                                         {hasIntegration ? "Criar no servidor" : "Sem integração"}
                                       </span>
                                     </div>
@@ -5058,7 +5055,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                                     ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20" 
 
-                                    : "bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-white/10"
+                                    : "bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-border"
 
                                 }`}
 
@@ -5076,7 +5073,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                                     </span>
 
-                                    <span className="text-[9px] text-slate-400 dark:text-white/40">
+                                    <span className="text-[9px] text-slate-400 dark:text-muted-foreground">
 
                                       Gera log de pagamento local
 
@@ -5110,7 +5107,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                             {/* LINHA 2: WhatsApp */}
 
-                            <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5">
+                            <div className="p-3 rounded-xl border border-slate-200 dark:border-border bg-white dark:bg-white/5">
 
                               <div className={`grid grid-cols-1 ${sendPaymentMsg ? 'sm:grid-cols-2' : ''} gap-3 items-center`}>
 
@@ -5118,11 +5115,11 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                                   onClick={() => setSendPaymentMsg(!sendPaymentMsg)}
 
-                                  className="h-10 px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-between gap-3"
+                                  className="h-10 px-3 rounded-lg border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-between gap-3"
 
                                 >
 
-                                  <span className="text-xs font-bold text-slate-600 dark:text-white/70">
+                                  <span className="text-xs font-bold text-slate-600 dark:text-muted-foreground">
 
                                     Enviar msg pagto?
 
@@ -5222,7 +5219,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                     const isExpiringSoon = diffDays !== null && Number.isFinite(diffDays) && diffDays <= 30;
 
                     return (
-                      <div key={app.instanceId} className="px-3 pt-2 pb-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 relative group">
+                      <div key={app.instanceId} className="px-3 pt-2 pb-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-border relative group">
                         
                         {/* HEADER DO CARD (Sempre visível) */}
                         <div className="flex justify-between items-center">
@@ -5303,7 +5300,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                                               if (url) window.open(url, "_blank");
                                               else addToast("warning", "Sem URL", "Nenhum link configurado para esta integração.");
                                           }}
-                                          className="h-10 rounded-lg bg-slate-100 dark:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 hover:bg-slate-200 dark:hover:bg-white/20 transition-colors flex items-center justify-center gap-1.5"
+                                          className="h-10 rounded-lg bg-slate-100 dark:bg-white/10 border border-slate-200 dark:border-border text-slate-600 dark:text-muted-foreground hover:bg-slate-200 dark:hover:bg-white/20 transition-colors flex items-center justify-center gap-1.5"
                                           title="Abrir painel no navegador"
                                       >
                                           <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -5338,7 +5335,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                                       className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify-between gap-3 transition-colors ${
                                         app.auto_configure !== false
                                           ? "bg-sky-50 border-sky-200 dark:bg-sky-500/10 dark:border-sky-500/20"
-                                          : "bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-white/10"
+                                          : "bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-border"
                                       }`}
                                     >
                                       <div className="flex items-center gap-2">
@@ -5430,7 +5427,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                                               e.stopPropagation();
                                               setVisibleAppPasswords(prev => ({ ...prev, [safeKey]: !prev[safeKey] }));
                                             }}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:text-white/40 dark:hover:text-white/80 transition-colors"
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:text-muted-foreground dark:hover:text-white/80 transition-colors"
                                             tabIndex={-1}
                                           >
                                             {isVisible ? (
@@ -5467,7 +5464,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                       onClick={() => { setShowAppSelector(true); setAppSearch(""); }} 
 
-                      className="w-full h-14 border-2 border-dashed border-slate-300 dark:border-white/10 rounded-xl text-slate-500 dark:text-white/60 hover:text-emerald-600 hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all font-bold text-sm uppercase flex items-center justify-center gap-2"
+                      className="w-full h-14 border-2 border-dashed border-slate-300 dark:border-border rounded-xl text-slate-500 dark:text-white/60 hover:text-emerald-600 hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all font-bold text-sm uppercase flex items-center justify-center gap-2"
 
                     >
 
@@ -5495,7 +5492,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                           onChange={(e) => setAppSearch(e.target.value)}
 
-                          className="w-full h-10 pl-9 pr-10 bg-white dark:bg-[#0d1117] border border-emerald-500 ring-1 ring-emerald-500/20 rounded-lg text-sm text-slate-800 dark:text-white outline-none shadow-lg"
+                          className="w-full h-10 pl-9 pr-10 bg-white dark:bg-background border border-emerald-500 ring-1 ring-emerald-500/20 rounded-lg text-sm text-slate-800 dark:text-white outline-none shadow-lg"
 
                         />
 
@@ -5511,7 +5508,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
 
 
-                                            <div className="mt-2 w-full bg-white dark:bg-[#1c2128] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl min-h-[280px] max-h-[50vh] overflow-y-auto custom-scrollbar">
+                                            <div className="mt-2 w-full bg-white dark:bg-[#1c2128] border border-slate-200 dark:border-border rounded-xl shadow-xl min-h-[280px] max-h-[50vh] overflow-y-auto custom-scrollbar">
 
                         {(() => {
 
@@ -5566,7 +5563,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                               <button
                                 key={app.id}
                                 onClick={() => addAppToClient(app)}
-                                className="w-full text-left px-4 py-3 text-sm text-slate-700 dark:text-white hover:bg-emerald-50 dark:hover:bg-emerald-500/10 hover:text-emerald-700 dark:hover:text-emerald-400 border-b border-slate-50 dark:border-white/5 last:border-0 transition-colors flex items-center justify-between group"
+                                className="w-full text-left px-4 py-3 text-sm text-slate-700 dark:text-white hover:bg-emerald-50 dark:hover:bg-emerald-500/10 hover:text-emerald-700 dark:hover:text-emerald-400 border-b border-slate-50 dark:border-border last:border-0 transition-colors flex items-center justify-between group"
                               >
                                 <div className="flex items-center gap-2">
                                   <span className="font-medium">{app.name}</span>
@@ -5608,7 +5605,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
           {/* FOOTER */}
 
-          <div className="px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex justify-end gap-2 rounded-b-xl shrink-0">
+          <div className="px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 flex justify-end gap-2 rounded-b-xl shrink-0">
 
             <button
 
@@ -5616,7 +5613,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
               type="button"
 
-              className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/10 text-xs font-bold transition-colors"
+              className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/10 text-xs font-bold transition-colors"
 
             >
 
@@ -5677,9 +5674,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
             <div
 
-  className="w-full max-w-sm bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl p-6 flex flex-col gap-5 overflow-hidden min-h-0 max-h-[90vh] animate-in fade-in zoom-in-95 duration-200"
-
-  style={{ maxHeight: "90dvh" }}
+  className="w-full max-w-sm bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl p-6 flex flex-col gap-5 overflow-hidden min-h-0 max-h-[90vh] animate-in fade-in zoom-in-95 duration-200 max-h-[90dvh]"
 
 >
 
@@ -5705,7 +5700,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                 
 
-                <div className="bg-slate-50 dark:bg-white/5 rounded-xl p-4 border border-slate-100 dark:border-white/5">
+                <div className="bg-slate-50 dark:bg-white/5 rounded-xl p-4 border border-slate-100 dark:border-border">
 
                     <ul className="space-y-2.5">
 
@@ -5733,7 +5728,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                         onClick={() => setConfirmModal(null)}
 
-                        className="flex-1 h-12 rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 font-bold text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                        className="flex-1 h-12 rounded-xl border border-slate-200 dark:border-border text-slate-600 dark:text-slate-400 font-bold text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
 
                     >
 

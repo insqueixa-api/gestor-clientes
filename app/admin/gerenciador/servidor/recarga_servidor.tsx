@@ -9,16 +9,16 @@ import type { ServerRow } from "./page"; // Importamos o tipo do servidor
 
 // --- COMPONENTES VISUAIS (Mesmo padrão do novo_servidor) ---
 function Label({ children }: { children: React.ReactNode }) {
-  return <label className="block text-xs font-bold text-slate-500 dark:text-white/40 mb-1.5 tracking-tight">{children}</label>;
+  return <label className="block text-xs font-bold text-slate-500 dark:text-muted-foreground mb-1.5 tracking-tight">{children}</label>;
 }
 
 function Input({ className = "", ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors ${className}`} />;
+  return <input {...props} className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors ${className}`} />;
 }
 
 function Select({ children, className = "", ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
-    <select {...props} className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}>
+    <select {...props} className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}>
       {children}
     </select>
   );
@@ -269,10 +269,10 @@ async function handleSave() {
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-lg bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
+      <div className="w-full max-w-lg bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
         
         {/* HEADER */}
-        <div className="px-6 py-4 border-b border-slate-200 dark:border-white/10 flex justify-between items-center bg-slate-50 dark:bg-white/5">
+        <div className="px-6 py-4 border-b border-slate-200 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5">
           <div>
             <h2 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">
               Nova Recarga
@@ -308,7 +308,7 @@ async function handleSave() {
             </div>
           </div>
 
-          <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-4">
+          <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-border space-y-4">
             <div className="grid grid-cols-12 gap-3">
               <div className="col-span-4 space-y-1">
                 <Label>Qtd. Créditos</Label>
@@ -354,7 +354,7 @@ async function handleSave() {
           </div>
 
           {/* TOTALIZADORES */}
-          <div className="flex justify-between items-end bg-slate-100 dark:bg-black/20 p-3 rounded-lg border border-slate-200 dark:border-white/5">
+          <div className="flex justify-between items-end bg-slate-100 dark:bg-black/20 p-3 rounded-lg border border-slate-200 dark:border-border">
              <div>
                 <div className="text-[10px] uppercase font-bold text-slate-400">Total Original</div>
                 <div className="font-mono text-sm font-bold text-slate-600 dark:text-slate-300">
@@ -372,7 +372,7 @@ async function handleSave() {
           <div className="space-y-1">
             <Label>Observações</Label>
             <input 
-              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none text-slate-700 dark:text-white"
+              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none text-slate-700 dark:text-white"
               value={notes}
               onChange={e => setNotes(e.target.value)}
               placeholder="Opcional..."
@@ -381,7 +381,7 @@ async function handleSave() {
         </div>
 
         {/* FOOTER */}
-        <div className="px-6 py-4 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 space-y-3">
+        <div className="px-6 py-4 border-t border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 space-y-3">
           
           {hasIntegration && (
             <div className="p-3 bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 rounded-lg text-xs text-sky-700 dark:text-sky-400">
@@ -394,7 +394,7 @@ async function handleSave() {
           <div className="flex justify-end gap-3">
             <button 
               onClick={onClose} 
-              className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/5 text-sm font-semibold transition-colors"
+              className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/5 text-sm font-semibold transition-colors"
             >
               Cancelar
             </button>

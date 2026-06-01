@@ -798,7 +798,7 @@ export default async function AdminDashboardPage({
               )}
             </div>
           ) : (
-            <div className="rounded-xl border border-dashed border-slate-200 dark:border-white/10 p-10 text-center text-slate-400 dark:text-white/30 text-sm">
+            <div className="rounded-xl border border-dashed border-slate-200 dark:border-border p-10 text-center text-slate-400 dark:text-white/30 text-sm">
               Nenhuma transação registrada no mês. <Link href="/admin/settings/financeiro_pessoal" className="underline hover:text-slate-600 dark:hover:text-white/60">Adicionar transações →</Link>
             </div>
           )}
@@ -954,7 +954,7 @@ function MetricCardView({
 
   const content = (
     <>
-      <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-black/5 dark:border-white/5 font-bold text-[13px] sm:text-sm flex justify-between items-center">
+      <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-black/5 dark:border-border font-bold text-[13px] sm:text-sm flex justify-between items-center">
         {title}
         {href && <span className="opacity-40 text-xs">↗</span>}
       </div>

@@ -67,7 +67,7 @@ function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
 // --- COMPONENTES VISUAIS INTERNOS ---
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-xs font-bold text-slate-500 dark:text-white/40 mb-1.5 tracking-tight">
+    <label className="block text-xs font-bold text-slate-500 dark:text-muted-foreground mb-1.5 tracking-tight">
       {children}
     </label>
   );
@@ -77,7 +77,7 @@ function Input({ className = "", ...props }: React.InputHTMLAttributes<HTMLInput
   return (
     <input
       {...props}
-      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     />
   );
 }
@@ -86,7 +86,7 @@ function Select({ children, className = "", ...props }: React.SelectHTMLAttribut
   return (
     <select
       {...props}
-      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     >
       {children}
     </select>
@@ -571,14 +571,14 @@ const payload = {
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-5xl max-h-[90vh] bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
+      <div className="w-full max-w-5xl max-h-[90vh] bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
         {/* HEADER */}
-        <div className="px-6 py-4 border-b border-slate-200 dark:border-white/10 flex justify-between items-center bg-slate-50 dark:bg-white/5">
+        <div className="px-6 py-4 border-b border-slate-200 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5">
           <div>
             <h2 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">
               {isEditing ? `Editar: ${server?.name}` : "Novo servidor"}
             </h2>
-            <div className="text-xs text-slate-500 dark:text-white/40 mt-0.5 font-medium">
+            <div className="text-xs text-slate-500 dark:text-muted-foreground mt-0.5 font-medium">
               Configurações de conexão, custos e saldo.
             </div>
           </div>
@@ -591,7 +591,7 @@ const payload = {
         </div>
 
         {/* CORPO */}
-        <div className="p-6 space-y-6 overflow-y-auto bg-white dark:bg-[#161b22]">
+        <div className="p-6 space-y-6 overflow-y-auto bg-white dark:bg-card">
           <div className="grid grid-cols-12 gap-4">
             <div
               className={`${
@@ -636,7 +636,7 @@ const payload = {
                       }
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-center h-10 w-10 shrink-0 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-slate-500 dark:text-white/60 hover:text-emerald-600 hover:border-emerald-500/50 dark:hover:text-emerald-400 transition-colors"
+                      className="flex items-center justify-center h-10 w-10 shrink-0 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-slate-500 dark:text-white/60 hover:text-emerald-600 hover:border-emerald-500/50 dark:hover:text-emerald-400 transition-colors"
                       title="Acessar link"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -651,10 +651,10 @@ const payload = {
             )}
           </div>
 
-          <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 grid grid-cols-1 md:grid-cols-3 gap-5 animate-in slide-in-from-bottom-3 duration-400">
+          <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-border grid grid-cols-1 md:grid-cols-3 gap-5 animate-in slide-in-from-bottom-3 duration-400">
             <div className="space-y-1">
               <Label>Moeda padrão</Label>
-              <div className="flex bg-slate-200/50 dark:bg-black/20 rounded-lg p-1 border border-slate-200 dark:border-white/10 h-10">
+              <div className="flex bg-slate-200/50 dark:bg-black/20 rounded-lg p-1 border border-slate-200 dark:border-border h-10">
                 {(["BRL", "USD", "EUR"] as const).map((c) => (
                   <button
                     key={c}
@@ -663,7 +663,7 @@ const payload = {
                     className={`flex-1 h-full rounded-md text-xs font-bold transition-all ${
                       currency === c
                         ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-sm"
-                        : "text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white"
+                        : "text-slate-500 dark:text-muted-foreground hover:text-slate-700 dark:hover:text-white"
                     }`}
                   >
                     {c}
@@ -770,7 +770,7 @@ const payload = {
                     <button
                       type="button"
                       onClick={() => handleCopyDns(dns, idx)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 dark:text-white/40 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-200 dark:hover:bg-white/10 rounded transition-colors"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 dark:text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-200 dark:hover:bg-white/10 rounded transition-colors"
                       title="Copiar DNS"
                     >
                       {copiedDnsIndex === idx ? (
@@ -795,17 +795,17 @@ const payload = {
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-700 dark:text-white outline-none h-20 resize-none focus:border-emerald-500/50 transition-colors"
+              className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg px-3 py-2 text-sm text-slate-700 dark:text-white outline-none h-20 resize-none focus:border-emerald-500/50 transition-colors"
               placeholder="Anotações visíveis apenas para admins..."
             />
           </div>
         </div>
 
         {/* FOOTER */}
-        <div className="px-6 py-4 border-t border-slate-200 dark:border-white/10 flex justify-end gap-3 bg-slate-50 dark:bg-white/5 transition-colors">
+        <div className="px-6 py-4 border-t border-slate-200 dark:border-border flex justify-end gap-3 bg-slate-50 dark:bg-white/5 transition-colors">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/5 transition-colors text-sm font-semibold"
+            className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/5 transition-colors text-sm font-semibold"
           >
             Cancelar
           </button>

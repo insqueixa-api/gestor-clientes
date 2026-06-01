@@ -275,7 +275,7 @@ const canSubmit = useMemo(() => {
   }, [cleanPhone]);
 
   return (
-    <div className="min-h-[100dvh] relative overflow-hidden flex items-center sm:items-center justify-center px-3 sm:px-6 pt-6 pb-6 sm:py-10 bg-slate-50 dark:bg-[#0f141a]">
+    <div className="min-h-[100dvh] relative overflow-hidden flex items-center sm:items-center justify-center px-3 sm:px-6 pt-6 pb-6 sm:py-10 bg-slate-50 dark:bg-background">
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-gradient-to-br from-[#0b2a4a] via-[#0f141a] to-[#0e6b5c] opacity-90 dark:opacity-100" />
         <div className="absolute -top-[10%] -right-[10%] h-[40%] w-[40%] rounded-full bg-emerald-500/20 blur-3xl" />
@@ -290,7 +290,7 @@ const canSubmit = useMemo(() => {
       </div>
 
 <div className="relative z-10 w-full max-w-[420px] sm:max-w-md">
-        <div className="rounded-2xl border border-white/20 bg-white/85 backdrop-blur-xl shadow-2xl dark:bg-[#161b22]/80 dark:border-white/10 overflow-hidden">
+        <div className="rounded-2xl border border-white/20 bg-white/85 backdrop-blur-xl shadow-2xl dark:bg-card/80 dark:border-border overflow-hidden">
           {/* Reduzido de pt-4 para pt-5 para a logo ficar mais colada em cima */}
           <div className="px-5 sm:px-6 pt-5 sm:pt-6 pb-3 sm:pb-4 text-center">
             <div className="flex items-center justify-center">
@@ -328,7 +328,7 @@ const canSubmit = useMemo(() => {
                     placeholder={loadingResolve ? "Validando link..." : "—"}
                     className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-center font-bold text-base text-slate-900 outline-none transition
                       focus:ring-2 focus:ring-emerald-500/60
-                      dark:border-white/10 dark:bg-black/40 dark:text-white"
+                      dark:border-border dark:bg-black/40 dark:text-white"
                   />
                   {loadingResolve && (
                     <div className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500 dark:text-white/50">
@@ -360,7 +360,7 @@ const canSubmit = useMemo(() => {
                   style={{ WebkitTextSecurity: "disc" } as any}
                   className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-center text-xl tracking-[0.5em]
                     text-slate-900 outline-none transition focus:ring-2 focus:ring-emerald-500/60
-                    dark:border-white/10 dark:bg-black/40 dark:text-white"
+                    dark:border-border dark:bg-black/40 dark:text-white"
                 />
 
                 {!!pinHint && (

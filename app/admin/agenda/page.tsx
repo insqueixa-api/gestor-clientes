@@ -830,7 +830,7 @@ const failReasons: string[] = [];
   // ─── RENDER ────────────────────────────────────────────────────────────────
   return (
     <div
-      className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors"
+      className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors"
       onClick={() => { setMsgMenuForId(null); setShowGroupPopover(false); }}
     >
 
@@ -850,7 +850,7 @@ const failReasons: string[] = [];
       </div>
 
       {/* FILTROS */}
-      <div className="px-3 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm mb-4 z-20">
+      <div className="px-3 md:p-4 bg-transparent md:bg-white md:dark:bg-card border-0 md:border md:border-slate-200 md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm mb-4 z-20">
   {/* UMA linha no desktop, busca + botão filtros no mobile */}
   <div className="flex gap-2 items-center">
     <div className="flex-1">
@@ -858,7 +858,7 @@ const failReasons: string[] = [];
         value={search}
         onChange={e => { setSearch(e.target.value); setPage(1); }}
         placeholder="Pesquisar por nome, telefone ou email..."
-        className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-white/20"
+        className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-white/20"
       />
     </div>
 
@@ -867,7 +867,7 @@ const failReasons: string[] = [];
       <select
         value={labelFilter}
         onChange={e => { setLabelFilter(e.target.value); setPage(1); }}
-        className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-600 dark:text-white"
+        className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-600 dark:text-white"
       >
         <option value="Todos">Grupo (Todos)</option>
         <option value="__SEM_GRUPO__">Sem grupo</option>
@@ -877,7 +877,7 @@ const failReasons: string[] = [];
       <select
         value={emailLabelFilter}
         onChange={e => { setEmailLabelFilter(e.target.value); setPage(1); }}
-        className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-600 dark:text-white"
+        className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-600 dark:text-white"
       >
         <option value="Todos">📧 E-mail (Todos)</option>
         {uniqueEmailLabels.map(lbl => <option key={lbl} value={lbl}>{lbl}</option>)}
@@ -887,7 +887,7 @@ const failReasons: string[] = [];
       <select
         value={phoneLabelFilter}
         onChange={e => { setPhoneLabelFilter(e.target.value); setPage(1); }}
-        className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-600 dark:text-white"
+        className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-600 dark:text-white"
       >
         <option value="Todos">📱 Operadora (Todas)</option>
         {uniquePhoneLabels.map(lbl => <option key={lbl} value={lbl}>{lbl}</option>)}
@@ -897,7 +897,7 @@ const failReasons: string[] = [];
       <select
         value={photoFilter}
         onChange={e => { setPhotoFilter(e.target.value); setPage(1); }}
-        className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-600 dark:text-white"
+        className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-600 dark:text-white"
       >
         <option value="Todos">📷 Foto (Todas)</option>
         <option value="ComFoto">Com foto</option>
@@ -920,7 +920,7 @@ const failReasons: string[] = [];
       className={`md:hidden h-10 px-3 rounded-lg border text-sm font-bold transition-colors flex items-center gap-1.5 ${
         hasActiveFilters
           ? "bg-amber-500 text-white border-amber-500"
-          : "bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white"
+          : "bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-border text-slate-600 dark:text-white"
       }`}
     >
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 6h18M7 12h10M11 18h2"/></svg>
@@ -934,7 +934,7 @@ const failReasons: string[] = [];
           <select
             value={labelFilter}
             onChange={e => { setLabelFilter(e.target.value); setPage(1); }}
-            className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-600 dark:text-white"
+            className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-600 dark:text-white"
           >
             <option value="Todos">Grupo (Todos)</option>
             <option value="__SEM_GRUPO__">Sem grupo</option>
@@ -944,7 +944,7 @@ const failReasons: string[] = [];
           <select
             value={emailLabelFilter}
             onChange={e => { setEmailLabelFilter(e.target.value); setPage(1); }}
-            className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-600 dark:text-white"
+            className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-600 dark:text-white"
           >
             <option value="Todos">📧 E-mail (Todos)</option>
             {uniqueEmailLabels.map(lbl => <option key={lbl} value={lbl}>{lbl}</option>)}
@@ -954,7 +954,7 @@ const failReasons: string[] = [];
           <select
             value={phoneLabelFilter}
             onChange={e => { setPhoneLabelFilter(e.target.value); setPage(1); }}
-            className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-600 dark:text-white"
+            className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-600 dark:text-white"
           >
             <option value="Todos">📱 Operadora (Todas)</option>
             {uniquePhoneLabels.map(lbl => <option key={lbl} value={lbl}>{lbl}</option>)}
@@ -964,7 +964,7 @@ const failReasons: string[] = [];
           <select
             value={photoFilter}
             onChange={e => { setPhotoFilter(e.target.value); setPage(1); }}
-            className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-600 dark:text-white"
+            className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-600 dark:text-white"
           >
             <option value="Todos">📷 Foto (Todas)</option>
             <option value="ComFoto">Com foto</option>
@@ -1021,29 +1021,29 @@ const failReasons: string[] = [];
     {showGroupPopover && (
       <div
         onClick={e => e.stopPropagation()}
-        className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl z-50 p-3 space-y-2"
+        className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl z-50 p-3 space-y-2"
       >
-        <p className="text-[11px] font-bold text-slate-500 dark:text-white/40 uppercase tracking-wide">Grupos existentes</p>
+        <p className="text-[11px] font-bold text-slate-500 dark:text-muted-foreground uppercase tracking-wide">Grupos existentes</p>
         <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto">
           {uniqueLabels.filter(l => l && l.trim()).map(lbl => (
             <button
               key={lbl}
               onClick={() => handleMassAssignGroup(lbl)}
-              className="text-[11px] px-2 py-0.5 rounded font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/70 border border-slate-200 dark:border-white/10 hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-colors"
+              className="text-[11px] px-2 py-0.5 rounded font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-muted-foreground border border-slate-200 dark:border-border hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-colors"
             >
               {lbl}
             </button>
           ))}
         </div>
-        <div className="border-t border-slate-200 dark:border-white/10 pt-2">
-          <p className="text-[11px] font-bold text-slate-500 dark:text-white/40 uppercase tracking-wide mb-1.5">Novo grupo</p>
+        <div className="border-t border-slate-200 dark:border-border pt-2">
+          <p className="text-[11px] font-bold text-slate-500 dark:text-muted-foreground uppercase tracking-wide mb-1.5">Novo grupo</p>
           <div className="flex gap-1.5">
             <input
               value={newGroupInput}
               onChange={e => setNewGroupInput(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter" && newGroupInput.trim()) handleMassAssignGroup(newGroupInput); }}
               placeholder="Nome do grupo..."
-              className="flex-1 h-8 px-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg bg-slate-50 dark:bg-black/20 text-slate-800 dark:text-white outline-none focus:border-amber-500"
+              className="flex-1 h-8 px-2 text-xs border border-slate-200 dark:border-border rounded-lg bg-slate-50 dark:bg-black/20 text-slate-800 dark:text-white outline-none focus:border-amber-500"
               autoFocus
             />
             <button
@@ -1065,8 +1065,8 @@ const failReasons: string[] = [];
 
       {/* TABELA */}
       {!loading && (
-        <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0">
-          <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+        <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0">
+          <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
             <div className="text-sm font-bold tracking-tight text-slate-800 dark:text-white whitespace-nowrap">
               Lista de Contatos{" "}
               <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold">{filtered.length}</span>
@@ -1077,7 +1077,7 @@ const failReasons: string[] = [];
             <table className="w-full text-left border-collapse min-w-[700px] table-fixed">
 
               <thead>
-                <tr className="border-b border-slate-200 dark:border-white/10 text-xs font-bold uppercase text-slate-500 dark:text-white/55">
+                <tr className="border-b border-slate-200 dark:border-border text-xs font-bold uppercase text-slate-500 dark:text-white/55">
                   <Th width={36}>
                     <input 
                       ref={selectAllRef} 
@@ -1112,7 +1112,7 @@ const failReasons: string[] = [];
                       <Td>
                         <div className="flex items-center gap-2 py-1">
                           {r.avatar_url ? (
-                            <img src={r.avatar_url} alt="Foto" className="w-[40px] h-[40px] rounded-full object-cover border border-slate-200 dark:border-white/10 shadow-sm shrink-0" />
+                            <img src={r.avatar_url} alt="Foto" className="w-[40px] h-[40px] rounded-full object-cover border border-slate-200 dark:border-border shadow-sm shrink-0" />
                           ) : (
                             <div className="w-[40px] h-[40px] rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center font-bold text-slate-500 dark:text-white/50 text-xl shrink-0">
                               {r.display_name?.charAt(0) || "?"}
@@ -1176,7 +1176,7 @@ const failReasons: string[] = [];
                               <IconChat />
                             </IconActionBtn>
                             {msgMenuForId === r.id && (
-                              <div onClick={e => e.stopPropagation()} className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0f141a] z-50 shadow-2xl overflow-hidden">
+                              <div onClick={e => e.stopPropagation()} className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 dark:border-border bg-white dark:bg-background z-50 shadow-2xl overflow-hidden">
                                 {rPhones.map(p => (
                                   <MenuItem key={p.id} icon={<IconSend />} label={`Para: ${p.label}`} onClick={() => {
                                     setMsgMenuForId(null);
@@ -1202,15 +1202,15 @@ const failReasons: string[] = [];
             </table>
             {/* PAGINAÇÃO */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 dark:border-white/10">
+              <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 dark:border-border">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-500 dark:text-white/40">
+                  <span className="text-xs text-slate-500 dark:text-muted-foreground">
                     {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, sorted.length)} de {sorted.length}
                   </span>
                   <select
                     value={pageSize}
                     onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}
-                    className="h-7 px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded text-xs text-slate-600 dark:text-white"
+                    className="h-7 px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded text-xs text-slate-600 dark:text-white"
                   >
                     <option value={50}>50 por página</option>
                     <option value={100}>100 por página</option>
@@ -1255,14 +1255,14 @@ const failReasons: string[] = [];
               </div>
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Sessão de Envio</label>
-              <select value={selectedSessionNow} onChange={e => setSelectedSessionNow(e.target.value)} className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none text-sm font-medium">
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">Sessão de Envio</label>
+              <select value={selectedSessionNow} onChange={e => setSelectedSessionNow(e.target.value)} className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-xl text-slate-800 dark:text-white outline-none text-sm font-medium">
                 {sessionOptions.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
               </select>
             </div>
-            <textarea value={messageText} onChange={e => setMessageText(e.target.value)} className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl p-4 text-slate-800 dark:text-white outline-none min-h-[120px] text-sm resize-none" placeholder="Digite a sua mensagem..." autoFocus />
+            <textarea value={messageText} onChange={e => setMessageText(e.target.value)} className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-xl p-4 text-slate-800 dark:text-white outline-none min-h-[120px] text-sm resize-none" placeholder="Digite a sua mensagem..." autoFocus />
             <div className="flex justify-end gap-3 pt-2">
-              <button onClick={() => setShowSendNow({ open: false, contactId: null, phone: null })} className="px-4 py-2 rounded-lg text-slate-500 dark:text-white/40 text-sm font-bold">Cancelar</button>
+              <button onClick={() => setShowSendNow({ open: false, contactId: null, phone: null })} className="px-4 py-2 rounded-lg text-slate-500 dark:text-muted-foreground text-sm font-bold">Cancelar</button>
               <button onClick={handleSendMessage} disabled={sendingNow} className="px-6 py-2 rounded-lg bg-emerald-600 text-white font-bold flex items-center gap-2 text-sm disabled:opacity-50">
                 <IconSend /> {sendingNow ? "Enviando..." : "Enviar Agora"}
               </button>
@@ -1282,7 +1282,7 @@ const failReasons: string[] = [];
               {editForm.new_photo_base64 || editModal.contact?.avatar_url ? (
                 <img src={editForm.new_photo_base64 || editModal.contact?.avatar_url || ""} alt="Foto" className="w-24 h-24 rounded-full object-cover border-2 border-slate-200 dark:border-white/20 group-hover:opacity-50 transition-opacity" />
               ) : (
-                <div className="w-24 h-24 rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center font-bold text-slate-500 dark:text-white/40 text-2xl group-hover:opacity-50 transition-opacity">
+                <div className="w-24 h-24 rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center font-bold text-slate-500 dark:text-muted-foreground text-2xl group-hover:opacity-50 transition-opacity">
                   {editForm.display_name?.charAt(0) || "?"}
                 </div>
               )}
@@ -1291,20 +1291,20 @@ const failReasons: string[] = [];
 
             {/* Nome */}
             <div>
-              <label className="block text-xs font-bold text-slate-500 dark:text-white/40 mb-1">Nome Completo</label>
+              <label className="block text-xs font-bold text-slate-500 dark:text-muted-foreground mb-1">Nome Completo</label>
               <input
                 value={editForm.display_name}
                 onChange={e => setEditForm({ ...editForm, display_name: e.target.value })}
-                className="w-full p-2.5 border border-slate-200 dark:border-white/10 rounded-lg bg-slate-50 dark:bg-black/20 text-slate-800 dark:text-white outline-none focus:border-amber-500 text-sm font-bold"
+                className="w-full p-2.5 border border-slate-200 dark:border-border rounded-lg bg-slate-50 dark:bg-black/20 text-slate-800 dark:text-white outline-none focus:border-amber-500 text-sm font-bold"
               />
             </div>
 
-            <div className="border-t border-slate-200 dark:border-white/10" />
+            <div className="border-t border-slate-200 dark:border-border" />
 
             {/* ── TELEFONES ── */}
             <div>
               <div className="flex items-center justify-between mb-3">
-                <label className="block text-xs font-bold text-slate-500 dark:text-white/40">Telefones</label>
+                <label className="block text-xs font-bold text-slate-500 dark:text-muted-foreground">Telefones</label>
                 <button
                   onClick={() => setEditForm(prev => ({ ...prev, phones: [...prev.phones, { id: Date.now().toString(), label: "Celular", ddi: "55", national: "", confirmed: false }] }))}
                   className="text-xs text-amber-600 hover:text-amber-700 dark:text-amber-400 font-bold flex items-center gap-1"
@@ -1319,7 +1319,7 @@ const failReasons: string[] = [];
                   const e164Preview = p.confirmed && p.national ? `+${p.ddi}${onlyDigits(p.national)}` : null;
 
                   return (
-                    <div key={p.id} className="space-y-2 p-3 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-black/10">
+                    <div key={p.id} className="space-y-2 p-3 rounded-lg border border-slate-200 dark:border-border bg-slate-50/50 dark:bg-black/10">
                       {/* Linha 1: rótulo + DDI + número + confirmar + remover */}
                       <div className="flex gap-2 items-center">
                         {/* Rótulo */}
@@ -1327,13 +1327,13 @@ const failReasons: string[] = [];
                           placeholder="Rótulo"
                           value={p.label}
                           onChange={e => setEditForm(prev => { const phones = [...prev.phones]; phones[idx] = { ...phones[idx], label: e.target.value }; return { ...prev, phones }; })}
-                          className="w-20 p-2 border border-slate-200 dark:border-white/10 rounded-lg bg-white dark:bg-black/30 text-slate-800 dark:text-white text-xs font-bold"
+                          className="w-20 p-2 border border-slate-200 dark:border-border rounded-lg bg-white dark:bg-black/30 text-slate-800 dark:text-white text-xs font-bold"
                         />
                         {/* DDI */}
                         <select
                           value={p.ddi}
                           onChange={e => setEditForm(prev => { const phones = [...prev.phones]; phones[idx] = { ...phones[idx], ddi: e.target.value, confirmed: false }; return { ...prev, phones }; })}
-                          className="h-9 px-2 bg-white dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg text-xs text-slate-700 dark:text-white"
+                          className="h-9 px-2 bg-white dark:bg-black/30 border border-slate-200 dark:border-border rounded-lg text-xs text-slate-700 dark:text-white"
                         >
                           {DDI_OPTIONS.map(o => <option key={o.code} value={o.code}>{o.flag} +{o.code}</option>)}
                         </select>
@@ -1343,7 +1343,7 @@ const failReasons: string[] = [];
                           value={p.national}
                           onChange={e => setEditForm(prev => { const phones = [...prev.phones]; phones[idx] = { ...phones[idx], national: e.target.value, confirmed: false }; return { ...prev, phones }; })}
                           onBlur={() => confirmPhone(idx)}
-                          className="flex-1 p-2 border border-slate-200 dark:border-white/10 rounded-lg bg-white dark:bg-black/20 text-slate-800 dark:text-white text-sm font-mono min-w-0"
+                          className="flex-1 p-2 border border-slate-200 dark:border-border rounded-lg bg-white dark:bg-black/20 text-slate-800 dark:text-white text-sm font-mono min-w-0"
                         />
                         
                         {/* Remover */}
@@ -1362,10 +1362,10 @@ const failReasons: string[] = [];
       if (clean.length >= 8) validateWaForPhone(p.id, `+${p.ddi}${clean}`);
     }}
     className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${
-      wa?.loading ? "bg-slate-100 dark:bg-white/5 text-slate-500 border-slate-200 dark:border-white/10" :
+      wa?.loading ? "bg-slate-100 dark:bg-white/5 text-slate-500 border-slate-200 dark:border-border" :
       wa?.exists ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30" :
       wa?.exists === false ? "bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/30" :
-      "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10"
+      "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border-slate-200 dark:border-border hover:bg-slate-200 dark:hover:bg-white/10"
     }`}
   >
     {wa?.loading ? "⏳ Validando..." :
@@ -1393,10 +1393,10 @@ const failReasons: string[] = [];
       }
     }}
     className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${
-      wa?.photoStatus === "loading" ? "bg-slate-100 dark:bg-white/5 text-slate-500 border-slate-200 dark:border-white/10" :
+      wa?.photoStatus === "loading" ? "bg-slate-100 dark:bg-white/5 text-slate-500 border-slate-200 dark:border-border" :
       wa?.photoStatus === "synced" ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30" :
       wa?.photoStatus === "protected" ? "bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/30" :
-      "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10"
+      "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border-slate-200 dark:border-border hover:bg-slate-200 dark:hover:bg-white/10"
     }`}
   >
     {wa?.photoStatus === "loading" ? "⏳ Buscando Foto..." :
@@ -1413,10 +1413,10 @@ const failReasons: string[] = [];
         if (clean.length >= 10) lookupOperadoraForPhone(p.id, p.ddi, clean);
       }}
       className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${
-        wa?.opLoading ? "bg-slate-100 dark:bg-white/5 text-slate-500 border-slate-200 dark:border-white/10" :
+        wa?.opLoading ? "bg-slate-100 dark:bg-white/5 text-slate-500 border-slate-200 dark:border-border" :
         wa?.opName ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30" :
         wa?.opError ? "bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/30" :
-        "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10"
+        "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border-slate-200 dark:border-border hover:bg-slate-200 dark:hover:bg-white/10"
       }`}
     >
       {wa?.opLoading ? "⏳ Buscando..." :
@@ -1437,19 +1437,19 @@ const failReasons: string[] = [];
               </div>
             </div>
 
-            <div className="border-t border-slate-200 dark:border-white/10" />
+            <div className="border-t border-slate-200 dark:border-border" />
 
             {/* ── EMAILS ── */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-xs font-bold text-slate-500 dark:text-white/40">E-mails</label>
+                <label className="block text-xs font-bold text-slate-500 dark:text-muted-foreground">E-mails</label>
                 <button onClick={() => setEditForm(prev => ({ ...prev, emails: [...prev.emails, { id: Date.now().toString(), label: "Pessoal", value: "" }] }))} className="text-xs text-amber-600 hover:text-amber-700 dark:text-amber-400 font-bold">+ Add E-mail</button>
               </div>
               <div className="space-y-2">
                 {editForm.emails.map((e, idx) => (
                   <div key={e.id} className="flex gap-2 items-center">
-                    <input placeholder="Rótulo" value={e.label} onChange={ev => setEditForm(prev => { const emails = [...prev.emails]; emails[idx] = { ...emails[idx], label: ev.target.value }; return { ...prev, emails }; })} className="w-20 p-2 border border-slate-200 dark:border-white/10 rounded-lg bg-white dark:bg-black/30 text-slate-800 dark:text-white text-xs font-bold" />
-                    <input placeholder="email@exemplo.com" value={e.value} onChange={ev => setEditForm(prev => { const emails = [...prev.emails]; emails[idx] = { ...emails[idx], value: ev.target.value }; return { ...prev, emails }; })} className="flex-1 p-2 border border-slate-200 dark:border-white/10 rounded-lg bg-slate-50 dark:bg-black/20 text-slate-800 dark:text-white text-sm" />
+                    <input placeholder="Rótulo" value={e.label} onChange={ev => setEditForm(prev => { const emails = [...prev.emails]; emails[idx] = { ...emails[idx], label: ev.target.value }; return { ...prev, emails }; })} className="w-20 p-2 border border-slate-200 dark:border-border rounded-lg bg-white dark:bg-black/30 text-slate-800 dark:text-white text-xs font-bold" />
+                    <input placeholder="email@exemplo.com" value={e.value} onChange={ev => setEditForm(prev => { const emails = [...prev.emails]; emails[idx] = { ...emails[idx], value: ev.target.value }; return { ...prev, emails }; })} className="flex-1 p-2 border border-slate-200 dark:border-border rounded-lg bg-slate-50 dark:bg-black/20 text-slate-800 dark:text-white text-sm" />
                     <button onClick={() => setEditForm(prev => ({ ...prev, emails: prev.emails.filter(x => x.id !== e.id) }))} className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg"><IconTrash /></button>
                   </div>
                 ))}
@@ -1457,15 +1457,15 @@ const failReasons: string[] = [];
               </div>
             </div>
 
-            <div className="border-t border-slate-200 dark:border-white/10" />
+            <div className="border-t border-slate-200 dark:border-border" />
 
             {/* ── GRUPOS ── */}
             <div>
-              <label className="block text-xs font-bold text-slate-500 dark:text-white/40 mb-1.5">Grupos / Marcadores (Google)</label>
+              <label className="block text-xs font-bold text-slate-500 dark:text-muted-foreground mb-1.5">Grupos / Marcadores (Google)</label>
               <input
                 value={(editForm.labels || []).join(", ")}
                 onChange={e => setEditForm({ ...editForm, labels: e.target.value.split(",").map(s => s.trim()).filter(s => s) })}
-                className="w-full p-2.5 border border-slate-200 dark:border-white/10 rounded-lg bg-slate-50 dark:bg-black/20 text-slate-800 dark:text-white outline-none focus:border-amber-500 text-sm"
+                className="w-full p-2.5 border border-slate-200 dark:border-border rounded-lg bg-slate-50 dark:bg-black/20 text-slate-800 dark:text-white outline-none focus:border-amber-500 text-sm"
                 placeholder="Ex: VIP, Família, Empresa"
               />
               {/* Tags clicáveis dos grupos existentes */}
@@ -1477,7 +1477,7 @@ const failReasons: string[] = [];
                       <button
                         key={lbl}
                         onClick={() => setEditForm(prev => ({ ...prev, labels: active ? prev.labels.filter(l => l !== lbl) : [...prev.labels, lbl] }))}
-                        className={`text-[10px] px-2 py-0.5 rounded font-bold border transition-colors ${active ? "bg-amber-500 text-white border-amber-500" : "bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-white/50 border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10"}`}
+                        className={`text-[10px] px-2 py-0.5 rounded font-bold border transition-colors ${active ? "bg-amber-500 text-white border-amber-500" : "bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-white/50 border-slate-200 dark:border-border hover:bg-slate-200 dark:hover:bg-white/10"}`}
                       >
                         {lbl}
                       </button>
@@ -1488,8 +1488,8 @@ const failReasons: string[] = [];
             </div>
 
             {/* Botões */}
-            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-white/10">
-              <button onClick={() => setEditModal({ open: false, contact: null })} className="px-4 py-2 rounded-lg text-slate-500 dark:text-white/40 text-sm font-bold">Cancelar</button>
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-border">
+              <button onClick={() => setEditModal({ open: false, contact: null })} className="px-4 py-2 rounded-lg text-slate-500 dark:text-muted-foreground text-sm font-bold">Cancelar</button>
               <button onClick={handleSaveContact} disabled={isSaving} className="px-6 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white font-bold flex items-center gap-2 text-sm disabled:opacity-50">
                 {isSaving ? "Salvando..." : "Salvar no Google"}
               </button>
@@ -1502,13 +1502,13 @@ const failReasons: string[] = [];
       {deleteModal.open && deleteModal.contact && (
         <Modal title="Excluir Contato" onClose={() => setDeleteModal({ open: false, contact: null })}>
           <div className="space-y-4">
-            <p className="text-sm text-slate-600 dark:text-white/70">Você está prestes a excluir o contato <strong>{deleteModal.contact.display_name}</strong>.</p>
+            <p className="text-sm text-slate-600 dark:text-muted-foreground">Você está prestes a excluir o contato <strong>{deleteModal.contact.display_name}</strong>.</p>
             <label className="flex items-center gap-3 p-3 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-lg cursor-pointer">
               <input type="checkbox" checked={deleteFromGoogle} onChange={e => setDeleteFromGoogle(e.target.checked)} className="w-5 h-5 rounded border-rose-300 text-rose-600 focus:ring-rose-500" />
               <span className="text-sm font-bold text-rose-900 dark:text-rose-200">Excluir também da agenda do celular (Google Contacts)</span>
             </label>
             <div className="flex justify-end gap-3 pt-4">
-              <button onClick={() => setDeleteModal({ open: false, contact: null })} className="px-4 py-2 rounded-lg text-slate-500 dark:text-white/40 text-sm font-bold">Cancelar</button>
+              <button onClick={() => setDeleteModal({ open: false, contact: null })} className="px-4 py-2 rounded-lg text-slate-500 dark:text-muted-foreground text-sm font-bold">Cancelar</button>
               <button onClick={handleDeleteContact} disabled={isDeleting} className="px-6 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold flex items-center gap-2 text-sm disabled:opacity-50">
                 {isDeleting ? "Excluindo..." : "Confirmar Exclusão"}
               </button>
@@ -1551,7 +1551,7 @@ function MenuItem({ icon, label, onClick }: { icon: React.ReactNode; label: stri
   return <button onClick={onClick} className="group w-full px-4 py-2.5 flex items-center gap-3 text-slate-600 dark:text-white/60 hover:bg-emerald-500/10 hover:text-emerald-600 transition-all text-left text-sm font-bold tracking-tight rounded-lg"><span className="opacity-70 group-hover:scale-110 transition-transform">{icon}</span>{label}</button>;
 }
 
-// Modal com dark mode corrigido — usa dark:bg-[#161b22] alinhado ao padrão do sistema
+// Modal com dark mode corrigido — usa dark:bg-card alinhado ao padrão do sistema
 function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
   if (typeof document === "undefined") return null;
   return createPortal(
@@ -1559,12 +1559,12 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
       onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "grid", placeItems: "center", zIndex: 99999, padding: 16 }}
     >
-      <div onMouseDown={e => e.stopPropagation()} className="w-full max-w-lg bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#1c2331]">
+      <div onMouseDown={e => e.stopPropagation()} className="w-full max-w-lg bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-muted">
           <div className="font-bold text-slate-800 dark:text-white">{title}</div>
           <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-white/50"><IconX /></button>
         </div>
-        <div className="p-4 bg-white dark:bg-[#161b22]">{children}</div>
+        <div className="p-4 bg-white dark:bg-card">{children}</div>
       </div>
     </div>,
     document.body

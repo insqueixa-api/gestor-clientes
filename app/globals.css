@@ -6,20 +6,37 @@
 :root {
   --background: #f8fafc;   /* slate-50 */
   --foreground: #09090b;
+  --card: #ffffff;
+  --card-foreground: #09090b;
+  --border: #e2e8f0;       /* slate-200 */
+  --muted: #f1f5f9;        /* slate-100 */
+  --muted-foreground: #64748b; /* slate-500 */
+  
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 /* === MODO ESCURO === */
 :root.dark {
-  --background: #0f141a;   /* zinc-azulado dos seus painéis */
+  --background: #0f141a;   /* zinc-azulado */
   --foreground: #fafafa;
+  --card: #161b22;         /* Painéis e modais */
+  --card-foreground: #fafafa;
+  --border: rgba(255, 255, 255, 0.10); /* white/10 */
+  --muted: #1c2331;        /* Cabeçalhos de tabelas, áreas de destaque secundárias */
+  --muted-foreground: rgba(255, 255, 255, 0.40); /* white/40 */
 }
 
 /* Conecta ao Tailwind */
 @theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
 }

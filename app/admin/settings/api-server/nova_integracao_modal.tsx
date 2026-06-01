@@ -187,8 +187,8 @@ return true;
   const modal = (
     <div className="fixed inset-0 z-[999999] flex items-center justify-center px-3">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b22] shadow-xl overflow-hidden">
-        <div className="p-5 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+      <div className="relative w-full max-w-lg rounded-2xl border border-slate-200 dark:border-border bg-white dark:bg-card shadow-xl overflow-hidden">
+        <div className="p-5 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white tracking-tight truncate">
@@ -203,7 +203,7 @@ return true;
             </div>
             <button
               onClick={onClose}
-              className="h-9 px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 text-xs font-bold hover:bg-slate-50 dark:hover:bg-white/10 transition-colors"
+              className="h-9 px-3 rounded-lg border border-slate-200 dark:border-border bg-white dark:bg-white/5 text-slate-600 dark:text-muted-foreground text-xs font-bold hover:bg-slate-50 dark:hover:bg-white/10 transition-colors"
               type="button"
             >
               Fechar
@@ -213,7 +213,7 @@ return true;
 
         <div className="p-5 space-y-4">
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
+            <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">
               Servidor
             </label>
             <select
@@ -232,7 +232,7 @@ onChange={(e) => {
 }}
 
 
-              className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
+              className="w-full h-10 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
             >
               <option value="NATV">NaTV</option>
               <option value="FAST">Fast</option>
@@ -243,25 +243,25 @@ onChange={(e) => {
           </div>
 
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
+            <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">
               Nome da integração
             </label>
             <input
               value={integrationName}
               onChange={(e) => setIntegrationName(e.target.value)}
               placeholder='Ex: "Revenda Principal"'
-              className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
+              className="w-full h-10 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
             />
-            <p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">
+            <p className="text-[11px] text-slate-500 dark:text-muted-foreground mt-1">
               Esse nome é só para você identificar na lista.
             </p>
           </div>
 
           {/* ✅ Status (ativa/inativa) */}
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 py-2">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 px-3 py-2">
             <div className="min-w-0">
               <div className="text-xs font-bold text-slate-700 dark:text-white">Integração ativa</div>
-              <div className="text-[11px] text-slate-500 dark:text-white/40">
+              <div className="text-[11px] text-slate-500 dark:text-muted-foreground">
                 Se desativar, ela não deve ser usada pelo servidor.
               </div>
             </div>
@@ -284,17 +284,17 @@ onChange={(e) => {
   {provider === "ELITE" && (
   <>
     <div>
-      <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
+      <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">
         Base URL do painel
       </label>
       <input
         value={apiBaseUrl}
         onChange={(e) => setApiBaseUrl(e.target.value)}
         placeholder="Ex: https://painel.com"
-        className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
+        className="w-full h-10 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
         disabled={loadingEdit}
       />
-      <p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">
+      <p className="text-[11px] text-slate-500 dark:text-muted-foreground mt-1">
         A URL será formatada e salva automaticamente sem a barra final.
       </p>
     </div>
@@ -302,7 +302,7 @@ onChange={(e) => {
   </>
 )}
   <div>
-    <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
+    <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">
       Token / Chave API
     </label>
     <input
@@ -316,14 +316,14 @@ onChange={(e) => {
     : "Usuário do painel (login)"
 }
 
-      className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
+      className="w-full h-10 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
       disabled={loadingEdit}
     />
   </div>
 
 {(provider === "FAST" || provider === "ELITE") && (
   <div>
-    <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
+    <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">
       {provider === "ELITE" ? "Senha" : "Secret Key"}
     </label>
     <div className="relative">
@@ -331,14 +331,14 @@ onChange={(e) => {
         value={apiSecret}
         onChange={(e) => setApiSecret(e.target.value)}
         placeholder={provider === "ELITE" ? "Senha do painel" : "Secret Key do Fast"}
-        className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 pr-10 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
+        className="w-full h-10 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 px-3 pr-10 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
         disabled={loadingEdit}
         type={showSecret ? "text" : "password"}
       />
       <button
         type="button"
         onClick={() => setShowSecret((v) => !v)}
-        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/40 hover:text-slate-600 dark:hover:text-white/70 transition-colors"
+        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 dark:text-muted-foreground hover:text-slate-600 dark:hover:text-white/70 transition-colors"
         tabIndex={-1}
       >
         {showSecret ? (
@@ -357,17 +357,17 @@ onChange={(e) => {
 )}
 
 
-  <p className="text-[11px] text-slate-500 dark:text-white/40">
+  <p className="text-[11px] text-slate-500 dark:text-muted-foreground">
     {loadingEdit ? "Carregando dados da integração..." : "Esse valor fica visível para facilitar manutenção."}
   </p>
 </div>
 
         </div>
 
-        <div className="p-5 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-end gap-2">
+        <div className="p-5 border-t border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 flex items-center justify-end gap-2">
           <button
             onClick={onClose}
-            className="h-10 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 text-xs font-bold hover:bg-slate-50 dark:hover:bg-white/10 transition-colors"
+            className="h-10 px-4 rounded-xl border border-slate-200 dark:border-border bg-white dark:bg-white/5 text-slate-600 dark:text-muted-foreground text-xs font-bold hover:bg-slate-50 dark:hover:bg-white/10 transition-colors"
             type="button"
             disabled={saving}
           >

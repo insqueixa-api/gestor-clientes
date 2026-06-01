@@ -420,7 +420,7 @@ setClientStats({
   const fmtInt = (val: number) => new Intl.NumberFormat("pt-BR").format(val);
   const fmtDate = (d: string) => new Date(d).toLocaleDateString("pt-BR") + " " + new Date(d).toLocaleTimeString("pt-BR", {hour: '2-digit', minute:'2-digit'});
 
-  if (loading && !server) return <div className="text-slate-400 dark:text-white/40 animate-pulse p-8">Carregando detalhes...</div>;
+  if (loading && !server) return <div className="text-slate-400 dark:text-muted-foreground animate-pulse p-8">Carregando detalhes...</div>;
   if (!server) return <div className="text-rose-500 p-8">Servidor não encontrado.</div>;
 
   return (
@@ -428,7 +428,7 @@ setClientStats({
 
       
       {/* HEADER */}
-<div className="flex flex-col md:flex-row justify-between items-start gap-3 pb-1 mb-6 border-b border-slate-200 dark:border-white/10">
+<div className="flex flex-col md:flex-row justify-between items-start gap-3 pb-1 mb-6 border-b border-slate-200 dark:border-border">
 
   <div className="w-full md:w-auto text-left">
     
@@ -448,7 +448,7 @@ setClientStats({
       </span>
     </div>
 
-    <div className="text-slate-500 dark:text-white/40 mt-1 text-xs flex items-center justify-start gap-2 font-medium">
+    <div className="text-slate-500 dark:text-muted-foreground mt-1 text-xs flex items-center justify-start gap-2 font-medium">
       <Link
         href="/admin/gerenciador/servidor"
         className="hover:text-emerald-500 transition-colors"
@@ -466,12 +466,12 @@ setClientStats({
 
         {/* SELETOR DE MÊS */}
         <div className="w-full md:w-auto flex justify-end">
-        <div className="flex items-center bg-slate-100 dark:bg-white/5 rounded-lg p-1 border border-slate-200 dark:border-white/10 shadow-sm w-full md:w-auto"></div>
-          <button onClick={handlePrevMonth} className="p-2 hover:bg-white dark:hover:bg-white/10 rounded-md text-slate-500 dark:text-white/70 transition-all active:scale-95">
+        <div className="flex items-center bg-slate-100 dark:bg-white/5 rounded-lg p-1 border border-slate-200 dark:border-border shadow-sm w-full md:w-auto"></div>
+          <button onClick={handlePrevMonth} className="p-2 hover:bg-white dark:hover:bg-white/10 rounded-md text-slate-500 dark:text-muted-foreground transition-all active:scale-95">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
           </button>
           <span className="px-6 text-sm font-bold text-slate-700 dark:text-white min-w-[160px] text-center capitalize tracking-tight">{formatMonth(selectedDate)}</span>
-          <button onClick={handleNextMonth} className="p-2 hover:bg-white dark:hover:bg-white/10 rounded-md text-slate-500 dark:text-white/70 transition-all active:scale-95">
+          <button onClick={handleNextMonth} className="p-2 hover:bg-white dark:hover:bg-white/10 rounded-md text-slate-500 dark:text-muted-foreground transition-all active:scale-95">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
           </button>
         </div>
@@ -479,7 +479,7 @@ setClientStats({
         <div className="flex gap-3 w-full md:w-auto justify-end">
           <Link
   href="/admin/gerenciador/servidor"
-  className="h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/10 text-sm font-bold transition-all shadow-sm inline-flex items-center justify-center"
+  className="h-10 px-4 rounded-lg border border-slate-200 dark:border-border text-slate-600 dark:text-muted-foreground hover:bg-slate-50 dark:hover:bg-white/10 text-sm font-bold transition-all shadow-sm inline-flex items-center justify-center"
 >
   Voltar
 </Link>
@@ -499,8 +499,8 @@ setClientStats({
       <div className="space-y-6">
         
         {/* BLOCO 1: RESUMO FINANCEIRO */}
-        <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden shadow-sm transition-colors">
-          <div className="px-5 py-3 border-b border-slate-200 dark:border-white/10 flex justify-between items-center bg-slate-50 dark:bg-white/5">
+        <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl overflow-hidden shadow-sm transition-colors">
+          <div className="px-5 py-3 border-b border-slate-200 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5">
             <span className="text-sm font-bold text-slate-800 dark:text-white tracking-tight">Resumo financeiro ({formatMonth(selectedDate)})</span>
           </div>
           <div className="p-5 grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -514,13 +514,13 @@ setClientStats({
         {/* BLOCO 2: STATS */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
            {/* Clientes */}
-           <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden shadow-sm flex flex-col transition-colors">
-              <div className="px-5 py-3 border-b border-slate-200 dark:border-white/10 flex items-center gap-2 bg-slate-50 dark:bg-white/5 font-bold text-sm text-slate-800 dark:text-white tracking-tight">
+           <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl overflow-hidden shadow-sm flex flex-col transition-colors">
+              <div className="px-5 py-3 border-b border-slate-200 dark:border-border flex items-center gap-2 bg-slate-50 dark:bg-white/5 font-bold text-sm text-slate-800 dark:text-white tracking-tight">
                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                  Métricas de clientes
               </div>
               <div className="p-5 space-y-6">
-                 <div className="grid grid-cols-3 gap-4 border-b border-slate-100 dark:border-white/5 pb-6">
+                 <div className="grid grid-cols-3 gap-4 border-b border-slate-100 dark:border-border pb-6">
                     <DetailStat label="Total clientes" value={fmtInt(clientStats.total)} />
                     <DetailStat label="Ativos" value={fmtInt(clientStats.active)} valueColor="text-emerald-600 dark:text-emerald-400" />
                     <DetailStat label="Consumo" value={fmtInt(metrics.cliente.consumed) + " cr"} />
@@ -534,13 +534,13 @@ setClientStats({
            </div>
 
            {/* Revendas */}
-           <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden shadow-sm flex flex-col transition-colors">
-              <div className="px-5 py-3 border-b border-slate-200 dark:border-white/10 flex items-center gap-2 bg-slate-50 dark:bg-white/5 font-bold text-sm text-slate-800 dark:text-white tracking-tight">
+           <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl overflow-hidden shadow-sm flex flex-col transition-colors">
+              <div className="px-5 py-3 border-b border-slate-200 dark:border-border flex items-center gap-2 bg-slate-50 dark:bg-white/5 font-bold text-sm text-slate-800 dark:text-white tracking-tight">
                  <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
                  Métricas de revendas
               </div>
 <div className="p-5 space-y-6">
-                 <div className="grid grid-cols-2 gap-4 border-b border-slate-100 dark:border-white/5 pb-6">
+                 <div className="grid grid-cols-2 gap-4 border-b border-slate-100 dark:border-border pb-6">
                     <DetailStat label="Total revendas" value={fmtInt(resellerCount)} />
                     <DetailStat label="Consumo" value={fmtInt(metrics.resellers.consumed) + " cr"} />
                  </div>
@@ -554,10 +554,10 @@ setClientStats({
         </div>
 
         {/* BLOCO 4: MOVIMENTAÇÕES (TABELA) */}
-        <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden shadow-sm transition-colors">
+        <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl overflow-hidden shadow-sm transition-colors">
           
           {/* HEADER DA TABELA COM FILTROS */}
-          <div className="px-5 py-4 border-b border-slate-200 dark:border-white/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50 dark:bg-white/5">
+          <div className="px-5 py-4 border-b border-slate-200 dark:border-border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50 dark:bg-white/5">
             <span className="text-sm font-bold text-slate-800 dark:text-white tracking-tight shrink-0">
               Movimentações de {formatMonth(selectedDate)}
             </span>
@@ -571,13 +571,13 @@ setClientStats({
                   placeholder="Buscar cliente, obs, data..." 
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full h-9 pl-8 pr-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500 transition-colors"
+                  className="w-full h-9 pl-8 pr-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
               <select 
                 value={filterKind}
                 onChange={e => setFilterKind(e.target.value)}
-                className="h-9 px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-xs font-bold text-slate-700 dark:text-white outline-none focus:border-emerald-500 transition-colors cursor-pointer"
+                className="h-9 px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-xs font-bold text-slate-700 dark:text-white outline-none focus:border-emerald-500 transition-colors cursor-pointer"
               >
                 <option value="ALL">Todos os Tipos</option>
                 <optgroup label="Clientes">
@@ -596,7 +596,7 @@ setClientStats({
 
           <div className="overflow-x-auto max-h-[400px]">
             <table className="w-full text-sm text-left relative border-collapse">
-              <thead className="bg-slate-50 dark:bg-black/20 text-slate-500 dark:text-white/40 border-b border-slate-200 dark:border-white/10 sticky top-0 z-10 backdrop-blur-md">
+              <thead className="bg-slate-50 dark:bg-black/20 text-slate-500 dark:text-muted-foreground border-b border-slate-200 dark:border-border sticky top-0 z-10 backdrop-blur-md">
                 <tr>
                   <th className="px-5 py-3 font-bold text-[11px] uppercase tracking-wider">Data</th>
                   <th className="px-5 py-3 font-bold text-[11px] uppercase tracking-wider">Tipo</th>
@@ -686,7 +686,7 @@ setClientStats({
 // --- Componentes Auxiliares ---
 function StatCard({ title, value, className = "" }: { title: string, value: string, className?: string }) {
   return (
-    <div className="bg-slate-100/50 dark:bg-black/20 p-4 rounded-xl border border-slate-200 dark:border-white/5 flex flex-col justify-between h-24 transition-all hover:border-emerald-500/30">
+    <div className="bg-slate-100/50 dark:bg-black/20 p-4 rounded-xl border border-slate-200 dark:border-border flex flex-col justify-between h-24 transition-all hover:border-emerald-500/30">
       <div className="text-[10px] uppercase font-bold text-slate-400 dark:text-white/20 tracking-widest">{title}</div>
       <div className={`text-xl font-bold text-slate-800 dark:text-white tracking-tight ${className}`}>{value}</div>
     </div>

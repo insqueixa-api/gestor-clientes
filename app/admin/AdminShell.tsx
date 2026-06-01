@@ -393,7 +393,7 @@ export default function AdminShell({
   const canUseDom = typeof document !== "undefined";
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0f141a] text-slate-800 dark:text-white transition-colors duration-200">
+    <div className="min-h-screen bg-slate-50 dark:bg-background text-slate-800 dark:text-white transition-colors duration-200">
       <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
         <div className="mx-auto flex w-full max-w-screen-2xl items-center gap-2 px-2 sm:px-6 lg:px-8 py-2">
 
@@ -555,11 +555,11 @@ export default function AdminShell({
         <Modal title="Notificações" onClose={() => setShowNotificationsModal(false)}>
           <div className="space-y-4">
             <div className="flex justify-end gap-2">
-              <button onClick={handleSync} className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase flex items-center gap-1.5" title="Recupera as notificações apagadas do navegador">
+              <button onClick={handleSync} className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-border text-slate-700 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase flex items-center gap-1.5" title="Recupera as notificações apagadas do navegador">
                 <IconSync className="w-3.5 h-3.5" /> Sincronizar
               </button>
               {notifications.length > 0 && (
-                <button onClick={clearAllNotifications} className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white font-bold hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 dark:hover:bg-rose-500/10 dark:hover:text-rose-400 transition-colors text-xs uppercase">
+                <button onClick={clearAllNotifications} className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-border text-slate-700 dark:text-white font-bold hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 dark:hover:bg-rose-500/10 dark:hover:text-rose-400 transition-colors text-xs uppercase">
                   Limpar todas
                 </button>
               )}
@@ -578,7 +578,7 @@ export default function AdminShell({
                       className={[
                         "p-3 rounded-lg border cursor-pointer transition-colors flex items-start gap-3",
                         n.is_read
-                          ? "bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10"
+                          ? "bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-border"
                           : "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 hover:border-emerald-300 dark:hover:border-emerald-500/30",
                       ].join(" ")}
                     >
@@ -593,12 +593,12 @@ export default function AdminShell({
                             {n.title}
                           </p>
                         </div>
-                        <p className="text-slate-600 dark:text-white/70 text-xs mt-1 leading-relaxed line-clamp-2">
+                        <p className="text-slate-600 dark:text-muted-foreground text-xs mt-1 leading-relaxed line-clamp-2">
                           {n.message}
                         </p>
                       </div>
 
-                      <div className="flex flex-col items-center justify-start flex-shrink-0 pl-3 ml-1 border-l border-slate-200 dark:border-white/10 min-h-[32px] gap-1">
+                      <div className="flex flex-col items-center justify-start flex-shrink-0 pl-3 ml-1 border-l border-slate-200 dark:border-border min-h-[32px] gap-1">
                         <button
                           onClick={(e) => handleDismiss(e, n.id)}
                           className="p-1 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-white/10 rounded-md transition-colors"
@@ -627,7 +627,7 @@ export default function AdminShell({
       {selectedNotification && selectedNotification.type === 'info' && (
         <Modal title={`📢 ${selectedNotification.title}`} onClose={() => setSelectedNotification(null)}>
           <div className="space-y-6">
-            <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 p-4 rounded-lg flex gap-3">
+            <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-border p-4 rounded-lg flex gap-3">
               <span className="text-2xl mt-0.5">📢</span>
               <div>
                 <p className="text-slate-700 dark:text-white/90 text-sm font-medium">
@@ -639,7 +639,7 @@ export default function AdminShell({
               </div>
             </div>
             <div className="flex justify-end gap-3 pt-2">
-              <button onClick={() => setSelectedNotification(null)} className="px-4 py-2 rounded-lg border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase">
+              <button onClick={() => setSelectedNotification(null)} className="px-4 py-2 rounded-lg border border-slate-300 dark:border-border text-slate-700 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase">
                 Fechar
               </button>
               <Link href={selectedNotification.link} onClick={() => setSelectedNotification(null)} className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-500 transition-colors text-xs uppercase shadow-lg shadow-emerald-900/20">
@@ -665,7 +665,7 @@ export default function AdminShell({
               </div>
             </div>
             <div className="flex justify-end gap-3 pt-2">
-              <button onClick={() => setShowWaModal(false)} className="px-4 py-2 rounded-lg border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase">
+              <button onClick={() => setShowWaModal(false)} className="px-4 py-2 rounded-lg border border-slate-300 dark:border-border text-slate-700 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase">
                 Fechar
               </button>
               <a href="/admin/settings/profile" onClick={() => setShowWaModal(false)} className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-500 transition-colors text-xs uppercase shadow-lg shadow-emerald-900/20">
@@ -686,8 +686,8 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.60)", display: "grid", placeItems: "center", zIndex: 99999, padding: 16 }}
     >
-      <div onMouseDown={(e) => e.stopPropagation()} className="w-full max-w-lg bg-white dark:bg-[#0f141a] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+      <div onMouseDown={(e) => e.stopPropagation()} className="w-full max-w-lg bg-white dark:bg-background border border-slate-200 dark:border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
           <div className="font-bold text-slate-800 dark:text-white">{title}</div>
           <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-white/60 hover:text-slate-800 dark:hover:text-white">
             <IconX />
@@ -712,7 +712,7 @@ function DropdownPortal({ children, top, right, onClose }: { children: React.Rea
         style={{ top, right }}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="w-64 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b22] shadow-2xl overflow-hidden p-1.5 transition-colors">
+        <div className="w-64 rounded-xl border border-slate-200 dark:border-border bg-white dark:bg-card shadow-2xl overflow-hidden p-1.5 transition-colors">
           {children}
         </div>
       </div>

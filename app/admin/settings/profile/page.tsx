@@ -134,14 +134,14 @@ function stringifyAllowedNumbers(rows: AllowedNumberRow[]): string[] {
 // ============================================================================
 
 function Label({ children }: { children: React.ReactNode }) {
-  return <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">{children}</label>;
+  return <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">{children}</label>;
 }
 
 function Input({ className = "", ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className={`w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed read-only:opacity-70 read-only:cursor-pointer ${className}`}
+      className={`w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed read-only:opacity-70 read-only:cursor-pointer ${className}`}
     />
   );
 }
@@ -653,7 +653,7 @@ export default function ProfileSettingsPage() {
 
   if (loading) {
     return (
-      <div className="p-10 text-center text-slate-400 dark:text-white/40 animate-pulse bg-white dark:bg-[#161b22] border-slate-200 dark:border-white/10 rounded-xl border m-6">
+      <div className="p-10 text-center text-slate-400 dark:text-muted-foreground animate-pulse bg-white dark:bg-card border-slate-200 dark:border-border rounded-xl border m-6">
         Carregando painel...
       </div>
     );
@@ -664,7 +664,7 @@ export default function ProfileSettingsPage() {
       <ToastNotifications toasts={toasts} removeToast={removeToast} />
 
       {/* HEADER DA PÁGINA */}
-      <div className="flex flex-row items-center justify-between gap-2 border-b border-slate-100 dark:border-white/5 pb-3 px-4 sm:px-0">
+      <div className="flex flex-row items-center justify-between gap-2 border-b border-slate-100 dark:border-border pb-3 px-4 sm:px-0">
         <h1 className="text-base sm:text-2xl font-bold tracking-tight shrink-0">
           Perfil do Usuário
         </h1>
@@ -673,7 +673,7 @@ export default function ProfileSettingsPage() {
   <div className="relative">
     <button
       onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
-      className="h-9 w-9 shrink-0 rounded-xl border font-bold text-xs flex items-center justify-center bg-white dark:bg-[#161b22] border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/5 transition-all shadow-sm"
+      className="h-9 w-9 shrink-0 rounded-xl border font-bold text-xs flex items-center justify-center bg-white dark:bg-card border-slate-200 dark:border-border text-slate-600 dark:text-muted-foreground hover:bg-slate-50 dark:hover:bg-white/5 transition-all shadow-sm"
       title="Configurações"
     >
       ⚙️
@@ -682,13 +682,13 @@ export default function ProfileSettingsPage() {
     {showSettingsDropdown && (
       <>
         <div className="fixed inset-0 z-40" onClick={() => setShowSettingsDropdown(false)} />
-        <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-[#1e2530] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-200">
+        <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-[#1e2530] border border-slate-200 dark:border-border rounded-xl shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-200">
 
   {/* Tema */}
-  <div className="px-3 py-2.5 border-b border-slate-100 dark:border-white/5">
+  <div className="px-3 py-2.5 border-b border-slate-100 dark:border-border">
     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Tema do Sistema</p>
     <div className="flex items-center gap-1">
-      <button onClick={() => { setTheme("light"); setShowSettingsDropdown(false); }} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5 ${theme !== "dark" ? "bg-slate-100 text-slate-800" : "text-slate-500 dark:text-white/40 hover:bg-white/5"}`}>
+      <button onClick={() => { setTheme("light"); setShowSettingsDropdown(false); }} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5 ${theme !== "dark" ? "bg-slate-100 text-slate-800" : "text-slate-500 dark:text-muted-foreground hover:bg-white/5"}`}>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
         Claro
       </button>
@@ -700,19 +700,19 @@ export default function ProfileSettingsPage() {
   </div>
 
   {/* Editar Perfil */}
-  <button onClick={() => { setShowSettingsDropdown(false); setIsEditing(true); }} className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-600 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2.5 transition-colors border-b border-slate-100 dark:border-white/5">
+  <button onClick={() => { setShowSettingsDropdown(false); setIsEditing(true); }} className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-600 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2.5 transition-colors border-b border-slate-100 dark:border-border">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="shrink-0 text-slate-400"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
     Editar Perfil
   </button>
 
   {/* 2ª Sessão WhatsApp */}
   {whatsappSessions === 1 ? (
-    <button onClick={() => { setWhatsappSessions(2); setIsEditing(true); setShowSettingsDropdown(false); }} className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-600 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2.5 transition-colors border-b border-slate-100 dark:border-white/5">
+    <button onClick={() => { setWhatsappSessions(2); setIsEditing(true); setShowSettingsDropdown(false); }} className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-600 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2.5 transition-colors border-b border-slate-100 dark:border-border">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="shrink-0 text-emerald-500"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
       Habilitar 2ª Sessão WA
     </button>
   ) : (
-    <button onClick={() => { setWhatsappSessions(1); setIsEditing(true); setShowSettingsDropdown(false); }} className="w-full text-left px-3 py-2.5 text-xs font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 flex items-center gap-2.5 transition-colors border-b border-slate-100 dark:border-white/5">
+    <button onClick={() => { setWhatsappSessions(1); setIsEditing(true); setShowSettingsDropdown(false); }} className="w-full text-left px-3 py-2.5 text-xs font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 flex items-center gap-2.5 transition-colors border-b border-slate-100 dark:border-border">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="shrink-0"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
       Remover 2ª Sessão WA
     </button>
@@ -737,8 +737,8 @@ export default function ProfileSettingsPage() {
         <div className="space-y-6 xl:col-span-2">
           
           {/* CARD 1: DADOS PESSOAIS (SEMPRE VISÍVEL) */}
-          <div className={`bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-6 transition-all ${isEditing ? 'ring-1 ring-emerald-500/20' : ''}`}>
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
+          <div className={`bg-white dark:bg-card border-y sm:border border-slate-200 dark:border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-6 transition-all ${isEditing ? 'ring-1 ring-emerald-500/20' : ''}`}>
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-border pb-3">
               <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
                 Dados Cadastrais 
               </h3>
@@ -765,7 +765,7 @@ export default function ProfileSettingsPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
               <div>
                 <Label>País</Label>
-                <div className="h-11 px-3 bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-xl flex items-center text-xs font-bold text-slate-700 dark:text-white truncate">
+                <div className="h-11 px-3 bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-border rounded-xl flex items-center text-xs font-bold text-slate-700 dark:text-white truncate">
                   {phonePrettyPrefix || "—"}
                 </div>
               </div>
@@ -816,7 +816,7 @@ export default function ProfileSettingsPage() {
                   value={gender}
                   onChange={(e) => { setGender(e.target.value); if (!isEditing) setIsEditing(true); }}
                   disabled={!isEditing}
-                  className="w-full h-11 px-2 sm:px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-xs sm:text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full h-11 px-2 sm:px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-xl text-xs sm:text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="">Não informar</option>
                   <option value="M">Masculino</option>
@@ -827,8 +827,8 @@ export default function ProfileSettingsPage() {
           </div>
 
           {/* CARD 2 DINÂMICO: SAÚDE OU PLANILHAS */}
-          <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-6 animate-in fade-in duration-300">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
+          <div className="bg-white dark:bg-card border-y sm:border border-slate-200 dark:border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-6 animate-in fade-in duration-300">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-border pb-3">
                 <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
                   Saúde &amp; Avaliações
                 </h3>
@@ -848,7 +848,7 @@ export default function ProfileSettingsPage() {
               </div>
 
               {showHealthForm && (
-                <div className="p-4 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl space-y-4">
+                <div className="p-4 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-xl space-y-4">
                   {!profileHeight && (
                     <p className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold">
                       ⚠️ Informe sua altura nos Dados Pessoais para calcular o IMC.
@@ -871,7 +871,7 @@ export default function ProfileSettingsPage() {
                   <div className="flex gap-3">
                     <button type="button"
                       onClick={() => { setShowHealthForm(false); setEditingHealthId(null); setNewHealthEntry({ date: new Date().toISOString().split("T")[0], weight: "" }); }}
-                      className="flex-1 h-10 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/60 font-bold rounded-xl text-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                      className="flex-1 h-10 border border-slate-200 dark:border-border text-slate-600 dark:text-white/60 font-bold rounded-xl text-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
                       Cancelar
                     </button>
                     <button type="button" onClick={handleAddHealthEntry}
@@ -884,7 +884,7 @@ export default function ProfileSettingsPage() {
 
               <div className="space-y-2">
                 {sortedHistory.length === 0 ? (
-                  <div className="text-xs text-slate-400 text-center py-6 bg-slate-50 dark:bg-white/5 rounded-xl border border-dashed border-slate-200 dark:border-white/10">
+                  <div className="text-xs text-slate-400 text-center py-6 bg-slate-50 dark:bg-white/5 rounded-xl border border-dashed border-slate-200 dark:border-border">
                     Nenhuma avaliação registrada ainda.
                   </div>
                 ) : (
@@ -901,7 +901,7 @@ export default function ProfileSettingsPage() {
                           const isNewest = record.id === sortedHistory[0]?.id;
                           const hideOnMobile = !showAllHealthRecords && !isNewest;
                           return (
-                            <div key={record.id} className={`items-center gap-3 p-3 rounded-xl border transition-colors group ${isNewest ? "border-emerald-200 dark:border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/5" : "border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-black/10"} ${hideOnMobile ? "hidden xl:flex" : "flex"}`}>
+                            <div key={record.id} className={`items-center gap-3 p-3 rounded-xl border transition-colors group ${isNewest ? "border-emerald-200 dark:border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/5" : "border-slate-100 dark:border-border bg-slate-50/50 dark:bg-black/10"} ${hideOnMobile ? "hidden xl:flex" : "flex"}`}>
                               {/* Data em bloco */}
                               <div className="shrink-0 text-center w-10">
                                 <p className="text-[9px] font-bold text-slate-400 dark:text-white/30 uppercase leading-none">
@@ -939,11 +939,11 @@ export default function ProfileSettingsPage() {
                                     setNewHealthEntry({ date: record.date, weight: String(record.weight) });
                                     setShowHealthForm(true);
                                   }}
-                                  className="w-7 h-7 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-400 hover:text-amber-500 transition-colors">
+                                  className="w-7 h-7 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-border flex items-center justify-center text-slate-400 hover:text-amber-500 transition-colors">
                                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                 </button>
                                 <button type="button" onClick={() => void handleDeleteHealthRecord(record.id)}
-                                  className="w-7 h-7 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-400 hover:text-rose-500 transition-colors">
+                                  className="w-7 h-7 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-border flex items-center justify-center text-slate-400 hover:text-rose-500 transition-colors">
                                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                                 </button>
                               </div>
@@ -958,7 +958,7 @@ export default function ProfileSettingsPage() {
                       <button 
                         type="button" 
                         onClick={() => setShowAllHealthRecords(!showAllHealthRecords)}
-                        className="w-full py-2.5 mt-2 text-[11px] font-bold text-slate-500 dark:text-white/50 hover:text-slate-800 dark:hover:text-white transition-colors bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10"
+                        className="w-full py-2.5 mt-2 text-[11px] font-bold text-slate-500 dark:text-white/50 hover:text-slate-800 dark:hover:text-white transition-colors bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-border"
                       >
                         {showAllHealthRecords
                           ? "↑ Ocultar avaliações anteriores"
@@ -1013,21 +1013,21 @@ export default function ProfileSettingsPage() {
                 const iBandB = hasImc && hasRef ? scaleY(idealImcMin, imcs, ROW_H) : null;
 
                 return (
-                  <div className="pt-4 border-t border-slate-100 dark:border-white/5">
+                  <div className="pt-4 border-t border-slate-100 dark:border-border">
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4">
                       <div>
                         <Label>Histórico de Composição</Label>
                         <div className="flex items-center gap-3 text-[10px] text-slate-400 dark:text-white/50 mt-1">
                           <span className="flex items-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-full bg-white dark:bg-[#161b22] border-2 border-[#10b981]" />
+                            <span className="w-2.5 h-2.5 rounded-full bg-white dark:bg-card border-2 border-[#10b981]" />
                             Caiu
                           </span>
                           <span className="flex items-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-full bg-white dark:bg-[#161b22] border-2 border-[#f43f5e]" />
+                            <span className="w-2.5 h-2.5 rounded-full bg-white dark:bg-card border-2 border-[#f43f5e]" />
                             Subiu
                           </span>
                           <span className="flex items-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-full bg-white dark:bg-[#161b22] border-2 border-[#94a3b8]" />
+                            <span className="w-2.5 h-2.5 rounded-full bg-white dark:bg-card border-2 border-[#94a3b8]" />
                             Estável
                           </span>
                           {hasRef && (
@@ -1044,7 +1044,7 @@ export default function ProfileSettingsPage() {
                         </span>
                       )}
                     </div>
-                    <div className="w-full overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-black/20">
+                    <div className="w-full overflow-x-auto rounded-xl border border-slate-200 dark:border-border bg-white dark:bg-black/20">
                       <div className="relative" style={{ minWidth: `${W}px` }}>
                       {hoveredPt !== null && (() => {
                         const d = chartData[hoveredPt.i];
@@ -1078,7 +1078,7 @@ export default function ProfileSettingsPage() {
                                 </p>
                               )}
                               {hoveredPt.i === 0 && (
-                                <p className="text-[10px] text-slate-400 dark:text-white/40 italic">Primeiro registro</p>
+                                <p className="text-[10px] text-slate-400 dark:text-muted-foreground italic">Primeiro registro</p>
                               )}
                             </div>
                           </div>
@@ -1186,8 +1186,8 @@ export default function ProfileSettingsPage() {
         <div className="space-y-6">
           
           {/* PAINEL SESSÃO 1 */}
-          <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
+          <div className="bg-white dark:bg-card border-y sm:border border-slate-200 dark:border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-border pb-2">
               <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
                 WhatsApp — Instância 1
               </h3>
@@ -1204,9 +1204,9 @@ export default function ProfileSettingsPage() {
                   </button>
                 ) : (
                   <>
-                    <div className="relative p-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 flex gap-5 items-center">
+                    <div className="relative p-4 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 flex gap-5 items-center">
                       <div className="absolute top-3 right-3 flex items-center gap-1.5">
-                        <button type="button" onClick={() => void refreshWhatsAppPanel()} disabled={waLoading} className="w-8 h-8 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 hover:text-emerald-600 transition-colors shadow-sm disabled:opacity-50" title="Sincronizar">
+                        <button type="button" onClick={() => void refreshWhatsAppPanel()} disabled={waLoading} className="w-8 h-8 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-border flex items-center justify-center text-slate-500 hover:text-emerald-600 transition-colors shadow-sm disabled:opacity-50" title="Sincronizar">
                           {waLoading ? (
                             <svg className="animate-spin w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
                           ) : (
@@ -1214,14 +1214,14 @@ export default function ProfileSettingsPage() {
                           )}
                         </button>
                         {waConnected && (
-                          <button type="button" onClick={() => setShowWa1Settings(true)} className="w-8 h-8 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors shadow-sm" title="Configurações de Chamada">
+                          <button type="button" onClick={() => setShowWa1Settings(true)} className="w-8 h-8 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-border flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors shadow-sm" title="Configurações de Chamada">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                           </button>
                         )}
                       </div>
 
                       {/* ✅ Círculo — só foto de perfil, QR foi movido para baixo */}
-                      <div className="w-24 h-24 sm:w-28 sm:h-28 shrink-0 rounded-full bg-white dark:bg-[#161b22] border-4 border-slate-100 dark:border-white/5 overflow-hidden flex items-center justify-center shadow-sm">
+                      <div className="w-24 h-24 sm:w-28 sm:h-28 shrink-0 rounded-full bg-white dark:bg-card border-4 border-slate-100 dark:border-border overflow-hidden flex items-center justify-center shadow-sm">
                         {waProfilePicUrl ? (
                           <img src={waProfilePicUrl} alt="Avatar" className="w-full h-full object-cover" />
                         ) : (
@@ -1274,23 +1274,23 @@ export default function ProfileSettingsPage() {
           )}
         
         {/* CARD IMPORT / EXPORT */}
-<div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
-  <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
+<div className="bg-white dark:bg-card border-y sm:border border-slate-200 dark:border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
+  <div className="flex items-center justify-between border-b border-slate-100 dark:border-border pb-3">
     <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
       Dados &amp; Planilhas
     </h3>
-    <button type="button" onClick={() => setActionModal("template")} disabled={!tenantId} className="flex items-center gap-1.5 h-8 px-2 sm:px-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-white/70 hover:bg-slate-100 dark:hover:bg-white/10 transition-all" title="Baixar Templates">
+    <button type="button" onClick={() => setActionModal("template")} disabled={!tenantId} className="flex items-center gap-1.5 h-8 px-2 sm:px-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-muted-foreground hover:bg-slate-100 dark:hover:bg-white/10 transition-all" title="Baixar Templates">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
       <span className="text-xs font-bold">Templates</span>
     </button>
   </div>
   <div className="flex gap-2">
-    <button type="button" onClick={() => setActionModal("export")} disabled={!tenantId || exporting} className="flex-1 h-11 px-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 font-bold text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2">
+    <button type="button" onClick={() => setActionModal("export")} disabled={!tenantId || exporting} className="flex-1 h-11 px-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 font-bold text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       <span className="hidden sm:inline">Exportar Registros</span>
       <span className="sm:hidden">Exportar</span>
     </button>
-    <button type="button" onClick={() => setActionModal("import")} disabled={!tenantId || importing || importingApps || importingAuto || importingReseller || importingMessage || importingServer} className="flex-1 h-11 px-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 font-bold text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2">
+    <button type="button" onClick={() => setActionModal("import")} disabled={!tenantId || importing || importingApps || importingAuto || importingReseller || importingMessage || importingServer} className="flex-1 h-11 px-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 font-bold text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       <span className="hidden sm:inline">Importar Registros</span>
       <span className="sm:hidden">Importar</span>
@@ -1314,7 +1314,7 @@ export default function ProfileSettingsPage() {
          ============================================================================ */}
       {actionModal && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-[#161b22] w-full max-w-sm rounded-xl border border-slate-200 dark:border-white/10 shadow-xl p-6 space-y-4 text-left">
+          <div className="bg-white dark:bg-card w-full max-w-sm rounded-xl border border-slate-200 dark:border-border shadow-xl p-6 space-y-4 text-left">
             <h3 className="text-sm font-bold text-slate-800 dark:text-white">
               {actionModal === "export" && "⬇️ Exportar Dados"}
               {actionModal === "template" && "📄 Baixar Templates"}
@@ -1330,7 +1330,7 @@ export default function ProfileSettingsPage() {
                 { n: "Revendedores", icon: "🤝", act: () => { if(actionModal==="export") void handleExportResellers(); else if(actionModal==="template") handleDownloadTemplateResellers(); else importResellerFileRef.current?.click(); } },
                 { n: "Controle Financeiro", icon: "💰", act: () => { if(actionModal==="export") setShowFinanceiroExportModal(true); else if(actionModal==="template") handleDownloadTemplateFinanceiro(); else importFinanceiroFileRef.current?.click(); } }
               ].map((item, idx) => (
-                <button key={idx} type="button" onClick={() => { setActionModal(null); item.act(); }} className="w-full text-left text-xs p-3 font-semibold rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-700 dark:text-white transition-colors flex items-center gap-2">
+                <button key={idx} type="button" onClick={() => { setActionModal(null); item.act(); }} className="w-full text-left text-xs p-3 font-semibold rounded-lg border border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-700 dark:text-white transition-colors flex items-center gap-2">
                   <span>{item.icon}</span> {item.n}
                 </button>
               ))}
@@ -1346,21 +1346,21 @@ export default function ProfileSettingsPage() {
          ============================================================================ */}
 {showWa1Settings && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-[#161b22] w-full max-w-md rounded-2xl border border-slate-200 dark:border-white/10 p-6 shadow-2xl animate-in zoom-in-95 max-h-[92vh] overflow-y-auto">
+          <div className="bg-white dark:bg-card w-full max-w-md rounded-2xl border border-slate-200 dark:border-border p-6 shadow-2xl animate-in zoom-in-95 max-h-[92vh] overflow-y-auto">
             
             <div className="space-y-5">
               {/* Cabeçalho */}
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h3 className="text-base font-bold text-slate-800 dark:text-white">⚙️ Instância 1 — Configurações</h3>
-                  <p className="text-xs text-slate-400 dark:text-white/40 mt-0.5">Controle de chamadas recebidas.</p>
+                  <p className="text-xs text-slate-400 dark:text-muted-foreground mt-0.5">Controle de chamadas recebidas.</p>
                 </div>
                 <button type="button" onClick={() => setShowWa1Settings(false)}
                   className="shrink-0 w-8 h-8 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-white text-lg leading-none transition-colors">
                   ×
                 </button>
               </div>
-              <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20">
+              <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20">
                 <span className="text-sm font-bold text-slate-700 dark:text-white">📵 Rejeitar Chamadas</span>
                 <button type="button" onClick={() => setWaRejectCalls(v => !v)}
                 className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 overflow-hidden ${waRejectCalls ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}>
@@ -1372,21 +1372,21 @@ export default function ProfileSettingsPage() {
                 <div className="space-y-4">
                   {/* MENSAGEM */}
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase mb-1.5">Mensagem de Resposta</label>
+                    <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground uppercase mb-1.5">Mensagem de Resposta</label>
                     <div className="flex flex-wrap gap-1 mb-2">
                       {["{saudacao}", "{hora}", "{data}"].map(tag => (
-                        <button key={tag} type="button" onClick={() => setWaRejectMessage(v => v + tag)} className="text-[10px] px-2 py-0.5 rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-slate-600 dark:text-white font-mono transition-colors">
+                        <button key={tag} type="button" onClick={() => setWaRejectMessage(v => v + tag)} className="text-[10px] px-2 py-0.5 rounded border border-slate-200 dark:border-border bg-white dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-slate-600 dark:text-white font-mono transition-colors">
                           {tag}
                         </button>
                       ))}
                     </div>
-                    <textarea value={waRejectMessage} onChange={e => setWaRejectMessage(e.target.value)} rows={2} placeholder="Ex: {saudacao}! Não atendo ligações..." className="w-full px-3 py-2 text-xs bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none" />
+                    <textarea value={waRejectMessage} onChange={e => setWaRejectMessage(e.target.value)} rows={2} placeholder="Ex: {saudacao}! Não atendo ligações..." className="w-full px-3 py-2 text-xs bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none" />
                   </div>
 
                   {/* LISTA BRANCA */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase">Lista Branca (Exceções)</label>
+                      <label className="text-[10px] font-bold text-slate-400 dark:text-muted-foreground uppercase">Lista Branca (Exceções)</label>
                       <button type="button" onClick={() => setWaAllowedList([{ id: Math.random().toString(36).slice(2), name: "", raw: "", e164: "", loading: false, exists: null }, ...waAllowedList])} className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline">
                         + Adicionar
                       </button>
@@ -1394,25 +1394,25 @@ export default function ProfileSettingsPage() {
 
                     <div className="max-h-40 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                       {waAllowedList.length === 0 ? (
-                        <div className="text-xs text-center text-slate-400 py-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-dashed border-slate-200 dark:border-white/10">Nenhum número liberado.</div>
+                        <div className="text-xs text-center text-slate-400 py-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-dashed border-slate-200 dark:border-border">Nenhum número liberado.</div>
                       ) : (
                         waAllowedList.map(row => (
-                          <div key={row.id} className="flex flex-col gap-1.5 p-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20">
+                          <div key={row.id} className="flex flex-col gap-1.5 p-2 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20">
                             <div className="flex gap-2 items-center">
                               <input 
                                 value={row.name} 
                                 onChange={e => setWaAllowedList(prev => prev.map(r => r.id === row.id ? { ...r, name: e.target.value } : r))} 
                                 placeholder="Nome" 
-                                className="w-1/3 h-8 px-2 text-xs bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-lg outline-none focus:border-emerald-500/50 text-slate-800 dark:text-white placeholder-slate-400" 
+                                className="w-1/3 h-8 px-2 text-xs bg-white dark:bg-card border border-slate-200 dark:border-border rounded-lg outline-none focus:border-emerald-500/50 text-slate-800 dark:text-white placeholder-slate-400" 
                               />
                               <input 
                                 value={row.raw} 
                                 onChange={e => setWaAllowedList(prev => prev.map(r => r.id === row.id ? { ...r, raw: e.target.value, exists: null } : r))} 
                                 onBlur={() => validateWaRow(row.id, row.raw)}
                                 placeholder="Número com DDI" 
-                                className="flex-1 h-8 px-2 text-xs font-mono bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-lg outline-none focus:border-emerald-500/50 text-slate-800 dark:text-white placeholder-slate-400" 
+                                className="flex-1 h-8 px-2 text-xs font-mono bg-white dark:bg-card border border-slate-200 dark:border-border rounded-lg outline-none focus:border-emerald-500/50 text-slate-800 dark:text-white placeholder-slate-400" 
                               />
-                              <button type="button" onClick={() => setWaAllowedList(prev => prev.filter(r => r.id !== row.id))} className="w-8 h-8 flex items-center justify-center text-rose-500 bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors">
+                              <button type="button" onClick={() => setWaAllowedList(prev => prev.filter(r => r.id !== row.id))} className="w-8 h-8 flex items-center justify-center text-rose-500 bg-white dark:bg-card border border-slate-200 dark:border-border rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                               </button>
                             </div>
@@ -1427,8 +1427,8 @@ export default function ProfileSettingsPage() {
                 </div>
               )}
 
-              <div className="flex gap-3 pt-2 border-t border-slate-100 dark:border-white/5 mt-4">
-                <button type="button" onClick={() => setShowWa1Settings(false)} className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 font-bold text-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+              <div className="flex gap-3 pt-2 border-t border-slate-100 dark:border-border mt-4">
+                <button type="button" onClick={() => setShowWa1Settings(false)} className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-border text-slate-600 dark:text-slate-400 font-bold text-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
                   Cancelar
                 </button>
                 <button type="button" onClick={() => void saveWaConfig()} disabled={waSavingConfig} className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition-transform active:scale-95 disabled:opacity-60">
@@ -1563,8 +1563,8 @@ function WhatsAppSession2Panel({ canPair, tenantId, addToast, onDisable }: { can
   }
 
   return (
-    <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl p-6 shadow-sm space-y-4 animate-in fade-in">
-      <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
+    <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-2xl p-6 shadow-sm space-y-4 animate-in fade-in">
+      <div className="flex items-center justify-between border-b border-slate-100 dark:border-border pb-2">
         <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
           WhatsApp — Instância 2
         </h3>
@@ -1580,9 +1580,9 @@ function WhatsAppSession2Panel({ canPair, tenantId, addToast, onDisable }: { can
           </button>
         ) : (
           <>
-            <div className="relative p-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 flex gap-5 items-center">
+            <div className="relative p-4 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 flex gap-5 items-center">
               <div className="absolute top-3 right-3 flex items-center gap-1.5">
-                <button type="button" onClick={() => void refreshPanel()} disabled={waLoading} className="w-8 h-8 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 hover:text-emerald-600 transition-colors shadow-sm disabled:opacity-50" title="Sincronizar">
+                <button type="button" onClick={() => void refreshPanel()} disabled={waLoading} className="w-8 h-8 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-border flex items-center justify-center text-slate-500 hover:text-emerald-600 transition-colors shadow-sm disabled:opacity-50" title="Sincronizar">
                   {waLoading ? (
                     <svg className="animate-spin w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
                   ) : (
@@ -1590,13 +1590,13 @@ function WhatsAppSession2Panel({ canPair, tenantId, addToast, onDisable }: { can
                   )}
                 </button>
                 {waConnected && (
-                  <button type="button" onClick={() => setShowWa2Settings(true)} className="w-8 h-8 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors shadow-sm" title="Configurações">
+                  <button type="button" onClick={() => setShowWa2Settings(true)} className="w-8 h-8 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-border flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors shadow-sm" title="Configurações">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                   </button>
                 )}
               </div>
 
-              <div className="w-24 h-24 sm:w-28 sm:h-28 shrink-0 rounded-full bg-white dark:bg-[#161b22] border-4 border-slate-100 dark:border-white/5 overflow-hidden flex items-center justify-center shadow-sm">
+              <div className="w-24 h-24 sm:w-28 sm:h-28 shrink-0 rounded-full bg-white dark:bg-card border-4 border-slate-100 dark:border-border overflow-hidden flex items-center justify-center shadow-sm">
                 {waProfilePicUrl ? (
                    <img src={waProfilePicUrl} alt="Avatar" className="w-full h-full object-cover" />
                 ) : waQrDataUrl ? (
@@ -1633,20 +1633,20 @@ function WhatsAppSession2Panel({ canPair, tenantId, addToast, onDisable }: { can
       {/* Modal Settings Wa 2 */}
       {showWa2Settings && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-[#161b22] w-full max-w-md rounded-2xl border border-slate-200 dark:border-white/10 p-6 shadow-2xl animate-in zoom-in-95 max-h-[92vh] overflow-y-auto">
+          <div className="bg-white dark:bg-card w-full max-w-md rounded-2xl border border-slate-200 dark:border-border p-6 shadow-2xl animate-in zoom-in-95 max-h-[92vh] overflow-y-auto">
             
             <div className="space-y-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h3 className="text-base font-bold text-slate-800 dark:text-white">⚙️ Instância 2 — Configurações</h3>
-                  <p className="text-xs text-slate-400 dark:text-white/40 mt-0.5">Controle de chamadas recebidas.</p>
+                  <p className="text-xs text-slate-400 dark:text-muted-foreground mt-0.5">Controle de chamadas recebidas.</p>
                 </div>
                 <button type="button" onClick={() => setShowWa2Settings(false)}
                   className="shrink-0 w-8 h-8 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-white text-lg leading-none transition-colors">
                   ×
                 </button>
               </div>
-              <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20">
+              <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20">
                 <span className="text-sm font-bold text-slate-700 dark:text-white">📵 Rejeitar Chamadas</span>
                 <button type="button" onClick={() => setWaRejectCalls(v => !v)} className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${waRejectCalls ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}>
                   <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${waRejectCalls ? "translate-x-5" : "translate-x-0"}`} />
@@ -1656,20 +1656,20 @@ function WhatsAppSession2Panel({ canPair, tenantId, addToast, onDisable }: { can
               {waRejectCalls && (
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase mb-1.5">Mensagem de Resposta</label>
+                    <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground uppercase mb-1.5">Mensagem de Resposta</label>
                     <div className="flex flex-wrap gap-1 mb-2">
                       {["{saudacao}", "{hora}", "{data}"].map(tag => (
-                        <button key={tag} type="button" onClick={() => setWaRejectMessage(v => v + tag)} className="text-[10px] px-2 py-0.5 rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-slate-600 dark:text-white font-mono transition-colors">
+                        <button key={tag} type="button" onClick={() => setWaRejectMessage(v => v + tag)} className="text-[10px] px-2 py-0.5 rounded border border-slate-200 dark:border-border bg-white dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-slate-600 dark:text-white font-mono transition-colors">
                           {tag}
                         </button>
                       ))}
                     </div>
-                    <textarea value={waRejectMessage} onChange={e => setWaRejectMessage(e.target.value)} rows={2} placeholder="Ex: {saudacao}! Não atendo ligações..." className="w-full px-3 py-2 text-xs bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none" />
+                    <textarea value={waRejectMessage} onChange={e => setWaRejectMessage(e.target.value)} rows={2} placeholder="Ex: {saudacao}! Não atendo ligações..." className="w-full px-3 py-2 text-xs bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none" />
                   </div>
 
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase">Lista Branca (Exceções)</label>
+                      <label className="text-[10px] font-bold text-slate-400 dark:text-muted-foreground uppercase">Lista Branca (Exceções)</label>
                       <button type="button" onClick={() => setWaAllowedList([{ id: Math.random().toString(36).slice(2), name: "", raw: "", e164: "", loading: false, exists: null }, ...waAllowedList])} className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline">
                         + Adicionar
                       </button>
@@ -1677,25 +1677,25 @@ function WhatsAppSession2Panel({ canPair, tenantId, addToast, onDisable }: { can
 
                     <div className="max-h-40 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                       {waAllowedList.length === 0 ? (
-                        <div className="text-xs text-center text-slate-400 py-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-dashed border-slate-200 dark:border-white/10">Nenhum número liberado.</div>
+                        <div className="text-xs text-center text-slate-400 py-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-dashed border-slate-200 dark:border-border">Nenhum número liberado.</div>
                       ) : (
                         waAllowedList.map(row => (
-                          <div key={row.id} className="flex flex-col gap-1.5 p-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20">
+                          <div key={row.id} className="flex flex-col gap-1.5 p-2 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20">
                             <div className="flex gap-2 items-center">
                               <input 
                                 value={row.name} 
                                 onChange={e => setWaAllowedList(prev => prev.map(r => r.id === row.id ? { ...r, name: e.target.value } : r))} 
                                 placeholder="Nome" 
-                                className="w-1/3 h-8 px-2 text-xs bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-lg outline-none focus:border-emerald-500/50 text-slate-800 dark:text-white placeholder-slate-400" 
+                                className="w-1/3 h-8 px-2 text-xs bg-white dark:bg-card border border-slate-200 dark:border-border rounded-lg outline-none focus:border-emerald-500/50 text-slate-800 dark:text-white placeholder-slate-400" 
                               />
                               <input 
                                 value={row.raw} 
                                 onChange={e => setWaAllowedList(prev => prev.map(r => r.id === row.id ? { ...r, raw: e.target.value, exists: null } : r))} 
                                 onBlur={() => validateWaRow(row.id, row.raw)}
                                 placeholder="Número com DDI" 
-                                className="flex-1 h-8 px-2 text-xs font-mono bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-lg outline-none focus:border-emerald-500/50 text-slate-800 dark:text-white placeholder-slate-400" 
+                                className="flex-1 h-8 px-2 text-xs font-mono bg-white dark:bg-card border border-slate-200 dark:border-border rounded-lg outline-none focus:border-emerald-500/50 text-slate-800 dark:text-white placeholder-slate-400" 
                               />
-                              <button type="button" onClick={() => setWaAllowedList(prev => prev.filter(r => r.id !== row.id))} className="w-8 h-8 flex items-center justify-center text-rose-500 bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors">
+                              <button type="button" onClick={() => setWaAllowedList(prev => prev.filter(r => r.id !== row.id))} className="w-8 h-8 flex items-center justify-center text-rose-500 bg-white dark:bg-card border border-slate-200 dark:border-border rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                               </button>
                             </div>
@@ -1710,8 +1710,8 @@ function WhatsAppSession2Panel({ canPair, tenantId, addToast, onDisable }: { can
                 </div>
               )}
 
-              <div className="flex gap-3 pt-2 border-t border-slate-100 dark:border-white/5 mt-4">
-                <button type="button" onClick={() => setShowWa2Settings(false)} className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 font-bold text-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+              <div className="flex gap-3 pt-2 border-t border-slate-100 dark:border-border mt-4">
+                <button type="button" onClick={() => setShowWa2Settings(false)} className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-border text-slate-600 dark:text-slate-400 font-bold text-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
                   Cancelar
                 </button>
                 <button type="button" onClick={() => void saveWaConfig()} disabled={waSavingConfig} className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition-transform active:scale-95 disabled:opacity-60">

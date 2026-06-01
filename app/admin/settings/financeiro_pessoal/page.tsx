@@ -85,10 +85,10 @@ function ModalDatePicker({ currentDate, onSelect, onClose }: {
     >
       <div
         onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-xs bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+        className="w-full max-w-xs bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
           <span className="text-sm font-bold text-slate-700 dark:text-white">Selecionar Período</span>
           <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 transition-colors"><IconX /></button>
         </div>
@@ -97,7 +97,7 @@ function ModalDatePicker({ currentDate, onSelect, onClose }: {
           {/* Seletor de Ano */}
           <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Ano</label>
-            <div className="flex items-center justify-between bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg p-1">
+            <div className="flex items-center justify-between bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg p-1">
               <button
                 onClick={() => setAno(a => a - 1)}
                 className="p-1.5 rounded-md text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-white dark:hover:bg-white/10 transition-colors"
@@ -135,7 +135,7 @@ function ModalDatePicker({ currentDate, onSelect, onClose }: {
                         ? "bg-emerald-600 text-white shadow-md shadow-emerald-900/20"
                         : isCurrentMonth
                         ? "border border-emerald-300 dark:border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10"
-                        : "text-slate-600 dark:text-white/70 hover:bg-slate-100 dark:hover:bg-white/5"
+                        : "text-slate-600 dark:text-muted-foreground hover:bg-slate-100 dark:hover:bg-white/5"
                     }`}
                   >
                     {mes.slice(0, 3)}
@@ -172,14 +172,14 @@ function ModalDayPicker({ currentDate, onSelect, onClose }: {
 
   return (
     <div onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }} className="fixed inset-0 z-[99999] bg-black/50 grid place-items-center p-4">
-      <div onMouseDown={(e) => e.stopPropagation()} className="w-full max-w-xs bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+      <div onMouseDown={(e) => e.stopPropagation()} className="w-full max-w-xs bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
           <span className="text-sm font-bold text-slate-700 dark:text-white">Selecionar Data</span>
           <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 transition-colors"><IconX /></button>
         </div>
 
         <div className="p-4 space-y-4">
-          <div className="flex items-center justify-between bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg p-1">
+          <div className="flex items-center justify-between bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg p-1">
             <button onClick={() => setViewDate(new Date(ano, mes - 1, 1))} className="p-1.5 rounded-md text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-white dark:hover:bg-white/10 transition-colors"><IconChevronLeft /></button>
             <button onClick={() => setShowMonthPicker(true)} className="px-3 py-1 text-sm font-bold text-slate-700 dark:text-white text-center capitalize hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-200 dark:hover:bg-white/10 rounded-md transition-colors">
               {meses[mes]} {ano}
@@ -205,7 +205,7 @@ function ModalDayPicker({ currentDate, onSelect, onClose }: {
                         ? "bg-emerald-600 text-white shadow-md shadow-emerald-900/20"
                         : isToday
                         ? "border border-emerald-300 dark:border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10"
-                        : "text-slate-600 dark:text-white/70 hover:bg-slate-100 dark:hover:bg-white/5"
+                        : "text-slate-600 dark:text-muted-foreground hover:bg-slate-100 dark:hover:bg-white/5"
                     }`}
                   >
                     {dia}
@@ -675,7 +675,7 @@ let valorIptv = 0;
   }
 
   return (
-    <div className="space-y-3 sm:space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors" id="dashboard-values">
+    <div className="space-y-3 sm:space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors" id="dashboard-values">
       
       {/* CSS PARA OCULTAR VALORES COM O EYE-TOGGLE */}
       <style dangerouslySetInnerHTML={{__html: `
@@ -702,7 +702,7 @@ let valorIptv = 0;
           </div>
           <button 
             onClick={() => setShowMobileCards(!showMobileCards)}
-            className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md dark:bg-white/10 dark:text-white/70"
+            className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md dark:bg-white/10 dark:text-muted-foreground"
           >
             {showMobileCards ? "Ocultar Valores" : "Exibir Valores"}
           </button>
@@ -711,7 +711,7 @@ let valorIptv = 0;
 
       {/* 2. HEADER STICKY: Botões no Mobile / Título + Botões no Desktop */}
       {/* top-14 crava nos exatos 56px da TopBar, fechando qualquer buraco visual */}
-      <div className="sticky top-14 md:top-0 z-[40] bg-slate-50 dark:bg-[#0f141a] px-3 pb-3 pt-0 md:pt-0 sm:mx-0 sm:px-0 border-b border-slate-200/50 dark:border-white/5 sm:border-none flex items-center justify-end md:justify-between shadow-sm sm:shadow-none transition-colors">
+      <div className="sticky top-14 md:top-0 z-[40] bg-slate-50 dark:bg-background px-3 pb-3 pt-0 md:pt-0 sm:mx-0 sm:px-0 border-b border-slate-200/50 dark:border-border sm:border-none flex items-center justify-end md:justify-between shadow-sm sm:shadow-none transition-colors">
         
         {/* Título Desktop (Só aparece em telas grandes) */}
         <div className="min-w-0 text-left hidden md:block">
@@ -726,7 +726,7 @@ let valorIptv = 0;
 
         {/* Botões do Calendário */}
         <div className="flex items-center w-full md:w-auto gap-2">
-          <div className="flex items-center flex-1 md:flex-none justify-between bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg shadow-sm">
+          <div className="flex items-center flex-1 md:flex-none justify-between bg-white dark:bg-white/5 border border-slate-200 dark:border-border rounded-lg shadow-sm">
             <button onClick={handlePrevMonth} className="p-2 text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors"><IconChevronLeft /></button>
             <button
               onClick={() => setShowDatePicker(true)}
@@ -736,7 +736,7 @@ let valorIptv = 0;
             </button>
             <button onClick={handleNextMonth} className="p-2 text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors"><IconChevronRight /></button>
           </div>
-          <button onClick={handleToday} className="h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-600 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/10 transition-colors shrink-0">Hoje</button>
+          <button onClick={handleToday} className="h-10 px-4 rounded-lg border border-slate-200 dark:border-border text-xs font-bold text-slate-600 dark:text-muted-foreground hover:bg-slate-50 dark:hover:bg-white/10 transition-colors shrink-0">Hoje</button>
         </div>
 
         {showDatePicker && (
@@ -768,9 +768,9 @@ let valorIptv = 0;
         <MetricCard title="Saldo Atual" value={fmtBRL(saldoAtualReal)} tone={saldoAtualReal >= 0 ? "emerald" : "rose"} icon="💰" footer={`Atualizar saldo...`} onEdit={() => setShowAjusteSaldo(true)} />
       </div>
 
-      <div className="px-3 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 z-20">
+      <div className="px-3 md:p-4 bg-transparent md:bg-white md:dark:bg-card border-0 md:border md:border-slate-200 md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 z-20">
         <div className="flex items-center justify-between">
-          <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-white/40 tracking-wider">Lançamentos</div>
+          <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-muted-foreground tracking-wider">Lançamentos</div>
           <button onClick={() => setModalData({ open: true, transacao: null })} className="hidden md:flex h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 items-center gap-2 transition-all">
             <IconPlus /> Adicionar Lançamento
           </button>
@@ -779,29 +779,29 @@ let valorIptv = 0;
         <div className="md:hidden flex flex-col gap-2">
           <div className="flex items-center gap-2">
             <div className="flex-1 relative">
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Pesquisar..." className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white" />
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Pesquisar..." className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white" />
               {search && <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500"><IconX /></button>}
             </div>
             
             <button onClick={() => setModalData({ open: true, transacao: null })} className="h-10 w-10 shrink-0 flex items-center justify-center rounded-lg bg-emerald-600 text-white shadow-lg"><IconPlus /></button>
           </div>
 
-          <div className="flex items-center gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
             <button 
               onClick={() => setStatusFilter(statusFilter === "QUICK_PENDENTE" ? "Todos" : "QUICK_PENDENTE")} 
-              className={`h-9 px-3 rounded-lg border text-xs font-bold transition-colors whitespace-nowrap flex-1 sm:flex-none ${statusFilter === "QUICK_PENDENTE" ? "border-amber-400 bg-amber-50 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400" : "border-slate-200 bg-white text-slate-600 dark:bg-[#161b22] dark:border-white/10 dark:text-white/70"}`}
+              className={`h-9 px-3 rounded-lg border text-xs font-bold transition-colors whitespace-nowrap flex-1 sm:flex-none ${statusFilter === "QUICK_PENDENTE" ? "border-amber-400 bg-amber-50 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400" : "border-slate-200 bg-white text-slate-600 dark:bg-card dark:border-border dark:text-muted-foreground"}`}
             >
               ⏳ Pendente
             </button>
             <button 
               onClick={() => setStatusFilter(statusFilter === "QUICK_CONCLUIDO" ? "Todos" : "QUICK_CONCLUIDO")} 
-              className={`h-9 px-3 rounded-lg border text-xs font-bold transition-colors whitespace-nowrap flex-1 sm:flex-none ${statusFilter === "QUICK_CONCLUIDO" ? "border-emerald-400 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400" : "border-slate-200 bg-white text-slate-600 dark:bg-[#161b22] dark:border-white/10 dark:text-white/70"}`}
+              className={`h-9 px-3 rounded-lg border text-xs font-bold transition-colors whitespace-nowrap flex-1 sm:flex-none ${statusFilter === "QUICK_CONCLUIDO" ? "border-emerald-400 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400" : "border-slate-200 bg-white text-slate-600 dark:bg-card dark:border-border dark:text-muted-foreground"}`}
             >
               ✅ Concluído
             </button>
             <button 
               onClick={() => setMobileFiltersOpen((v) => !v)} 
-              className={`h-9 w-9 shrink-0 flex items-center justify-center rounded-lg border transition-colors ${mobileFiltersOpen ? "border-emerald-500 bg-emerald-50 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400" : "border-slate-200 bg-white text-slate-500 dark:bg-[#161b22] dark:border-white/10 dark:text-white/50"}`}
+              className={`h-9 w-9 shrink-0 flex items-center justify-center rounded-lg border transition-colors ${mobileFiltersOpen ? "border-emerald-500 bg-emerald-50 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400" : "border-slate-200 bg-white text-slate-500 dark:bg-card dark:border-border dark:text-white/50"}`}
             >
               <IconChevronDown />
             </button>
@@ -814,15 +814,15 @@ let valorIptv = 0;
 
         {mobileFiltersOpen && (
           <div className="md:hidden grid grid-cols-3 gap-1.5 pb-2 animate-in fade-in slide-in-from-top-1 duration-200">
-            <select value={contaFilter} onChange={(e) => setContaFilter(e.target.value)} className="w-full h-9 px-1 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-[11px] font-medium outline-none text-slate-700 dark:text-white truncate">
+            <select value={contaFilter} onChange={(e) => setContaFilter(e.target.value)} className="w-full h-9 px-1 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-[11px] font-medium outline-none text-slate-700 dark:text-white truncate">
               <option value="Todos">Conta</option>
               {contasDB.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
-            <select value={categoriaFilter} onChange={(e) => setCategoriaFilter(e.target.value)} className="w-full h-9 px-1 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-[11px] font-medium outline-none text-slate-700 dark:text-white truncate">
+            <select value={categoriaFilter} onChange={(e) => setCategoriaFilter(e.target.value)} className="w-full h-9 px-1 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-[11px] font-medium outline-none text-slate-700 dark:text-white truncate">
               <option value="Todos">Categoria</option>
               {categoriasDB.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
-            <select value={recorrenciaFilter} onChange={(e) => setRecorrenciaFilter(e.target.value)} className="w-full h-9 px-1 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-[11px] font-medium outline-none text-slate-700 dark:text-white truncate">
+            <select value={recorrenciaFilter} onChange={(e) => setRecorrenciaFilter(e.target.value)} className="w-full h-9 px-1 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-[11px] font-medium outline-none text-slate-700 dark:text-white truncate">
               <option value="Todos">Recorrência</option>
               <option value="UNICA">Única</option>
               <option value="RECORRENTE">Recorrente</option>
@@ -834,29 +834,29 @@ let valorIptv = 0;
 
         <div className="hidden md:flex items-center gap-2 flex-wrap">
           <div className="flex-1 min-w-[200px] relative">
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Pesquisar por descrição..." className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Pesquisar por descrição..." className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white" />
             {search && <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500"><IconX /></button>}
           </div>
-          <select value={tipoFilter} onChange={(e) => setTipoFilter(e.target.value)} className="w-[140px] h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white">
+          <select value={tipoFilter} onChange={(e) => setTipoFilter(e.target.value)} className="w-[140px] h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white">
             <option value="Todos">Tipo</option>
             <option value="RECEITA">Receitas</option>
             <option value="DESPESA">Despesas</option>
           </select>
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-[140px] h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white">
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-[140px] h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white">
             <option value="Todos">Status</option>
             <option value="PAGO">Pagos / Recebidos</option>
             <option value="PENDENTE">Pendentes</option>
             <option value="VENCIDO">Vencidos</option>
           </select>
-          <select value={contaFilter} onChange={(e) => setContaFilter(e.target.value)} className="w-[140px] h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white truncate">
+          <select value={contaFilter} onChange={(e) => setContaFilter(e.target.value)} className="w-[140px] h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white truncate">
             <option value="Todos">Conta</option>
             {contasDB.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
           </select>
-          <select value={categoriaFilter} onChange={(e) => setCategoriaFilter(e.target.value)} className="w-[140px] h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white truncate">
+          <select value={categoriaFilter} onChange={(e) => setCategoriaFilter(e.target.value)} className="w-[140px] h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white truncate">
             <option value="Todos">Categoria</option>
             {categoriasDB.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
           </select>
-          <select value={recorrenciaFilter} onChange={(e) => setRecorrenciaFilter(e.target.value)} className="w-[140px] h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white truncate">
+          <select value={recorrenciaFilter} onChange={(e) => setRecorrenciaFilter(e.target.value)} className="w-[140px] h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white truncate">
             <option value="Todos">Recorrência</option>
             <option value="UNICA">Única</option>
             <option value="RECORRENTE">Recorrente</option>
@@ -869,10 +869,10 @@ let valorIptv = 0;
         </div>
       </div>
 
-      <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-x-auto">
+      <div className="bg-white dark:bg-card border-y sm:border border-slate-200 dark:border-border rounded-none sm:rounded-xl shadow-sm overflow-x-auto">
         <table className="w-full text-left border-collapse min-w-[1000px]">
           <thead>
-            <tr className="border-b border-slate-200 dark:border-white/10 text-xs font-bold uppercase text-slate-500 dark:text-white/40 select-none">
+            <tr className="border-b border-slate-200 dark:border-border text-xs font-bold uppercase text-slate-500 dark:text-muted-foreground select-none">
               <th className="px-4 py-3 whitespace-nowrap cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors" onClick={() => requestSort("descricao")}>Descrição {sortConfig?.key === "descricao" ? (sortConfig.direction === "asc" ? "↑" : "↓") : "↕"}</th>
               <th className="px-4 py-3 w-28 text-center whitespace-nowrap cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors" onClick={() => requestSort("tipo")}>Tipo {sortConfig?.key === "tipo" ? (sortConfig.direction === "asc" ? "↑" : "↓") : "↕"}</th>
               <th className="px-4 py-3 text-center whitespace-nowrap cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors" onClick={() => requestSort("data_vencimento")}>Vencimento {sortConfig?.key === "data_vencimento" ? (sortConfig.direction === "asc" ? "↑" : "↓") : "↕"}</th>
@@ -920,7 +920,7 @@ let valorIptv = 0;
 
                 return [
                   showDateDivider && (
-                    <tr key={`div-${t.id}`} className="bg-slate-100/80 dark:bg-white/5 border-y border-slate-200 dark:border-white/10">
+                    <tr key={`div-${t.id}`} className="bg-slate-100/80 dark:bg-white/5 border-y border-slate-200 dark:border-border">
                       <td colSpan={9} className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-white/60 uppercase tracking-wider">
                         🗓️ {dateLabel}
                       </td>
@@ -969,7 +969,7 @@ let valorIptv = 0;
                     </td>
 
                     <td className="px-4 py-3 text-center">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border border-slate-200 dark:border-white/10">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border border-slate-200 dark:border-border">
                         {t.conta_nome || "—"}
                       </span>
                     </td>
@@ -1143,7 +1143,7 @@ function MetricCard({ title, value, tone, icon, footer, onEdit }: { title: strin
       className={`rounded-xl border shadow-sm overflow-hidden flex flex-col ${colors[tone]} relative ${onEdit ? "cursor-pointer hover:scale-[1.02] hover:shadow-md transition-all" : ""}`}
       onClick={onEdit}
     >
-      <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-black/5 dark:border-white/5 font-bold text-[13px] sm:text-sm flex justify-between items-center">
+      <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-black/5 dark:border-border font-bold text-[13px] sm:text-sm flex justify-between items-center">
         <span className="flex items-center gap-2">{icon} {title}</span>
         {onEdit && (
           <button onClick={(e)=>{e.stopPropagation(); onEdit();}} className="p-1 rounded-md bg-white/50 hover:bg-white/80 dark:bg-black/10 dark:hover:bg-black/30 transition-colors" title="Ajustar Saldo">
@@ -1169,8 +1169,8 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
   if (typeof document === "undefined") return null;
   return createPortal(
     <div onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.60)", display: "grid", placeItems: "center", zIndex: 99999, padding: 16 }}>
-      <div onMouseDown={(e) => e.stopPropagation()} className="w-full max-w-lg bg-white dark:bg-[#0f141a] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+      <div onMouseDown={(e) => e.stopPropagation()} className="w-full max-w-lg bg-white dark:bg-background border border-slate-200 dark:border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
           <div className="font-bold text-slate-800 dark:text-white">{title}</div>
           <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-white/60 hover:text-slate-800 dark:hover:text-white transition-colors">
             <IconX />
@@ -1237,14 +1237,14 @@ function ModalAjusteSaldo({ tenantId, contas, saldos, onClose, onSuccess, addToa
         <div className="p-3 bg-sky-50 border border-sky-200 dark:bg-sky-500/10 dark:border-sky-500/20 rounded-xl text-sm text-sky-800 dark:text-sky-300">O saldo será ajustado diretamente — nenhum lançamento será criado.</div>
         <div>
           <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Conta / Carteira</label>
-          <select value={contaId} onChange={e=>setContaId(e.target.value)} className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg outline-none text-sm focus:border-emerald-500 text-slate-800 dark:text-white">
+          <select value={contaId} onChange={e=>setContaId(e.target.value)} className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg outline-none text-sm focus:border-emerald-500 text-slate-800 dark:text-white">
             {contas.map(c => <option key={c.id} value={c.id}>{c.icone} {c.nome} (Atual: {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saldos[c.id] || 0)})</option>)}
           </select>
         </div>
         <div>
           <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Qual é o saldo real hoje?</label>
-          <div className="flex items-center h-11 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg focus-within:border-emerald-500 transition-colors overflow-hidden">
-            <span className="pl-3 pr-1 text-sm font-bold text-slate-400 dark:text-white/40 select-none shrink-0">R$</span>
+          <div className="flex items-center h-11 bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg focus-within:border-emerald-500 transition-colors overflow-hidden">
+            <span className="pl-3 pr-1 text-sm font-bold text-slate-400 dark:text-muted-foreground select-none shrink-0">R$</span>
             <input
               autoFocus
               type="text"
@@ -1287,16 +1287,16 @@ function ModalNovaConta({ tenantId, onClose, onSave, addToast }: { tenantId: str
 
   return (
     <div className="fixed inset-0 z-[100000] bg-black/60 grid place-items-center p-4">
-      <div className="w-full max-w-sm bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="px-4 py-3 border-b border-slate-200 dark:border-white/10 font-bold text-sm bg-slate-50 dark:bg-white/5 flex justify-between">
+      <div className="w-full max-w-sm bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="px-4 py-3 border-b border-slate-200 dark:border-border font-bold text-sm bg-slate-50 dark:bg-white/5 flex justify-between">
           <span>Criar Nova Conta</span>
           <button onClick={onClose}><IconX /></button>
         </div>
         <div className="p-4 space-y-4">
-          <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Nome</label><input autoFocus value={nome} onChange={e=>setNome(e.target.value)} placeholder="Ex: C6 Bank" className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg outline-none text-sm focus:border-emerald-500" /></div>
+          <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Nome</label><input autoFocus value={nome} onChange={e=>setNome(e.target.value)} placeholder="Ex: C6 Bank" className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg outline-none text-sm focus:border-emerald-500" /></div>
           <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Ícone</label>
-            <div className="flex flex-wrap gap-2">{icones.map(i => <button key={i} onClick={()=>setIcone(i)} className={`w-8 h-8 rounded border text-lg flex items-center justify-center transition-all ${icone === i ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10" : "border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5"}`}>{i}</button>)}</div>
+            <div className="flex flex-wrap gap-2">{icones.map(i => <button key={i} onClick={()=>setIcone(i)} className={`w-8 h-8 rounded border text-lg flex items-center justify-center transition-all ${icone === i ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10" : "border-slate-200 dark:border-border hover:bg-slate-50 dark:hover:bg-white/5"}`}>{i}</button>)}</div>
           </div>
           <button onClick={handleSave} disabled={salvando} className="w-full h-10 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-500 shadow-lg transition-colors disabled:opacity-50">Salvar Conta</button>
         </div>
@@ -1361,7 +1361,7 @@ function ModalGerenciarItens({ title, items, onExcluir, onEditar, onClose, addTo
 
   function renderItem(it: any) {
     return (
-      <div key={it.id} className="rounded-lg border border-slate-200 dark:border-white/10 overflow-hidden">
+      <div key={it.id} className="rounded-lg border border-slate-200 dark:border-border overflow-hidden">
         <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-white/5">
           <span className="text-sm font-medium">{it.icone} {it.nome}</span>
           <div className="flex items-center gap-1.5">
@@ -1394,23 +1394,23 @@ function ModalGerenciarItens({ title, items, onExcluir, onEditar, onClose, addTo
         </div>
 
         {editandoId === it.id && (
-          <div className="p-3 border-t border-slate-200 dark:border-white/10 bg-white dark:bg-black/20 space-y-3 animate-in fade-in slide-in-from-top-1 duration-150">
+          <div className="p-3 border-t border-slate-200 dark:border-border bg-white dark:bg-black/20 space-y-3 animate-in fade-in slide-in-from-top-1 duration-150">
             <div>
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Nome</label>
-              <input autoFocus value={editNome} onChange={e => setEditNome(e.target.value)} className="w-full h-9 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500 text-slate-800 dark:text-white" />
+              <input autoFocus value={editNome} onChange={e => setEditNome(e.target.value)} className="w-full h-9 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500 text-slate-800 dark:text-white" />
             </div>
             <div>
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Ícone</label>
               <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1">
                 {ICONES_DISPONIVEIS.map(ic => (
-                  <button key={ic} onClick={() => setEditIcone(ic)} className={`w-8 h-8 rounded border text-base flex items-center justify-center transition-all ${editIcone === ic ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 scale-110" : "border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5"}`}>
+                  <button key={ic} onClick={() => setEditIcone(ic)} className={`w-8 h-8 rounded border text-base flex items-center justify-center transition-all ${editIcone === ic ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 scale-110" : "border-slate-200 dark:border-border hover:bg-slate-50 dark:hover:bg-white/5"}`}>
                     {ic}
                   </button>
                 ))}
               </div>
             </div>
             <div className="flex gap-2 pt-1">
-              <button onClick={cancelarEdicao} className="flex-1 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">Cancelar</button>
+              <button onClick={cancelarEdicao} className="flex-1 py-1.5 rounded-lg border border-slate-200 dark:border-border text-xs font-bold text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">Cancelar</button>
               <button onClick={() => handleSalvarEdicao(it.id)} disabled={salvando} className="flex-1 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors disabled:opacity-50">
                 {salvando ? "Salvando..." : "Salvar"}
               </button>
@@ -1423,9 +1423,9 @@ function ModalGerenciarItens({ title, items, onExcluir, onEditar, onClose, addTo
 
   return (
     <div className="fixed inset-0 z-[100000] bg-black/60 grid place-items-center p-4">
-      <div className="w-full max-w-sm bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
+      <div className="w-full max-w-sm bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
 
-        <div className="px-4 py-3 border-b border-slate-200 dark:border-white/10 font-bold text-sm bg-slate-50 dark:bg-white/5 flex justify-between shrink-0">
+        <div className="px-4 py-3 border-b border-slate-200 dark:border-border font-bold text-sm bg-slate-50 dark:bg-white/5 flex justify-between shrink-0">
           <span>{title}</span>
           <button onClick={onClose}><IconX /></button>
         </div>
@@ -1461,8 +1461,8 @@ function ModalGerenciarItens({ title, items, onExcluir, onEditar, onClose, addTo
           )}
         </div>
 
-        <div className="px-4 py-3 border-t border-slate-200 dark:border-white/10 shrink-0">
-          <button onClick={onClose} className="w-full py-2 rounded-lg border border-slate-200 dark:border-white/10 text-sm font-bold text-slate-600 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+        <div className="px-4 py-3 border-t border-slate-200 dark:border-border shrink-0">
+          <button onClick={onClose} className="w-full py-2 rounded-lg border border-slate-200 dark:border-border text-sm font-bold text-slate-600 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
             Cancelar
           </button>
         </div>
@@ -1491,15 +1491,15 @@ function ModalNovaCategoria({ tenantId, onClose, onSave, tipoFixo, addToast }: {
 
   return (
     <div className="fixed inset-0 z-[100000] bg-black/60 grid place-items-center p-4">
-      <div className="w-full max-w-sm bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="px-4 py-3 border-b border-slate-200 dark:border-white/10 font-bold text-sm bg-slate-50 dark:bg-white/5 flex justify-between">
+      <div className="w-full max-w-sm bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="px-4 py-3 border-b border-slate-200 dark:border-border font-bold text-sm bg-slate-50 dark:bg-white/5 flex justify-between">
           <span>Nova Categoria de {tipoFixo === "RECEITA" ? "Receita" : "Despesa"}</span><button onClick={onClose}><IconX /></button>
         </div>
         <div className="p-4 space-y-4">
-          <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Nome</label><input autoFocus value={nome} onChange={e=>setNome(e.target.value)} placeholder="Ex: Roupas" className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg outline-none text-sm focus:border-emerald-500" /></div>
+          <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Nome</label><input autoFocus value={nome} onChange={e=>setNome(e.target.value)} placeholder="Ex: Roupas" className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg outline-none text-sm focus:border-emerald-500" /></div>
           <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Ícone</label>
-            <div className="flex flex-wrap gap-2">{icones.map(i => <button key={i} onClick={()=>setIcone(i)} className={`w-8 h-8 rounded border text-lg flex items-center justify-center transition-all ${icone === i ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10" : "border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5"}`}>{i}</button>)}</div>
+            <div className="flex flex-wrap gap-2">{icones.map(i => <button key={i} onClick={()=>setIcone(i)} className={`w-8 h-8 rounded border text-lg flex items-center justify-center transition-all ${icone === i ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10" : "border-slate-200 dark:border-border hover:bg-slate-50 dark:hover:bg-white/5"}`}>{i}</button>)}</div>
           </div>
           <button onClick={handleSave} disabled={salvando} className="w-full h-10 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-500 shadow-lg transition-colors disabled:opacity-50">Salvar Categoria</button>
         </div>
@@ -1967,25 +1967,25 @@ const [salvando, setSalvando] = useState(false);
       <Modal title={isEdit ? "Editar Lançamento" : "Adicionar Lançamento"} onClose={onClose}>
         <div className="max-h-[75vh] overflow-y-auto pr-1 space-y-3 sm:space-y-4">
           
-          <div className="flex p-1 bg-slate-100 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/5">
-            <button onClick={() => setTipo("DESPESA")} className={`flex-1 py-1.5 text-sm font-bold rounded-md transition-all ${tipo === "DESPESA" ? "bg-white dark:bg-[#161b22] text-rose-600 dark:text-rose-400 shadow-sm" : "text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white/80"}`}>📉 Despesa</button>
-            <button onClick={() => setTipo("RECEITA")} className={`flex-1 py-1.5 text-sm font-bold rounded-md transition-all ${tipo === "RECEITA" ? "bg-white dark:bg-[#161b22] text-emerald-600 dark:text-emerald-400 shadow-sm" : "text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white/80"}`}>📈 Receita</button>
+          <div className="flex p-1 bg-slate-100 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-border">
+            <button onClick={() => setTipo("DESPESA")} className={`flex-1 py-1.5 text-sm font-bold rounded-md transition-all ${tipo === "DESPESA" ? "bg-white dark:bg-card text-rose-600 dark:text-rose-400 shadow-sm" : "text-slate-500 dark:text-muted-foreground hover:text-slate-700 dark:hover:text-white/80"}`}>📉 Despesa</button>
+            <button onClick={() => setTipo("RECEITA")} className={`flex-1 py-1.5 text-sm font-bold rounded-md transition-all ${tipo === "RECEITA" ? "bg-white dark:bg-card text-emerald-600 dark:text-emerald-400 shadow-sm" : "text-slate-500 dark:text-muted-foreground hover:text-slate-700 dark:hover:text-white/80"}`}>📈 Receita</button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-2 relative" ref={autocompleteRef}>
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">Descrição</label>
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">Descrição</label>
               <input
                 type="text"
                 value={sugestaoHover ? sugestaoHover.descricao : descricao}
                 onChange={e => { setDescricao(e.target.value); buscarSugestoes(e.target.value); }}
                 onFocus={() => { if (sugestoes.length > 0) setShowSugestoes(true); }}
                 placeholder="Ex: Conta de Luz"
-                className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50"
+                className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50"
               />
               {showSugestoes && sugestoes.length > 0 && (
-                <div className="absolute left-0 right-0 top-full mt-1 z-[9999] bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-                  <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-white/5">
+                <div className="absolute left-0 right-0 top-full mt-1 z-[9999] bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                  <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-border">
                     Lançamentos anteriores
                   </div>
                   {sugestoes.map((s, i) => {
@@ -2017,16 +2017,16 @@ const [salvando, setSalvando] = useState(false);
               )}
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">Valor {tipoRecorrencia === "PARCELADA" && !isEdit ? "Total" : ""} (R$)</label>
-              <input type="text" inputMode="numeric" value={sugestaoHover ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2 }).format(sugestaoHover.valor) : valorDisplay} onChange={handleValorChange} onFocus={(e) => e.target.select()} placeholder="0,00" className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm font-bold outline-none focus:border-emerald-500/50 ${(sugestaoHover?.tipo ?? tipo) === "RECEITA" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`} />
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">Valor {tipoRecorrencia === "PARCELADA" && !isEdit ? "Total" : ""} (R$)</label>
+              <input type="text" inputMode="numeric" value={sugestaoHover ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2 }).format(sugestaoHover.valor) : valorDisplay} onChange={handleValorChange} onFocus={(e) => e.target.select()} placeholder="0,00" className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm font-bold outline-none focus:border-emerald-500/50 ${(sugestaoHover?.tipo ?? tipo) === "RECEITA" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`} />
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">Data de Vencimento</label>
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">Data de Vencimento</label>
               <div className="relative">
-                <input type="text" inputMode="numeric" value={vencimentoDisplay} onChange={handleVencimentoChange} onFocus={(e) => e.target.select()} placeholder="DD/MM/AAAA" maxLength={10} className="w-full h-10 px-3 pr-10 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 font-mono" />
+                <input type="text" inputMode="numeric" value={vencimentoDisplay} onChange={handleVencimentoChange} onFocus={(e) => e.target.select()} placeholder="DD/MM/AAAA" maxLength={10} className="w-full h-10 px-3 pr-10 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 font-mono" />
                 <button
                   type="button"
                   onClick={() => setShowVencimentoPicker(true)}
@@ -2052,8 +2052,8 @@ const [salvando, setSalvando] = useState(false);
               )}
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">Status</label>
-              <div className="flex bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 p-1 h-10">
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">Status</label>
+              <div className="flex bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-border p-1 h-10">
                 <button onClick={() => setStatus("PENDENTE")} className={`flex-1 rounded-md text-xs font-bold transition-colors ${status === "PENDENTE" ? "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400" : "text-slate-400 hover:text-slate-600 dark:hover:text-white/80"}`}>⏳ Pendente</button>
                 <button onClick={() => setStatus("PAGO")} className={`flex-1 rounded-md text-xs font-bold transition-colors ${status === "PAGO" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400" : "text-slate-400 hover:text-slate-600 dark:hover:text-white/80"}`}>✅ Pago</button>
               </div>
@@ -2062,8 +2062,8 @@ const [salvando, setSalvando] = useState(false);
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">Conta / Carteira</label>
-              <select value={contaSelecionada} onChange={handleContaChange} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 font-medium">
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">Conta / Carteira</label>
+              <select value={contaSelecionada} onChange={handleContaChange} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 font-medium">
                 <option value="" disabled>Selecionar Conta</option>
                 {contas.map(c => <option key={c.id} value={c.id}>{c.icone} {c.nome}</option>)}
                 <option disabled>──────────</option>
@@ -2072,8 +2072,8 @@ const [salvando, setSalvando] = useState(false);
               </select>
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">Categoria</label>
-              <select value={categoriaSelecionada} onChange={handleCategoriaChange} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 font-medium">
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">Categoria</label>
+              <select value={categoriaSelecionada} onChange={handleCategoriaChange} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 font-medium">
                 <option value="" disabled>Selecionar Categoria</option>
                 {categoriasAtivas.map(c => <option key={c.id} value={c.id}>{c.icone} {c.nome}</option>)}
                 <option disabled>──────────</option>
@@ -2086,11 +2086,11 @@ const [salvando, setSalvando] = useState(false);
           {/* A linha de Data de Pagamento agora é SEMPRE renderizada */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-1">
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">Data de Pagamento</label>
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">Data de Pagamento</label>
               <button
                 type="button"
                 onClick={() => setShowPagamentoPicker(true)}
-                className={`w-full h-10 px-3 flex justify-center items-center bg-white dark:bg-black/20 border rounded-lg transition-colors text-sm font-mono font-bold ${status === "PAGO" ? "border-emerald-200 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-300 hover:border-emerald-500" : "border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/50 hover:border-slate-400"}`}
+                className={`w-full h-10 px-3 flex justify-center items-center bg-white dark:bg-black/20 border rounded-lg transition-colors text-sm font-mono font-bold ${status === "PAGO" ? "border-emerald-200 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-300 hover:border-emerald-500" : "border-slate-200 dark:border-border text-slate-400 dark:text-white/50 hover:border-slate-400"}`}
               >
                 {pagamentoDisplay}
               </button>
@@ -2113,8 +2113,8 @@ const [salvando, setSalvando] = useState(false);
             <div className="sm:col-span-2">
               {isEdit && rTipoInicial !== "UNICA" ? (
                 <>
-                  <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">Aplicar alterações em:</label>
-                  <div className="flex bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 p-1 h-10">
+                  <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">Aplicar alterações em:</label>
+                  <div className="flex bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-border p-1 h-10">
                     <button type="button" onClick={() => setEscopoEdicao("UNICA")} className={`flex-1 rounded-md text-xs font-bold transition-colors ${escopoEdicao === "UNICA" ? "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400 shadow-sm" : "text-slate-400 hover:text-slate-600 dark:hover:text-white/80"}`}>📅 Apenas nesta</button>
                     <button type="button" onClick={() => setEscopoEdicao("TODAS")} className={`flex-1 rounded-md text-xs font-bold transition-colors ${escopoEdicao === "TODAS" ? "bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-400 shadow-sm" : "text-slate-400 hover:text-slate-600 dark:hover:text-white/80"}`}>🔁 Nesta e nas futuras</button>
                   </div>
@@ -2124,10 +2124,10 @@ const [salvando, setSalvando] = useState(false);
           </div>
 
           {!isEdit && (
-            <div className="p-3 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 space-y-3">
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider">Recorrência e Parcelamento</label>
+            <div className="p-3 rounded-lg border border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 space-y-3">
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground uppercase tracking-wider">Recorrência e Parcelamento</label>
               
-              <div className="flex bg-white dark:bg-black/20 rounded-md border border-slate-200 dark:border-white/10 p-1">
+              <div className="flex bg-white dark:bg-black/20 rounded-md border border-slate-200 dark:border-border p-1">
                 <button onClick={() => setTipoRecorrencia("UNICA")} className={`flex-1 py-1 rounded text-xs font-bold transition-all ${tipoRecorrencia === "UNICA" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 shadow-sm" : "text-slate-500 dark:text-white/50 hover:text-slate-700 dark:hover:text-white/80"}`}>Única</button>
                 <button onClick={() => setTipoRecorrencia("RECORRENTE")} className={`flex-1 py-1 rounded text-xs font-bold transition-all ${tipoRecorrencia === "RECORRENTE" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 shadow-sm" : "text-slate-500 dark:text-white/50 hover:text-slate-700 dark:hover:text-white/80"}`}>Recorrente</button>
                 <button onClick={() => setTipoRecorrencia("PARCELADA")} className={`flex-1 py-1 rounded text-xs font-bold transition-all ${tipoRecorrencia === "PARCELADA" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 shadow-sm" : "text-slate-500 dark:text-white/50 hover:text-slate-700 dark:hover:text-white/80"}`}>Parcelado</button>
@@ -2135,15 +2135,15 @@ const [salvando, setSalvando] = useState(false);
 
               {tipoRecorrencia === "PARCELADA" && (
                 <div className="flex items-center gap-3 animate-in fade-in zoom-in-95">
-                  <span className="text-xs font-medium text-slate-600 dark:text-white/70">Qtd de Parcelas:</span>
-                  <input type="number" min="2" max="120" value={parcelas} onChange={e => setParcelas(e.target.value)} className="w-16 h-8 px-2 text-center bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-md text-sm font-bold outline-none focus:border-emerald-500/50 text-slate-800 dark:text-white" />
+                  <span className="text-xs font-medium text-slate-600 dark:text-muted-foreground">Qtd de Parcelas:</span>
+                  <input type="number" min="2" max="120" value={parcelas} onChange={e => setParcelas(e.target.value)} className="w-16 h-8 px-2 text-center bg-white dark:bg-black/40 border border-slate-200 dark:border-border rounded-md text-sm font-bold outline-none focus:border-emerald-500/50 text-slate-800 dark:text-white" />
                 </div>
               )}
 
               {tipoRecorrencia === "RECORRENTE" && (
                 <div className="flex items-center gap-3 animate-in fade-in zoom-in-95">
-                  <span className="text-xs font-medium text-slate-600 dark:text-white/70">Repetir a cada:</span>
-                  <select value={frequencia} onChange={e => setFrequencia(e.target.value)} className="flex-1 h-8 px-2 bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-md text-sm font-bold outline-none focus:border-emerald-500/50 text-slate-800 dark:text-white">
+                  <span className="text-xs font-medium text-slate-600 dark:text-muted-foreground">Repetir a cada:</span>
+                  <select value={frequencia} onChange={e => setFrequencia(e.target.value)} className="flex-1 h-8 px-2 bg-white dark:bg-black/40 border border-slate-200 dark:border-border rounded-md text-sm font-bold outline-none focus:border-emerald-500/50 text-slate-800 dark:text-white">
                     <option value="MENSAL">Mês</option>
                     <option value="BIMESTRAL">2 Meses</option>
                     <option value="TRIMESTRAL">3 Meses</option>
@@ -2156,13 +2156,13 @@ const [salvando, setSalvando] = useState(false);
           )}
 
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">Observações</label>
-            <textarea value={obs} onChange={e => setObs(e.target.value)} rows={2} placeholder="Detalhes adicionais..." className="w-full p-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none" />
+            <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">Observações</label>
+            <textarea value={obs} onChange={e => setObs(e.target.value)} rows={2} placeholder="Detalhes adicionais..." className="w-full p-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none" />
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 mt-3 pt-3 border-t border-slate-200 dark:border-white/10">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-sm font-bold text-slate-600 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">Cancelar</button>
+        <div className="flex justify-end gap-2 mt-3 pt-3 border-t border-slate-200 dark:border-border">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-sm font-bold text-slate-600 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">Cancelar</button>
           <button onClick={handleSave} disabled={salvando} className={`px-5 py-2 rounded-lg text-white text-sm font-bold shadow-lg transition-all disabled:opacity-50 ${tipo === "RECEITA" ? "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/20" : "bg-rose-600 hover:bg-rose-500 shadow-rose-900/20"}`}>
             {salvando ? "Processando..." : (isEdit ? "Salvar Alterações" : "Criar Lançamento")}
           </button>
@@ -2312,14 +2312,14 @@ function ModalBaixa({ tenantId, transacao, contasDB, addToast, onClose, onSucces
       <div className="space-y-4">
 
         {/* Descrição + Valor */}
-        <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-between gap-3">
+        <div className="p-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-0.5">
+            <p className="text-xs font-bold text-slate-400 dark:text-muted-foreground uppercase tracking-wider mb-0.5">
               {isReceita ? "📈 Receita" : "📉 Despesa"}
             </p>
             <p className="text-sm font-bold text-slate-700 dark:text-white truncate">{transacao.descricao}</p>
             {transacao.categoria_nome && (
-              <p className="text-xs text-slate-400 dark:text-white/40 mt-0.5">{transacao.categoria_nome}</p>
+              <p className="text-xs text-slate-400 dark:text-muted-foreground mt-0.5">{transacao.categoria_nome}</p>
             )}
           </div>
           <div className="text-right shrink-0">
@@ -2348,10 +2348,10 @@ function ModalBaixa({ tenantId, transacao, contasDB, addToast, onClose, onSucces
         {/* Escopo — só aparece se valor mudou e tem recorrência */}
         {valorAlterado && transacao.recorrencia_id && (
           <div className="animate-in fade-in zoom-in-95 duration-150">
-            <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+            <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
               Aplicar novo valor em:
             </label>
-            <div className="flex bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 p-1 h-10">
+            <div className="flex bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-border p-1 h-10">
               <button
                 type="button"
                 onClick={() => setEscopo("UNICA")}
@@ -2381,7 +2381,7 @@ function ModalBaixa({ tenantId, transacao, contasDB, addToast, onClose, onSucces
         {/* Data de pagamento (só na baixa) */}
         {isBaixando && (
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+            <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
               Data de Pagamento
             </label>
             <div className="relative">
@@ -2393,7 +2393,7 @@ function ModalBaixa({ tenantId, transacao, contasDB, addToast, onClose, onSucces
                 onFocus={(e) => e.target.select()}
                 placeholder="DD/MM/AAAA"
                 maxLength={10}
-                className="w-full h-10 px-3 pr-10 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 font-mono"
+                className="w-full h-10 px-3 pr-10 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 font-mono"
               />
               <button
                 type="button"
@@ -2422,13 +2422,13 @@ function ModalBaixa({ tenantId, transacao, contasDB, addToast, onClose, onSucces
 
         {/* Conta */}
         <div>
-          <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+          <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
             Conta / Carteira
           </label>
           <select
             value={contaSelecionada}
             onChange={(e) => setContaSelecionada(e.target.value)}
-            className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50"
+            className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50"
           >
             <option value="">Sem conta</option>
             {contasDB.map((c) => (
@@ -2441,7 +2441,7 @@ function ModalBaixa({ tenantId, transacao, contasDB, addToast, onClose, onSucces
         <div className="flex gap-2 pt-1">
           <button
             onClick={onClose}
-            className="flex-1 py-2.5 rounded-lg border border-slate-200 dark:border-white/10 text-sm font-bold text-slate-600 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+            className="flex-1 py-2.5 rounded-lg border border-slate-200 dark:border-border text-sm font-bold text-slate-600 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
           >
             Cancelar
           </button>

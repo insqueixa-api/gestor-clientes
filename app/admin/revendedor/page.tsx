@@ -1030,7 +1030,7 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
 
   return (
   <div
-    className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors"
+    className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors"
     onClick={closeAllPopups}
   >
 
@@ -1053,7 +1053,7 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
             }}
             className={`hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-bold border transition-colors items-center justify-center ${archivedFilter === "Sim"
               ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-              : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60"
+              : "bg-white dark:bg-white/5 border-slate-200 dark:border-border text-slate-500 dark:text-white/60"
               }`}
           >
             {archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
@@ -1073,10 +1073,10 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
 
       {/* Barra de Filtros Completa */}
       <div
-        className="px-3 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
+        className="px-3 md:p-4 bg-transparent md:bg-white md:dark:bg-card border-0 md:border md:border-slate-200 md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-white/40 tracking-wider mb-2">
+        <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-muted-foreground tracking-wider mb-2">
           Filtros Rápidos
         </div>
         
@@ -1087,7 +1087,7 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Pesquisar..."
-              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white transition-colors"
+              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white transition-colors"
             />
             {search && (
               <button
@@ -1103,7 +1103,7 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
             className={`h-10 px-3 rounded-lg border font-bold text-sm transition-colors ${
               (statusFilter !== "Todos" || serverFilter !== "Todos" || archivedFilter === "Sim")
                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                : "border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/10"
+                : "border-slate-200 dark:border-border bg-white dark:bg-white/5 text-slate-600 dark:text-muted-foreground hover:bg-slate-50 dark:hover:bg-white/10"
             }`}
           >
             Filtros
@@ -1117,7 +1117,7 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Pesquisar revenda..."
-              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white transition-colors"
+              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white transition-colors"
             />
             {search && (
               <button
@@ -1132,7 +1132,7 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
             >
               <option value="Todos">Status (Todos)</option>
               <option value="Ativo">Ativo</option>
@@ -1144,7 +1144,7 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
             <select
               value={serverFilter}
               onChange={(e) => setServerFilter(e.target.value)}
-              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
             >
               <option value="Todos">Servidor (Todos)</option>
               {(serversOptions || []).map((s) => (
@@ -1164,13 +1164,13 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
 
         {/* PAINEL MOBILE INLINE */}
         {mobileFiltersOpen && (
-          <div className="md:hidden mt-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 space-y-2">
+          <div className="md:hidden mt-3 p-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 space-y-2">
             <button
               onClick={() => setArchivedFilter((cur) => (cur === "Não" ? "Sim" : "Não"))}
               className={`w-full h-10 px-3 rounded-lg text-sm font-bold border transition-colors flex items-center justify-between ${
                 archivedFilter === "Sim"
                   ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-                  : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70"
+                  : "bg-white dark:bg-white/5 border-slate-200 dark:border-border text-slate-600 dark:text-muted-foreground"
               }`}
             >
               <span className="flex items-center gap-2"><IconTrash /> Filtrar Lixeira</span>
@@ -1179,7 +1179,7 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+              className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
             >
               <option value="Todos">Status (Todos)</option>
               <option value="Ativo">Ativo</option>
@@ -1189,7 +1189,7 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
             <select
               value={serverFilter}
               onChange={(e) => setServerFilter(e.target.value)}
-              className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+              className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
             >
               <option value="Todos">Servidor (Todos)</option>
               {(serversOptions || []).map((s) => (
@@ -1210,10 +1210,10 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
 
       {!loading && (
         <div
-          className="bg-white dark:bg-[#161b22] border border-zinc-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors"
+          className="bg-white dark:bg-card border border-zinc-200 dark:border-border rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
             <div className="text-sm font-bold text-slate-700 dark:text-white whitespace-nowrap">
               Lista de Revendas{" "}
               <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs">{filtered.length}</span>
@@ -1225,7 +1225,7 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
                 <select
                   value={showCount}
                   onChange={(e) => setShowCount(Number(e.target.value))}
-                  className="bg-transparent border border-slate-300 dark:border-white/10 rounded px-1 py-0.5 outline-none text-slate-700 dark:text-white cursor-pointer hover:border-emerald-500/50 transition-colors"
+                  className="bg-transparent border border-slate-300 dark:border-border rounded px-1 py-0.5 outline-none text-slate-700 dark:text-white cursor-pointer hover:border-emerald-500/50 transition-colors"
                 >
                   <option value={25}>25</option>
                   <option value={50}>50</option>
@@ -1239,7 +1239,7 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
             <table className="w-full text-left border-collapse min-w-[900px]">
               <thead>
   {/* Ajustado: text-xs, text-white/40 e removido bg e tracking-widest */}
-  <tr className="border-b border-slate-200 dark:border-white/10 text-xs font-bold uppercase text-slate-500 dark:text-white/40">
+  <tr className="border-b border-slate-200 dark:border-border text-xs font-bold uppercase text-slate-500 dark:text-muted-foreground">
     <Th width={40}>
       <input 
         type="checkbox" 
@@ -1312,14 +1312,14 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
                     <Td>
                       <div className="flex flex-wrap items-center justify-center gap-1">
                         {((serversByReseller[r.id] || []) as string[]).length === 0 ? (
-                          <span className="inline-flex items-center justify-center min-w-[28px] px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-600 dark:text-white/70 shadow-sm">
+                          <span className="inline-flex items-center justify-center min-w-[28px] px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-border text-xs font-bold text-slate-600 dark:text-muted-foreground shadow-sm">
                             0
                           </span>
                         ) : (
                           (serversByReseller[r.id] || []).map((name, i) => (
                             <span
                               key={`${r.id}-srv-${i}`}
-                              className="inline-flex items-center justify-center h-6 px-2 rounded-lg bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-[11px] font-extrabold text-slate-600 dark:text-white/70 shadow-sm"
+                              className="inline-flex items-center justify-center h-6 px-2 rounded-lg bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-border text-[11px] font-extrabold text-slate-600 dark:text-muted-foreground shadow-sm"
                               title={name}
                             >
                               {name}
@@ -1330,7 +1330,7 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
                     </Td>
 
                     <Td><span className="font-mono font-bold text-slate-700 dark:text-white/80">{r.revenueLabel}</span></Td>
-                    <Td><span className="font-mono font-bold text-slate-500 dark:text-white/40">{r.costLabel}</span></Td>
+                    <Td><span className="font-mono font-bold text-slate-500 dark:text-muted-foreground">{r.costLabel}</span></Td>
                     <Td><span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{r.profitLabel}</span></Td>
 
                     <Td><StatusBadge status={r.status} /></Td>
@@ -1343,7 +1343,7 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
                           </IconActionBtn>
 
                           {msgMenuForId === r.id && (
-                            <div onClick={(e) => e.stopPropagation()} className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b22] z-50 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-1">
+                            <div onClick={(e) => e.stopPropagation()} className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 dark:border-border bg-white dark:bg-card z-50 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-1">
                               <MenuItem icon={<IconSend />} label="Enviar agora" onClick={() => { setMsgMenuForId(null); setMessageText(""); setShowSendNow({ open: true, resellerId: r.id }); }} />
                               <MenuItem icon={<IconClock />} label="Programar" onClick={() => { setMsgMenuForId(null); setScheduleText(""); setScheduleDate(""); setShowScheduleMsg({ open: true, resellerId: r.id }); }} />
                             </div>
@@ -1456,13 +1456,13 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
           <textarea
             value={newAlertText}
             onChange={(e) => setNewAlertText(e.target.value)}
-            className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl p-3 text-slate-800 dark:text-white outline-none min-h-25 transition-colors focus:border-emerald-500/50"
+            className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-xl p-3 text-slate-800 dark:text-white outline-none min-h-25 transition-colors focus:border-emerald-500/50"
             placeholder="Digite o alerta..."
           />
           <div className="mt-4 flex justify-end gap-3">
             <button
               onClick={() => setShowNewAlert({ open: false, target: null, targetName: undefined })}
-              className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/5 font-semibold text-sm transition-colors"
+              className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/5 font-semibold text-sm transition-colors"
             >
               Cancelar
             </button>
@@ -1489,13 +1489,13 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Sessão */}
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+                <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                   Sessão de Envio
                 </label>
                 <select
                   value={selectedSessionNow}
                   onChange={(e) => setSelectedSessionNow(e.target.value)}
-                  className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-sm font-medium text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+                  className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-lg text-sm font-medium text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
                 >
                   {sessionOptions.map(s => (
                     <option key={s.id} value={s.id}>{s.label}</option>
@@ -1505,7 +1505,7 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
 
               {/* Template */}
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+                <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                   Mensagem pronta (opcional)
                 </label>
                 <select
@@ -1517,7 +1517,7 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
                     if (tpl) setMessageText(tpl.content);
                     else setMessageText("");
                   }}
-                  className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors text-sm"
+                  className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors text-sm"
                 >
                   <option value="">Selecionar...</option>
                 {messageTemplates
@@ -1536,10 +1536,10 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
               if (!tpl?.image_url) return null;
               return (
                 <div className="animate-in fade-in zoom-in-95 duration-200">
-                  <span className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+                  <span className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                     Imagem Anexada
                   </span>
-                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-white/10 shadow-sm relative bg-slate-100 dark:bg-black/40">
+                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-border shadow-sm relative bg-slate-100 dark:bg-black/40">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={tpl.image_url} alt="Anexo do template" className="w-full h-full object-cover" />
                   </div>
@@ -1551,14 +1551,14 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
               value={messageText}
               disabled={!!selectedTemplateNowId}
               onChange={(e) => setMessageText(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl p-3 text-slate-800 dark:text-white outline-none min-h-25 focus:border-emerald-500/50 transition-colors disabled:opacity-70"
+              className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-xl p-3 text-slate-800 dark:text-white outline-none min-h-25 focus:border-emerald-500/50 transition-colors disabled:opacity-70"
               placeholder="Digite a mensagem..."
             />
 
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setShowSendNow({ open: false, resellerId: null })}
-                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 font-semibold text-sm transition-colors"
+                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 font-semibold text-sm transition-colors"
               >
                 Cancelar
               </button>
@@ -1588,13 +1588,13 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Sessão */}
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+                <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                   Sessão de Envio
                 </label>
                 <select
                   value={selectedSessionSchedule}
                   onChange={(e) => setSelectedSessionSchedule(e.target.value)}
-                  className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-sm font-medium text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+                  className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-lg text-sm font-medium text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
                 >
                   {sessionOptions.map(s => (
                     <option key={s.id} value={s.id}>{s.label}</option>
@@ -1604,7 +1604,7 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
 
               {/* Template */}
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+                <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                   Mensagem pronta (opcional)
                 </label>
                 <select
@@ -1616,7 +1616,7 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
                     if (tpl) setScheduleText(tpl.content);
                     else setScheduleText("");
                   }}
-                  className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors text-sm"
+                  className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors text-sm"
                 >
                   <option value="">Selecionar mensagem pronta (opcional)...</option>
                 {messageTemplates
@@ -1630,13 +1630,13 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Data e Hora do Envio</label>
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">Data e Hora do Envio</label>
 
               <input
                 type="datetime-local"
                 value={scheduleDate}
                 onChange={(e) => setScheduleDate(e.target.value)}
-                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
               />
             </div>
 
@@ -1646,10 +1646,10 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
               if (!tpl?.image_url) return null;
               return (
                 <div className="animate-in fade-in zoom-in-95 duration-200">
-                  <span className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+                  <span className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                     Imagem Anexada
                   </span>
-                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-white/10 shadow-sm relative bg-slate-100 dark:bg-black/40">
+                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-border shadow-sm relative bg-slate-100 dark:bg-black/40">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={tpl.image_url} alt="Anexo do template" className="w-full h-full object-cover" />
                   </div>
@@ -1658,14 +1658,14 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
             })()}
 
             <div>
-              <label className="block text-xs font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+              <label className="block text-xs font-bold text-slate-500 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Mensagem
               </label>
               <textarea
                 value={scheduleText}
                 disabled={!!selectedTemplateScheduleId}
                 onChange={(e) => setScheduleText(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl p-3 text-slate-800 dark:text-white outline-none min-h-25 focus:border-emerald-500/50 transition-colors disabled:opacity-70"
+                className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-xl p-3 text-slate-800 dark:text-white outline-none min-h-25 focus:border-emerald-500/50 transition-colors disabled:opacity-70"
                 placeholder="Mensagem agendada..."
               />
             </div>
@@ -1673,7 +1673,7 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowScheduleMsg({ open: false, resellerId: null })}
-                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 font-semibold text-sm transition-colors"
+                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 font-semibold text-sm transition-colors"
               >
                 Cancelar
               </button>
@@ -1703,12 +1703,12 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
                 {(scheduledMap[showScheduledModal.resellerId] || []).map((s) => (
                   <div
                     key={s.id}
-                    className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20"
+                    className="p-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20"
                   >
                     {/* Alterado para flex justify-between para acomodar o botão Excluir */}
                     <div className="px-3 sm:px-0 flex items-center justify-between gap-2 mb-2">
 
-                      <div className="text-xs font-extrabold text-slate-600 dark:text-white/70 flex items-center gap-2">
+                      <div className="text-xs font-extrabold text-slate-600 dark:text-muted-foreground flex items-center gap-2">
                         <IconClock />
                         <span>{new Date(s.send_at).toLocaleString("pt-BR")}</span>
                         {s.status ? <span className="text-[10px] opacity-60 ml-1">{String(s.status)}</span> : null}
@@ -1775,7 +1775,7 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
             <div className="pt-3 flex justify-end">
               <button
                 onClick={() => setShowScheduledModal({ open: false, resellerId: null, resellerName: undefined })}
-                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 hover:bg-slate-200 dark:hover:bg-white/5 font-semibold text-sm transition-colors"
+                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-600 dark:text-muted-foreground hover:bg-slate-200 dark:hover:bg-white/5 font-semibold text-sm transition-colors"
               >
                 Fechar
               </button>
@@ -1799,7 +1799,7 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
                 {(resellerAlerts as any[]).map((a) => (
                   <div
                     key={String(a.id)}
-                    className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20"
+                    className="p-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20"
                   >
                     <div className="flex items-start gap-2">
                       <div className="mt-0.5 text-amber-600 dark:text-amber-500">
@@ -1811,7 +1811,7 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
                           {String(a.message ?? a.text ?? a.alert_text ?? "Alerta")}
                         </div>
                         {a.created_at ? (
-                          <div className="mt-1 text-[11px] text-slate-500 dark:text-white/40">
+                          <div className="mt-1 text-[11px] text-slate-500 dark:text-muted-foreground">
                             {new Date(String(a.created_at)).toLocaleString("pt-BR")}
                           </div>
                         ) : null}
@@ -1833,7 +1833,7 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
             <div className="pt-3 flex justify-end">
               <button
                 onClick={() => setShowAlertList({ open: false, target: null, targetName: undefined })}
-                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 hover:bg-slate-200 dark:hover:bg-white/5 font-semibold text-sm transition-colors"
+                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-600 dark:text-muted-foreground hover:bg-slate-200 dark:hover:bg-white/5 font-semibold text-sm transition-colors"
               >
                 Fechar
               </button>
@@ -1849,25 +1849,25 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
         >
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+              <label className="block text-xs font-bold text-slate-500 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Nome do template
               </label>
               <input
                 value={newTemplateName}
                 onChange={(e) => setNewTemplateName(e.target.value)}
-                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
                 placeholder="Ex: Cobrança educada"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+              <label className="block text-xs font-bold text-slate-500 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Conteúdo
               </label>
               <textarea
                 value={newTemplateContent}
                 onChange={(e) => setNewTemplateContent(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl p-3 text-slate-800 dark:text-white outline-none min-h-25 focus:border-emerald-500/50 transition-colors"
+                className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-xl p-3 text-slate-800 dark:text-white outline-none min-h-25 focus:border-emerald-500/50 transition-colors"
                 placeholder="Digite o conteúdo..."
               />
             </div>
@@ -1875,7 +1875,7 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowNewTemplate({ open: false, target: "now" })}
-                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 font-semibold text-sm transition-colors"
+                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 font-semibold text-sm transition-colors"
               >
                 Cancelar
               </button>
@@ -1985,8 +1985,8 @@ function Modal({ title, children, onClose }: { title: string, children: React.Re
   if (typeof document === "undefined") return null;
   return createPortal(
     <div onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }} className="fixed inset-0 bg-black/70 backdrop-blur-sm grid place-items-center z-[99999] p-4 animate-in fade-in duration-200">
-      <div onMouseDown={(e) => e.stopPropagation()} className="w-full max-w-lg bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-white/5">
+      <div onMouseDown={(e) => e.stopPropagation()} className="w-full max-w-lg bg-white dark:bg-card border border-slate-200 dark:border-border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-border bg-slate-50 dark:bg-white/5">
           <div className="font-bold text-slate-800 dark:text-white tracking-tight">{title}</div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 transition-colors"><IconX /></button>
         </div>

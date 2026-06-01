@@ -986,7 +986,7 @@ const { error } = await supabaseBrowser.rpc("delete_client_forever", {
 
 return (
 <div
-  className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors"
+  className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors"
   onClick={closeAllPopups}
 >
 
@@ -1005,7 +1005,7 @@ return (
     e.stopPropagation();
     setShowPapaTestes(true);
   }}
-  className="hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-bold border transition-colors items-center justify-center gap-1.5 bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-400 hover:border-violet-200 dark:hover:border-violet-500/30"
+  className="hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-bold border transition-colors items-center justify-center gap-1.5 bg-white dark:bg-white/5 border-slate-200 dark:border-border text-slate-500 dark:text-white/60 hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-400 hover:border-violet-200 dark:hover:border-violet-500/30"
 >
   🕵️ Papa Testes
 </button>
@@ -1018,7 +1018,7 @@ return (
   className={`hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-bold border transition-colors items-center justify-center ${
     archivedFilter === "Sim"
       ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-      : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60"
+      : "bg-white dark:bg-white/5 border-slate-200 dark:border-border text-slate-500 dark:text-white/60"
   }`}
 >
   {archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
@@ -1039,11 +1039,11 @@ return (
 
   {/* Barra de Filtros (Padronizada) */}
 <div
-  className="p-0 px-3 sm:px-0 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
+  className="p-0 px-3 sm:px-0 md:p-4 bg-transparent md:bg-white md:dark:bg-card border-0 md:border md:border-slate-200 md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
   onClick={(e) => e.stopPropagation()}
 >
 
-  <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-white/40 tracking-wider mb-2">
+  <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-muted-foreground tracking-wider mb-2">
     Filtros Rápidos
   </div>
 
@@ -1053,7 +1053,7 @@ return (
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Pesquisar..."
-        className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+        className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
       />
       {search && (
         <button
@@ -1071,7 +1071,7 @@ return (
       className={`h-10 px-3 rounded-lg border font-bold text-sm transition-colors ${
         (statusFilter !== "Todos" || serverFilter !== "Todos" || archivedFilter === "Sim")
           ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-          : "border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/10"
+          : "border-slate-200 dark:border-border bg-white dark:bg-white/5 text-slate-600 dark:text-muted-foreground hover:bg-slate-50 dark:hover:bg-white/10"
       }`}
       title="Filtros"
     >
@@ -1085,7 +1085,7 @@ return (
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Pesquisar..."
-        className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+        className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
       />
       {search && (
         <button
@@ -1153,7 +1153,7 @@ return (
   </div>
 
   {mobileFiltersOpen && (
-    <div className="md:hidden mt-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 space-y-2">
+    <div className="md:hidden mt-3 p-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 space-y-2">
 
       <button
 onClick={(e) => {
@@ -1165,7 +1165,7 @@ onClick={(e) => {
         className={`w-full h-10 px-3 rounded-lg text-sm font-bold border transition-colors flex items-center justify-between ${
           archivedFilter === "Sim"
             ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-            : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70"
+            : "bg-white dark:bg-white/5 border-slate-200 dark:border-border text-slate-600 dark:text-muted-foreground"
         }`}
         title="Filtrar Lixeira"
       >
@@ -1232,17 +1232,17 @@ onClick={(e) => {
 
 
       {loading && (
-  <div className="p-12 text-center text-slate-400 dark:text-white/40 animate-pulse bg-white dark:bg-[#161b22] rounded-xl border border-slate-200 dark:border-white/5">
+  <div className="p-12 text-center text-slate-400 dark:text-muted-foreground animate-pulse bg-white dark:bg-card rounded-xl border border-slate-200 dark:border-border">
     Carregando dados...
   </div>
 )}
 
 {!loading && (
     <div
-      className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0"
+      className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0"
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
         <div className="text-sm font-bold text-slate-700 dark:text-white whitespace-nowrap">
           Lista de Testes{" "}
           <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs">
@@ -1256,7 +1256,7 @@ onClick={(e) => {
             <select
               value={showCount}
               onChange={(e) => setShowCount(Number(e.target.value))}
-              className="bg-transparent border border-slate-300 dark:border-white/10 rounded px-1 py-0.5 outline-none text-slate-700 dark:text-white cursor-pointer hover:border-emerald-500/50 transition-colors"
+              className="bg-transparent border border-slate-300 dark:border-border rounded px-1 py-0.5 outline-none text-slate-700 dark:text-white cursor-pointer hover:border-emerald-500/50 transition-colors"
             >
               <option value={25}>25</option>
               <option value={50}>50</option>
@@ -1269,7 +1269,7 @@ onClick={(e) => {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[980px]">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-white/10 text-xs font-bold uppercase text-slate-500 dark:text-white/40">
+                <tr className="border-b border-slate-200 dark:border-border text-xs font-bold uppercase text-slate-500 dark:text-muted-foreground">
                   <ThSort label="Teste" active={sortKey === "name"} dir={sortDir} onClick={() => toggleSort("name")} />
                   <ThSort label="Vencimento" active={sortKey === "due"} dir={sortDir} onClick={() => toggleSort("due")} />
                   <ThSort label="Status" active={sortKey === "status"} dir={sortDir} onClick={() => toggleSort("status")} />
@@ -1388,7 +1388,7 @@ onClick={(e) => {
                           className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
                             r.converted
                               ? "bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-500 border-emerald-200 dark:border-emerald-500/20"
-                              : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/50 border-slate-200 dark:border-white/10"
+                              : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/50 border-slate-200 dark:border-border"
                           }`}
                           title={r.converted ? "Teste convertido em cliente" : "Ainda não convertido"}
                         >
@@ -1397,11 +1397,11 @@ onClick={(e) => {
                       </Td>
 
                       <Td>
-                          <span className="text-slate-600 dark:text-white/70">{r.server}</span>
+                          <span className="text-slate-600 dark:text-muted-foreground">{r.server}</span>
                         </Td>
 
                         <Td>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border border-slate-200 dark:border-white/10 uppercase">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border border-slate-200 dark:border-border uppercase">
                             {r.technology || "—"}
                           </span>
                         </Td>
@@ -1460,7 +1460,7 @@ onClick={(e) => {
                             {msgMenuForId === r.id && (
                               <div
                                 onClick={(e) => e.stopPropagation()}
-                                className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0f141a] z-50 shadow-2xl overflow-hidden"
+                                className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 dark:border-border bg-white dark:bg-background z-50 shadow-2xl overflow-hidden"
                               >
                                 <MenuItem
                                   icon={<IconSend />}
@@ -1544,7 +1544,7 @@ onClick={(e) => {
 
 {visible.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="p-8 text-center text-slate-400 dark:text-white/40 italic">
+                    <td colSpan={8} className="p-8 text-center text-slate-400 dark:text-muted-foreground italic">
                       Nenhum teste encontrado.
                     </td>
                   </tr>
@@ -1609,10 +1609,10 @@ onClick={(e) => {
           {(scheduledMap[showScheduledModal.trialId] || []).map((s) => (
             <div
               key={s.id}
-              className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20"
+              className="p-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20"
             >
               <div className="flex items-center justify-between gap-2 mb-2">
-                <div className="text-xs font-extrabold text-slate-600 dark:text-white/70 flex items-center gap-2">
+                <div className="text-xs font-extrabold text-slate-600 dark:text-muted-foreground flex items-center gap-2">
                   <IconClock />
                   <span>{new Date(s.send_at).toLocaleString("pt-BR")}</span>
                 </div>
@@ -1651,7 +1651,7 @@ onClick={(e) => {
       <div className="pt-3 flex justify-end">
         <button
           onClick={() => setShowScheduledModal({ open: false, trialId: null, trialName: undefined })}
-          className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 hover:bg-slate-200 dark:hover:bg-white/5 font-semibold text-sm transition-colors"
+          className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-600 dark:text-muted-foreground hover:bg-slate-200 dark:hover:bg-white/5 font-semibold text-sm transition-colors"
         >
           Fechar
         </button>
@@ -1673,13 +1673,13 @@ onClick={(e) => {
     <div className="space-y-4">
 
       <div>
-        <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+        <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
           Sessão de Envio
         </label>
         <select
           value={selectedSessionNow}
           onChange={(e) => setSelectedSessionNow(e.target.value)}
-          className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-sm font-medium text-slate-800 dark:text-white outline-none focus:border-sky-500 transition-colors"
+          className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-lg text-sm font-medium text-slate-800 dark:text-white outline-none focus:border-sky-500 transition-colors"
         >
           {sessionOptions.map(s => (
             <option key={s.id} value={s.id}>{s.label}</option>
@@ -1688,7 +1688,7 @@ onClick={(e) => {
       </div>
 
       <div>
-        <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+        <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
           Mensagem pronta (opcional)
         </label>
         <select
@@ -1703,7 +1703,7 @@ onClick={(e) => {
               setMessageText("");
             }
           }}
-          className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-sky-500 transition-colors text-sm"
+          className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-xl text-slate-800 dark:text-white outline-none focus:border-sky-500 transition-colors text-sm"
         >
           <option value="">Selecionar...</option>
           {Object.entries(
@@ -1729,10 +1729,10 @@ onClick={(e) => {
         if (!tpl?.image_url) return null;
         return (
           <div className="animate-in fade-in zoom-in-95 duration-200">
-            <span className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+            <span className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
               Imagem Anexada
             </span>
-            <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-white/10 shadow-sm relative bg-slate-100 dark:bg-black/40">
+            <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-border shadow-sm relative bg-slate-100 dark:bg-black/40">
               <img src={tpl.image_url} alt="Anexo do template" className="w-full h-full object-cover" />
             </div>
           </div>
@@ -1746,14 +1746,14 @@ onClick={(e) => {
           if (selectedTemplateNowId) setSelectedTemplateNowId("");
           setMessageText(e.target.value);
         }}
-        className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg p-3 text-slate-800 dark:text-white outline-none min-h-[120px]"
+        className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-lg p-3 text-slate-800 dark:text-white outline-none min-h-[120px]"
         placeholder="Digite a mensagem para enviar agora..."
       />
       
       <div className="flex justify-end gap-2">
         <button
           onClick={() => setShowSendNow({ open: false, trialId: null })}
-          className="px-4 py-2 rounded-lg border border-slate-300 dark:border-white/10 text-slate-600 dark:text-white/60 text-sm font-bold"
+          className="px-4 py-2 rounded-lg border border-slate-300 dark:border-border text-slate-600 dark:text-white/60 text-sm font-bold"
         >
           Cancelar
         </button>
@@ -1781,13 +1781,13 @@ onClick={(e) => {
     <div className="space-y-4">
 
       <div>
-        <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+        <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
           Sessão de Envio
         </label>
         <select
           value={selectedSessionSchedule}
           onChange={(e) => setSelectedSessionSchedule(e.target.value)}
-          className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-sm font-medium text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors"
+          className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-lg text-sm font-medium text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors"
         >
           {sessionOptions.map(s => (
             <option key={s.id} value={s.id}>{s.label}</option>
@@ -1801,12 +1801,12 @@ onClick={(e) => {
           type="datetime-local"
           value={scheduleDate}
           onChange={(e) => setScheduleDate(e.target.value)}
-          className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none"
+          className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-lg text-slate-800 dark:text-white outline-none"
         />
       </div>
 
       <div>
-        <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+        <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
           Mensagem pronta (opcional)
         </label>
         <select
@@ -1821,7 +1821,7 @@ onClick={(e) => {
               setScheduleText("");
             }
           }}
-          className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+          className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
         >
           <option value="">Selecionar...</option>
           {Object.entries(
@@ -1847,10 +1847,10 @@ onClick={(e) => {
         if (!tpl?.image_url) return null;
         return (
           <div className="animate-in fade-in zoom-in-95 duration-200">
-            <span className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+            <span className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
               Imagem Anexada
             </span>
-            <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-white/10 shadow-sm relative bg-slate-100 dark:bg-black/40">
+            <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-border shadow-sm relative bg-slate-100 dark:bg-black/40">
               <img src={tpl.image_url} alt="Anexo do template" className="w-full h-full object-cover" />
             </div>
           </div>
@@ -1866,7 +1866,7 @@ onClick={(e) => {
             if (selectedTemplateScheduleId) setSelectedTemplateScheduleId("");
             setScheduleText(e.target.value);
           }}
-          className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg p-3 text-slate-800 dark:text-white outline-none min-h-[120px]"
+          className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-lg p-3 text-slate-800 dark:text-white outline-none min-h-[120px]"
           placeholder="Digite a mensagem para agendar..."
         />
       </div>
@@ -1874,7 +1874,7 @@ onClick={(e) => {
       <div className="flex justify-end gap-2">
         <button
           onClick={() => setShowScheduleMsg({ open: false, trialId: null })}
-          className="px-4 py-2 rounded-lg border border-slate-300 dark:border-white/10 text-slate-600 dark:text-white/60 text-sm font-bold"
+          className="px-4 py-2 rounded-lg border border-slate-300 dark:border-border text-slate-600 dark:text-white/60 text-sm font-bold"
         >
           Cancelar
         </button>
@@ -1962,7 +1962,7 @@ function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...rest}
-      className={`w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white ${className}`}
+      className={`w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white ${className}`}
     />
   );
 }
@@ -1985,7 +1985,7 @@ function StatusBadge({ status }: { status: TrialStatus }) {
       : {
           bg: "bg-slate-100 dark:bg-white/5",
           text: "text-slate-600 dark:text-white/50",
-          border: "border-slate-200 dark:border-white/10",
+          border: "border-slate-200 dark:border-border",
         };
 
   return (
@@ -2072,9 +2072,9 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
     >
       <div
         onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-lg bg-white dark:bg-[#0f141a] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden"
+        className="w-full max-w-lg bg-white dark:bg-background border border-slate-200 dark:border-border rounded-xl shadow-2xl overflow-hidden"
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
           <div className="font-bold text-slate-800 dark:text-white">{title}</div>
           <button
             onClick={onClose}
@@ -2193,11 +2193,10 @@ const filtered = useMemo(() => {
     >
       <div
         onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-3xl bg-white dark:bg-[#0f141a] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
-        style={{ maxHeight: "90dvh" }}
+        className="w-full max-w-3xl bg-white dark:bg-background border border-slate-200 dark:border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90dvh]"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 shrink-0">
           <div>
             <h2 className="font-bold text-slate-800 dark:text-white text-base flex items-center gap-2">
               🕵️ Papa Testes
@@ -2205,7 +2204,7 @@ const filtered = useMemo(() => {
                 {records.length} registro{records.length !== 1 ? "s" : ""}
               </span>
             </h2>
-            <p className="text-xs text-slate-400 dark:text-white/40 mt-0.5">Histórico de todos os testes e clientes cadastrados.</p>
+            <p className="text-xs text-slate-400 dark:text-muted-foreground mt-0.5">Histórico de todos os testes e clientes cadastrados.</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-white/60">
             <IconX />
@@ -2213,13 +2212,13 @@ const filtered = useMemo(() => {
         </div>
 
         {/* Filtros */}
-        <div className="px-5 py-3 border-b border-slate-200 dark:border-white/10 shrink-0 flex items-center gap-2 flex-wrap">
+        <div className="px-5 py-3 border-b border-slate-200 dark:border-border shrink-0 flex items-center gap-2 flex-wrap">
           <div className="flex-1 min-w-[180px] relative">
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por nome, WhatsApp, usuário..."
-              className="w-full h-9 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-violet-500/50 text-slate-700 dark:text-white"
+              className="w-full h-9 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-violet-500/50 text-slate-700 dark:text-white"
             />
             {search && (
               <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-500">
@@ -2230,7 +2229,7 @@ const filtered = useMemo(() => {
           <select
   value={filterType}
   onChange={(e) => setFilterType(e.target.value as any)}
-  className="h-9 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none text-slate-700 dark:text-white"
+  className="h-9 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none text-slate-700 dark:text-white"
 >
   <option value="todos">Todos</option>
   <option value="trial">Só Testes</option>
@@ -2240,7 +2239,7 @@ const filtered = useMemo(() => {
 <select
   value={filterServer}
   onChange={(e) => setFilterServer(e.target.value)}
-  className="h-9 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none text-slate-700 dark:text-white"
+  className="h-9 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none text-slate-700 dark:text-white"
 >
   <option value="Todos">Servidor (Todos)</option>
   {uniqueServers.map((s) => (
@@ -2252,15 +2251,15 @@ const filtered = useMemo(() => {
         {/* Lista */}
         <div className="overflow-y-auto flex-1 px-5 py-4 space-y-3">
           {loading ? (
-            <div className="text-center text-slate-400 dark:text-white/40 animate-pulse py-8">Carregando...</div>
+            <div className="text-center text-slate-400 dark:text-muted-foreground animate-pulse py-8">Carregando...</div>
           ) : Object.keys(grouped).length === 0 ? (
-            <div className="text-center text-slate-400 dark:text-white/40 py-8 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-xl">
+            <div className="text-center text-slate-400 dark:text-muted-foreground py-8 border-2 border-dashed border-slate-200 dark:border-border rounded-xl">
               Nenhum registro encontrado.
             </div>
           ) : (
             Object.entries(grouped).map(([key, recs]) => (
-              <div key={key} className="border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10">
+              <div key={key} className="border border-slate-200 dark:border-border rounded-xl overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-border">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-sm text-slate-700 dark:text-white">
                       {recs[0]?.client_name || "—"}
@@ -2277,7 +2276,7 @@ const filtered = useMemo(() => {
                     )}
                   </div>
                   {recs[0]?.phone_e164 && (
-                    <span className="text-xs text-slate-400 dark:text-white/40 font-mono">{recs[0].phone_e164}</span>
+                    <span className="text-xs text-slate-400 dark:text-muted-foreground font-mono">{recs[0].phone_e164}</span>
                   )}
                 </div>
 
@@ -2296,7 +2295,7 @@ const filtered = useMemo(() => {
                           {new Date(r.created_at).toLocaleDateString("pt-BR")}
                         </span>
                         {r.server_name && (
-                          <span className="text-xs text-slate-600 dark:text-white/70 truncate">{r.server_name}</span>
+                          <span className="text-xs text-slate-600 dark:text-muted-foreground truncate">{r.server_name}</span>
                         )}
                         {r.username && (
                           <span className="text-xs font-mono text-slate-500 dark:text-white/50 truncate">{r.username}</span>
@@ -2331,8 +2330,8 @@ const filtered = useMemo(() => {
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 shrink-0 flex justify-between items-center">
-          <span className="text-xs text-slate-400 dark:text-white/40">
+        <div className="px-5 py-3 border-t border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 shrink-0 flex justify-between items-center">
+          <span className="text-xs text-slate-400 dark:text-muted-foreground">
             {filtered.length} de {records.length} registro{records.length !== 1 ? "s" : ""}
           </span>
           <button onClick={onClose} className="px-4 py-2 rounded-lg bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-white font-bold text-xs hover:bg-slate-200 dark:hover:bg-white/20 transition-colors">

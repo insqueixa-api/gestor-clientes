@@ -399,11 +399,11 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl flex flex-col max-h-[90vh]"
+        className="w-full max-w-lg bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 py-4 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 rounded-t-xl flex items-center justify-between">
+        <div className="px-5 py-4 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 rounded-t-xl flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold text-slate-800 dark:text-white">📖 {help.title}</h2>
             <a
@@ -439,7 +439,7 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
           </ol>
 
           {help.warnings && help.warnings.length > 0 && (
-            <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-white/10">
+            <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-border">
               {help.warnings.map((w, i) => (
                 <p key={i} className="text-xs font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-lg px-3 py-2">
                   {w}
@@ -449,7 +449,7 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
           )}
         </div>
 
-        <div className="px-5 py-3 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 rounded-b-xl">
+        <div className="px-5 py-3 border-t border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 rounded-b-xl">
           <button
             onClick={onClose}
             className="w-full h-9 rounded-lg bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-white font-bold text-sm hover:bg-slate-300 dark:hover:bg-white/20 transition-colors"
@@ -465,7 +465,7 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
 // ─── UI (padrão Admin) ────────────────────────────────────────────────────────
 function Label({ children }: { children: ReactNode }) {
   return (
-    <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
+    <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">
       {children}
     </label>
   );
@@ -475,7 +475,7 @@ function Input({ className = "", ...props }: InputHTMLAttributes<HTMLInputElemen
   return (
     <input
       {...props}
-      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     />
   );
 }
@@ -484,7 +484,7 @@ function Select({ className = "", ...props }: SelectHTMLAttributes<HTMLSelectEle
   return (
     <select
       {...props}
-      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     />
   );
 }
@@ -493,7 +493,7 @@ function Textarea({ className = "", ...props }: TextareaHTMLAttributes<HTMLTextA
   return (
     <textarea
       {...props}
-      className={`w-full px-3 py-2.5 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors resize-none ${className}`}
+      className={`w-full px-3 py-2.5 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors resize-none ${className}`}
     />
   );
 }
@@ -596,11 +596,11 @@ function GatewayModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl flex flex-col max-h-[90vh]"
+        className="w-full max-w-2xl bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* HEADER MODAL */}
-        <div className="px-6 py-4 border-b border-slate-200 dark:border-white/10 flex justify-between items-center bg-slate-50 dark:bg-white/5 rounded-t-xl">
+        <div className="px-6 py-4 border-b border-slate-200 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5 rounded-t-xl">
           <div>
             <h2 className="text-lg font-bold text-slate-800 dark:text-white">
               {isEdit ? "Editar Integração" : "Nova Integração de Pagamento"}
@@ -644,7 +644,7 @@ function GatewayModal({
                         className={`w-full p-4 rounded-xl border text-left transition-all ${
                           selected
                             ? "border-emerald-500/40 bg-emerald-50/70 dark:bg-emerald-500/10"
-                            : "border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b22] hover:bg-slate-50 dark:hover:bg-white/5"
+                            : "border-slate-200 dark:border-border bg-white dark:bg-card hover:bg-slate-50 dark:hover:bg-white/5"
                         }`}
                       >
                         <div className="flex items-start gap-3">
@@ -662,7 +662,7 @@ function GatewayModal({
                               {m.currencies.map((c) => (
                                 <span
                                   key={c}
-                                  className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/70 border border-slate-200 dark:border-white/10"
+                                  className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-muted-foreground border border-slate-200 dark:border-border"
                                 >
                                   {c}
                                 </span>
@@ -705,9 +705,9 @@ function GatewayModal({
           {/* Conteúdo do tipo selecionado */}
           {meta && (
             <>
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-border">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 flex items-center justify-center text-xl">
+                  <div className="w-10 h-10 rounded-xl bg-white dark:bg-black/20 border border-slate-200 dark:border-border flex items-center justify-center text-xl">
                     {meta.icon}
                   </div>
                   <div className="min-w-0">
@@ -781,14 +781,14 @@ function GatewayModal({
                     )}
 
                     {field.hint && (
-                      <p className="text-[11px] text-slate-400 dark:text-white/40 mt-1">{field.hint}</p>
+                      <p className="text-[11px] text-slate-400 dark:text-muted-foreground mt-1">{field.hint}</p>
                     )}
                   </div>
                 ))}
               </div>
 
               {/* Extras */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-200 dark:border-white/10">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-200 dark:border-border">
                 <div>
                   <Label>Prioridade</Label>
                   <Select value={priority} onChange={(e) => setPriority(Number(e.target.value))}>
@@ -805,7 +805,7 @@ function GatewayModal({
                     className={`w-full h-10 px-3 rounded-lg border text-sm font-bold transition-colors ${
                       isActive
                         ? "border-emerald-500/30 bg-emerald-50/70 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-                        : "border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 text-slate-600 dark:text-white/60"
+                        : "border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 text-slate-600 dark:text-white/60"
                     }`}
                   >
                     {isActive ? "✅ Ativo" : "⭕ Inativo"}
@@ -852,7 +852,7 @@ function GatewayModal({
         </div>
 
         {/* FOOTER MODAL */}
-        <div className="px-6 py-4 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex justify-end gap-2 rounded-b-xl">
+        <div className="px-6 py-4 border-t border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 flex justify-end gap-2 rounded-b-xl">
           <button
             onClick={onClose}
             className="px-4 py-2 text-slate-500 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg text-sm font-bold transition-colors"
@@ -894,14 +894,14 @@ function GatewayCard({
 
   return (
     <div
-      className={`bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-sm overflow-hidden transition-opacity ${
+      className={`bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-sm overflow-hidden transition-opacity ${
         gateway.is_active ? "" : "opacity-70"
       }`}
     >
       {/* Header */}
-      <div className="px-4 py-3 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 flex items-start justify-between gap-3">
+      <div className="px-4 py-3 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-border flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 flex items-center justify-center text-xl shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-white dark:bg-black/20 border border-slate-200 dark:border-border flex items-center justify-center text-xl shrink-0">
             {meta.icon}
           </div>
 
@@ -911,7 +911,7 @@ function GatewayCard({
             </h3>
 
             <div className="flex flex-wrap gap-1.5 mt-1">
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-black/20 text-slate-600 dark:text-white/70 border border-slate-200 dark:border-white/10">
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-black/20 text-slate-600 dark:text-muted-foreground border border-slate-200 dark:border-border">
                 {priorityLabel}
               </span>
 
@@ -951,7 +951,7 @@ function GatewayCard({
           {gateway.currency.map((c) => (
             <span
               key={c}
-              className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/70 border border-slate-200 dark:border-white/10"
+              className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-muted-foreground border border-slate-200 dark:border-border"
             >
               {c}
             </span>
@@ -970,10 +970,10 @@ function GatewayCard({
 
             return (
               <div key={field.key} className="flex items-center justify-between gap-2 text-xs">
-                <span className="text-slate-400 dark:text-white/40 font-medium truncate">
+                <span className="text-slate-400 dark:text-muted-foreground font-medium truncate">
                   {field.label}:
                 </span>
-                <span className="text-slate-600 dark:text-white/70 font-mono truncate max-w-[55%]">
+                <span className="text-slate-600 dark:text-muted-foreground font-mono truncate max-w-[55%]">
                   {masked}
                 </span>
               </div>
@@ -982,10 +982,10 @@ function GatewayCard({
         </div>
 
         {/* Ações */}
-        <div className="flex gap-2 pt-2 border-t border-slate-200 dark:border-white/10">
+        <div className="flex gap-2 pt-2 border-t border-slate-200 dark:border-border">
           <button
             onClick={onEdit}
-            className="flex-1 h-9 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 text-slate-700 dark:text-white/70 text-xs font-bold hover:bg-slate-100 dark:hover:bg-white/5 transition-colors flex items-center justify-center gap-2"
+            className="flex-1 h-9 rounded-lg border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 text-slate-700 dark:text-muted-foreground text-xs font-bold hover:bg-slate-100 dark:hover:bg-white/5 transition-colors flex items-center justify-center gap-2"
           >
             <IconEdit />
             Editar
@@ -1127,7 +1127,7 @@ export default function PagamentosPage() {
   );
 
   return (
-  <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
+  <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors">
     
     {/* HEADER (padrão Clientes/Trials) */}
     <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
@@ -1159,7 +1159,7 @@ export default function PagamentosPage() {
             <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : gateways.length === 0 ? (
-          <div className="bg-white dark:bg-[#161b22] border border-dashed border-slate-300 dark:border-white/10 rounded-xl p-10 text-center mx-0">
+          <div className="bg-white dark:bg-card border border-dashed border-slate-300 dark:border-border rounded-xl p-10 text-center mx-0">
             <div className="text-5xl mb-3">💳</div>
             <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">
               Nenhuma integração configurada
@@ -1181,8 +1181,8 @@ export default function PagamentosPage() {
           <div className="space-y-6">
             {/* BRL */}
             {brlGateways.length > 0 && (
-              <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible -mx-3 sm:mx-0">
-                <div className="px-3 sm:px-5 py-3 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+              <div className="bg-white dark:bg-card border-y sm:border border-slate-200 dark:border-border rounded-none sm:rounded-xl shadow-sm overflow-visible -mx-3 sm:mx-0">
+                <div className="px-3 sm:px-5 py-3 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-border flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <h2 className="text-sm font-bold text-slate-800 dark:text-white">Gateways BRL</h2>
                     <span className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold px-2 py-0.5 rounded">
@@ -1216,8 +1216,8 @@ export default function PagamentosPage() {
 
             {/* Internacionais */}
             {intlGateways.length > 0 && (
-              <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible -mx-3 sm:mx-0">
-                <div className="px-3 sm:px-5 py-3 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+              <div className="bg-white dark:bg-card border-y sm:border border-slate-200 dark:border-border rounded-none sm:rounded-xl shadow-sm overflow-visible -mx-3 sm:mx-0">
+                <div className="px-3 sm:px-5 py-3 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-border flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <h2 className="text-sm font-bold text-slate-800 dark:text-white">Gateways Internacionais</h2>
                     <span className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold px-2 py-0.5 rounded">

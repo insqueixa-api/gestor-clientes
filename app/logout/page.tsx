@@ -16,7 +16,7 @@ export default function LogoutPage() {
   }, []);
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-slate-50 dark:bg-[#0f141a]">
+    <div className="flex items-center justify-center min-h-screen bg-slate-50 dark:bg-background">
       <div className="animate-pulse text-slate-400 font-medium">Encerrando sessão...</div>
     </div>
   );

@@ -432,7 +432,7 @@ const totalInvested = useMemo(() => {
 
   return (
 // ✅ Ajuste: pt-0 px-0 no mobile (full width), sm:px-6 no desktop
-<div className="space-y-4 sm:space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
+<div className="space-y-4 sm:space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors">
 
   {/* HEADER CLEAN */}
   <div className="flex items-center justify-between gap-3 pb-0 mb-4 px-4 sm:px-0 pt-4 sm:pt-0">
@@ -446,7 +446,7 @@ const totalInvested = useMemo(() => {
         <span
           className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
             reseller.is_archived
-              ? "bg-slate-500/10 text-slate-500 dark:text-white/40 border-slate-500/20"
+              ? "bg-slate-500/10 text-slate-500 dark:text-muted-foreground border-slate-500/20"
               : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
           }`}
         >
@@ -464,7 +464,7 @@ const totalInvested = useMemo(() => {
       {/* Voltar (Só Desktop) */}
       <Link
         href="/admin/revendedor"
-        className="hidden sm:inline-flex h-9 px-3 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 font-bold text-xs hover:bg-slate-200 dark:hover:bg-white/5 transition-all items-center justify-center"
+        className="hidden sm:inline-flex h-9 px-3 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 font-bold text-xs hover:bg-slate-200 dark:hover:bg-white/5 transition-all items-center justify-center"
       >
         Voltar
       </Link>
@@ -489,25 +489,25 @@ const totalInvested = useMemo(() => {
   {/* COLUNA ESQUERDA */}
   <div className="space-y-4">
     {/* 1. CARD RESUMO */}
-    <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 sm:rounded-xl p-4 shadow-sm transition-colors">
+    <div className="bg-white dark:bg-card border-y sm:border border-slate-200 dark:border-border sm:rounded-xl p-4 shadow-sm transition-colors">
             <h3 className="text-[11px] font-bold text-slate-400 dark:text-white/20 uppercase mb-4 tracking-widest">
               Resumo da Conta
             </h3>
             <div className="space-y-3 text-sm">
-              <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-white/5">
-                <span className="text-slate-500 dark:text-white/40 font-medium">Desde</span>
+              <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-border">
+                <span className="text-slate-500 dark:text-muted-foreground font-medium">Desde</span>
                 <span className="font-bold text-slate-700 dark:text-white/90 text-right">
                   {fmtDate(reseller.created_at)}
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-slate-500 dark:text-white/40 font-medium">Servidores</span>
+                <span className="text-slate-500 dark:text-muted-foreground font-medium">Servidores</span>
                 <span className="font-bold text-slate-800 dark:text-white">{servers.length}</span>
               </div>
 
               {/* TOTAL INVESTIDO */}
-              <div className="pt-4 mt-2 border-t border-slate-100 dark:border-white/5 flex justify-between items-center bg-slate-50 dark:bg-white/5 p-3 rounded-lg">
-                <span className="text-slate-500 dark:text-white/40 font-bold text-[11px] uppercase tracking-tight">
+              <div className="pt-4 mt-2 border-t border-slate-100 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5 p-3 rounded-lg">
+                <span className="text-slate-500 dark:text-muted-foreground font-bold text-[11px] uppercase tracking-tight">
                   Total Investido
                 </span>
                 <div className="text-right font-mono font-bold text-base text-emerald-600 dark:text-emerald-400">
@@ -518,14 +518,14 @@ const totalInvested = useMemo(() => {
           </div>
 
           {/* 2. CARD CONTATOS */}
-          <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-5 shadow-sm transition-colors">
+          <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl p-5 shadow-sm transition-colors">
             <h3 className="text-[11px] font-bold text-slate-400 dark:text-white/20 uppercase mb-4 tracking-widest">
               Contatos e Observações
             </h3>
             <div className="space-y-3 text-sm">
               {/* Email */}
-              <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-white/5">
-                <span className="text-slate-500 dark:text-white/40 font-medium">Email</span>
+              <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-border">
+                <span className="text-slate-500 dark:text-muted-foreground font-medium">Email</span>
                 <span
                   className="font-bold text-slate-800 dark:text-white text-right truncate max-w-[150px]"
                   title={reseller.email ?? ""}
@@ -535,8 +535,8 @@ const totalInvested = useMemo(() => {
               </div>
 
               {/* WhatsApp Display */}
-              <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-white/5">
-                <span className="text-slate-500 dark:text-white/40 font-medium">Telefone</span>
+              <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-border">
+                <span className="text-slate-500 dark:text-muted-foreground font-medium">Telefone</span>
                 <span className="font-mono font-bold text-slate-800 dark:text-white text-right">
                   {formatPhoneDisplay(reseller.whatsapp_e164)}
                 </span>
@@ -544,7 +544,7 @@ const totalInvested = useMemo(() => {
 
               {/* WhatsApp Link */}
 <div className="flex justify-between items-center">
-  <span className="text-slate-500 dark:text-white/40 font-medium">WhatsApp</span>
+  <span className="text-slate-500 dark:text-muted-foreground font-medium">WhatsApp</span>
   {reseller.whatsapp_username ? (
     <a
       href={`https://wa.me/${reseller.whatsapp_e164?.replace(/\D/g, "")}`}
@@ -571,7 +571,7 @@ const totalInvested = useMemo(() => {
 </div>
 
               {/* Opt-in */}
-              <div className="py-2 border-t border-b border-slate-100 dark:border-white/5">
+              <div className="py-2 border-t border-b border-slate-100 dark:border-border">
                 <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase mb-1">
                   Receber mensagem?
                 </div>
@@ -589,7 +589,7 @@ const totalInvested = useMemo(() => {
               {/* Notas */}
               <div>
                 <div className="text-[11px] font-bold text-slate-500 dark:text-white/30 mb-1.5">Observações</div>
-                <div className="text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-black/20 p-3 rounded-xl text-xs leading-relaxed border border-slate-200 dark:border-white/5 min-h-[80px] whitespace-pre-wrap">
+                <div className="text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-black/20 p-3 rounded-xl text-xs leading-relaxed border border-slate-200 dark:border-border min-h-[80px] whitespace-pre-wrap">
                   {reseller.notes || "Sem observações registradas."}
                 </div>
               </div>
@@ -600,14 +600,14 @@ const totalInvested = useMemo(() => {
         {/* ================= COLUNA DIREITA (2 SPANS: SERVIDORES + TIMELINE) ================= */}
         <div className="lg:col-span-2 space-y-6">
           {/* BLOCO 1: SERVIDORES VINCULADOS */}
-          <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-5 shadow-sm transition-colors">
+          <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl p-5 shadow-sm transition-colors">
             <h3 className="text-[11px] font-bold text-slate-400 dark:text-white/20 uppercase mb-4 tracking-widest flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
               Servidores Vinculados
             </h3>
 
             {servers.length === 0 ? (
-              <div className="p-8 text-center bg-slate-50 dark:bg-white/5 border border-dashed border-slate-200 dark:border-white/10 rounded-xl text-slate-400 dark:text-white/30 italic">
+              <div className="p-8 text-center bg-slate-50 dark:bg-white/5 border border-dashed border-slate-200 dark:border-border rounded-xl text-slate-400 dark:text-white/30 italic">
                 Nenhum servidor vinculado.
               </div>
             ) : (
@@ -615,11 +615,11 @@ const totalInvested = useMemo(() => {
                 {servers.map((s) => (
                   <div
                     key={s.reseller_server_id}
-                    className="group relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-xl hover:border-emerald-500/30 transition-all"
+                    className="group relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-border rounded-xl hover:border-emerald-500/30 transition-all"
                   >
                     {/* Info do Servidor */}
                     <div className="flex items-center gap-4 mb-3 sm:mb-0">
-                      <div className="w-10 h-10 rounded-lg bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 flex items-center justify-center font-bold text-slate-600 dark:text-white">
+                      <div className="w-10 h-10 rounded-lg bg-white dark:bg-black/20 border border-slate-200 dark:border-border flex items-center justify-center font-bold text-slate-600 dark:text-white">
                         {String(s.server_name || "?").charAt(0)}
                       </div>
                       <div>
@@ -681,7 +681,7 @@ const totalInvested = useMemo(() => {
           </div>
 
           {/* BLOCO 2: HISTÓRICO */}
-          <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-5 shadow-sm h-fit transition-colors">
+          <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl p-5 shadow-sm h-fit transition-colors">
             <h3 className="text-[11px] font-bold text-slate-400 dark:text-white/20 uppercase mb-6 tracking-widest flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
               Histórico de Compras
@@ -689,7 +689,7 @@ const totalInvested = useMemo(() => {
 
             <div className="space-y-0 px-2">
               {history.length === 0 ? (
-                <div className="py-12 text-center text-slate-400 dark:text-white/20 text-sm italic border-2 border-dashed border-slate-100 dark:border-white/5 rounded-xl">
+                <div className="py-12 text-center text-slate-400 dark:text-white/20 text-sm italic border-2 border-dashed border-slate-100 dark:border-border rounded-xl">
                   Nenhuma movimentação registrada.
                 </div>
               ) : (
@@ -706,7 +706,7 @@ const totalInvested = useMemo(() => {
                   return (
                     <div
                       key={String(h.id)}
-                      className="relative pl-8 pb-1.5 last:pb-0 border-l-2 border-slate-100 dark:border-white/5 last:border-0 group"
+                      className="relative pl-8 pb-1.5 last:pb-0 border-l-2 border-slate-100 dark:border-border last:border-0 group"
                     >
                       <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 border-white dark:border-[#161b22] bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.4)] transition-transform group-hover:scale-125" />
 

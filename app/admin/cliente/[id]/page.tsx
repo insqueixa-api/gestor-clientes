@@ -51,7 +51,7 @@ function StatusBadge({ status }: { status: string }) {
     ACTIVE: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
     OVERDUE: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
     TRIAL: "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20",
-    ARCHIVED: "bg-slate-500/10 text-slate-500 dark:text-white/40 border-slate-500/20",
+    ARCHIVED: "bg-slate-500/10 text-slate-500 dark:text-muted-foreground border-slate-500/20",
   };
   const labelMap: Record<string, string> = {
     ACTIVE: "Ativo",
@@ -650,7 +650,7 @@ const EVENT_LABELS: Record<string, any> = {
 
   return (
   // ✅ Ajuste: pt-0 px-0 no mobile (full width), sm:px-6 no desktop
-  <div className="space-y-4 sm:space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
+  <div className="space-y-4 sm:space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors">
     
     {/* HEADER */}
     <div className="flex items-center justify-between gap-3 pb-0 mb-4 px-4 sm:px-0 pt-4 sm:pt-0">
@@ -674,7 +674,7 @@ const EVENT_LABELS: Record<string, any> = {
         {/* Voltar (Só no Desktop) */}
         <Link
           href="/admin/cliente"
-          className="hidden sm:inline-flex h-9 px-3 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 font-bold text-xs hover:bg-slate-200 dark:hover:bg-white/5 transition-all items-center justify-center"
+          className="hidden sm:inline-flex h-9 px-3 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 font-bold text-xs hover:bg-slate-200 dark:hover:bg-white/5 transition-all items-center justify-center"
         >
           Voltar
         </Link>
@@ -780,20 +780,20 @@ const EVENT_LABELS: Record<string, any> = {
       <div className="space-y-4">
         
         {/* 1. CARD ASSINATURA ATUAL */}
-        <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 sm:rounded-xl p-4 shadow-sm transition-colors">
+        <div className="bg-white dark:bg-card border-y sm:border border-slate-200 dark:border-border sm:rounded-xl p-4 shadow-sm transition-colors">
           <h3 className="text-[10px] font-bold text-slate-400 dark:text-white/20 uppercase mb-3 tracking-widest">Assinatura atual</h3>
 
             <div className="space-y-3 text-sm">
               
               {/* BLOCO DE ACESSO (Sem bordas internas) */}
               <div className="flex justify-between items-center">
-                <span className="text-slate-500 dark:text-white/40 font-medium">Servidor</span>
+                <span className="text-slate-500 dark:text-muted-foreground font-medium">Servidor</span>
                 <span className="font-bold text-slate-800 dark:text-white text-right">{client.server_name}</span>
               </div>
 
               <div className="flex justify-between items-center">
-                <span className="text-slate-500 dark:text-white/40 font-medium">Tecnologia</span>
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border border-slate-200 dark:border-white/10 uppercase">
+                <span className="text-slate-500 dark:text-muted-foreground font-medium">Tecnologia</span>
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border border-slate-200 dark:border-border uppercase">
                   {client.technology || "—"}
                 </span>
               </div>
@@ -810,14 +810,14 @@ const EVENT_LABELS: Record<string, any> = {
 
    return (
       <div key={app.id || app.name + Math.random()} className="flex justify-between items-center">
-         <span className="text-slate-500 dark:text-white/40 font-medium flex items-center gap-1.5" title={label}>
+         <span className="text-slate-500 dark:text-muted-foreground font-medium flex items-center gap-1.5" title={label}>
            {app.icon_url
              ? <img src={app.icon_url} alt="" className="w-4 h-4 rounded object-cover shrink-0" />
              : <span className="text-[11px]">📱</span>
            }
            {label}
          </span>
-         <span className={`text-xs text-right ${app.expiration ? (isExpiringSoon ? "text-rose-500 font-bold" : "text-slate-600 dark:text-white/70 font-medium") : "text-slate-400 dark:text-white/30 italic"}`}>
+         <span className={`text-xs text-right ${app.expiration ? (isExpiringSoon ? "text-rose-500 font-bold" : "text-slate-600 dark:text-muted-foreground font-medium") : "text-slate-400 dark:text-white/30 italic"}`}>
             {app.expiration 
                ? `Vence: ${new Date(`${app.expiration}T12:00:00`).toLocaleDateString("pt-BR")}` 
                : "Vencimento: Não definido"}
@@ -830,13 +830,13 @@ const EVENT_LABELS: Record<string, any> = {
 
               {/* DIVISOR FINANCEIRO (Com margem ajustada) */}
               <div className="pt-3 pb-1">
-                 <div className="border-t border-slate-100 dark:border-white/5 mb-3"></div>
+                 <div className="border-t border-slate-100 dark:border-border mb-3"></div>
                  <div className="text-[10px] font-bold text-slate-400 dark:text-white/20 uppercase tracking-widest">Financeiro</div>
               </div>
 
               {/* BLOCO FINANCEIRO (Sem bordas internas) */}
               <div className="flex justify-between items-center">
-                <span className="text-slate-500 dark:text-white/40 font-medium">Tabela</span>
+                <span className="text-slate-500 dark:text-muted-foreground font-medium">Tabela</span>
                 <span className="font-bold text-slate-700 dark:text-white/90 tracking-tight text-right">
   {tableLabelFromClient(client)}
 </span>
@@ -844,17 +844,17 @@ const EVENT_LABELS: Record<string, any> = {
               </div>
 
               <div className="flex justify-between items-center">
-                <span className="text-slate-500 dark:text-white/40 font-medium">Plano</span>
+                <span className="text-slate-500 dark:text-muted-foreground font-medium">Plano</span>
                 <span className="font-bold text-emerald-600 dark:text-emerald-400 tracking-tight">{extractPeriod(client.plan_name)}</span>
               </div>
 
               <div className="flex justify-between items-center">
-                <span className="text-slate-500 dark:text-white/40 font-medium">Telas</span>
+                <span className="text-slate-500 dark:text-muted-foreground font-medium">Telas</span>
                 <span className="font-bold text-slate-800 dark:text-white">{client.screens}</span>
               </div>
 
               <div className="flex justify-between items-center">
-                <span className="text-slate-500 dark:text-white/40 font-medium">Valor</span>
+                <span className="text-slate-500 dark:text-muted-foreground font-medium">Valor</span>
                 <span className="font-mono font-bold text-slate-800 dark:text-white bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-md">
                   {fmtMoney(client.price_amount, client.price_currency)}
                 </span>
@@ -862,8 +862,8 @@ const EVENT_LABELS: Record<string, any> = {
 
               {/* VENCIMENTO GERAL DESTACADO */}
               <div className="pt-2">
-                  <div className="flex justify-between items-center bg-slate-50 dark:bg-white/5 p-3 rounded-lg border border-slate-100 dark:border-white/5 mt-1">
-                    <span className="text-slate-500 dark:text-white/40 font-bold text-[11px] uppercase tracking-tight">Vencimento</span>
+                  <div className="flex justify-between items-center bg-slate-50 dark:bg-white/5 p-3 rounded-lg border border-slate-100 dark:border-border mt-1">
+                    <span className="text-slate-500 dark:text-muted-foreground font-bold text-[11px] uppercase tracking-tight">Vencimento</span>
                     <div
                       className={`text-right font-mono font-bold text-base ${
                         client.computed_status === "OVERDUE"
@@ -881,30 +881,30 @@ const EVENT_LABELS: Record<string, any> = {
           </div>
 
           {/* 2. CARD CONTATOS E OBSERVAÇÕES */}
-          <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-5 shadow-sm transition-colors">
+          <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl p-5 shadow-sm transition-colors">
             <h3 className="text-[11px] font-bold text-slate-400 dark:text-white/20 uppercase mb-4 tracking-widest">Contatos e observações</h3>
 
             <div className="space-y-3 text-sm">
-              <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-white/5">
-                <span className="text-slate-500 dark:text-white/40 font-medium">Data do Cadastro</span>
+              <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-border">
+                <span className="text-slate-500 dark:text-muted-foreground font-medium">Data do Cadastro</span>
                 <span className="font-mono text-slate-800 dark:text-white text-right">
                   {client.created_at ? new Date(client.created_at).toLocaleDateString("pt-BR") : "—"}
                 </span>
               </div>
 
-              <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-white/5">
-                <span className="text-slate-500 dark:text-white/40 font-medium">Nome do Cliente</span>
+              <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-border">
+                <span className="text-slate-500 dark:text-muted-foreground font-medium">Nome do Cliente</span>
                 <span className="font-bold text-slate-800 dark:text-white text-right">{client.client_name}</span>
               </div>
 
-              <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-white/5">
-                <span className="text-slate-500 dark:text-white/40 font-medium">Telefone Principal</span>
+              <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-border">
+                <span className="text-slate-500 dark:text-muted-foreground font-medium">Telefone Principal</span>
                 <span className="font-mono font-bold text-slate-800 dark:text-white text-right">{formatPhoneDisplay(client.whatsapp_e164)}</span>
               </div>
 
               {/* WhatsApp Principal com Link */}
-              <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-white/5">
-                <span className="text-slate-500 dark:text-white/40 font-medium">WhatsApp Principal</span>
+              <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-border">
+                <span className="text-slate-500 dark:text-muted-foreground font-medium">WhatsApp Principal</span>
                 {client.whatsapp_username ? (
                   <a 
                     href={`https://wa.me/${client.whatsapp_e164?.replace(/\D/g, "")}`}
@@ -932,19 +932,19 @@ const EVENT_LABELS: Record<string, any> = {
 
               {/* ✅ NOVO: Contato Secundário (Só aparece se existir) */}
               {(client.secondary_display_name || client.secondary_phone_e164 || client.secondary_whatsapp_username) && (
-                <div className="bg-slate-50 dark:bg-white/5 p-3 rounded-lg border border-slate-100 dark:border-white/5 mt-2 mb-2">
+                <div className="bg-slate-50 dark:bg-white/5 p-3 rounded-lg border border-slate-100 dark:border-border mt-2 mb-2">
                   <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase mb-2 tracking-widest">Contato Secundário</div>
                   
                   {client.secondary_display_name && (
                     <div className="flex justify-between items-center mb-1">
-                      <span className="text-xs text-slate-500 dark:text-white/40">Nome Secundário</span>
+                      <span className="text-xs text-slate-500 dark:text-muted-foreground">Nome Secundário</span>
                       <span className="text-xs font-bold text-slate-700 dark:text-white/90 text-right">{client.secondary_display_name}</span>
                     </div>
                   )}
 
                   {client.secondary_phone_e164 && (
                     <div className="flex justify-between items-center mb-1">
-                      <span className="text-xs text-slate-500 dark:text-white/40">WhatsApp Secundário</span>
+                      <span className="text-xs text-slate-500 dark:text-muted-foreground">WhatsApp Secundário</span>
                       <a 
                         href={`https://wa.me/${client.secondary_phone_e164.replace(/\D/g, "")}`}
                         target="_blank"
@@ -961,7 +961,7 @@ const EVENT_LABELS: Record<string, any> = {
 
               {/* ✅ AJUSTE: Receber Msg? na mesma linha */}
               <div className="flex justify-between items-center py-1">
-                <span className="text-slate-500 dark:text-white/40 font-medium">Receber Msg?</span>
+                <span className="text-slate-500 dark:text-muted-foreground font-medium">Receber Msg?</span>
                 {client.whatsapp_opt_in ? (
                   <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 text-right">
                     <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Sim
@@ -976,7 +976,7 @@ const EVENT_LABELS: Record<string, any> = {
               {/* ✅ AJUSTE: Bloqueado Até na mesma linha */}
               {isMessageBlocked && (
                 <div className="flex justify-between items-center py-1">
-                  <span className="text-slate-500 dark:text-white/40 font-medium">Bloqueado até</span>
+                  <span className="text-slate-500 dark:text-muted-foreground font-medium">Bloqueado até</span>
                   <span className="text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-500/10 px-2 py-0.5 rounded text-right">
                     {fmtDateTime(client.dont_message_until!)}
                   </span>
@@ -985,7 +985,7 @@ const EVENT_LABELS: Record<string, any> = {
 
               <div className="pt-2">
                 <div className="text-[11px] font-bold text-slate-500 dark:text-white/30 mb-1.5">Observações</div>
-                <div className="text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-black/20 p-3 rounded-xl text-xs leading-relaxed border border-slate-200 dark:border-white/5 min-h-[80px] whitespace-pre-wrap">
+                <div className="text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-black/20 p-3 rounded-xl text-xs leading-relaxed border border-slate-200 dark:border-border min-h-[80px] whitespace-pre-wrap">
                   {client.notes ? client.notes : <span className="italic text-slate-400">Sem observações registradas.</span>}
                 </div>
               </div>
@@ -994,7 +994,7 @@ const EVENT_LABELS: Record<string, any> = {
         </div>
 
         {/* COLUNA DIREITA (TIMELINE) */}
-        <div className="lg:col-span-2 bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-5 shadow-sm h-fit transition-colors">
+        <div className="lg:col-span-2 bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl p-5 shadow-sm h-fit transition-colors">
           <h3 className="text-[11px] font-bold text-slate-400 dark:text-white/20 uppercase mb-6 tracking-widest flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
             Linha do tempo
@@ -1002,12 +1002,12 @@ const EVENT_LABELS: Record<string, any> = {
 
           <div className="space-y-0 px-2">
             {timeline.length === 0 ? (
-              <div className="py-12 text-center text-slate-400 dark:text-white/20 text-sm italic border-2 border-dashed border-slate-100 dark:border-white/5 rounded-xl">
+              <div className="py-12 text-center text-slate-400 dark:text-white/20 text-sm italic border-2 border-dashed border-slate-100 dark:border-border rounded-xl">
                 Nenhum evento registrado até o momento.
               </div>
             ) : (
               timeline.map((item, idx) => (
-                <div key={idx} className="relative pl-8 pb-1.5 last:pb-0 border-l-2 border-slate-100 dark:border-white/5 last:border-0 group">
+                <div key={idx} className="relative pl-8 pb-1.5 last:pb-0 border-l-2 border-slate-100 dark:border-border last:border-0 group">
                   <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 border-white dark:border-[#161b22] bg-slate-300 dark:bg-white/20"></div>
 
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 bg-slate-50/50 dark:bg-white/5 p-2 rounded-xl border border-transparent hover:border-slate-200 dark:hover:border-white/10 transition-all">
@@ -1050,7 +1050,7 @@ const EVENT_LABELS: Record<string, any> = {
       {/* ✅ MODAL DE AVISO DE ALERTA */}
       {showRenewWarning && client && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-200">
              
              <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 p-4 rounded-lg flex gap-3">
                 <span className="text-2xl">📢</span>
@@ -1068,7 +1068,7 @@ const EVENT_LABELS: Record<string, any> = {
              <div className="flex justify-end gap-3 pt-2">
                 <button
                   onClick={() => setShowRenewWarning(false)}
-                  className="px-4 py-2 rounded-lg border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase"
+                  className="px-4 py-2 rounded-lg border border-slate-300 dark:border-border text-slate-700 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase"
                 >
                   Voltar
                 </button>

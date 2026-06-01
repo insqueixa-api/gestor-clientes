@@ -385,7 +385,7 @@ function AuditoriaPageContent() {
     // 1. Prioridade Máxima: Status de cancelamento manual (Padronizado)
     if (status === "manual_cancelled" || status === "cancelled") {
       return (
-        <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-white/40 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">
+        <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-muted-foreground text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">
           {status === "manual_cancelled" ? "Cancelada Manualmente" : "Cancelada"}
         </span>
       );
@@ -393,7 +393,7 @@ function AuditoriaPageContent() {
 
     // 2. Se o pagamento foi recusado/cancelado no gateway
     if (paymentStatus === "rejected" || paymentStatus === "cancelled") {
-      return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-white/40 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">Cancelada</span>;
+      return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-muted-foreground text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">Cancelada</span>;
     }
 
     // 3. Se o pagamento ainda está pendente, mostra o traço aguardando
@@ -430,11 +430,11 @@ function AuditoriaPageContent() {
     if (status === "sent") return <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase border border-emerald-200 dark:border-emerald-500/30">Enviado</span>;
     if (status === "error") return <span className="px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 text-[10px] font-bold uppercase border border-rose-200 dark:border-rose-500/30">Erro</span>;
     
-    return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-400 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/10">Aguardando</span>;
+    return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-400 text-[10px] font-bold uppercase border border-slate-200 dark:border-border">Aguardando</span>;
   }
 
   return (
-    <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
+    <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors">
       
       {/* TOPO */}
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
@@ -456,7 +456,7 @@ function AuditoriaPageContent() {
       </div>
 
       {/* FILTROS */}
-      <div className="px-3 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20">
+      <div className="px-3 md:p-4 bg-transparent md:bg-white md:dark:bg-card border-0 md:border md:border-slate-200 md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20">
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex-1 min-w-[200px] flex gap-2">
             <div className="relative flex-1">
@@ -465,7 +465,7 @@ function AuditoriaPageContent() {
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Buscar (Pressione Enter)"
-                className="w-full h-10 px-3 pr-10 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+                className="w-full h-10 px-3 pr-10 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
               />
               {search && (
                 <button 
@@ -488,7 +488,7 @@ function AuditoriaPageContent() {
           <select
             value={filterFulfillment}
             onChange={(e) => setFilterFulfillment(e.target.value)}
-            className="w-[180px] h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+            className="w-[180px] h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
           >
             <option value="Todos">Processamento (Todos)</option>
             <option value="done">Concluídos (Auto)</option>
@@ -502,15 +502,15 @@ function AuditoriaPageContent() {
 
       {/* TABELA */}
       {loading ? (
-        <div className="p-12 text-center text-slate-400 dark:text-white/40 animate-pulse bg-white dark:bg-[#161b22] rounded-none sm:rounded-xl border border-slate-200 dark:border-white/5">
+        <div className="p-12 text-center text-slate-400 dark:text-muted-foreground animate-pulse bg-white dark:bg-card rounded-none sm:rounded-xl border border-slate-200 dark:border-border">
           Carregando logs de auditoria...
         </div>
       ) : (
-        <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0">
+        <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[800px]">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-white/10 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/50 bg-slate-50 dark:bg-white/5">
+                <tr className="border-b border-slate-200 dark:border-border text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/50 bg-slate-50 dark:bg-white/5">
                   <th className="px-4 py-3">Data / Hora</th>
                   <th className="px-4 py-3">Cliente / Login / Servidor</th>
                   <th className="px-4 py-3 text-center">Plano / Telas</th>
@@ -525,7 +525,7 @@ function AuditoriaPageContent() {
               <tbody className="text-sm divide-y divide-slate-200 dark:divide-white/5">
                 {visible.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="p-8 text-center text-slate-400 dark:text-white/40 italic">
+                    <td colSpan={9} className="p-8 text-center text-slate-400 dark:text-muted-foreground italic">
                       Nenhum registro encontrado.
                     </td>
                   </tr>
@@ -580,7 +580,7 @@ function AuditoriaPageContent() {
 
                         {/* Banco */}
                         <td className="px-4 py-3 text-center">
-                          <span className="text-[10px] font-bold text-slate-500 dark:text-white/70 uppercase tracking-wider">
+                          <span className="text-[10px] font-bold text-slate-500 dark:text-muted-foreground uppercase tracking-wider">
                             {r.gateway_name || r.payment_method}
                           </span>
                         </td>
@@ -596,7 +596,7 @@ function AuditoriaPageContent() {
                                   navigator.clipboard.writeText(r.mp_payment_id!);
                                   addToast("success", "Copiado", "Código da transação copiado!");
                                 }}
-                                className="text-[9px] font-mono text-slate-400 dark:text-white/40 bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 rounded border border-slate-200 dark:border-white/10 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                                className="text-[9px] font-mono text-slate-400 dark:text-muted-foreground bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 rounded border border-slate-200 dark:border-border hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
                                 title="Clique para copiar a referência"
                               >
                                 Ref: {String(r.mp_payment_id).slice(-8)}
@@ -690,13 +690,13 @@ function AuditoriaPageContent() {
             </table>
           </div>
           
-          <div className="border-t border-slate-200 dark:border-white/10 px-4 py-3 flex items-center justify-between bg-slate-50 dark:bg-white/5">
+          <div className="border-t border-slate-200 dark:border-border px-4 py-3 flex items-center justify-between bg-slate-50 dark:bg-white/5">
             <span className="text-xs text-slate-500 dark:text-white/50">
               Mostrando página {safePage} de {totalPages}
             </span>
             <div className="flex gap-2">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage <= 1} className="px-3 py-1 rounded border border-slate-200 dark:border-white/10 text-xs font-bold disabled:opacity-40 bg-white dark:bg-black/20 text-slate-600 dark:text-white/70">Anterior</button>
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages} className="px-3 py-1 rounded border border-slate-200 dark:border-white/10 text-xs font-bold disabled:opacity-40 bg-white dark:bg-black/20 text-slate-600 dark:text-white/70">Próxima</button>
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage <= 1} className="px-3 py-1 rounded border border-slate-200 dark:border-border text-xs font-bold disabled:opacity-40 bg-white dark:bg-black/20 text-slate-600 dark:text-muted-foreground">Anterior</button>
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages} className="px-3 py-1 rounded border border-slate-200 dark:border-border text-xs font-bold disabled:opacity-40 bg-white dark:bg-black/20 text-slate-600 dark:text-muted-foreground">Próxima</button>
             </div>
           </div>
         </div>

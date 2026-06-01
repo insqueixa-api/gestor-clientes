@@ -61,10 +61,10 @@ export default function ToastNotifications({ toasts, removeToast }: Props) {
             key={t.id}
 className={`pointer-events-auto relative overflow-hidden flex items-start gap-3 p-4 rounded-xl shadow-2xl border transition-all animate-in fade-in slide-in-from-top-5 duration-300 ${
   t.type === "success"
-    ? "bg-[#0f141a]/95 border-emerald-500/50 text-emerald-100 shadow-emerald-900/20"
+    ? "bg-background/95 border-emerald-500/50 text-emerald-100 shadow-emerald-900/20"
     : t.type === "warning"
-      ? "bg-[#0f141a]/95 border-amber-500/50 text-amber-100 shadow-amber-900/20"
-      : "bg-[#0f141a]/95 border-rose-500/50 text-rose-100 shadow-rose-900/20"
+      ? "bg-background/95 border-amber-500/50 text-amber-100 shadow-amber-900/20"
+      : "bg-background/95 border-rose-500/50 text-rose-100 shadow-rose-900/20"
 }`}
           >
             {/* Ícone */}

@@ -98,7 +98,7 @@ export default function ConfirmDialog({
     >
       <div
         onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-sm bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-200"
+        className="w-full max-w-sm bg-white dark:bg-card border border-slate-200 dark:border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-200"
       >
         <div className="flex items-center gap-3">
           <div className={`w-12 h-12 rounded-full ${t.iconBg} flex items-center justify-center text-2xl`}>
@@ -111,7 +111,7 @@ export default function ConfirmDialog({
         </div>
 
 {details.length > 0 && (
-          <div className="bg-slate-50 dark:bg-white/5 rounded-xl p-4 border border-slate-100 dark:border-white/5">
+          <div className="bg-slate-50 dark:bg-white/5 rounded-xl p-4 border border-slate-100 dark:border-border">
             <ul className="space-y-2">
               {details.map((line, i) => {
                 // Divisor
@@ -149,7 +149,7 @@ export default function ConfirmDialog({
             <button
               onClick={onCancel}
               disabled={loading}
-              className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 font-bold text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors disabled:opacity-60"
+              className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-border text-slate-600 dark:text-slate-400 font-bold text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors disabled:opacity-60"
             >
               {cancelText}
             </button>

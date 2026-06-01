@@ -119,7 +119,7 @@ function toBRMoneyInput(n: number) {
 // --- COMPONENTES VISUAIS PADRONIZADOS ---
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-xs font-bold text-slate-500 dark:text-white/40 mb-1.5 tracking-tight">
+    <label className="block text-xs font-bold text-slate-500 dark:text-muted-foreground mb-1.5 tracking-tight">
       {children}
     </label>
   );
@@ -132,7 +132,7 @@ function Input({
   return (
     <input
       {...props}
-      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     />
   );
 }
@@ -145,7 +145,7 @@ function Select({
   return (
     <select
       {...props}
-      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     >
       {children}
     </select>
@@ -616,14 +616,14 @@ const payload = {
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-2xl max-h-[90vh] bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
+      <div className="w-full max-w-2xl max-h-[90vh] bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
         {/* HEADER */}
-        <div className="px-6 py-4 border-b border-slate-200 dark:border-white/10 flex justify-between items-center bg-slate-50 dark:bg-white/5">
+        <div className="px-6 py-4 border-b border-slate-200 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5">
           <div>
             <h2 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">
               Recarga rápida
             </h2>
-            <div className="text-xs text-slate-500 dark:text-white/40 mt-0.5 font-medium">
+            <div className="text-xs text-slate-500 dark:text-muted-foreground mt-0.5 font-medium">
               {resellerName}
             </div>
           </div>
@@ -639,7 +639,7 @@ const payload = {
         </div>
 
         {/* BODY */}
-        <div className="p-6 space-y-6 overflow-y-auto bg-white dark:bg-[#161b22]">
+        <div className="p-6 space-y-6 overflow-y-auto bg-white dark:bg-card">
           {loadErr && (
             <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-600 dark:text-rose-400 text-sm font-medium animate-in slide-in-from-top-2">
               <span className="font-bold">Erro:</span> {loadErr}
@@ -760,7 +760,7 @@ const payload = {
               )}
 
               {/* Totais Finais */}
-              <div className="bg-slate-50 dark:bg-black/20 p-4 rounded-xl border border-slate-200 dark:border-white/5 flex justify-between items-center animate-in zoom-in-95 duration-500">
+              <div className="bg-slate-50 dark:bg-black/20 p-4 rounded-xl border border-slate-200 dark:border-border flex justify-between items-center animate-in zoom-in-95 duration-500">
                 <div className="space-y-0.5">
                   <span className="text-[10px] font-bold text-slate-400 dark:text-white/20 uppercase tracking-widest">
                     Valor contábil final
@@ -775,7 +775,7 @@ const payload = {
               </div>
 
    {/* ✅ BLOCO DO WHATSAPP (Agora com 2 selects) */}
-              <div className="bg-slate-50 dark:bg-black/20 p-3 rounded-xl border border-slate-200 dark:border-white/5 flex flex-col gap-3 animate-in zoom-in-95 duration-500">
+              <div className="bg-slate-50 dark:bg-black/20 p-3 rounded-xl border border-slate-200 dark:border-border flex flex-col gap-3 animate-in zoom-in-95 duration-500">
                 
                 {/* Toggle */}
                 <div 
@@ -783,7 +783,7 @@ const payload = {
                   className="cursor-pointer flex items-center gap-3 shrink-0"
                 >
                   <Switch checked={sendWhats} onChange={setSendWhats} label="" />
-                  <span className="text-xs font-bold text-slate-600 dark:text-white/70">
+                  <span className="text-xs font-bold text-slate-600 dark:text-muted-foreground">
                     Enviar comprovante?
                   </span>
                 </div>
@@ -796,7 +796,7 @@ const payload = {
                       <Select
                         value={selectedSession}
                         onChange={(e) => setSelectedSession(e.target.value)}
-                        className="h-9 w-full text-xs font-semibold text-slate-600 dark:text-white/70"
+                        className="h-9 w-full text-xs font-semibold text-slate-600 dark:text-muted-foreground"
                       >
                         {sessionOptions.map(s => (
                           <option key={s.id} value={s.id}>{s.label}</option>
@@ -814,7 +814,7 @@ const payload = {
                           const tpl = templates.find((t) => t.id === id);
                           if (tpl) setMessageContent(tpl.content);
                         }}
-                        className="h-9 w-full text-xs font-semibold text-slate-600 dark:text-white/70"
+                        className="h-9 w-full text-xs font-semibold text-slate-600 dark:text-muted-foreground"
                       >
                         <option value="">-- Personalizado --</option>
                         {templates
@@ -831,7 +831,7 @@ const payload = {
               <div className="animate-in slide-in-from-bottom-4 duration-500">
                 <Label>Observações internas (opcional)</Label>
                 <textarea
-                  className="w-full h-24 px-3 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-colors"
+                  className="w-full h-24 px-3 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-colors"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                 />
@@ -841,7 +841,7 @@ const payload = {
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+                  className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-600 dark:text-muted-foreground hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
                 >
                   Cancelar
                 </button>
@@ -876,8 +876,8 @@ const payload = {
 function Switch({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string; }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      {label && <span className="text-xs text-slate-700 dark:text-white/70">{label}</span>}
-      <button type="button" onClick={(e) => { e.stopPropagation(); onChange(!checked); }} className={`relative w-12 h-7 rounded-full transition-colors border ${checked ? "bg-emerald-600 border-emerald-600" : "bg-slate-200 dark:bg-white/10 border-slate-300 dark:border-white/10"}`} aria-pressed={checked}>
+      {label && <span className="text-xs text-slate-700 dark:text-muted-foreground">{label}</span>}
+      <button type="button" onClick={(e) => { e.stopPropagation(); onChange(!checked); }} className={`relative w-12 h-7 rounded-full transition-colors border ${checked ? "bg-emerald-600 border-emerald-600" : "bg-slate-200 dark:bg-white/10 border-slate-300 dark:border-border"}`} aria-pressed={checked}>
         <span className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform ${checked ? "translate-x-5" : "translate-x-0"}`} />
       </button>
     </div>

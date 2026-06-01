@@ -1445,12 +1445,11 @@ setTimeout(async () => {
         >
           <div
             // ✅ Ajuste Max Width e Altura
-            className="w-full max-w-lg sm:max-w-2xl bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl flex flex-col overflow-hidden min-h-0 max-h-[90vh] transition-all animate-in fade-in zoom-in-95 duration-200"
-            style={{ maxHeight: "90dvh" }}
+            className="w-full max-w-lg sm:max-w-2xl bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl flex flex-col overflow-hidden min-h-0 max-h-[90vh] transition-all animate-in fade-in zoom-in-95 duration-200 max-h-[90dvh]"
             onPointerDown={(e) => e.stopPropagation()}
           >
             {/* HEADER (MANTÉM IGUAL) */}
-            <div className="px-6 py-4 border-b border-slate-200 dark:border-white/10 flex justify-between items-center bg-slate-50 dark:bg-white/5 rounded-t-xl shrink-0">
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5 rounded-t-xl shrink-0">
               {/* ... conteúdo do header ... */}
               <div className="flex items-center gap-3">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isFromTrial ? 'bg-sky-100 text-sky-600' : 'bg-emerald-100 text-emerald-600'} dark:bg-white/5`}>
@@ -1479,13 +1478,12 @@ setTimeout(async () => {
             {/* BODY - ✅ Espaçamento Reduzido (p-3 sm:p-4) */}
             <div
   className="p-3 sm:p-4 space-y-3 sm:space-y-4 overflow-y-auto overscroll-contain custom-scrollbar flex-1 min-h-0"
-  style={{ WebkitOverflowScrolling: "touch" }}
 >
               
               {/* 1. SEÇÃO VENCIMENTO */}
-              <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-xl p-3">
+              <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-border rounded-xl p-3">
                 {/* ... (Conteúdo igual, inputs já estão bons) ... */}
-                <div className="flex items-center gap-2 mb-3 border-b border-slate-200 dark:border-white/10 pb-2">
+                <div className="flex items-center gap-2 mb-3 border-b border-slate-200 dark:border-border pb-2">
                   <span className="text-emerald-500">📅</span>
                   <span className="text-xs font-bold uppercase text-slate-500 dark:text-white/60 tracking-wider">Novo Vencimento</span>
                 </div>
@@ -1497,30 +1495,30 @@ setTimeout(async () => {
                     <div>
                       <Label>Hora Limite</Label>
                       <div className="flex gap-2">
-                        <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} className="flex-1 h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500 transition-colors text-sm font-medium dark:[color-scheme:dark]" />
-                        <button type="button" onClick={() => setDueTime("23:59")} className="px-3 h-10 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-500 hover:text-emerald-600 hover:border-emerald-500/50 transition-all">23:59</button>
+                        <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} className="flex-1 h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500 transition-colors text-sm font-medium dark:[color-scheme:dark]" />
+                        <button type="button" onClick={() => setDueTime("23:59")} className="px-3 h-10 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-border text-xs font-bold text-slate-500 hover:text-emerald-600 hover:border-emerald-500/50 transition-all">23:59</button>
                       </div>
                     </div>
                 </div>
               </div>
 
               {/* 2. SEÇÃO PLANO & FINANCEIRO (Unificado Visualmente ou Estilo Card NovoCliente) */}
-              <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 sm:p-4 space-y-4">
+              <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-border rounded-xl p-3 sm:p-4 space-y-4">
                   
                   {/* 3. SEÇÃO FINANCEIRO */}
-              <div className="bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl p-3 sm:p-4 shadow-sm">
+              <div className="bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded-xl p-3 sm:p-4 shadow-sm">
                   
                   {/* HEADER FINANCEIRO - ✅ IGUAL NOVO CLIENTE */}
-                  <div className="flex justify-between items-center gap-3 border-b border-slate-100 dark:border-white/5 pb-3 mb-3">
+                  <div className="flex justify-between items-center gap-3 border-b border-slate-100 dark:border-border pb-3 mb-3">
                       <span className="text-xs font-bold uppercase text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                           💰 Financeiro
                       </span>
                       <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-slate-400 dark:text-white/40 font-bold hidden sm:inline">Tabela:</span>
+                          <span className="text-[10px] text-slate-400 dark:text-muted-foreground font-bold hidden sm:inline">Tabela:</span>
                           <select 
                               value={selectedTableId} 
                               onChange={(e) => { tableChangedByUserRef.current = true; setSelectedTableId(e.target.value); }} 
-                              className="h-6 w-[160px] px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded text-xs font-bold text-slate-700 dark:text-white outline-none cursor-pointer hover:border-emerald-500/50 transition-all truncate"
+                              className="h-6 w-[160px] px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded text-xs font-bold text-slate-700 dark:text-white outline-none cursor-pointer hover:border-emerald-500/50 transition-all truncate"
                           >
                               {tables.map((t) => <option key={t.id} value={t.id}>{formatTableLabel(t)}</option>)}
                           </select>
@@ -1568,7 +1566,7 @@ setTimeout(async () => {
                   <div className="grid grid-cols-3 gap-3">
                       <div>
                           <Label>Moeda</Label>
-                          <div className="h-10 w-full bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg flex items-center justify-center text-sm font-bold text-slate-700 dark:text-white">
+                          <div className="h-10 w-full bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-border rounded-lg flex items-center justify-center text-sm font-bold text-slate-700 dark:text-white">
                               {currency}
                           </div>
                       </div>
@@ -1593,14 +1591,14 @@ setTimeout(async () => {
 
                   {/* BOTÃO REGISTRAR PAGAMENTO */}
                   {Boolean(allowConvertWithoutPayment) && (
-                      <div onClick={() => setRegisterPayment(!registerPayment)} className={`cursor-pointer p-2.5 rounded-lg border transition-all flex items-center justify-between ${registerPayment ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20" : "bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-white/10"}`}>
+                      <div onClick={() => setRegisterPayment(!registerPayment)} className={`cursor-pointer p-2.5 rounded-lg border transition-all flex items-center justify-between ${registerPayment ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20" : "bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-border"}`}>
                           <span className={`text-xs font-bold ${registerPayment ? "text-emerald-700 dark:text-emerald-400" : "text-slate-500"}`}>Registrar Pagamento?</span>
                           <Switch checked={registerPayment} onChange={setRegisterPayment} label="" />
                       </div>
                   )}
 
                   {registerPayment && (
-                      <div className="bg-slate-50 dark:bg-black/20 p-3 rounded-lg border border-slate-100 dark:border-white/5 animate-in slide-in-from-top-2">
+                      <div className="bg-slate-50 dark:bg-black/20 p-3 rounded-lg border border-slate-100 dark:border-border animate-in slide-in-from-top-2">
                           <div className="grid grid-cols-2 gap-3">
                               <div>
                                   <Label>Método</Label>
@@ -1628,7 +1626,7 @@ setTimeout(async () => {
   className={`p-3 rounded-xl border transition-all cursor-pointer ${
     renewAutomatic 
       ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20" 
-      : "bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-white/10"
+      : "bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-border"
   } ${!hasIntegration ? "opacity-50 cursor-not-allowed" : ""}`}
 >
   <div className="flex items-center justify-between gap-3">
@@ -1638,7 +1636,7 @@ setTimeout(async () => {
         <span className={`text-xs font-bold block ${renewAutomatic ? "text-emerald-700 dark:text-emerald-400" : "text-slate-500"}`}>
           Renovação Automática
         </span>
-        <span className="text-[9px] text-slate-400 dark:text-white/40">
+        <span className="text-[9px] text-slate-400 dark:text-muted-foreground">
           {hasIntegration ? "Sincronizar com servidor" : "Servidor sem integração"}
         </span>
       </div>
@@ -1657,8 +1655,8 @@ setTimeout(async () => {
                   <div className="flex flex-col gap-3">
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 items-end">
                           {/* Botão de Ligar/Desligar Envio */}
-                          <div onClick={() => setSendWhats(!sendWhats)} className="h-10 px-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors flex items-center justify-between">
-                              <span className="text-[11px] font-bold text-slate-600 dark:text-white/70 tracking-tight">Enviar Mensagem?</span>
+                          <div onClick={() => setSendWhats(!sendWhats)} className="h-10 px-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-border rounded-lg cursor-pointer hover:bg-slate-50 transition-colors flex items-center justify-between">
+                              <span className="text-[11px] font-bold text-slate-600 dark:text-muted-foreground tracking-tight">Enviar Mensagem?</span>
                               <Switch checked={sendWhats} onChange={setSendWhats} label="" />
                           </div>
 
@@ -1712,17 +1710,17 @@ setTimeout(async () => {
                   {/* OBSERVAÇÕES */}
                   <div>
                       <Label>Observações (Internas)</Label>
-                      <textarea value={obs} onChange={(e) => setObs(e.target.value)} className="w-full h-16 px-2.5 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-[13px] text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-all" placeholder="Nota interna sobre esta renovação..." />
+                      <textarea value={obs} onChange={(e) => setObs(e.target.value)} className="w-full h-16 px-2.5 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-[13px] text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-all" placeholder="Nota interna sobre esta renovação..." />
                   </div>
               </div>
 
             </div>
 
             {/* FOOTER */}
-            <div className="px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex justify-end gap-3 rounded-b-xl shrink-0">
+            <div className="px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-slate-100 dark:border-border bg-slate-50 dark:bg-white/5 flex justify-end gap-3 rounded-b-xl shrink-0">
               <button
                 onClick={onClose}
-                className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 font-bold text-sm hover:bg-white dark:hover:bg-white/10 transition-all"
+                className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 font-bold text-sm hover:bg-white dark:hover:bg-white/10 transition-all"
               >
                 Cancelar
               </button>
@@ -1767,7 +1765,7 @@ setTimeout(async () => {
 
   function Label({ children }: { children: React.ReactNode }) {
     return (
-      <label className="block text-[9px] font-bold text-slate-400 dark:text-white/40 mb-0.5 uppercase tracking-wider">
+      <label className="block text-[9px] font-bold text-slate-400 dark:text-muted-foreground mb-0.5 uppercase tracking-wider">
         {children}
       </label>
     );
@@ -1777,7 +1775,7 @@ setTimeout(async () => {
     return (
       <input
         {...props}
-        className={`w-full h-9 px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-[13px] text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors dark:[color-scheme:dark] ${className}`}
+        className={`w-full h-9 px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-[13px] text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors dark:[color-scheme:dark] ${className}`}
       />
     );
   }
@@ -1820,7 +1818,7 @@ setTimeout(async () => {
         const iso = toISO(v);
         if (iso) onChange(iso);
       }}
-      className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500 transition-colors text-sm font-medium"
+      className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500 transition-colors text-sm font-medium"
     />
   );
 }
@@ -1829,7 +1827,7 @@ setTimeout(async () => {
     return (
       <select
         {...props}
-        className={`w-full h-9 px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-[13px] text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+        className={`w-full h-9 px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-[13px] text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}
       />
     );
   }
@@ -1852,7 +1850,7 @@ setTimeout(async () => {
   }) {
     return (
       <div className="flex items-center justify-between gap-3">
-        <span className="text-xs text-slate-700 dark:text-white/70">{label}</span>
+        <span className="text-xs text-slate-700 dark:text-muted-foreground">{label}</span>
         <button
           type="button"
           // ✅ CORREÇÃO: Adicionado stopPropagation para evitar conflito com a div pai
@@ -1863,7 +1861,7 @@ setTimeout(async () => {
           className={`relative w-12 h-7 rounded-full transition-colors border ${
             checked
               ? "bg-emerald-600 border-emerald-600"
-              : "bg-slate-200 dark:bg-white/10 border-slate-300 dark:border-white/10"
+              : "bg-slate-200 dark:bg-white/10 border-slate-300 dark:border-border"
           }`}
           aria-pressed={checked}
         >

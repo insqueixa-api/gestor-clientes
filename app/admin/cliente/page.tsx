@@ -1538,7 +1538,7 @@ body: JSON.stringify({
 
   return (
     <div
-      className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors"
+      className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors"
       onClick={closeAllPopups}
     >
 
@@ -1558,7 +1558,7 @@ body: JSON.stringify({
     <button
       onClick={(e) => { e.stopPropagation(); setValuesHidden(v => !v); }}
       title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
-      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-400 dark:text-white/40 hover:text-slate-700 dark:hover:text-white hover:border-slate-400 dark:hover:border-white/30 transition-all text-xs font-medium shadow-sm select-none"
+      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-border bg-white dark:bg-white/5 text-slate-400 dark:text-muted-foreground hover:text-slate-700 dark:hover:text-white hover:border-slate-400 dark:hover:border-white/30 transition-all text-xs font-medium shadow-sm select-none"
     >
       {valuesHidden ? (
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -1591,7 +1591,7 @@ body: JSON.stringify({
       className={`hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-bold border transition-colors items-center justify-center ${
         archivedFilter === "Sim"
           ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-          : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60"
+          : "bg-white dark:bg-white/5 border-slate-200 dark:border-border text-slate-500 dark:text-white/60"
       }`}
     >
       {archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
@@ -1617,13 +1617,13 @@ className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-5
 
       {/* --- BARRA DE FILTROS COMPLETA --- */}
 <div
-  className="px-3 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
+  className="px-3 md:p-4 bg-transparent md:bg-white md:dark:bg-card border-0 md:border md:border-slate-200 md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
   onClick={(e) => e.stopPropagation()}
 >
 
 
 
-        <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-white/40 tracking-wider mb-2">
+        <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-muted-foreground tracking-wider mb-2">
   Filtros Rápidos
 </div>
 
@@ -1635,7 +1635,7 @@ className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-5
       value={search}
       onChange={(e) => setSearch(e.target.value)}
       placeholder="Pesquisar..."
-      className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+      className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
     />
     {search && (
       <button
@@ -1656,7 +1656,7 @@ className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-5
       dueFilter !== "Todos" ||
       archivedFilter === "Sim")
       ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-      : "border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/10"
+      : "border-slate-200 dark:border-border bg-white dark:bg-white/5 text-slate-600 dark:text-muted-foreground hover:bg-slate-50 dark:hover:bg-white/10"
   }`}
   title="Filtros"
 >
@@ -1672,7 +1672,7 @@ className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-5
       value={search}
       onChange={(e) => setSearch(e.target.value)}
       placeholder="Pesquisar..."
-      className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+      className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
     />
     {search && (
       <button
@@ -1777,7 +1777,7 @@ className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-5
 
 {/* ✅ Painel de filtros no mobile */}
 {mobileFiltersOpen && (
-  <div className="md:hidden mt-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 space-y-2">
+  <div className="md:hidden mt-3 p-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 space-y-2">
 
     {/* ✅ Filtrar Lixeira (opção dentro do painel) */}
     <button
@@ -1788,7 +1788,7 @@ className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-5
       className={`w-full h-10 px-3 rounded-lg text-sm font-bold border transition-colors flex items-center justify-between ${
         archivedFilter === "Sim"
           ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-          : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70"
+          : "bg-white dark:bg-white/5 border-slate-200 dark:border-border text-slate-600 dark:text-muted-foreground"
       }`}
       title="Filtrar Lixeira"
     >
@@ -1898,7 +1898,7 @@ className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-5
       </div>
 
 {loading && (
-  <div className="p-12 text-center text-slate-400 dark:text-white/40 animate-pulse bg-white dark:bg-[#161b22] rounded-none sm:rounded-xl border border-slate-200 dark:border-white/5">
+  <div className="p-12 text-center text-slate-400 dark:text-muted-foreground animate-pulse bg-white dark:bg-card rounded-none sm:rounded-xl border border-slate-200 dark:border-border">
     Carregando dados...
   </div>
 )}
@@ -1906,11 +1906,11 @@ className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-5
 
       {!loading && (
         <div
-  className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0"
+  className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0"
   onClick={(e) => e.stopPropagation()}
 >
 
-          <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+          <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
 
 <div className="text-sm font-bold tracking-tight text-slate-800 dark:text-white whitespace-nowrap">
   Lista de Clientes
@@ -1928,7 +1928,7 @@ className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-5
   <select
     value={safePage}
     onChange={(e) => setPage(Number(e.target.value))}
-    className="h-10 pl-3 pr-10 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg font-bold text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 appearance-none"
+    className="h-10 pl-3 pr-10 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg font-bold text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 appearance-none"
   >
     {Array.from({ length: totalPages }, (_, i) => i + 1).map((pNum) => (
       <option key={pNum} value={pNum}>
@@ -1949,7 +1949,7 @@ className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-5
             setPageSize(Number(e.target.value));
             setPage(1);
           }}
-          className="bg-transparent border border-slate-300 dark:border-white/10 rounded px-1 py-0.5 outline-none text-slate-700 dark:text-white cursor-pointer hover:border-emerald-500/50 transition-colors"
+          className="bg-transparent border border-slate-300 dark:border-border rounded px-1 py-0.5 outline-none text-slate-700 dark:text-white cursor-pointer hover:border-emerald-500/50 transition-colors"
         >
           <option value={25}>25</option>
           <option value={50}>50</option>
@@ -1961,7 +1961,7 @@ className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-5
         <button
           onClick={() => setPage((p) => Math.max(1, p - 1))}
           disabled={safePage <= 1}
-          className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-white/10 transition flex items-center justify-center"
+          className="h-8 w-8 rounded-lg border border-slate-200 dark:border-border bg-white dark:bg-white/5 text-slate-600 dark:text-muted-foreground font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-white/10 transition flex items-center justify-center"
           title="Página anterior"
         >
           ←
@@ -1974,7 +1974,7 @@ className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-5
         <button
           onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
           disabled={safePage >= totalPages}
-          className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-white/10 transition flex items-center justify-center"
+          className="h-8 w-8 rounded-lg border border-slate-200 dark:border-border bg-white dark:bg-white/5 text-slate-600 dark:text-muted-foreground font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-white/10 transition flex items-center justify-center"
           title="Próxima página"
         >
           →
@@ -1988,7 +1988,7 @@ className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-5
             <table className="w-full text-left border-collapse min-w-[250px]">
 
               <thead>
-                <tr className="border-b border-slate-200 dark:border-white/10 text-xs font-bold uppercase text-slate-500 dark:text-white/55">
+                <tr className="border-b border-slate-200 dark:border-border text-xs font-bold uppercase text-slate-500 dark:text-white/55">
                   <Th width={40}>
                   <input
                     ref={selectAllRef}
@@ -2083,7 +2083,7 @@ className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-5
     </div>
     
     {/* Alterado: Username agora com font-medium e cor mais forte (slate-500 ao invés de 400) */}
-<span className={`text-xs font-medium text-slate-500 dark:text-white/70 truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+<span className={`text-xs font-medium text-slate-500 dark:text-muted-foreground truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
   {r.username}
 </span>
 {r.whatsapp_username && (
@@ -2259,7 +2259,7 @@ const appIsExpiring = appDiffDays !== null && appDiffDays <= 30;
                             </IconActionBtn>
 
                             {msgMenuForId === r.id && (
-                              <div onClick={(e) => e.stopPropagation()} className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0f141a] z-50 shadow-2xl overflow-hidden">
+                              <div onClick={(e) => e.stopPropagation()} className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 dark:border-border bg-white dark:bg-background z-50 shadow-2xl overflow-hidden">
                                 <MenuItem
                               icon={<IconSend />}
                               label="Enviar agora"
@@ -2342,7 +2342,7 @@ const appIsExpiring = appDiffDays !== null && appDiffDays <= 30;
 
                 {visible.length === 0 && (
                     <tr>
-                      <td colSpan={11} className="p-8 text-center text-slate-400 dark:text-white/40 italic">
+                      <td colSpan={11} className="p-8 text-center text-slate-400 dark:text-muted-foreground italic">
                         Nenhum cliente encontrado.
                       </td>
                     </tr>
@@ -2397,7 +2397,7 @@ const appIsExpiring = appDiffDays !== null && appDiffDays <= 30;
                   // Abre a lista de alertas para checar
                   if (clientId) handleOpenAlertList(clientId, clientName);
                 }}
-                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase"
+                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-border text-slate-700 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase"
               >
                 Ver Alertas
               </button>
@@ -2452,7 +2452,7 @@ const appIsExpiring = appDiffDays !== null && appDiffDays <= 30;
             <textarea
               value={newAlertText}
               onChange={(e) => setNewAlertText(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl p-4 text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors min-h-[120px] text-sm resize-none"
+              className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-xl p-4 text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors min-h-[120px] text-sm resize-none"
               placeholder="Descreva o alerta ou pendência deste cliente..."
               autoFocus
             />
@@ -2460,7 +2460,7 @@ const appIsExpiring = appDiffDays !== null && appDiffDays <= 30;
             <div className="flex justify-end gap-3 pt-2">
               <button 
                 onClick={() => setShowNewAlert({ open: false, clientId: null })} 
-                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 text-sm font-bold transition-colors"
+                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 text-sm font-bold transition-colors"
               >
                 Cancelar
               </button>
@@ -2497,13 +2497,13 @@ const appIsExpiring = appDiffDays !== null && appDiffDays <= 30;
             
             <div className="max-h-[60vh] overflow-y-auto pr-1 space-y-3">
               {(clientAlerts as { id: string; message?: string }[]).length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-slate-400 dark:text-white/30 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-xl">
+                <div className="flex flex-col items-center justify-center py-8 text-slate-400 dark:text-white/30 border-2 border-dashed border-slate-200 dark:border-border rounded-xl">
                    <span className="text-2xl mb-2">✅</span>
                    <p className="text-sm">Nenhum alerta pendente.</p>
                 </div>
               ) : (
                 (clientAlerts as { id: string; message?: string }[]).map((alert) => (
-                  <div key={alert.id} className="group p-4 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl shadow-sm hover:border-rose-200 dark:hover:border-rose-500/30 transition-all flex justify-between items-start gap-4">
+                  <div key={alert.id} className="group p-4 bg-white dark:bg-white/5 border border-slate-200 dark:border-border rounded-xl shadow-sm hover:border-rose-200 dark:hover:border-rose-500/30 transition-all flex justify-between items-start gap-4">
                     <div className="flex gap-3">
                         <span className="text-rose-500 mt-0.5">⚠️</span>
                         <p className="text-sm text-slate-700 dark:text-white/90 whitespace-pre-wrap leading-relaxed">{alert.message || ""}</p>
@@ -2520,7 +2520,7 @@ const appIsExpiring = appDiffDays !== null && appDiffDays <= 30;
               )}
             </div>
 
-            <div className="flex justify-end border-t border-slate-100 dark:border-white/5 pt-4">
+            <div className="flex justify-end border-t border-slate-100 dark:border-border pt-4">
               <button 
                 onClick={() => setShowAlertList({ open: false, clientId: null })} 
                 className="px-6 py-2 rounded-lg bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-white font-bold hover:bg-slate-200 dark:hover:bg-white/20 transition-colors text-sm"
@@ -2551,13 +2551,13 @@ const appIsExpiring = appDiffDays !== null && appDiffDays <= 30;
 
             {/* ✅ Select da Sessão WhatsApp */}
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Sessão de Envio
               </label>
               <select
                 value={selectedSessionNow}
                 onChange={(e) => setSelectedSessionNow(e.target.value)}
-                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-sky-500 transition-colors text-sm font-medium"
+                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-xl text-slate-800 dark:text-white outline-none focus:border-sky-500 transition-colors text-sm font-medium"
               >
                 {sessionOptions.map(s => (
                   <option key={s.id} value={s.id}>{s.label}</option>
@@ -2567,7 +2567,7 @@ const appIsExpiring = appDiffDays !== null && appDiffDays <= 30;
 
             {/* ✅ Select de template (opcional) */}
 <div>
-  <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+  <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
     Mensagem pronta (opcional)
   </label>
 
@@ -2584,7 +2584,7 @@ const appIsExpiring = appDiffDays !== null && appDiffDays <= 30;
       setMessageText("");
     }
   }}
-  className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-sky-500 transition-colors text-sm"
+  className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-xl text-slate-800 dark:text-white outline-none focus:border-sky-500 transition-colors text-sm"
 >
   <option value="">Selecionar...</option>
   {Object.entries(
@@ -2613,10 +2613,10 @@ const appIsExpiring = appDiffDays !== null && appDiffDays <= 30;
   if (!tpl?.image_url) return null;
   return (
     <div className="mb-2 animate-in fade-in zoom-in-95 duration-200">
-      <span className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+      <span className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
         Imagem Anexada
       </span>
-      <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-white/10 shadow-sm relative bg-slate-100 dark:bg-black/40">
+      <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-border shadow-sm relative bg-slate-100 dark:bg-black/40">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={tpl.image_url} alt="Anexo do template" className="w-full h-full object-cover" />
       </div>
@@ -2632,7 +2632,7 @@ const appIsExpiring = appDiffDays !== null && appDiffDays <= 30;
     if (selectedTemplateNowId) setSelectedTemplateNowId("");
     setMessageText(e.target.value);
   }}
-  className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl p-4 text-slate-800 dark:text-white outline-none focus:border-sky-500 transition-colors min-h-[120px] text-sm resize-none disabled:opacity-70"
+  className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-xl p-4 text-slate-800 dark:text-white outline-none focus:border-sky-500 transition-colors min-h-[120px] text-sm resize-none disabled:opacity-70"
   placeholder="Olá, gostaria de informar que..."
   autoFocus
 />
@@ -2641,7 +2641,7 @@ const appIsExpiring = appDiffDays !== null && appDiffDays <= 30;
             <div className="flex justify-end gap-3 pt-2">
               <button 
                 onClick={() => setShowSendNow({ open: false, clientId: null })} 
-                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 text-sm font-bold transition-colors"
+                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 text-sm font-bold transition-colors"
               >
                 Cancelar
               </button>
@@ -2678,13 +2678,13 @@ const appIsExpiring = appDiffDays !== null && appDiffDays <= 30;
 
             {/* ✅ Select da Sessão WhatsApp */}
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Sessão de Envio
               </label>
               <select
                 value={selectedSessionSchedule}
                 onChange={(e) => setSelectedSessionSchedule(e.target.value)}
-                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors text-sm font-medium"
+                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-xl text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors text-sm font-medium"
               >
                 {sessionOptions.map(s => (
                   <option key={s.id} value={s.id}>{s.label}</option>
@@ -2693,20 +2693,20 @@ const appIsExpiring = appDiffDays !== null && appDiffDays <= 30;
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Data e Hora do Envio</label>
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">Data e Hora do Envio</label>
               <input
                 type="datetime-local"
                 value={scheduleDate}
                 onChange={(e) => setScheduleDate(e.target.value)}
-                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors text-sm"
+                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-xl text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors text-sm"
               />
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Conteúdo da Mensagem</label>
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">Conteúdo da Mensagem</label>
 {/* ✅ Select de template (opcional) */}
 <div>
-  <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+  <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
     Mensagem pronta (opcional)
   </label>
 
@@ -2723,7 +2723,7 @@ const appIsExpiring = appDiffDays !== null && appDiffDays <= 30;
       setScheduleText("");
     }
   }}
-  className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors text-sm mb-3"
+  className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-xl text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors text-sm mb-3"
 >
   <option value="">Selecionar mensagem pronta (opcional)...</option>
   {Object.entries(
@@ -2753,10 +2753,10 @@ const appIsExpiring = appDiffDays !== null && appDiffDays <= 30;
   if (!tpl?.image_url) return null;
   return (
     <div className="mb-2 animate-in fade-in zoom-in-95 duration-200">
-      <span className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+      <span className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
         Imagem Anexada
       </span>
-      <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-white/10 shadow-sm relative bg-slate-100 dark:bg-black/40">
+      <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-border shadow-sm relative bg-slate-100 dark:bg-black/40">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={tpl.image_url} alt="Anexo do template" className="w-full h-full object-cover" />
       </div>
@@ -2771,7 +2771,7 @@ const appIsExpiring = appDiffDays !== null && appDiffDays <= 30;
     if (selectedTemplateScheduleId) setSelectedTemplateScheduleId("");
     setScheduleText(e.target.value);
   }}
-  className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl p-4 text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors min-h-[120px] text-sm resize-none disabled:opacity-70"
+  className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-xl p-4 text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors min-h-[120px] text-sm resize-none disabled:opacity-70"
   placeholder="Ex: Olá, seu plano vence amanhã..."
 />
 
@@ -2780,7 +2780,7 @@ const appIsExpiring = appDiffDays !== null && appDiffDays <= 30;
             <div className="flex justify-end gap-3 pt-2">
               <button 
                 onClick={() => setShowScheduleMsg({ open: false, clientId: null })} 
-                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 text-sm font-bold transition-colors"
+                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 text-sm font-bold transition-colors"
               >
                 Cancelar
               </button>
@@ -2838,7 +2838,7 @@ function Select({
     <select
       value={value}
       onChange={onChange}
-      className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+      className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
     >
       {children}
     </select>
@@ -2963,7 +2963,7 @@ function ScheduledMessagesModal({
     <>
       <Modal title={`Mensagens Programadas • ${clientName}`} onClose={onClose}>
         {items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-slate-400 dark:text-white/30 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-xl">
+          <div className="flex flex-col items-center justify-center py-8 text-slate-400 dark:text-white/30 border-2 border-dashed border-slate-200 dark:border-border rounded-xl">
              <span className="text-2xl mb-2">🗓️</span>
              <p className="text-sm">Nenhum agendamento encontrado.</p>
           </div>
@@ -2972,12 +2972,12 @@ function ScheduledMessagesModal({
             {items.map((it) => (
               <div
                 key={it.id}
-                className="p-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 transition hover:border-purple-200 dark:hover:border-purple-500/30"
+                className="p-4 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 transition hover:border-purple-200 dark:hover:border-purple-500/30"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <div className="text-[10px] font-bold text-slate-500 dark:text-white/60 uppercase tracking-wider bg-white dark:bg-white/10 px-2 py-0.5 rounded border border-slate-100 dark:border-white/5">
+                      <div className="text-[10px] font-bold text-slate-500 dark:text-white/60 uppercase tracking-wider bg-white dark:bg-white/10 px-2 py-0.5 rounded border border-slate-100 dark:border-border">
 // ✅ PARA — extrai via formatToParts (mesma lógica)
 {(() => {
   const dt = new Date(it.send_at);
@@ -2998,7 +2998,7 @@ function ScheduledMessagesModal({
                       )}
                     </div>
 
-                    <div className="text-sm text-slate-700 dark:text-white/90 whitespace-pre-wrap break-words leading-relaxed border-l-2 border-slate-200 dark:border-white/10 pl-3">
+                    <div className="text-sm text-slate-700 dark:text-white/90 whitespace-pre-wrap break-words leading-relaxed border-l-2 border-slate-200 dark:border-border pl-3">
                       {it.message}
                     </div>
                   </div>
@@ -3118,8 +3118,8 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
       }}
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.60)", display: "grid", placeItems: "center", zIndex: 99999, padding: 16 }}
     >
-      <div onMouseDown={(e) => e.stopPropagation()} className="w-full max-w-lg bg-white dark:bg-[#0f141a] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+      <div onMouseDown={(e) => e.stopPropagation()} className="w-full max-w-lg bg-white dark:bg-background border border-slate-200 dark:border-border rounded-xl shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
           <div className="font-bold text-slate-800 dark:text-white">{title}</div>
           <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-white/60 hover:text-slate-800 dark:hover:text-white">
             <IconX />

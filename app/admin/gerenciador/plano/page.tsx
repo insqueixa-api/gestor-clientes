@@ -242,7 +242,7 @@ export default function PlanosPage() {
   return (
 
     
-    <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
+    <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors">
       {/* Topo */}
       <div className="flex items-center justify-between gap-2 pb-0 mb-2 px-3 sm:px-0 md:px-4">
         <div className="min-w-0 text-left">
@@ -266,10 +266,10 @@ export default function PlanosPage() {
 
       {/* Barra de Busca */}
       <div
-        className={`p-0 px-3 sm:px-0 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 ${(isNewOpen || editingPlan) ? "z-0" : "z-20"}`}
+        className={`p-0 px-3 sm:px-0 md:p-4 bg-transparent md:bg-white md:dark:bg-card border-0 md:border md:border-slate-200 md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 ${(isNewOpen || editingPlan) ? "z-0" : "z-20"}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-white/40 tracking-wider mb-2">
+        <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-muted-foreground tracking-wider mb-2">
           Busca
         </div>
 
@@ -279,7 +279,7 @@ export default function PlanosPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Pesquisar tabela..."
-              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
             />
             {search && (
               <button
@@ -302,7 +302,7 @@ export default function PlanosPage() {
       </div>
 
       {loading && (
-        <div className="p-12 text-center text-slate-400 dark:text-white/40 animate-pulse bg-white dark:bg-[#161b22] rounded-none sm:rounded-xl border border-slate-200 dark:border-white/5 font-medium">
+        <div className="p-12 text-center text-slate-400 dark:text-muted-foreground animate-pulse bg-white dark:bg-card rounded-none sm:rounded-xl border border-slate-200 dark:border-border font-medium">
           Carregando tabelas de preço...
         </div>
       )}
@@ -321,10 +321,10 @@ export default function PlanosPage() {
         if (groups.length === 0) {
           return (
             <div
-              className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm transition-colors"
+              className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-none sm:rounded-xl shadow-sm transition-colors"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="p-8 text-center text-slate-400 dark:text-white/40 italic">
+              <div className="p-8 text-center text-slate-400 dark:text-muted-foreground italic">
                 Nenhuma tabela encontrada.
               </div>
             </div>
@@ -336,10 +336,10 @@ export default function PlanosPage() {
             {groups.map((group) => (
               <div
                 key={group.key}
-                className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors"
+                className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors"
               >
                 {/* Cabeçalho do grupo */}
-                <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
                   <span className={`${group.color}`}>{group.icon}</span>
                   <span className="text-sm font-bold text-slate-700 dark:text-white whitespace-nowrap">
                     {group.label}
@@ -357,10 +357,10 @@ export default function PlanosPage() {
                       return (
                         <div
                           key={plan.id}
-                          className="bg-white dark:bg-[#161b22] rounded-xl overflow-hidden shadow-sm border border-slate-200 dark:border-white/10 transition-colors"
+                          className="bg-white dark:bg-card rounded-xl overflow-hidden shadow-sm border border-slate-200 dark:border-border transition-colors"
                         >
                           {/* CABEÇALHO DO CARD */}
-                          <div className="px-5 py-3 flex justify-between items-center border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+                          <div className="px-5 py-3 flex justify-between items-center border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
                             <div className="flex items-center gap-3">
                               <h2 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">
                                 {plan.is_system_default && plan.name.startsWith("Padrão") ? "Padrão" : plan.name}
@@ -381,7 +381,7 @@ export default function PlanosPage() {
                                     ${
                                       plan.is_active
                                         ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                                        : "bg-slate-100 text-slate-400 border-slate-200 dark:bg-white/5 dark:border-white/10 dark:text-white/20"
+                                        : "bg-slate-100 text-slate-400 border-slate-200 dark:bg-white/5 dark:border-border dark:text-white/20"
                                     }`}
                                   >
                                     {plan.is_active ? "Ativa" : "Inativa"}
@@ -394,7 +394,7 @@ export default function PlanosPage() {
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={() => setExpanded((prev) => ({ ...prev, [plan.id]: !prev[plan.id] }))}
-                                className="p-1.5 rounded-lg bg-slate-500/10 border border-slate-500/20 text-slate-600 dark:text-white/70 hover:bg-slate-500/20 transition-all shadow-sm"
+                                className="p-1.5 rounded-lg bg-slate-500/10 border border-slate-500/20 text-slate-600 dark:text-muted-foreground hover:bg-slate-500/20 transition-all shadow-sm"
                                 title={isExpanded ? "Minimizar tabela" : "Maximizar tabela"}
                                 aria-label={isExpanded ? "Minimizar tabela" : "Maximizar tabela"}
                               >
@@ -435,10 +435,10 @@ export default function PlanosPage() {
 
                           {/* CONTEÚDO EXPANDIDO */}
             {isExpanded && (
-              <div className="p-4 sm:p-5 space-y-6 bg-white dark:bg-[#161b22]">
+              <div className="p-4 sm:p-5 space-y-6 bg-white dark:bg-card">
                 {[1, 2, 3].map((screenCount) => (
                   <div key={screenCount} className="animate-in slide-in-from-left-2 duration-300">
-                                  <h3 className="text-xs font-bold text-slate-500 dark:text-white/40 mb-3 ml-1 tracking-tight">
+                                  <h3 className="text-xs font-bold text-slate-500 dark:text-muted-foreground mb-3 ml-1 tracking-tight">
                                     Preços para {screenCount} {screenCount === 1 ? "Tela" : "Telas"}
                                   </h3>
 
@@ -449,7 +449,7 @@ export default function PlanosPage() {
                                       return (
                                         <div
                                           key={period}
-                                          className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-xl px-3 py-2.5 flex flex-col justify-center h-16 relative hover:border-emerald-500/30 transition-all group"
+                                          className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-xl px-3 py-2.5 flex flex-col justify-center h-16 relative hover:border-emerald-500/30 transition-all group"
                                         >
                                           <div className="flex justify-between items-center w-full mb-1">
                                             <span className="text-[10px] font-bold text-slate-400 dark:text-white/20">

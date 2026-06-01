@@ -131,11 +131,11 @@ function IconWa() {
 }
 
 function Label({ children }: { children: React.ReactNode }) {
-  return <label className="block text-xs font-bold text-slate-500 dark:text-white/40 mb-1.5 tracking-tight">{children}</label>;
+  return <label className="block text-xs font-bold text-slate-500 dark:text-muted-foreground mb-1.5 tracking-tight">{children}</label>;
 }
 
 function Input({ className = "", ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors ${className}`} />;
+  return <input {...props} className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors ${className}`} />;
 }
 
 function ToggleLine({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
@@ -143,7 +143,7 @@ function ToggleLine({ label, value, onChange }: { label: string; value: boolean;
     <button
       type="button"
       onClick={() => onChange(!value)}
-      className="w-full h-10 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 hover:bg-slate-100 dark:hover:bg-white/5 transition flex items-center justify-between"
+      className="w-full h-10 px-3 py-2 rounded-lg border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 hover:bg-slate-100 dark:hover:bg-white/5 transition flex items-center justify-between"
     >
       <span className="text-slate-800 dark:text-white font-semibold text-sm">{label}</span>
       <div className={`w-10 h-5 rounded-full border relative transition-colors ${value ? "bg-emerald-500/60 border-emerald-500/50" : "bg-white/10 border-slate-300 dark:border-white/20"}`}>
@@ -507,8 +507,7 @@ export default function ResellerFormModal({ resellerToEdit, onClose, onSuccess, 
   <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200">
     
     <div
-      className="w-full max-w-2xl max-h-[90vh] bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl flex flex-col overflow-hidden min-h-0 transition-colors"
-      style={{ maxHeight: "90dvh" }}
+      className="w-full max-w-2xl max-h-[90vh] bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl flex flex-col overflow-hidden min-h-0 transition-colors max-h-[90dvh]"
     >
       
       {/* HEADER */}
@@ -522,7 +521,6 @@ export default function ResellerFormModal({ resellerToEdit, onClose, onSuccess, 
         {/* BODY */}
 <div
   className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6 space-y-6"
-  style={{ WebkitOverflowScrolling: "touch" }}
 >
 
   {submitAttempted && errors.length > 0 && (
@@ -558,7 +556,7 @@ export default function ResellerFormModal({ resellerToEdit, onClose, onSuccess, 
     <div>
       <Label>Telefone principal</Label>
       <div className="flex gap-2">
-        <div className="h-10 px-3 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg flex items-center text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap font-medium min-w-[120px]">
+        <div className="h-10 px-3 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-border rounded-lg flex items-center text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap font-medium min-w-[120px]">
           {primaryCountryLabel}
         </div>
 
@@ -657,7 +655,7 @@ export default function ResellerFormModal({ resellerToEdit, onClose, onSuccess, 
     <textarea
       value={notes}
       onChange={e => setNotes(e.target.value)}
-      className="w-full h-24 p-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-colors"
+      className="w-full h-24 p-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-xl text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-colors"
       placeholder="Anotações sobre este revendedor..."
     />
   </div>
@@ -668,7 +666,7 @@ export default function ResellerFormModal({ resellerToEdit, onClose, onSuccess, 
       <div className="px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t bg-slate-50 dark:bg-white/5 shrink-0 rounded-b-xl flex justify-end gap-3">
         <button
           onClick={onClose}
-          className="px-4 h-10 rounded-lg border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white text-sm font-semibold hover:bg-slate-100 dark:hover:bg-white/5 transition"
+          className="px-4 h-10 rounded-lg border border-slate-200 dark:border-border text-slate-700 dark:text-white text-sm font-semibold hover:bg-slate-100 dark:hover:bg-white/5 transition"
         >
           Cancelar
         </button>

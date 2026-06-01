@@ -78,14 +78,14 @@ setMsg("Senha atualizada com sucesso! Redirecionando para o login...");
   // Tela de carregamento enquanto valida o token
   if (isValidating) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-slate-50 dark:bg-[#0f141a]">
+      <div className="min-h-[100dvh] flex items-center justify-center bg-slate-50 dark:bg-background">
         <div className="text-slate-500 dark:text-white/60 animate-pulse">Validando link de segurança...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-[100dvh] relative overflow-hidden flex items-center sm:items-center justify-center px-3 sm:px-6 pt-6 pb-6 sm:py-10 bg-slate-50 dark:bg-[#0f141a]">
+    <div className="min-h-[100dvh] relative overflow-hidden flex items-center sm:items-center justify-center px-3 sm:px-6 pt-6 pb-6 sm:py-10 bg-slate-50 dark:bg-background">
       {/* Fundo com gradiente + glow */}
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-gradient-to-br from-[#0b2a4a] via-[#0f141a] to-[#0e6b5c] opacity-90 dark:opacity-100" />
@@ -101,7 +101,7 @@ setMsg("Senha atualizada com sucesso! Redirecionando para o login...");
       </div>
 
       <div className="relative z-10 w-full max-w-[420px] sm:max-w-md">
-        <div className="rounded-2xl border border-white/20 bg-white/85 backdrop-blur-xl shadow-2xl dark:bg-[#161b22]/80 dark:border-white/10 overflow-hidden">
+        <div className="rounded-2xl border border-white/20 bg-white/85 backdrop-blur-xl shadow-2xl dark:bg-card/80 dark:border-border overflow-hidden">
           
           <div className="px-5 sm:px-8 pt-5 sm:pt-8 pb-3 sm:pb-6 text-center">
             <div className="flex items-center justify-center">
@@ -149,7 +149,7 @@ setMsg("Senha atualizada com sucesso! Redirecionando para o login...");
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Mínimo de 6 caracteres"
                     autoComplete="new-password"
-                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:ring-2 focus:ring-emerald-500/60 dark:border-white/10 dark:bg-black/20 dark:text-white dark:placeholder:text-white/40"
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:ring-2 focus:ring-emerald-500/60 dark:border-border dark:bg-black/20 dark:text-white dark:placeholder:text-white/40"
                   />
                 </div>
 

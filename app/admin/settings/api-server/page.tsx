@@ -274,7 +274,7 @@ return u || "--";
   }
 
   return (
-    <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
+    <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors">
       {/* Topo */}
       <div className="flex items-center justify-between gap-2 pb-0 mb-2">
         <div className="min-w-0 text-left">
@@ -295,10 +295,10 @@ return u || "--";
   </button>
 
   {showTypeChooser && (
-    <div className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b22] shadow-2xl z-50 overflow-hidden">
+    <div className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 dark:border-border bg-white dark:bg-card shadow-2xl z-50 overflow-hidden">
       <button
         onClick={() => { setShowTypeChooser(false); setEditingIntegration(null); setIsModalOpen(true); }}
-        className="w-full px-4 py-3 text-left text-sm font-bold text-slate-700 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2 border-b border-slate-100 dark:border-white/5"
+        className="w-full px-4 py-3 text-left text-sm font-bold text-slate-700 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2 border-b border-slate-100 dark:border-border"
       >
         🖥️ Servidor
       </button>
@@ -315,7 +315,7 @@ return u || "--";
         </div>
       </div>
 
-      <div className="flex gap-1 p-1 bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl w-fit shadow-sm">
+      <div className="flex gap-1 p-1 bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl w-fit shadow-sm">
         {(["servidores", "aplicativos"] as const).map((tab) => (
           <button
             key={tab}
@@ -323,7 +323,7 @@ return u || "--";
             className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
               activeTab === tab
                 ? "bg-emerald-600 text-white shadow"
-                : "text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white"
+                : "text-slate-500 dark:text-muted-foreground hover:text-slate-700 dark:hover:text-white"
             }`}
           >
             {tab === "servidores"
@@ -334,7 +334,7 @@ return u || "--";
       </div>
 
       {loading && (
-        <div className="p-12 text-center text-slate-400 dark:text-white/40 animate-pulse bg-white dark:bg-[#161b22] rounded-xl border border-slate-200 dark:border-white/5">
+        <div className="p-12 text-center text-slate-400 dark:text-muted-foreground animate-pulse bg-white dark:bg-card rounded-xl border border-slate-200 dark:border-border">
           Carregando integrações...
         </div>
       )}
@@ -342,7 +342,7 @@ return u || "--";
       {activeTab === "servidores" && (
         <>
           {!loading && integrations.length === 0 && (
-            <div className="p-12 text-center text-slate-400 dark:text-white/30 bg-white dark:bg-[#161b22] rounded-xl border border-dashed border-slate-200 dark:border-white/10">
+            <div className="p-12 text-center text-slate-400 dark:text-white/30 bg-white dark:bg-card rounded-xl border border-dashed border-slate-200 dark:border-border">
               Nenhuma integração de servidor cadastrada.
             </div>
           )}
@@ -351,9 +351,9 @@ return u || "--";
           {integrations.map((row) => (
             <div
               key={row.id}
-              className="rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-white dark:bg-[#161b22] border-slate-200 dark:border-white/10 hover:border-emerald-500/30"
+              className="rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-white dark:bg-card border-slate-200 dark:border-border hover:border-emerald-500/30"
             >
-              <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+              <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
                 <div className="min-w-0 pr-3">
                   <div className="flex items-center gap-2 min-w-0">
                     <h2
@@ -436,7 +436,7 @@ return u || "--";
                   </div>
                 </div>
 
-                <div className="space-y-2 sm:border-l sm:pl-4 border-slate-100 dark:border-white/5">
+                <div className="space-y-2 sm:border-l sm:pl-4 border-slate-100 dark:border-border">
                   <div className="flex justify-between items-center">
                     <span className="text-slate-500 dark:text-white/50">🧾 Créditos</span>
                     <span
@@ -489,15 +489,15 @@ return u || "--";
       {activeTab === "aplicativos" && (
         <>
           {!loading && appList.length === 0 && (
-            <div className="p-12 text-center text-slate-400 dark:text-white/30 bg-white dark:bg-[#161b22] rounded-xl border border-dashed border-slate-200 dark:border-white/10">
+            <div className="p-12 text-center text-slate-400 dark:text-white/30 bg-white dark:bg-card rounded-xl border border-dashed border-slate-200 dark:border-border">
               Nenhuma integração de aplicativo cadastrada.
             </div>
           )}
           {!loading && appList.length > 0 && (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-5">
               {appList.map((row) => (
-                <div key={row.id} className="rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-white dark:bg-[#161b22] border-slate-200 dark:border-white/10 hover:border-emerald-500/30">
-                  <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+                <div key={row.id} className="rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-white dark:bg-card border-slate-200 dark:border-border hover:border-emerald-500/30">
+                  <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
                     <div className="flex items-center gap-2 min-w-0 pr-3">
                       <h2 className="text-base font-bold truncate text-slate-700 dark:text-white tracking-tight">{row.label}</h2>
                       <span className="inline-flex items-center text-[10px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 px-2.5 py-0.5 rounded-full uppercase">

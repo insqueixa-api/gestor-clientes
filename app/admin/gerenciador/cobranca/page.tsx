@@ -401,8 +401,8 @@ const handleGlobalPause = async () => {
       {/* 🔴 MODAL RAIO-X */}
     {showModal && createPortal(
       <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in">
-    <div className="w-full max-w-6xl bg-white dark:bg-[#161b22] rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
-  <div className="px-4 py-3 border-b border-gray-100 dark:border-white/10 flex justify-between items-center bg-gray-50 dark:bg-white/5">
+    <div className="w-full max-w-6xl bg-white dark:bg-card rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+  <div className="px-4 py-3 border-b border-gray-100 dark:border-border flex justify-between items-center bg-gray-50 dark:bg-white/5">
         <h3 className="font-bold text-lg dark:text-white">Gerenciador de Fila</h3>
         <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
       </div>
@@ -440,7 +440,7 @@ const handleGlobalPause = async () => {
                 </td>
 
                 {/* WHATSAPP */}
-                <td className="p-4 font-mono text-xs text-slate-600 dark:text-white/70 whitespace-nowrap">
+                <td className="p-4 font-mono text-xs text-slate-600 dark:text-muted-foreground whitespace-nowrap">
                   {job.whatsapp_username || "--"}
                 </td>
 
@@ -478,7 +478,7 @@ const handleGlobalPause = async () => {
         </table>
       </div>
 
-      <div className="p-3 border-t border-gray-100 dark:border-white/10 flex gap-2 justify-end bg-gray-50 dark:bg-white/5 flex-wrap">
+      <div className="p-3 border-t border-gray-100 dark:border-border flex gap-2 justify-end bg-gray-50 dark:bg-white/5 flex-wrap">
         {activeCount > 0 ? 
           <button onClick={handleGlobalPause} disabled={loading} className="px-4 py-2 bg-amber-500 text-white rounded-lg font-bold text-xs hover:bg-amber-600">⏸️ PAUSAR TUDO</button> :
           <button onClick={handleGlobalResume} disabled={loading || pausedCount === 0} className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold text-xs hover:bg-emerald-700 disabled:opacity-50">▶️ RETOMAR</button>
@@ -940,7 +940,7 @@ return {
   const filtered = automations.filter(a => a.name.toLowerCase().includes(search.toLowerCase()));
 
 return (
-  <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
+  <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors">
 
     {/* Monitor da fila (com padding padrão e SEM z alto) */}
     <div className="px-3 sm:px-0 md:px-4">
@@ -969,8 +969,8 @@ return (
 
     {/* Barra de busca (padrão admin: sticky no desktop) */}
     <div className="p-0 px-3 sm:px-0 md:px-4">
-      <div className="p-0 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm md:sticky md:top-4 z-20">
-        <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-white/40 tracking-wider mb-3">
+      <div className="p-0 md:p-4 bg-transparent md:bg-white md:dark:bg-card border-0 md:border md:border-slate-200 md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm md:sticky md:top-4 z-20">
+        <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-muted-foreground tracking-wider mb-3">
           Busca
         </div>
 
@@ -980,7 +980,7 @@ return (
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar regra..."
-              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
             />
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">
               🔍
@@ -1005,7 +1005,7 @@ return (
       {loading ? (
          <div className="text-center py-10 text-slate-400 animate-pulse">Carregando automações...</div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-[#161b22] border border-dashed border-slate-300 dark:border-white/10 rounded-2xl">
+        <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-card border border-dashed border-slate-300 dark:border-border rounded-2xl">
            <div className="w-16 h-16 bg-slate-100 dark:bg-white/5 rounded-full flex items-center justify-center mb-4 text-3xl">🤖</div>
            <h3 className="text-lg font-bold text-slate-700 dark:text-white">Nenhuma regra ativa</h3>
            <p className="text-sm text-slate-500 dark:text-white/50 mt-1">Crie sua primeira automação de cobrança.</p>
@@ -1105,14 +1105,14 @@ const getRuleText = () => {
     const status = data.execution_status || 'IDLE';
 
     return (
-        <div className={`bg-white dark:bg-[#161b22] border rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-lg transition-all flex flex-col justify-between h-full relative overflow-hidden group ${data.is_active ? 'border-t-4 border-t-emerald-500 border-x-slate-200 border-b-slate-200 dark:border-white/10' : 'border-slate-200 dark:border-white/10 opacity-75 grayscale-[0.8] hover:grayscale-0'}`}>
+        <div className={`bg-white dark:bg-card border rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-lg transition-all flex flex-col justify-between h-full relative overflow-hidden group ${data.is_active ? 'border-t-4 border-t-emerald-500 border-x-slate-200 border-b-slate-200 dark:border-border' : 'border-slate-200 dark:border-border opacity-75 grayscale-[0.8] hover:grayscale-0'}`}>
             
             {/* Header: Nome e Toggle */}
             <div className="flex justify-between items-start mb-3">
                 <div className="flex-1 pr-2">
                     <h3 className="font-bold text-slate-800 dark:text-white text-base line-clamp-1" title={data.name}>{data.name}</h3>
                     <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-white/5 text-slate-500 uppercase border border-slate-200 dark:border-white/10 tracking-wider">{data.type}</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-white/5 text-slate-500 uppercase border border-slate-200 dark:border-border tracking-wider">{data.type}</span>
                         <span className={`text-[10px] font-bold ${data.is_automatic ? 'text-purple-500' : 'text-amber-500'}`}>
                             {data.is_automatic ? 'AUTO' : 'MANUAL'}
                         </span>
@@ -1141,23 +1141,23 @@ const getRuleText = () => {
             </div>
 
             {/* Info do Disparo */}
-            <div className="space-y-2 mb-4 bg-slate-50 dark:bg-black/20 p-3 rounded-lg border border-slate-100 dark:border-white/5">
-                <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-white/70">
+            <div className="space-y-2 mb-4 bg-slate-50 dark:bg-black/20 p-3 rounded-lg border border-slate-100 dark:border-border">
+                <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-muted-foreground">
                     <span className="text-base">📅</span>
                     <span className="font-medium">{getRuleText()}</span>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-white/70">
+                <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-muted-foreground">
                     <span className="text-base">💬</span>
                     <span className="truncate max-w-[200px]" title={data.message_template?.name}>{data.message_template?.name || "Sem mensagem"}</span>
                 </div>
                 {data.is_automatic && (
-                    <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-white/70">
+                    <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-muted-foreground">
                         <span className="text-base">⏰</span>
                         <span>Envio às <strong>{data.schedule_time?.slice(0, 5)}</strong></span>
                     </div>
                 )}
                 {/* ✅ SESSÃO DO WHATSAPP COM STATUS E NÚMERO REAIS */}
-                <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-white/70 pt-2 mt-1 border-t border-slate-200 dark:border-white/5">
+                <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-muted-foreground pt-2 mt-1 border-t border-slate-200 dark:border-border">
                     <span className="text-base">📱</span>
                     <span className="truncate" title={sessionLabel}>
                         Sessão: <strong className="text-slate-700 dark:text-white/90">{sessionLabel || "Carregando..."}</strong>
@@ -1167,7 +1167,7 @@ const getRuleText = () => {
 
             {/* Métricas e Botões */}
             <div className="mt-auto">
-                <div className="flex justify-between items-end border-t border-slate-100 dark:border-white/5 pt-3">
+                <div className="flex justify-between items-end border-t border-slate-100 dark:border-border pt-3">
                     
                     {/* Botão de Impacto (Clicável) */}
                     <div 
@@ -1297,7 +1297,7 @@ const getRuleText = () => {
 
                     <button
                         onClick={onShowLogs}
-                        className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 dark:bg-white/10 dark:text-white/70 transition"
+                        className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 dark:bg-white/10 dark:text-muted-foreground transition"
                         title="Logs"
                     >
                         Logs
@@ -1337,8 +1337,8 @@ function ImpactListModal({ data, onClose }: { data: {ruleName: string, clients: 
 
     return createPortal(
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="w-full max-w-4xl bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl flex flex-col max-h-[80vh]">
-                <div className="px-6 py-4 border-b border-slate-100 dark:border-white/5 flex justify-between items-center bg-slate-50 dark:bg-white/5">
+            <div className="w-full max-w-4xl bg-white dark:bg-card border border-slate-200 dark:border-border rounded-2xl shadow-2xl flex flex-col max-h-[80vh]">
+                <div className="px-6 py-4 border-b border-slate-100 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5">
                     <div>
                         <h3 className="text-lg font-bold text-slate-800 dark:text-white">Clientes Afetados Hoje</h3>
                         <p className="text-xs text-slate-500">Regra: <strong>{data.ruleName}</strong> • Total: <strong>{data.clients.length}</strong></p>
@@ -1351,7 +1351,7 @@ function ImpactListModal({ data, onClose }: { data: {ruleName: string, clients: 
                         <div className="p-10 text-center text-slate-400 italic">Nenhum cliente atende a esta regra hoje.</div>
                     ) : (
                         <table className="w-full text-left border-collapse min-w-[700px]">
-                            <thead className="bg-slate-50 dark:bg-white/5 sticky top-0 z-10 text-xs uppercase text-slate-500 dark:text-white/40 font-bold">
+                            <thead className="bg-slate-50 dark:bg-white/5 sticky top-0 z-10 text-xs uppercase text-slate-500 dark:text-muted-foreground font-bold">
                                 <tr>
                                     <th className="p-3">Cliente / Contato</th>
                                     <th className="p-3">Acesso / Servidor</th>
@@ -1376,7 +1376,7 @@ function ImpactListModal({ data, onClose }: { data: {ruleName: string, clients: 
 
                                             {/* Secundário (só aparece se tiver) */}
                                             {c.secondary_display_name && (
-                                                <div className="flex flex-col mt-2.5 pt-2 border-t border-slate-100 dark:border-white/5">
+                                                <div className="flex flex-col mt-2.5 pt-2 border-t border-slate-100 dark:border-border">
                                                     <span className="font-bold text-slate-700 dark:text-slate-300 text-xs flex items-center gap-1.5">
                                                         {c.secondary_display_name}
                                                         <span className="text-[9px] bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 px-1.5 py-0.5 rounded font-normal uppercase">Secundário</span>
@@ -1431,7 +1431,7 @@ function ImpactListModal({ data, onClose }: { data: {ruleName: string, clients: 
                     )}
                 </div>
 
-                <div className="px-6 py-4 border-t border-slate-100 dark:border-white/5 flex justify-end">
+                <div className="px-6 py-4 border-t border-slate-100 dark:border-border flex justify-end">
                     <button onClick={onClose} className="px-5 py-2.5 rounded-lg bg-slate-800 text-white font-bold text-xs uppercase hover:bg-slate-700 transition-colors shadow-md">
                         Fechar
                     </button>
@@ -1591,8 +1591,8 @@ if (error) throw error;
 
     return createPortal(
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="w-full max-w-2xl bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
-                <div className="px-6 py-5 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-white/5">
+            <div className="w-full max-w-2xl bg-white dark:bg-card border border-slate-200 dark:border-border rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
+                <div className="px-6 py-5 border-b border-slate-100 dark:border-border bg-slate-50 dark:bg-white/5">
                     <div className="flex justify-between items-center mb-4">
                         <h2 className="text-xl font-bold text-slate-800 dark:text-white">
                             {editingRule ? `Editar: ${editingRule.name}` : (step === 1 ? "1. Configuração Básica" : step === 2 ? "2. Quem vai receber?" : "3. Quando enviar?")}
@@ -1648,30 +1648,30 @@ if (error) throw error;
 
                             <div>
                                 <Label>Segurança (Intervalo entre envios)</Label>
-                                <div className="flex items-center gap-3 bg-slate-50 dark:bg-white/5 p-3 rounded-lg border border-slate-100 dark:border-white/5 mt-1">
+                                <div className="flex items-center gap-3 bg-slate-50 dark:bg-white/5 p-3 rounded-lg border border-slate-100 dark:border-border mt-1">
                                     <span className="text-xs text-slate-500">Entre</span>
-                                    <input type="number" className="w-16 h-8 text-center rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-black/20 text-sm" value={form.delay_min} onChange={e => setForm({...form, delay_min: Number(e.target.value)})} />
+                                    <input type="number" className="w-16 h-8 text-center rounded border border-slate-200 dark:border-border bg-white dark:bg-black/20 text-sm" value={form.delay_min} onChange={e => setForm({...form, delay_min: Number(e.target.value)})} />
                                     <span className="text-xs text-slate-500">e</span>
-                                    <input type="number" className="w-16 h-8 text-center rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-black/20 text-sm" value={form.delay_max} onChange={e => setForm({...form, delay_max: Number(e.target.value)})} />
+                                    <input type="number" className="w-16 h-8 text-center rounded border border-slate-200 dark:border-border bg-white dark:bg-black/20 text-sm" value={form.delay_max} onChange={e => setForm({...form, delay_max: Number(e.target.value)})} />
                                     <span className="text-xs text-slate-500">segundos</span>
                                 </div>
                             </div>
 
-                            <div className="pt-2 border-t border-slate-100 dark:border-white/5">
+                            <div className="pt-2 border-t border-slate-100 dark:border-border">
                                 <Label>Regra de Disparo</Label>
                                 <div className="flex items-center gap-2 mt-2 bg-emerald-50/50 dark:bg-emerald-500/5 p-3 rounded-lg border border-emerald-100 dark:border-emerald-500/20">
                                     <span className="text-sm text-slate-600 dark:text-white">Enviar</span>
                                     <div className="flex items-center">
-                                        <button onClick={() => setForm({...form, rule_days_diff: -Math.abs(form.rule_days_diff || 1)})} className={`px-2 py-1 rounded-l border text-xs font-bold ${form.rule_days_diff < 0 ? 'bg-rose-500 text-white border-rose-500' : 'bg-white dark:bg-black/20 border-slate-200 dark:border-white/10 text-slate-500'}`}>Antes</button>
-                                        <button onClick={() => setForm({...form, rule_days_diff: 0})} className={`px-2 py-1 border-t border-b text-xs font-bold ${form.rule_days_diff === 0 ? 'bg-sky-500 text-white border-sky-500' : 'bg-white dark:bg-black/20 border-slate-200 dark:border-white/10 text-slate-500'}`}>No Dia</button>
-                                        <button onClick={() => setForm({...form, rule_days_diff: Math.abs(form.rule_days_diff || 1)})} className={`px-2 py-1 rounded-r border text-xs font-bold ${form.rule_days_diff > 0 ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white dark:bg-black/20 border-slate-200 dark:border-white/10 text-slate-500'}`}>Depois</button>
+                                        <button onClick={() => setForm({...form, rule_days_diff: -Math.abs(form.rule_days_diff || 1)})} className={`px-2 py-1 rounded-l border text-xs font-bold ${form.rule_days_diff < 0 ? 'bg-rose-500 text-white border-rose-500' : 'bg-white dark:bg-black/20 border-slate-200 dark:border-border text-slate-500'}`}>Antes</button>
+                                        <button onClick={() => setForm({...form, rule_days_diff: 0})} className={`px-2 py-1 border-t border-b text-xs font-bold ${form.rule_days_diff === 0 ? 'bg-sky-500 text-white border-sky-500' : 'bg-white dark:bg-black/20 border-slate-200 dark:border-border text-slate-500'}`}>No Dia</button>
+                                        <button onClick={() => setForm({...form, rule_days_diff: Math.abs(form.rule_days_diff || 1)})} className={`px-2 py-1 rounded-r border text-xs font-bold ${form.rule_days_diff > 0 ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white dark:bg-black/20 border-slate-200 dark:border-border text-slate-500'}`}>Depois</button>
                                     </div>
                                     {form.rule_days_diff !== 0 && (
-                                        <input type="number" className="w-14 h-8 text-center rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-black/20 text-sm font-bold" value={Math.abs(form.rule_days_diff)} onChange={e => setForm({...form, rule_days_diff: Number(e.target.value) * (form.rule_days_diff < 0 ? -1 : 1)})} />
+                                        <input type="number" className="w-14 h-8 text-center rounded border border-slate-200 dark:border-border bg-white dark:bg-black/20 text-sm font-bold" value={Math.abs(form.rule_days_diff)} onChange={e => setForm({...form, rule_days_diff: Number(e.target.value) * (form.rule_days_diff < 0 ? -1 : 1)})} />
                                     )}
                                     <span className="text-sm text-slate-600 dark:text-white">{form.rule_days_diff !== 0 ? 'dias do' : 'do'}</span>
                                     <select
-  className="h-8 rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-black/20 text-sm px-2 outline-none"
+  className="h-8 rounded border border-slate-200 dark:border-border bg-white dark:bg-black/20 text-sm px-2 outline-none"
   value={form.rule_date_field}
   onChange={(e) => setForm({ ...form, rule_date_field: e.target.value })}
 >
@@ -1709,7 +1709,7 @@ if (error) throw error;
                                 </div>
                             </div>
                             {form.is_automatic && (
-                                <div className="bg-slate-50 dark:bg-white/5 p-6 rounded-2xl border border-slate-100 dark:border-white/5 space-y-6 animate-in fade-in slide-in-from-bottom-4">
+                                <div className="bg-slate-50 dark:bg-white/5 p-6 rounded-2xl border border-slate-100 dark:border-border space-y-6 animate-in fade-in slide-in-from-bottom-4">
                                     <div>
                                         <Label>Horário do Disparo (Brasília)</Label>
                                         <div className="flex justify-center mt-2">
@@ -1722,7 +1722,7 @@ if (error) throw error;
                                             {DAYS_OF_WEEK.map((d) => {
                                                 const selected = form.schedule_days.includes(d.id);
                                                 return (
-                                                    <button key={d.id} onClick={() => { const current = form.schedule_days; setForm({...form, schedule_days: current.includes(d.id) ? current.filter(x => x !== d.id) : [...current, d.id]}); }} className={`w-10 h-10 rounded-full font-bold text-xs transition-all border ${selected ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/30' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400'}`}>{d.label}</button>
+                                                    <button key={d.id} onClick={() => { const current = form.schedule_days; setForm({...form, schedule_days: current.includes(d.id) ? current.filter(x => x !== d.id) : [...current, d.id]}); }} className={`w-10 h-10 rounded-full font-bold text-xs transition-all border ${selected ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/30' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-border text-slate-400'}`}>{d.label}</button>
                                                 );
                                             })}
                                         </div>
@@ -1733,7 +1733,7 @@ if (error) throw error;
                     )}
                 </div>
 
-                <div className="px-6 py-4 border-t border-slate-100 dark:border-white/5 flex justify-between items-center">
+                <div className="px-6 py-4 border-t border-slate-100 dark:border-border flex justify-between items-center">
                     {step === 1 && (<><button onClick={onClose} className="text-slate-500 font-bold text-xs uppercase hover:text-slate-800 dark:hover:text-white">Cancelar</button><button onClick={() => setStep(2)} className="px-6 py-2.5 bg-slate-800 dark:bg-white dark:text-slate-900 text-white font-bold rounded-xl shadow-lg hover:brightness-110 transition-all text-xs uppercase">Próximo: Filtros →</button></>)}
                     {step === 2 && (<><button onClick={() => setStep(1)} className="text-slate-500 font-bold text-xs uppercase hover:text-slate-800 dark:hover:text-white">← Voltar</button><button onClick={() => setStep(3)} className="px-6 py-2.5 bg-slate-800 dark:bg-white dark:text-slate-900 text-white font-bold rounded-xl shadow-lg hover:brightness-110 transition-all text-xs uppercase">Próximo: Automação →</button></>)}
                     {step === 3 && (<><button onClick={() => setStep(2)} className="text-slate-500 font-bold text-xs uppercase hover:text-slate-800 dark:hover:text-white">← Voltar</button><button onClick={handleSave} disabled={saving} className="px-8 py-2.5 bg-emerald-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-900/20 hover:bg-emerald-500 transition-all text-xs uppercase disabled:opacity-50">{saving ? "Salvando..." : "Confirmar e Criar"}</button></>)}
@@ -1744,9 +1744,9 @@ if (error) throw error;
     );
 }
 
-function Label({ children }: { children: React.ReactNode }) { return <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">{children}</label>; }
-function Input({ className = "", ...props }: React.InputHTMLAttributes<HTMLInputElement>) { return <input {...props} className={`h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500 transition-colors ${className}`} />; }
-function Select({ className = "", children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) { return <select {...props} className={`h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500 transition-colors ${className}`}>{children}</select>; }
+function Label({ children }: { children: React.ReactNode }) { return <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">{children}</label>; }
+function Input({ className = "", ...props }: React.InputHTMLAttributes<HTMLInputElement>) { return <input {...props} className={`h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500 transition-colors ${className}`} />; }
+function Select({ className = "", children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) { return <select {...props} className={`h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500 transition-colors ${className}`}>{children}</select>; }
 
 // ✅ MULTI-SELECT DROPDOWN SIMPLIFICADO E BLINDADO
 function MultiSelectDropdown({ label, options, selected, onChange }: any) {
@@ -1782,14 +1782,14 @@ function MultiSelectDropdown({ label, options, selected, onChange }: any) {
             <Label>{label}</Label>
             <button 
                 onClick={() => setOpen(!open)}
-                className={`w-full h-10 px-3 text-left rounded-lg border text-sm flex justify-between items-center transition-all ${open ? 'border-emerald-500 ring-1 ring-emerald-500/20' : 'border-slate-200 dark:border-white/10 bg-white dark:bg-black/20 text-slate-700 dark:text-white'}`}
+                className={`w-full h-10 px-3 text-left rounded-lg border text-sm flex justify-between items-center transition-all ${open ? 'border-emerald-500 ring-1 ring-emerald-500/20' : 'border-slate-200 dark:border-border bg-white dark:bg-black/20 text-slate-700 dark:text-white'}`}
             >
                 <span className={selected.length === 0 ? "text-slate-400 italic" : "font-medium"}>{getLabel()}</span>
                 <span className="text-xs text-slate-400">▼</span>
             </button>
 
             {open && (
-                <div className="absolute z-50 bottom-full mb-1 w-full bg-white dark:bg-[#1c2128] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 flex flex-col">
+                <div className="absolute z-50 bottom-full mb-1 w-full bg-white dark:bg-[#1c2128] border border-slate-200 dark:border-border rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 flex flex-col">
                     <div className="max-h-48 overflow-y-auto custom-scrollbar p-1">
                         {options.map((opt: any) => (
                             <div 
@@ -1805,7 +1805,7 @@ function MultiSelectDropdown({ label, options, selected, onChange }: any) {
                         ))}
                     </div>
                     {/* ✅ BOTÃO CONCLUIR */}
-                    <div className="p-2 border-t border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-white/5">
+                    <div className="p-2 border-t border-slate-100 dark:border-border bg-slate-50 dark:bg-white/5">
                         <button 
                             onClick={() => setOpen(false)}
                             className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase transition-colors"
@@ -1821,7 +1821,7 @@ function MultiSelectDropdown({ label, options, selected, onChange }: any) {
                     {selected.map((id: string) => {
                         const label = options.find((o: any) => o.id === id)?.label || id;
                         return (
-                            <span key={id} className="inline-flex items-center px-2 py-1 rounded bg-slate-100 dark:bg-white/10 text-xs font-bold text-slate-600 dark:text-white border border-slate-200 dark:border-white/5">
+                            <span key={id} className="inline-flex items-center px-2 py-1 rounded bg-slate-100 dark:bg-white/10 text-xs font-bold text-slate-600 dark:text-white border border-slate-200 dark:border-border">
                                 {label}
                                 <button onClick={() => toggleOption(id)} className="ml-1.5 text-slate-400 hover:text-rose-500 text-[10px]">✕</button>
                             </span>
@@ -1873,18 +1873,18 @@ function LogsModal({ ruleId, ruleName, onClose }: { ruleId: string, ruleName: st
 
     return createPortal(
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="w-full max-w-3xl bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl flex flex-col max-h-[80vh]">
-                <div className="px-6 py-4 border-b border-slate-100 dark:border-white/5 flex justify-between items-center bg-slate-50 dark:bg-white/5">
+            <div className="w-full max-w-3xl bg-white dark:bg-card border border-slate-200 dark:border-border rounded-2xl shadow-2xl flex flex-col max-h-[80vh]">
+                <div className="px-6 py-4 border-b border-slate-100 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5">
                     <div><h3 className="text-lg font-bold text-slate-800 dark:text-white">Logs de Envio</h3><p className="text-xs text-slate-500">Regra: <strong>{ruleName}</strong></p></div>
                     <button onClick={onClose} className="text-slate-400 hover:text-slate-800 dark:hover:text-white">✕</button>
                 </div>
                 <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
                     {loading ? <div className="text-center py-10 text-slate-400">Carregando...</div> : logs.length === 0 ? <div className="text-center py-10 text-slate-400">Nenhum registro encontrado.</div> : (
                         <table className="w-full text-left text-sm">
-                            <thead className="text-xs uppercase text-slate-500 border-b border-slate-100 dark:border-white/5"><tr><th className="p-2">Data/Hora</th><th className="p-2">Cliente</th><th className="p-2">WhatsApp</th><th className="p-2">Status</th></tr></thead>
+                            <thead className="text-xs uppercase text-slate-500 border-b border-slate-100 dark:border-border"><tr><th className="p-2">Data/Hora</th><th className="p-2">Cliente</th><th className="p-2">WhatsApp</th><th className="p-2">Status</th></tr></thead>
                             <tbody>
                                 {logs.map(log => (
-                                    <tr key={log.id} className="border-b border-slate-50 dark:border-white/5 last:border-0 hover:bg-slate-50 dark:hover:bg-white/5">
+                                    <tr key={log.id} className="border-b border-slate-50 dark:border-border last:border-0 hover:bg-slate-50 dark:hover:bg-white/5">
                                         <td className="p-2 text-slate-500 font-mono text-xs">
                                         {formatDateTimeSP(log.sent_at)}
                                         </td>
@@ -1903,7 +1903,7 @@ function LogsModal({ ruleId, ruleName, onClose }: { ruleId: string, ruleName: st
                         </table>
                     )}
                 </div>
-                <div className="px-6 py-4 border-t border-slate-100 dark:border-white/5 flex justify-end"><button onClick={onClose} className="px-5 py-2 rounded-lg bg-slate-800 text-white font-bold text-xs uppercase">Fechar</button></div>
+                <div className="px-6 py-4 border-t border-slate-100 dark:border-border flex justify-end"><button onClick={onClose} className="px-5 py-2 rounded-lg bg-slate-800 text-white font-bold text-xs uppercase">Fechar</button></div>
             </div>
         </div>, document.body
     );

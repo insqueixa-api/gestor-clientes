@@ -158,10 +158,10 @@ export default function AppIntegracaoModal({
   const modal = (
     <div className="fixed inset-0 z-[999999] flex items-center justify-center px-3">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity" onClick={onCloseAction} />
-      <div className="relative w-full max-w-lg rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b22] shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[90vh]">
+      <div className="relative w-full max-w-lg rounded-2xl border border-slate-200 dark:border-border bg-white dark:bg-card shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[90vh]">
 
         {/* Header Elegante */}
-        <div className="px-6 py-5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between shrink-0">
+        <div className="px-6 py-5 border-b border-slate-200 dark:border-border flex items-center justify-between shrink-0">
           <div>
             <h2 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">
               {isEdit ? "Editar Integração" : "Nova Integração"}
@@ -198,14 +198,14 @@ export default function AppIntegracaoModal({
             
             {/* Aplicativo */}
             <div className="sm:col-span-2">
-              <label className="block text-[10px] font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">Aplicativo</label>
+              <label className="block text-[10px] font-bold text-slate-500 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">Aplicativo</label>
               <select
                 value={appName}
                 onChange={(e) => {
                   setAppName(e.target.value);
                   setLoginEmail(""); setLoginPassword(""); setPin(""); setApiUrl("");
                 }}
-                className="w-full h-11 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors cursor-pointer"
+                className="w-full h-11 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors cursor-pointer"
               >
                 <option value="GERENCIAAPP">GerenciaApp (IBO Revenda, etc)</option>
                 <option value="DUPLECAST">DupleCast</option>
@@ -221,7 +221,7 @@ export default function AppIntegracaoModal({
 
             {/* Nome da Integração */}
             <div className="sm:col-span-2">
-              <label className="block text-[10px] font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">Nome de identificação</label>
+              <label className="block text-[10px] font-bold text-slate-500 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">Nome de identificação</label>
               <input
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
@@ -236,33 +236,33 @@ export default function AppIntegracaoModal({
                   appName === "FOCOXPLAY" ? 'Ex: "FocoX Play"' :
                   'Ex: "Nome do aplicativo"'
                 }
-                className="w-full h-11 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors"
+                className="w-full h-11 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors"
               />
             </div>
 
             {/* URL da API */}
             <div className="sm:col-span-2">
-              <label className="block text-[10px] font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">Link do Painel</label>
+              <label className="block text-[10px] font-bold text-slate-500 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">Link do Painel</label>
               <input
                 value={apiUrl}
                 onChange={(e) => setApiUrl(e.target.value)}
                 placeholder={isDuplecast ? "Ex: https://duplecast.com/client" : isIboSol ? "Ex: https://activation.iboplayer.com" : isIboPro ? "Ex: https://iboproapp.com" : isQuickPlayer ? "Ex: https://api.quickplayer.app/api" : isDuplexPlay ? "Ex: https://edit.duplexplay.com" : isLazerPlay ? "Ex: https://lazerplay.io" : "Ex: https://gerenciaapp.top"}
                 type="url"
-                className="w-full h-11 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors font-mono text-xs"
+                className="w-full h-11 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors font-mono text-xs"
               />
             </div>
 
             {/* Email de Login */}
             {!noCredentials && (
               <div className={needsPin ? "sm:col-span-1" : "sm:col-span-2"}>
-                <label className="block text-[10px] font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">E-mail / Usuário</label>
+                <label className="block text-[10px] font-bold text-slate-500 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">E-mail / Usuário</label>
                 <input
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
                   placeholder={needsPin ? "Usuário ou E-mail" : "seuemail@exemplo.com"}
                   type="text"
                   autoCapitalize="none"
-                  className="w-full h-11 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors"
+                  className="w-full h-11 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors"
                 />
               </div>
             )}
@@ -270,13 +270,13 @@ export default function AppIntegracaoModal({
             {/* Senha */}
             {!noCredentials && (
               <div className={needsPin ? "sm:col-span-1" : "sm:col-span-2"}>
-                <label className="block text-[10px] font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">Senha</label>
+                <label className="block text-[10px] font-bold text-slate-500 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">Senha</label>
                 <input
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
                   placeholder="Senha de acesso"
                   type="text"
-                  className="w-full h-11 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors"
+                  className="w-full h-11 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors"
                 />
               </div>
             )}
@@ -296,16 +296,16 @@ export default function AppIntegracaoModal({
                     className="w-full h-11 rounded-xl border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-500/5 px-10 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500 focus:bg-white dark:focus:bg-black/40 transition-colors font-mono tracking-widest"
                   />
                 </div>
-                <p className="text-[10px] text-slate-500 dark:text-white/40 mt-1.5 ml-1">Usado automaticamente na geração das playlists.</p>
+                <p className="text-[10px] text-slate-500 dark:text-muted-foreground mt-1.5 ml-1">Usado automaticamente na geração das playlists.</p>
               </div>
             )}
 
             {/* Status */}
             <div className="sm:col-span-2 mt-2">
-              <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20">
+              <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20">
                 <div>
                   <div className="text-sm font-bold text-slate-700 dark:text-white">Integração Ativa</div>
-                  <div className="text-[10px] text-slate-500 dark:text-white/40 mt-0.5">Se desativar, não será acionada nos clientes.</div>
+                  <div className="text-[10px] text-slate-500 dark:text-muted-foreground mt-0.5">Se desativar, não será acionada nos clientes.</div>
                 </div>
                 <button
                   type="button"
@@ -323,10 +323,10 @@ export default function AppIntegracaoModal({
         </div>
 
         {/* Footer Elegante */}
-        <div className="px-6 py-4 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-end gap-3 shrink-0">
+        <div className="px-6 py-4 border-t border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 flex items-center justify-end gap-3 shrink-0">
           <button
             onClick={onCloseAction}
-            className="h-10 px-5 rounded-xl text-slate-600 dark:text-white/70 text-sm font-bold hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
+            className="h-10 px-5 rounded-xl text-slate-600 dark:text-muted-foreground text-sm font-bold hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
             type="button"
             disabled={saving}
           >

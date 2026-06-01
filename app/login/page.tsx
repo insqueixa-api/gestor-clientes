@@ -76,7 +76,7 @@ if (error) throw error;
       : "Acesse o painel gerenciador.";
 
   return (
-    <div className="min-h-[100dvh] relative overflow-hidden flex items-center sm:items-center justify-center px-3 sm:px-6 pt-6 pb-6 sm:py-10 bg-slate-50 dark:bg-[#0f141a]">
+    <div className="min-h-[100dvh] relative overflow-hidden flex items-center sm:items-center justify-center px-3 sm:px-6 pt-6 pb-6 sm:py-10 bg-slate-50 dark:bg-background">
       {/* Fundo com gradiente + glow */}
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-gradient-to-br from-[#0b2a4a] via-[#0f141a] to-[#0e6b5c] opacity-90 dark:opacity-100" />
@@ -96,7 +96,7 @@ if (error) throw error;
       {/* Card */}
       {/* ✅ Reduzido o max-width no mobile para ficar mais elegante */}
       <div className="relative z-10 w-full max-w-[420px] sm:max-w-md">
-        <div className="rounded-2xl border border-white/20 bg-white/85 backdrop-blur-xl shadow-2xl dark:bg-[#161b22]/80 dark:border-white/10 overflow-hidden">
+        <div className="rounded-2xl border border-white/20 bg-white/85 backdrop-blur-xl shadow-2xl dark:bg-card/80 dark:border-border overflow-hidden">
           {/* Header */}
           {/* ✅ Ajuste do pt-5 para a logo ficar mais próxima do topo no mobile */}
           <div className="px-5 sm:px-8 pt-5 sm:pt-8 pb-3 sm:pb-6 text-center">
@@ -130,8 +130,8 @@ if (error) throw error;
                 className={[
                   "rounded-lg px-3 py-2 text-sm font-medium transition",
                   mode === "login"
-                    ? "bg-white shadow text-slate-900 dark:bg-[#0f141a] dark:text-white"
-                    : "text-slate-600 hover:text-slate-800 dark:text-white/70 dark:hover:text-white",
+                    ? "bg-white shadow text-slate-900 dark:bg-background dark:text-white"
+                    : "text-slate-600 hover:text-slate-800 dark:text-muted-foreground dark:hover:text-white",
                 ].join(" ")}
               >
                 Login
@@ -146,8 +146,8 @@ if (error) throw error;
                 className={[
                   "rounded-lg px-3 py-2 text-sm font-medium transition",
                   mode === "reset"
-                    ? "bg-white shadow text-slate-900 dark:bg-[#0f141a] dark:text-white"
-                    : "text-slate-600 hover:text-slate-800 dark:text-white/70 dark:hover:text-white",
+                    ? "bg-white shadow text-slate-900 dark:bg-background dark:text-white"
+                    : "text-slate-600 hover:text-slate-800 dark:text-muted-foreground dark:hover:text-white",
                 ].join(" ")}
               >
                 Esqueci a senha
@@ -170,7 +170,7 @@ if (error) throw error;
                     placeholder="voce@exemplo.com"
                     autoComplete="email"
                     inputMode="email"
-                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:ring-2 focus:ring-emerald-500/60 dark:border-white/10 dark:bg-black/20 dark:text-white dark:placeholder:text-white/40"
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:ring-2 focus:ring-emerald-500/60 dark:border-border dark:bg-black/20 dark:text-white dark:placeholder:text-white/40"
                   />
                 </div>
 
@@ -187,14 +187,14 @@ if (error) throw error;
                       placeholder="••••••••"
                       autoComplete="current-password"
                       /* ✅ pr-12 adicionado para o texto não ficar por baixo do ícone */
-                      className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 pr-12 text-slate-900 outline-none transition focus:ring-2 focus:ring-emerald-500/60 dark:border-white/10 dark:bg-black/20 dark:text-white dark:placeholder:text-white/40"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 pr-12 text-slate-900 outline-none transition focus:ring-2 focus:ring-emerald-500/60 dark:border-border dark:bg-black/20 dark:text-white dark:placeholder:text-white/40"
                     />
                     
                     {/* Botão do Olho com SVG Inline */}
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:text-white/40 dark:hover:text-white/80 transition-colors"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:text-muted-foreground dark:hover:text-white/80 transition-colors"
                       tabIndex={-1} // Impede que o 'Tab' pare no olho, indo direto para o Entrar
                     >
                       {showPassword ? (
@@ -240,7 +240,7 @@ if (error) throw error;
 </button>
 
                 {state?.error && (
-  <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 dark:border-white/10 dark:bg-black/20 dark:text-white/80">
+  <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 dark:border-border dark:bg-black/20 dark:text-white/80">
     {state.error}
   </div>
 )}
@@ -257,7 +257,7 @@ if (error) throw error;
                     placeholder="voce@exemplo.com"
                     autoComplete="email"
                     inputMode="email"
-                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:ring-2 focus:ring-emerald-500/60 dark:border-white/10 dark:bg-black/20 dark:text-white dark:placeholder:text-white/40"
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:ring-2 focus:ring-emerald-500/60 dark:border-border dark:bg-black/20 dark:text-white dark:placeholder:text-white/40"
                   />
                 </div>
 
@@ -286,7 +286,7 @@ if (error) throw error;
                 </button>
 
                 {msg && (
-                  <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 dark:border-white/10 dark:bg-black/20 dark:text-white/80">
+                  <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 dark:border-border dark:bg-black/20 dark:text-white/80">
                     {msg}
                   </div>
                 )}

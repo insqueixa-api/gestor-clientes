@@ -390,8 +390,8 @@ async function handleSyncIntegration(server: ServerRow) {
       confirmText: "Fechar",
       cancelText: "Editar", // ✅ Nome do botão
       details: validDns.map((dns, idx) => (
-        <div key={idx} className="flex items-center justify-between bg-white dark:bg-black/20 p-2.5 rounded-lg border border-slate-200 dark:border-white/10 mb-1.5 shadow-sm">
-          <span className="font-mono text-xs text-slate-600 dark:text-white/70 truncate mr-2 select-all">
+        <div key={idx} className="flex items-center justify-between bg-white dark:bg-black/20 p-2.5 rounded-lg border border-slate-200 dark:border-border mb-1.5 shadow-sm">
+          <span className="font-mono text-xs text-slate-600 dark:text-muted-foreground truncate mr-2 select-all">
             {dns}
           </span>
           <button
@@ -401,7 +401,7 @@ async function handleSyncIntegration(server: ServerRow) {
               navigator.clipboard.writeText(dns);
               addToast("success", "Copiado", "DNS copiada com sucesso!");
             }}
-            className="p-1.5 text-slate-400 dark:text-white/40 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-slate-100 dark:hover:bg-white/10 rounded transition-colors shrink-0"
+            className="p-1.5 text-slate-400 dark:text-muted-foreground hover:text-sky-600 dark:hover:text-sky-400 hover:bg-slate-100 dark:hover:bg-white/10 rounded transition-colors shrink-0"
             title="Copiar"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -491,7 +491,7 @@ const { error } = await supabaseBrowser.rpc("delete_archived_server", {
   const formatNumber = (num: number | undefined) => new Intl.NumberFormat("pt-BR").format(num || 0);
 
   return (
-    <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
+    <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors">
   
   {/* Topo (Padronizado conforme Contrato) */}
   <div className="flex items-center justify-between gap-2 pb-0 mb-2 px-3 sm:px-0">
@@ -512,7 +512,7 @@ const { error } = await supabaseBrowser.rpc("delete_archived_server", {
         className={`h-10 px-3 rounded-lg text-xs font-bold border transition-colors items-center justify-center ${
           showArchived
             ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-            : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60"
+            : "bg-white dark:bg-white/5 border-slate-200 dark:border-border text-slate-500 dark:text-white/60"
         }`}
       >
         {showArchived ? "Ocultar Lixeira" : "Ver Lixeira"}
@@ -529,13 +529,13 @@ const { error } = await supabaseBrowser.rpc("delete_archived_server", {
 
       <div className="space-y-6 pt-0 px-0">
         {loading && (
-          <div className="mx-3 sm:mx-0 p-12 text-center text-slate-400 dark:text-white/40 animate-pulse bg-white dark:bg-[#161b22] rounded-xl border border-slate-200 dark:border-white/5">
+          <div className="mx-3 sm:mx-0 p-12 text-center text-slate-400 dark:text-muted-foreground animate-pulse bg-white dark:bg-card rounded-xl border border-slate-200 dark:border-border">
             Carregando servidores...
           </div>
         )}
 
         {!loading && servers.length === 0 && (
-          <div className="mx-3 sm:mx-0 p-12 text-center text-slate-400 dark:text-white/30 bg-white dark:bg-[#161b22] rounded-xl border border-dashed border-slate-200 dark:border-white/10">
+          <div className="mx-3 sm:mx-0 p-12 text-center text-slate-400 dark:text-white/30 bg-white dark:bg-card rounded-xl border border-dashed border-slate-200 dark:border-border">
             Nenhum servidor encontrado {showArchived ? "na lixeira" : ""}.
           </div>
         )}
@@ -546,15 +546,15 @@ const { error } = await supabaseBrowser.rpc("delete_archived_server", {
     <div
       key={server.id}
       // ✅ PADRÃO CONTRATO: Fundo white/dark[#161b22], borda slate-200/white-10
-      className={`rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-white dark:bg-[#161b22]
+      className={`rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-white dark:bg-card
         ${
           server.is_archived
             ? "border-amber-500/30 opacity-75 grayscale-[0.5]"
-            : "border-slate-200 dark:border-white/10 hover:border-emerald-500/30"
+            : "border-slate-200 dark:border-border hover:border-emerald-500/30"
         }`}
     >
       {/* ✅ HEADER DO CARD: Fundo slate-50/white-5, igual ao header da tabela de clientes */}
-      <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+      <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
         <Link
           href={`/admin/gerenciador/servidor/${server.id}`}
           className="flex items-center gap-3 min-w-0 pr-3 group cursor-pointer"
@@ -682,7 +682,7 @@ const { error } = await supabaseBrowser.rpc("delete_archived_server", {
 </svg>
                         <span>Clientes ativos</span>
                       </div>
-                      <Link href={`/admin/cliente?server_id=${server.id}&status=active`} className="font-bold text-slate-600 dark:text-white/70 hover:text-emerald-500 hover:underline cursor-pointer transition-colors">
+                      <Link href={`/admin/cliente?server_id=${server.id}&status=active`} className="font-bold text-slate-600 dark:text-muted-foreground hover:text-emerald-500 hover:underline cursor-pointer transition-colors">
                         {formatNumber(server.stats?.active)}
                       </Link>
                     </div>
@@ -694,12 +694,12 @@ const { error } = await supabaseBrowser.rpc("delete_archived_server", {
                         </svg>
                         <span>Clientes inativos</span>
                       </div>
-                      <Link href={`/admin/cliente?server_id=${server.id}&status=inactive`} className="font-bold text-slate-600 dark:text-white/70 hover:text-rose-500 hover:underline cursor-pointer transition-colors">
+                      <Link href={`/admin/cliente?server_id=${server.id}&status=inactive`} className="font-bold text-slate-600 dark:text-muted-foreground hover:text-rose-500 hover:underline cursor-pointer transition-colors">
                         {formatNumber(server.stats?.inactive)}
                       </Link>
                     </div>
 
-                    <div className="border-t border-slate-100 dark:border-white/5 my-1" />
+                    <div className="border-t border-slate-100 dark:border-border my-1" />
 
                     <div className="flex justify-between items-center text-xs">
                       <div className="flex items-center gap-2.5 text-amber-500 dark:text-amber-400 font-medium">
@@ -708,7 +708,7 @@ const { error } = await supabaseBrowser.rpc("delete_archived_server", {
 </svg>
                         <span>Testes ativos</span>
                       </div>
-                      <Link href={`/admin/cliente?server_id=${server.id}&status=trial`} className="font-bold text-slate-600 dark:text-white/70 hover:text-sky-500 hover:underline cursor-pointer transition-colors">
+                      <Link href={`/admin/cliente?server_id=${server.id}&status=trial`} className="font-bold text-slate-600 dark:text-muted-foreground hover:text-sky-500 hover:underline cursor-pointer transition-colors">
                         {formatNumber(server.stats?.trial)}
                       </Link>
                     </div>
@@ -720,13 +720,13 @@ const { error } = await supabaseBrowser.rpc("delete_archived_server", {
 </svg>
                         <span>Revendas</span>
                       </div>
-                      <Link href={`/admin/revendedor?server_id=${server.id}`} className="font-bold text-slate-600 dark:text-white/70 hover:text-amber-500 hover:underline cursor-pointer transition-colors">
+                      <Link href={`/admin/revendedor?server_id=${server.id}`} className="font-bold text-slate-600 dark:text-muted-foreground hover:text-amber-500 hover:underline cursor-pointer transition-colors">
                         {formatNumber(server.stats?.resellers)}
                       </Link>
                     </div>
                   </div>
 
-                  <div className="space-y-2 pl-0 sm:pl-4 sm:border-l border-slate-100 dark:border-white/5">
+                  <div className="space-y-2 pl-0 sm:pl-4 sm:border-l border-slate-100 dark:border-border">
                     <div className="flex justify-between items-center">
                       <span className="flex items-center gap-2 text-slate-500 dark:text-white/50"><IconCardCusto /> Custo crédito</span>
                       <span className="font-bold text-slate-700 dark:text-white bg-slate-100 dark:bg-white/10 px-2 py-0.5 rounded-lg text-xs">
@@ -813,7 +813,7 @@ const { error } = await supabaseBrowser.rpc("delete_archived_server", {
                 </div>
 
                 {(server.panel_web_url || server.panel_telegram_group || server.notes) && (
-                  <div className="bg-slate-50 dark:bg-black/20 p-3 border-t border-slate-200 dark:border-white/10 text-[11px] space-y-2">
+                  <div className="bg-slate-50 dark:bg-black/20 p-3 border-t border-slate-200 dark:border-border text-[11px] space-y-2">
                     {server.panel_web_url && (
                       <div className="flex gap-2">
                         <span className="font-bold text-slate-400 dark:text-white/30 uppercase tracking-tighter">Url:</span>
@@ -841,7 +841,7 @@ const { error } = await supabaseBrowser.rpc("delete_archived_server", {
   </div>
 )}
                     {server.notes && (
-                      <div className="italic text-slate-400 dark:text-white/30 pt-1 border-t border-dashed border-slate-200 dark:border-white/5 mt-2 line-clamp-1">
+                      <div className="italic text-slate-400 dark:text-white/30 pt-1 border-t border-dashed border-slate-200 dark:border-border mt-2 line-clamp-1">
                         obs: {server.notes}
                       </div>
                     )}

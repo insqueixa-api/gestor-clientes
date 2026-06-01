@@ -1159,14 +1159,14 @@ return (
 
                 {/* Código Copia e Cola - Visual Premium */}
                 {paymentPhase !== "renewing" && paymentData.pix_qr_code && (
-                  <div className="bg-slate-50 dark:bg-white/5 p-3 rounded-xl border border-slate-200 dark:border-white/10 space-y-2">
+                  <div className="bg-slate-50 dark:bg-white/5 p-3 rounded-xl border border-slate-200 dark:border-border space-y-2">
                     <p className="text-xs font-bold text-slate-500 dark:text-white/60 uppercase tracking-wider text-center">Ou copie o código:</p>
                     <div className="relative group">
                       <input
                         type="text"
                         value={paymentData.pix_qr_code}
                         readOnly
-                        className="w-full pr-28 pl-3 py-2.5 bg-white dark:bg-[#161b22] border-2 border-slate-200 dark:border-white/10 rounded-lg text-xs font-mono text-slate-700 dark:text-white outline-none focus:border-blue-500 transition-colors shadow-sm"
+                        className="w-full pr-28 pl-3 py-2.5 bg-white dark:bg-card border-2 border-slate-200 dark:border-border rounded-lg text-xs font-mono text-slate-700 dark:text-white outline-none focus:border-blue-500 transition-colors shadow-sm"
                       />
                       <button
                         onClick={() => {
@@ -1461,7 +1461,7 @@ return (
                           type="text"
                           value={paymentData.pix_key || ""}
                           readOnly
-                          className="w-full pr-28 pl-3 py-2.5 bg-white dark:bg-[#161b22] border-2 border-slate-200 dark:border-white/10 rounded-lg text-sm font-mono text-slate-800 dark:text-white outline-none focus:border-violet-500 transition-colors shadow-sm"
+                          className="w-full pr-28 pl-3 py-2.5 bg-white dark:bg-card border-2 border-slate-200 dark:border-border rounded-lg text-sm font-mono text-slate-800 dark:text-white outline-none focus:border-violet-500 transition-colors shadow-sm"
                         />
                         <button
                           onClick={() => {
@@ -1503,7 +1503,7 @@ return (
 
                 {/* 2. DADOS PARA TRANSFERÊNCIA EUR */}
 {effectiveGatewayType === "transfer_manual_eur" && (
-  <div className="space-y-3 bg-slate-50 dark:bg-black/20 p-4 rounded-xl border border-slate-200 dark:border-white/10">
+  <div className="space-y-3 bg-slate-50 dark:bg-black/20 p-4 rounded-xl border border-slate-200 dark:border-border">
     <div>
       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Nome do Favorecido</p>
       <div className="flex items-center justify-between gap-2">
@@ -1538,7 +1538,7 @@ return (
       <div>
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Endereço do Banco</p>
         <div className="flex items-start justify-between gap-2">
-          <p className="text-xs text-slate-600 dark:text-white/70 leading-snug">{paymentData.bank_address}</p>
+          <p className="text-xs text-slate-600 dark:text-muted-foreground leading-snug">{paymentData.bank_address}</p>
           <button onClick={() => copyField("eur_addr", paymentData.bank_address)} className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_addr" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-300"}`}>{copiedField === "eur_addr" ? "✅ Copiado" : "📋 Copiar"}</button>
         </div>
       </div>
@@ -1548,7 +1548,7 @@ return (
 
                 {/* 3. DADOS PARA TRANSFERÊNCIA USD */}
 {effectiveGatewayType === "transfer_manual_usd" && (
-  <div className="space-y-3 bg-slate-50 dark:bg-black/20 p-4 rounded-xl border border-slate-200 dark:border-white/10">
+  <div className="space-y-3 bg-slate-50 dark:bg-black/20 p-4 rounded-xl border border-slate-200 dark:border-border">
     <div>
       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Nome do Favorecido</p>
       <div className="flex items-center justify-between gap-2">
@@ -1596,7 +1596,7 @@ return (
       <div>
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Endereço do Banco</p>
         <div className="flex items-start justify-between gap-2">
-          <p className="text-xs text-slate-600 dark:text-white/70 leading-snug">{paymentData.bank_address}</p>
+          <p className="text-xs text-slate-600 dark:text-muted-foreground leading-snug">{paymentData.bank_address}</p>
           <button onClick={() => copyField("usd_addr", paymentData.bank_address)} className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_addr" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-300"}`}>{copiedField === "usd_addr" ? "✅ Copiado" : "📋 Copiar"}</button>
         </div>
       </div>
@@ -1677,7 +1677,7 @@ return (
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-[#0a0f1a] dark:via-[#0d1321] dark:to-[#0f1629] p-4">
-        <div className="max-w-md w-full bg-white dark:bg-[#161b22] rounded-2xl shadow-2xl p-8 text-center border border-red-200 dark:border-red-500/20">
+        <div className="max-w-md w-full bg-white dark:bg-card rounded-2xl shadow-2xl p-8 text-center border border-red-200 dark:border-red-500/20">
           <div className="w-16 h-16 bg-red-100 dark:bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1699,7 +1699,7 @@ return (
  // ========= RENDER: ACCOUNT SELECTOR =========
   if (!selectedAccountId && accounts.length > 0) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-[#0f141a]">
+      <div className="min-h-screen bg-slate-50 dark:bg-background">
         
         {/* --- TOPO FIXO IDÊNTICO AO SEU ADMIN --- */}
         <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
@@ -1779,7 +1779,7 @@ return (
                 placeholder="Buscar conta..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-12 pl-12 pr-4 bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-blue-500 transition-colors shadow-sm"
+                className="w-full h-12 pl-12 pr-4 bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-blue-500 transition-colors shadow-sm"
               />
             </div>
           )}
@@ -1787,7 +1787,7 @@ return (
           {/* --- CARDS DE CONTAS (Layout 3 Linhas) --- */}
           <div className="space-y-4">
             {filteredAccounts.length === 0 ? (
-              <div className="text-center py-8 text-slate-400 bg-white/50 dark:bg-white/5 rounded-xl border border-dashed border-slate-300 dark:border-white/10">
+              <div className="text-center py-8 text-slate-400 bg-white/50 dark:bg-white/5 rounded-xl border border-dashed border-slate-300 dark:border-border">
                 Nenhuma conta encontrada.
               </div>
             ) : (
@@ -1797,7 +1797,7 @@ return (
                   <button
                     key={account.id}
                     onClick={() => handleSelectAccount(account.id)}
-                    className="w-full text-left bg-white dark:bg-[#161b22] rounded-xl p-4 border border-slate-200 hover:border-blue-500 dark:border-white/10 dark:hover:border-blue-500 transition-all shadow-sm hover:shadow-md group relative overflow-hidden"
+                    className="w-full text-left bg-white dark:bg-card rounded-xl p-4 border border-slate-200 hover:border-blue-500 dark:border-border dark:hover:border-blue-500 transition-all shadow-sm hover:shadow-md group relative overflow-hidden"
                   >
                     {/* Linha 1: Nome (Esq) | Username (Dir, preservando maiúsculas/minúsculas) */}
                     <div className="flex items-center justify-between mb-2">
@@ -1809,7 +1809,7 @@ return (
                           </span>
                         )}
                       </h3>
-<span className="text-xs font-mono font-medium text-slate-600 dark:text-white/70 shrink-0 bg-slate-50 dark:bg-black/20 px-2 py-1 rounded border border-slate-200 dark:border-white/5">
+<span className="text-xs font-mono font-medium text-slate-600 dark:text-muted-foreground shrink-0 bg-slate-50 dark:bg-black/20 px-2 py-1 rounded border border-slate-200 dark:border-border">
                         {account.server_username}
                       </span>
                     </div>
@@ -1846,7 +1846,7 @@ return (
   if (accounts.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-[#0a0f1a] dark:via-[#0d1321] dark:to-[#0f1629] p-4">
-        <div className="max-w-md w-full bg-white dark:bg-[#161b22] rounded-2xl shadow-2xl p-8 text-center">
+        <div className="max-w-md w-full bg-white dark:bg-card rounded-2xl shadow-2xl p-8 text-center">
           <p className="text-slate-500 dark:text-white/60">Nenhuma conta encontrada</p>
         </div>
       </div>
@@ -1857,7 +1857,7 @@ return (
   if (!selectedAccount) return null;
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0f141a]">
+    <div className="min-h-screen bg-slate-50 dark:bg-background">
       
 {/* --- TOPO FIXO IDÊNTICO AO SEU ADMIN --- */}
       <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
@@ -1950,8 +1950,8 @@ return (
         </div>
 
         {/* Card de Dados de Acesso */}
-        <div className="bg-white dark:bg-[#161b22] rounded-xl shadow-sm border border-slate-200 dark:border-white/10 overflow-hidden">
-          <div className="bg-slate-50 dark:bg-white/5 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-slate-200 dark:border-white/10">
+        <div className="bg-white dark:bg-card rounded-xl shadow-sm border border-slate-200 dark:border-border overflow-hidden">
+          <div className="bg-slate-50 dark:bg-white/5 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-slate-200 dark:border-border">
             <h2 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">📺 Dados de Acesso</h2>
           </div>
           <div className="p-3 sm:p-4 space-y-3">
@@ -1960,7 +1960,7 @@ return (
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
                   Usuário
                 </label>
-                <div className="text-sm font-mono text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/5 truncate">
+                <div className="text-sm font-mono text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-border truncate">
                   {selectedAccount.server_username}
                 </div>
               </div>
@@ -1968,7 +1968,7 @@ return (
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
                   Servidor
                 </label>
-                <div className="text-sm font-medium text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/5 truncate">
+                <div className="text-sm font-medium text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-border truncate">
                   {selectedAccount.server_name}
                 </div>
               </div>
@@ -1976,7 +1976,7 @@ return (
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Vencimento em</label>
-                <div className="text-sm font-medium text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/5">
+                <div className="text-sm font-medium text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-border">
                   {formatDateTime(selectedAccount.vencimento)}
                 </div>
               </div>
@@ -1984,7 +1984,7 @@ return (
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
                   Telas
                 </label>
-                <div className="text-sm font-bold text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/5">
+                <div className="text-sm font-bold text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-border">
                   {selectedAccount.screens} {selectedAccount.screens > 1 ? "telas" : "tela"}
                 </div>
               </div>
@@ -1993,8 +1993,8 @@ return (
         </div>
 
 {/* Seção de Planos */}
-        <div className="bg-white dark:bg-[#161b22] rounded-xl shadow-sm border border-slate-200 dark:border-white/10 overflow-hidden">
-          <div className="bg-slate-50 dark:bg-white/5 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-slate-200 dark:border-white/10">
+        <div className="bg-white dark:bg-card rounded-xl shadow-sm border border-slate-200 dark:border-border overflow-hidden">
+          <div className="bg-slate-50 dark:bg-white/5 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-slate-200 dark:border-border">
             <h2 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">💰 Escolha o Plano</h2>
           </div>
 
@@ -2008,7 +2008,7 @@ return (
                 <button
                   onClick={() => currentPrice && setSelectedPeriod(currentPrice.period)}
                   className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
-                    isSelected ? "border-blue-500 bg-blue-50 dark:bg-blue-500/10" : "border-slate-200 dark:border-white/10 hover:border-blue-300 dark:hover:border-blue-500/50"
+                    isSelected ? "border-blue-500 bg-blue-50 dark:bg-blue-500/10" : "border-slate-200 dark:border-border hover:border-blue-300 dark:hover:border-blue-500/50"
                   }`}
                 >
                   <div className="flex items-center justify-between">
@@ -2070,7 +2070,7 @@ return (
             {availablePrices.filter((p) => PERIOD_LABELS[p.period] !== selectedAccount.plan_label).length > 0 && (
               <button
                 onClick={() => setShowOtherPlans(!showOtherPlans)}
-                className="w-full py-3 px-4 rounded-xl border-2 border-dashed border-slate-300 dark:border-white/20 text-slate-600 dark:text-white/70 font-bold flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-white/5 transition-all"
+                className="w-full py-3 px-4 rounded-xl border-2 border-dashed border-slate-300 dark:border-white/20 text-slate-600 dark:text-muted-foreground font-bold flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-white/5 transition-all"
               >
                 🏷️ {showOtherPlans ? "Ocultar Ofertas" : "Ver Mais Ofertas"}
                 <svg className={`w-4 h-4 transition-transform ${showOtherPlans ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
@@ -2080,7 +2080,7 @@ return (
             {/* Expansível de Ofertas */}
             {showOtherPlans && (
               <div className="space-y-2 animate-in slide-in-from-top-2 duration-200 mt-2">
-                <p className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider px-1">Todas as Opções</p>
+                <p className="text-[10px] font-bold text-slate-400 dark:text-muted-foreground uppercase tracking-wider px-1">Todas as Opções</p>
                 {availablePrices
                   .filter((p) => PERIOD_LABELS[p.period] !== selectedAccount.plan_label)
                   .map((price) => {
@@ -2106,7 +2106,7 @@ return (
                         key={price.period}
                         onClick={() => setSelectedPeriod(price.period)}
                         className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
-                          isSelected ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10" : "border-slate-200 dark:border-white/10 hover:border-emerald-300 dark:hover:border-emerald-500/50"
+                          isSelected ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10" : "border-slate-200 dark:border-border hover:border-emerald-300 dark:hover:border-emerald-500/50"
                         }`}
                       >
                         <div className="flex items-center justify-between">
