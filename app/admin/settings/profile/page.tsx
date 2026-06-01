@@ -900,10 +900,9 @@ export default function ProfileSettingsPage() {
 
                         return displayRecords.map((record) => {
   const isNewest = record.id === sortedHistory[0]?.id;
-  // No mobile sem expansão: só o mais recente aparece
-  const isSecondOnMobile = !showAllHealthRecords && !isNewest && sortedHistory.indexOf(record) !== -1;
+  const hideOnMobile = !showAllHealthRecords && !isNewest;
   return (
-    <div key={record.id} className={`items-center gap-3 p-3 rounded-xl border transition-colors group ${isNewest ? "border-emerald-200 dark:border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/5" : "border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-black/10"} ${isSecondOnMobile ? "hidden xl:flex" : "flex"}`}>
+    <div key={record.id} className={`items-center gap-3 p-3 rounded-xl border transition-colors group ${isNewest ? "border-emerald-200 dark:border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/5" : "border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-black/10"} ${hideOnMobile ? "hidden xl:flex" : "flex"}`}>
                               {/* Data em bloco */}
                               <div className="shrink-0 text-center w-10">
                                 <p className="text-[9px] font-bold text-slate-400 dark:text-white/30 uppercase leading-none">
@@ -956,7 +955,7 @@ export default function ProfileSettingsPage() {
                     </div>
                     
                     {/* Botão de Expandir/Contrair */}
-                    {sortedHistory.length > 2 && (
+                    {(sortedHistory.length > 2 || (sortedHistory.length > 1)) && (
                       <button 
                         type="button" 
                         onClick={() => setShowAllHealthRecords(!showAllHealthRecords)}
