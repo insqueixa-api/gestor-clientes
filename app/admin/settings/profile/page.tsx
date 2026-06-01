@@ -161,7 +161,7 @@ export default function ProfileSettingsPage() {
   const { theme, setTheme } = useTheme();
   const { confirm } = useConfirm();
   
-  const [activeTab, setActiveTab] = useState<"profile" | "data">("profile");
+  
   const [userId, setUserId] = useState<string | null>(null);
   const [tenantId, setTenantId] = useState<string | null>(null);
 
@@ -193,7 +193,7 @@ export default function ProfileSettingsPage() {
   const [waReconnecting, setWaReconnecting] = useState(false);
   const [waConnected, setWaConnected] = useState<boolean>(false);
   const [waQrDataUrl, setWaQrDataUrl] = useState<string | null>(null);
-  const [waLastError, setWaLastError] = useState<string | null>(null);
+  
   const [waIsDormant, setWaIsDormant] = useState(true);
   
   const [showWa1Settings, setShowWa1Settings] = useState(false);
@@ -207,7 +207,7 @@ export default function ProfileSettingsPage() {
   const [waPushName, setWaPushName] = useState<string | null>(null);
   const [waProfilePicUrl, setWaProfilePicUrl] = useState<string | null>(null);
   const waLastProfileFetchRef = useRef<number>(0);
-  const [waStatusText, setWaStatusText] = useState<string | null>(null);
+  
 
   // Estados e Refs para Importações/Exportações
   const importFileRef = useRef<HTMLInputElement | null>(null);
@@ -466,12 +466,12 @@ export default function ProfileSettingsPage() {
   // --- WHATSAPP CONFIGS VM SESSÃO 1 ---
   async function fetchWaStatus() {
     try {
-      setWaLastError(null);
+      
       const res = await fetch("/api/whatsapp/status", { cache: "no-store" });
       const json = await res.json().catch(() => ({} as any));
       if (!res.ok) throw new Error(json?.error || "Falha ao consultar status");
       setWaConnected(!!json.connected);
-      setWaStatusText(json.status ?? null);
+      
       if (!json.connected) {
         setWaPushName(null);
         setWaProfilePicUrl(null);
@@ -669,51 +669,55 @@ export default function ProfileSettingsPage() {
           Perfil do Usuário
         </h1>
         
-        {/* SISTEMA DE ABAS E BOTÃO TEMA */}
         <div className="flex items-center justify-end gap-2">
-          <div className="flex bg-slate-100 dark:bg-black/30 p-1 rounded-xl border border-slate-200 dark:border-white/5">
-            <button
-              onClick={() => setActiveTab("profile")}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${activeTab === "profile" ? "bg-white dark:bg-[#161b22] text-emerald-600 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-800 dark:text-white/50 dark:hover:text-white/80"}`}
-            >
-              👤 <span className="hidden sm:inline">Perfil &amp; Saúde</span><span className="sm:hidden">Saúde</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("data")}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${activeTab === "data" ? "bg-white dark:bg-[#161b22] text-emerald-600 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-800 dark:text-white/50 dark:hover:text-white/80"}`}
-            >
-              ⚙️ <span className="hidden sm:inline">Importação &amp; Exportação</span><span className="sm:hidden">Imports</span>
-            </button>
+  <div className="relative">
+    <button
+      onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
+      className="h-9 w-9 shrink-0 rounded-xl border font-bold text-xs flex items-center justify-center bg-white dark:bg-[#161b22] border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/5 transition-all shadow-sm"
+      title="Configurações"
+    >
+      ⚙️
+    </button>
+
+    {showSettingsDropdown && (
+      <>
+        <div className="fixed inset-0 z-40" onClick={() => setShowSettingsDropdown(false)} />
+        <div className="absolute right-0 top-full mt-2 w-52 bg-white dark:bg-[#1e2530] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-200">
+          
+          {/* Tema */}
+          <div className="px-3 py-2 border-b border-slate-100 dark:border-white/5">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tema do Sistema</p>
+            <div className="flex items-center gap-1 mt-1.5">
+              <button onClick={() => { setTheme("light"); setShowSettingsDropdown(false); }} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors ${theme !== "dark" ? "bg-slate-100 text-slate-800" : "text-slate-500 hover:bg-white/5"}`}>Claro</button>
+              <button onClick={() => { setTheme("dark"); setShowSettingsDropdown(false); }} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors ${theme === "dark" ? "bg-white/10 text-white" : "text-slate-500 hover:bg-slate-50"}`}>Escuro</button>
+            </div>
           </div>
 
-          <div className="relative">
-            <button
-              onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
-              className="h-9 w-9 shrink-0 rounded-xl border font-bold text-xs flex items-center justify-center bg-white dark:bg-[#161b22] border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/5 transition-all shadow-sm"
-              title="Configurações e Tema"
-            >
-              ⚙️
+          {/* Editar Perfil */}
+          <button onClick={() => { setShowSettingsDropdown(false); setIsEditing(true); }} className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-600 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2 transition-colors border-b border-slate-100 dark:border-white/5">
+            ✏️ Editar Perfil
+          </button>
+
+          {/* 2ª Sessão WhatsApp */}
+          {whatsappSessions === 1 ? (
+            <button onClick={() => { setWhatsappSessions(2); setIsEditing(true); setShowSettingsDropdown(false); }} className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-600 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2 transition-colors border-b border-slate-100 dark:border-white/5">
+              📲 Habilitar 2ª Sessão WA
             </button>
-            
-            {showSettingsDropdown && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowSettingsDropdown(false)} />
-                <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-[#1e2530] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-200">
-                  <div className="px-3 py-2 border-b border-slate-100 dark:border-white/5">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tema do Sistema</p>
-                    <div className="flex items-center gap-1 mt-1.5">
-                      <button onClick={() => { setTheme("light"); setShowSettingsDropdown(false); }} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors ${theme !== "dark" ? "bg-slate-100 text-slate-800" : "text-slate-500 hover:bg-white/5"}`}>Claro</button>
-                      <button onClick={() => { setTheme("dark"); setShowSettingsDropdown(false); }} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors ${theme === "dark" ? "bg-white/10 text-white" : "text-slate-500 hover:bg-slate-50"}`}>Escuro</button>
-                    </div>
-                  </div>
-                  <button onClick={() => { setShowSettingsDropdown(false); handleResetPassword(); }} className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-600 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2 transition-colors">
-                    🔒 Alterar Senha
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+          ) : (
+            <button onClick={() => { setWhatsappSessions(1); setIsEditing(true); setShowSettingsDropdown(false); }} className="w-full text-left px-3 py-2.5 text-xs font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 flex items-center gap-2 transition-colors border-b border-slate-100 dark:border-white/5">
+              📵 Remover 2ª Sessão WA
+            </button>
+          )}
+
+          {/* Alterar Senha */}
+          <button onClick={() => { setShowSettingsDropdown(false); handleResetPassword(); }} className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-600 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2 transition-colors">
+            🔒 Alterar Senha
+          </button>
         </div>
+      </>
+    )}
+  </div>
+</div>
       </div>
 
       {/* GRID PRINCIPAL */}
@@ -729,17 +733,12 @@ export default function ProfileSettingsPage() {
                 Dados Cadastrais 
               </h3>
               <div className="flex items-center gap-2">
-                {/* O botão de senha foi movido para a engrenagem no header */}
-                {!isEditing ? (
-                  <button onClick={() => setIsEditing(true)} className="h-8 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all shadow-sm flex items-center gap-1.5">
-                    ✏️ Editar Perfil
-                  </button>
-                ) : (
-                  <button onClick={handleSave} disabled={saving} className="h-8 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all shadow-sm flex items-center gap-1.5">
-                    {saving ? "..." : "💾 Salvar"}
-                  </button>
-                )}
-              </div>
+  {isEditing && (
+    <button onClick={handleSave} disabled={saving} className="h-8 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all shadow-sm flex items-center gap-1.5">
+      {saving ? "..." : "💾 Salvar"}
+    </button>
+  )}
+</div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -818,8 +817,7 @@ export default function ProfileSettingsPage() {
           </div>
 
           {/* CARD 2 DINÂMICO: SAÚDE OU PLANILHAS */}
-          {activeTab === "profile" ? (
-            <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-6 animate-in fade-in duration-300">
+          <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-6 animate-in fade-in duration-300">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
                 <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
                   Saúde &amp; Avaliações
@@ -890,10 +888,10 @@ export default function ProfileSettingsPage() {
                         const displayRecords = [...visibleRecords];
 
                         return displayRecords.map((record) => {
-  const isNewest = record.id === sortedHistory[0]?.id;
-  const hideOnMobile = !showAllHealthRecords && !isNewest;
-  return (
-    <div key={record.id} className={`items-center gap-3 p-3 rounded-xl border transition-colors group ${isNewest ? "border-emerald-200 dark:border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/5" : "border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-black/10"} ${hideOnMobile ? "hidden xl:flex" : "flex"}`}>
+                          const isNewest = record.id === sortedHistory[0]?.id;
+                          const hideOnMobile = !showAllHealthRecords && !isNewest;
+                          return (
+                            <div key={record.id} className={`items-center gap-3 p-3 rounded-xl border transition-colors group ${isNewest ? "border-emerald-200 dark:border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/5" : "border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-black/10"} ${hideOnMobile ? "hidden xl:flex" : "flex"}`}>
                               {/* Data em bloco */}
                               <div className="shrink-0 text-center w-10">
                                 <p className="text-[9px] font-bold text-slate-400 dark:text-white/30 uppercase leading-none">
@@ -953,9 +951,9 @@ export default function ProfileSettingsPage() {
                         className="w-full py-2.5 mt-2 text-[11px] font-bold text-slate-500 dark:text-white/50 hover:text-slate-800 dark:hover:text-white transition-colors bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10"
                       >
                         {showAllHealthRecords
-  ? "↑ Ocultar avaliações anteriores"
-  : <><span className="xl:hidden">↓ Ver mais avaliações ({sortedHistory.length - 1})</span><span className="hidden xl:inline">↓ Ver mais avaliações ({sortedHistory.length - 2})</span></>
-}
+                          ? "↑ Ocultar avaliações anteriores"
+                          : <><span className="xl:hidden">↓ Ver mais avaliações ({sortedHistory.length - 1})</span><span className="hidden xl:inline">↓ Ver mais avaliações ({sortedHistory.length - 2})</span></>
+                        }
                       </button>
                     )}
                   </div>
@@ -1172,37 +1170,7 @@ export default function ProfileSettingsPage() {
                 );
               })()}
             </div>
-          ) : (
-            <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl p-6 shadow-sm space-y-6 animate-in fade-in duration-300">
-              <div>
-                <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
-                  Importação &amp; Exportação de Dados
-                </h3>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <button type="button" onClick={() => setActionModal("export")} disabled={!tenantId || exporting} className="h-12 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 font-bold text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2">
-                  ⬇️ Exportar Registros
-                </button>
-                <button type="button" onClick={() => setActionModal("template")} disabled={!tenantId} className="h-12 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 font-bold text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2">
-                  📄 Baixar Templates
-                </button>
-                <button type="button" onClick={() => setActionModal("import")} disabled={!tenantId || importing || importingApps || importingAuto || importingReseller || importingMessage || importingServer} className="h-12 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 font-bold text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2">
-                  ⬆️ Importar Registros
-                </button>
-              </div>
-
-              {/* INPUTS OCULTOS */}
-              <input ref={importFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportFile(f); }} />
-              <input ref={importAppsFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportAppsFile(f); }} />
-              <input ref={importAutoFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportAutoFile(f); }} />
-              <input ref={importResellerFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportResellerFile(f); }} />
-              <input ref={importMessageFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportMessageFile(f); }} />
-              <input ref={importServerFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportServerFile(f); }} />
-              <input ref={importFinanceiroFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportFinanceiroFile(f); }} />
-            </div>
-          )}
-        </div>
+          </div>
 
         {/* COLUNA DIREITA: PAINÉIS DO WHATSAPP (SEMPRE VISÍVEL) */}
         <div className="space-y-6">
@@ -1213,11 +1181,7 @@ export default function ProfileSettingsPage() {
               <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
                 WhatsApp — Instância 1
               </h3>
-              {whatsappSessions === 1 && (
-                <button type="button" onClick={() => { setWhatsappSessions(2); if(!isEditing) setIsEditing(true); }} className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline">
-                  + Habilitar 2ª Sessão
-                </button>
-              )}
+              
             </div>
 
             {!canPairWhatsApp ? (
@@ -1298,7 +1262,34 @@ export default function ProfileSettingsPage() {
               onDisable={() => { setWhatsappSessions(1); if(!isEditing) setIsEditing(true); }}
             />
           )}
-        </div>
+        
+        {/* CARD IMPORT / EXPORT */}
+<div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
+  <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 pb-3">
+    Dados &amp; Planilhas
+  </h3>
+  <div className="flex flex-col gap-2">
+    <button type="button" onClick={() => setActionModal("export")} disabled={!tenantId || exporting} className="h-11 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 font-bold text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center gap-2">
+      ⬇️ Exportar Registros
+    </button>
+    <button type="button" onClick={() => setActionModal("template")} disabled={!tenantId} className="h-11 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 font-bold text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center gap-2">
+      📄 Baixar Templates
+    </button>
+    <button type="button" onClick={() => setActionModal("import")} disabled={!tenantId || importing || importingApps || importingAuto || importingReseller || importingMessage || importingServer} className="h-11 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 font-bold text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center gap-2">
+      ⬆️ Importar Registros
+    </button>
+  </div>
+
+  {/* INPUTS OCULTOS — mantidos aqui para os handlers funcionarem */}
+  <input ref={importFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportFile(f); }} />
+  <input ref={importAppsFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportAppsFile(f); }} />
+  <input ref={importAutoFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportAutoFile(f); }} />
+  <input ref={importResellerFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportResellerFile(f); }} />
+  <input ref={importMessageFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportMessageFile(f); }} />
+  <input ref={importServerFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportServerFile(f); }} />
+  <input ref={importFinanceiroFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportFinanceiroFile(f); }} />
+</div>
+      </div>
       </div>
 
       {/* ============================================================================
