@@ -617,7 +617,7 @@ export default function AdminServersPage() {
         {/* Título (esquerda) */}
         <div className="min-w-0 text-left">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-normal text-slate-800 dark:text-white tracking-tight truncate">
+            <h1 className="text-xl sm:text-2xl font-medium text-slate-800 dark:text-white tracking-tight truncate">
               Servidores
             </h1>
           </div>
@@ -628,7 +628,7 @@ export default function AdminServersPage() {
           {/* Botão Lixeira Padronizado */}
           <button
             onClick={() => setShowArchived(!showArchived)}
-            className={`h-10 px-3 rounded-lg text-xs font-bold border transition-colors items-center justify-center ${
+            className={`h-10 px-3 rounded-lg text-xs font-medium border transition-colors items-center justify-center ${
               showArchived
                 ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
                 : "bg-white dark:bg-white/5 border-slate-200 dark:border-border text-slate-500 dark:text-white/60"
@@ -639,7 +639,7 @@ export default function AdminServersPage() {
 
           <button
             onClick={handleOpenNew}
-            className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-normal text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
+            className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
           >
             <span>+</span> Novo Servidor
           </button>
@@ -691,7 +691,7 @@ export default function AdminServersPage() {
                       </div>
                     )}
                     <h2
-                      className="text-base font-normal truncate text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors tracking-tight flex items-center gap-2"
+                      className="text-base font-medium truncate text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors tracking-tight flex items-center gap-2"
                       title={server.name}
                     >
                       {server.name}
@@ -708,7 +708,7 @@ export default function AdminServersPage() {
 
                     {server.is_archived && (
                       // Alterado: 'rounded' para 'rounded-full', ajustado px para 2.5 (padrão pílula)
-                      <span className="inline-flex items-center text-[10px] font-normal bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/20 px-2.5 py-0.5 rounded-full uppercase">
+                      <span className="inline-flex items-center text-[10px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/20 px-2.5 py-0.5 rounded-full uppercase">
                         Arquivado
                       </span>
                     )}
@@ -917,7 +917,7 @@ export default function AdminServersPage() {
                       <span className="flex items-center gap-2 text-slate-500 dark:text-white/50">
                         <IconCardCusto /> Custo crédito
                       </span>
-                      <span className="font-normal text-slate-700 dark:text-white bg-slate-100 dark:bg-white/10 px-2 py-0.5 rounded-lg text-xs">
+                      <span className="font-medium text-slate-700 dark:text-white bg-slate-100 dark:bg-white/10 px-2 py-0.5 rounded-lg text-xs">
                         {formatMoney(
                           server.credit_unit_cost_brl ??
                             server.default_credit_unit_price,
@@ -931,7 +931,7 @@ export default function AdminServersPage() {
                         <IconCardSaldo /> Saldo atual
                       </span>
                       <span
-                        className={`font-normal px-2 py-0.5 rounded-lg text-xs ${
+                        className={`font-medium px-2 py-0.5 rounded-lg text-xs ${
                           server.credits_available > 10
                             ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
                             : "text-rose-500 bg-rose-500/10"
@@ -1007,7 +1007,7 @@ export default function AdminServersPage() {
                             e.stopPropagation();
                             handleViewDns(server);
                           }}
-                          className="font-normal px-2 py-0.5 rounded-lg text-xs text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 hover:bg-sky-100 dark:hover:bg-sky-500/20 border border-sky-100 dark:border-sky-500/20 transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+                          className="font-medium px-2 py-0.5 rounded-lg text-xs text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 hover:bg-sky-100 dark:hover:bg-sky-500/20 border border-sky-100 dark:border-sky-500/20 transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
                           title="Ver DNS configuradas"
                         >
                           {server.dns.filter((d) => d.trim()).length}
@@ -1028,7 +1028,7 @@ export default function AdminServersPage() {
                           </svg>
                         </button>
                       ) : (
-                        <span className="font-normal text-slate-700 dark:text-white">
+                        <span className="font-medium text-slate-700 dark:text-white">
                           0
                         </span>
                       )}
@@ -1042,7 +1042,7 @@ export default function AdminServersPage() {
                   <div className="bg-slate-50 dark:bg-black/20 p-3 border-t border-slate-200 dark:border-border text-[11px] space-y-2">
                     {server.panel_web_url && (
                       <div className="flex gap-2">
-                        <span className="font-normal text-slate-400 dark:text-white/30 uppercase tracking-tighter">
+                        <span className="font-medium text-slate-400 dark:text-white/30 uppercase tracking-tighter">
                           Url:
                         </span>
                         <a
@@ -1056,7 +1056,7 @@ export default function AdminServersPage() {
                     )}
                     {server.panel_telegram_group && (
                       <div className="flex gap-2">
-                        <span className="font-normal text-slate-400 dark:text-white/30 uppercase tracking-tighter">
+                        <span className="font-medium text-slate-400 dark:text-white/30 uppercase tracking-tighter">
                           Telegram:
                         </span>
                         <a

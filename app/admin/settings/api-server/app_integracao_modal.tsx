@@ -188,7 +188,7 @@ export default function AppIntegracaoModal({
         {/* Header Elegante */}
         <div className="px-6 py-5 border-b border-slate-200 dark:border-border flex items-center justify-between shrink-0">
           <div>
-            <h2 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">
+            <h2 className="text-lg font-medium text-slate-800 dark:text-white tracking-tight">
               {isEdit ? "Editar Integração" : "Nova Integração"}
             </h2>
             <p className="text-xs text-slate-500 dark:text-white/50 mt-0.5">
@@ -221,7 +221,7 @@ export default function AppIntegracaoModal({
           {/* Upload Master Simplificado - Agora sempre visível */}
           <div className="flex items-center justify-between p-4 bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 rounded-xl">
             <div>
-              <h3 className="text-xs font-bold text-sky-800 dark:text-sky-300">
+              <h3 className="text-xs font-medium text-sky-800 dark:text-sky-300">
                 Atualizar Robô (Extensão)
               </h3>
               <p className="text-[10px] text-sky-600 dark:text-sky-400 mt-0.5">
@@ -243,7 +243,7 @@ export default function AppIntegracaoModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Aplicativo */}
             <div className="sm:col-span-2">
-              <label className="block text-[10px] font-bold text-slate-500 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-slate-500 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Aplicativo
               </label>
               <select
@@ -273,7 +273,7 @@ export default function AppIntegracaoModal({
 
             {/* Nome da Integração */}
             <div className="sm:col-span-2">
-              <label className="block text-[10px] font-bold text-slate-500 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-slate-500 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Nome de identificação
               </label>
               <input
@@ -304,7 +304,7 @@ export default function AppIntegracaoModal({
 
             {/* URL da API */}
             <div className="sm:col-span-2">
-              <label className="block text-[10px] font-bold text-slate-500 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-slate-500 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Link do Painel
               </label>
               <input
@@ -333,7 +333,7 @@ export default function AppIntegracaoModal({
             {/* Email de Login */}
             {!noCredentials && (
               <div className={needsPin ? "sm:col-span-1" : "sm:col-span-2"}>
-                <label className="block text-[10px] font-bold text-slate-500 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+                <label className="block text-[10px] font-medium text-slate-500 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                   E-mail / Usuário
                 </label>
                 <input
@@ -352,7 +352,7 @@ export default function AppIntegracaoModal({
             {/* Senha */}
             {!noCredentials && (
               <div className={needsPin ? "sm:col-span-1" : "sm:col-span-2"}>
-                <label className="block text-[10px] font-bold text-slate-500 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+                <label className="block text-[10px] font-medium text-slate-500 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                   Senha
                 </label>
                 <input
@@ -368,7 +368,7 @@ export default function AppIntegracaoModal({
             {/* PIN (Exclusivo para Apps que Exigem) animado */}
             {needsPin && (
               <div className="sm:col-span-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                <label className="block text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mb-1.5 uppercase tracking-wider">
+                <label className="block text-[10px] font-medium text-emerald-600 dark:text-emerald-400 mb-1.5 uppercase tracking-wider">
                   PIN Padrão (Criação de Teste)
                 </label>
                 <div className="relative">
@@ -394,7 +394,7 @@ export default function AppIntegracaoModal({
             <div className="sm:col-span-2 mt-2">
               <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20">
                 <div>
-                  <div className="text-sm font-bold text-slate-700 dark:text-white">
+                  <div className="text-sm font-medium text-slate-700 dark:text-white">
                     Integração Ativa
                   </div>
                   <div className="text-[10px] text-slate-500 dark:text-muted-foreground mt-0.5">
@@ -423,7 +423,7 @@ export default function AppIntegracaoModal({
         <div className="px-6 py-4 border-t border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 flex items-center justify-end gap-3 shrink-0">
           <button
             onClick={onCloseAction}
-            className="h-10 px-5 rounded-xl text-slate-600 dark:text-muted-foreground text-sm font-bold hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
+            className="h-10 px-5 rounded-xl text-slate-600 dark:text-muted-foreground text-sm font-medium hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
             type="button"
             disabled={saving}
           >
@@ -431,7 +431,7 @@ export default function AppIntegracaoModal({
           </button>
           <button
             onClick={handleSave}
-            className={`h-10 px-6 rounded-xl text-sm font-bold text-white transition-all transform active:scale-95 flex items-center gap-2 ${
+            className={`h-10 px-6 rounded-xl text-sm font-medium text-white transition-all transform active:scale-95 flex items-center gap-2 ${
               canSave
                 ? "bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-600/20"
                 : "bg-slate-300 dark:bg-white/10 cursor-not-allowed opacity-70"

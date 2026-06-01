@@ -1209,7 +1209,7 @@ function AgendaPageContent() {
           <button
             onClick={handleSilentSync}
             disabled={loading}
-            className="h-8 md:h-10 px-2.5 md:px-4 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-[11px] md:text-sm flex items-center gap-1.5 shadow-lg shadow-blue-900/20 transition-all disabled:opacity-50 whitespace-nowrap"
+            className="h-8 md:h-10 px-2.5 md:px-4 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium text-[11px] md:text-sm flex items-center gap-1.5 shadow-lg shadow-blue-900/20 transition-all disabled:opacity-50 whitespace-nowrap"
           >
             <IconSync /> Importar Google
           </button>
@@ -1307,7 +1307,7 @@ function AgendaPageContent() {
                   setPhotoFilter("Todos");
                   setPage(1);
                 }} // <--- ATUALIZADO
-                className="h-10 px-3 rounded-lg text-xs font-bold text-rose-500 border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors whitespace-nowrap"
+                className="h-10 px-3 rounded-lg text-xs font-medium text-rose-500 border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors whitespace-nowrap"
               >
                 ✕ Limpar
               </button>
@@ -1317,7 +1317,7 @@ function AgendaPageContent() {
           {/* Botão filtros — só no mobile */}
           <button
             onClick={() => setShowMobileFilters((v) => !v)}
-            className={`md:hidden h-10 px-3 rounded-lg border text-sm font-bold transition-colors flex items-center gap-1.5 ${
+            className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition-colors flex items-center gap-1.5 ${
               hasActiveFilters
                 ? "bg-amber-500 text-white border-amber-500"
                 : "bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-border text-slate-600 dark:text-white"
@@ -1413,7 +1413,7 @@ function AgendaPageContent() {
                   setPhotoFilter("Todos");
                   setPage(1);
                 }} // <--- ATUALIZADO
-                className="h-10 px-3 rounded-lg text-sm font-bold text-rose-500 border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10"
+                className="h-10 px-3 rounded-lg text-sm font-medium text-rose-500 border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10"
               >
                 ✕ Limpar filtros
               </button>
@@ -1428,14 +1428,14 @@ function AgendaPageContent() {
           onClick={(e) => e.stopPropagation()}
           className="flex items-center justify-between p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-500/30 rounded-xl mb-4 animate-in slide-in-from-top-2 mx-3 sm:mx-0"
         >
-          <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300">
+          <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">
             {selectedIds.size} contato(s) selecionado(s)
           </span>
           <div className="flex items-center gap-2">
             <button
               onClick={handleMassSyncOperadora}
               disabled={isSyncingOperadora}
-              className="text-xs px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5"
+              className="text-xs px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-colors disabled:opacity-50 flex items-center gap-1.5"
             >
               {isSyncingOperadora ? (
                 <>
@@ -1463,7 +1463,7 @@ function AgendaPageContent() {
             <button
               onClick={handleSyncLabels}
               disabled={isSyncingLabels}
-              className="text-xs px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5"
+              className="text-xs px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium transition-colors disabled:opacity-50 flex items-center gap-1.5"
             >
               {isSyncingLabels ? (
                 <>
@@ -1482,7 +1482,7 @@ function AgendaPageContent() {
                   setShowGroupPopover((v) => !v);
                 }}
                 disabled={isAssigningGroup}
-                className="text-xs px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-white font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                className="text-xs px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-white font-medium transition-colors disabled:opacity-50 flex items-center gap-1.5"
               >
                 {isAssigningGroup ? (
                   <>
@@ -1499,7 +1499,7 @@ function AgendaPageContent() {
                   onClick={(e) => e.stopPropagation()}
                   className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl z-50 p-3 space-y-2"
                 >
-                  <p className="text-[11px] font-bold text-slate-500 dark:text-muted-foreground uppercase tracking-wide">
+                  <p className="text-[11px] font-medium text-slate-500 dark:text-muted-foreground uppercase tracking-wide">
                     Grupos existentes
                   </p>
                   <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto">
@@ -1509,14 +1509,14 @@ function AgendaPageContent() {
                         <button
                           key={lbl}
                           onClick={() => handleMassAssignGroup(lbl)}
-                          className="text-[11px] px-2 py-0.5 rounded font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-muted-foreground border border-slate-200 dark:border-border hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-colors"
+                          className="text-[11px] px-2 py-0.5 rounded font-medium bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-muted-foreground border border-slate-200 dark:border-border hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-colors"
                         >
                           {lbl}
                         </button>
                       ))}
                   </div>
                   <div className="border-t border-slate-200 dark:border-border pt-2">
-                    <p className="text-[11px] font-bold text-slate-500 dark:text-muted-foreground uppercase tracking-wide mb-1.5">
+                    <p className="text-[11px] font-medium text-slate-500 dark:text-muted-foreground uppercase tracking-wide mb-1.5">
                       Novo grupo
                     </p>
                     <div className="flex gap-1.5">
@@ -1537,7 +1537,7 @@ function AgendaPageContent() {
                             handleMassAssignGroup(newGroupInput);
                         }}
                         disabled={!newGroupInput.trim()}
-                        className="h-8 px-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold disabled:opacity-40 transition-colors"
+                        className="h-8 px-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-xs font-medium disabled:opacity-40 transition-colors"
                       >
                         OK
                       </button>
@@ -1554,9 +1554,9 @@ function AgendaPageContent() {
       {!loading && (
         <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0">
           <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
-            <div className="text-sm font-bold tracking-tight text-slate-800 dark:text-white whitespace-nowrap">
+            <div className="text-sm font-medium tracking-tight text-slate-800 dark:text-white whitespace-nowrap">
               Lista de Contatos{" "}
-              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold">
+              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-medium">
                 {filtered.length}
               </span>
             </div>
@@ -1565,7 +1565,7 @@ function AgendaPageContent() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[700px] table-fixed">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-border text-xs font-bold uppercase text-slate-500 dark:text-white/55">
+                <tr className="border-b border-slate-200 dark:border-border text-xs font-medium uppercase text-slate-500 dark:text-white/55">
                   <Th width={36}>
                     <input
                       ref={selectAllRef}
@@ -1634,11 +1634,11 @@ function AgendaPageContent() {
                               className="w-[40px] h-[40px] rounded-full object-cover border border-slate-200 dark:border-border shadow-sm shrink-0"
                             />
                           ) : (
-                            <div className="w-[40px] h-[40px] rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center font-bold text-slate-500 dark:text-white/50 text-xl shrink-0">
+                            <div className="w-[40px] h-[40px] rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center font-medium text-slate-500 dark:text-white/50 text-xl shrink-0">
                               {r.display_name?.charAt(0) || "?"}
                             </div>
                           )}
-                          <div className="font-bold text-sm text-slate-800 dark:text-white leading-tight max-w-[160px]">
+                          <div className="font-medium text-sm text-slate-800 dark:text-white leading-tight max-w-[160px]">
                             {r.display_name || "Sem Nome"}
                           </div>
                         </div>
@@ -1653,12 +1653,12 @@ function AgendaPageContent() {
                                 key={p.id}
                                 className="text-[13px] whitespace-nowrap"
                               >
-                                <span className="font-bold text-slate-500 dark:text-white/50">
+                                <span className="font-medium text-slate-500 dark:text-white/50">
                                   {p.label?.endsWith(":")
                                     ? p.label
                                     : `${p.label}:`}{" "}
                                 </span>
-                                <span className="font-mono font-bold text-slate-800 dark:text-white/90">
+                                <span className="font-mono font-medium text-slate-800 dark:text-white/90">
                                   {displayPhone(p.value)}
                                 </span>
                               </div>
@@ -1680,7 +1680,7 @@ function AgendaPageContent() {
                                 key={e.id}
                                 className="text-[13px] truncate max-w-[240px]"
                               >
-                                <span className="font-bold text-slate-500 dark:text-white/50">
+                                <span className="font-medium text-slate-500 dark:text-white/50">
                                   {e.label}:{" "}
                                 </span>
                                 <span className="text-sky-600 dark:text-sky-400">
@@ -1817,14 +1817,14 @@ function AgendaPageContent() {
                   <button
                     onClick={() => setPage(1)}
                     disabled={safePage === 1}
-                    className="h-7 w-7 rounded flex items-center justify-center text-slate-500 dark:text-white/50 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 transition-colors text-xs font-bold"
+                    className="h-7 w-7 rounded flex items-center justify-center text-slate-500 dark:text-white/50 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 transition-colors text-xs font-medium"
                   >
                     «
                   </button>
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={safePage === 1}
-                    className="h-7 w-7 rounded flex items-center justify-center text-slate-500 dark:text-white/50 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 transition-colors text-xs font-bold"
+                    className="h-7 w-7 rounded flex items-center justify-center text-slate-500 dark:text-white/50 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 transition-colors text-xs font-medium"
                   >
                     ‹
                   </button>
@@ -1862,14 +1862,14 @@ function AgendaPageContent() {
                   <button
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={safePage === totalPages}
-                    className="h-7 w-7 rounded flex items-center justify-center text-slate-500 dark:text-white/50 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 transition-colors text-xs font-bold"
+                    className="h-7 w-7 rounded flex items-center justify-center text-slate-500 dark:text-white/50 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 transition-colors text-xs font-medium"
                   >
                     ›
                   </button>
                   <button
                     onClick={() => setPage(totalPages)}
                     disabled={safePage === totalPages}
-                    className="h-7 w-7 rounded flex items-center justify-center text-slate-500 dark:text-white/50 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 transition-colors text-xs font-bold"
+                    className="h-7 w-7 rounded flex items-center justify-center text-slate-500 dark:text-white/50 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 transition-colors text-xs font-medium"
                   >
                     »
                   </button>
@@ -1902,7 +1902,7 @@ function AgendaPageContent() {
               </div>
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Sessão de Envio
               </label>
               <select
@@ -1929,7 +1929,7 @@ function AgendaPageContent() {
                 onClick={() =>
                   setShowSendNow({ open: false, contactId: null, phone: null })
                 }
-                className="px-4 py-2 rounded-lg text-slate-500 dark:text-muted-foreground text-sm font-bold"
+                className="px-4 py-2 rounded-lg text-slate-500 dark:text-muted-foreground text-sm font-medium"
               >
                 Cancelar
               </button>
@@ -1975,18 +1975,18 @@ function AgendaPageContent() {
                   className="w-24 h-24 rounded-full object-cover border-2 border-slate-200 dark:border-white/20 group-hover:opacity-50 transition-opacity"
                 />
               ) : (
-                <div className="w-24 h-24 rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center font-bold text-slate-500 dark:text-muted-foreground text-2xl group-hover:opacity-50 transition-opacity">
+                <div className="w-24 h-24 rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center font-medium text-slate-500 dark:text-muted-foreground text-2xl group-hover:opacity-50 transition-opacity">
                   {editForm.display_name?.charAt(0) || "?"}
                 </div>
               )}
-              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white drop-shadow-md text-sm font-bold">
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white drop-shadow-md text-sm font-medium">
                 📸 Alterar
               </div>
             </div>
 
             {/* Nome */}
             <div>
-              <label className="block text-xs font-bold text-slate-500 dark:text-muted-foreground mb-1">
+              <label className="block text-xs font-medium text-slate-500 dark:text-muted-foreground mb-1">
                 Nome Completo
               </label>
               <input
@@ -1994,7 +1994,7 @@ function AgendaPageContent() {
                 onChange={(e) =>
                   setEditForm({ ...editForm, display_name: e.target.value })
                 }
-                className="w-full p-2.5 border border-slate-200 dark:border-border rounded-lg bg-slate-50 dark:bg-black/20 text-slate-800 dark:text-white outline-none focus:border-amber-500 text-sm font-bold"
+                className="w-full p-2.5 border border-slate-200 dark:border-border rounded-lg bg-slate-50 dark:bg-black/20 text-slate-800 dark:text-white outline-none focus:border-amber-500 text-sm font-medium"
               />
             </div>
 
@@ -2003,7 +2003,7 @@ function AgendaPageContent() {
             {/* ── TELEFONES ── */}
             <div>
               <div className="flex items-center justify-between mb-3">
-                <label className="block text-xs font-bold text-slate-500 dark:text-muted-foreground">
+                <label className="block text-xs font-medium text-slate-500 dark:text-muted-foreground">
                   Telefones
                 </label>
                 <button
@@ -2022,7 +2022,7 @@ function AgendaPageContent() {
                       ],
                     }))
                   }
-                  className="text-xs text-amber-600 hover:text-amber-700 dark:text-amber-400 font-bold flex items-center gap-1"
+                  className="text-xs text-amber-600 hover:text-amber-700 dark:text-amber-400 font-medium flex items-center gap-1"
                 >
                   + Add Telefone
                 </button>
@@ -2057,7 +2057,7 @@ function AgendaPageContent() {
                               return { ...prev, phones };
                             })
                           }
-                          className="w-20 p-2 border border-slate-200 dark:border-border rounded-lg bg-white dark:bg-black/30 text-slate-800 dark:text-white text-xs font-bold"
+                          className="w-20 p-2 border border-slate-200 dark:border-border rounded-lg bg-white dark:bg-black/30 text-slate-800 dark:text-white text-xs font-medium"
                         />
                         {/* DDI */}
                         <select
@@ -2130,7 +2130,7 @@ function AgendaPageContent() {
                             if (clean.length >= 8)
                               validateWaForPhone(p.id, `+${p.ddi}${clean}`);
                           }}
-                          className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${
+                          className={`px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-colors ${
                             wa?.loading
                               ? "bg-slate-100 dark:bg-white/5 text-slate-500 border-slate-200 dark:border-border"
                               : wa?.exists
@@ -2185,7 +2185,7 @@ function AgendaPageContent() {
                               );
                             }
                           }}
-                          className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${
+                          className={`px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-colors ${
                             wa?.photoStatus === "loading"
                               ? "bg-slate-100 dark:bg-white/5 text-slate-500 border-slate-200 dark:border-border"
                               : wa?.photoStatus === "synced"
@@ -2212,7 +2212,7 @@ function AgendaPageContent() {
                               if (clean.length >= 10)
                                 lookupOperadoraForPhone(p.id, p.ddi, clean);
                             }}
-                            className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${
+                            className={`px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-colors ${
                               wa?.opLoading
                                 ? "bg-slate-100 dark:bg-white/5 text-slate-500 border-slate-200 dark:border-border"
                                 : wa?.opName
@@ -2231,7 +2231,7 @@ function AgendaPageContent() {
                                   : "Sincronizar Operadora"}
                           </button>
                         ) : (
-                          <div className="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center gap-1 cursor-default">
+                          <div className="px-3 py-1.5 rounded-lg text-[11px] font-medium border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center gap-1 cursor-default">
                             🌍{" "}
                             {DDI_OPTIONS.find((o) => o.code === p.ddi)?.label ||
                               "Internacional"}
@@ -2254,7 +2254,7 @@ function AgendaPageContent() {
             {/* ── EMAILS ── */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-xs font-bold text-slate-500 dark:text-muted-foreground">
+                <label className="block text-xs font-medium text-slate-500 dark:text-muted-foreground">
                   E-mails
                 </label>
                 <button
@@ -2271,7 +2271,7 @@ function AgendaPageContent() {
                       ],
                     }))
                   }
-                  className="text-xs text-amber-600 hover:text-amber-700 dark:text-amber-400 font-bold"
+                  className="text-xs text-amber-600 hover:text-amber-700 dark:text-amber-400 font-medium"
                 >
                   + Add E-mail
                 </button>
@@ -2292,7 +2292,7 @@ function AgendaPageContent() {
                           return { ...prev, emails };
                         })
                       }
-                      className="w-20 p-2 border border-slate-200 dark:border-border rounded-lg bg-white dark:bg-black/30 text-slate-800 dark:text-white text-xs font-bold"
+                      className="w-20 p-2 border border-slate-200 dark:border-border rounded-lg bg-white dark:bg-black/30 text-slate-800 dark:text-white text-xs font-medium"
                     />
                     <input
                       placeholder="email@exemplo.com"
@@ -2334,7 +2334,7 @@ function AgendaPageContent() {
 
             {/* ── GRUPOS ── */}
             <div>
-              <label className="block text-xs font-bold text-slate-500 dark:text-muted-foreground mb-1.5">
+              <label className="block text-xs font-medium text-slate-500 dark:text-muted-foreground mb-1.5">
                 Grupos / Marcadores (Google)
               </label>
               <input
@@ -2367,7 +2367,7 @@ function AgendaPageContent() {
                               : [...prev.labels, lbl],
                           }))
                         }
-                        className={`text-[10px] px-2 py-0.5 rounded font-bold border transition-colors ${active ? "bg-amber-500 text-white border-amber-500" : "bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-white/50 border-slate-200 dark:border-border hover:bg-slate-200 dark:hover:bg-white/10"}`}
+                        className={`text-[10px] px-2 py-0.5 rounded font-medium border transition-colors ${active ? "bg-amber-500 text-white border-amber-500" : "bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-white/50 border-slate-200 dark:border-border hover:bg-slate-200 dark:hover:bg-white/10"}`}
                       >
                         {lbl}
                       </button>
@@ -2381,14 +2381,14 @@ function AgendaPageContent() {
             <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-border">
               <button
                 onClick={() => setEditModal({ open: false, contact: null })}
-                className="px-4 py-2 rounded-lg text-slate-500 dark:text-muted-foreground text-sm font-bold"
+                className="px-4 py-2 rounded-lg text-slate-500 dark:text-muted-foreground text-sm font-medium"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleSaveContact}
                 disabled={isSaving}
-                className="px-6 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white font-bold flex items-center gap-2 text-sm disabled:opacity-50"
+                className="px-6 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white font-medium flex items-center gap-2 text-sm disabled:opacity-50"
               >
                 {isSaving ? "Salvando..." : "Salvar no Google"}
               </button>
@@ -2415,14 +2415,14 @@ function AgendaPageContent() {
                 onChange={(e) => setDeleteFromGoogle(e.target.checked)}
                 className="w-5 h-5 rounded border-rose-300 text-rose-600 focus:ring-rose-500"
               />
-              <span className="text-sm font-bold text-rose-900 dark:text-rose-200">
+              <span className="text-sm font-medium text-rose-900 dark:text-rose-200">
                 Excluir também da agenda do celular (Google Contacts)
               </span>
             </label>
             <div className="flex justify-end gap-3 pt-4">
               <button
                 onClick={() => setDeleteModal({ open: false, contact: null })}
-                className="px-4 py-2 rounded-lg text-slate-500 dark:text-muted-foreground text-sm font-bold"
+                className="px-4 py-2 rounded-lg text-slate-500 dark:text-muted-foreground text-sm font-medium"
               >
                 Cancelar
               </button>
@@ -2529,7 +2529,7 @@ function SortClick({
       onClick={onClick}
       className="inline-flex items-center justify-center gap-1 cursor-pointer select-none hover:text-emerald-500 transition-colors"
     >
-      <span className="font-bold uppercase text-xs tracking-wide">{label}</span>
+      <span className="font-medium uppercase text-xs tracking-wide">{label}</span>
       <span
         className={`transition-opacity flex items-center ${active ? "opacity-100 text-emerald-600" : "opacity-30"}`}
       >
@@ -2601,7 +2601,7 @@ function MenuItem({
   return (
     <button
       onClick={onClick}
-      className="group w-full px-4 py-2.5 flex items-center gap-3 text-slate-600 dark:text-white/60 hover:bg-emerald-500/10 hover:text-emerald-600 transition-all text-left text-sm font-bold tracking-tight rounded-lg"
+      className="group w-full px-4 py-2.5 flex items-center gap-3 text-slate-600 dark:text-white/60 hover:bg-emerald-500/10 hover:text-emerald-600 transition-all text-left text-sm font-medium tracking-tight rounded-lg"
     >
       <span className="opacity-70 group-hover:scale-110 transition-transform">
         {icon}
@@ -2642,7 +2642,7 @@ function Modal({
         className="w-full max-w-lg bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl overflow-hidden"
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-muted">
-          <div className="font-bold text-slate-800 dark:text-white">
+          <div className="font-medium text-slate-800 dark:text-white">
             {title}
           </div>
           <button

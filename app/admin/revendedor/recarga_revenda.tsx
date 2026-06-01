@@ -124,7 +124,7 @@ function toBRMoneyInput(n: number) {
 // --- COMPONENTES VISUAIS PADRONIZADOS ---
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-xs font-bold text-slate-500 dark:text-muted-foreground mb-1.5 tracking-tight">
+    <label className="block text-xs font-medium text-slate-500 dark:text-muted-foreground mb-1.5 tracking-tight">
       {children}
     </label>
   );
@@ -688,7 +688,7 @@ export default function QuickRechargeModal({
         {/* HEADER */}
         <div className="px-6 py-4 border-b border-slate-200 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5">
           <div>
-            <h2 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">
+            <h2 className="text-lg font-medium text-slate-800 dark:text-white tracking-tight">
               Recarga rápida
             </h2>
             <div className="text-xs text-slate-500 dark:text-muted-foreground mt-0.5 font-medium">
@@ -710,7 +710,7 @@ export default function QuickRechargeModal({
         <div className="p-6 space-y-6 overflow-y-auto bg-white dark:bg-card">
           {loadErr && (
             <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-600 dark:text-rose-400 text-sm font-medium animate-in slide-in-from-top-2">
-              <span className="font-bold">Erro:</span> {loadErr}
+              <span className="font-medium">Erro:</span> {loadErr}
             </div>
           )}
 
@@ -758,7 +758,7 @@ export default function QuickRechargeModal({
                     value={qtyCredits}
                     onChange={(e) => setQtyCredits(onlyDigits(e.target.value))}
                     placeholder="Ex: 10"
-                    className="font-bold text-center text-lg"
+                    className="font-medium text-center text-lg"
                     inputMode="numeric"
                   />
                 </div>
@@ -810,7 +810,7 @@ export default function QuickRechargeModal({
                             : ""
                         }
                         onChange={(e) => setFxRate(Number(e.target.value))}
-                        className="col-span-2 h-10 px-3 bg-white dark:bg-black/30 border border-sky-200 dark:border-sky-500/30 rounded-lg text-slate-700 dark:text-white font-bold font-mono outline-none"
+                        className="col-span-2 h-10 px-3 bg-white dark:bg-black/30 border border-sky-200 dark:border-sky-500/30 rounded-lg text-slate-700 dark:text-white font-medium font-mono outline-none"
                       />
                       <div className="h-10 flex items-center justify-center px-2 bg-white dark:bg-black/30 border border-sky-200 dark:border-sky-500/30 rounded-lg text-[10px] text-slate-500 dark:text-white/50 font-semibold">
                         {fxError ? "Erro" : fxAsOf ? "AUTO" : "—"}
@@ -833,7 +833,7 @@ export default function QuickRechargeModal({
 
                   <div className="space-y-1">
                     <Label>Subtotal ({currency})</Label>
-                    <div className="h-10 flex items-center px-3 bg-white dark:bg-black/30 border border-sky-200 dark:border-sky-500/30 rounded-lg text-slate-700 dark:text-white font-bold font-mono">
+                    <div className="h-10 flex items-center px-3 bg-white dark:bg-black/30 border border-sky-200 dark:border-sky-500/30 rounded-lg text-slate-700 dark:text-white font-medium font-mono">
                       {Number.isFinite(totalCurrency)
                         ? fmtMoney(currency, totalCurrency)
                         : "—"}
@@ -845,10 +845,10 @@ export default function QuickRechargeModal({
               {/* Totais Finais */}
               <div className="bg-slate-50 dark:bg-black/20 p-4 rounded-xl border border-slate-200 dark:border-border flex justify-between items-center animate-in zoom-in-95 duration-500">
                 <div className="space-y-0.5">
-                  <span className="text-[10px] font-bold text-slate-400 dark:text-white/20 uppercase tracking-widest">
+                  <span className="text-[10px] font-medium text-slate-400 dark:text-white/20 uppercase tracking-widest">
                     Valor contábil final
                   </span>
-                  <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tracking-tight">
+                  <div className="text-2xl font-medium text-emerald-600 dark:text-emerald-400 tracking-tight">
                     {Number.isFinite(totalBRL)
                       ? fmtMoney("BRL", totalBRL)
                       : "—"}
@@ -871,7 +871,7 @@ export default function QuickRechargeModal({
                     onChange={setSendWhats}
                     label=""
                   />
-                  <span className="text-xs font-bold text-slate-600 dark:text-muted-foreground">
+                  <span className="text-xs font-medium text-slate-600 dark:text-muted-foreground">
                     Enviar comprovante?
                   </span>
                 </div>

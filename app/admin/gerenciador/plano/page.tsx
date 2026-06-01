@@ -262,7 +262,7 @@ export default function PlanosPage() {
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
         <div className="min-w-0 text-left">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-normal text-slate-800 dark:text-white tracking-tight truncate">
+            <h1 className="text-xl sm:text-2xl font-medium text-slate-800 dark:text-white tracking-tight truncate">
               Tabelas de Preço
             </h1>
           </div>
@@ -286,7 +286,7 @@ export default function PlanosPage() {
         className={`p-0 px-3 sm:px-0 md:p-4 bg-transparent md:bg-white md:dark:bg-card border-0 md:border md:border-slate-200 md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 ${isNewOpen || editingPlan ? "z-0" : "z-20"}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-muted-foreground tracking-wider mb-2">
+        <div className="hidden md:block text-xs font-medium uppercase text-slate-400 dark:text-muted-foreground tracking-wider mb-2">
           Busca
         </div>
 
@@ -311,7 +311,7 @@ export default function PlanosPage() {
 
           <button
             onClick={() => setSearch("")}
-            className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-normal hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors items-center justify-center gap-2"
+            className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-medium hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors items-center justify-center gap-2"
           >
             <IconX /> Limpar
           </button>
@@ -359,10 +359,10 @@ export default function PlanosPage() {
                   {/* Cabeçalho do grupo */}
                   <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
                     <span className={`${group.color}`}>{group.icon}</span>
-                    <span className="text-sm font-normal text-slate-700 dark:text-white whitespace-nowrap">
+                    <span className="text-sm font-medium text-slate-700 dark:text-white whitespace-nowrap">
                       {group.label}
                     </span>
-                    <span className="ml-1 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
+                    <span className="ml-1 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-medium">
                       {group.plans.length}
                     </span>
                   </div>
@@ -380,7 +380,7 @@ export default function PlanosPage() {
                             {/* CABEÇALHO DO CARD */}
                             <div className="px-5 py-3 flex justify-between items-center border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
                               <div className="flex items-center gap-3">
-                                <h2 className="text-lg font-normal text-slate-800 dark:text-white tracking-tight">
+                                <h2 className="text-lg font-medium text-slate-800 dark:text-white tracking-tight">
                                   {plan.is_system_default &&
                                   plan.name.startsWith("Padrão")
                                     ? "Padrão"
@@ -388,7 +388,7 @@ export default function PlanosPage() {
                                 </h2>
 
                                 <div className="flex items-center gap-2">
-                                  <span className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest bg-slate-200/50 dark:bg-white/5 px-2 py-0.5 rounded">
+                                  <span className="text-xs font-medium text-slate-400 dark:text-white/30 uppercase tracking-widest bg-slate-200/50 dark:bg-white/5 px-2 py-0.5 rounded">
                                     {plan.currency}
                                   </span>
 
@@ -519,7 +519,7 @@ export default function PlanosPage() {
                                     key={screenCount}
                                     className="animate-in slide-in-from-left-2 duration-300"
                                   >
-                                    <h3 className="text-xs font-bold text-slate-500 dark:text-muted-foreground mb-3 ml-1 tracking-tight">
+                                    <h3 className="text-xs font-medium text-slate-500 dark:text-muted-foreground mb-3 ml-1 tracking-tight">
                                       Preços para {screenCount}{" "}
                                       {screenCount === 1 ? "Tela" : "Telas"}
                                     </h3>
@@ -538,12 +538,12 @@ export default function PlanosPage() {
                                             className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-xl px-3 py-2.5 flex flex-col justify-center h-16 relative hover:border-emerald-500/30 transition-all group"
                                           >
                                             <div className="flex justify-between items-center w-full mb-1">
-                                              <span className="text-[10px] font-bold text-slate-400 dark:text-white/20">
+                                              <span className="text-[10px] font-medium text-slate-400 dark:text-white/20">
                                                 {PERIOD_LABELS[period]}
                                               </span>
                                             </div>
 
-                                            <div className="text-sm font-normal text-slate-800 dark:text-white tracking-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                                            <div className="text-sm font-medium text-slate-800 dark:text-white tracking-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                                               {formatMoney(
                                                 price,
                                                 plan.currency,

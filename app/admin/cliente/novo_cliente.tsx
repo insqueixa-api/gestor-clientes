@@ -473,7 +473,7 @@ function pickCreditsUsed(
 // --- UI helpers ---
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">
+    <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">
       {children}
     </label>
   );
@@ -612,7 +612,7 @@ function PhoneRow({
     <div>
       <Label>{label}</Label>
       <div className="flex gap-2">
-        <div className="h-10 min-w-[160px] px-3 bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-border rounded-lg flex items-center text-xs font-bold text-slate-700 dark:text-white">
+        <div className="h-10 min-w-[160px] px-3 bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-border rounded-lg flex items-center text-xs font-medium text-slate-700 dark:text-white">
           {countryLabel || "—"}
         </div>
 
@@ -4031,7 +4031,7 @@ export default function NovoCliente({
         </div>
       </div>
       <div
-        className="fixed inset-0 z-[99990] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200"
+        className="fixed inset-0 z-[99990] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200"
         onPointerDown={(e) => {
           // ✅ CORREÇÃO: Só fecha se clicar (começar o clique) exatamente no fundo, não se arrastar pra fora.
           if (e.target === e.currentTarget) onClose();
@@ -4044,7 +4044,7 @@ export default function NovoCliente({
           {/* HEADER */}
 
           <div className="px-6 py-4 border-b border-slate-200 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5 rounded-t-xl shrink-0">
-            <h2 className="text-base font-bold text-slate-800 dark:text-white truncate">
+            <h2 className="text-base font-medium text-slate-800 dark:text-white truncate">
               {isEditing
                 ? isTrialMode
                   ? "Editar teste"
@@ -4082,7 +4082,7 @@ export default function NovoCliente({
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
-                  className={`flex-1 sm:flex-none px-6 py-2 text-xs font-bold rounded-md transition-all uppercase tracking-wider whitespace-nowrap ${
+                  className={`flex-1 sm:flex-none px-6 py-2 text-xs font-medium rounded-md transition-all uppercase tracking-wider whitespace-nowrap ${
                     activeTab === tab.key
                       ? "bg-white dark:bg-white/10 text-emerald-600 dark:text-emerald-400 shadow-sm"
                       : "text-slate-500 dark:text-muted-foreground hover:text-slate-800 dark:hover:text-white"
@@ -4192,7 +4192,7 @@ export default function NovoCliente({
                     </div>
                     {waValidation && (
                       <div
-                        className={`mt-1 flex items-center gap-1.5 text-[11px] font-bold ${waValidation.loading ? "text-slate-400" : waValidation.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}
+                        className={`mt-1 flex items-center gap-1.5 text-[11px] font-medium ${waValidation.loading ? "text-slate-400" : waValidation.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}
                       >
                         {waValidation.loading ? (
                           <>
@@ -4263,7 +4263,7 @@ export default function NovoCliente({
                     <button
                       type="button"
                       onClick={() => setShowSecondary(true)}
-                      className="text-[10px] px-2 py-0.5 bg-emerald-500/10 rounded text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
+                      className="text-[10px] px-2 py-0.5 bg-emerald-500/10 rounded text-emerald-600 dark:text-emerald-400 font-medium border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
                     >
                       + ADD CONTATO SECUNDÁRIO
                     </button>
@@ -4271,7 +4271,7 @@ export default function NovoCliente({
                 ) : (
                   <div className="pt-2 mt-4 border-t border-slate-200 dark:border-border space-y-4 animate-in slide-in-from-top-2 duration-300">
                     <div className="flex justify-between items-center">
-                      <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                      <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">
                         Contato Secundário
                       </h3>
                       <button
@@ -4283,7 +4283,7 @@ export default function NovoCliente({
                           setSecondaryPhoneRaw("");
                           setSecondaryWhatsappUsername("");
                         }}
-                        className="text-[10px] px-2 py-0.5 rounded text-rose-500 hover:bg-rose-500/10 font-bold transition-colors"
+                        className="text-[10px] px-2 py-0.5 rounded text-rose-500 hover:bg-rose-500/10 font-medium transition-colors"
                         title="Remover Contato Secundário"
                       >
                         REMOVER
@@ -4371,7 +4371,7 @@ export default function NovoCliente({
                         </div>
                         {secondaryWaValidation && (
                           <div
-                            className={`mt-1.5 flex items-center gap-1.5 text-[11px] font-bold ${secondaryWaValidation.loading ? "text-slate-400" : secondaryWaValidation.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}
+                            className={`mt-1.5 flex items-center gap-1.5 text-[11px] font-medium ${secondaryWaValidation.loading ? "text-slate-400" : secondaryWaValidation.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}
                           >
                             {secondaryWaValidation.loading ? (
                               <>
@@ -4471,14 +4471,14 @@ export default function NovoCliente({
 
                 <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-border space-y-3">
                   <div className="flex justify-between items-center gap-3">
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
                       Acesso
                     </span>
 
                     {/* Tecnologia */}
 
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-slate-400 dark:text-muted-foreground font-bold hidden sm:inline">
+                      <span className="text-[10px] text-slate-400 dark:text-muted-foreground font-medium hidden sm:inline">
                         Tecnologia:
                       </span>
 
@@ -4489,7 +4489,7 @@ export default function NovoCliente({
                             onChange={(e) =>
                               setCustomTechnology(e.target.value)
                             }
-                            className="h-8 w-[140px] sm:w-[180px] pl-2 pr-8 text-xs font-bold text-slate-700 dark:text-white bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded outline-none focus:border-emerald-500/50 transition-all"
+                            className="h-8 w-[140px] sm:w-[180px] pl-2 pr-8 text-xs font-medium text-slate-700 dark:text-white bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded outline-none focus:border-emerald-500/50 transition-all"
                             placeholder="Digite..."
                             autoFocus
                           />
@@ -4522,7 +4522,7 @@ export default function NovoCliente({
                           disabled={
                             trialProvider === "FAST" || trialProvider === "NATV"
                           }
-                          className={`h-8 w-[100px] px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded text-xs font-bold text-slate-700 dark:text-white outline-none transition-all ${
+                          className={`h-8 w-[100px] px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded text-xs font-medium text-slate-700 dark:text-white outline-none transition-all ${
                             trialProvider === "FAST" || trialProvider === "NATV"
                               ? "opacity-60 cursor-not-allowed"
                               : "cursor-pointer hover:border-emerald-500/50"
@@ -4566,14 +4566,14 @@ export default function NovoCliente({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="sm:col-span-2">
                       <div className="flex justify-between items-center mb-1">
-                        <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground uppercase tracking-wider">
+                        <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground uppercase tracking-wider">
                           Servidor *
                         </label>
                         {serverDomains.length > 0 && (
                           <button
                             type="button"
                             onClick={handleViewDns}
-                            className="text-[10px] px-2 py-0.5 rounded text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 font-bold border border-sky-100 dark:border-sky-500/20 hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-colors flex items-center gap-1 shadow-sm"
+                            className="text-[10px] px-2 py-0.5 rounded text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 font-medium border border-sky-100 dark:border-sky-500/20 hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-colors flex items-center gap-1 shadow-sm"
                           >
                             DNS{" "}
                             <span className="bg-sky-100 dark:bg-sky-500/20 px-1 rounded-sm">
@@ -4783,12 +4783,12 @@ export default function NovoCliente({
 
                 <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-border space-y-3">
                   <div className="flex justify-between items-center gap-3">
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
                       Plano
                     </span>
 
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-slate-400 dark:text-muted-foreground font-bold hidden sm:inline">
+                      <span className="text-[10px] text-slate-400 dark:text-muted-foreground font-medium hidden sm:inline">
                         Tabela:
                       </span>
 
@@ -4798,7 +4798,7 @@ export default function NovoCliente({
                           setSelectedTableId(e.target.value);
                           setPriceTouched(false); // ✅ FORÇA O RECÁLCULO IMEDIATO
                         }}
-                        className="h-8 w-[120px] px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded text-xs font-bold text-slate-700 dark:text-white outline-none cursor-pointer hover:border-emerald-500/50 transition-all truncate"
+                        className="h-8 w-[120px] px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded text-xs font-medium text-slate-700 dark:text-white outline-none cursor-pointer hover:border-emerald-500/50 transition-all truncate"
                       >
                         {tables.map((t) => (
                           <option key={t.id} value={t.id}>
@@ -4864,7 +4864,7 @@ export default function NovoCliente({
                       <div className="col-span-2 sm:col-span-1">
                         <Label>Créditos</Label>
 
-                        <div className="h-10 w-full bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 rounded-lg flex items-center justify-center text-sm font-bold text-blue-700 dark:text-blue-300">
+                        <div className="h-10 w-full bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 rounded-lg flex items-center justify-center text-sm font-medium text-blue-700 dark:text-blue-300">
                           {creditsInfo ? creditsInfo.used : "—"}
                         </div>
                       </div>
@@ -4877,7 +4877,7 @@ export default function NovoCliente({
                     <div>
                       <Label>Moeda</Label>
 
-                      <div className="h-10 w-full bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-border rounded-lg flex items-center justify-center text-sm font-bold text-slate-700 dark:text-white">
+                      <div className="h-10 w-full bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-border rounded-lg flex items-center justify-center text-sm font-medium text-slate-700 dark:text-white">
                         {currency}
                       </div>
                     </div>
@@ -4893,7 +4893,7 @@ export default function NovoCliente({
                           setPriceTouched(true);
                         }}
                         placeholder="0,00"
-                        className="text-right font-bold tracking-tight text-lg"
+                        className="text-right font-medium tracking-tight text-lg"
                       />
                     </div>
                   </div>
@@ -4915,7 +4915,7 @@ export default function NovoCliente({
                       <div>
                         <Label>Total BRL</Label>
 
-                        <div className="w-full h-9 flex items-center justify-center bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/20 rounded text-emerald-800 dark:text-emerald-200 font-bold">
+                        <div className="w-full h-9 flex items-center justify-center bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/20 rounded text-emerald-800 dark:text-emerald-200 font-medium">
                           {fmtMoney("BRL", totalBrl)}
                         </div>
                       </div>
@@ -4929,13 +4929,13 @@ export default function NovoCliente({
                   {/* ✅ NOVO: Header com Período ao lado direito (só para teste) */}
 
                   <div className="flex justify-between items-center gap-3">
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
                       Vencimento
                     </span>
 
                     {isTrialMode && (
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-slate-400 dark:text-muted-foreground font-bold hidden sm:inline">
+                        <span className="text-[10px] text-slate-400 dark:text-muted-foreground font-medium hidden sm:inline">
                           Período:
                         </span>
 
@@ -4954,7 +4954,7 @@ export default function NovoCliente({
                                   ? "NATV: padrão 6h (editável)"
                                   : "Período do teste"
                           }
-                          className={`h-7 w-[70px] px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded text-xs font-bold text-slate-700 dark:text-white outline-none transition-all ${
+                          className={`h-7 w-[70px] px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded text-xs font-medium text-slate-700 dark:text-white outline-none transition-all ${
                             trialHoursLocked
                               ? "opacity-70 cursor-not-allowed"
                               : "cursor-pointer hover:border-emerald-500/50"
@@ -5000,7 +5000,7 @@ export default function NovoCliente({
                         <button
                           type="button"
                           onClick={() => setDueTime("23:59")}
-                          className="px-2 rounded-lg bg-slate-200 dark:bg-white/10 text-[10px] font-bold text-slate-600 dark:text-muted-foreground hover:bg-slate-300 dark:hover:bg-white/20 border border-slate-300 dark:border-white/20 whitespace-nowrap"
+                          className="px-2 rounded-lg bg-slate-200 dark:bg-white/10 text-[10px] font-medium text-slate-600 dark:text-muted-foreground hover:bg-slate-300 dark:hover:bg-white/20 border border-slate-300 dark:border-white/20 whitespace-nowrap"
                           title="Fim do dia"
                         >
                           23:59
@@ -5038,7 +5038,7 @@ export default function NovoCliente({
 
                                 <div>
                                   <span
-                                    className={`text-sm font-bold block ${syncWithServer ? "text-sky-700 dark:text-sky-400" : "text-slate-500"}`}
+                                    className={`text-sm font-medium block ${syncWithServer ? "text-sky-700 dark:text-sky-400" : "text-slate-500"}`}
                                   >
                                     Teste Automático
                                   </span>
@@ -5068,7 +5068,7 @@ export default function NovoCliente({
                               onClick={() => setSendTrialWhats(!sendTrialWhats)}
                               className="h-10 px-3 rounded-lg border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-between gap-3 shrink-0"
                             >
-                              <span className="text-xs font-bold text-slate-600 dark:text-muted-foreground">
+                              <span className="text-xs font-medium text-slate-600 dark:text-muted-foreground">
                                 Enviar msg teste?
                               </span>
 
@@ -5163,7 +5163,7 @@ export default function NovoCliente({
                                   <span className="text-lg">☁️</span>
                                   <div>
                                     <span
-                                      className={`text-xs font-bold block ${syncWithServer ? "text-sky-700 dark:text-sky-400" : "text-slate-500"}`}
+                                      className={`text-xs font-medium block ${syncWithServer ? "text-sky-700 dark:text-sky-400" : "text-slate-500"}`}
                                     >
                                       Sincronizar Painel
                                     </span>
@@ -5205,7 +5205,7 @@ export default function NovoCliente({
 
                                 <div>
                                   <span
-                                    className={`text-xs font-bold block ${registerRenewal ? "text-emerald-700 dark:text-emerald-400" : "text-slate-500"}`}
+                                    className={`text-xs font-medium block ${registerRenewal ? "text-emerald-700 dark:text-emerald-400" : "text-slate-500"}`}
                                   >
                                     Registrar Financeiro
                                   </span>
@@ -5240,7 +5240,7 @@ export default function NovoCliente({
                                 }
                                 className="h-10 px-3 rounded-lg border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-between gap-3"
                               >
-                                <span className="text-xs font-bold text-slate-600 dark:text-muted-foreground">
+                                <span className="text-xs font-medium text-slate-600 dark:text-muted-foreground">
                                   Enviar msg pagto?
                                 </span>
 
@@ -5379,7 +5379,7 @@ export default function NovoCliente({
                               )
                             }
                           >
-                            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                            <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-2">
                               {(() => {
                                 const catAppIcon = catalog.find(
                                   (c) => c.id === app.app_id,
@@ -5412,7 +5412,7 @@ export default function NovoCliente({
                                   >
                                     <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
                                   </svg>
-                                  <span className="text-[9px] font-bold uppercase tracking-wider hidden sm:inline">
+                                  <span className="text-[9px] font-medium uppercase tracking-wider hidden sm:inline">
                                     {appLabel}
                                   </span>
                                 </span>
@@ -5441,7 +5441,7 @@ export default function NovoCliente({
                                   <circle cx="12" cy="12" r="10"></circle>
                                   <polyline points="12 6 12 12 16 14"></polyline>
                                 </svg>
-                                <span className="text-[9px] font-bold uppercase tracking-wider hidden sm:inline">
+                                <span className="text-[9px] font-medium uppercase tracking-wider hidden sm:inline">
                                   {diffDays < 0
                                     ? "Vencido"
                                     : diffDays === 0
@@ -5470,7 +5470,7 @@ export default function NovoCliente({
                                 ),
                               )
                             }
-                            className="text-[10px] text-rose-500 font-bold hover:bg-rose-500/10 px-2 py-1 rounded transition-colors"
+                            className="text-[10px] text-rose-500 font-medium hover:bg-rose-500/10 px-2 py-1 rounded transition-colors"
                           >
                             REMOVER
                           </button>
@@ -5560,7 +5560,7 @@ export default function NovoCliente({
                                           d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
                                         />
                                       </svg>
-                                      <span className="hidden sm:inline text-xs font-bold">
+                                      <span className="hidden sm:inline text-xs font-medium">
                                         Painel
                                       </span>
                                     </button>
@@ -5630,7 +5630,7 @@ export default function NovoCliente({
                                         />
                                       </svg>
                                       <span
-                                        className={`text-xs font-bold ${app.auto_configure !== false ? "text-sky-700 dark:text-sky-400" : "text-slate-500"}`}
+                                        className={`text-xs font-medium ${app.auto_configure !== false ? "text-sky-700 dark:text-sky-400" : "text-slate-500"}`}
                                       >
                                         Configurar {appLabel} automaticamente
                                       </span>
@@ -5864,7 +5864,7 @@ export default function NovoCliente({
                         setShowAppSelector(true);
                         setAppSearch("");
                       }}
-                      className="w-full h-14 border-2 border-dashed border-slate-300 dark:border-border rounded-xl text-slate-500 dark:text-white/60 hover:text-emerald-600 hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all font-bold text-sm uppercase flex items-center justify-center gap-2"
+                      className="w-full h-14 border-2 border-dashed border-slate-300 dark:border-border rounded-xl text-slate-500 dark:text-white/60 hover:text-emerald-600 hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all font-medium text-sm uppercase flex items-center justify-center gap-2"
                     >
                       <span className="text-lg">+</span> Adicionar Aplicativo
                     </button>
@@ -5985,13 +5985,13 @@ export default function NovoCliente({
                                       >
                                         <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
                                       </svg>
-                                      <span className="text-[9px] font-bold uppercase tracking-wider">
+                                      <span className="text-[9px] font-medium uppercase tracking-wider">
                                         {intLabel}
                                       </span>
                                     </span>
                                   )}
                                 </div>
-                                <span className="text-[10px] uppercase font-bold opacity-0 group-hover:opacity-100 transition-opacity text-emerald-600 dark:text-emerald-400">
+                                <span className="text-[10px] uppercase font-medium opacity-0 group-hover:opacity-100 transition-opacity text-emerald-600 dark:text-emerald-400">
                                   Selecionar
                                 </span>
                               </button>
@@ -6012,7 +6012,7 @@ export default function NovoCliente({
             <button
               onClick={onClose}
               type="button"
-              className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/10 text-xs font-bold transition-colors"
+              className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/10 text-xs font-medium transition-colors"
             >
               Cancelar
             </button>
@@ -6038,7 +6038,7 @@ export default function NovoCliente({
       {/* === MODAL DE CONFIRMAÇÃO (Padronizado) === */}
       {ConfirmUI} {/* ✅ Renderiza a caixa bonita sobre o modal */}
       {confirmModal && (
-        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200">
           <div className="w-full max-w-sm bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl p-6 flex flex-col gap-5 overflow-hidden min-h-0 max-h-[90vh] animate-in fade-in zoom-in-95 duration-200 max-h-[90dvh]">
             <div className="flex flex-col items-center text-center gap-3">
               <div className="w-14 h-14 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-3xl">
@@ -6063,7 +6063,7 @@ export default function NovoCliente({
                     key={i}
                     className="text-sm text-slate-700 dark:text-slate-300 flex items-start gap-2.5"
                   >
-                    <span className="text-emerald-500 font-bold mt-0.5">•</span>
+                    <span className="text-emerald-500 font-medium mt-0.5">•</span>
 
                     <span className="leading-tight">{line}</span>
                   </li>
@@ -6074,7 +6074,7 @@ export default function NovoCliente({
             <div className="flex gap-3 pt-2">
               <button
                 onClick={() => setConfirmModal(null)}
-                className="flex-1 h-12 rounded-xl border border-slate-200 dark:border-border text-slate-600 dark:text-slate-400 font-bold text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                className="flex-1 h-12 rounded-xl border border-slate-200 dark:border-border text-slate-600 dark:text-slate-400 font-medium text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
               >
                 Voltar
               </button>

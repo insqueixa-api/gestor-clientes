@@ -64,7 +64,7 @@ const PERIOD_LABELS: Record<string, string> = {
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-xs font-bold text-slate-500 dark:text-muted-foreground mb-1.5 tracking-tight">
+    <label className="block text-xs font-medium text-slate-500 dark:text-muted-foreground mb-1.5 tracking-tight">
       {children}
     </label>
   );
@@ -492,7 +492,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
           onPointerDown={(e) => e.stopPropagation()}
         >
           <div className="px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-border sticky top-0 z-10">
-            <h2 className="text-base sm:text-lg font-normal text-slate-800 dark:text-white tracking-tight">
+            <h2 className="text-base sm:text-lg font-medium text-slate-800 dark:text-white tracking-tight">
               {isEditing ? "Editar Tabela" : "Nova Tabela de Preço"}
             </h2>
 
@@ -506,7 +506,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
               <button
                 onClick={handleSave}
                 disabled={saving || loading}
-                className="px-3 sm:px-6 py-1.5 sm:py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs sm:text-sm font-normal shadow-lg shadow-emerald-900/20 transition-all"
+                className="px-3 sm:px-6 py-1.5 sm:py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs sm:text-sm font-medium shadow-lg shadow-emerald-900/20 transition-all"
               >
                 {saving ? "Salvando..." : "Salvar"}
               </button>
@@ -534,7 +534,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                         key={c}
                         type="button"
                         onClick={() => setCurrency(c)}
-                        className={`flex-1 py-2 rounded-md text-xs font-bold transition-all uppercase tracking-wider
+                        className={`flex-1 py-2 rounded-md text-xs font-medium transition-all uppercase tracking-wider
                           ${
                             currency === c
                               ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-sm"
@@ -565,7 +565,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                     key={screenCount}
                     className="animate-in slide-in-from-left-2 duration-300"
                   >
-                    <h3 className="text-xs font-bold text-slate-500 dark:text-muted-foreground mb-3 ml-1 tracking-tight">
+                    <h3 className="text-xs font-medium text-slate-500 dark:text-muted-foreground mb-3 ml-1 tracking-tight">
                       Preços para {screenCount}{" "}
                       {screenCount === 1 ? "Tela" : "Telas"}
                     </h3>
@@ -588,16 +588,16 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                             className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 flex flex-col justify-center h-16 sm:h-20 relative focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/20 transition-all group"
                           >
                             <div className="flex justify-between items-center w-full mb-1">
-                              <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 dark:text-white/20">
+                              <span className="text-[10px] sm:text-[11px] font-medium text-slate-400 dark:text-white/20">
                                 {PERIOD_LABELS[period]}
                               </span>
-                              <span className="text-[8px] sm:text-[9px] font-bold text-emerald-600 dark:text-emerald-400/80 bg-emerald-500/10 px-1.5 py-0.5 rounded-lg border border-emerald-500/10">
+                              <span className="text-[8px] sm:text-[9px] font-medium text-emerald-600 dark:text-emerald-400/80 bg-emerald-500/10 px-1.5 py-0.5 rounded-lg border border-emerald-500/10">
                                 {currentCredits} cr
                               </span>
                             </div>
 
                             <div className="relative">
-                              <span className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/20 text-xs font-bold">
+                              <span className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/20 text-xs font-medium">
                                 {formatCurrency(currency)}
                               </span>
                               <input
@@ -612,7 +612,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                                     e.target.value,
                                   )
                                 }
-                                className="w-full bg-transparent border-none p-0 pl-6 sm:pl-7 text-sm sm:text-base font-normal text-slate-800 dark:text-white focus:ring-0 outline-none placeholder-slate-300 dark:placeholder-white/5 transition-colors disabled:opacity-50"
+                                className="w-full bg-transparent border-none p-0 pl-6 sm:pl-7 text-sm sm:text-base font-medium text-slate-800 dark:text-white focus:ring-0 outline-none placeholder-slate-300 dark:placeholder-white/5 transition-colors disabled:opacity-50"
                                 placeholder="0,00"
                               />
                             </div>

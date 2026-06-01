@@ -51,7 +51,7 @@ function fromMoneyInput(s: string) {
 // Componentes
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-xs font-normal text-slate-500 dark:text-muted-foreground mb-1.5 tracking-tight">
+    <label className="block text-xs font-medium text-slate-500 dark:text-muted-foreground mb-1.5 tracking-tight">
       {children}
     </label>
   );
@@ -226,7 +226,7 @@ export default function VincularServidor({
       <div className="w-full max-w-lg bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
         {/* HEADER */}
         <div className="px-6 py-4 border-b border-slate-200 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5">
-          <h2 className="text-lg font-normal text-slate-800 dark:text-white tracking-tight">
+          <h2 className="text-lg font-medium text-slate-800 dark:text-white tracking-tight">
             {isEdit ? "Editar Vínculo" : "Vincular Servidor"}
           </h2>
           <button
@@ -241,7 +241,7 @@ export default function VincularServidor({
         <div className="p-6 space-y-6 overflow-y-auto bg-white dark:bg-card">
           {loadErr && (
             <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-600 dark:text-rose-400 text-sm font-medium animate-in slide-in-from-top-2">
-              <span className="font-normal">Erro:</span> {loadErr}
+              <span className="font-medium">Erro:</span> {loadErr}
             </div>
           )}
 
@@ -308,7 +308,7 @@ export default function VincularServidor({
           <button
             onClick={onSave}
             disabled={!canSave || saving}
-            className={`px-6 py-2 rounded-lg text-sm font-bold transition-all shadow-lg shadow-emerald-900/20 ${
+            className={`px-6 py-2 rounded-lg text-sm font-medium transition-all shadow-lg shadow-emerald-900/20 ${
               !canSave || saving
                 ? "bg-emerald-600/50 text-white/70 cursor-not-allowed"
                 : "bg-emerald-600 hover:bg-emerald-500 text-white"

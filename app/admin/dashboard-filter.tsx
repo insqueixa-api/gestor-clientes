@@ -30,7 +30,7 @@ export function DashboardFilter({
           <button
             key={key}
             onClick={() => select(key)}
-            className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all flex items-center gap-1.5 ${
               active
                 ? "bg-white dark:bg-card text-emerald-600 dark:text-white shadow-sm"
                 : "text-slate-500 dark:text-white/50 hover:text-slate-800 dark:hover:text-white/80"

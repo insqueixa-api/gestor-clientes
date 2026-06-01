@@ -72,7 +72,7 @@ function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
 // --- COMPONENTES VISUAIS INTERNOS ---
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-xs font-normal text-slate-500 dark:text-muted-foreground mb-1.5 tracking-tight">
+    <label className="block text-xs font-medium text-slate-500 dark:text-muted-foreground mb-1.5 tracking-tight">
       {children}
     </label>
   );
@@ -730,7 +730,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
         {/* HEADER */}
         <div className="px-6 py-4 border-b border-slate-200 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5">
           <div>
-            <h2 className="text-lg font-normal text-slate-800 dark:text-white tracking-tight">
+            <h2 className="text-lg font-medium text-slate-800 dark:text-white tracking-tight">
               {isEditing ? `Editar: ${server?.name}` : "Novo servidor"}
             </h2>
             <div className="text-xs text-slate-500 dark:text-muted-foreground mt-0.5 font-medium">
@@ -860,7 +860,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-normal text-slate-600 dark:text-muted-foreground">
+                <p className="text-xs font-medium text-slate-600 dark:text-muted-foreground">
                   {uploadingIcon
                     ? "Enviando..."
                     : "Arraste, cole (Ctrl+V) ou clique para selecionar"}
@@ -870,7 +870,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
                 </p>
               </div>
               <label className="cursor-pointer shrink-0">
-                <span className="h-8 px-3 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs font-normal flex items-center hover:bg-emerald-500/20 transition-colors">
+                <span className="h-8 px-3 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs font-medium flex items-center hover:bg-emerald-500/20 transition-colors">
                   {uploadingIcon ? "..." : "Selecionar"}
                 </span>
                 <input
@@ -907,7 +907,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
                     key={c}
                     type="button"
                     onClick={() => setCurrency(c)}
-                    className={`flex-1 h-full rounded-md text-xs font-bold transition-all ${
+                    className={`flex-1 h-full rounded-md text-xs font-medium transition-all ${
                       currency === c
                         ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-sm"
                         : "text-slate-500 dark:text-muted-foreground hover:text-slate-700 dark:hover:text-white"
@@ -940,13 +940,13 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
                 // ✅ CAMPO LIBERADO
                 className={
                   isEditing
-                    ? "font-bold text-emerald-600 dark:text-emerald-400"
+                    ? "font-medium text-emerald-600 dark:text-emerald-400"
                     : ""
                 }
               />
               {isEditing && (
                 <div className="mt-1 p-2 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded text-[10px] text-amber-700 dark:text-amber-400 flex items-start gap-2">
-                  <span className="font-normal shrink-0">⚠️ Atenção:</span>
+                  <span className="font-medium shrink-0">⚠️ Atenção:</span>
                   <span>
                     Ajuste manual de balanço (não gera registro financeiro).
                     Para compras, use "Recarregar".
@@ -1022,7 +1022,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {dnsList.map((dns, idx) => (
                 <div key={idx} className="relative group">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/20 text-[10px] font-mono font-normal">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/20 text-[10px] font-mono font-medium">
                     {idx + 1}.
                   </span>
                   <Input
@@ -1105,7 +1105,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-6 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-normal transition-all shadow-lg shadow-emerald-900/20"
+            className="px-6 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-medium transition-all shadow-lg shadow-emerald-900/20"
           >
             {saving
               ? "Processando..."

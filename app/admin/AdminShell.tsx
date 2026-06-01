@@ -97,10 +97,10 @@ function BrandUser({
         </>
       )}
       <div className="min-w-0 flex flex-col justify-center">
-        <div className="text-[10px] uppercase tracking-wider text-white/40 font-bold leading-none mb-0.5 group-hover:text-white/60 transition-colors">
+        <div className="text-[10px] uppercase tracking-wider text-white/40 font-medium leading-none mb-0.5 group-hover:text-white/60 transition-colors">
           Logado como
         </div>
-        <div className="text-xs font-bold text-white truncate max-w-50 sm:max-w-66 tracking-tight group-hover:text-emerald-400 transition-colors uppercase">
+        <div className="text-xs font-medium text-white truncate max-w-50 sm:max-w-66 tracking-tight group-hover:text-emerald-400 transition-colors uppercase">
           {userLabel}
         </div>
       </div>
@@ -532,7 +532,7 @@ export default function AdminShell({
                 <button
                   onClick={openMobileMenu}
                   className={[
-                    "rounded-lg px-3 py-2 text-sm transition-all duration-200 font-bold flex items-center gap-2 tracking-tight",
+                    "rounded-lg px-3 py-2 text-sm transition-all duration-200 font-medium flex items-center gap-2 tracking-tight",
                     openMenu === "mobile"
                       ? "bg-white/15 text-emerald-400"
                       : "text-white/70 hover:text-white hover:bg-white/5",
@@ -601,7 +601,7 @@ export default function AdminShell({
                 <button
                   onClick={openManager}
                   className={[
-                    "rounded-lg px-3 py-2 text-sm transition-all duration-200 font-bold flex items-center gap-2 tracking-tight",
+                    "rounded-lg px-3 py-2 text-sm transition-all duration-200 font-medium flex items-center gap-2 tracking-tight",
                     managerActive
                       ? "bg-white/15 text-emerald-400"
                       : "text-white/70 hover:text-white hover:bg-white/5",
@@ -625,7 +625,7 @@ export default function AdminShell({
                 <button
                   onClick={openSettings}
                   className={[
-                    "rounded-lg px-3 py-2 text-sm transition-all duration-200 font-bold flex items-center gap-2 tracking-tight",
+                    "rounded-lg px-3 py-2 text-sm transition-all duration-200 font-medium flex items-center gap-2 tracking-tight",
                     settingsActive
                       ? "bg-white/15 text-emerald-400"
                       : "text-white/70 hover:text-white hover:bg-white/5",
@@ -659,7 +659,7 @@ export default function AdminShell({
             top={managerPos.top}
             onClose={() => setOpenMenu(null)}
           >
-            <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">
+            <div className="px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-slate-400 dark:text-white/30">
               Gestão
             </div>
             <MenuLink
@@ -732,7 +732,7 @@ export default function AdminShell({
             top={mobilePos.top}
             onClose={() => setOpenMenu(null)}
           >
-            <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">
+            <div className="px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-slate-400 dark:text-white/30">
               Navegação
             </div>
 
@@ -784,7 +784,7 @@ export default function AdminShell({
             />
             <Divider />
 
-            <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">
+            <div className="px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-slate-400 dark:text-white/30">
               Gerenciador
             </div>
             <MenuLink
@@ -845,7 +845,7 @@ export default function AdminShell({
             />
             <Divider />
 
-            <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">
+            <div className="px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-slate-400 dark:text-white/30">
               Conta
             </div>
             <MenuLink
@@ -959,7 +959,7 @@ export default function AdminShell({
             <div className="flex justify-end gap-2">
               <button
                 onClick={handleSync}
-                className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-border text-slate-700 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase flex items-center gap-1.5"
+                className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-border text-slate-700 dark:text-white font-medium hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase flex items-center gap-1.5"
                 title="Recupera as notificações apagadas do navegador"
               >
                 <RefreshCcw className="w-3.5 h-3.5" /> Sincronizar
@@ -967,7 +967,7 @@ export default function AdminShell({
               {notifications.length > 0 && (
                 <button
                   onClick={clearAllNotifications}
-                  className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-border text-slate-700 dark:text-white font-bold hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 dark:hover:bg-rose-500/10 dark:hover:text-rose-400 transition-colors text-xs uppercase"
+                  className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-border text-slate-700 dark:text-white font-medium hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 dark:hover:bg-rose-500/10 dark:hover:text-rose-400 transition-colors text-xs uppercase"
                 >
                   Limpar todas
                 </button>
@@ -1006,7 +1006,7 @@ export default function AdminShell({
                         {!n.is_read && (
                           <div className="h-2 w-2 rounded-full bg-emerald-500 flex-shrink-0 shadow-sm" />
                         )}
-                        <p className="text-slate-800 dark:text-white text-sm font-bold truncate">
+                        <p className="text-slate-800 dark:text-white text-sm font-medium truncate">
                           {n.title}
                         </p>
                       </div>
@@ -1061,7 +1061,7 @@ export default function AdminShell({
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setSelectedNotification(null)}
-                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-border text-slate-700 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase"
+                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-border text-slate-700 dark:text-white font-medium hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase"
               >
                 Fechar
               </button>
@@ -1098,7 +1098,7 @@ export default function AdminShell({
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowWaModal(false)}
-                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-border text-slate-700 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase"
+                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-border text-slate-700 dark:text-white font-medium hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase"
               >
                 Fechar
               </button>
@@ -1147,7 +1147,7 @@ function Modal({
         className="w-full max-w-lg bg-white dark:bg-background border border-slate-200 dark:border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
-          <div className="font-bold text-slate-800 dark:text-white">
+          <div className="font-medium text-slate-800 dark:text-white">
             {title}
           </div>
           <button
@@ -1213,7 +1213,7 @@ function LogoutLink({ onLogout }: { onLogout?: () => void }) {
         onLogout?.();
         window.location.href = "/logout";
       }}
-      className="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-all"
+      className="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-all"
     >
       <svg
         width="16"
@@ -1243,7 +1243,7 @@ function NavLink({ href, label }: { href: string; label: React.ReactNode }) {
     <Link
       href={href}
       className={[
-        "rounded-lg px-3 py-2 text-sm transition-all duration-200 inline-flex items-center font-bold tracking-tight",
+        "rounded-lg px-3 py-2 text-sm transition-all duration-200 inline-flex items-center font-medium tracking-tight",
         active
           ? "bg-white/15 text-emerald-400 shadow-sm"
           : "text-white/70 hover:text-white hover:bg-white/5",
@@ -1270,7 +1270,7 @@ function MenuLink({
       href={href}
       onClick={onClick}
       className={[
-        "block rounded-lg px-3 py-2.5 text-sm transition-all font-bold tracking-tight",
+        "block rounded-lg px-3 py-2.5 text-sm transition-all font-medium tracking-tight",
         isActive
           ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
           : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/5",

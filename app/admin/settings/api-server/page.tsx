@@ -351,7 +351,7 @@ export default function ApiServerPage() {
                     setEditingIntegration(null);
                     setIsModalOpen(true);
                   }}
-                  className="w-full px-4 py-3 text-left text-sm font-bold text-slate-700 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2 border-b border-slate-100 dark:border-border"
+                  className="w-full px-4 py-3 text-left text-sm font-medium text-slate-700 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2 border-b border-slate-100 dark:border-border"
                 >
                   🖥️ Servidor
                 </button>
@@ -361,7 +361,7 @@ export default function ApiServerPage() {
                     setEditingApp(null);
                     setIsModalAppOpen(true);
                   }}
-                  className="w-full px-4 py-3 text-left text-sm font-bold text-slate-700 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2"
+                  className="w-full px-4 py-3 text-left text-sm font-medium text-slate-700 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2"
                 >
                   📱 Aplicativo
                 </button>
@@ -376,7 +376,7 @@ export default function ApiServerPage() {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+            className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wider transition-all ${
               activeTab === tab
                 ? "bg-emerald-600 text-white shadow"
                 : "text-slate-500 dark:text-muted-foreground hover:text-slate-700 dark:hover:text-white"
@@ -413,18 +413,18 @@ export default function ApiServerPage() {
                     <div className="min-w-0 pr-3">
                       <div className="flex items-center gap-2 min-w-0">
                         <h2
-                          className="text-base font-bold truncate text-slate-700 dark:text-white tracking-tight"
+                          className="text-base font-medium truncate text-slate-700 dark:text-white tracking-tight"
                           title={row.integration_name}
                         >
                           {row.integration_name}
                         </h2>
 
-                        <span className="inline-flex items-center text-[10px] font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 px-2.5 py-0.5 rounded-full uppercase">
+                        <span className="inline-flex items-center text-[10px] font-medium bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 px-2.5 py-0.5 rounded-full uppercase">
                           {providerLabel(row.provider)}
                         </span>
 
                         {!row.is_active && (
-                          <span className="inline-flex items-center text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/20 px-2.5 py-0.5 rounded-full uppercase">
+                          <span className="inline-flex items-center text-[10px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/20 px-2.5 py-0.5 rounded-full uppercase">
                             Inativa
                           </span>
                         )}
@@ -479,7 +479,7 @@ export default function ApiServerPage() {
                         <span className="text-slate-500 dark:text-white/50">
                           👤 Usuário
                         </span>
-                        <span className="font-bold text-slate-700 dark:text-white">
+                        <span className="font-medium text-slate-700 dark:text-white">
                           {row.owner_username ?? "--"}
                         </span>
                       </div>
@@ -488,7 +488,7 @@ export default function ApiServerPage() {
                         <span className="text-slate-500 dark:text-white/50">
                           🆔 Owner ID
                         </span>
-                        <span className="font-bold text-slate-700 dark:text-white">
+                        <span className="font-medium text-slate-700 dark:text-white">
                           {row.owner_id ?? "--"}
                         </span>
                       </div>
@@ -500,7 +500,7 @@ export default function ApiServerPage() {
                           🧾 Créditos
                         </span>
                         <span
-                          className={`font-bold px-2 py-0.5 rounded-lg text-xs ${
+                          className={`font-medium px-2 py-0.5 rounded-lg text-xs ${
                             (row.credits_last_known ?? 0) > 10
                               ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
                               : "text-rose-500 bg-rose-500/10"
@@ -566,14 +566,14 @@ export default function ApiServerPage() {
                 >
                   <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
                     <div className="flex items-center gap-2 min-w-0 pr-3">
-                      <h2 className="text-base font-bold truncate text-slate-700 dark:text-white tracking-tight">
+                      <h2 className="text-base font-medium truncate text-slate-700 dark:text-white tracking-tight">
                         {row.label}
                       </h2>
-                      <span className="inline-flex items-center text-[10px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 px-2.5 py-0.5 rounded-full uppercase">
+                      <span className="inline-flex items-center text-[10px] font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 px-2.5 py-0.5 rounded-full uppercase">
                         {appLabel(row.app_name)}
                       </span>
                       {!row.is_active && (
-                        <span className="inline-flex items-center text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/20 px-2.5 py-0.5 rounded-full uppercase">
+                        <span className="inline-flex items-center text-[10px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/20 px-2.5 py-0.5 rounded-full uppercase">
                           Inativa
                         </span>
                       )}
@@ -658,7 +658,7 @@ export default function ApiServerPage() {
                         <span className="text-slate-500 dark:text-white/50">
                           📧 Login
                         </span>
-                        <span className="font-bold text-slate-700 dark:text-white">
+                        <span className="font-medium text-slate-700 dark:text-white">
                           {row.login_email}
                         </span>
                       </div>

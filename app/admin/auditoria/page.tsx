@@ -505,7 +505,7 @@ function AuditoriaPageContent() {
     // 3. Se o pagamento ainda está pendente, mostra o traço aguardando
     if (paymentStatus !== "approved" && paymentStatus !== "PAGO") {
       return (
-        <span className="text-slate-300 dark:text-white/20 font-bold">—</span>
+        <span className="text-slate-300 dark:text-white/20 font-medium">—</span>
       );
     }
 
@@ -550,7 +550,7 @@ function AuditoriaPageContent() {
     // 1. Se o pagamento NÃO foi aprovado, a mensagem nunca é enviada.
     if (paymentStatus !== "approved" && paymentStatus !== "PAGO") {
       return (
-        <span className="text-slate-300 dark:text-white/20 font-bold">—</span>
+        <span className="text-slate-300 dark:text-white/20 font-medium">—</span>
       );
     }
 
@@ -560,14 +560,14 @@ function AuditoriaPageContent() {
       fulfillmentStatus === "cancelled"
     ) {
       return (
-        <span className="text-slate-300 dark:text-white/20 font-bold">—</span>
+        <span className="text-slate-300 dark:text-white/20 font-medium">—</span>
       );
     }
 
     // 3. Se a renovação ainda não terminou (processando ou erro), o zap ainda não "nasceu" no fluxo.
     if (fulfillmentStatus !== "done" && fulfillmentStatus !== "manual_done") {
       return (
-        <span className="text-slate-300 dark:text-white/20 font-bold">—</span>
+        <span className="text-slate-300 dark:text-white/20 font-medium">—</span>
       );
     }
 
@@ -642,7 +642,7 @@ function AuditoriaPageContent() {
             </div>
             <button
               onClick={() => loadData(search)}
-              className="h-10 px-4 bg-slate-200 dark:bg-white/10 hover:bg-slate-300 dark:hover:bg-white/20 text-slate-700 dark:text-white rounded-lg text-sm font-bold transition-colors shadow-sm"
+              className="h-10 px-4 bg-slate-200 dark:bg-white/10 hover:bg-slate-300 dark:hover:bg-white/20 text-slate-700 dark:text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
             >
               Buscar
             </button>
@@ -673,7 +673,7 @@ function AuditoriaPageContent() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[800px]">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-border text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/50 bg-slate-50 dark:bg-white/5">
+                <tr className="border-b border-slate-200 dark:border-border text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:text-white/50 bg-slate-50 dark:bg-white/5">
                   <th className="px-4 py-3">Data / Hora</th>
                   <th className="px-4 py-3">Cliente / Login / Servidor</th>
                   <th className="px-4 py-3 text-center">Plano / Telas</th>
@@ -735,7 +735,7 @@ function AuditoriaPageContent() {
                         {/* Cliente / Login / Servidor */}
                         <td className="px-4 py-3">
                           <div className="flex flex-col">
-                            <span className="font-bold text-slate-800 dark:text-white truncate max-w-[200px]">
+                            <span className="font-medium text-slate-800 dark:text-white truncate max-w-[200px]">
                               {r.client_name}
                             </span>
                             <div className="flex items-center gap-1.5 mt-0.5">
@@ -755,7 +755,7 @@ function AuditoriaPageContent() {
                         {/* Plano / Telas */}
                         <td className="px-4 py-3 text-center">
                           <div className="flex flex-col gap-0.5 items-center">
-                            <span className="text-xs font-bold text-slate-600 dark:text-white/80">
+                            <span className="text-xs font-medium text-slate-600 dark:text-white/80">
                               {r.plan_label ||
                                 PERIOD_LABELS[r.period] ||
                                 r.period}
@@ -845,7 +845,7 @@ function AuditoriaPageContent() {
 
                         {/* Valor */}
                         <td className="px-4 py-3 text-right">
-                          <span className="font-bold text-slate-700 dark:text-white">
+                          <span className="font-medium text-slate-700 dark:text-white">
                             {new Intl.NumberFormat("pt-BR", {
                               style: "currency",
                               currency: r.price_currency || "BRL",
@@ -896,7 +896,7 @@ function AuditoriaPageContent() {
                             )}
 
                             {!canShowAction && (
-                              <span className="text-slate-300 dark:text-white/20 text-xs font-bold">
+                              <span className="text-slate-300 dark:text-white/20 text-xs font-medium">
                                 —
                               </span>
                             )}
@@ -918,14 +918,14 @@ function AuditoriaPageContent() {
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={safePage <= 1}
-                className="px-3 py-1 rounded border border-slate-200 dark:border-border text-xs font-bold disabled:opacity-40 bg-white dark:bg-black/20 text-slate-600 dark:text-muted-foreground"
+                className="px-3 py-1 rounded border border-slate-200 dark:border-border text-xs font-medium disabled:opacity-40 bg-white dark:bg-black/20 text-slate-600 dark:text-muted-foreground"
               >
                 Anterior
               </button>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={safePage >= totalPages}
-                className="px-3 py-1 rounded border border-slate-200 dark:border-border text-xs font-bold disabled:opacity-40 bg-white dark:bg-black/20 text-slate-600 dark:text-muted-foreground"
+                className="px-3 py-1 rounded border border-slate-200 dark:border-border text-xs font-medium disabled:opacity-40 bg-white dark:bg-black/20 text-slate-600 dark:text-muted-foreground"
               >
                 Próxima
               </button>

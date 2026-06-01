@@ -91,7 +91,7 @@ export default function ConfirmDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onCancel();
       }}
@@ -107,7 +107,7 @@ export default function ConfirmDialog({
             {icon ?? "✅"}
           </div>
           <div className="min-w-0">
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white truncate">
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-white truncate">
               {title}
             </h3>
             <p className="text-xs text-slate-500 dark:text-white/60">
@@ -144,7 +144,7 @@ export default function ConfirmDialog({
                     key={i}
                     className="text-sm text-slate-700 dark:text-slate-300 flex items-start gap-2"
                   >
-                    <span className={`${t.dot} font-bold`}>•</span>
+                    <span className={`${t.dot} font-medium`}>•</span>
                     <span className="break-words whitespace-pre-wrap">
                       {line}
                     </span>
@@ -160,7 +160,7 @@ export default function ConfirmDialog({
             <button
               onClick={onCancel}
               disabled={loading}
-              className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-border text-slate-600 dark:text-slate-400 font-bold text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors disabled:opacity-60"
+              className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-border text-slate-600 dark:text-slate-400 font-medium text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors disabled:opacity-60"
             >
               {cancelText}
             </button>
@@ -168,7 +168,7 @@ export default function ConfirmDialog({
           <button
             onClick={onConfirm}
             disabled={loading}
-            className={`flex-1 py-3 rounded-xl ${t.confirm} text-white font-bold text-sm shadow-lg ${t.ring} transition-all transform active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed`}
+            className={`flex-1 py-3 rounded-xl ${t.confirm} text-white font-medium text-sm shadow-lg ${t.ring} transition-all transform active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed`}
           >
             {loading ? "Confirmando..." : confirmText}
           </button>

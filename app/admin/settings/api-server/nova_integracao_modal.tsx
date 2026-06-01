@@ -198,7 +198,7 @@ export default function NovaIntegracaoModal({
         <div className="p-5 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white tracking-tight truncate">
+              <h2 className="text-base sm:text-lg font-medium text-slate-800 dark:text-white tracking-tight truncate">
                 {isEdit ? "Editar Integração" : "Nova Integração"}
               </h2>
               <p className="text-xs sm:text-sm text-slate-500 dark:text-white/50 mt-1">
@@ -209,7 +209,7 @@ export default function NovaIntegracaoModal({
             </div>
             <button
               onClick={onClose}
-              className="h-9 px-3 rounded-lg border border-slate-200 dark:border-border bg-white dark:bg-white/5 text-slate-600 dark:text-muted-foreground text-xs font-bold hover:bg-slate-50 dark:hover:bg-white/10 transition-colors"
+              className="h-9 px-3 rounded-lg border border-slate-200 dark:border-border bg-white dark:bg-white/5 text-slate-600 dark:text-muted-foreground text-xs font-medium hover:bg-slate-50 dark:hover:bg-white/10 transition-colors"
               type="button"
             >
               Fechar
@@ -219,7 +219,7 @@ export default function NovaIntegracaoModal({
 
         <div className="p-5 space-y-4">
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">
+            <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">
               Servidor
             </label>
             <select
@@ -244,7 +244,7 @@ export default function NovaIntegracaoModal({
           </div>
 
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">
+            <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">
               Nome da integração
             </label>
             <input
@@ -261,7 +261,7 @@ export default function NovaIntegracaoModal({
           {/* ✅ Status (ativa/inativa) */}
           <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 px-3 py-2">
             <div className="min-w-0">
-              <div className="text-xs font-bold text-slate-700 dark:text-white">
+              <div className="text-xs font-medium text-slate-700 dark:text-white">
                 Integração ativa
               </div>
               <div className="text-[11px] text-slate-500 dark:text-muted-foreground">
@@ -272,7 +272,7 @@ export default function NovaIntegracaoModal({
             <button
               type="button"
               onClick={() => setIsActive((v) => !v)}
-              className={`h-9 px-3 rounded-lg text-xs font-bold border transition-colors ${
+              className={`h-9 px-3 rounded-lg text-xs font-medium border transition-colors ${
                 isActive
                   ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
                   : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
@@ -286,7 +286,7 @@ export default function NovaIntegracaoModal({
             {provider === "ELITE" && (
               <>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">
+                  <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">
                     Base URL do painel
                   </label>
                   <input
@@ -304,7 +304,7 @@ export default function NovaIntegracaoModal({
               </>
             )}
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">
                 Token / Chave API
               </label>
               <input
@@ -324,7 +324,7 @@ export default function NovaIntegracaoModal({
 
             {(provider === "FAST" || provider === "ELITE") && (
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">
+                <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">
                   {provider === "ELITE" ? "Senha" : "Secret Key"}
                 </label>
                 <div className="relative">
@@ -398,7 +398,7 @@ export default function NovaIntegracaoModal({
         <div className="p-5 border-t border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 flex items-center justify-end gap-2">
           <button
             onClick={onClose}
-            className="h-10 px-4 rounded-xl border border-slate-200 dark:border-border bg-white dark:bg-white/5 text-slate-600 dark:text-muted-foreground text-xs font-bold hover:bg-slate-50 dark:hover:bg-white/10 transition-colors"
+            className="h-10 px-4 rounded-xl border border-slate-200 dark:border-border bg-white dark:bg-white/5 text-slate-600 dark:text-muted-foreground text-xs font-medium hover:bg-slate-50 dark:hover:bg-white/10 transition-colors"
             type="button"
             disabled={saving}
           >
@@ -407,7 +407,7 @@ export default function NovaIntegracaoModal({
 
           <button
             onClick={handleSave}
-            className={`h-10 px-4 rounded-xl text-xs font-bold text-white transition-colors ${
+            className={`h-10 px-4 rounded-xl text-xs font-medium text-white transition-colors ${
               canSave
                 ? "bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-900/20"
                 : "bg-slate-300 dark:bg-white/10 cursor-not-allowed"

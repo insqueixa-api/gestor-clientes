@@ -67,7 +67,7 @@ function StatusBadge({ status }: { status: string }) {
   };
   return (
     <span
-      className={`px-2.5 py-0.5 rounded-lg text-[11px] font-bold border shadow-sm ${map[status] || map.ACTIVE}`}
+      className={`px-2.5 py-0.5 rounded-lg text-[11px] font-medium border shadow-sm ${map[status] || map.ACTIVE}`}
     >
       {labelMap[status] || status}
     </span>
@@ -658,7 +658,7 @@ export default function ClientDetailsPage() {
 
   if (!clientIdSafe) {
     return (
-      <div className="p-10 text-center text-rose-500 font-bold">
+      <div className="p-10 text-center text-rose-500 font-medium">
         Rota inválida: não encontrei o <span className="font-mono">id</span> do
         cliente nos params.
       </div>
@@ -687,7 +687,7 @@ export default function ClientDetailsPage() {
     );
   if (!client)
     return (
-      <div className="p-10 text-center text-rose-500 font-bold">
+      <div className="p-10 text-center text-rose-500 font-medium">
         Cliente não encontrado.
       </div>
     );
@@ -715,7 +715,7 @@ export default function ClientDetailsPage() {
           {/* Voltar (Só no Desktop) */}
           <Link
             href="/admin/cliente"
-            className="hidden sm:inline-flex h-9 px-3 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 font-bold text-xs hover:bg-slate-200 dark:hover:bg-white/5 transition-all items-center justify-center"
+            className="hidden sm:inline-flex h-9 px-3 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 font-medium text-xs hover:bg-slate-200 dark:hover:bg-white/5 transition-all items-center justify-center"
           >
             Voltar
           </Link>
@@ -724,7 +724,7 @@ export default function ClientDetailsPage() {
           {client.client_is_archived && (
             <button
               onClick={handleDeleteForever}
-              className="h-9 sm:h-9 px-3 rounded-lg border border-red-500/20 bg-red-500/10 text-red-600 dark:text-red-400 font-bold text-xs hover:bg-red-500/20 transition-all shadow-sm inline-flex items-center justify-center gap-2"
+              className="h-9 sm:h-9 px-3 rounded-lg border border-red-500/20 bg-red-500/10 text-red-600 dark:text-red-400 font-medium text-xs hover:bg-red-500/20 transition-all shadow-sm inline-flex items-center justify-center gap-2"
               title="Excluir para sempre"
             >
               <IconTrash />
@@ -735,7 +735,7 @@ export default function ClientDetailsPage() {
           {/* Botão Arquivar (Icone no Mobile, Texto no Desktop) */}
           <button
             onClick={handleArchiveToggle}
-            className={`h-9 sm:h-9 px-3 rounded-lg border font-bold text-xs transition-all shadow-sm inline-flex items-center justify-center gap-2 ${
+            className={`h-9 sm:h-9 px-3 rounded-lg border font-medium text-xs transition-all shadow-sm inline-flex items-center justify-center gap-2 ${
               client.client_is_archived
                 ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20"
                 : "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20"
@@ -786,7 +786,7 @@ export default function ClientDetailsPage() {
               setTimeout(() => setIsEditingLoading(false), 5000);
             }}
             disabled={isEditingLoading}
-            className="h-9 sm:h-9 px-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-xs hover:bg-amber-500/20 transition-all shadow-sm inline-flex items-center justify-center gap-2"
+            className="h-9 sm:h-9 px-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-medium text-xs hover:bg-amber-500/20 transition-all shadow-sm inline-flex items-center justify-center gap-2"
             title="Editar"
           >
             {isEditingLoading ? <IconLoading /> : <IconEdit />}
@@ -801,7 +801,7 @@ export default function ClientDetailsPage() {
               setTimeout(() => setIsTrialLoading(false), 5000);
             }}
             disabled={client.client_is_archived || isTrialLoading}
-            className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 font-bold text-xs hover:bg-sky-500/20 transition-all shadow-sm inline-flex items-center gap-2 justify-center"
+            className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 font-medium text-xs hover:bg-sky-500/20 transition-all shadow-sm inline-flex items-center gap-2 justify-center"
             title="Criar teste rápido com os dados deste cliente"
           >
             {isTrialLoading ? <IconLoading /> : <IconFastTimer />}
@@ -830,7 +830,7 @@ export default function ClientDetailsPage() {
         <div className="space-y-4">
           {/* 1. CARD ASSINATURA ATUAL */}
           <div className="bg-white dark:bg-card border-y sm:border border-slate-200 dark:border-border sm:rounded-xl p-4 shadow-sm transition-colors">
-            <h3 className="text-[10px] font-bold text-slate-400 dark:text-white/20 uppercase mb-3 tracking-widest">
+            <h3 className="text-[10px] font-medium text-slate-400 dark:text-white/20 uppercase mb-3 tracking-widest">
               Assinatura atual
             </h3>
 
@@ -840,7 +840,7 @@ export default function ClientDetailsPage() {
                 <span className="text-slate-500 dark:text-muted-foreground font-medium">
                   Servidor
                 </span>
-                <span className="font-bold text-slate-800 dark:text-white text-right">
+                <span className="font-medium text-slate-800 dark:text-white text-right">
                   {client.server_name}
                 </span>
               </div>
@@ -893,7 +893,7 @@ export default function ClientDetailsPage() {
                             {label}
                           </span>
                           <span
-                            className={`text-xs text-right ${app.expiration ? (isExpiringSoon ? "text-rose-500 font-bold" : "text-slate-600 dark:text-muted-foreground font-medium") : "text-slate-400 dark:text-white/30 italic"}`}
+                            className={`text-xs text-right ${app.expiration ? (isExpiringSoon ? "text-rose-500 font-medium" : "text-slate-600 dark:text-muted-foreground font-medium") : "text-slate-400 dark:text-white/30 italic"}`}
                           >
                             {app.expiration
                               ? `Vence: ${new Date(`${app.expiration}T12:00:00`).toLocaleDateString("pt-BR")}`
@@ -908,7 +908,7 @@ export default function ClientDetailsPage() {
               {/* DIVISOR FINANCEIRO (Com margem ajustada) */}
               <div className="pt-3 pb-1">
                 <div className="border-t border-slate-100 dark:border-border mb-3"></div>
-                <div className="text-[10px] font-bold text-slate-400 dark:text-white/20 uppercase tracking-widest">
+                <div className="text-[10px] font-medium text-slate-400 dark:text-white/20 uppercase tracking-widest">
                   Financeiro
                 </div>
               </div>
@@ -918,7 +918,7 @@ export default function ClientDetailsPage() {
                 <span className="text-slate-500 dark:text-muted-foreground font-medium">
                   Tabela
                 </span>
-                <span className="font-bold text-slate-700 dark:text-white/90 tracking-tight text-right">
+                <span className="font-medium text-slate-700 dark:text-white/90 tracking-tight text-right">
                   {tableLabelFromClient(client)}
                 </span>
               </div>
@@ -927,7 +927,7 @@ export default function ClientDetailsPage() {
                 <span className="text-slate-500 dark:text-muted-foreground font-medium">
                   Plano
                 </span>
-                <span className="font-bold text-emerald-600 dark:text-emerald-400 tracking-tight">
+                <span className="font-medium text-emerald-600 dark:text-emerald-400 tracking-tight">
                   {extractPeriod(client.plan_name)}
                 </span>
               </div>
@@ -936,7 +936,7 @@ export default function ClientDetailsPage() {
                 <span className="text-slate-500 dark:text-muted-foreground font-medium">
                   Telas
                 </span>
-                <span className="font-bold text-slate-800 dark:text-white">
+                <span className="font-medium text-slate-800 dark:text-white">
                   {client.screens}
                 </span>
               </div>
@@ -945,7 +945,7 @@ export default function ClientDetailsPage() {
                 <span className="text-slate-500 dark:text-muted-foreground font-medium">
                   Valor
                 </span>
-                <span className="font-mono font-bold text-slate-800 dark:text-white bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-md">
+                <span className="font-mono font-medium text-slate-800 dark:text-white bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-md">
                   {fmtMoney(client.price_amount, client.price_currency)}
                 </span>
               </div>
@@ -953,11 +953,11 @@ export default function ClientDetailsPage() {
               {/* VENCIMENTO GERAL DESTACADO */}
               <div className="pt-2">
                 <div className="flex justify-between items-center bg-slate-50 dark:bg-white/5 p-3 rounded-lg border border-slate-100 dark:border-border mt-1">
-                  <span className="text-slate-500 dark:text-muted-foreground font-bold text-[11px] uppercase tracking-tight">
+                  <span className="text-slate-500 dark:text-muted-foreground font-medium text-[11px] uppercase tracking-tight">
                     Vencimento
                   </span>
                   <div
-                    className={`text-right font-mono font-bold text-base ${
+                    className={`text-right font-mono font-medium text-base ${
                       client.computed_status === "OVERDUE"
                         ? "text-rose-500"
                         : client.computed_status === "ACTIVE"
@@ -974,7 +974,7 @@ export default function ClientDetailsPage() {
 
           {/* 2. CARD CONTATOS E OBSERVAÇÕES */}
           <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl p-5 shadow-sm transition-colors">
-            <h3 className="text-[11px] font-bold text-slate-400 dark:text-white/20 uppercase mb-4 tracking-widest">
+            <h3 className="text-[11px] font-medium text-slate-400 dark:text-white/20 uppercase mb-4 tracking-widest">
               Contatos e observações
             </h3>
 
@@ -994,7 +994,7 @@ export default function ClientDetailsPage() {
                 <span className="text-slate-500 dark:text-muted-foreground font-medium">
                   Nome do Cliente
                 </span>
-                <span className="font-bold text-slate-800 dark:text-white text-right">
+                <span className="font-medium text-slate-800 dark:text-white text-right">
                   {client.client_name}
                 </span>
               </div>
@@ -1003,7 +1003,7 @@ export default function ClientDetailsPage() {
                 <span className="text-slate-500 dark:text-muted-foreground font-medium">
                   Telefone Principal
                 </span>
-                <span className="font-mono font-bold text-slate-800 dark:text-white text-right">
+                <span className="font-mono font-medium text-slate-800 dark:text-white text-right">
                   {formatPhoneDisplay(client.whatsapp_e164)}
                 </span>
               </div>
@@ -1018,7 +1018,7 @@ export default function ClientDetailsPage() {
                     href={`https://wa.me/${client.whatsapp_e164?.replace(/\D/g, "")}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold hover:underline text-right"
+                    className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium hover:underline text-right"
                   >
                     <IconWhatsapp />@{client.whatsapp_username}
                   </a>
@@ -1027,7 +1027,7 @@ export default function ClientDetailsPage() {
                     href={`https://wa.me/${client.whatsapp_e164?.replace(/\D/g, "")}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold hover:underline text-right"
+                    className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium hover:underline text-right"
                   >
                     <IconWhatsapp />
                     {formatPhoneDisplay(client.whatsapp_e164)}
@@ -1044,7 +1044,7 @@ export default function ClientDetailsPage() {
                 client.secondary_phone_e164 ||
                 client.secondary_whatsapp_username) && (
                 <div className="bg-slate-50 dark:bg-white/5 p-3 rounded-lg border border-slate-100 dark:border-border mt-2 mb-2">
-                  <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase mb-2 tracking-widest">
+                  <div className="text-[10px] font-medium text-slate-400 dark:text-white/30 uppercase mb-2 tracking-widest">
                     Contato Secundário
                   </div>
 
@@ -1053,7 +1053,7 @@ export default function ClientDetailsPage() {
                       <span className="text-xs text-slate-500 dark:text-muted-foreground">
                         Nome Secundário
                       </span>
-                      <span className="text-xs font-bold text-slate-700 dark:text-white/90 text-right">
+                      <span className="text-xs font-medium text-slate-700 dark:text-white/90 text-right">
                         {client.secondary_display_name}
                       </span>
                     </div>
@@ -1068,7 +1068,7 @@ export default function ClientDetailsPage() {
                         href={`https://wa.me/${client.secondary_phone_e164.replace(/\D/g, "")}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold text-xs hover:underline text-right"
+                        className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium text-xs hover:underline text-right"
                       >
                         <IconWhatsapp />
                         {client.secondary_whatsapp_username
@@ -1086,12 +1086,12 @@ export default function ClientDetailsPage() {
                   Receber Msg?
                 </span>
                 {client.whatsapp_opt_in ? (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 text-right">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 text-right">
                     <span className="w-2 h-2 rounded-full bg-emerald-500"></span>{" "}
                     Sim
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600 dark:text-rose-400 text-right">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-rose-600 dark:text-rose-400 text-right">
                     <span className="w-2 h-2 rounded-full bg-rose-500"></span>{" "}
                     Não
                   </span>
@@ -1104,14 +1104,14 @@ export default function ClientDetailsPage() {
                   <span className="text-slate-500 dark:text-muted-foreground font-medium">
                     Bloqueado até
                   </span>
-                  <span className="text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-500/10 px-2 py-0.5 rounded text-right">
+                  <span className="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-500/10 px-2 py-0.5 rounded text-right">
                     {fmtDateTime(client.dont_message_until!)}
                   </span>
                 </div>
               )}
 
               <div className="pt-2">
-                <div className="text-[11px] font-bold text-slate-500 dark:text-white/30 mb-1.5">
+                <div className="text-[11px] font-medium text-slate-500 dark:text-white/30 mb-1.5">
                   Observações
                 </div>
                 <div className="text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-black/20 p-3 rounded-xl text-xs leading-relaxed border border-slate-200 dark:border-border min-h-[80px] whitespace-pre-wrap">
@@ -1130,7 +1130,7 @@ export default function ClientDetailsPage() {
 
         {/* COLUNA DIREITA (TIMELINE) */}
         <div className="lg:col-span-2 bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl p-5 shadow-sm h-fit transition-colors">
-          <h3 className="text-[11px] font-bold text-slate-400 dark:text-white/20 uppercase mb-6 tracking-widest flex items-center gap-2">
+          <h3 className="text-[11px] font-medium text-slate-400 dark:text-white/20 uppercase mb-6 tracking-widest flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
             Linha do tempo
           </h3>
@@ -1150,7 +1150,7 @@ export default function ClientDetailsPage() {
 
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 bg-slate-50/50 dark:bg-white/5 p-2 rounded-xl border border-transparent hover:border-slate-200 dark:hover:border-white/10 transition-all">
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-bold text-slate-800 dark:text-white tracking-tight">
+                      <div className="text-sm font-medium text-slate-800 dark:text-white tracking-tight">
                         {EVENT_LABELS[item.event_type] ?? item.event_type}
                       </div>
                       <div className="text-xs text-slate-500 dark:text-white/50 mt-1.5 leading-relaxed">
@@ -1159,7 +1159,7 @@ export default function ClientDetailsPage() {
                       </div>
                     </div>
                     <div className="flex items-start gap-2 shrink-0">
-                      <div className="text-[10px] font-bold text-slate-400 dark:text-white/20 font-mono bg-white dark:bg-black/20 px-2 py-1 rounded-md shadow-sm">
+                      <div className="text-[10px] font-medium text-slate-400 dark:text-white/20 font-mono bg-white dark:bg-black/20 px-2 py-1 rounded-md shadow-sm">
                         {fmtDate(item.created_at)}
                       </div>
                       <button
@@ -1197,12 +1197,12 @@ export default function ClientDetailsPage() {
       {ConfirmUI} {/* ✅ AQUI ESTÁ ELE! Agora o modal vai aparecer */}
       {/* ✅ MODAL DE AVISO DE ALERTA */}
       {showRenewWarning && client && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-md bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-200">
             <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 p-4 rounded-lg flex gap-3">
               <span className="text-2xl">📢</span>
               <div>
-                <h3 className="text-sm font-bold text-slate-800 dark:text-white mb-1">
+                <h3 className="text-sm font-medium text-slate-800 dark:text-white mb-1">
                   Cliente com Alertas
                 </h3>
                 <p className="text-sm text-slate-700 dark:text-white/90">
@@ -1221,7 +1221,7 @@ export default function ClientDetailsPage() {
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowRenewWarning(false)}
-                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-border text-slate-700 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase"
+                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-border text-slate-700 dark:text-white font-medium hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase"
               >
                 Voltar
               </button>

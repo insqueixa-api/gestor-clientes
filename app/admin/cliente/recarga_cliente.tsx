@@ -1600,7 +1600,7 @@ export default function RecargaCliente({
       {/* --- MODAL PRINCIPAL --- */}
       <div
         // ✅ LAYOUT: Items-end no mobile (sheet), center no desktop. Sem padding no mobile.
-        className="fixed inset-0 z-[99990] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200 overflow-hidden overscroll-contain"
+        className="fixed inset-0 z-[99990] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200 overflow-hidden overscroll-contain"
         onPointerDown={(e) => {
           // Só fecha se começar o clique exatamente no fundo escuro
           if (e.target === e.currentTarget) onClose();
@@ -1646,7 +1646,7 @@ export default function RecargaCliente({
                 )}
               </div>
               <div>
-                <h2 className="text-base font-bold text-slate-800 dark:text-white leading-tight">
+                <h2 className="text-base font-medium text-slate-800 dark:text-white leading-tight">
                   {headerTitle}
                 </h2>
                 <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-white/50">
@@ -1673,7 +1673,7 @@ export default function RecargaCliente({
               {/* ... (Conteúdo igual, inputs já estão bons) ... */}
               <div className="flex items-center gap-2 mb-3 border-b border-slate-200 dark:border-border pb-2">
                 <span className="text-emerald-500">📅</span>
-                <span className="text-xs font-bold uppercase text-slate-500 dark:text-white/60 tracking-wider">
+                <span className="text-xs font-medium uppercase text-slate-500 dark:text-white/60 tracking-wider">
                   Novo Vencimento
                 </span>
               </div>
@@ -1694,7 +1694,7 @@ export default function RecargaCliente({
                     <button
                       type="button"
                       onClick={() => setDueTime("23:59")}
-                      className="px-3 h-10 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-border text-xs font-bold text-slate-500 hover:text-emerald-600 hover:border-emerald-500/50 transition-all"
+                      className="px-3 h-10 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-border text-xs font-medium text-slate-500 hover:text-emerald-600 hover:border-emerald-500/50 transition-all"
                     >
                       23:59
                     </button>
@@ -1709,11 +1709,11 @@ export default function RecargaCliente({
               <div className="bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded-xl p-3 sm:p-4 shadow-sm">
                 {/* HEADER FINANCEIRO - ✅ IGUAL NOVO CLIENTE */}
                 <div className="flex justify-between items-center gap-3 border-b border-slate-100 dark:border-border pb-3 mb-3">
-                  <span className="text-xs font-bold uppercase text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                  <span className="text-xs font-medium uppercase text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                     💰 Financeiro
                   </span>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-slate-400 dark:text-muted-foreground font-bold hidden sm:inline">
+                    <span className="text-[10px] text-slate-400 dark:text-muted-foreground font-medium hidden sm:inline">
                       Tabela:
                     </span>
                     <select
@@ -1722,7 +1722,7 @@ export default function RecargaCliente({
                         tableChangedByUserRef.current = true;
                         setSelectedTableId(e.target.value);
                       }}
-                      className="h-6 w-[160px] px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded text-xs font-bold text-slate-700 dark:text-white outline-none cursor-pointer hover:border-emerald-500/50 transition-all truncate"
+                      className="h-6 w-[160px] px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded text-xs font-medium text-slate-700 dark:text-white outline-none cursor-pointer hover:border-emerald-500/50 transition-all truncate"
                     >
                       {tables.map((t) => (
                         <option key={t.id} value={t.id}>
@@ -1774,7 +1774,7 @@ export default function RecargaCliente({
                 </div>
                 <div>
                   <Label>Créditos</Label>
-                  <div className="h-10 w-full bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 rounded-lg flex items-center justify-center text-sm font-bold text-blue-700 dark:text-blue-300">
+                  <div className="h-10 w-full bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 rounded-lg flex items-center justify-center text-sm font-medium text-blue-700 dark:text-blue-300">
                     {creditsInfo ? creditsInfo.used : "-"}
                   </div>
                 </div>
@@ -1784,7 +1784,7 @@ export default function RecargaCliente({
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <Label>Moeda</Label>
-                  <div className="h-10 w-full bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-border rounded-lg flex items-center justify-center text-sm font-bold text-slate-700 dark:text-white">
+                  <div className="h-10 w-full bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-border rounded-lg flex items-center justify-center text-sm font-medium text-slate-700 dark:text-white">
                     {currency}
                   </div>
                 </div>
@@ -1796,7 +1796,7 @@ export default function RecargaCliente({
                       setPlanPrice(e.target.value);
                       setPriceTouched(true);
                     }}
-                    className="text-right font-bold text-slate-800 dark:text-white text-lg tracking-tight"
+                    className="text-right font-medium text-slate-800 dark:text-white text-lg tracking-tight"
                     placeholder="0,00"
                   />
                 </div>
@@ -1817,7 +1817,7 @@ export default function RecargaCliente({
                   </div>
                   <div>
                     <Label>Total BRL</Label>
-                    <div className="w-full h-9 flex items-center justify-center bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/20 rounded text-emerald-800 dark:text-emerald-200 font-bold">
+                    <div className="w-full h-9 flex items-center justify-center bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/20 rounded text-emerald-800 dark:text-emerald-200 font-medium">
                       {fmtMoney("BRL", totalBrl)}
                     </div>
                   </div>
@@ -1831,7 +1831,7 @@ export default function RecargaCliente({
                   className={`cursor-pointer p-2.5 rounded-lg border transition-all flex items-center justify-between ${registerPayment ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20" : "bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-border"}`}
                 >
                   <span
-                    className={`text-xs font-bold ${registerPayment ? "text-emerald-700 dark:text-emerald-400" : "text-slate-500"}`}
+                    className={`text-xs font-medium ${registerPayment ? "text-emerald-700 dark:text-emerald-400" : "text-slate-500"}`}
                   >
                     Registrar Pagamento?
                   </span>
@@ -1892,7 +1892,7 @@ export default function RecargaCliente({
                     </span>
                     <div>
                       <span
-                        className={`text-xs font-bold block ${renewAutomatic ? "text-emerald-700 dark:text-emerald-400" : "text-slate-500"}`}
+                        className={`text-xs font-medium block ${renewAutomatic ? "text-emerald-700 dark:text-emerald-400" : "text-slate-500"}`}
                       >
                         Renovação Automática
                       </span>
@@ -1923,7 +1923,7 @@ export default function RecargaCliente({
                     onClick={() => setSendWhats(!sendWhats)}
                     className="h-10 px-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-border rounded-lg cursor-pointer hover:bg-slate-50 transition-colors flex items-center justify-between"
                   >
-                    <span className="text-[11px] font-bold text-slate-600 dark:text-muted-foreground tracking-tight">
+                    <span className="text-[11px] font-medium text-slate-600 dark:text-muted-foreground tracking-tight">
                       Enviar Mensagem?
                     </span>
                     <Switch
@@ -2007,7 +2007,7 @@ export default function RecargaCliente({
           <div className="px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-slate-100 dark:border-border bg-slate-50 dark:bg-white/5 flex justify-end gap-3 rounded-b-xl shrink-0">
             <button
               onClick={onClose}
-              className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 font-bold text-sm hover:bg-white dark:hover:bg-white/10 transition-all"
+              className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 font-medium text-sm hover:bg-white dark:hover:bg-white/10 transition-all"
             >
               Cancelar
             </button>
@@ -2067,7 +2067,7 @@ export default function RecargaCliente({
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-[9px] font-bold text-slate-400 dark:text-muted-foreground mb-0.5 uppercase tracking-wider">
+    <label className="block text-[9px] font-medium text-slate-400 dark:text-muted-foreground mb-0.5 uppercase tracking-wider">
       {children}
     </label>
   );

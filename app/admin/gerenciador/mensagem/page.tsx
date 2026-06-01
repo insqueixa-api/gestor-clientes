@@ -325,7 +325,7 @@ export default function MessagesPage() {
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
         <div className="min-w-0 text-left">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-normal text-slate-800 dark:text-white tracking-tight truncate">
+            <h1 className="text-xl sm:text-2xl font-medium text-slate-800 dark:text-white tracking-tight truncate">
               Mensagens
             </h1>
           </div>
@@ -337,7 +337,7 @@ export default function MessagesPage() {
               setSelectedTemplate(null);
               setShowEditor(true);
             }}
-            className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400 font-normal text-xs md:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2 whitespace-nowrap"
+            className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400 font-medium text-xs md:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2 whitespace-nowrap"
           >
             <span className="text-base md:text-lg leading-none mb-0.5">+</span>{" "}
             Nova Mensagem
@@ -350,7 +350,7 @@ export default function MessagesPage() {
         className="p-0 px-3 sm:px-0 md:p-4 bg-transparent md:bg-white md:dark:bg-card border-0 md:border md:border-slate-200 md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-4 md:mb-6 md:sticky md:top-4 z-20"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="hidden md:block text-xs font-normal uppercase text-slate-400 dark:text-muted-foreground tracking-wider">
+        <div className="hidden md:block text-xs font-medium uppercase text-slate-400 dark:text-muted-foreground tracking-wider">
           Busca
         </div>
 
@@ -377,7 +377,7 @@ export default function MessagesPage() {
 
           <button
             onClick={() => setSearch("")}
-            className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-normal hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors items-center justify-center gap-2"
+            className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-medium hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors items-center justify-center gap-2"
           >
             <IconX /> Limpar
           </button>
@@ -394,7 +394,7 @@ export default function MessagesPage() {
           <div className="w-16 h-16 bg-slate-100 dark:bg-white/5 rounded-full flex items-center justify-center mb-4 text-3xl">
             <MessageCircle className="w-4 h-4" />
           </div>
-          <h3 className="text-lg font-normal text-slate-700 dark:text-white">
+          <h3 className="text-lg font-medium text-slate-700 dark:text-white">
             Nenhum modelo encontrado
           </h3>
           <p className="text-sm text-slate-500 dark:text-white/50 mt-1">
@@ -416,14 +416,14 @@ export default function MessagesPage() {
                   <div className="px-3 sm:px-5 py-3 border-b border-slate-100 dark:border-border flex items-center justify-between bg-slate-50/60 dark:bg-white/5">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="text-lg">{icon}</span>
-                      <h2 className="text-sm font-normal text-slate-700 dark:text-white truncate">
+                      <h2 className="text-sm font-medium text-slate-700 dark:text-white truncate">
                         {title}
                       </h2>
-                      <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-normal">
+                      <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-medium">
                         {items.length}
                       </span>
                     </div>
-                    <div className="text-[10px] font-normal text-slate-400 dark:text-white/30 uppercase tracking-wider hidden sm:block">
+                    <div className="text-[10px] font-medium text-slate-400 dark:text-white/30 uppercase tracking-wider hidden sm:block">
                       Selecione para destacar
                     </div>
                   </div>
@@ -461,7 +461,7 @@ export default function MessagesPage() {
                                 ].join(" ")}
                               />
                               <h3
-                                className="font-normal text-slate-800 dark:text-white text-sm sm:text-base truncate"
+                                className="font-medium text-slate-800 dark:text-white text-sm sm:text-base truncate"
                                 title={msg.name}
                               >
                                 {msg.name}
@@ -603,11 +603,11 @@ function PreviewModal({
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
       <div className="w-full h-full sm:h-auto max-w-lg bg-white dark:bg-card border-0 sm:border border-slate-200 dark:border-border rounded-none sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[100dvh] sm:max-h-[80vh]">
         {/* Cabeçalho */}
         <div className="px-4 py-3 sm:px-5 sm:py-4 border-b border-slate-100 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5 shrink-0">
-          <h3 className="font-normal text-slate-800 dark:text-white truncate pr-4 text-base sm:text-lg">
+          <h3 className="font-medium text-slate-800 dark:text-white truncate pr-4 text-base sm:text-lg">
             {template.name}
           </h3>
           <button
@@ -645,7 +645,7 @@ function PreviewModal({
               setCopied(true);
               setTimeout(() => setCopied(false), 2000); // Volta ao normal após 2 segundos
             }}
-            className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-lg border font-normal text-xs transition-colors uppercase flex items-center justify-center gap-1.5 ${
+            className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-lg border font-medium text-xs transition-colors uppercase flex items-center justify-center gap-1.5 ${
               copied
                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                 : "border-slate-200 dark:border-border text-slate-700 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5"
@@ -689,14 +689,14 @@ function PreviewModal({
 
           <button
             onClick={onClose}
-            className="flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 font-normal text-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-colors uppercase"
+            className="flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 font-medium text-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-colors uppercase"
           >
             Fechar
           </button>
 
           <button
             onClick={onEdit}
-            className="flex-1 sm:flex-none px-6 py-2.5 sm:py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-normal text-xs shadow-lg shadow-amber-500/20 transition-transform active:scale-95 uppercase flex items-center justify-center gap-2"
+            className="flex-1 sm:flex-none px-6 py-2.5 sm:py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-medium text-xs shadow-lg shadow-amber-500/20 transition-transform active:scale-95 uppercase flex items-center justify-center gap-2"
           >
             ✏️ Editar Modelo
           </button>
@@ -920,7 +920,7 @@ function EditorModal({
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-stretch sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[99999] flex items-stretch sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
       <div
         className="w-full h-full sm:h-auto max-w-6xl bg-white dark:bg-card border-0 sm:border border-slate-200 dark:border-border rounded-none sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[100dvh] sm:max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
@@ -931,7 +931,7 @@ function EditorModal({
               <Pencil className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-lg font-normal text-slate-800 dark:text-white">
+              <h2 className="text-lg font-medium text-slate-800 dark:text-white">
                 {templateToEdit ? "Editar Mensagem" : "Criar Nova Mensagem"}
               </h2>
             </div>
@@ -951,11 +951,11 @@ function EditorModal({
               <button
                 type="button"
                 onClick={() => setMobileTagsOpen((v) => !v)}
-                className="w-full h-11 px-4 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 text-slate-700 dark:text-white font-normal text-xs flex items-center justify-between"
+                className="w-full h-11 px-4 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 text-slate-700 dark:text-white font-medium text-xs flex items-center justify-between"
               >
                 <span className="flex items-center gap-2">
                   🏷️ Variáveis
-                  <span className="text-[10px] font-normal text-slate-400 dark:text-muted-foreground">
+                  <span className="text-[10px] font-medium text-slate-400 dark:text-muted-foreground">
                     (toque para {mobileTagsOpen ? "fechar" : "abrir"})
                   </span>
                 </span>
@@ -967,7 +967,7 @@ function EditorModal({
               {mobileTagsOpen && (
                 <div className="mt-3 rounded-xl border border-slate-200 dark:border-border bg-white dark:bg-card overflow-hidden">
                   <div className="p-3 border-b border-slate-100 dark:border-border bg-slate-50/50 dark:bg-white/5">
-                    <h3 className="text-xs font-normal text-slate-600 dark:text-white uppercase tracking-widest flex items-center gap-2">
+                    <h3 className="text-xs font-medium text-slate-600 dark:text-white uppercase tracking-widest flex items-center gap-2">
                       🏷️ Variáveis Disponíveis
                     </h3>
                     <p className="text-[10px] text-slate-400 mt-1">
@@ -998,10 +998,10 @@ function EditorModal({
                           className={`text-left px-3 py-2.5 rounded-lg border border-slate-200 dark:border-border hover:brightness-95 hover:shadow-sm active:scale-95 transition-all flex flex-col group ${tag.color} bg-white dark:bg-[#1c2128]`}
                         >
                           <div className="flex items-center justify-between gap-3">
-                            <span className="font-mono text-xs font-normal tracking-tight">
+                            <span className="font-mono text-xs font-medium tracking-tight">
                               {tag.label}
                             </span>
-                            <span className="text-[10px] text-slate-400 dark:text-white/30 font-normal truncate">
+                            <span className="text-[10px] text-slate-400 dark:text-white/30 font-medium truncate">
                               {tag.groupTitle}
                             </span>
                           </div>
@@ -1020,7 +1020,7 @@ function EditorModal({
           {/* Editor */}
           <div className="flex-1 p-3 sm:p-6 flex flex-col gap-5 overflow-y-auto custom-scrollbar lg:border-r border-slate-100 dark:border-border">
             <div>
-              <label className="block text-xs font-normal text-slate-500 dark:text-white/50 uppercase mb-1.5 tracking-wider">
+              <label className="block text-xs font-medium text-slate-500 dark:text-white/50 uppercase mb-1.5 tracking-wider">
                 Nome do Modelo (Identificação interna)
               </label>
               <input
@@ -1036,7 +1036,7 @@ function EditorModal({
                 autoFocus={!isProtected}
               />
               {isProtected && (
-                <p className="text-[10px] text-sky-600 dark:text-sky-400 mt-2 font-normal flex items-center gap-1">
+                <p className="text-[10px] text-sky-600 dark:text-sky-400 mt-2 font-medium flex items-center gap-1">
                   🔒 Este é um modelo fundamental do sistema. O nome não pode
                   ser alterado, apenas o seu conteúdo.
                 </p>
@@ -1045,7 +1045,7 @@ function EditorModal({
 
             {/* ✅ NOVO: Seletor de Categoria */}
             <div>
-              <label className="block text-xs font-normal text-slate-500 dark:text-white/50 uppercase mb-1.5 tracking-wider">
+              <label className="block text-xs font-medium text-slate-500 dark:text-white/50 uppercase mb-1.5 tracking-wider">
                 Categoria da Mensagem
               </label>
               <select
@@ -1063,7 +1063,7 @@ function EditorModal({
 
             <div className="flex-1 flex flex-col">
               <div className="flex justify-between items-end mb-2">
-                <label className="block text-xs font-normal text-slate-500 dark:text-white/50 uppercase tracking-wider">
+                <label className="block text-xs font-medium text-slate-500 dark:text-white/50 uppercase tracking-wider">
                   Conteúdo da Mensagem
                 </label>
 
@@ -1084,7 +1084,7 @@ function EditorModal({
                 {!previewUrl && (
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-sky-200 dark:border-sky-500/30 bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 text-[11px] font-normal hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-sky-200 dark:border-sky-500/30 bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 text-[11px] font-medium hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-colors"
                   >
                     <IconUpload /> Adicionar Imagem
                   </button>
@@ -1134,7 +1134,7 @@ function EditorModal({
           {/* DESKTOP: Variáveis na lateral (sem mudar lógica) */}
           <div className="hidden lg:flex w-96 bg-white dark:bg-card flex-col">
             <div className="p-4 border-b border-slate-100 dark:border-border bg-slate-50/50 dark:bg-white/5">
-              <h3 className="text-xs font-normal text-slate-600 dark:text-white uppercase tracking-widest flex items-center gap-2">
+              <h3 className="text-xs font-medium text-slate-600 dark:text-white uppercase tracking-widest flex items-center gap-2">
                 🏷️ Variáveis Disponíveis
               </h3>
               <p className="text-[10px] text-slate-400 mt-1">
@@ -1155,7 +1155,7 @@ function EditorModal({
                       onClick={() => toggleDesktopGroup(idx)}
                       className={`w-full flex items-center justify-between p-3 text-left transition-colors ${isOpen ? "bg-slate-50 dark:bg-white/5 border-b border-slate-100 dark:border-border" : "hover:bg-slate-50 dark:hover:bg-white/5"}`}
                     >
-                      <h4 className="text-[10px] font-normal text-slate-500 dark:text-muted-foreground uppercase tracking-wider">
+                      <h4 className="text-[10px] font-medium text-slate-500 dark:text-muted-foreground uppercase tracking-wider">
                         {group.title}
                       </h4>
                       <span className="text-slate-400 text-xs">
@@ -1171,7 +1171,7 @@ function EditorModal({
                             onClick={() => insertTag(tag.label)}
                             className={`text-left px-3 py-2.5 rounded-lg border border-slate-200 dark:border-border hover:brightness-95 hover:shadow-sm active:scale-95 transition-all flex flex-col group ${group.color} bg-white dark:bg-[#1c2128]`}
                           >
-                            <span className="font-mono text-xs font-normal tracking-tight">
+                            <span className="font-mono text-xs font-medium tracking-tight">
                               {tag.label}
                             </span>
                             <span className="text-[10px] opacity-60 group-hover:opacity-100 mt-0.5 font-medium">
@@ -1196,14 +1196,14 @@ function EditorModal({
           <div className="flex gap-3 w-full sm:w-auto justify-end">
             <button
               onClick={onClose}
-              className="flex-1 sm:flex-none px-6 py-3 rounded-xl border border-slate-200 dark:border-border text-slate-600 dark:text-white/60 font-normal text-xs hover:bg-white dark:hover:bg-white/10 transition-colors uppercase tracking-wider"
+              className="flex-1 sm:flex-none px-6 py-3 rounded-xl border border-slate-200 dark:border-border text-slate-600 dark:text-white/60 font-medium text-xs hover:bg-white dark:hover:bg-white/10 transition-colors uppercase tracking-wider"
             >
               Cancelar
             </button>
             <button
               onClick={handleSave}
               disabled={loading}
-              className="flex-1 sm:flex-none px-8 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400 font-normal text-xs shadow-lg shadow-emerald-900/20 transition-transform active:scale-95 flex items-center justify-center gap-2 uppercase tracking-wider disabled:opacity-50"
+              className="flex-1 sm:flex-none px-8 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400 font-medium text-xs shadow-lg shadow-emerald-900/20 transition-transform active:scale-95 flex items-center justify-center gap-2 uppercase tracking-wider disabled:opacity-50"
             >
               {loading
                 ? "Salvando..."

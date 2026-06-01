@@ -1757,7 +1757,7 @@ function ClientePageContent() {
               e.stopPropagation();
               setArchivedFilter(archivedFilter === "Não" ? "Sim" : "Não");
             }}
-            className={`hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-bold border transition-colors items-center justify-center ${
+            className={`hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-medium border transition-colors items-center justify-center ${
               archivedFilter === "Sim"
                 ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
                 : "bg-white dark:bg-white/5 border-slate-200 dark:border-border text-slate-500 dark:text-white/60"
@@ -1785,7 +1785,7 @@ function ClientePageContent() {
         className="px-3 md:p-4 bg-transparent md:bg-white md:dark:bg-card border-0 md:border md:border-slate-200 md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-muted-foreground tracking-wider mb-2">
+        <div className="hidden md:block text-xs font-medium uppercase text-slate-400 dark:text-muted-foreground tracking-wider mb-2">
           Filtros Rápidos
         </div>
 
@@ -1810,7 +1810,7 @@ function ClientePageContent() {
 
           <button
             onClick={() => setMobileFiltersOpen((v) => !v)}
-            className={`h-10 px-3 rounded-lg border font-bold text-sm transition-colors ${
+            className={`h-10 px-3 rounded-lg border font-medium text-sm transition-colors ${
               statusFilter !== "Todos" ||
               serverFilter !== "Todos" ||
               planFilter !== "Todos" ||
@@ -1961,7 +1961,7 @@ function ClientePageContent() {
               setSortDir("asc");
               setIsDefaultSort(true);
             }}
-            className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+            className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-medium hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
           >
             <IconX /> Limpar
           </button>
@@ -1976,7 +1976,7 @@ function ClientePageContent() {
                 e.stopPropagation();
                 setArchivedFilter((cur) => (cur === "Não" ? "Sim" : "Não"));
               }}
-              className={`w-full h-10 px-3 rounded-lg text-sm font-bold border transition-colors flex items-center justify-between ${
+              className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-colors flex items-center justify-between ${
                 archivedFilter === "Sim"
                   ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
                   : "bg-white dark:bg-white/5 border-slate-200 dark:border-border text-slate-600 dark:text-muted-foreground"
@@ -2102,7 +2102,7 @@ function ClientePageContent() {
 
                 setMobileFiltersOpen(false);
               }}
-              className="w-full h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+              className="w-full h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-medium hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
             >
               <IconX /> Limpar
             </button>
@@ -2122,9 +2122,9 @@ function ClientePageContent() {
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
-            <div className="text-sm font-bold tracking-tight text-slate-800 dark:text-white whitespace-nowrap">
+            <div className="text-sm font-medium tracking-tight text-slate-800 dark:text-white whitespace-nowrap">
               Lista de Clientes
-              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold">
+              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-medium">
                 {filtered.length}
               </span>
             </div>
@@ -2135,7 +2135,7 @@ function ClientePageContent() {
                 <select
                   value={safePage}
                   onChange={(e) => setPage(Number(e.target.value))}
-                  className="h-10 pl-3 pr-10 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg font-bold text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 appearance-none"
+                  className="h-10 pl-3 pr-10 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg font-medium text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 appearance-none"
                 >
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map(
                     (pNum) => (
@@ -2169,7 +2169,7 @@ function ClientePageContent() {
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={safePage <= 1}
-                    className="h-8 w-8 rounded-lg border border-slate-200 dark:border-border bg-white dark:bg-white/5 text-slate-600 dark:text-muted-foreground font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-white/10 transition flex items-center justify-center"
+                    className="h-8 w-8 rounded-lg border border-slate-200 dark:border-border bg-white dark:bg-white/5 text-slate-600 dark:text-muted-foreground font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-white/10 transition flex items-center justify-center"
                     title="Página anterior"
                   >
                     ←
@@ -2177,7 +2177,7 @@ function ClientePageContent() {
 
                   <span className="min-w-[90px] text-center whitespace-nowrap">
                     Página{" "}
-                    <span className="font-bold text-slate-700 dark:text-white">
+                    <span className="font-medium text-slate-700 dark:text-white">
                       {safePage}
                     </span>{" "}
                     / {totalPages}
@@ -2186,7 +2186,7 @@ function ClientePageContent() {
                   <button
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={safePage >= totalPages}
-                    className="h-8 w-8 rounded-lg border border-slate-200 dark:border-border bg-white dark:bg-white/5 text-slate-600 dark:text-muted-foreground font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-white/10 transition flex items-center justify-center"
+                    className="h-8 w-8 rounded-lg border border-slate-200 dark:border-border bg-white dark:bg-white/5 text-slate-600 dark:text-muted-foreground font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-white/10 transition flex items-center justify-center"
                     title="Próxima página"
                   >
                     →
@@ -2199,7 +2199,7 @@ function ClientePageContent() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[250px]">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-border text-xs font-bold uppercase text-slate-500 dark:text-white/55">
+                <tr className="border-b border-slate-200 dark:border-border text-xs font-medium uppercase text-slate-500 dark:text-white/55">
                   <Th width={40}>
                     <input
                       ref={selectAllRef}
@@ -2321,7 +2321,7 @@ function ClientePageContent() {
                             >
                               {r.name.split(" ")[0]}
                               {r.secondary_display_name ? (
-                                <span className="text-slate-400 dark:text-white/30 font-normal">
+                                <span className="text-slate-400 dark:text-white/30 font-medium">
                                   {" "}
                                   / {r.secondary_display_name.split(" ")[0]}
                                 </span>
@@ -2336,7 +2336,7 @@ function ClientePageContent() {
                                     e.stopPropagation();
                                     handleOpenAlertList(r.id, r.name);
                                   }}
-                                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-600 border border-amber-200 text-[10px] font-bold hover:bg-amber-200 transition-colors animate-pulse"
+                                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-600 border border-amber-200 text-[10px] font-medium hover:bg-amber-200 transition-colors animate-pulse"
                                   title="Ver alertas pendentes"
                                 >
                                   🔔 {r.alertsCount}
@@ -2354,7 +2354,7 @@ function ClientePageContent() {
                                     });
                                   }}
                                   // Alterado: Adicionado 'animate-pulse' no final das classes
-                                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-bold hover:bg-purple-200 transition-colors animate-pulse"
+                                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-medium hover:bg-purple-200 transition-colors animate-pulse"
                                   title="Ver mensagens programadas"
                                 >
                                   🗓️ {scheduledMap[r.id].length}
@@ -2377,7 +2377,7 @@ function ClientePageContent() {
                           )}
                           {r.secondary_whatsapp_username && (
                             <span
-                              className={`text-xs font-normal text-slate-400 dark:text-white/45 truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                              className={`text-xs font-medium text-slate-400 dark:text-white/45 truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
                             >
                               @{r.secondary_whatsapp_username}
                             </span>
@@ -2780,7 +2780,7 @@ function ClientePageContent() {
                   // Abre a lista de alertas para checar
                   if (clientId) handleOpenAlertList(clientId, clientName);
                 }}
-                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-border text-slate-700 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase"
+                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-border text-slate-700 dark:text-white font-medium hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase"
               >
                 Ver Alertas
               </button>
@@ -2854,7 +2854,7 @@ function ClientePageContent() {
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowNewAlert({ open: false, clientId: null })}
-                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 text-sm font-bold transition-colors"
+                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 text-sm font-medium transition-colors"
               >
                 Cancelar
               </button>
@@ -2937,7 +2937,7 @@ function ClientePageContent() {
                 onClick={() =>
                   setShowAlertList({ open: false, clientId: null })
                 }
-                className="px-6 py-2 rounded-lg bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-white font-bold hover:bg-slate-200 dark:hover:bg-white/20 transition-colors text-sm"
+                className="px-6 py-2 rounded-lg bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-white font-medium hover:bg-slate-200 dark:hover:bg-white/20 transition-colors text-sm"
               >
                 Fechar Lista
               </button>
@@ -2970,7 +2970,7 @@ function ClientePageContent() {
 
             {/* ✅ Select da Sessão WhatsApp */}
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Sessão de Envio
               </label>
               <select
@@ -2988,7 +2988,7 @@ function ClientePageContent() {
 
             {/* ✅ Select de template (opcional) */}
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Mensagem pronta (opcional)
               </label>
 
@@ -3041,7 +3041,7 @@ function ClientePageContent() {
               if (!tpl?.image_url) return null;
               return (
                 <div className="mb-2 animate-in fade-in zoom-in-95 duration-200">
-                  <span className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+                  <span className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                     Imagem Anexada
                   </span>
                   <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-border shadow-sm relative bg-slate-100 dark:bg-black/40">
@@ -3072,7 +3072,7 @@ function ClientePageContent() {
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowSendNow({ open: false, clientId: null })}
-                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 text-sm font-bold transition-colors"
+                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 text-sm font-medium transition-colors"
               >
                 Cancelar
               </button>
@@ -3110,7 +3110,7 @@ function ClientePageContent() {
 
             {/* ✅ Select da Sessão WhatsApp */}
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Sessão de Envio
               </label>
               <select
@@ -3127,7 +3127,7 @@ function ClientePageContent() {
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Data e Hora do Envio
               </label>
               <input
@@ -3139,12 +3139,12 @@ function ClientePageContent() {
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Conteúdo da Mensagem
               </label>
               {/* ✅ Select de template (opcional) */}
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+                <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                   Mensagem pronta (opcional)
                 </label>
 
@@ -3200,7 +3200,7 @@ function ClientePageContent() {
                 if (!tpl?.image_url) return null;
                 return (
                   <div className="mb-2 animate-in fade-in zoom-in-95 duration-200">
-                    <span className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+                    <span className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                       Imagem Anexada
                     </span>
                     <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-border shadow-sm relative bg-slate-100 dark:bg-black/40">
@@ -3233,7 +3233,7 @@ function ClientePageContent() {
                 onClick={() =>
                   setShowScheduleMsg({ open: false, clientId: null })
                 }
-                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 text-sm font-bold transition-colors"
+                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 text-sm font-medium transition-colors"
               >
                 Cancelar
               </button>
@@ -3370,7 +3370,7 @@ function SortClick({
       onClick={onClick}
       className="inline-flex items-center justify-center gap-1 cursor-pointer select-none hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors"
     >
-      <span className="font-bold uppercase text-xs tracking-wide">{label}</span>
+      <span className="font-medium uppercase text-xs tracking-wide">{label}</span>
       {/* Ícone condicional para não empurrar o texto quando inativo (opcional, mas ajuda na centralização visual exata) */}
       <span
         className={`transition-opacity flex items-center ${active ? "opacity-100 text-emerald-600 dark:text-emerald-500" : "opacity-30"}`}
@@ -3487,7 +3487,7 @@ function ScheduledMessagesModal({
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <div className="text-[10px] font-bold text-slate-500 dark:text-white/60 uppercase tracking-wider bg-white dark:bg-white/10 px-2 py-0.5 rounded border border-slate-100 dark:border-border">
+                      <div className="text-[10px] font-medium text-slate-500 dark:text-white/60 uppercase tracking-wider bg-white dark:bg-white/10 px-2 py-0.5 rounded border border-slate-100 dark:border-border">
                         // ✅ PARA — extrai via formatToParts (mesma lógica)
                         {(() => {
                           const dt = new Date(it.send_at);
@@ -3507,7 +3507,7 @@ function ScheduledMessagesModal({
                       </div>
 
                       {it.status && (
-                        <span className="px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 text-[9px] font-bold uppercase tracking-wider">
+                        <span className="px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 text-[9px] font-medium uppercase tracking-wider">
                           {it.status}
                         </span>
                       )}
@@ -3627,7 +3627,7 @@ function MenuItem({
   return (
     <button
       onClick={onClick}
-      className="group w-full px-4 py-2.5 flex items-center gap-3 text-slate-600 dark:text-white/60 hover:bg-emerald-500/10 dark:hover:bg-white/5 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all text-left text-sm font-bold tracking-tight rounded-lg"
+      className="group w-full px-4 py-2.5 flex items-center gap-3 text-slate-600 dark:text-white/60 hover:bg-emerald-500/10 dark:hover:bg-white/5 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all text-left text-sm font-medium tracking-tight rounded-lg"
     >
       <span className="opacity-70 group-hover:scale-110 transition-transform">
         {icon}
@@ -3667,7 +3667,7 @@ function Modal({
         className="w-full max-w-lg bg-white dark:bg-background border border-slate-200 dark:border-border rounded-xl shadow-2xl overflow-hidden"
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
-          <div className="font-bold text-slate-800 dark:text-white">
+          <div className="font-medium text-slate-800 dark:text-white">
             {title}
           </div>
           <button

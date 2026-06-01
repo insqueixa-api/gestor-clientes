@@ -174,7 +174,7 @@ function stringifyAllowedNumbers(rows: AllowedNumberRow[]): string[] {
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+    <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
       {children}
     </label>
   );
@@ -1203,7 +1203,7 @@ export default function ProfileSettingsPage() {
           <div className="relative">
             <button
               onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
-              className="h-9 w-9 shrink-0 rounded-xl border font-bold text-xs flex items-center justify-center bg-white dark:bg-card border-slate-200 dark:border-border text-slate-600 dark:text-muted-foreground hover:bg-slate-50 dark:hover:bg-white/5 transition-all shadow-sm"
+              className="h-9 w-9 shrink-0 rounded-xl border font-medium text-xs flex items-center justify-center bg-white dark:bg-card border-slate-200 dark:border-border text-slate-600 dark:text-muted-foreground hover:bg-slate-50 dark:hover:bg-white/5 transition-all shadow-sm"
               title="Configurações"
             >
               <Settings className="w-4 h-4" />
@@ -1218,7 +1218,7 @@ export default function ProfileSettingsPage() {
                 <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-[#1e2530] border border-slate-200 dark:border-border rounded-xl shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-200">
                   {/* Tema */}
                   <div className="px-3 py-2.5 border-b border-slate-100 dark:border-border">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                    <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-2">
                       Tema do Sistema
                     </p>
                     <div className="flex items-center gap-1">
@@ -1227,7 +1227,7 @@ export default function ProfileSettingsPage() {
                           setTheme("light");
                           setShowSettingsDropdown(false);
                         }}
-                        className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5 ${theme !== "dark" ? "bg-slate-100 text-slate-800" : "text-slate-500 dark:text-muted-foreground hover:bg-white/5"}`}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${theme !== "dark" ? "bg-slate-100 text-slate-800" : "text-slate-500 dark:text-muted-foreground hover:bg-white/5"}`}
                       >
                         <svg
                           width="12"
@@ -1254,7 +1254,7 @@ export default function ProfileSettingsPage() {
                           setTheme("dark");
                           setShowSettingsDropdown(false);
                         }}
-                        className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5 ${theme === "dark" ? "bg-white/10 text-white" : "text-slate-500 hover:bg-slate-50"}`}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${theme === "dark" ? "bg-white/10 text-white" : "text-slate-500 hover:bg-slate-50"}`}
                       >
                         <svg
                           width="12"
@@ -1277,7 +1277,7 @@ export default function ProfileSettingsPage() {
                       setShowSettingsDropdown(false);
                       setIsEditing(true);
                     }}
-                    className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-600 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2.5 transition-colors border-b border-slate-100 dark:border-border"
+                    className="w-full text-left px-3 py-2.5 text-xs font-medium text-slate-600 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2.5 transition-colors border-b border-slate-100 dark:border-border"
                   >
                     <Pencil className="w-4 h-4" />
                     Editar Perfil
@@ -1291,7 +1291,7 @@ export default function ProfileSettingsPage() {
                         setIsEditing(true);
                         setShowSettingsDropdown(false);
                       }}
-                      className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-600 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2.5 transition-colors border-b border-slate-100 dark:border-border"
+                      className="w-full text-left px-3 py-2.5 text-xs font-medium text-slate-600 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2.5 transition-colors border-b border-slate-100 dark:border-border"
                     >
                       <svg
                         width="14"
@@ -1311,7 +1311,7 @@ export default function ProfileSettingsPage() {
                         setIsEditing(true);
                         setShowSettingsDropdown(false);
                       }}
-                      className="w-full text-left px-3 py-2.5 text-xs font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 flex items-center gap-2.5 transition-colors border-b border-slate-100 dark:border-border"
+                      className="w-full text-left px-3 py-2.5 text-xs font-medium text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 flex items-center gap-2.5 transition-colors border-b border-slate-100 dark:border-border"
                     >
                       <svg
                         width="14"
@@ -1332,7 +1332,7 @@ export default function ProfileSettingsPage() {
                       setShowSettingsDropdown(false);
                       handleResetPassword();
                     }}
-                    className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-600 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2.5 transition-colors"
+                    className="w-full text-left px-3 py-2.5 text-xs font-medium text-slate-600 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2.5 transition-colors"
                   >
                     <svg
                       width="14"
@@ -1364,7 +1364,7 @@ export default function ProfileSettingsPage() {
             className={`bg-white dark:bg-card border-y sm:border border-slate-200 dark:border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-6 transition-all ${isEditing ? "ring-1 ring-emerald-500/20" : ""}`}
           >
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-border pb-3">
-              <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
+              <h3 className="text-xs font-medium text-slate-400 dark:text-white/30 uppercase tracking-widest">
                 Dados Cadastrais
               </h3>
               <div className="flex items-center gap-2">
@@ -1404,7 +1404,7 @@ export default function ProfileSettingsPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
               <div>
                 <Label>País</Label>
-                <div className="h-11 px-3 bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-border rounded-xl flex items-center text-xs font-bold text-slate-700 dark:text-white truncate">
+                <div className="h-11 px-3 bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-border rounded-xl flex items-center text-xs font-medium text-slate-700 dark:text-white truncate">
                   {phonePrettyPrefix || "—"}
                 </div>
               </div>
@@ -1425,7 +1425,7 @@ export default function ProfileSettingsPage() {
                     type="button"
                     onClick={handlePhoneDone}
                     disabled={!isEditing}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg bg-slate-100 dark:bg-white/10 text-slate-500 hover:text-emerald-500 transition-colors flex items-center justify-center font-bold"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg bg-slate-100 dark:bg-white/10 text-slate-500 hover:text-emerald-500 transition-colors flex items-center justify-center font-medium"
                   >
                     ✓
                   </button>
@@ -1434,7 +1434,7 @@ export default function ProfileSettingsPage() {
               <div>
                 <Label>WhatsApp Username</Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">
                     @
                   </span>
                   <Input
@@ -1466,7 +1466,7 @@ export default function ProfileSettingsPage() {
                 </div>
                 {waValidation && (
                   <div
-                    className={`mt-1.5 flex items-center gap-1.5 text-[10px] font-bold ${waValidation.loading ? "text-slate-400" : waValidation.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}
+                    className={`mt-1.5 flex items-center gap-1.5 text-[10px] font-medium ${waValidation.loading ? "text-slate-400" : waValidation.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}
                   >
                     {waValidation.loading ? (
                       <>
@@ -1533,7 +1533,7 @@ export default function ProfileSettingsPage() {
           {/* CARD 2 DINÂMICO: SAÚDE OU PLANILHAS */}
           <div className="bg-white dark:bg-card border-y sm:border border-slate-200 dark:border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-6 animate-in fade-in duration-300">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-border pb-3">
-              <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
+              <h3 className="text-xs font-medium text-slate-400 dark:text-white/30 uppercase tracking-widest">
                 Saúde &amp; Avaliações
               </h3>
               <button
@@ -1606,7 +1606,7 @@ export default function ProfileSettingsPage() {
                         weight: "",
                       });
                     }}
-                    className="flex-1 h-10 border border-slate-200 dark:border-border text-slate-600 dark:text-white/60 font-bold rounded-xl text-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                    className="flex-1 h-10 border border-slate-200 dark:border-border text-slate-600 dark:text-white/60 font-medium rounded-xl text-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
                   >
                     Cancelar
                   </button>
@@ -1647,7 +1647,7 @@ export default function ProfileSettingsPage() {
                           >
                             {/* Data em bloco */}
                             <div className="shrink-0 text-center w-10">
-                              <p className="text-[9px] font-bold text-slate-400 dark:text-white/30 uppercase leading-none">
+                              <p className="text-[9px] font-medium text-slate-400 dark:text-white/30 uppercase leading-none">
                                 {new Date(
                                   record.date + "T12:00:00",
                                 ).toLocaleDateString("pt-BR", {
@@ -1670,18 +1670,18 @@ export default function ProfileSettingsPage() {
 
                             {/* Métricas */}
                             <div className="flex-1 min-w-0 flex flex-wrap items-center gap-2">
-                              <span className="text-sm font-bold text-slate-800 dark:text-white">
+                              <span className="text-sm font-medium text-slate-800 dark:text-white">
                                 {record.weight} kg
                               </span>
                               {record.imc > 0 && (
                                 <span
-                                  className={`text-[11px] font-bold ${getImcColor(record.imc)}`}
+                                  className={`text-[11px] font-medium ${getImcColor(record.imc)}`}
                                 >
                                   IMC {record.imc} · {getImcLabel(record.imc)}
                                 </span>
                               )}
                               {isNewest && (
-                                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full">
+                                <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full">
                                   Mais recente
                                 </span>
                               )}
@@ -1735,7 +1735,7 @@ export default function ProfileSettingsPage() {
                       onClick={() =>
                         setShowAllHealthRecords(!showAllHealthRecords)
                       }
-                      className="w-full py-2.5 mt-2 text-[11px] font-bold text-slate-500 dark:text-white/50 hover:text-slate-800 dark:hover:text-white transition-colors bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-border"
+                      className="w-full py-2.5 mt-2 text-[11px] font-medium text-slate-500 dark:text-white/50 hover:text-slate-800 dark:hover:text-white transition-colors bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-border"
                     >
                       {showAllHealthRecords ? (
                         "↑ Ocultar avaliações anteriores"
@@ -1853,7 +1853,7 @@ export default function ProfileSettingsPage() {
                         </div>
                       </div>
                       {hasRef && idealWMin && (
-                        <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full shrink-0">
+                        <span className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full shrink-0">
                           <Target className="w-4 h-4 inline-block mr-1.5 text-emerald-500" />{" "}
                           Peso ideal: {idealWMin}–{idealWMax} kg · IMC 18,5–24,9
                         </span>
@@ -2201,13 +2201,13 @@ export default function ProfileSettingsPage() {
           {/* PAINEL SESSÃO 1 */}
           <div className="bg-white dark:bg-card border-y sm:border border-slate-200 dark:border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-border pb-2">
-              <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
+              <h3 className="text-xs font-medium text-slate-400 dark:text-white/30 uppercase tracking-widest">
                 WhatsApp — Instância 1
               </h3>
             </div>
 
             {!canPairWhatsApp ? (
-              <div className="p-3 rounded-lg bg-amber-50 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 text-xs text-center font-bold">
+              <div className="p-3 rounded-lg bg-amber-50 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 text-xs text-center font-medium">
                 Aguardando login estrutural.
               </div>
             ) : (
@@ -2280,7 +2280,7 @@ export default function ProfileSettingsPage() {
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <span className="text-xl font-bold text-slate-300 dark:text-white/20">
+                          <span className="text-xl font-medium text-slate-300 dark:text-white/20">
                             WA
                           </span>
                         )}
@@ -2288,13 +2288,13 @@ export default function ProfileSettingsPage() {
 
                       <div className="flex-1 min-w-0 flex flex-col gap-1.5 justify-center">
                         <div className="text-[11px] text-slate-500 dark:text-white/50">
-                          <span className="font-bold text-slate-800 dark:text-white">
+                          <span className="font-medium text-slate-800 dark:text-white">
                             Nome:
                           </span>{" "}
                           {waPushName || "Aguardando"}
                         </div>
                         <div className="text-[11px] text-slate-500 dark:text-white/50">
-                          <span className="font-bold text-slate-800 dark:text-white">
+                          <span className="font-medium text-slate-800 dark:text-white">
                             Chamadas:
                           </span>{" "}
                           {waRejectCalls ? (
@@ -2310,7 +2310,7 @@ export default function ProfileSettingsPage() {
                           )}
                         </div>
                         <div className="text-[11px] text-slate-500 dark:text-white/50 flex items-center gap-1 mt-1">
-                          <span className="font-bold text-slate-800 dark:text-white">
+                          <span className="font-medium text-slate-800 dark:text-white">
                             Status:
                           </span>
                           <span
@@ -2330,7 +2330,7 @@ export default function ProfileSettingsPage() {
                           alt="QR Code WhatsApp"
                           className="w-52 h-52 rounded-xl object-contain"
                         />
-                        <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-bold text-center">
+                        <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium text-center">
                           📱 Escaneie com o WhatsApp
                         </p>
                       </div>
@@ -2341,7 +2341,7 @@ export default function ProfileSettingsPage() {
                         type="button"
                         onClick={() => void handleReconnectWhatsApp()}
                         disabled={waReconnecting}
-                        className="flex-1 py-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400 font-bold text-xs hover:bg-amber-100 transition-colors shadow-sm"
+                        className="flex-1 py-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400 font-medium text-xs hover:bg-amber-100 transition-colors shadow-sm"
                       >
                         <RefreshCcw className="w-4 h-4 mr-1.5 inline-block" />{" "}
                         Reiniciar
@@ -2350,7 +2350,7 @@ export default function ProfileSettingsPage() {
                         <button
                           type="button"
                           onClick={() => void handleDisconnectWhatsApp()}
-                          className="flex-1 py-2 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400 font-bold text-xs hover:bg-rose-100 transition-colors shadow-sm"
+                          className="flex-1 py-2 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400 font-medium text-xs hover:bg-rose-100 transition-colors shadow-sm"
                         >
                           <Plug className="w-4 h-4 mr-1.5 inline-block" />{" "}
                           Desconectar
@@ -2379,7 +2379,7 @@ export default function ProfileSettingsPage() {
           {/* CARD IMPORT / EXPORT */}
           <div className="bg-white dark:bg-card border-y sm:border border-slate-200 dark:border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-border pb-3">
-              <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
+              <h3 className="text-xs font-medium text-slate-400 dark:text-white/30 uppercase tracking-widest">
                 Dados &amp; Planilhas
               </h3>
               <button
@@ -2403,7 +2403,7 @@ export default function ProfileSettingsPage() {
                   <line x1="16" y1="17" x2="8" y2="17" />
                   <polyline points="10 9 9 9 8 9" />
                 </svg>
-                <span className="text-xs font-bold">Templates</span>
+                <span className="text-xs font-medium">Templates</span>
               </button>
             </div>
             <div className="flex gap-2">
@@ -2411,7 +2411,7 @@ export default function ProfileSettingsPage() {
                 type="button"
                 onClick={() => setActionModal("export")}
                 disabled={!tenantId || exporting}
-                className="flex-1 h-11 px-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 font-bold text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+                className="flex-1 h-11 px-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 font-medium text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2"
               >
                 <svg
                   width="14"
@@ -2440,7 +2440,7 @@ export default function ProfileSettingsPage() {
                   importingMessage ||
                   importingServer
                 }
-                className="flex-1 h-11 px-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 font-bold text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+                className="flex-1 h-11 px-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 font-medium text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2"
               >
                 <svg
                   width="14"
@@ -2540,7 +2540,7 @@ export default function ProfileSettingsPage() {
       {actionModal && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white dark:bg-card w-full max-w-sm rounded-xl border border-slate-200 dark:border-border shadow-xl p-6 space-y-4 text-left">
-            <h3 className="text-sm font-bold text-slate-800 dark:text-white">
+            <h3 className="text-sm font-medium text-slate-800 dark:text-white">
               {actionModal === "export" && "⬇️ Exportar Dados"}
               {actionModal === "template" && "📄 Baixar Templates"}
               {actionModal === "import" && "⬆️ Importar Dados"}
@@ -2635,7 +2635,7 @@ export default function ProfileSettingsPage() {
             <button
               type="button"
               onClick={() => setActionModal(null)}
-              className="w-full text-center text-xs font-bold text-slate-400 mt-2 hover:text-slate-600 dark:hover:text-white/80"
+              className="w-full text-center text-xs font-medium text-slate-400 mt-2 hover:text-slate-600 dark:hover:text-white/80"
             >
               Fechar
             </button>
@@ -2653,7 +2653,7 @@ export default function ProfileSettingsPage() {
               {/* Cabeçalho */}
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-base font-bold text-slate-800 dark:text-white">
+                  <h3 className="text-base font-medium text-slate-800 dark:text-white">
                     ⚙️ Instância 1 — Configurações
                   </h3>
                   <p className="text-xs text-slate-400 dark:text-muted-foreground mt-0.5">
@@ -2669,7 +2669,7 @@ export default function ProfileSettingsPage() {
                 </button>
               </div>
               <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20">
-                <span className="text-sm font-bold text-slate-700 dark:text-white">
+                <span className="text-sm font-medium text-slate-700 dark:text-white">
                   📵 Rejeitar Chamadas
                 </span>
                 <button
@@ -2687,7 +2687,7 @@ export default function ProfileSettingsPage() {
                 <div className="space-y-4">
                   {/* MENSAGEM */}
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground uppercase mb-1.5">
+                    <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground uppercase mb-1.5">
                       Mensagem de Resposta
                     </label>
                     <div className="flex flex-wrap gap-1 mb-2">
@@ -2714,7 +2714,7 @@ export default function ProfileSettingsPage() {
                   {/* LISTA BRANCA */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-[10px] font-bold text-slate-400 dark:text-muted-foreground uppercase">
+                      <label className="text-[10px] font-medium text-slate-400 dark:text-muted-foreground uppercase">
                         Lista Branca (Exceções)
                       </label>
                       <button
@@ -2732,7 +2732,7 @@ export default function ProfileSettingsPage() {
                             ...waAllowedList,
                           ])
                         }
-                        className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
+                        className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 hover:underline"
                       >
                         + Adicionar
                       </button>
@@ -2804,7 +2804,7 @@ export default function ProfileSettingsPage() {
                                 </svg>
                               </button>
                             </div>
-                            <div className="text-[9px] font-bold px-1">
+                            <div className="text-[9px] font-medium px-1">
                               {row.loading ? (
                                 <span className="text-slate-400">
                                   Validando...
@@ -2835,7 +2835,7 @@ export default function ProfileSettingsPage() {
                 <button
                   type="button"
                   onClick={() => setShowWa1Settings(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-border text-slate-600 dark:text-slate-400 font-bold text-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-border text-slate-600 dark:text-slate-400 font-medium text-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
                 >
                   Cancelar
                 </button>
@@ -3061,13 +3061,13 @@ function WhatsAppSession2Panel({
   return (
     <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-2xl p-6 shadow-sm space-y-4 animate-in fade-in">
       <div className="flex items-center justify-between border-b border-slate-100 dark:border-border pb-2">
-        <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
+        <h3 className="text-xs font-medium text-slate-400 dark:text-white/30 uppercase tracking-widest">
           WhatsApp — Instância 2
         </h3>
         <button
           type="button"
           onClick={onDisable}
-          className="text-[10px] font-bold text-rose-500 hover:underline"
+          className="text-[10px] font-medium text-rose-500 hover:underline"
         >
           - Desabilitar Sessão
         </button>
@@ -3147,7 +3147,7 @@ function WhatsAppSession2Panel({
                     className="w-full h-full object-cover p-1"
                   />
                 ) : (
-                  <span className="text-xl font-bold text-slate-300 dark:text-white/20">
+                  <span className="text-xl font-medium text-slate-300 dark:text-white/20">
                     WA
                   </span>
                 )}
@@ -3155,13 +3155,13 @@ function WhatsAppSession2Panel({
 
               <div className="flex-1 min-w-0 flex flex-col gap-1.5 justify-center">
                 <div className="text-[11px] text-slate-500 dark:text-white/50">
-                  <span className="font-bold text-slate-800 dark:text-white">
+                  <span className="font-medium text-slate-800 dark:text-white">
                     Nome:
                   </span>{" "}
                   {waPushName || "Aguardando"}
                 </div>
                 <div className="text-[11px] text-slate-500 dark:text-white/50">
-                  <span className="font-bold text-slate-800 dark:text-white">
+                  <span className="font-medium text-slate-800 dark:text-white">
                     Chamadas:
                   </span>{" "}
                   {waRejectCalls ? (
@@ -3177,7 +3177,7 @@ function WhatsAppSession2Panel({
                   )}
                 </div>
                 <div className="text-[11px] text-slate-500 dark:text-white/50 flex items-center gap-1 mt-1">
-                  <span className="font-bold text-slate-800 dark:text-white">
+                  <span className="font-medium text-slate-800 dark:text-white">
                     Status:
                   </span>
                   <span
@@ -3194,7 +3194,7 @@ function WhatsAppSession2Panel({
                 type="button"
                 onClick={() => void handleReconnect()}
                 disabled={isReconnecting}
-                className="flex-1 py-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400 font-bold text-xs hover:bg-amber-100 transition-colors shadow-sm"
+                className="flex-1 py-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400 font-medium text-xs hover:bg-amber-100 transition-colors shadow-sm"
               >
                 <RefreshCcw className="w-4 h-4 mr-1.5 inline-block" /> Reiniciar
               </button>
@@ -3202,7 +3202,7 @@ function WhatsAppSession2Panel({
                 <button
                   type="button"
                   onClick={() => void handleDisconnect()}
-                  className="flex-1 py-2 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400 font-bold text-xs hover:bg-rose-100 transition-colors shadow-sm"
+                  className="flex-1 py-2 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400 font-medium text-xs hover:bg-rose-100 transition-colors shadow-sm"
                 >
                   <Plug className="w-4 h-4 mr-1.5 inline-block" /> Desligar
                 </button>
@@ -3219,7 +3219,7 @@ function WhatsAppSession2Panel({
             <div className="space-y-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-base font-bold text-slate-800 dark:text-white">
+                  <h3 className="text-base font-medium text-slate-800 dark:text-white">
                     ⚙️ Instância 2 — Configurações
                   </h3>
                   <p className="text-xs text-slate-400 dark:text-muted-foreground mt-0.5">
@@ -3235,7 +3235,7 @@ function WhatsAppSession2Panel({
                 </button>
               </div>
               <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20">
-                <span className="text-sm font-bold text-slate-700 dark:text-white">
+                <span className="text-sm font-medium text-slate-700 dark:text-white">
                   📵 Rejeitar Chamadas
                 </span>
                 <button
@@ -3252,7 +3252,7 @@ function WhatsAppSession2Panel({
               {waRejectCalls && (
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground uppercase mb-1.5">
+                    <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground uppercase mb-1.5">
                       Mensagem de Resposta
                     </label>
                     <div className="flex flex-wrap gap-1 mb-2">
@@ -3278,7 +3278,7 @@ function WhatsAppSession2Panel({
 
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-[10px] font-bold text-slate-400 dark:text-muted-foreground uppercase">
+                      <label className="text-[10px] font-medium text-slate-400 dark:text-muted-foreground uppercase">
                         Lista Branca (Exceções)
                       </label>
                       <button
@@ -3296,7 +3296,7 @@ function WhatsAppSession2Panel({
                             ...waAllowedList,
                           ])
                         }
-                        className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
+                        className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 hover:underline"
                       >
                         + Adicionar
                       </button>
@@ -3368,7 +3368,7 @@ function WhatsAppSession2Panel({
                                 </svg>
                               </button>
                             </div>
-                            <div className="text-[9px] font-bold px-1">
+                            <div className="text-[9px] font-medium px-1">
                               {row.loading ? (
                                 <span className="text-slate-400">
                                   Validando...
@@ -3399,7 +3399,7 @@ function WhatsAppSession2Panel({
                 <button
                   type="button"
                   onClick={() => setShowWa2Settings(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-border text-slate-600 dark:text-slate-400 font-bold text-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-border text-slate-600 dark:text-slate-400 font-medium text-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
                 >
                   Cancelar
                 </button>

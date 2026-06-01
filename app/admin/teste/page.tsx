@@ -1125,7 +1125,7 @@ export default function TrialsPage() {
               e.stopPropagation();
               setShowPapaTestes(true);
             }}
-            className="hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-bold border transition-colors items-center justify-center gap-1.5 bg-white dark:bg-white/5 border-slate-200 dark:border-border text-slate-500 dark:text-white/60 hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-400 hover:border-violet-200 dark:hover:border-violet-500/30"
+            className="hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-medium border transition-colors items-center justify-center gap-1.5 bg-white dark:bg-white/5 border-slate-200 dark:border-border text-slate-500 dark:text-white/60 hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-400 hover:border-violet-200 dark:hover:border-violet-500/30"
           >
             🕵️ Papa Testes
           </button>
@@ -1135,7 +1135,7 @@ export default function TrialsPage() {
               e.stopPropagation();
               setArchivedFilter(archivedFilter === "Não" ? "Sim" : "Não");
             }}
-            className={`hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-bold border transition-colors items-center justify-center ${
+            className={`hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-medium border transition-colors items-center justify-center ${
               archivedFilter === "Sim"
                 ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
                 : "bg-white dark:bg-white/5 border-slate-200 dark:border-border text-slate-500 dark:text-white/60"
@@ -1162,7 +1162,7 @@ export default function TrialsPage() {
         className="p-0 px-3 sm:px-0 md:p-4 bg-transparent md:bg-white md:dark:bg-card border-0 md:border md:border-slate-200 md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-muted-foreground tracking-wider mb-2">
+        <div className="hidden md:block text-xs font-medium uppercase text-slate-400 dark:text-muted-foreground tracking-wider mb-2">
           Filtros Rápidos
         </div>
 
@@ -1187,7 +1187,7 @@ export default function TrialsPage() {
 
           <button
             onClick={() => setMobileFiltersOpen((v) => !v)}
-            className={`h-10 px-3 rounded-lg border font-bold text-sm transition-colors ${
+            className={`h-10 px-3 rounded-lg border font-medium text-sm transition-colors ${
               statusFilter !== "Todos" ||
               serverFilter !== "Todos" ||
               archivedFilter === "Sim"
@@ -1297,7 +1297,7 @@ export default function TrialsPage() {
               setAppFilter("Todos"); // ✅ Resetando o novo filtro
               setArchivedFilter("Não");
             }}
-            className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+            className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-medium hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
           >
             <IconX /> Limpar
           </button>
@@ -1311,7 +1311,7 @@ export default function TrialsPage() {
                 setArchivedFilter((cur) => (cur === "Não" ? "Sim" : "Não"));
                 setMobileFiltersOpen(false);
               }}
-              className={`w-full h-10 px-3 rounded-lg text-sm font-bold border transition-colors flex items-center justify-between ${
+              className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-colors flex items-center justify-between ${
                 archivedFilter === "Sim"
                   ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
                   : "bg-white dark:bg-white/5 border-slate-200 dark:border-border text-slate-600 dark:text-muted-foreground"
@@ -1400,7 +1400,7 @@ export default function TrialsPage() {
                 setArchivedFilter("Não");
                 setMobileFiltersOpen(false);
               }}
-              className="w-full h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+              className="w-full h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-medium hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
             >
               <IconX /> Limpar
             </button>
@@ -1420,7 +1420,7 @@ export default function TrialsPage() {
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
-            <div className="text-sm font-bold text-slate-700 dark:text-white whitespace-nowrap">
+            <div className="text-sm font-medium text-slate-700 dark:text-white whitespace-nowrap">
               Lista de Testes{" "}
               <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600/70 dark:text-emerald-500/70 text-xs">
                 {filtered.length}
@@ -1446,7 +1446,7 @@ export default function TrialsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[980px]">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-border text-xs font-bold uppercase text-slate-500 dark:text-muted-foreground">
+                <tr className="border-b border-slate-200 dark:border-border text-xs font-medium uppercase text-slate-500 dark:text-muted-foreground">
                   <ThSort
                     label="Teste"
                     active={sortKey === "name"}
@@ -1499,7 +1499,7 @@ export default function TrialsPage() {
                             >
                               {r.name.split(" ")[0]}
                               {r.secondary_display_name && (
-                                <span className="text-slate-400 dark:text-white/30 font-normal">
+                                <span className="text-slate-400 dark:text-white/30 font-medium">
                                   {" / "}
                                   {r.secondary_display_name.split(" ")[0]}
                                 </span>
@@ -1517,7 +1517,7 @@ export default function TrialsPage() {
                                       trialName: r.name,
                                     });
                                   }}
-                                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-bold hover:bg-purple-200 transition-colors animate-pulse"
+                                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-medium hover:bg-purple-200 transition-colors animate-pulse"
                                   title="Ver mensagens programadas"
                                 >
                                   🗓️ {scheduledMap[r.id].length}
@@ -1535,7 +1535,7 @@ export default function TrialsPage() {
                             </span>
                           )}
                           {r.secondary_whatsapp_username && (
-                            <span className="text-xs font-normal text-slate-400 dark:text-white/45 truncate">
+                            <span className="text-xs font-medium text-slate-400 dark:text-white/45 truncate">
                               @{r.secondary_whatsapp_username}
                             </span>
                           )}
@@ -1945,7 +1945,7 @@ export default function TrialsPage() {
                             rows.map((r) => r.id),
                           );
                         }}
-                        className="text-[10px] text-rose-500 font-bold hover:underline"
+                        className="text-[10px] text-rose-500 font-medium hover:underline"
                       >
                         Excluir
                       </button>
@@ -1991,7 +1991,7 @@ export default function TrialsPage() {
         >
           <div className="space-y-4">
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Sessão de Envio
               </label>
               <select
@@ -2008,7 +2008,7 @@ export default function TrialsPage() {
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Mensagem pronta (opcional)
               </label>
               <select
@@ -2055,7 +2055,7 @@ export default function TrialsPage() {
               if (!tpl?.image_url) return null;
               return (
                 <div className="animate-in fade-in zoom-in-95 duration-200">
-                  <span className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+                  <span className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                     Imagem Anexada
                   </span>
                   <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-border shadow-sm relative bg-slate-100 dark:bg-black/40">
@@ -2083,7 +2083,7 @@ export default function TrialsPage() {
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowSendNow({ open: false, trialId: null })}
-                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-border text-slate-600 dark:text-white/60 text-sm font-bold"
+                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-border text-slate-600 dark:text-white/60 text-sm font-medium"
               >
                 Cancelar
               </button>
@@ -2113,7 +2113,7 @@ export default function TrialsPage() {
         >
           <div className="space-y-4">
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Sessão de Envio
               </label>
               <select
@@ -2130,7 +2130,7 @@ export default function TrialsPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-500 dark:text-white/60 mb-1 uppercase">
+              <label className="block text-xs font-medium text-slate-500 dark:text-white/60 mb-1 uppercase">
                 Data e Hora do Envio
               </label>
               <input
@@ -2142,7 +2142,7 @@ export default function TrialsPage() {
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Mensagem pronta (opcional)
               </label>
               <select
@@ -2189,7 +2189,7 @@ export default function TrialsPage() {
               if (!tpl?.image_url) return null;
               return (
                 <div className="animate-in fade-in zoom-in-95 duration-200">
-                  <span className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+                  <span className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                     Imagem Anexada
                   </span>
                   <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-border shadow-sm relative bg-slate-100 dark:bg-black/40">
@@ -2204,7 +2204,7 @@ export default function TrialsPage() {
             })()}
 
             <div>
-              <label className="block text-xs font-bold text-slate-500 dark:text-white/60 mb-1 uppercase">
+              <label className="block text-xs font-medium text-slate-500 dark:text-white/60 mb-1 uppercase">
                 Mensagem
               </label>
               <textarea
@@ -2225,7 +2225,7 @@ export default function TrialsPage() {
                 onClick={() =>
                   setShowScheduleMsg({ open: false, trialId: null })
                 }
-                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-border text-slate-600 dark:text-white/60 text-sm font-bold"
+                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-border text-slate-600 dark:text-white/60 text-sm font-medium"
               >
                 Cancelar
               </button>
@@ -2462,7 +2462,7 @@ function Modal({
         className="w-full max-w-lg bg-white dark:bg-background border border-slate-200 dark:border-border rounded-xl shadow-2xl overflow-hidden"
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
-          <div className="font-bold text-slate-800 dark:text-white">
+          <div className="font-medium text-slate-800 dark:text-white">
             {title}
           </div>
           <button
@@ -2617,7 +2617,7 @@ function PapaTestesModal({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 shrink-0">
           <div>
-            <h2 className="font-bold text-slate-800 dark:text-white text-base flex items-center gap-2">
+            <h2 className="font-medium text-slate-800 dark:text-white text-base flex items-center gap-2">
               🕵️ Papa Testes
               <span className="gap-1 px-2 py-1 rounded-lg text-xs font-medium tracking-tight shadow-sm bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-500/30">
                 {records.length} registro{records.length !== 1 ? "s" : ""}
@@ -2695,7 +2695,7 @@ function PapaTestesModal({
               >
                 <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-border">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm text-slate-700 dark:text-white">
+                    <span className="font-medium text-sm text-slate-700 dark:text-white">
                       {recs[0]?.client_name || "—"}
                     </span>
                     {recs[0]?.whatsapp_username && (
@@ -2746,7 +2746,7 @@ function PapaTestesModal({
                           </span>
                         )}
                         {r.plan_price && (
-                          <span className="text-xs font-bold text-emerald-600/70 dark:text-emerald-500/70 shrink-0">
+                          <span className="text-xs font-medium text-emerald-600/70 dark:text-emerald-500/70 shrink-0">
                             {new Intl.NumberFormat("pt-BR", {
                               style: "currency",
                               currency: r.plan_currency || "BRL",
@@ -2782,7 +2782,7 @@ function PapaTestesModal({
           </span>
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-white font-bold text-xs hover:bg-slate-200 dark:hover:bg-white/20 transition-colors"
+            className="px-4 py-2 rounded-lg bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-white font-medium text-xs hover:bg-slate-200 dark:hover:bg-white/20 transition-colors"
           >
             Fechar
           </button>

@@ -140,7 +140,7 @@ export function RankingCard({
       {/* Header */}
       <div className="px-5 pt-5 pb-4 flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800">
         <div>
-          <h3 className="text-sm font-bold dark:font-medium text-zinc-900 dark:text-zinc-100 tracking-tight">
+          <h3 className="text-sm font-medium dark:font-medium text-zinc-900 dark:text-zinc-100 tracking-tight">
             {title}
           </h3>
           {subtitle && (
@@ -155,7 +155,7 @@ export function RankingCard({
           <div className="flex bg-zinc-100 dark:bg-zinc-950/50 p-1 rounded-lg border border-zinc-200 dark:border-zinc-800 shrink-0">
             <button
               onClick={() => setView("previsto")}
-              className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${
+              className={`px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider rounded-md transition-all ${
                 view === "previsto"
                   ? "bg-white dark:bg-zinc-800 text-zinc-800 dark:text-white shadow-sm"
                   : "text-zinc-500 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
@@ -165,7 +165,7 @@ export function RankingCard({
             </button>
             <button
               onClick={() => setView("executado")}
-              className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${
+              className={`px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider rounded-md transition-all ${
                 view === "executado"
                   ? "bg-white dark:bg-zinc-800 text-zinc-800 dark:text-white shadow-sm"
                   : "text-zinc-500 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
@@ -205,7 +205,7 @@ export function RankingCard({
                     </span>
                   ) : (
                     <span
-                      className={`text-[10px] font-bold tabular-nums ${c.rank}`}
+                      className={`text-[10px] font-medium tabular-nums ${c.rank}`}
                     >
                       {idx + 1}
                     </span>

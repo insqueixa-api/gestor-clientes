@@ -474,7 +474,7 @@ export default function ResellerDetailPage() {
 
   if (!reseller)
     return (
-      <div className="p-10 text-center text-rose-500 font-bold">
+      <div className="p-10 text-center text-rose-500 font-medium">
         Revenda não encontrada.
       </div>
     );
@@ -511,7 +511,7 @@ export default function ResellerDetailPage() {
           {/* Voltar (Só Desktop) */}
           <Link
             href="/admin/revendedor"
-            className="hidden sm:inline-flex h-9 px-3 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 font-bold text-xs hover:bg-slate-200 dark:hover:bg-white/5 transition-all items-center justify-center"
+            className="hidden sm:inline-flex h-9 px-3 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 font-medium text-xs hover:bg-slate-200 dark:hover:bg-white/5 transition-all items-center justify-center"
           >
             Voltar
           </Link>
@@ -535,7 +535,7 @@ export default function ResellerDetailPage() {
         <div className="space-y-4">
           {/* 1. CARD RESUMO */}
           <div className="bg-white dark:bg-card border-y sm:border border-slate-200 dark:border-border sm:rounded-xl p-4 shadow-sm transition-colors">
-            <h3 className="text-[11px] font-bold text-slate-400 dark:text-white/20 uppercase mb-4 tracking-widest">
+            <h3 className="text-[11px] font-medium text-slate-400 dark:text-white/20 uppercase mb-4 tracking-widest">
               Resumo da Conta
             </h3>
             <div className="space-y-3 text-sm">
@@ -543,7 +543,7 @@ export default function ResellerDetailPage() {
                 <span className="text-slate-500 dark:text-muted-foreground font-medium">
                   Desde
                 </span>
-                <span className="font-bold text-slate-700 dark:text-white/90 text-right">
+                <span className="font-medium text-slate-700 dark:text-white/90 text-right">
                   {fmtDate(reseller.created_at)}
                 </span>
               </div>
@@ -551,17 +551,17 @@ export default function ResellerDetailPage() {
                 <span className="text-slate-500 dark:text-muted-foreground font-medium">
                   Servidores
                 </span>
-                <span className="font-bold text-slate-800 dark:text-white">
+                <span className="font-medium text-slate-800 dark:text-white">
                   {servers.length}
                 </span>
               </div>
 
               {/* TOTAL INVESTIDO */}
               <div className="pt-4 mt-2 border-t border-slate-100 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5 p-3 rounded-lg">
-                <span className="text-slate-500 dark:text-muted-foreground font-bold text-[11px] uppercase tracking-tight">
+                <span className="text-slate-500 dark:text-muted-foreground font-medium text-[11px] uppercase tracking-tight">
                   Total Investido
                 </span>
-                <div className="text-right font-mono font-bold text-base text-emerald-600 dark:text-emerald-400">
+                <div className="text-right font-mono font-medium text-base text-emerald-600 dark:text-emerald-400">
                   {fmtBRL(totalInvested)}
                 </div>
               </div>
@@ -570,7 +570,7 @@ export default function ResellerDetailPage() {
 
           {/* 2. CARD CONTATOS */}
           <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl p-5 shadow-sm transition-colors">
-            <h3 className="text-[11px] font-bold text-slate-400 dark:text-white/20 uppercase mb-4 tracking-widest">
+            <h3 className="text-[11px] font-medium text-slate-400 dark:text-white/20 uppercase mb-4 tracking-widest">
               Contatos e Observações
             </h3>
             <div className="space-y-3 text-sm">
@@ -580,7 +580,7 @@ export default function ResellerDetailPage() {
                   Email
                 </span>
                 <span
-                  className="font-bold text-slate-800 dark:text-white text-right truncate max-w-[150px]"
+                  className="font-medium text-slate-800 dark:text-white text-right truncate max-w-[150px]"
                   title={reseller.email ?? ""}
                 >
                   {reseller.email || "—"}
@@ -592,7 +592,7 @@ export default function ResellerDetailPage() {
                 <span className="text-slate-500 dark:text-muted-foreground font-medium">
                   Telefone
                 </span>
-                <span className="font-mono font-bold text-slate-800 dark:text-white text-right">
+                <span className="font-mono font-medium text-slate-800 dark:text-white text-right">
                   {formatPhoneDisplay(reseller.whatsapp_e164)}
                 </span>
               </div>
@@ -607,7 +607,7 @@ export default function ResellerDetailPage() {
                     href={`https://wa.me/${reseller.whatsapp_e164?.replace(/\D/g, "")}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 font-bold hover:underline"
+                    className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 font-medium hover:underline"
                   >
                     <IconWhatsapp />@{reseller.whatsapp_username}
                   </a>
@@ -616,7 +616,7 @@ export default function ResellerDetailPage() {
                     href={`https://wa.me/${reseller.whatsapp_e164?.replace(/\D/g, "")}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 font-bold hover:underline"
+                    className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 font-medium hover:underline"
                   >
                     <IconWhatsapp />
                     {formatPhoneDisplay(reseller.whatsapp_e164)}
@@ -628,16 +628,16 @@ export default function ResellerDetailPage() {
 
               {/* Opt-in */}
               <div className="py-2 border-t border-b border-slate-100 dark:border-border">
-                <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase mb-1">
+                <div className="text-[10px] font-medium text-slate-400 dark:text-white/30 uppercase mb-1">
                   Receber mensagem?
                 </div>
                 {reseller.whatsapp_opt_in ? (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
                     <span className="w-2 h-2 rounded-full bg-emerald-500"></span>{" "}
                     Sim
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600 dark:text-rose-400">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-rose-600 dark:text-rose-400">
                     <span className="w-2 h-2 rounded-full bg-rose-500"></span>{" "}
                     Não
                   </span>
@@ -646,7 +646,7 @@ export default function ResellerDetailPage() {
 
               {/* Notas */}
               <div>
-                <div className="text-[11px] font-bold text-slate-500 dark:text-white/30 mb-1.5">
+                <div className="text-[11px] font-medium text-slate-500 dark:text-white/30 mb-1.5">
                   Observações
                 </div>
                 <div className="text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-black/20 p-3 rounded-xl text-xs leading-relaxed border border-slate-200 dark:border-border min-h-[80px] whitespace-pre-wrap">
@@ -661,7 +661,7 @@ export default function ResellerDetailPage() {
         <div className="lg:col-span-2 space-y-6">
           {/* BLOCO 1: SERVIDORES VINCULADOS */}
           <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl p-5 shadow-sm transition-colors">
-            <h3 className="text-[11px] font-bold text-slate-400 dark:text-white/20 uppercase mb-4 tracking-widest flex items-center gap-2">
+            <h3 className="text-[11px] font-medium text-slate-400 dark:text-white/20 uppercase mb-4 tracking-widest flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
               Servidores Vinculados
             </h3>
@@ -679,11 +679,11 @@ export default function ResellerDetailPage() {
                   >
                     {/* Info do Servidor */}
                     <div className="flex items-center gap-4 mb-3 sm:mb-0">
-                      <div className="w-10 h-10 rounded-lg bg-white dark:bg-black/20 border border-slate-200 dark:border-border flex items-center justify-center font-bold text-slate-600 dark:text-white">
+                      <div className="w-10 h-10 rounded-lg bg-white dark:bg-black/20 border border-slate-200 dark:border-border flex items-center justify-center font-medium text-slate-600 dark:text-white">
                         {String(s.server_name || "?").charAt(0)}
                       </div>
                       <div>
-                        <div className="font-bold text-slate-800 dark:text-white text-sm">
+                        <div className="font-medium text-slate-800 dark:text-white text-sm">
                           {s.server_name}
                         </div>
                         <div className="text-xs text-slate-500 dark:text-white/50 flex items-center gap-2">
@@ -705,7 +705,7 @@ export default function ResellerDetailPage() {
                           setQrResellerServerId(s.reseller_server_id);
                           setQrOpen(true);
                         }}
-                        className="px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold border border-emerald-500/20 hover:bg-emerald-500/20 transition-all mr-1"
+                        className="px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-medium border border-emerald-500/20 hover:bg-emerald-500/20 transition-all mr-1"
                       >
                         + Recarga
                       </button>
@@ -746,7 +746,7 @@ export default function ResellerDetailPage() {
 
           {/* BLOCO 2: HISTÓRICO */}
           <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl p-5 shadow-sm h-fit transition-colors">
-            <h3 className="text-[11px] font-bold text-slate-400 dark:text-white/20 uppercase mb-6 tracking-widest flex items-center gap-2">
+            <h3 className="text-[11px] font-medium text-slate-400 dark:text-white/20 uppercase mb-6 tracking-widest flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
               Histórico de Compras
             </h3>
@@ -779,7 +779,7 @@ export default function ResellerDetailPage() {
                       <div className="flex justify-between items-start gap-2 bg-slate-50/50 dark:bg-white/5 p-2 rounded-xl border border-transparent hover:border-slate-200 dark:hover:border-white/10 transition-all">
                         <div className="min-w-0">
                           {/* LINHA 1 — TÍTULO */}
-                          <div className="text-sm font-bold text-slate-800 dark:text-white tracking-tight">
+                          <div className="text-sm font-medium text-slate-800 dark:text-white tracking-tight">
                             💳 Compra de Créditos
                           </div>
 
@@ -791,7 +791,7 @@ export default function ResellerDetailPage() {
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
-                          <div className="text-[10px] font-bold text-slate-400 dark:text-white/20 font-mono bg-white dark:bg-black/20 px-2 py-1 rounded-md shadow-sm whitespace-nowrap">
+                          <div className="text-[10px] font-medium text-slate-400 dark:text-white/20 font-mono bg-white dark:bg-black/20 px-2 py-1 rounded-md shadow-sm whitespace-nowrap">
                             {fmtDate(h.created_at ?? null)}
                           </div>
                           <button
