@@ -65,7 +65,27 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
     };
   }, []);
 
-  const sliced = isMobile ? data.slice(-6) : data;
+  // Filtra meses que ainda não começaram no fuso de São Paulo
+const nowSP = new Date(
+  new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" })
+);
+const currentYearSP  = nowSP.getFullYear();
+const currentMonthSP = nowSP.getMonth() + 1; // 1-12
+
+const dataFiltered = data.filter((d) => {
+  // d.label esperado: "MM/YY" ex: "06/25"
+  const parts = String(d.label || "").split("/");
+  if (parts.length !== 2) return true;
+  const mm = parseInt(parts[0], 10);
+  const yy = parseInt(parts[1], 10);
+  const yyyy = yy < 50 ? 2000 + yy : 1900 + yy;
+  // Inclui apenas meses que já começaram em SP
+  if (yyyy > currentYearSP) return false;
+  if (yyyy === currentYearSP && mm > currentMonthSP) return false;
+  return true;
+});
+
+const sliced = isMobile ? dataFiltered.slice(-6) : dataFiltered;
   const n = sliced.length;
 
   // ── Layout: shared between SVG chart and table ───────────────────
