@@ -1262,7 +1262,7 @@ function FinanceiroPageContent() {
             <span className="flex items-center justify-between w-full gap-2">
               <span>Previsão total: {fmtBRL(receitasTotal)}</span>
               {receitasPendentes > 0 && (
-                <span className="font-medium text-amber-600 dark:text-amber-400">
+                <span className="font-normal text-amber-600 dark:text-amber-400">
                   Pendente: {fmtBRL(receitasPendentes)}
                 </span>
               )}
@@ -1278,7 +1278,7 @@ function FinanceiroPageContent() {
             <span className="flex items-center justify-between w-full gap-2">
               <span>Previsão total: {fmtBRL(despesasTotal)}</span>
               {despesasPendentes > 0 && (
-                <span className="font-medium text-rose-600 dark:text-rose-400">
+                <span className="font-normal text-rose-600 dark:text-rose-400">
                   Pendente: {fmtBRL(despesasPendentes)}
                 </span>
               )}
@@ -1687,18 +1687,18 @@ function FinanceiroPageContent() {
                     onClick={() => setModalData({ open: true, transacao: t })}
                   >
                     <td className="px-4 py-3">
-                      <div className="font-semibold text-slate-700 dark:text-white truncate max-w-[220px] group-hover:text-emerald-600 transition-colors">
+                      <div className="font-normal text-slate-700 dark:text-white truncate max-w-[220px] group-hover:text-emerald-600 transition-colors">
                         {t.descricao}
                       </div>
                     </td>
 
                     <td className="px-4 py-3 text-center">
                       {t.tipo === "RECEITA" ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm uppercase text-emerald-600 bg-emerald-50 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-200 dark:border-emerald-400/30">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-normal tracking-tight shadow-sm uppercase text-emerald-600 bg-emerald-50 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-200 dark:border-emerald-400/30">
                           <IconTrendingUp /> Receita
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm uppercase text-rose-600 bg-rose-50 border border-rose-200 dark:bg-rose-500/20 dark:text-rose-200 dark:border-rose-400/30">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-normal tracking-tight shadow-sm uppercase text-rose-600 bg-rose-50 border border-rose-200 dark:bg-rose-500/20 dark:text-rose-200 dark:border-rose-400/30">
                           <IconTrendingDown /> Despesa
                         </span>
                       )}
@@ -1726,9 +1726,7 @@ function FinanceiroPageContent() {
                         }
 
                         return (
-                          <span
-                            className={`inline-flex gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm uppercase border whitespace-nowrap ${cor}`}
-                          >
+                          <span className={`inline-flex gap-1 px-2 py-1 rounded-lg text-[10px] font-normal tracking-tight shadow-sm uppercase border whitespace-nowrap ${cor}`}>
                             {label}
                           </span>
                         );
@@ -1736,13 +1734,13 @@ function FinanceiroPageContent() {
                     </td>
 
                     <td className="px-4 py-3 text-center">
-                      <div className="text-xs text-slate-600 dark:text-white/80 font-medium">
+                     <div className="text-xs text-slate-600 dark:text-white/80 font-normal">
                         {t.categoria_nome || "—"}
                       </div>
                     </td>
 
                     <td className="px-4 py-3 text-center">
-                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-500/20 bg-slate-50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-white/5 text-slate-600 dark:text-white/60 border border-slate-200 dark:border-border">
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-500/20 bg-slate-50 text-[10px] font-normal tracking-tight shadow-sm dark:bg-white/5 text-slate-600 dark:text-white/60 border border-slate-200 dark:border-border">
                         {t.conta_nome || "—"}
                       </span>
                     </td>
@@ -1765,9 +1763,7 @@ function FinanceiroPageContent() {
                           }
 
                           return (
-                            <div
-                              className={`flex items-center justify-center gap-1 text-[11px] font-medium whitespace-nowrap ${corTexto}`}
-                            >
+                            <div className={`flex items-center justify-center gap-1 text-[11px] font-normal whitespace-nowrap ${corTexto}`}>
                               <span>{recText}</span>
                               <span>
                                 {isQuitado
@@ -1779,7 +1775,7 @@ function FinanceiroPageContent() {
                         }
 
                         return (
-                          <span className="text-[11px] font-medium text-slate-500 dark:text-white/50 whitespace-nowrap">
+                          <span className="text-[11px] font-normal text-slate-500 dark:text-white/50 whitespace-nowrap">
                             {recText}
                           </span>
                         );
@@ -1787,9 +1783,7 @@ function FinanceiroPageContent() {
                     </td>
 
                     <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <span
-                        className={`font-medium transition-all duration-300 finance-value ${t.tipo === "RECEITA" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
-                      >
+                      <span className={`font-normal transition-all duration-300 finance-value ${t.tipo === "RECEITA" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
                         {t.tipo === "RECEITA" ? "+" : "-"} {fmtBRL(t.valor)}
                       </span>
                     </td>
@@ -2018,7 +2012,7 @@ function MetricCard({
       className={`rounded-xl border border-border bg-card shadow-sm overflow-hidden flex flex-col border-l-4 ${colors[tone]} relative ${onEdit ? "cursor-pointer hover:scale-[1.02] hover:shadow-md transition-all" : ""}`}
       onClick={onEdit}
     >
-      <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-black/5 dark:border-border font-medium text-[13px] sm:text-sm flex justify-between items-center">
+<div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-black/5 dark:border-border font-normal text-[13px] sm:text-sm flex justify-between items-center">
         <span className="flex items-center gap-2">
           {icon} {title}
         </span>
@@ -2037,13 +2031,11 @@ function MetricCard({
       </div>
       <div className="p-3 sm:p-4 flex-1">
         {/* 👇 CLASSE finance-value MÁGICA DO OLHINHO */}
-        <div
-          className={`text-[15px] sm:text-2xl font-medium leading-tight tabular-nums transition-all duration-300 finance-value`}
-        >
+        <div className={`text-[15px] sm:text-2xl font-normal leading-tight tabular-nums transition-all duration-300 finance-value`}>
           {value}
         </div>
       </div>
-      <div className="px-3 sm:px-4 py-2 text-[11px] sm:text-xs bg-black/5 dark:bg-white/5 opacity-80 font-medium">
+      <div className="px-3 sm:px-4 py-2 text-[11px] sm:text-xs bg-black/5 dark:bg-white/5 opacity-80 font-normal">
         {/* 👇 CLASSE finance-value NO FOOTER DA PREVISÃO */}
         <span className="finance-value">{footer}</span>
       </div>
