@@ -1,7 +1,6 @@
 "use client";
 import { Loader2, Pencil, RefreshCcw } from "lucide-react";
 
-
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/browser";
@@ -38,8 +37,10 @@ function formatPhoneDisplay(e164: string | null | undefined) {
   const local = digits.slice(country.code.length);
 
   if (country.code === "55") {
-    if (local.length === 11) return `+55 (${local.slice(0, 2)}) ${local.slice(2, 7)}-${local.slice(7)}`;
-    if (local.length === 10) return `+55 (${local.slice(0, 2)}) ${local.slice(2, 6)}-${local.slice(6)}`;
+    if (local.length === 11)
+      return `+55 (${local.slice(0, 2)}) ${local.slice(2, 7)}-${local.slice(7)}`;
+    if (local.length === 10)
+      return `+55 (${local.slice(0, 2)}) ${local.slice(2, 6)}-${local.slice(6)}`;
   }
 
   return `+${country.code} ${local}`;
@@ -47,7 +48,10 @@ function formatPhoneDisplay(e164: string | null | undefined) {
 
 function fmtBRL(v: number | null | undefined) {
   if (!Number.isFinite(Number(v))) return "—";
-  return Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  return Number(v).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
 }
 
 function fmtMoney(currency: string, value: number) {
@@ -58,7 +62,6 @@ function fmtMoney(currency: string, value: number) {
     maximumFractionDigits: 2,
   }).format(Number(value) || 0);
 }
-
 
 function fmtDate(d?: string | null) {
   if (!d) return "—";
@@ -161,18 +164,22 @@ type EditLinkState = {
    PÁGINA PRINCIPAL
 ========================= */
 export default function ResellerDetailPage() {
-const params = useParams();
-const router = useRouter();
+  const params = useParams();
+  const router = useRouter();
 
-// ✅ aceita /[id] ou /[reseller_id] ou /[resellerId]
-const p = params as any;
-const resellerIdRaw =
-  (p?.id ?? p?.reseller_id ?? p?.resellerId) as string | string[] | undefined;
+  // ✅ aceita /[id] ou /[reseller_id] ou /[resellerId]
+  const p = params as any;
+  const resellerIdRaw = (p?.id ?? p?.reseller_id ?? p?.resellerId) as
+    | string
+    | string[]
+    | undefined;
 
-const resellerId = Array.isArray(resellerIdRaw) ? resellerIdRaw[0] : resellerIdRaw;
-const resellerIdSafe = (resellerId ?? "").trim();
+  const resellerId = Array.isArray(resellerIdRaw)
+    ? resellerIdRaw[0]
+    : resellerIdRaw;
+  const resellerIdSafe = (resellerId ?? "").trim();
 
-// ✅ 2. Inicializar o Hook de Confirmação
+  // ✅ 2. Inicializar o Hook de Confirmação
   const { confirm, ConfirmUI } = useConfirm();
 
   // Estados de Dados
@@ -183,14 +190,21 @@ const resellerIdSafe = (resellerId ?? "").trim();
 
   // Estados de Modais
   const [showServerModal, setShowServerModal] = useState(false);
-  const [editLink, setEditLink] = useState<EditLinkState>({ resellerServerId: null, initial: undefined });
+  const [editLink, setEditLink] = useState<EditLinkState>({
+    resellerServerId: null,
+    initial: undefined,
+  });
 
   const [qrOpen, setQrOpen] = useState(false);
-  const [qrResellerServerId, setQrResellerServerId] = useState<string | null>(null);
+  const [qrResellerServerId, setQrResellerServerId] = useState<string | null>(
+    null,
+  );
 
   // Notificações
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const [deletingHistoryId, setDeletingHistoryId] = useState<string | null>(null);
+  const [deletingHistoryId, setDeletingHistoryId] = useState<string | null>(
+    null,
+  );
 
   async function handleDeleteHistory(h: HistoryRow) {
     const ok = await confirm({
@@ -221,16 +235,28 @@ const resellerIdSafe = (resellerId ?? "").trim();
 
       if (error) throw error;
 
-      setHistory(prev => prev.filter(x => x.id !== h.id));
-      addToast("success", "Registro apagado", "Removido do histórico com sucesso.");
+      setHistory((prev) => prev.filter((x) => x.id !== h.id));
+      addToast(
+        "success",
+        "Registro apagado",
+        "Removido do histórico com sucesso.",
+      );
     } catch (e: any) {
-      addToast("error", "Erro ao apagar", e?.message || "Falha ao deletar registro.");
+      addToast(
+        "error",
+        "Erro ao apagar",
+        e?.message || "Falha ao deletar registro.",
+      );
     } finally {
       setDeletingHistoryId(null);
     }
   }
 
-  function addToast(type: "success" | "error", title: string, message?: string) {
+  function addToast(
+    type: "success" | "error",
+    title: string,
+    message?: string,
+  ) {
     const id = Date.now();
     setToasts((prev) => [...prev, { id, type, title, message }]);
     setTimeout(() => removeToast(id), 4000);
@@ -241,17 +267,17 @@ const resellerIdSafe = (resellerId ?? "").trim();
   }
 
   function num(v: any) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
-}
-
-const serverNameById = useMemo(() => {
-  const m = new Map<string, string>();
-  for (const s of servers) {
-    if (s?.server_id) m.set(String(s.server_id), String(s.server_name || ""));
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
   }
-  return m;
-}, [servers]);
+
+  const serverNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const s of servers) {
+      if (s?.server_id) m.set(String(s.server_id), String(s.server_name || ""));
+    }
+    return m;
+  }, [servers]);
 
   // --- CARREGAMENTO ---
   async function loadData() {
@@ -302,46 +328,51 @@ const serverNameById = useMemo(() => {
 
       // 3) Histórico (tabela server_credit_sales)
       // ✅ server_credit_sales NÃO tem reseller_id; tem reseller_server_id
-      const resellerServerIds = links.map((l) => l.reseller_server_id).filter(Boolean);
+      const resellerServerIds = links
+        .map((l) => l.reseller_server_id)
+        .filter(Boolean);
 
       if (resellerServerIds.length === 0) {
         setHistory([]);
       } else {
-const historyRes = await supabaseBrowser
-  .from("server_credit_sales")
-  .select("id,tenant_id,server_id,reseller_server_id,credits_sold,unit_price,total_amount_brl,notes,created_at,payment_method,sale_currency")
-  .eq("tenant_id", tid)
-  .in("reseller_server_id", resellerServerIds)
-  .order("created_at", { ascending: false });
-
-
+        const historyRes = await supabaseBrowser
+          .from("server_credit_sales")
+          .select(
+            "id,tenant_id,server_id,reseller_server_id,credits_sold,unit_price,total_amount_brl,notes,created_at,payment_method,sale_currency",
+          )
+          .eq("tenant_id", tid)
+          .in("reseller_server_id", resellerServerIds)
+          .order("created_at", { ascending: false });
 
         if (historyRes.error) throw historyRes.error;
 
         const serverNameMap = new Map<string, string>();
         for (const l of links) serverNameMap.set(l.server_id, l.server_name);
 
-        const mappedHistory: HistoryRow[] = (historyRes.data || []).map((h: any) => ({
-          id: String(h.id),
-          reseller_server_id: String(h.reseller_server_id),
-          server_id: String(h.server_id),
+        const mappedHistory: HistoryRow[] = (historyRes.data || []).map(
+          (h: any) => ({
+            id: String(h.id),
+            reseller_server_id: String(h.reseller_server_id),
+            server_id: String(h.server_id),
 
-          qty_credits: num(h.credits_sold),
+            qty_credits: num(h.credits_sold),
 
+            unit_price: num(h.unit_price),
+            total_amount:
+              num(h.total_amount_brl) ||
+              num(h.total_brl) ||
+              num(h.total_amount),
 
-          unit_price: num(h.unit_price),
-          total_amount: num(h.total_amount_brl) || num(h.total_brl) || num(h.total_amount),
+            currency: h.sale_currency ?? h.currency ?? null,
+            payment_method: h.payment_method ?? null,
 
-          currency: h.sale_currency ?? h.currency ?? null,
-          payment_method: h.payment_method ?? null,
+            notes: h.notes ?? null,
+            status: "OK",
+            created_at: String(h.created_at),
 
-          notes: h.notes ?? null,
-          status: "OK",
-          created_at: String(h.created_at),
-
-          server_name: serverNameMap.get(String(h.server_id)) ?? null,
-        }));
-
+            server_name: serverNameMap.get(String(h.server_id)) ?? null,
+          }),
+        );
 
         setHistory(mappedHistory);
       }
@@ -364,14 +395,25 @@ const historyRes = await supabaseBrowser
       const key = "resellers_list_toasts";
       const raw = window.sessionStorage.getItem(key);
       if (!raw) return;
-      const arr = JSON.parse(raw) as { type: "success" | "error"; title: string; message?: string }[];
+      const arr = JSON.parse(raw) as {
+        type: "success" | "error";
+        title: string;
+        message?: string;
+      }[];
       window.sessionStorage.removeItem(key);
-      for (const t of arr) { addToast(t.type, t.title, t.message); }
-    } catch { /* ignora */ }
+      for (const t of arr) {
+        addToast(t.type, t.title, t.message);
+      }
+    } catch {
+      /* ignora */
+    }
   }, [loading]);
 
   // --- AÇÕES ---
-  async function handleDeleteLink(resellerServerId: string, serverName?: string | null) {
+  async function handleDeleteLink(
+    resellerServerId: string,
+    serverName?: string | null,
+  ) {
     // ✅ 3. Agora o 'confirm' existe e aceita o objeto
     const ok = await confirm({
       title: "Remover vínculo?",
@@ -381,7 +423,7 @@ const historyRes = await supabaseBrowser
       details: [
         serverName ? `Servidor: ${serverName}` : "Servidor desconhecido",
         "O histórico financeiro SERÁ MANTIDO.",
-        "A revenda perderá acesso a criar novos testes/clientes neste servidor."
+        "A revenda perderá acesso a criar novos testes/clientes neste servidor.",
       ],
       confirmText: "Remover Vínculo",
       cancelText: "Voltar",
@@ -393,10 +435,13 @@ const historyRes = await supabaseBrowser
       const tid = await getCurrentTenantId();
       if (!tid) throw new Error("Tenant não encontrado");
 
-      const { error } = await supabaseBrowser.rpc("unlink_reseller_from_server", {
-        p_tenant_id: tid,
-        p_reseller_server_id: resellerServerId,
-      });
+      const { error } = await supabaseBrowser.rpc(
+        "unlink_reseller_from_server",
+        {
+          p_tenant_id: tid,
+          p_reseller_server_id: resellerServerId,
+        },
+      );
 
       if (error) throw error;
 
@@ -407,20 +452,18 @@ const historyRes = await supabaseBrowser
     }
   }
 
-
   // --- CÁLCULOS TOTAIS ---
-const totalInvested = useMemo(() => {
-  return history.reduce((acc, curr) => {
-    const anyCurr: any = curr as any;
-    const total =
-      num(anyCurr.total_amount) ||
-      num(anyCurr.total_amount_brl) ||
-      num(anyCurr.total_brl) ||
-      0;
-    return acc + total;
-  }, 0);
-}, [history]);
-
+  const totalInvested = useMemo(() => {
+    return history.reduce((acc, curr) => {
+      const anyCurr: any = curr as any;
+      const total =
+        num(anyCurr.total_amount) ||
+        num(anyCurr.total_amount_brl) ||
+        num(anyCurr.total_brl) ||
+        0;
+      return acc + total;
+    }, 0);
+  }, [history]);
 
   if (loading)
     return (
@@ -430,81 +473,87 @@ const totalInvested = useMemo(() => {
     );
 
   if (!reseller)
-    return <div className="p-10 text-center text-rose-500 font-bold">Revenda não encontrada.</div>;
+    return (
+      <div className="p-10 text-center text-rose-500 font-bold">
+        Revenda não encontrada.
+      </div>
+    );
 
   return (
-// ✅ Ajuste: pt-0 px-0 no mobile (full width), sm:px-6 no desktop
-<div className="space-y-4 sm:space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors">
+    // ✅ Ajuste: pt-0 px-0 no mobile (full width), sm:px-6 no desktop
+    <div className="space-y-4 sm:space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors">
+      {/* HEADER CLEAN */}
+      <div className="flex items-center justify-between gap-3 pb-0 mb-4 px-4 sm:px-0 pt-4 sm:pt-0">
+        {/* Título + Badge */}
+        <div className="min-w-0 text-left flex flex-col">
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
+              {reseller.name}
+            </h1>
+            <span
+              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
+                reseller.is_archived
+                  ? "bg-slate-500/10 text-slate-500 dark:text-muted-foreground border-slate-500/20"
+                  : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+              }`}
+            >
+              {reseller.is_archived ? "Arquivado" : "Ativo"}
+            </span>
+          </div>
+          {/* Subtítulo opcional (email ou telefone) */}
+          <span className="text-xs text-slate-500 dark:text-white/50 font-medium truncate">
+            {reseller.email || "Sem email"}
+          </span>
+        </div>
 
-  {/* HEADER CLEAN */}
-  <div className="flex items-center justify-between gap-3 pb-0 mb-4 px-4 sm:px-0 pt-4 sm:pt-0">
-    
-    {/* Título + Badge */}
-    <div className="min-w-0 text-left flex flex-col">
-      <div className="flex items-center gap-2">
-        <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
-          {reseller.name}
-        </h1>
-        <span
-          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
-            reseller.is_archived
-              ? "bg-slate-500/10 text-slate-500 dark:text-muted-foreground border-slate-500/20"
-              : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-          }`}
-        >
-          {reseller.is_archived ? "Arquivado" : "Ativo"}
-        </span>
+        {/* Ações */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Voltar (Só Desktop) */}
+          <Link
+            href="/admin/revendedor"
+            className="hidden sm:inline-flex h-9 px-3 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 font-bold text-xs hover:bg-slate-200 dark:hover:bg-white/5 transition-all items-center justify-center"
+          >
+            Voltar
+          </Link>
+
+          {/* Vincular Servidor (Visível Mobile e Desktop) */}
+          <button
+            onClick={() => {
+              setEditLink({ resellerServerId: null, initial: undefined });
+              setShowServerModal(true);
+            }}
+            className="h-9 sm:h-10 px-4 sm:px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
+          >
+            <span>+</span> Vincular Servidor
+          </button>
+        </div>
       </div>
-      {/* Subtítulo opcional (email ou telefone) */}
-      <span className="text-xs text-slate-500 dark:text-white/50 font-medium truncate">
-         {reseller.email || "Sem email"}
-      </span>
-    </div>
-
-    {/* Ações */}
-    <div className="flex items-center gap-2 shrink-0">
-      {/* Voltar (Só Desktop) */}
-      <Link
-        href="/admin/revendedor"
-        className="hidden sm:inline-flex h-9 px-3 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 font-bold text-xs hover:bg-slate-200 dark:hover:bg-white/5 transition-all items-center justify-center"
-      >
-        Voltar
-      </Link>
-
-      {/* Vincular Servidor (Visível Mobile e Desktop) */}
-      <button
-        onClick={() => {
-          setEditLink({ resellerServerId: null, initial: undefined });
-          setShowServerModal(true);
-        }}
-        className="h-9 sm:h-10 px-4 sm:px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
-      >
-        <span>+</span> Vincular Servidor
-      </button>
-    </div>
-  </div>
-
 
       {/* GRID PRINCIPAL (3 COLUNAS) */}
-<div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 px-0 sm:px-0">
-
-  {/* COLUNA ESQUERDA */}
-  <div className="space-y-4">
-    {/* 1. CARD RESUMO */}
-    <div className="bg-white dark:bg-card border-y sm:border border-slate-200 dark:border-border sm:rounded-xl p-4 shadow-sm transition-colors">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 px-0 sm:px-0">
+        {/* COLUNA ESQUERDA */}
+        <div className="space-y-4">
+          {/* 1. CARD RESUMO */}
+          <div className="bg-white dark:bg-card border-y sm:border border-slate-200 dark:border-border sm:rounded-xl p-4 shadow-sm transition-colors">
             <h3 className="text-[11px] font-bold text-slate-400 dark:text-white/20 uppercase mb-4 tracking-widest">
               Resumo da Conta
             </h3>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-border">
-                <span className="text-slate-500 dark:text-muted-foreground font-medium">Desde</span>
+                <span className="text-slate-500 dark:text-muted-foreground font-medium">
+                  Desde
+                </span>
                 <span className="font-bold text-slate-700 dark:text-white/90 text-right">
                   {fmtDate(reseller.created_at)}
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-slate-500 dark:text-muted-foreground font-medium">Servidores</span>
-                <span className="font-bold text-slate-800 dark:text-white">{servers.length}</span>
+                <span className="text-slate-500 dark:text-muted-foreground font-medium">
+                  Servidores
+                </span>
+                <span className="font-bold text-slate-800 dark:text-white">
+                  {servers.length}
+                </span>
               </div>
 
               {/* TOTAL INVESTIDO */}
@@ -527,7 +576,9 @@ const totalInvested = useMemo(() => {
             <div className="space-y-3 text-sm">
               {/* Email */}
               <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-border">
-                <span className="text-slate-500 dark:text-muted-foreground font-medium">Email</span>
+                <span className="text-slate-500 dark:text-muted-foreground font-medium">
+                  Email
+                </span>
                 <span
                   className="font-bold text-slate-800 dark:text-white text-right truncate max-w-[150px]"
                   title={reseller.email ?? ""}
@@ -538,39 +589,42 @@ const totalInvested = useMemo(() => {
 
               {/* WhatsApp Display */}
               <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-border">
-                <span className="text-slate-500 dark:text-muted-foreground font-medium">Telefone</span>
+                <span className="text-slate-500 dark:text-muted-foreground font-medium">
+                  Telefone
+                </span>
                 <span className="font-mono font-bold text-slate-800 dark:text-white text-right">
                   {formatPhoneDisplay(reseller.whatsapp_e164)}
                 </span>
               </div>
 
               {/* WhatsApp Link */}
-<div className="flex justify-between items-center">
-  <span className="text-slate-500 dark:text-muted-foreground font-medium">WhatsApp</span>
-  {reseller.whatsapp_username ? (
-    <a
-      href={`https://wa.me/${reseller.whatsapp_e164?.replace(/\D/g, "")}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 font-bold hover:underline"
-    >
-      <IconWhatsapp />
-      @{reseller.whatsapp_username}
-    </a>
-  ) : reseller.whatsapp_e164 ? (
-     <a
-      href={`https://wa.me/${reseller.whatsapp_e164?.replace(/\D/g, "")}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 font-bold hover:underline"
-    >
-      <IconWhatsapp />
-      {formatPhoneDisplay(reseller.whatsapp_e164)}
-    </a>
-  ) : (
-    <span className="text-slate-400 italic text-sm">—</span>
-  )}
-</div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 dark:text-muted-foreground font-medium">
+                  WhatsApp
+                </span>
+                {reseller.whatsapp_username ? (
+                  <a
+                    href={`https://wa.me/${reseller.whatsapp_e164?.replace(/\D/g, "")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 font-bold hover:underline"
+                  >
+                    <IconWhatsapp />@{reseller.whatsapp_username}
+                  </a>
+                ) : reseller.whatsapp_e164 ? (
+                  <a
+                    href={`https://wa.me/${reseller.whatsapp_e164?.replace(/\D/g, "")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 font-bold hover:underline"
+                  >
+                    <IconWhatsapp />
+                    {formatPhoneDisplay(reseller.whatsapp_e164)}
+                  </a>
+                ) : (
+                  <span className="text-slate-400 italic text-sm">—</span>
+                )}
+              </div>
 
               {/* Opt-in */}
               <div className="py-2 border-t border-b border-slate-100 dark:border-border">
@@ -579,18 +633,22 @@ const totalInvested = useMemo(() => {
                 </div>
                 {reseller.whatsapp_opt_in ? (
                   <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Sim
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>{" "}
+                    Sim
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600 dark:text-rose-400">
-                    <span className="w-2 h-2 rounded-full bg-rose-500"></span> Não
+                    <span className="w-2 h-2 rounded-full bg-rose-500"></span>{" "}
+                    Não
                   </span>
                 )}
               </div>
 
               {/* Notas */}
               <div>
-                <div className="text-[11px] font-bold text-slate-500 dark:text-white/30 mb-1.5">Observações</div>
+                <div className="text-[11px] font-bold text-slate-500 dark:text-white/30 mb-1.5">
+                  Observações
+                </div>
                 <div className="text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-black/20 p-3 rounded-xl text-xs leading-relaxed border border-slate-200 dark:border-border min-h-[80px] whitespace-pre-wrap">
                   {reseller.notes || "Sem observações registradas."}
                 </div>
@@ -625,7 +683,9 @@ const totalInvested = useMemo(() => {
                         {String(s.server_name || "?").charAt(0)}
                       </div>
                       <div>
-                        <div className="font-bold text-slate-800 dark:text-white text-sm">{s.server_name}</div>
+                        <div className="font-bold text-slate-800 dark:text-white text-sm">
+                          {s.server_name}
+                        </div>
                         <div className="text-xs text-slate-500 dark:text-white/50 flex items-center gap-2">
                           <span>User: {s.server_username || "—"}</span>
                           {s.server_password && (
@@ -638,44 +698,46 @@ const totalInvested = useMemo(() => {
                     </div>
 
                     {/* Ações */}
-                      <div className="flex items-center gap-2 self-end sm:self-auto">
-                        {/* Botão de Recarga mantido em destaque textual, mas alinhado */}
-                        <button
-                          onClick={() => {
-                            setQrResellerServerId(s.reseller_server_id);
-                            setQrOpen(true);
-                          }}
-                          className="px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold border border-emerald-500/20 hover:bg-emerald-500/20 transition-all mr-1"
-                        >
-                          + Recarga
-                        </button>
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
+                      {/* Botão de Recarga mantido em destaque textual, mas alinhado */}
+                      <button
+                        onClick={() => {
+                          setQrResellerServerId(s.reseller_server_id);
+                          setQrOpen(true);
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold border border-emerald-500/20 hover:bg-emerald-500/20 transition-all mr-1"
+                      >
+                        + Recarga
+                      </button>
 
-                        <IconActionBtn
-                          title="Editar Vínculo"
-                          tone="amber"
-                          onClick={() => {
-                            setEditLink({
-                              resellerServerId: s.reseller_server_id,
-                              initial: {
-                                server_id: s.server_id ?? null,
-                                server_username: s.server_username ?? null,
-                                server_password: s.server_password ?? null,
-                              },
-                            });
-                            setShowServerModal(true);
-                          }}
-                        >
-                          <IconEdit />
-                        </IconActionBtn>
+                      <IconActionBtn
+                        title="Editar Vínculo"
+                        tone="amber"
+                        onClick={() => {
+                          setEditLink({
+                            resellerServerId: s.reseller_server_id,
+                            initial: {
+                              server_id: s.server_id ?? null,
+                              server_username: s.server_username ?? null,
+                              server_password: s.server_password ?? null,
+                            },
+                          });
+                          setShowServerModal(true);
+                        }}
+                      >
+                        <IconEdit />
+                      </IconActionBtn>
 
-                        <IconActionBtn
-                          title="Remover Vínculo"
-                          tone="red"
-                          onClick={() => handleDeleteLink(s.reseller_server_id, s.server_name)}
-                        >
-                          <IconTrash />
-                        </IconActionBtn>
-                      </div>
+                      <IconActionBtn
+                        title="Remover Vínculo"
+                        tone="red"
+                        onClick={() =>
+                          handleDeleteLink(s.reseller_server_id, s.server_name)
+                        }
+                      >
+                        <IconTrash />
+                      </IconActionBtn>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -697,7 +759,9 @@ const totalInvested = useMemo(() => {
               ) : (
                 history.map((h) => {
                   const serverName =
-                    (h.server_id ? serverNameById.get(String(h.server_id)) : null) || "Desconhecido";
+                    (h.server_id
+                      ? serverNameById.get(String(h.server_id))
+                      : null) || "Desconhecido";
 
                   const total =
                     num((h as any).total_brl) ||
@@ -716,16 +780,14 @@ const totalInvested = useMemo(() => {
                         <div className="min-w-0">
                           {/* LINHA 1 — TÍTULO */}
                           <div className="text-sm font-bold text-slate-800 dark:text-white tracking-tight">
-  💳 Compra de Créditos
-</div>
+                            💳 Compra de Créditos
+                          </div>
 
-<div className="mt-1 text-xs font-medium text-slate-500 dark:text-white/60 tracking-tight">
-  {h.notes
-    ? h.notes
-    : `${serverName} · ${num(h.qty_credits)} créditos · Unit: ${fmtMoney(String(h.currency || "BRL"), Number(h.unit_price || 0))} · Total: ${fmtBRL(total)}`
-  }
-</div>
-
+                          <div className="mt-1 text-xs font-medium text-slate-500 dark:text-white/60 tracking-tight">
+                            {h.notes
+                              ? h.notes
+                              : `${serverName} · ${num(h.qty_credits)} créditos · Unit: ${fmtMoney(String(h.currency || "BRL"), Number(h.unit_price || 0))} · Total: ${fmtBRL(total)}`}
+                          </div>
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
@@ -741,7 +803,18 @@ const totalInvested = useMemo(() => {
                             {deletingHistoryId === h.id ? (
                               <Loader2 className="w-4 h-4 animate-spin" />
                             ) : (
-                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                              <svg
+                                className="w-3.5 h-3.5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                              >
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6l-1 14H6L5 6" />
+                                <path d="M10 11v6M14 11v6" />
+                                <path d="M9 6V4h6v2" />
+                              </svg>
                             )}
                           </button>
                         </div>
@@ -780,31 +853,33 @@ const totalInvested = useMemo(() => {
           onClose={() => setShowServerModal(false)}
           onSaved={async () => {
             setShowServerModal(false);
-            addToast("success", editLink.resellerServerId ? "Vínculo atualizado" : "Servidor vinculado");
+            addToast(
+              "success",
+              editLink.resellerServerId
+                ? "Vínculo atualizado"
+                : "Servidor vinculado",
+            );
             await loadData();
           }}
           onError={(msg) => addToast("error", "Erro", msg)}
         />
       )}
 
-{/* ✅ OBRIGATÓRIO: O componente do popup precisa estar aqui */}
+      {/* ✅ OBRIGATÓRIO: O componente do popup precisa estar aqui */}
       {ConfirmUI}
 
-{/* ✅ Spacer do Rodapé (Contrato UI) */}
+      {/* ✅ Spacer do Rodapé (Contrato UI) */}
       <div className="h-24 md:h-20" />
       <div className="relative z-[999999]">
-  <ToastNotifications toasts={toasts} removeToast={removeToast} />
-</div>
-
+        <ToastNotifications toasts={toasts} removeToast={removeToast} />
+      </div>
     </div>
   );
 }
 
 // Ícones Auxiliares
 function IconEdit() {
-  return (
-    <Pencil className="w-4 h-4" />
-  );
+  return <Pencil className="w-4 h-4" />;
 }
 
 function IconTrash() {
@@ -837,9 +912,12 @@ function IconActionBtn({
 }) {
   const colors = {
     blue: "text-sky-500 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/20 hover:bg-sky-100 dark:hover:bg-sky-500/20",
-    green: "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20",
-    amber: "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20",
-    purple: "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 border-purple-200 dark:border-purple-500/20 hover:bg-purple-100 dark:hover:bg-purple-500/20",
+    green:
+      "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20",
+    amber:
+      "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20",
+    purple:
+      "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 border-purple-200 dark:border-purple-500/20 hover:bg-purple-100 dark:hover:bg-purple-500/20",
     red: "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20 hover:bg-rose-100 dark:hover:bg-rose-500/20",
   };
 
@@ -857,5 +935,13 @@ function IconActionBtn({
   );
 }
 
-function IconRestore() { return <RefreshCcw className="w-4 h-4" />; }
-function IconWhatsapp() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>; }
+function IconRestore() {
+  return <RefreshCcw className="w-4 h-4" />;
+}
+function IconWhatsapp() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+    </svg>
+  );
+}

@@ -1,7 +1,6 @@
 "use client";
 import { X, Pencil } from "lucide-react";
 
-
 import {
   useEffect,
   useState,
@@ -14,14 +13,20 @@ import {
 } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { getCurrentTenantId } from "@/lib/tenant";
-import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
+import ToastNotifications, {
+  ToastMessage,
+} from "@/app/admin/ToastNotifications";
 import { useConfirm } from "@/app/admin/HookuseConfirm";
-
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
 // ✅ Atualizado: Separados os fallbacks internacionais
-type GatewayType = "mercadopago" | "stripe" | "pix_manual" | "transfer_manual_eur" | "transfer_manual_usd";
+type GatewayType =
+  | "mercadopago"
+  | "stripe"
+  | "pix_manual"
+  | "transfer_manual_eur"
+  | "transfer_manual_usd";
 
 interface PaymentGateway {
   id: string;
@@ -88,9 +93,8 @@ const GATEWAY_META: GatewayMeta[] = [
       },
     ],
   },
-  
-  
- {
+
+  {
     type: "stripe",
     label: "Stripe",
     description: "Cartão de crédito/débito internacional via API.",
@@ -115,7 +119,7 @@ const GATEWAY_META: GatewayMeta[] = [
         hint: "Stripe Dashboard → Desenvolvedores → Chaves de API → Chave secreta",
         required: true,
       },
-{
+      {
         key: "webhook_secret",
         label: "Webhook Secret",
         type: "password",
@@ -183,7 +187,7 @@ const GATEWAY_META: GatewayMeta[] = [
         type: "text",
         placeholder: "Digite a chave...",
         required: true,
-      }
+      },
     ],
   },
   {
@@ -202,7 +206,7 @@ const GATEWAY_META: GatewayMeta[] = [
         placeholder: "Ex: João Silva",
         required: true,
       },
-{
+      {
         key: "bank_name",
         label: "Nome do Banco",
         type: "text",
@@ -223,17 +227,17 @@ const GATEWAY_META: GatewayMeta[] = [
         placeholder: "Ex: TRWIBEB1XXX",
         required: true,
       },
-{
+      {
         key: "bank_address",
         label: "Endereço do Banco (Opcional)",
         type: "textarea",
         placeholder: "Ex: Rue du Trône 100, 3rd floor, Brussels...",
         required: false,
-      }
+      },
     ],
   },
-  
-{
+
+  {
     type: "transfer_manual_usd",
     label: "Transferência Internacional (USD)",
     description: "Dados bancários para recebimento em Dólares.",
@@ -249,7 +253,7 @@ const GATEWAY_META: GatewayMeta[] = [
         placeholder: "Ex: João Silva",
         required: true,
       },
-{
+      {
         key: "bank_name",
         label: "Nome do Banco",
         type: "text",
@@ -263,7 +267,7 @@ const GATEWAY_META: GatewayMeta[] = [
         placeholder: "Ex: 832905626259166",
         required: true,
       },
-{
+      {
         key: "account_type",
         label: "Tipo da conta (Opcional)",
         type: "text",
@@ -271,12 +275,12 @@ const GATEWAY_META: GatewayMeta[] = [
         required: false,
       },
       {
-        key: "routing_number",
-        label: "Routing number (Opcional)",
-        type: "text",
-        placeholder: "Ex: 084009519",
-        required: false,
-      },
+        key: "routing_number",
+        label: "Routing number (Opcional)",
+        type: "text",
+        placeholder: "Ex: 084009519",
+        required: false,
+      },
       {
         key: "swift_bic",
         label: "Swift/BIC",
@@ -284,13 +288,13 @@ const GATEWAY_META: GatewayMeta[] = [
         placeholder: "Ex: TRWIUS35XXX",
         required: true,
       },
-{
+      {
         key: "bank_address",
         label: "Endereço do Banco (Opcional)",
         type: "textarea",
         placeholder: "Ex: 108 W 13th St, Wilmington, DE...",
         required: false,
-      }
+      },
     ],
   },
 ];
@@ -302,13 +306,16 @@ const PRIORITY_LABELS: Record<number, string> = {
 
 // ─── HELP CONTENT ─────────────────────────────────────────────────────────────
 
-const GATEWAY_HELP: Record<string, {
-  title: string;
-  link: string;
-  linkLabel: string;
-  steps: string[];
-  warnings?: string[];
-}> = {
+const GATEWAY_HELP: Record<
+  string,
+  {
+    title: string;
+    link: string;
+    linkLabel: string;
+    steps: string[];
+    warnings?: string[];
+  }
+> = {
   mercadopago: {
     title: "Como configurar o Mercado Pago",
     link: "https://www.mercadopago.com.br/developers/pt/docs",
@@ -331,7 +338,7 @@ const GATEWAY_HELP: Record<string, {
       "⚠️ O Access Token é sensível — nunca compartilhe com ninguém",
     ],
   },
-  
+
   stripe: {
     title: "Como configurar o Stripe",
     link: "https://stripe.com",
@@ -379,7 +386,7 @@ function renderStepWithLinks(text: string) {
         className="text-emerald-600 dark:text-emerald-400 font-medium underline underline-offset-2 hover:text-emerald-700 break-all"
       >
         {url}
-      </a>
+      </a>,
     );
     lastIndex = match.index + match[0].length;
   }
@@ -407,7 +414,9 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
         {/* Header */}
         <div className="px-5 py-4 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 rounded-t-xl flex items-center justify-between">
           <div>
-            <h2 className="text-base font-bold text-slate-800 dark:text-white">📖 {help.title}</h2>
+            <h2 className="text-base font-bold text-slate-800 dark:text-white">
+              📖 {help.title}
+            </h2>
             <a
               href={help.link}
               target="_blank"
@@ -443,7 +452,10 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
           {help.warnings && help.warnings.length > 0 && (
             <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-border">
               {help.warnings.map((w, i) => (
-                <p key={i} className="text-xs font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-lg px-3 py-2">
+                <p
+                  key={i}
+                  className="text-xs font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-lg px-3 py-2"
+                >
                   {w}
                 </p>
               ))}
@@ -473,7 +485,10 @@ function Label({ children }: { children: ReactNode }) {
   );
 }
 
-function Input({ className = "", ...props }: InputHTMLAttributes<HTMLInputElement>) {
+function Input({
+  className = "",
+  ...props
+}: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
@@ -482,7 +497,10 @@ function Input({ className = "", ...props }: InputHTMLAttributes<HTMLInputElemen
   );
 }
 
-function Select({ className = "", ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
+function Select({
+  className = "",
+  ...props
+}: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...props}
@@ -491,7 +509,10 @@ function Select({ className = "", ...props }: SelectHTMLAttributes<HTMLSelectEle
   );
 }
 
-function Textarea({ className = "", ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+function Textarea({
+  className = "",
+  ...props
+}: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
       {...props}
@@ -502,23 +523,33 @@ function Textarea({ className = "", ...props }: TextareaHTMLAttributes<HTMLTextA
 // ─── MODAL ────────────────────────────────────────────────────────────────────
 
 function GatewayModal({
-  gateway,
-  onClose,
-  onSave,
-  addToast,
+  gateway,
+  onClose,
+  onSave,
+  addToast,
 }: {
-  gateway: PaymentGateway | null;
-  onClose: () => void;
-  onSave: () => void;
-  addToast: (type: "success" | "error", title: string, message?: string) => void;
+  gateway: PaymentGateway | null;
+  onClose: () => void;
+  onSave: () => void;
+  addToast: (
+    type: "success" | "error",
+    title: string,
+    message?: string,
+  ) => void;
 }) {
   const isEdit = !!gateway;
 
-  const [selectedType, setSelectedType] = useState<GatewayType | null>(gateway?.type ?? null);
-  const [form, setForm] = useState<Record<string, string>>(gateway?.config ?? {});
+  const [selectedType, setSelectedType] = useState<GatewayType | null>(
+    gateway?.type ?? null,
+  );
+  const [form, setForm] = useState<Record<string, string>>(
+    gateway?.config ?? {},
+  );
   const [priority, setPriority] = useState(gateway?.priority ?? 1);
   const [isActive, setIsActive] = useState(gateway?.is_active ?? true);
-  const [isManualFallback, setIsManualFallback] = useState(gateway?.is_manual_fallback ?? false);
+  const [isManualFallback, setIsManualFallback] = useState(
+    gateway?.is_manual_fallback ?? false,
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
@@ -547,8 +578,11 @@ function GatewayModal({
 
       const supabase = supabaseBrowser;
 
-      const isFallbackType = selectedType === "pix_manual" || selectedType === "transfer_manual_eur" || selectedType === "transfer_manual_usd";
-// stripe nunca é fallback — já coberto pois não entra nessa condição
+      const isFallbackType =
+        selectedType === "pix_manual" ||
+        selectedType === "transfer_manual_eur" ||
+        selectedType === "transfer_manual_usd";
+      // stripe nunca é fallback — já coberto pois não entra nessa condição
 
       const basePayload = {
         name: meta.label,
@@ -571,19 +605,21 @@ function GatewayModal({
 
         if (err) throw err;
       } else {
-        const { error: err } = await supabase
-          .from("payment_gateways")
-          .insert({
-            tenant_id: tenantId,
-            ...basePayload,
-            created_at: new Date().toISOString(),
-          });
+        const { error: err } = await supabase.from("payment_gateways").insert({
+          tenant_id: tenantId,
+          ...basePayload,
+          created_at: new Date().toISOString(),
+        });
 
         if (err) throw err;
       }
 
       onSave();
-      addToast("success", isEdit ? "Integração atualizada" : "Integração criada", `${meta.label} configurado com sucesso.`);
+      addToast(
+        "success",
+        isEdit ? "Integração atualizada" : "Integração criada",
+        `${meta.label} configurado com sucesso.`,
+      );
       onClose();
     } catch (err: any) {
       setError(err?.message ?? "Erro ao salvar.");
@@ -608,7 +644,9 @@ function GatewayModal({
               {isEdit ? "Editar Integração" : "Nova Integração de Pagamento"}
             </h2>
             <p className="text-xs text-slate-500 dark:text-white/60 mt-0.5">
-              {isEdit ? "Atualize as configurações da integração" : "Configure uma nova forma de recebimento"}
+              {isEdit
+                ? "Atualize as configurações da integração"
+                : "Configure uma nova forma de recebimento"}
             </p>
           </div>
           <button
@@ -630,9 +668,10 @@ function GatewayModal({
                 <HelpModal type={helpType} onClose={() => setHelpType(null)} />
               )}
 
-<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {GATEWAY_META.map((m) => {
-                  const selected = selectedType === m.type;
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                               {" "}
+                {GATEWAY_META.map((m) => {
+                  const selected = selectedType === m.type;
                   const hasHelp = !!GATEWAY_HELP[m.type];
                   return (
                     <div key={m.type} className="relative">
@@ -713,8 +752,12 @@ function GatewayModal({
                     {meta.icon}
                   </div>
                   <div className="min-w-0">
-                    <div className="font-bold text-slate-800 dark:text-white">{meta.label}</div>
-                    <div className="text-xs text-slate-500 dark:text-white/60 truncate">{meta.description}</div>
+                    <div className="font-bold text-slate-800 dark:text-white">
+                      {meta.label}
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-white/60 truncate">
+                      {meta.description}
+                    </div>
                   </div>
 
                   <div className="ml-auto flex gap-1.5">
@@ -736,13 +779,21 @@ function GatewayModal({
                 {meta.fields.map((field) => (
                   <div key={field.key}>
                     <Label>
-                      {field.label} {field.required && <span className="text-rose-500">*</span>}
+                      {field.label}{" "}
+                      {field.required && (
+                        <span className="text-rose-500">*</span>
+                      )}
                     </Label>
 
                     {field.type === "select" ? (
                       <Select
                         value={form[field.key] || ""}
-                        onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                        onChange={(e) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            [field.key]: e.target.value,
+                          }))
+                        }
                       >
                         <option value="">Selecione...</option>
                         {field.options?.map((opt) => (
@@ -755,15 +806,29 @@ function GatewayModal({
                       <Textarea
                         rows={3}
                         value={form[field.key] || ""}
-                        onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                        onChange={(e) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            [field.key]: e.target.value,
+                          }))
+                        }
                         placeholder={field.placeholder}
                       />
                     ) : (
                       <div className="relative">
                         <Input
-                          type={field.type === "password" && !showSecrets[field.key] ? "password" : "text"}
+                          type={
+                            field.type === "password" && !showSecrets[field.key]
+                              ? "password"
+                              : "text"
+                          }
                           value={form[field.key] || ""}
-                          onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              [field.key]: e.target.value,
+                            }))
+                          }
                           placeholder={field.placeholder}
                           className={field.type === "password" ? "pr-10" : ""}
                         />
@@ -771,10 +836,15 @@ function GatewayModal({
                           <button
                             type="button"
                             onClick={() =>
-                              setShowSecrets((prev) => ({ ...prev, [field.key]: !prev[field.key] }))
+                              setShowSecrets((prev) => ({
+                                ...prev,
+                                [field.key]: !prev[field.key],
+                              }))
                             }
                             className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-white text-xs"
-                            title={showSecrets[field.key] ? "Ocultar" : "Mostrar"}
+                            title={
+                              showSecrets[field.key] ? "Ocultar" : "Mostrar"
+                            }
                           >
                             {showSecrets[field.key] ? "🙈" : "👁️"}
                           </button>
@@ -783,7 +853,9 @@ function GatewayModal({
                     )}
 
                     {field.hint && (
-                      <p className="text-[11px] text-slate-400 dark:text-muted-foreground mt-1">{field.hint}</p>
+                      <p className="text-[11px] text-slate-400 dark:text-muted-foreground mt-1">
+                        {field.hint}
+                      </p>
                     )}
                   </div>
                 ))}
@@ -793,7 +865,10 @@ function GatewayModal({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-200 dark:border-border">
                 <div>
                   <Label>Prioridade</Label>
-                  <Select value={priority} onChange={(e) => setPriority(Number(e.target.value))}>
+                  <Select
+                    value={priority}
+                    onChange={(e) => setPriority(Number(e.target.value))}
+                  >
                     <option value={1}>1 — Principal</option>
                     <option value={2}>2 — Fallback</option>
                   </Select>
@@ -816,7 +891,9 @@ function GatewayModal({
               </div>
 
               {/* Fallback Manual */}
-              {(selectedType === "pix_manual" || selectedType === "transfer_manual_eur" || selectedType === "transfer_manual_usd") && (
+              {(selectedType === "pix_manual" ||
+                selectedType === "transfer_manual_eur" ||
+                selectedType === "transfer_manual_usd") && (
                 <div className="p-4 rounded-xl bg-violet-500/10 border border-violet-500/20">
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
@@ -824,14 +901,17 @@ function GatewayModal({
                         Usar como Fallback
                       </p>
                       <p className="text-xs text-violet-600/80 dark:text-violet-300/70 mt-0.5">
-                        Exibir ao cliente quando todos os gateways online falharem
+                        Exibir ao cliente quando todos os gateways online
+                        falharem
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => setIsManualFallback(!isManualFallback)}
                       className={`relative w-12 h-6 rounded-full transition-colors ${
-                        isManualFallback ? "bg-violet-600" : "bg-slate-300 dark:bg-white/20"
+                        isManualFallback
+                          ? "bg-violet-600"
+                          : "bg-slate-300 dark:bg-white/20"
                       }`}
                     >
                       <span
@@ -866,7 +946,11 @@ function GatewayModal({
             disabled={saving || !selectedType}
             className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-bold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
-            {saving ? "Salvando..." : isEdit ? "Salvar Alterações" : "Criar Integração"}
+            {saving
+              ? "Salvando..."
+              : isEdit
+                ? "Salvar Alterações"
+                : "Criar Integração"}
           </button>
         </div>
       </div>
@@ -892,7 +976,8 @@ function GatewayCard({
   const meta = GATEWAY_META.find((m) => m.type === gateway.type);
   if (!meta) return null;
 
-  const priorityLabel = PRIORITY_LABELS[gateway.priority] || `P${gateway.priority}`;
+  const priorityLabel =
+    PRIORITY_LABELS[gateway.priority] || `P${gateway.priority}`;
 
   return (
     <div
@@ -934,7 +1019,9 @@ function GatewayCard({
         <button
           onClick={onToggle}
           className={`relative w-11 h-6 rounded-full transition-colors ${
-            gateway.is_active ? "bg-emerald-600" : "bg-slate-300 dark:bg-white/20"
+            gateway.is_active
+              ? "bg-emerald-600"
+              : "bg-slate-300 dark:bg-white/20"
           }`}
           title={gateway.is_active ? "Desativar" : "Ativar"}
         >
@@ -968,10 +1055,15 @@ function GatewayCard({
 
             const raw = String(val);
             const isSecret = field.type === "password";
-            const masked = isSecret ? `${raw.slice(0, 6)}${"•".repeat(10)}` : raw;
+            const masked = isSecret
+              ? `${raw.slice(0, 6)}${"•".repeat(10)}`
+              : raw;
 
             return (
-              <div key={field.key} className="flex items-center justify-between gap-2 text-xs">
+              <div
+                key={field.key}
+                className="flex items-center justify-between gap-2 text-xs"
+              >
                 <span className="text-slate-400 dark:text-muted-foreground font-medium truncate">
                   {field.label}:
                 </span>
@@ -1010,19 +1102,26 @@ function GatewayCard({
 // ─── PAGE ─────────────────────────────────────────────────────────────────────
 
 export default function PagamentosPage() {
-  const [gateways, setGateways] = useState<PaymentGateway[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingGateway, setEditingGateway] = useState<PaymentGateway | null>(null);
+  const [gateways, setGateways] = useState<PaymentGateway[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingGateway, setEditingGateway] = useState<PaymentGateway | null>(
+    null,
+  );
   const [deleting, setDeleting] = useState<string | null>(null);
 
-    // --- TOAST + CONFIRM (padrão do admin) ---
+  // --- TOAST + CONFIRM (padrão do admin) ---
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const toastSeq = useRef(1);
 
-  const removeToast = (id: number) => setToasts((prev) => prev.filter((t) => t.id !== id));
+  const removeToast = (id: number) =>
+    setToasts((prev) => prev.filter((t) => t.id !== id));
 
-  const addToast = (type: "success" | "error", title: string, message?: string) => {
+  const addToast = (
+    type: "success" | "error",
+    title: string,
+    message?: string,
+  ) => {
     const id = Date.now() * 1000 + (toastSeq.current++ % 1000);
     const durationMs = 5000;
     setToasts((prev) => [...prev, { id, type, title, message, durationMs }]);
@@ -1032,13 +1131,12 @@ export default function PagamentosPage() {
   const { confirm: confirmDialog, ConfirmUI } = useConfirm();
 
   const fetchGateways = useCallback(async () => {
-    try {
-      const tenantId = await getCurrentTenantId();
-      
-      if (!tenantId) {
-        setLoading(false);
-        return;
-      }
+    try {
+      const tenantId = await getCurrentTenantId();
+      if (!tenantId) {
+        setLoading(false);
+        return;
+      }
 
       const { data, error } = await supabaseBrowser
         .from("payment_gateways")
@@ -1050,7 +1148,11 @@ export default function PagamentosPage() {
       if (error) throw error;
       setGateways((data as PaymentGateway[]) || []);
     } catch (err: any) {
-      addToast("error", "Erro ao carregar gateways", err?.message ?? "Erro inesperado.");
+      addToast(
+        "error",
+        "Erro ao carregar gateways",
+        err?.message ?? "Erro inesperado.",
+      );
     } finally {
       setLoading(false);
     }
@@ -1064,23 +1166,36 @@ export default function PagamentosPage() {
     try {
       const tenantId = await getCurrentTenantId();
       if (!tenantId) {
-        addToast("error", "Tenant inválido", "Não foi possível identificar o tenant atual.");
+        addToast(
+          "error",
+          "Tenant inválido",
+          "Não foi possível identificar o tenant atual.",
+        );
         return;
       }
 
       const { error } = await supabaseBrowser
         .from("payment_gateways")
-        .update({ is_active: !gateway.is_active, updated_at: new Date().toISOString() })
+        .update({
+          is_active: !gateway.is_active,
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", gateway.id)
         .eq("tenant_id", tenantId);
 
       if (error) throw error;
 
       setGateways((prev) =>
-        prev.map((g) => (g.id === gateway.id ? { ...g, is_active: !g.is_active } : g))
+        prev.map((g) =>
+          g.id === gateway.id ? { ...g, is_active: !g.is_active } : g,
+        ),
       );
     } catch (err: any) {
-      addToast("error", "Erro ao atualizar status", err?.message ?? "Erro inesperado.");
+      addToast(
+        "error",
+        "Erro ao atualizar status",
+        err?.message ?? "Erro inesperado.",
+      );
     }
   }
 
@@ -1099,7 +1214,11 @@ export default function PagamentosPage() {
     try {
       const tenantId = await getCurrentTenantId();
       if (!tenantId) {
-        addToast("error", "Tenant inválido", "Não foi possível identificar o tenant atual.");
+        addToast(
+          "error",
+          "Tenant inválido",
+          "Não foi possível identificar o tenant atual.",
+        );
         return;
       }
 
@@ -1123,39 +1242,39 @@ export default function PagamentosPage() {
   }
 
   // Agrupar por moeda
-  const brlGateways = gateways.filter((g) => g.currency.includes("BRL"));
-  const intlGateways = gateways.filter(
-    (g) => g.currency.includes("USD") || g.currency.includes("EUR") || g.currency.includes("INTL")
-  );
+  const brlGateways = gateways.filter((g) => g.currency.includes("BRL"));
+  const intlGateways = gateways.filter(
+    (g) =>
+      g.currency.includes("USD") ||
+      g.currency.includes("EUR") ||
+      g.currency.includes("INTL"),
+  );
 
   return (
-  <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors">
-    
-    {/* HEADER (padrão Clientes/Trials) */}
-    <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
-  <div className="min-w-0">
-    <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate text-slate-800 dark:text-white">
-      Pagamentos
-    </h1>
-  </div>
+    <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors">
+      {/* HEADER (padrão Clientes/Trials) */}
+      <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate text-slate-800 dark:text-white">
+            Pagamentos
+          </h1>
+        </div>
 
-  <div className="flex items-center gap-2 justify-end shrink-0">
-    <button
-      onClick={() => {
-        setEditingGateway(null);
-        setModalOpen(true);
-      }}
-      className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
-    >
-      <span className="text-base leading-none">+</span>
-      Nova Integração
-    </button>
-  </div>
-</div>
-
-    {/* CONTEÚDO */}
-    <div className="px-3 sm:px-0 space-y-6 pt-3 sm:pt-4">
-
+        <div className="flex items-center gap-2 justify-end shrink-0">
+          <button
+            onClick={() => {
+              setEditingGateway(null);
+              setModalOpen(true);
+            }}
+            className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
+          >
+            <span className="text-base leading-none">+</span>
+            Nova Integração
+          </button>
+        </div>
+      </div>
+      {/* CONTEÚDO */}
+      <div className="px-3 sm:px-0 space-y-6 pt-3 sm:pt-4">
         {loading ? (
           <div className="flex items-center justify-center py-16 text-slate-400">
             <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
@@ -1167,7 +1286,8 @@ export default function PagamentosPage() {
               Nenhuma integração configurada
             </h3>
             <p className="text-slate-500 dark:text-white/60 text-sm mb-6">
-              Configure ao menos um gateway para habilitar renovações na Área do Cliente.
+              Configure ao menos um gateway para habilitar renovações na Área do
+              Cliente.
             </p>
             <button
               onClick={() => {
@@ -1186,7 +1306,9 @@ export default function PagamentosPage() {
               <div className="bg-white dark:bg-card border-y sm:border border-slate-200 dark:border-border rounded-none sm:rounded-xl shadow-sm overflow-visible -mx-3 sm:mx-0">
                 <div className="px-3 sm:px-5 py-3 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-border flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-bold text-slate-800 dark:text-white">Gateways BRL</h2>
+                    <h2 className="text-sm font-bold text-slate-800 dark:text-white">
+                      Gateways BRL
+                    </h2>
                     <span className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold px-2 py-0.5 rounded">
                       {brlGateways.length}
                     </span>
@@ -1199,17 +1321,17 @@ export default function PagamentosPage() {
                 <div className="p-3 sm:p-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                     {brlGateways.map((g) => (
-<GatewayCard
-  key={g.id}
-  gateway={g}
-  isDeleting={deleting === g.id}
-  onEdit={() => {
-    setEditingGateway(g);
-    setModalOpen(true);
-  }}
-  onDelete={() => handleDelete(g)}
-  onToggle={() => handleToggle(g)}
-/>
+                      <GatewayCard
+                        key={g.id}
+                        gateway={g}
+                        isDeleting={deleting === g.id}
+                        onEdit={() => {
+                          setEditingGateway(g);
+                          setModalOpen(true);
+                        }}
+                        onDelete={() => handleDelete(g)}
+                        onToggle={() => handleToggle(g)}
+                      />
                     ))}
                   </div>
                 </div>
@@ -1221,7 +1343,9 @@ export default function PagamentosPage() {
               <div className="bg-white dark:bg-card border-y sm:border border-slate-200 dark:border-border rounded-none sm:rounded-xl shadow-sm overflow-visible -mx-3 sm:mx-0">
                 <div className="px-3 sm:px-5 py-3 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-border flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-bold text-slate-800 dark:text-white">Gateways Internacionais</h2>
+                    <h2 className="text-sm font-bold text-slate-800 dark:text-white">
+                      Gateways Internacionais
+                    </h2>
                     <span className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold px-2 py-0.5 rounded">
                       {intlGateways.length}
                     </span>
@@ -1234,17 +1358,17 @@ export default function PagamentosPage() {
                 <div className="p-3 sm:p-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                     {intlGateways.map((g) => (
-<GatewayCard
-  key={g.id}
-  gateway={g}
-  isDeleting={deleting === g.id}
-  onEdit={() => {
-    setEditingGateway(g);
-    setModalOpen(true);
-  }}
-  onDelete={() => handleDelete(g)}
-  onToggle={() => handleToggle(g)}
-/>
+                      <GatewayCard
+                        key={g.id}
+                        gateway={g}
+                        isDeleting={deleting === g.id}
+                        onEdit={() => {
+                          setEditingGateway(g);
+                          setModalOpen(true);
+                        }}
+                        onDelete={() => handleDelete(g)}
+                        onToggle={() => handleToggle(g)}
+                      />
                     ))}
                   </div>
                 </div>
@@ -1256,20 +1380,18 @@ export default function PagamentosPage() {
           </div>
         )}
       </div>
-
-      {/* Modal */}
-      {modalOpen && (
-        <GatewayModal
-          gateway={editingGateway}
-          onClose={() => {
-            setModalOpen(false);
-            setEditingGateway(null);
-          }}
-          onSave={fetchGateways}
-          addToast={addToast}
-        />
-      )}
-
+      {/* Modal */}     {" "}
+      {modalOpen && (
+        <GatewayModal
+          gateway={editingGateway}
+          onClose={() => {
+            setModalOpen(false);
+            setEditingGateway(null);
+          }}
+          onSave={fetchGateways}
+          addToast={addToast}
+        />
+      )}
       {/* Confirmação e Toasts */}
       {ConfirmUI}
       <ToastNotifications toasts={toasts} removeToast={removeToast} />
@@ -1277,6 +1399,26 @@ export default function PagamentosPage() {
   );
 }
 
-function IconX() { return <X className="w-4 h-4" />; }
-function IconEdit() { return <Pencil className="w-4 h-4" />; }
-function IconTrash() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>; }
+function IconX() {
+  return <X className="w-4 h-4" />;
+}
+function IconEdit() {
+  return <Pencil className="w-4 h-4" />;
+}
+function IconTrash() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    </svg>
+  );
+}

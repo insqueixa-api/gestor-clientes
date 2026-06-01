@@ -6,19 +6,37 @@ import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import type { ServerRow } from "./page"; // Importamos o tipo do servidor
 
-
 // --- COMPONENTES VISUAIS (Mesmo padrão do novo_servidor) ---
 function Label({ children }: { children: React.ReactNode }) {
-  return <label className="block text-xs font-bold text-slate-500 dark:text-muted-foreground mb-1.5 tracking-tight">{children}</label>;
-}
-
-function Input({ className = "", ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors ${className}`} />;
-}
-
-function Select({ children, className = "", ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
-    <select {...props} className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}>
+    <label className="block text-xs font-bold text-slate-500 dark:text-muted-foreground mb-1.5 tracking-tight">
+      {children}
+    </label>
+  );
+}
+
+function Input({
+  className = "",
+  ...props
+}: React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <input
+      {...props}
+      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+    />
+  );
+}
+
+function Select({
+  children,
+  className = "",
+  ...props
+}: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <select
+      {...props}
+      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+    >
       {children}
     </select>
   );
@@ -26,21 +44,27 @@ function Select({ children, className = "", ...props }: React.SelectHTMLAttribut
 
 // ✅ Props ajustadas para bater com o page.tsx
 type Props = {
-  server: ServerRow; 
+  server: ServerRow;
   onClose: () => void;
   onSuccess: () => void;
   onError?: (msg: string) => void; // ✅ Adicionado
 };
 
 // 👇 Aqui faltava colocar o onError junto com os outros!
-export default function RecargaServidorModal({ server, onClose, onSuccess, onError }: Props) {
+export default function RecargaServidorModal({
+  server,
+  onClose,
+  onSuccess,
+  onError,
+}: Props) {
   const [saving, setSaving] = useState(false);
-  
+
   // ✅ Detecta se tem integração
   const hasIntegration = Boolean(server.panel_integration);
-  
+
   // ✅ Pega dados iniciais do objeto server passado
-  const defaultUnitCost = server.credit_unit_cost_brl ?? server.default_credit_unit_price ?? 0;
+  const defaultUnitCost =
+    server.credit_unit_cost_brl ?? server.default_credit_unit_price ?? 0;
   const defaultCurrency = server.default_currency || "BRL";
 
   // Form State
@@ -49,68 +73,65 @@ export default function RecargaServidorModal({ server, onClose, onSuccess, onErr
   const [currency, setCurrency] = useState(defaultCurrency);
   const [fxRate, setFxRate] = useState("1"); // Câmbio para BRL
   const [paymentMethod, setPaymentMethod] = useState("PIX");
-  const [purchasedAt, setPurchasedAt] = useState(new Date().toISOString().slice(0, 16)); // datetime-local
+  const [purchasedAt, setPurchasedAt] = useState(
+    new Date().toISOString().slice(0, 16),
+  ); // datetime-local
   const [notes, setNotes] = useState("");
 
   // Cálculos em Tempo Real
   const totalOriginal = (Number(qty) || 0) * (Number(unitCost) || 0);
-  const totalBrl = currency === "BRL" ? totalOriginal : totalOriginal * (Number(fxRate) || 1);
+  const totalBrl =
+    currency === "BRL" ? totalOriginal : totalOriginal * (Number(fxRate) || 1);
 
-// ✅ Pré-preenche com a última recarga realizada
+  // ✅ Pré-preenche com a última recarga realizada
   useEffect(() => {
     async function fetchLastPurchase() {
       try {
         const tenantId = await getCurrentTenantId();
         const { data } = await supabaseBrowser
-  .from("server_credit_purchases")
-  .select("*")
-  .eq("tenant_id", tenantId)
-  .eq("server_id", server.id)
-  .order("created_at", { ascending: false })
-  .limit(1)
-  .maybeSingle();
+          .from("server_credit_purchases")
+          .select("*")
+          .eq("tenant_id", tenantId)
+          .eq("server_id", server.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-if (data) {
-  // qty — tenta os nomes possíveis
-  const qty =
-    data.credits_qty ??
-    data.qty_credits ??
-    data.quantity ??
-    null;
-  if (qty != null && Number(qty) > 0) setQty(String(qty));
+        if (data) {
+          // qty — tenta os nomes possíveis
+          const qty =
+            data.credits_qty ?? data.qty_credits ?? data.quantity ?? null;
+          if (qty != null && Number(qty) > 0) setQty(String(qty));
 
-  // moeda
-  const cur = data.purchase_currency ?? data.currency ?? null;
-  if (cur) setCurrency(cur);
+          // moeda
+          const cur = data.purchase_currency ?? data.currency ?? null;
+          if (cur) setCurrency(cur);
 
-  // unit price — tenta as colunas possíveis
-  // unit_price_brl é em BRL, precisa reverter se moeda não era BRL
-  const unitBrl =
-    data.unit_price_brl ??
-    data.unit_price ??
-    null;
+          // unit price — tenta as colunas possíveis
+          // unit_price_brl é em BRL, precisa reverter se moeda não era BRL
+          const unitBrl = data.unit_price_brl ?? data.unit_price ?? null;
 
-  if (unitBrl != null) {
-    const fx = Number(data.fx_rate_to_brl ?? data.fx_rate ?? 1);
-    const curFinal = cur ?? "BRL";
-    const unitOriginal =
-      curFinal !== "BRL" && fx > 0
-        ? Number(unitBrl) / fx
-        : Number(unitBrl);
-    setUnitCost(
-      Number(unitOriginal)
-        .toFixed(6)
-        .replace(/\.?0+$/, "")
-    );
-  }
+          if (unitBrl != null) {
+            const fx = Number(data.fx_rate_to_brl ?? data.fx_rate ?? 1);
+            const curFinal = cur ?? "BRL";
+            const unitOriginal =
+              curFinal !== "BRL" && fx > 0
+                ? Number(unitBrl) / fx
+                : Number(unitBrl);
+            setUnitCost(
+              Number(unitOriginal)
+                .toFixed(6)
+                .replace(/\.?0+$/, ""),
+            );
+          }
 
-  // câmbio
-  const fx = data.fx_rate_to_brl ?? data.fx_rate ?? null;
-  const curFinal = cur ?? "BRL";
-  if (fx && curFinal !== "BRL") {
-    setFxRate(String(fx));
-  }
-}
+          // câmbio
+          const fx = data.fx_rate_to_brl ?? data.fx_rate ?? null;
+          const curFinal = cur ?? "BRL";
+          if (fx && curFinal !== "BRL") {
+            setFxRate(String(fx));
+          }
+        }
       } catch (e) {
         // silencioso — se falhar, mantém os defaults
       }
@@ -121,34 +142,35 @@ if (data) {
   // ✅ Busca cotação automaticamente se não for BRL
   useEffect(() => {
     async function fetchFx() {
-        if (currency === 'BRL') {
-            setFxRate("1");
-            return;
+      if (currency === "BRL") {
+        setFxRate("1");
+        return;
+      }
+      try {
+        const tenantId = await getCurrentTenantId();
+        const supabase = supabaseBrowser;
+        const { data } = await supabase
+          .from("tenant_fx_rates")
+          .select("usd_to_brl, eur_to_brl")
+          .eq("tenant_id", tenantId)
+          .order("as_of_date", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (data) {
+          if (currency === "USD") setFxRate(data.usd_to_brl?.toString() || "1");
+          if (currency === "EUR") setFxRate(data.eur_to_brl?.toString() || "1");
         }
-        try {
-            const tenantId = await getCurrentTenantId();
-            const supabase = supabaseBrowser;
-            const { data } = await supabase
-                .from("tenant_fx_rates")
-                .select("usd_to_brl, eur_to_brl")
-                .eq("tenant_id", tenantId)
-                .order("as_of_date", { ascending: false })
-                .limit(1)
-                .maybeSingle();
-            
-            if (data) {
-                if (currency === 'USD') setFxRate(data.usd_to_brl?.toString() || "1");
-                if (currency === 'EUR') setFxRate(data.eur_to_brl?.toString() || "1");
-            }
-} catch (err) {
-            // ✅ Segurança: Limpeza de log. Se falhar, assume 1, mas nunca imprime detalhes de erro no cliente.
-            if (process.env.NODE_ENV !== "production") console.error("Falha ao atualizar câmbio.");
-        }
+      } catch (err) {
+        // ✅ Segurança: Limpeza de log. Se falhar, assume 1, mas nunca imprime detalhes de erro no cliente.
+        if (process.env.NODE_ENV !== "production")
+          console.error("Falha ao atualizar câmbio.");
+      }
     }
     fetchFx();
   }, [currency]);
 
-async function handleSave() {
+  async function handleSave() {
     // ✅ Blindagem Dupla: Garante que Quantidade E Custo Unitário não sejam negativos ou anómalos
     if (!qty || Number(qty) <= 0) {
       if (onError) onError("A quantidade de créditos deve ser maior que zero.");
@@ -165,19 +187,22 @@ async function handleSave() {
     try {
       const tenantId = await getCurrentTenantId();
       const supabase = supabaseBrowser;
-      
+
       const oldCredits = Number(server.credits_available || 0);
       const addedCredits = Number(qty);
 
       // ✅ Removemos o 'De -> Para' daqui
-      const fmtNote = () => [
-        `[${paymentMethod}]`,
-        `${addedCredits} créditos`,
-        currency !== "BRL" ? `· Câmbio: ${Number(fxRate).toFixed(4)}` : null,
-        `· Unit: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(Number(unitCost))}`,
-        `· Total: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totalBrl)}`,
-        notes.trim() ? `· ${notes.trim()}` : null,
-      ].filter(Boolean).join(" ");
+      const fmtNote = () =>
+        [
+          `[${paymentMethod}]`,
+          `${addedCredits} créditos`,
+          currency !== "BRL" ? `· Câmbio: ${Number(fxRate).toFixed(4)}` : null,
+          `· Unit: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(Number(unitCost))}`,
+          `· Total: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totalBrl)}`,
+          notes.trim() ? `· ${notes.trim()}` : null,
+        ]
+          .filter(Boolean)
+          .join(" ");
 
       // ✅ Blindagem: o custo unitário que vai pro banco calcular o "Custo Médio" PRECISA ser em BRL
       const unitCostBrl = Number(unitCost) * (Number(fxRate) || 1);
@@ -185,29 +210,36 @@ async function handleSave() {
       // ✅ Se TEM integração → salva log + sync
       if (hasIntegration) {
         // 1) Salva log financeiro (sem mexer no saldo)
-        const { error: logErr } = await supabase.rpc("log_server_credit_purchase_only", {
-          p_tenant_id: tenantId,
-          p_server_id: server.id,
-          p_credits_qty: addedCredits,
-          p_unit_price: unitCostBrl, // ✅ Unitário cravado em Reais (BRL)
-          p_purchase_currency: currency,
-          p_total_amount_brl: totalBrl,
-          p_fx_rate_to_brl: Number(fxRate),
-          p_notes: fmtNote(), // ✅ Log formatado lindão sem "De: Para:"
-        });
+        const { error: logErr } = await supabase.rpc(
+          "log_server_credit_purchase_only",
+          {
+            p_tenant_id: tenantId,
+            p_server_id: server.id,
+            p_credits_qty: addedCredits,
+            p_unit_price: unitCostBrl, // ✅ Unitário cravado em Reais (BRL)
+            p_purchase_currency: currency,
+            p_total_amount_brl: totalBrl,
+            p_fx_rate_to_brl: Number(fxRate),
+            p_notes: fmtNote(), // ✅ Log formatado lindão sem "De: Para:"
+          },
+        );
 
         if (logErr) throw logErr;
 
         // 2) Sincroniza saldo real do painel
-        const provider = String(server.panel_integration_provider || "").toUpperCase();
-        
+        const provider = String(
+          server.panel_integration_provider || "",
+        ).toUpperCase();
+
         let syncUrl = "";
         if (provider === "FAST") syncUrl = "/api/integrations/fast/sync";
         else if (provider === "NATV") syncUrl = "/api/integrations/natv/sync";
         else if (provider === "ELITE") syncUrl = "/api/integrations/elite/sync";
 
         if (!syncUrl) {
-          throw new Error(`Servidor não suportado para sincronização: ${provider}`);
+          throw new Error(
+            `Servidor não suportado para sincronização: ${provider}`,
+          );
         }
 
         // 👇 INÍCIO DO AJUSTE: Pegar o token para a API recém-blindada não nos bloquear 👇
@@ -216,20 +248,23 @@ async function handleSave() {
 
         const syncRes = await fetch(syncUrl, {
           method: "POST",
-          headers: { 
+          headers: {
             "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}) // 🔒 Envia o crachá de acesso
+            ...(token ? { Authorization: `Bearer ${token}` } : {}), // 🔒 Envia o crachá de acesso
           },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             integration_id: server.panel_integration,
-            tenant_id: tenantId // ✅ Passando o tenant_id, assim como na lista de servidores
+            tenant_id: tenantId, // ✅ Passando o tenant_id, assim como na lista de servidores
           }),
         });
         // 👆 FIM DO AJUSTE 👆
 
         const syncJson = await syncRes.json().catch(() => ({}));
         if (!syncRes.ok || !syncJson?.ok) {
-          throw new Error("Log salvo, mas falhou ao sincronizar saldo: " + (syncJson?.error || ""));
+          throw new Error(
+            "Log salvo, mas falhou ao sincronizar saldo: " +
+              (syncJson?.error || ""),
+          );
         }
 
         // ❌ REMOVIDO: alert("✅ Compra registrada e saldo sincronizado!");
@@ -249,13 +284,16 @@ async function handleSave() {
         p_notes: fmtNote(), // ✅ Log formatado lindão sem "De: Para:"
       });
 
-
       if (error) throw error;
 
       onSuccess();
     } catch (error: any) {
       // ✅ Segurança: Limita o log local apenas a mensagens, nunca o objeto de erro completo de DB
-      if (process.env.NODE_ENV !== "production") console.error("Erro na recarga:", error?.message || "Falha desconhecida");
+      if (process.env.NODE_ENV !== "production")
+        console.error(
+          "Erro na recarga:",
+          error?.message || "Falha desconhecida",
+        );
       if (onError) {
         onError(error?.message || "Ocorreu um erro ao processar a recarga.");
       }
@@ -270,7 +308,6 @@ async function handleSave() {
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="w-full max-w-lg bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
-        
         {/* HEADER */}
         <div className="px-6 py-4 border-b border-slate-200 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5">
           <div>
@@ -281,24 +318,31 @@ async function handleSave() {
               {server.name}
             </div>
           </div>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-white/60">✕</button>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-white/60"
+          >
+            ✕
+          </button>
         </div>
 
         {/* BODY */}
         <div className="p-6 space-y-5 overflow-y-auto max-h-[70vh]">
-          
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label>Data da compra</Label>
-              <Input 
+              <Input
                 type="datetime-local"
                 value={purchasedAt}
-                onChange={e => setPurchasedAt(e.target.value)}
+                onChange={(e) => setPurchasedAt(e.target.value)}
               />
             </div>
             <div className="space-y-1">
               <Label>Meio de pagamento</Label>
-              <Select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
+              <Select
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+              >
                 <option value="PIX">PIX</option>
                 <option value="USDT">USDT</option>
                 <option value="CARTAO">Cartão de Crédito</option>
@@ -312,69 +356,84 @@ async function handleSave() {
             <div className="grid grid-cols-12 gap-3">
               <div className="col-span-4 space-y-1">
                 <Label>Qtd. Créditos</Label>
-                <Input 
-                  type="number" 
-                  value={qty} 
-                  onChange={e => setQty(e.target.value)} 
+                <Input
+                  type="number"
+                  value={qty}
+                  onChange={(e) => setQty(e.target.value)}
                   placeholder="0"
                   autoFocus
                   className="font-bold text-emerald-600"
                 />
               </div>
               <div className="col-span-4 space-y-1">
-                  <Label>Moeda</Label>
-                  <Select value={currency} onChange={e => setCurrency(e.target.value as any)}>
-                    <option value="BRL">BRL (R$)</option>
-                    <option value="USD">USD ($)</option>
-                    <option value="EUR">EUR (€)</option>
-                  </Select>
+                <Label>Moeda</Label>
+                <Select
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value as any)}
+                >
+                  <option value="BRL">BRL (R$)</option>
+                  <option value="USD">USD ($)</option>
+                  <option value="EUR">EUR (€)</option>
+                </Select>
               </div>
               <div className="col-span-4 space-y-1">
                 <Label>Custo Unit.</Label>
-                <Input 
-                  type="number" step="0.01"
-                  value={unitCost} 
-                  onChange={e => setUnitCost(e.target.value)} 
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={unitCost}
+                  onChange={(e) => setUnitCost(e.target.value)}
                 />
               </div>
             </div>
 
             {/* Câmbio (se não for BRL) */}
             {currency !== "BRL" && (
-               <div className="space-y-1 animate-in slide-in-from-top-2">
-                  <Label>Cotação para BRL (R$)</Label>
-                  <Input 
-                    type="number" step="0.01"
-                    value={fxRate}
-                    onChange={e => setFxRate(e.target.value)}
-                    placeholder={`1 ${currency} = ? BRL`}
-                  />
-               </div>
+              <div className="space-y-1 animate-in slide-in-from-top-2">
+                <Label>Cotação para BRL (R$)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={fxRate}
+                  onChange={(e) => setFxRate(e.target.value)}
+                  placeholder={`1 ${currency} = ? BRL`}
+                />
+              </div>
             )}
           </div>
 
           {/* TOTALIZADORES */}
           <div className="flex justify-between items-end bg-slate-100 dark:bg-black/20 p-3 rounded-lg border border-slate-200 dark:border-border">
-             <div>
-                <div className="text-[10px] uppercase font-bold text-slate-400">Total Original</div>
-                <div className="font-mono text-sm font-bold text-slate-600 dark:text-slate-300">
-                   {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: currency }).format(totalOriginal)}
-                </div>
-             </div>
-             <div className="text-right">
-                <div className="text-[10px] uppercase font-bold text-slate-400">Total em BRL (Custo Real)</div>
-                <div className="font-mono text-xl font-bold text-emerald-600 dark:text-emerald-400">
-                   {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalBrl)}
-                </div>
-             </div>
+            <div>
+              <div className="text-[10px] uppercase font-bold text-slate-400">
+                Total Original
+              </div>
+              <div className="font-mono text-sm font-bold text-slate-600 dark:text-slate-300">
+                {new Intl.NumberFormat("pt-BR", {
+                  style: "currency",
+                  currency: currency,
+                }).format(totalOriginal)}
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-[10px] uppercase font-bold text-slate-400">
+                Total em BRL (Custo Real)
+              </div>
+              <div className="font-mono text-xl font-bold text-emerald-600 dark:text-emerald-400">
+                {new Intl.NumberFormat("pt-BR", {
+                  style: "currency",
+                  currency: "BRL",
+                }).format(totalBrl)}
+              </div>
+            </div>
           </div>
 
           <div className="space-y-1">
             <Label>Observações</Label>
-            <input 
+            <input
               className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none text-slate-700 dark:text-white"
               value={notes}
-              onChange={e => setNotes(e.target.value)}
+              onChange={(e) => setNotes(e.target.value)}
               placeholder="Opcional..."
             />
           </div>
@@ -382,34 +441,40 @@ async function handleSave() {
 
         {/* FOOTER */}
         <div className="px-6 py-4 border-t border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 space-y-3">
-          
           {hasIntegration && (
             <div className="p-3 bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 rounded-lg text-xs text-sky-700 dark:text-sky-400">
-              ℹ️ <strong>Servidor com integração "{server.panel_integration_name}"</strong>
-              <br />
-              A recarga será registrada no financeiro, mas o saldo será sincronizado com o painel externo.
+              ℹ️{" "}
+              <strong>
+                Servidor com integração "{server.panel_integration_name}"
+              </strong>
+              <br />A recarga será registrada no financeiro, mas o saldo será
+              sincronizado com o painel externo.
             </div>
           )}
 
           <div className="flex justify-end gap-3">
-            <button 
-              onClick={onClose} 
+            <button
+              onClick={onClose}
               className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/5 text-sm font-semibold transition-colors"
             >
               Cancelar
             </button>
-            
-            <button 
+
+            <button
               onClick={handleSave}
               disabled={saving}
               className="px-6 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-bold shadow-lg shadow-emerald-900/20 transition-all"
             >
-              {saving ? "Processando..." : hasIntegration ? "💰 Registrar Compra + Sincronizar" : "Confirmar Recarga"}
+              {saving
+                ? "Processando..."
+                : hasIntegration
+                  ? "💰 Registrar Compra + Sincronizar"
+                  : "Confirmar Recarga"}
             </button>
           </div>
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

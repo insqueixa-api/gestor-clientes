@@ -1,16 +1,16 @@
 "use client";
 import { X } from "lucide-react";
 
-
 import { useEffect, useMemo, useState, Suspense } from "react";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/app/admin/HookuseConfirm";
-import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
+import ToastNotifications, {
+  ToastMessage,
+} from "@/app/admin/ToastNotifications";
 
 // ✅ Importa os modais de recarga
 import RecargaCliente from "../cliente/recarga_cliente";
-
 
 // --- TIPOS ---
 type LogRow = {
@@ -44,21 +44,71 @@ const PERIOD_LABELS: Record<string, string> = {
 };
 
 // --- ICONES ---
-function IconLog() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>; }
-function IconX() { return <X className="w-4 h-4" />; }
-function IconCheckCircle() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>; }
-function IconRefresh() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>; }
+function IconLog() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="16" y1="13" x2="8" y2="13" />
+      <line x1="16" y1="17" x2="8" y2="17" />
+      <polyline points="10 9 9 9 8 9" />
+    </svg>
+  );
+}
+function IconX() {
+  return <X className="w-4 h-4" />;
+}
+function IconCheckCircle() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+      <polyline points="22 4 12 14.01 9 11.01" />
+    </svg>
+  );
+}
+function IconRefresh() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <path d="M3 3v5h5" />
+    </svg>
+  );
+}
 
 function AuditoriaPageContent() {
-  
-  const [tenantId, setTenantId] = useState<string | null>(null);
-  const [rows, setRows] = useState<LogRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  
-  // Filtros
+  const [tenantId, setTenantId] = useState<string | null>(null);
+  const [rows, setRows] = useState<LogRow[]>([]);
+  const [loading, setLoading] = useState(true); // Filtros
   const [search, setSearch] = useState("");
   const [filterFulfillment, setFilterFulfillment] = useState("Todos");
-  
+
   // Paginação
   const [page, setPage] = useState(1);
   const pageSize = 50;
@@ -67,25 +117,38 @@ function AuditoriaPageContent() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   // ✅ NOVO: Estado para abrir o modal de renovação
-  const [renewState, setRenewState] = useState<{ logId: string; clientId: string; clientName: string } | null>(null);
+  const [renewState, setRenewState] = useState<{
+    logId: string;
+    clientId: string;
+    clientName: string;
+  } | null>(null);
 
-  function addToast(type: "success" | "error" | "warning", title: string, message?: string) {
+  function addToast(
+    type: "success" | "error" | "warning",
+    title: string,
+    message?: string,
+  ) {
     const id = Date.now();
     setToasts((prev) => [...prev, { id, type, title, message }]);
-    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 5000);
+    setTimeout(
+      () => setToasts((prev) => prev.filter((t) => t.id !== id)),
+      5000,
+    );
   }
 
   async function loadData(searchTerm = "") {
-    setLoading(true);
-    try {
-      const tid = await getCurrentTenantId();
-      setTenantId(tid);
+    setLoading(true);
+    try {
+      const tid = await getCurrentTenantId();
+      setTenantId(tid);
 
-      if (tid) {
-        // 1. Busca os logs exatos de pagamento
-        let query = supabaseBrowser
+      if (tid) {
+        // 1. Busca os logs exatos de pagamento
+        let query = supabaseBrowser
           .from("client_portal_payments")
-          .select("id, created_at, client_id, payment_method, status, fulfillment_status, fulfillment_error, price_amount, price_currency, period, plan_label, gateway_type, mp_payment_id, whatsapp_status") // ✅ Adicionado whatsapp_status
+          .select(
+            "id, created_at, client_id, payment_method, status, fulfillment_status, fulfillment_error, price_amount, price_currency, period, plan_label, gateway_type, mp_payment_id, whatsapp_status",
+          ) // ✅ Adicionado whatsapp_status
           .eq("tenant_id", tid)
           .order("created_at", { ascending: false })
           .limit(100);
@@ -97,10 +160,12 @@ function AuditoriaPageContent() {
             .select("id")
             .eq("tenant_id", tid)
             .or(`display_name.ilike.%${term}%,server_username.ilike.%${term}%`);
-          
+
           if (matchedClients && matchedClients.length > 0) {
-            const matchedIds = matchedClients.map(c => c.id);
-            query = query.or(`client_id.in.(${matchedIds.join(',')}),gateway_type.ilike.%${term}%`);
+            const matchedIds = matchedClients.map((c) => c.id);
+            query = query.or(
+              `client_id.in.(${matchedIds.join(",")}),gateway_type.ilike.%${term}%`,
+            );
           } else {
             query = query.ilike("gateway_type", `%${term}%`);
           }
@@ -110,13 +175,17 @@ function AuditoriaPageContent() {
         if (error) throw error;
 
         // 2. Extrai clientes e busca dados completos (incluindo telas e ID do servidor)
-        const clientIds = [...new Set((paymentsData || []).map((p: any) => p.client_id))].filter(Boolean);
+        const clientIds = [
+          ...new Set((paymentsData || []).map((p: any) => p.client_id)),
+        ].filter(Boolean);
         const clientsMap: Record<string, any> = {};
 
         if (clientIds.length > 0) {
           const { data: clientsData } = await supabaseBrowser
             .from("clients")
-            .select("id, display_name, server_username, server_id, screens, technology") // ✅ Adicionado technology
+            .select(
+              "id, display_name, server_username, server_id, screens, technology",
+            ) // ✅ Adicionado technology
             .in("id", clientIds)
             .eq("tenant_id", tid);
 
@@ -132,7 +201,7 @@ function AuditoriaPageContent() {
           .from("servers")
           .select("id, name")
           .eq("tenant_id", tid);
-          
+
         const serversMap: Record<string, string> = {};
         if (serversData) {
           serversData.forEach((s: any) => {
@@ -155,15 +224,15 @@ function AuditoriaPageContent() {
             server_name: serverName,
             screens: cInfo.screens || 1, // Puxa as telas ou assume 1
             payment_method: r.payment_method,
-            payment_status: r.status, 
+            payment_status: r.status,
             fulfillment_status: r.fulfillment_status,
-          fulfillment_error: r.fulfillment_error,
-          whatsapp_status: r.whatsapp_status, // ✅ Lendo o campo real do banco! 
-          price_amount: r.price_amount,
+            fulfillment_error: r.fulfillment_error,
+            whatsapp_status: r.whatsapp_status, // ✅ Lendo o campo real do banco!
+            price_amount: r.price_amount,
             price_currency: r.price_currency,
             period: r.period,
             plan_label: r.plan_label,
-            gateway_name: r.gateway_type, 
+            gateway_name: r.gateway_type,
             mp_payment_id: r.mp_payment_id || null, // ✅ Adicionado ao mapeamento
           };
         });
@@ -190,7 +259,11 @@ function AuditoriaPageContent() {
       const raw = window.sessionStorage.getItem(key);
       if (!raw) return;
 
-      const arr = JSON.parse(raw) as { type: "success" | "error" | "warning"; title: string; message?: string }[];
+      const arr = JSON.parse(raw) as {
+        type: "success" | "error" | "warning";
+        title: string;
+        message?: string;
+      }[];
       window.sessionStorage.removeItem(key);
 
       for (const t of arr) {
@@ -202,20 +275,37 @@ function AuditoriaPageContent() {
   }, [loading]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       loadData(search);
     }
   };
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    
+    const q = search
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
     return rows.filter((r) => {
-      if (filterFulfillment !== "Todos" && r.fulfillment_status !== filterFulfillment) return false;
-      
+      if (
+        filterFulfillment !== "Todos" &&
+        r.fulfillment_status !== filterFulfillment
+      )
+        return false;
+
       if (q) {
-        const hay = [r.client_name, r.server_username, r.server_name, r.gateway_name, r.payment_method]
-          .join(" ").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const hay = [
+          r.client_name,
+          r.server_username,
+          r.server_name,
+          r.gateway_name,
+          r.payment_method,
+        ]
+          .join(" ")
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "");
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -224,7 +314,10 @@ function AuditoriaPageContent() {
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(Math.max(1, page), totalPages);
-  const visible = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const visible = filtered.slice(
+    (safePage - 1) * pageSize,
+    safePage * pageSize,
+  );
 
   // --- AÇÕES ---
   const handleMarcarConcluido = async (log: LogRow) => {
@@ -235,10 +328,7 @@ function AuditoriaPageContent() {
       subtitle: "A renovação já foi feita no Elite e o cliente já foi avisado?",
       tone: "emerald",
       icon: "✅",
-      details: [
-        `Cliente: ${log.client_name}`,
-        `Login: ${log.server_username}`,
-      ],
+      details: [`Cliente: ${log.client_name}`, `Login: ${log.server_username}`],
       confirmText: "Sim, Marcar como Concluído",
       cancelText: "Voltar",
     });
@@ -246,17 +336,21 @@ function AuditoriaPageContent() {
     if (!ok) return;
 
     try {
-      // ✅ Usa a RPC e manda o status correto de conclusão manual
+      // ✅ Usa a RPC e manda o status correto de conclusão manual
       const { error } = await supabaseBrowser.rpc("update_fulfillment_status", {
         p_log_id: log.id,
         p_tenant_id: tenantId,
-        p_status: "manual_done"
+        p_status: "manual_done",
       });
 
-      if (error) throw error;
+      if (error) throw error;
 
-      addToast("success", "Auditoria Atualizada", "Processo marcado como concluído com sucesso!");
-      loadData(); 
+      addToast(
+        "success",
+        "Auditoria Atualizada",
+        "Processo marcado como concluído com sucesso!",
+      );
+      loadData();
     } catch (e: any) {
       addToast("error", "Erro ao atualizar", e.message);
     }
@@ -268,13 +362,11 @@ function AuditoriaPageContent() {
 
     const ok = await confirm({
       title: "Cancelar Renovação Manual",
-      subtitle: "Deseja marcar esta renovação como cancelada? Ela sairá da lista de pendências.",
+      subtitle:
+        "Deseja marcar esta renovação como cancelada? Ela sairá da lista de pendências.",
       tone: "rose",
       icon: "🚫",
-      details: [
-        `Cliente: ${log.client_name}`,
-        `Login: ${log.server_username}`,
-      ],
+      details: [`Cliente: ${log.client_name}`, `Login: ${log.server_username}`],
       confirmText: "Sim, Cancelar",
       cancelText: "Voltar",
     });
@@ -282,17 +374,21 @@ function AuditoriaPageContent() {
     if (!ok) return;
 
     try {
-      // ✅ AGORA SIM: Chamando a função SQL que tem permissão para alterar
-      const { error } = await supabaseBrowser.rpc("update_fulfillment_status", {
+      // ✅ AGORA SIM: Chamando a função SQL que tem permissão para alterar
+      const { error } = await supabaseBrowser.rpc("update_fulfillment_status", {
         p_log_id: log.id,
         p_tenant_id: tenantId,
-        p_status: "manual_cancelled" // ✅ Corrigido para Cancelado Manual
+        p_status: "manual_cancelled", // ✅ Corrigido para Cancelado Manual
       });
 
-      if (error) throw error;
+      if (error) throw error;
 
-      addToast("success", "Ação Encerrada", "A renovação foi marcada como cancelada.");
-      loadData(); 
+      addToast(
+        "success",
+        "Ação Encerrada",
+        "A renovação foi marcada como cancelada.",
+      );
+      loadData();
     } catch (e: any) {
       addToast("error", "Erro ao cancelar", e.message);
     }
@@ -304,13 +400,11 @@ function AuditoriaPageContent() {
 
     const ok = await confirm({
       title: "Reenviar WhatsApp",
-      subtitle: "A renovação já foi feita no servidor. Deseja reenviar apenas o comprovante via WhatsApp?",
+      subtitle:
+        "A renovação já foi feita no servidor. Deseja reenviar apenas o comprovante via WhatsApp?",
       tone: "sky",
       icon: "💬",
-      details: [
-        `Cliente: ${log.client_name}`,
-        `Login: ${log.server_username}`,
-      ],
+      details: [`Cliente: ${log.client_name}`, `Login: ${log.server_username}`],
       confirmText: "Sim, Reenviar",
       cancelText: "Voltar",
     });
@@ -331,7 +425,9 @@ function AuditoriaPageContent() {
         .maybeSingle();
 
       if (!tmpl || !tmpl.content) {
-        throw new Error("Template de 'Pagamento Realizado' não encontrado no banco.");
+        throw new Error(
+          "Template de 'Pagamento Realizado' não encontrado no banco.",
+        );
       }
 
       const { data: sessionData } = await supabaseBrowser.auth.getSession();
@@ -364,8 +460,12 @@ function AuditoriaPageContent() {
         .update({ whatsapp_status: "sent" })
         .eq("id", log.id);
 
-      addToast("success", "Mensagem enviada", "Comprovante enviado com sucesso!");
-      loadData(); 
+      addToast(
+        "success",
+        "Mensagem enviada",
+        "Comprovante enviado com sucesso!",
+      );
+      loadData();
     } catch (err: any) {
       addToast("error", "Erro ao reenviar", err.message);
     } finally {
@@ -375,10 +475,29 @@ function AuditoriaPageContent() {
 
   // --- HELPERS VISUAIS (Com Bloqueio de Fluxo) ---
   function getPaymentBadge(status: string) {
-    if (status === "approved" || status === "PAGO") return <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase border border-emerald-200 dark:border-emerald-500/30">Aprovado</span>;
-    if (status === "pending") return <span className="px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[10px] font-bold uppercase border border-amber-200 dark:border-amber-500/30">Pendente</span>;
-    if (status === "rejected" || status === "cancelled") return <span className="px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 text-[10px] font-bold uppercase border border-rose-200 dark:border-rose-500/30">Recusado</span>;
-    return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">{status}</span>;
+    if (status === "approved" || status === "PAGO")
+      return (
+        <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase border border-emerald-200 dark:border-emerald-500/30">
+          Aprovado
+        </span>
+      );
+    if (status === "pending")
+      return (
+        <span className="px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[10px] font-bold uppercase border border-amber-200 dark:border-amber-500/30">
+          Pendente
+        </span>
+      );
+    if (status === "rejected" || status === "cancelled")
+      return (
+        <span className="px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 text-[10px] font-bold uppercase border border-rose-200 dark:border-rose-500/30">
+          Recusado
+        </span>
+      );
+    return (
+      <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">
+        {status}
+      </span>
+    );
   }
 
   function getFulfillmentBadge(status: string, paymentStatus: string) {
@@ -386,56 +505,113 @@ function AuditoriaPageContent() {
     if (status === "manual_cancelled" || status === "cancelled") {
       return (
         <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-muted-foreground text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">
-          {status === "manual_cancelled" ? "Cancelada Manualmente" : "Cancelada"}
+          {status === "manual_cancelled"
+            ? "Cancelada Manualmente"
+            : "Cancelada"}
         </span>
       );
     }
 
     // 2. Se o pagamento foi recusado/cancelado no gateway
     if (paymentStatus === "rejected" || paymentStatus === "cancelled") {
-      return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-muted-foreground text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">Cancelada</span>;
+      return (
+        <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-muted-foreground text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">
+          Cancelada
+        </span>
+      );
     }
 
     // 3. Se o pagamento ainda está pendente, mostra o traço aguardando
     if (paymentStatus !== "approved" && paymentStatus !== "PAGO") {
-      return <span className="text-slate-300 dark:text-white/20 font-bold">—</span>;
+      return (
+        <span className="text-slate-300 dark:text-white/20 font-bold">—</span>
+      );
     }
 
     // 4. Fluxo normal pós-pagamento aprovado
-    if (status === "done") return <span className="px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 text-[10px] font-bold uppercase border border-blue-200 dark:border-blue-500/30">Concluído</span>;
-    if (status === "manual_done") return <span className="px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 text-[10px] font-bold uppercase border border-indigo-200 dark:border-indigo-500/30">Concluído Manualmente</span>;
-    if (status === "manual_pending") return <span className="px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400 text-[10px] font-bold uppercase border border-purple-200 dark:border-purple-500/30 animate-pulse">Ação Manual</span>;
-    if (status === "error") return <span className="px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 text-[10px] font-bold uppercase border border-rose-200 dark:border-rose-500/30">Erro API</span>;
-    
-    return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">Processando</span>;
+    if (status === "done")
+      return (
+        <span className="px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 text-[10px] font-bold uppercase border border-blue-200 dark:border-blue-500/30">
+          Concluído
+        </span>
+      );
+    if (status === "manual_done")
+      return (
+        <span className="px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 text-[10px] font-bold uppercase border border-indigo-200 dark:border-indigo-500/30">
+          Concluído Manualmente
+        </span>
+      );
+    if (status === "manual_pending")
+      return (
+        <span className="px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400 text-[10px] font-bold uppercase border border-purple-200 dark:border-purple-500/30 animate-pulse">
+          Ação Manual
+        </span>
+      );
+    if (status === "error")
+      return (
+        <span className="px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 text-[10px] font-bold uppercase border border-rose-200 dark:border-rose-500/30">
+          Erro API
+        </span>
+      );
+
+    return (
+      <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">
+        Processando
+      </span>
+    );
   }
 
-  function getWhatsappBadge(status: string | null, paymentStatus: string, fulfillmentStatus: string) {
+  function getWhatsappBadge(
+    status: string | null,
+    paymentStatus: string,
+    fulfillmentStatus: string,
+  ) {
     // 1. Se o pagamento NÃO foi aprovado, a mensagem nunca é enviada.
     if (paymentStatus !== "approved" && paymentStatus !== "PAGO") {
-      return <span className="text-slate-300 dark:text-white/20 font-bold">—</span>;
+      return (
+        <span className="text-slate-300 dark:text-white/20 font-bold">—</span>
+      );
     }
 
     // 2. ✅ NOVO: Se a renovação foi cancelada (manual ou sistema), não há mensagem.
-    if (fulfillmentStatus === "manual_cancelled" || fulfillmentStatus === "cancelled") {
-      return <span className="text-slate-300 dark:text-white/20 font-bold">—</span>;
+    if (
+      fulfillmentStatus === "manual_cancelled" ||
+      fulfillmentStatus === "cancelled"
+    ) {
+      return (
+        <span className="text-slate-300 dark:text-white/20 font-bold">—</span>
+      );
     }
 
     // 3. Se a renovação ainda não terminou (processando ou erro), o zap ainda não "nasceu" no fluxo.
     if (fulfillmentStatus !== "done" && fulfillmentStatus !== "manual_done") {
-      return <span className="text-slate-300 dark:text-white/20 font-bold">—</span>;
+      return (
+        <span className="text-slate-300 dark:text-white/20 font-bold">—</span>
+      );
     }
 
     // 4. Se a renovação deu certo, mostramos o status real vindo do campo whatsapp_status
-    if (status === "sent") return <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase border border-emerald-200 dark:border-emerald-500/30">Enviado</span>;
-    if (status === "error") return <span className="px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 text-[10px] font-bold uppercase border border-rose-200 dark:border-rose-500/30">Erro</span>;
-    
-    return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-400 text-[10px] font-bold uppercase border border-slate-200 dark:border-border">Aguardando</span>;
-  }
+    if (status === "sent")
+      return (
+        <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase border border-emerald-200 dark:border-emerald-500/30">
+          Enviado
+        </span>
+      );
+    if (status === "error")
+      return (
+        <span className="px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 text-[10px] font-bold uppercase border border-rose-200 dark:border-rose-500/30">
+          Erro
+        </span>
+      );
+    return (
+      <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-400 text-[10px] font-bold uppercase border border-slate-200 dark:border-border">
+        Aguardando
+      </span>
+    );
+  }
 
-  return (
-    <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors">
-      
+  return (
+    <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors">
       {/* TOPO */}
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
         <div className="min-w-0 text-left">
@@ -449,7 +625,10 @@ function AuditoriaPageContent() {
           </p>
         </div>
         <div className="flex items-center gap-2 justify-end shrink-0">
-          <button onClick={() => loadData(search)} className="h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all">
+          <button
+            onClick={() => loadData(search)}
+            className="h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
+          >
             <IconRefresh /> <span className="hidden sm:inline">Atualizar</span>
           </button>
         </div>
@@ -468,8 +647,11 @@ function AuditoriaPageContent() {
                 className="w-full h-10 px-3 pr-10 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
               />
               {search && (
-                <button 
-                  onClick={() => { setSearch(""); loadData(""); }} 
+                <button
+                  onClick={() => {
+                    setSearch("");
+                    loadData("");
+                  }}
                   className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500"
                   title="Limpar busca"
                 >
@@ -477,7 +659,7 @@ function AuditoriaPageContent() {
                 </button>
               )}
             </div>
-            <button 
+            <button
               onClick={() => loadData(search)}
               className="h-10 px-4 bg-slate-200 dark:bg-white/10 hover:bg-slate-300 dark:hover:bg-white/20 text-slate-700 dark:text-white rounded-lg text-sm font-bold transition-colors shadow-sm"
             >
@@ -490,10 +672,10 @@ function AuditoriaPageContent() {
             onChange={(e) => setFilterFulfillment(e.target.value)}
             className="w-[180px] h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
           >
-            <option value="Todos">Processamento (Todos)</option>
-            <option value="done">Concluídos (Auto)</option>
-            <option value="manual_done">Concluídos Manualmente</option>
-            <option value="manual_pending">Ação Manual (Pendentes)</option>
+            <option value="Todos">Processamento (Todos)</option>           {" "}
+            <option value="done">Concluídos (Auto)</option>
+            <option value="manual_done">Concluídos Manualmente</option>         
+              <option value="manual_pending">Ação Manual (Pendentes)</option>
             <option value="error">Erros na Renovação</option>
             <option value="pending">Aguardando Pagamento</option>
           </select>
@@ -525,31 +707,46 @@ function AuditoriaPageContent() {
               <tbody className="text-sm divide-y divide-slate-200 dark:divide-white/5">
                 {visible.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="p-8 text-center text-slate-400 dark:text-muted-foreground italic">
+                    <td
+                      colSpan={9}
+                      className="p-8 text-center text-slate-400 dark:text-muted-foreground italic"
+                    >
                       Nenhum registro encontrado.
                     </td>
                   </tr>
                 ) : (
                   visible.map((r) => {
                     const dateObj = new Date(r.created_at);
-                    
+
                     // ✅ Separação clara dos estados
-                    const isManualPending = r.fulfillment_status === "manual_pending";
-                    const isWhatsappError = r.whatsapp_status === "error" && (r.fulfillment_status === "done" || r.fulfillment_status === "manual_done");
-                    
+                    const isManualPending =
+                      r.fulfillment_status === "manual_pending";
+                    const isWhatsappError =
+                      r.whatsapp_status === "error" &&
+                      (r.fulfillment_status === "done" ||
+                        r.fulfillment_status === "manual_done");
+
                     const canShowAction = isManualPending || isWhatsappError;
 
                     return (
-                      <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
-                        
+                      <tr
+                        key={r.id}
+                        className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group"
+                      >
                         {/* Data e Hora */}
                         <td className="px-4 py-3">
                           <div className="flex flex-col">
                             <span className="font-mono text-slate-700 dark:text-white/90">
-                              {dateObj.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
+                              {dateObj.toLocaleDateString("pt-BR", {
+                                timeZone: "America/Sao_Paulo",
+                              })}
                             </span>
                             <span className="text-xs text-slate-500 dark:text-white/50">
-                              {dateObj.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: '2-digit', minute: '2-digit' })}
+                              {dateObj.toLocaleTimeString("pt-BR", {
+                                timeZone: "America/Sao_Paulo",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
                             </span>
                           </div>
                         </td>
@@ -557,11 +754,19 @@ function AuditoriaPageContent() {
                         {/* Cliente / Login / Servidor */}
                         <td className="px-4 py-3">
                           <div className="flex flex-col">
-                            <span className="font-bold text-slate-800 dark:text-white truncate max-w-[200px]">{r.client_name}</span>
+                            <span className="font-bold text-slate-800 dark:text-white truncate max-w-[200px]">
+                              {r.client_name}
+                            </span>
                             <div className="flex items-center gap-1.5 mt-0.5">
-                              <span className="text-xs font-mono text-slate-500 dark:text-white/60">{r.server_username}</span>
-                              <span className="text-slate-300 dark:text-white/20">•</span>
-                              <span className="text-[11px] text-slate-400">{r.server_name}</span>
+                              <span className="text-xs font-mono text-slate-500 dark:text-white/60">
+                                {r.server_username}
+                              </span>
+                              <span className="text-slate-300 dark:text-white/20">
+                                •
+                              </span>
+                              <span className="text-[11px] text-slate-400">
+                                {r.server_name}
+                              </span>
                             </div>
                           </div>
                         </td>
@@ -570,7 +775,9 @@ function AuditoriaPageContent() {
                         <td className="px-4 py-3 text-center">
                           <div className="flex flex-col gap-0.5 items-center">
                             <span className="text-xs font-bold text-slate-600 dark:text-white/80">
-                              {r.plan_label || PERIOD_LABELS[r.period] || r.period}
+                              {r.plan_label ||
+                                PERIOD_LABELS[r.period] ||
+                                r.period}
                             </span>
                             <span className="text-[10px] text-slate-400">
                               {r.screens} {r.screens === 1 ? "tela" : "telas"}
@@ -590,11 +797,17 @@ function AuditoriaPageContent() {
                           <div className="flex flex-col gap-1 items-center">
                             {getPaymentBadge(r.payment_status)}
                             {r.mp_payment_id && (
-                              <button 
+                              <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  navigator.clipboard.writeText(r.mp_payment_id!);
-                                  addToast("success", "Copiado", "Código da transação copiado!");
+                                  navigator.clipboard.writeText(
+                                    r.mp_payment_id!,
+                                  );
+                                  addToast(
+                                    "success",
+                                    "Copiado",
+                                    "Código da transação copiado!",
+                                  );
                                 }}
                                 className="text-[9px] font-mono text-slate-400 dark:text-muted-foreground bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 rounded border border-slate-200 dark:border-border hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
                                 title="Clique para copiar a referência"
@@ -607,36 +820,55 @@ function AuditoriaPageContent() {
                         {/* Renovação */}
                         <td className="px-4 py-3 text-center">
                           <div className="flex flex-col gap-1 items-center">
-                            {getFulfillmentBadge(r.fulfillment_status, r.payment_status)}
-                            
+                                                       {" "}
+                            {getFulfillmentBadge(
+                              r.fulfillment_status,
+                              r.payment_status,
+                            )}
                             {/* Cor neutra para todos os fluxos manuais (Pendente, Concluído ou Cancelado) */}
-                            {(r.fulfillment_status === "manual_pending" || r.fulfillment_status === "manual_done" || r.fulfillment_status === "manual_cancelled") ? (
-                              <span 
-                                className="text-[10px] text-slate-500 dark:text-white/50 leading-tight max-w-[200px] truncate font-medium" 
-                                title={r.fulfillment_error || "Renovação Manual"}
+                            {r.fulfillment_status === "manual_pending" ||
+                            r.fulfillment_status === "manual_done" ||
+                            r.fulfillment_status === "manual_cancelled" ? (
+                              <span
+                                className="text-[10px] text-slate-500 dark:text-white/50 leading-tight max-w-[200px] truncate font-medium"
+                                title={
+                                  r.fulfillment_error || "Renovação Manual"
+                                }
                               >
                                 {r.fulfillment_error || "Renovação Manual"}
                               </span>
                             ) : (
                               /* Erros reais de API continuam vermelhos */
-                              r.fulfillment_error && r.payment_status === 'approved' && (
-                                <span className="text-[10px] text-rose-500 leading-tight max-w-[200px] truncate" title={r.fulfillment_error}>
+                              r.fulfillment_error &&
+                              r.payment_status === "approved" && (
+                                <span
+                                  className="text-[10px] text-rose-500 leading-tight max-w-[200px] truncate"
+                                  title={r.fulfillment_error}
+                                >
                                   {r.fulfillment_error}
                                 </span>
                               )
                             )}
-                          </div>
+                                                     {" "}
+                          </div>
                         </td>
 
                         {/* Mensagem WA */}
                         <td className="px-4 py-3 text-center">
-                           {getWhatsappBadge(r.whatsapp_status, r.payment_status, r.fulfillment_status)}
+                          {getWhatsappBadge(
+                            r.whatsapp_status,
+                            r.payment_status,
+                            r.fulfillment_status,
+                          )}
                         </td>
 
                         {/* Valor */}
                         <td className="px-4 py-3 text-right">
                           <span className="font-bold text-slate-700 dark:text-white">
-                            {new Intl.NumberFormat("pt-BR", { style: "currency", currency: r.price_currency || "BRL" }).format(r.price_amount)}
+                            {new Intl.NumberFormat("pt-BR", {
+                              style: "currency",
+                              currency: r.price_currency || "BRL",
+                            }).format(r.price_amount)}
                           </span>
                         </td>
 
@@ -647,20 +879,26 @@ function AuditoriaPageContent() {
                               <>
                                 {/* Botão Concluir (Roxo) - Abre o Modal de Recarga */}
                                 <button
-                                  onClick={() => setRenewState({ logId: r.id, clientId: r.client_id, clientName: r.client_name })}
+                                  onClick={() =>
+                                    setRenewState({
+                                      logId: r.id,
+                                      clientId: r.client_id,
+                                      clientName: r.client_name,
+                                    })
+                                  }
                                   className="px-3 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-500/20 dark:hover:bg-purple-500/30 dark:text-purple-300 text-[10px] font-bold uppercase rounded-lg transition-colors border border-purple-200 dark:border-purple-500/30 shadow-sm flex items-center justify-center gap-1"
                                   title="Abrir painel de renovação"
                                 >
                                   <IconCheckCircle /> Concluir
                                 </button>
-                                
+
                                 {/* ✅ Botão Cancelar (Vermelho suave) */}
                                 <button
                                   onClick={() => handleCancelarAcao(r)}
                                   className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 dark:text-rose-400 text-[10px] font-bold uppercase rounded-lg transition-colors border border-rose-200 dark:border-rose-500/20 shadow-sm flex items-center justify-center gap-1"
                                   title="Encerrar esta pendência sem renovar"
                                 >
-                                  <IconX /> 
+                                  <IconX />
                                 </button>
                               </>
                             )}
@@ -677,11 +915,12 @@ function AuditoriaPageContent() {
                             )}
 
                             {!canShowAction && (
-                              <span className="text-slate-300 dark:text-white/20 text-xs font-bold">—</span>
+                              <span className="text-slate-300 dark:text-white/20 text-xs font-bold">
+                                —
+                              </span>
                             )}
                           </div>
                         </td>
-
                       </tr>
                     );
                   })
@@ -689,14 +928,26 @@ function AuditoriaPageContent() {
               </tbody>
             </table>
           </div>
-          
+
           <div className="border-t border-slate-200 dark:border-border px-4 py-3 flex items-center justify-between bg-slate-50 dark:bg-white/5">
             <span className="text-xs text-slate-500 dark:text-white/50">
               Mostrando página {safePage} de {totalPages}
             </span>
             <div className="flex gap-2">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage <= 1} className="px-3 py-1 rounded border border-slate-200 dark:border-border text-xs font-bold disabled:opacity-40 bg-white dark:bg-black/20 text-slate-600 dark:text-muted-foreground">Anterior</button>
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages} className="px-3 py-1 rounded border border-slate-200 dark:border-border text-xs font-bold disabled:opacity-40 bg-white dark:bg-black/20 text-slate-600 dark:text-muted-foreground">Próxima</button>
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={safePage <= 1}
+                className="px-3 py-1 rounded border border-slate-200 dark:border-border text-xs font-bold disabled:opacity-40 bg-white dark:bg-black/20 text-slate-600 dark:text-muted-foreground"
+              >
+                Anterior
+              </button>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safePage >= totalPages}
+                className="px-3 py-1 rounded border border-slate-200 dark:border-border text-xs font-bold disabled:opacity-40 bg-white dark:bg-black/20 text-slate-600 dark:text-muted-foreground"
+              >
+                Próxima
+              </button>
             </div>
           </div>
         </div>
@@ -705,31 +956,43 @@ function AuditoriaPageContent() {
       {/* ✅ Renderiza o Modal de Recarga ao clicar em Concluir */}
       {renewState && (
         <>
-          
-            <RecargaCliente
-              clientId={renewState.clientId}
-              clientName={renewState.clientName}
-              paymentLogId={renewState.logId}
-              toastKey="auditoria_list_toasts"
-              onClose={() => setRenewState(null)}
-              onSuccess={async (returnedLogId) => {
-                if (!returnedLogId) return;
-                try {
-                  const { error } = await supabaseBrowser.rpc("update_fulfillment_status", { p_log_id: returnedLogId, p_tenant_id: tenantId, p_status: "manual_done" });
-                  if (error) throw error;
-                  addToast("success", "Auditoria Atualizada", "Renovação confirmada na Auditoria!");
-                  setRenewState(null);
-                  loadData(); 
-                } catch (e) {}
-              }}
-            />
-   
+          <RecargaCliente
+            clientId={renewState.clientId}
+            clientName={renewState.clientName}
+            paymentLogId={renewState.logId}
+            toastKey="auditoria_list_toasts"
+            onClose={() => setRenewState(null)}
+            onSuccess={async (returnedLogId) => {
+              if (!returnedLogId) return;
+              try {
+                const { error } = await supabaseBrowser.rpc(
+                  "update_fulfillment_status",
+                  {
+                    p_log_id: returnedLogId,
+                    p_tenant_id: tenantId,
+                    p_status: "manual_done",
+                  },
+                );
+                if (error) throw error;
+                addToast(
+                  "success",
+                  "Auditoria Atualizada",
+                  "Renovação confirmada na Auditoria!",
+                );
+                setRenewState(null);
+                loadData();
+              } catch (e) {}
+            }}
+          />
         </>
       )}
 
       {ConfirmUI}
       <div className="relative z-[999999]">
-        <ToastNotifications toasts={toasts} removeToast={(id) => setToasts(t => t.filter(x => x.id !== id))} />
+        <ToastNotifications
+          toasts={toasts}
+          removeToast={(id) => setToasts((t) => t.filter((x) => x.id !== id))}
+        />
       </div>
     </div>
   );
@@ -737,7 +1000,13 @@ function AuditoriaPageContent() {
 
 export default function AuditoriaPage() {
   return (
-    <Suspense fallback={<div className="p-12 text-center text-slate-400 animate-pulse">Carregando Auditoria...</div>}>
+    <Suspense
+      fallback={
+        <div className="p-12 text-center text-slate-400 animate-pulse">
+          Carregando Auditoria...
+        </div>
+      }
+    >
       <AuditoriaPageContent />
     </Suspense>
   );

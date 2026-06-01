@@ -45,7 +45,9 @@ function HomeRouter() {
 
 export default function HomePage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-slate-50 dark:bg-background" />}>
+    <Suspense
+      fallback={<div className="min-h-screen bg-slate-50 dark:bg-background" />}
+    >
       <HomeRouter />
     </Suspense>
   );

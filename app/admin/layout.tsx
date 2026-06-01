@@ -51,21 +51,20 @@ export default async function AdminLayout({
 
   const tenantName = tenantRow?.name ?? "Painel";
   const tenantLogo = tenantRow?.logo_url ?? null;
-  const userLabel = profile?.display_name || tenantName || user.email || "Usuário";
+  const userLabel =
+    profile?.display_name || tenantName || user.email || "Usuário";
 
   return (
-    
-      <ConfirmProvider>
-        <AdminShell
-          userLabel={userLabel}
-          tenantName={tenantName}
-          tenantId={member.tenant_id}
-          whatsappSessions={1}
-          logoUrl={tenantLogo}
-        >
-          {children}
-        </AdminShell>
-      </ConfirmProvider>
-    
+    <ConfirmProvider>
+      <AdminShell
+        userLabel={userLabel}
+        tenantName={tenantName}
+        tenantId={member.tenant_id}
+        whatsappSessions={1}
+        logoUrl={tenantLogo}
+      >
+        {children}
+      </AdminShell>
+    </ConfirmProvider>
   );
 }

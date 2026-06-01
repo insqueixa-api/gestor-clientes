@@ -3,11 +3,11 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
-import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile';
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
 
 type Msg = { text: string; type: "error" | "success" };
@@ -75,38 +75,41 @@ export default function LoginClient() {
   const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-  const fromQuery = (sp.get("t") ?? "").trim();
+    const fromQuery = (sp.get("t") ?? "").trim();
 
-  // ✅ suporta link mais seguro no futuro: /#t=TOKEN (hash não vai pro servidor)
-  let fromHash = "";
-  if (typeof window !== "undefined") {
-    const h = window.location.hash || "";
-    const m = h.match(/(?:^#|[&#])t=([^&]+)/);
-    if (m?.[1]) {
-      try {
-        fromHash = decodeURIComponent(m[1]);
-      } catch {
-        fromHash = m[1];
+    // ✅ suporta link mais seguro no futuro: /#t=TOKEN (hash não vai pro servidor)
+    let fromHash = "";
+    if (typeof window !== "undefined") {
+      const h = window.location.hash || "";
+      const m = h.match(/(?:^#|[&#])t=([^&]+)/);
+      if (m?.[1]) {
+        try {
+          fromHash = decodeURIComponent(m[1]);
+        } catch {
+          fromHash = m[1];
+        }
       }
     }
-  }
 
-  const stored = getStored(KEY_LOGIN_TOKEN);
+    const stored = getStored(KEY_LOGIN_TOKEN);
 
-  const t = fromQuery || fromHash || stored || "";
-  if (t) setStored(KEY_LOGIN_TOKEN, t);
+    const t = fromQuery || fromHash || stored || "";
+    if (t) setStored(KEY_LOGIN_TOKEN, t);
 
-  // ✅ remove token da querystring
-  if (fromQuery) removeParamFromUrl("t");
+    // ✅ remove token da querystring
+    if (fromQuery) removeParamFromUrl("t");
 
-  // ✅ remove o hash inteiro (evita token ficar na URL)
-  if (fromHash && typeof window !== "undefined") {
-    window.history.replaceState({}, "", window.location.pathname + window.location.search);
-  }
+    // ✅ remove o hash inteiro (evita token ficar na URL)
+    if (fromHash && typeof window !== "undefined") {
+      window.history.replaceState(
+        {},
+        "",
+        window.location.pathname + window.location.search,
+      );
+    }
 
-  setToken(t);
-}, [sp]);
-
+    setToken(t);
+  }, [sp]);
 
   const [whatsapp, setWhatsapp] = useState("");
   const [pin, setPin] = useState("");
@@ -122,11 +125,15 @@ export default function LoginClient() {
   const turnstileRef = useRef<TurnstileInstance>(null);
 
   const cleanPhone = useMemo(() => whatsapp.replace(/\D/g, ""), [whatsapp]);
-  
 
-const canSubmit = useMemo(() => {
+  const canSubmit = useMemo(() => {
     // ✅ Agora ele só libera o botão se tiver o token do Cloudflare também
-    return (token ?? "").length > 10 && cleanPhone.length >= 10 && pin.length === 4 && turnstileToken !== null;
+    return (
+      (token ?? "").length > 10 &&
+      cleanPhone.length >= 10 &&
+      pin.length === 4 &&
+      turnstileToken !== null
+    );
   }, [token, cleanPhone, pin, turnstileToken]);
 
   useEffect(() => {
@@ -141,19 +148,27 @@ const canSubmit = useMemo(() => {
       if (!token) {
         clearStored(KEY_LOGIN_TOKEN);
         setWhatsapp("");
-        setMsg({ type: "error", text: "Link inválido. Solicite um novo link ao suporte." });
+        setMsg({
+          type: "error",
+          text: "Link inválido. Solicite um novo link ao suporte.",
+        });
         return;
       }
 
       setLoadingResolve(true);
       try {
-        const { data, error } = await supabase.rpc("portal_resolve_token", { p_token: token });
+        const { data, error } = await supabase.rpc("portal_resolve_token", {
+          p_token: token,
+        });
 
         if (cancelled) return;
 
         if (error) {
           clearStored(KEY_LOGIN_TOKEN);
-          setMsg({ type: "error", text: "Link inválido ou expirado. Solicite um novo link." });
+          setMsg({
+            type: "error",
+            text: "Link inválido ou expirado. Solicite um novo link.",
+          });
           setWhatsapp("");
           return;
         }
@@ -161,7 +176,10 @@ const canSubmit = useMemo(() => {
         const row = Array.isArray(data) ? data[0] : null;
         if (!row?.whatsapp_username) {
           clearStored(KEY_LOGIN_TOKEN);
-          setMsg({ type: "error", text: "Link inválido ou expirado. Solicite um novo link." });
+          setMsg({
+            type: "error",
+            text: "Link inválido ou expirado. Solicite um novo link.",
+          });
           setWhatsapp("");
           return;
         }
@@ -169,7 +187,10 @@ const canSubmit = useMemo(() => {
         setWhatsapp(String(row.whatsapp_username));
       } catch {
         if (!cancelled) {
-          setMsg({ type: "error", text: "Falha ao validar o link. Tente novamente." });
+          setMsg({
+            type: "error",
+            text: "Falha ao validar o link. Tente novamente.",
+          });
           setWhatsapp("");
         }
       } finally {
@@ -215,7 +236,10 @@ const canSubmit = useMemo(() => {
       if (!sessionToken) {
         turnstileRef.current?.reset();
         setTurnstileToken(null);
-        setMsg({ type: "error", text: "Não foi possível iniciar a sessão. Tente novamente." });
+        setMsg({
+          type: "error",
+          text: "Não foi possível iniciar a sessão. Tente novamente.",
+        });
         return;
       }
 
@@ -225,7 +249,7 @@ const canSubmit = useMemo(() => {
       // ✅ remove o login token do storage depois do sucesso
       clearStored(KEY_LOGIN_TOKEN);
 
-      window.location.href = '/renew';
+      window.location.href = "/renew";
     } catch {
       turnstileRef.current?.reset();
       setTurnstileToken(null);
@@ -241,7 +265,10 @@ const canSubmit = useMemo(() => {
     if (token === null) return;
 
     if (!token) {
-      setMsg({ type: "error", text: "Link inválido. Solicite um novo link ao suporte." });
+      setMsg({
+        type: "error",
+        text: "Link inválido. Solicite um novo link ao suporte.",
+      });
       return;
     }
 
@@ -252,7 +279,6 @@ const canSubmit = useMemo(() => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token }),
       });
-
 
       setMsg({
         type: "success",
@@ -279,7 +305,7 @@ const canSubmit = useMemo(() => {
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-gradient-to-br from-[#0b2a4a] via-[#0f141a] to-[#0e6b5c] opacity-90 dark:opacity-100" />
         <div className="absolute -top-[10%] -right-[10%] h-[40%] w-[40%] rounded-full bg-emerald-500/20 blur-3xl" />
-<div className="absolute -bottom-[10%] -left-[10%] h-[40%] w-[40%] rounded-full bg-blue-500/20 blur-3xl" />
+        <div className="absolute -bottom-[10%] -left-[10%] h-[40%] w-[40%] rounded-full bg-blue-500/20 blur-3xl" />
         <div
           className="absolute inset-0 opacity-[0.06] mix-blend-overlay"
           style={{
@@ -289,7 +315,7 @@ const canSubmit = useMemo(() => {
         />
       </div>
 
-<div className="relative z-10 w-full max-w-[420px] sm:max-w-md">
+      <div className="relative z-10 w-full max-w-[420px] sm:max-w-md">
         <div className="rounded-2xl border border-white/20 bg-white/85 backdrop-blur-xl shadow-2xl dark:bg-card/80 dark:border-border overflow-hidden">
           {/* Reduzido de pt-4 para pt-5 para a logo ficar mais colada em cima */}
           <div className="px-5 sm:px-6 pt-5 sm:pt-6 pb-3 sm:pb-4 text-center">
@@ -309,9 +335,13 @@ const canSubmit = useMemo(() => {
             </p>
           </div>
 
-{/* pb-4 (celular) / pb-6 (pc) */}
+          {/* pb-4 (celular) / pb-6 (pc) */}
           <div className="px-5 sm:px-6 pb-4 sm:pb-6">
-            <form onSubmit={handleAcesso} autoComplete="off" className="space-y-3 sm:space-y-4">
+            <form
+              onSubmit={handleAcesso}
+              autoComplete="off"
+              className="space-y-3 sm:space-y-4"
+            >
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/50 ml-1">
                   Seu WhatsApp
@@ -323,7 +353,7 @@ const canSubmit = useMemo(() => {
                     value={formatWhatsApp(whatsapp)}
                     readOnly
                     autoComplete="off"
-                    data-1p-ignore="true" 
+                    data-1p-ignore="true"
                     data-lpignore="true"
                     placeholder={loadingResolve ? "Validando link..." : "—"}
                     className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-center font-bold text-base text-slate-900 outline-none transition
@@ -355,7 +385,9 @@ const canSubmit = useMemo(() => {
                   data-lpignore="true"
                   maxLength={4}
                   value={pin}
-                  onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                  onChange={(e) =>
+                    setPin(e.target.value.replace(/\D/g, "").slice(0, 4))
+                  }
                   placeholder="••••"
                   style={{ WebkitTextSecurity: "disc" } as any}
                   className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-center text-xl tracking-[0.5em]
@@ -371,21 +403,19 @@ const canSubmit = useMemo(() => {
                 )}
               </div>
 
-{/* === VALIDADOR HUMANO CLOUDFLARE === */}
+              {/* === VALIDADOR HUMANO CLOUDFLARE === */}
               <div className="flex justify-center pt-2">
-                <Turnstile 
+                <Turnstile
                   ref={turnstileRef}
-                  siteKey="0x4AAAAAACgrYURZlknhmi-J" 
+                  siteKey="0x4AAAAAACgrYURZlknhmi-J"
                   onSuccess={(token) => setTurnstileToken(token)}
                   onError={() => setTurnstileToken(null)}
                   onExpire={() => setTurnstileToken(null)}
                 />
               </div>
 
-
               <div className="space-y-3">
-                
-<button
+                <button
                   type="submit"
                   disabled={!canSubmit || loadingResolve || loadingLogin}
                   className={[
@@ -397,17 +427,18 @@ const canSubmit = useMemo(() => {
                 >
                   {loadingLogin ? "Acessando..." : "Acessar Área do Cliente"}
                 </button>
-
               </div>
 
               {msg && (
-                <div className={`mt-2 text-center text-sm font-bold ${msg.type === "error" ? "text-red-500" : "text-emerald-500"}`}>
+                <div
+                  className={`mt-2 text-center text-sm font-bold ${msg.type === "error" ? "text-red-500" : "text-emerald-500"}`}
+                >
                   {msg.text}
                 </div>
               )}
             </form>
 
-{/* Rodapé mínimo */}
+            {/* Rodapé mínimo */}
             <div className="mt-4 sm:mt-6 text-center text-[10px] sm:text-xs text-white/70">
               <span className="inline-block rounded-full bg-black/20 px-3 py-1">
                 UniGestor © {new Date().getFullYear()}

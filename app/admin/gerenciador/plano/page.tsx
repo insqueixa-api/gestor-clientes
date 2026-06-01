@@ -1,7 +1,6 @@
 "use client";
 import { X } from "lucide-react";
 
-
 import { useEffect, useMemo, useState } from "react";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
@@ -34,7 +33,13 @@ export type PlanRow = {
   items: Item[];
 };
 
-const PERIOD_ORDER = ["MONTHLY", "BIMONTHLY", "QUARTERLY", "SEMIANNUAL", "ANNUAL"];
+const PERIOD_ORDER = [
+  "MONTHLY",
+  "BIMONTHLY",
+  "QUARTERLY",
+  "SEMIANNUAL",
+  "ANNUAL",
+];
 
 const PERIOD_LABELS: Record<string, string> = {
   MONTHLY: "Mensal",
@@ -50,7 +55,8 @@ export default function PlanosPage() {
 
   // ✅ Controle de Toasts na Página Principal
   const [toasts, setToasts] = useState<any[]>([]);
-  const removeToast = (id: number) => setToasts((prev) => prev.filter((t) => t.id !== id));
+  const removeToast = (id: number) =>
+    setToasts((prev) => prev.filter((t) => t.id !== id));
 
   const checkQueuedToasts = () => {
     try {
@@ -64,9 +70,9 @@ export default function PlanosPage() {
             type: t.type,
             title: t.title,
             message: t.message,
-            durationMs: 5000
+            durationMs: 5000,
           }));
-          setToasts(prev => [...prev, ...newToasts]);
+          setToasts((prev) => [...prev, ...newToasts]);
           window.sessionStorage.removeItem(key);
         }
       }
@@ -128,7 +134,7 @@ export default function PlanosPage() {
               price_amount
             )
           )
-        `
+        `,
         )
         .eq("tenant_id", tenantId)
         .order("is_system_default", { ascending: false })
@@ -136,7 +142,7 @@ export default function PlanosPage() {
 
       if (error) throw error;
 
-      const next = (((data as any) as PlanRow[]) || []) as PlanRow[];
+      const next = ((data as any as PlanRow[]) || []) as PlanRow[];
       setPlano(next);
 
       // Garante que qualquer tabela nova comece minimizada
@@ -156,7 +162,8 @@ export default function PlanosPage() {
 
   // --- Função de Deletar (Blindada) ---
   async function handleDelete(plan: PlanRow) {
-    if (!confirm(`Tem certeza que deseja excluir a tabela "${plan.name}"?`)) return;
+    if (!confirm(`Tem certeza que deseja excluir a tabela "${plan.name}"?`))
+      return;
 
     setLoading(true);
 
@@ -175,7 +182,8 @@ export default function PlanosPage() {
           .delete()
           .in("plan_table_item_id", itemIds);
 
-        if (pricesErr) throw new Error(`Erro ao deletar preços: ${pricesErr.message}`);
+        if (pricesErr)
+          throw new Error(`Erro ao deletar preços: ${pricesErr.message}`);
       }
 
       // 2. Deletar Itens associados a esta tabela
@@ -184,7 +192,8 @@ export default function PlanosPage() {
         .delete()
         .eq("plan_table_id", plan.id);
 
-      if (itemsErr) throw new Error(`Erro ao deletar itens: ${itemsErr.message}`);
+      if (itemsErr)
+        throw new Error(`Erro ao deletar itens: ${itemsErr.message}`);
 
       // 3. Deletar Tabela Principal
       const { data, error } = await supabase
@@ -199,7 +208,9 @@ export default function PlanosPage() {
       }
 
       if (!data || data.length === 0) {
-        throw new Error("Tabela não encontrada ou você não tem permissão para apagá-la.");
+        throw new Error(
+          "Tabela não encontrada ou você não tem permissão para apagá-la.",
+        );
       }
 
       // 4. Atualiza o estado da UI sem recarregar a página
@@ -210,7 +221,8 @@ export default function PlanosPage() {
         return out;
       });
     } catch (err: any) {
-      if (process.env.NODE_ENV !== "production") console.error("Falha no DELETE:", err?.message || err);
+      if (process.env.NODE_ENV !== "production")
+        console.error("Falha no DELETE:", err?.message || err);
       alert(err?.message || "Ocorreu um erro inesperado ao excluir a tabela.");
     } finally {
       setLoading(false);
@@ -230,19 +242,21 @@ export default function PlanosPage() {
     }).format(amount);
   };
 
-  const getCellData = (plan: PlanRow, periodKey: string, screenCount: number) => {
+  const getCellData = (
+    plan: PlanRow,
+    periodKey: string,
+    screenCount: number,
+  ) => {
     const item = plan.items.find((i) => i.period === periodKey);
     if (!item) return { price: null };
     const priceObj = item.prices.find((p) => p.screens_count === screenCount);
-    
+
     return {
       price: priceObj?.price_amount ?? null,
     };
   };
 
   return (
-
-    
     <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors">
       {/* Topo */}
       <div className="flex items-center justify-between gap-2 pb-0 mb-2 px-3 sm:px-0 md:px-4">
@@ -267,7 +281,7 @@ export default function PlanosPage() {
 
       {/* Barra de Busca */}
       <div
-        className={`p-0 px-3 sm:px-0 md:p-4 bg-transparent md:bg-white md:dark:bg-card border-0 md:border md:border-slate-200 md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 ${(isNewOpen || editingPlan) ? "z-0" : "z-20"}`}
+        className={`p-0 px-3 sm:px-0 md:p-4 bg-transparent md:bg-white md:dark:bg-card border-0 md:border md:border-slate-200 md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 ${isNewOpen || editingPlan ? "z-0" : "z-20"}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-muted-foreground tracking-wider mb-2">
@@ -308,177 +322,249 @@ export default function PlanosPage() {
         </div>
       )}
 
-      {!loading && (() => {
-        const groups = [
-          {
-            key: "iptv",
-            label: "Tabela de Preço",
-            icon: <IconTV />,
-            color: "text-sky-500",
-            plans: filteredPlans,
-          },
-        ].filter((g) => g.plans.length > 0);
+      {!loading &&
+        (() => {
+          const groups = [
+            {
+              key: "iptv",
+              label: "Tabela de Preço",
+              icon: <IconTV />,
+              color: "text-sky-500",
+              plans: filteredPlans,
+            },
+          ].filter((g) => g.plans.length > 0);
 
-        if (groups.length === 0) {
-          return (
-            <div
-              className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-none sm:rounded-xl shadow-sm transition-colors"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="p-8 text-center text-slate-400 dark:text-muted-foreground italic">
-                Nenhuma tabela encontrada.
-              </div>
-            </div>
-          );
-        }
-
-        return (
-          <div className="space-y-6" onClick={(e) => e.stopPropagation()}>
-            {groups.map((group) => (
+          if (groups.length === 0) {
+            return (
               <div
-                key={group.key}
-                className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors"
+                className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-none sm:rounded-xl shadow-sm transition-colors"
+                onClick={(e) => e.stopPropagation()}
               >
-                {/* Cabeçalho do grupo */}
-                <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
-                  <span className={`${group.color}`}>{group.icon}</span>
-                  <span className="text-sm font-bold text-slate-700 dark:text-white whitespace-nowrap">
-                    {group.label}
-                  </span>
-                  <span className="ml-1 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
-                    {group.plans.length}
-                  </span>
+                <div className="p-8 text-center text-slate-400 dark:text-muted-foreground italic">
+                  Nenhuma tabela encontrada.
                 </div>
+              </div>
+            );
+          }
 
-                <div className="p-4 sm:p-5">
-                  <div className="grid grid-cols-1 gap-4 sm:gap-6">
-                    {group.plans.map((plan) => {
-                      const isExpanded = !!expanded[plan.id];
+          return (
+            <div className="space-y-6" onClick={(e) => e.stopPropagation()}>
+              {groups.map((group) => (
+                <div
+                  key={group.key}
+                  className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors"
+                >
+                  {/* Cabeçalho do grupo */}
+                  <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
+                    <span className={`${group.color}`}>{group.icon}</span>
+                    <span className="text-sm font-bold text-slate-700 dark:text-white whitespace-nowrap">
+                      {group.label}
+                    </span>
+                    <span className="ml-1 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
+                      {group.plans.length}
+                    </span>
+                  </div>
 
-                      return (
-                        <div
-                          key={plan.id}
-                          className="bg-white dark:bg-card rounded-xl overflow-hidden shadow-sm border border-slate-200 dark:border-border transition-colors"
-                        >
-                          {/* CABEÇALHO DO CARD */}
-                          <div className="px-5 py-3 flex justify-between items-center border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
-                            <div className="flex items-center gap-3">
-                              <h2 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">
-                                {plan.is_system_default && plan.name.startsWith("Padrão") ? "Padrão" : plan.name}
-                              </h2>
+                  <div className="p-4 sm:p-5">
+                    <div className="grid grid-cols-1 gap-4 sm:gap-6">
+                      {group.plans.map((plan) => {
+                        const isExpanded = !!expanded[plan.id];
 
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest bg-slate-200/50 dark:bg-white/5 px-2 py-0.5 rounded">
-                                  {plan.currency}
-                                </span>
+                        return (
+                          <div
+                            key={plan.id}
+                            className="bg-white dark:bg-card rounded-xl overflow-hidden shadow-sm border border-slate-200 dark:border-border transition-colors"
+                          >
+                            {/* CABEÇALHO DO CARD */}
+                            <div className="px-5 py-3 flex justify-between items-center border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
+                              <div className="flex items-center gap-3">
+                                <h2 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">
+                                  {plan.is_system_default &&
+                                  plan.name.startsWith("Padrão")
+                                    ? "Padrão"
+                                    : plan.name}
+                                </h2>
 
-                                {(plan.is_system_default || plan.name.startsWith("Padrão")) ? (
-                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 shadow-sm">
-                                    Padrão do Sistema
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest bg-slate-200/50 dark:bg-white/5 px-2 py-0.5 rounded">
+                                    {plan.currency}
                                   </span>
-                                ) : (
-                                  <span
-                                    className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border shadow-sm
+
+                                  {plan.is_system_default ||
+                                  plan.name.startsWith("Padrão") ? (
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 shadow-sm">
+                                      Padrão do Sistema
+                                    </span>
+                                  ) : (
+                                    <span
+                                      className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border shadow-sm
                                     ${
                                       plan.is_active
                                         ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
                                         : "bg-slate-100 text-slate-400 border-slate-200 dark:bg-white/5 dark:border-border dark:text-white/20"
                                     }`}
+                                    >
+                                      {plan.is_active ? "Ativa" : "Inativa"}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* AÇÕES */}
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() =>
+                                    setExpanded((prev) => ({
+                                      ...prev,
+                                      [plan.id]: !prev[plan.id],
+                                    }))
+                                  }
+                                  className="p-1.5 rounded-lg bg-slate-500/10 border border-slate-500/20 text-slate-600 dark:text-muted-foreground hover:bg-slate-500/20 transition-all shadow-sm"
+                                  title={
+                                    isExpanded
+                                      ? "Minimizar tabela"
+                                      : "Maximizar tabela"
+                                  }
+                                  aria-label={
+                                    isExpanded
+                                      ? "Minimizar tabela"
+                                      : "Maximizar tabela"
+                                  }
+                                >
+                                  {isExpanded ? (
+                                    <svg
+                                      className="w-4 h-4"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                      stroke="currentColor"
+                                      strokeWidth={2}
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        d="M6 12h12"
+                                      />
+                                    </svg>
+                                  ) : (
+                                    <svg
+                                      className="w-4 h-4"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                      stroke="currentColor"
+                                      strokeWidth={2}
+                                    >
+                                      <rect
+                                        x="6"
+                                        y="6"
+                                        width="12"
+                                        height="12"
+                                        rx="1"
+                                      />
+                                    </svg>
+                                  )}
+                                </button>
+
+                                <button
+                                  onClick={() => setEditingPlan(plan)}
+                                  className="p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-all shadow-sm"
+                                  title="Editar Preços"
+                                >
+                                  <svg
+                                    className="w-4 h-4"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                    strokeWidth={2}
                                   >
-                                    {plan.is_active ? "Ativa" : "Inativa"}
-                                  </span>
-                                )}
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                    />
+                                  </svg>
+                                </button>
+
+                                {!plan.is_system_default &&
+                                  !plan.name.startsWith("Padrão") && (
+                                    <button
+                                      onClick={() => handleDelete(plan)}
+                                      className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 transition-all shadow-sm"
+                                      title="Excluir Tabela"
+                                    >
+                                      <svg
+                                        className="w-4 h-4"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                        strokeWidth={2}
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                        />
+                                      </svg>
+                                    </button>
+                                  )}
                               </div>
                             </div>
 
-                            {/* AÇÕES */}
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => setExpanded((prev) => ({ ...prev, [plan.id]: !prev[plan.id] }))}
-                                className="p-1.5 rounded-lg bg-slate-500/10 border border-slate-500/20 text-slate-600 dark:text-muted-foreground hover:bg-slate-500/20 transition-all shadow-sm"
-                                title={isExpanded ? "Minimizar tabela" : "Maximizar tabela"}
-                                aria-label={isExpanded ? "Minimizar tabela" : "Maximizar tabela"}
-                              >
-                                {isExpanded ? (
-                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 12h12" />
-                                  </svg>
-                                ) : (
-                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <rect x="6" y="6" width="12" height="12" rx="1" />
-                                  </svg>
-                                )}
-                              </button>
+                            {/* CONTEÚDO EXPANDIDO */}
+                            {isExpanded && (
+                              <div className="p-4 sm:p-5 space-y-6 bg-white dark:bg-card">
+                                {[1, 2, 3].map((screenCount) => (
+                                  <div
+                                    key={screenCount}
+                                    className="animate-in slide-in-from-left-2 duration-300"
+                                  >
+                                    <h3 className="text-xs font-bold text-slate-500 dark:text-muted-foreground mb-3 ml-1 tracking-tight">
+                                      Preços para {screenCount}{" "}
+                                      {screenCount === 1 ? "Tela" : "Telas"}
+                                    </h3>
 
-                              <button
-                                onClick={() => setEditingPlan(plan)}
-                                className="p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-all shadow-sm"
-                                title="Editar Preços"
-                              >
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                              </button>
+                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                                      {PERIOD_ORDER.map((period) => {
+                                        const { price } = getCellData(
+                                          plan,
+                                          period,
+                                          screenCount,
+                                        );
 
-                              {!plan.is_system_default && !plan.name.startsWith("Padrão") && (
-                                <button
-                                  onClick={() => handleDelete(plan)}
-                                  className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 transition-all shadow-sm"
-                                  title="Excluir Tabela"
-                                >
-                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                  </svg>
-                                </button>
-                              )}
-                            </div>
-                          </div>
+                                        return (
+                                          <div
+                                            key={period}
+                                            className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-xl px-3 py-2.5 flex flex-col justify-center h-16 relative hover:border-emerald-500/30 transition-all group"
+                                          >
+                                            <div className="flex justify-between items-center w-full mb-1">
+                                              <span className="text-[10px] font-bold text-slate-400 dark:text-white/20">
+                                                {PERIOD_LABELS[period]}
+                                              </span>
+                                            </div>
 
-                          {/* CONTEÚDO EXPANDIDO */}
-            {isExpanded && (
-              <div className="p-4 sm:p-5 space-y-6 bg-white dark:bg-card">
-                {[1, 2, 3].map((screenCount) => (
-                  <div key={screenCount} className="animate-in slide-in-from-left-2 duration-300">
-                                  <h3 className="text-xs font-bold text-slate-500 dark:text-muted-foreground mb-3 ml-1 tracking-tight">
-                                    Preços para {screenCount} {screenCount === 1 ? "Tela" : "Telas"}
-                                  </h3>
-
-                                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                                    {PERIOD_ORDER.map((period) => {
-                                      const { price } = getCellData(plan, period, screenCount);
-
-                                      return (
-                                        <div
-                                          key={period}
-                                          className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-xl px-3 py-2.5 flex flex-col justify-center h-16 relative hover:border-emerald-500/30 transition-all group"
-                                        >
-                                          <div className="flex justify-between items-center w-full mb-1">
-                                            <span className="text-[10px] font-bold text-slate-400 dark:text-white/20">
-                                              {PERIOD_LABELS[period]}
-                                            </span>
+                                            <div className="text-sm font-bold text-slate-800 dark:text-white tracking-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                                              {formatMoney(
+                                                price,
+                                                plan.currency,
+                                              )}
+                                            </div>
                                           </div>
-
-                                          <div className="text-sm font-bold text-slate-800 dark:text-white tracking-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                                            {formatMoney(price, plan.currency)}
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
+                                        );
+                                      })}
+                                    </div>
                                   </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        );
-      })()}
+              ))}
+            </div>
+          );
+        })()}
 
       {/* Modal Unificado */}
       {(isNewOpen || editingPlan) && (
@@ -509,14 +595,19 @@ export default function PlanosPage() {
 }
 
 function IconX() {
-  return (
-    <X className="w-4 h-4" />
-  );
+  return <X className="w-4 h-4" />;
 }
 
 function IconTV() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
       <rect x="2" y="3" width="20" height="14" rx="2" />
       <path d="M8 21h8M12 17v4" />
     </svg>

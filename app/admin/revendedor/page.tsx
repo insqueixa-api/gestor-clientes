@@ -1,6 +1,16 @@
 "use client";
-import { X, ChevronUp, ChevronDown, MessageCircle, Send, Clock, CreditCard, Pencil, Bell, RefreshCcw } from "lucide-react";
-
+import {
+  X,
+  ChevronUp,
+  ChevronDown,
+  MessageCircle,
+  Send,
+  Clock,
+  CreditCard,
+  Pencil,
+  Bell,
+  RefreshCcw,
+} from "lucide-react";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -12,7 +22,7 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/app/admin/HookuseConfirm"; // ✅ ADICIONADO: Importação obrigatória
 
 // --- COMPONENTES MODAIS ---
-import ResellerFormModal from "./novo_revenda"; 
+import ResellerFormModal from "./novo_revenda";
 import QuickRechargeModal from "./recarga_revenda";
 import ToastNotifications, { ToastMessage } from "../ToastNotifications";
 
@@ -29,8 +39,10 @@ function formatBRPhoneFromDigits(digits: string): string {
     const country = digits.slice(0, 2);
     const ddd = digits.slice(2, 4);
     const rest = digits.slice(4);
-    if (rest.length === 9) return `+${country} (${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
-    if (rest.length === 8) return `+${country} (${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
+    if (rest.length === 9)
+      return `+${country} (${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
+    if (rest.length === 8)
+      return `+${country} (${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
     return `+${country} (${ddd}) ${rest}`;
   }
   return `+${digits}`;
@@ -46,32 +58,31 @@ function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
 // --- TIPOS ---
 type ResellerStatus = "Ativo" | "Inativo" | "Arquivado";
 
-type SortKey =
-  | "name"
-  | "servers"
-  | "revenue"
-  | "cost"
-  | "profit"
-  | "status";
+type SortKey = "name" | "servers" | "revenue" | "cost" | "profit" | "status";
 
 type SortDir = "asc" | "desc";
 
 type ScheduledMsg = {
   id: string;
   reseller_id: string; // ✅ banco usa reseller_id (revenda)
-  send_at: string;     // timestamptz
+  send_at: string; // timestamptz
   message: string;
   status?: string | null;
 };
 
-
-type MessageTemplate = { id: string; name: string; content: string; image_url?: string | null; category?: string | null }; // ✅ Busca a Categoria
+type MessageTemplate = {
+  id: string;
+  name: string;
+  content: string;
+  image_url?: string | null;
+  category?: string | null;
+}; // ✅ Busca a Categoria
 
 // Financeiro por venda (server_credit_sales) - agregação no front
 type VwResellerFinanceAgg = {
   reseller_id: string;
   revenue: number; // total BRL
-  cost: number;    // total BRL
+  cost: number; // total BRL
 };
 
 /**
@@ -134,7 +145,10 @@ function statusRank(s: ResellerStatus) {
   return 0;
 }
 function brl(val: number) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(val || 0);
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(val || 0);
 }
 
 function localDateTimeToIso(local: string): string {
@@ -182,12 +196,20 @@ export default function RevendaPage() {
 
   // Modais
   const [showFormModal, setShowFormModal] = useState(false);
-  const [resellerToEdit, setResellerToEdit] = useState<ResellerRow | null>(null);
-  const [serversByReseller, setServersByReseller] = useState<Record<string, string[]>>({});
+  const [resellerToEdit, setResellerToEdit] = useState<ResellerRow | null>(
+    null,
+  );
+  const [serversByReseller, setServersByReseller] = useState<
+    Record<string, string[]>
+  >({});
 
   // Ações
   const [msgMenuForId, setMsgMenuForId] = useState<string | null>(null);
-  const [showRecharge, setShowRecharge] = useState<{ open: boolean; resellerId: string | null; resellerName?: string }>({
+  const [showRecharge, setShowRecharge] = useState<{
+    open: boolean;
+    resellerId: string | null;
+    resellerName?: string;
+  }>({
     open: false,
     resellerId: null,
     resellerName: undefined,
@@ -199,18 +221,29 @@ export default function RevendaPage() {
   // Filtros
   const [search, setSearch] = useState("");
   const [showCount, setShowCount] = useState(100);
-  const [statusFilter, setStatusFilter] = useState<"Todos" | ResellerStatus>("Todos");
-  const [archivedFilter, setArchivedFilter] = useState<"Todos" | "Não" | "Sim">("Não");
+  const [statusFilter, setStatusFilter] = useState<"Todos" | ResellerStatus>(
+    "Todos",
+  );
+  const [archivedFilter, setArchivedFilter] = useState<"Todos" | "Não" | "Sim">(
+    "Não",
+  );
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [serverFilter, setServerFilter] = useState<string>("Todos");
-  const [serversOptions, setServersOptions] = useState<{ id: string; name: string }[]>([]);
-  const [resellerIdsByServer, setResellerIdsByServer] = useState<Set<string> | null>(null);
+  const [serversOptions, setServersOptions] = useState<
+    { id: string; name: string }[]
+  >([]);
+  const [resellerIdsByServer, setResellerIdsByServer] =
+    useState<Set<string> | null>(null);
 
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   // Modais de mensagem / alerta
-  const [showSendNow, setShowSendNow] = useState<{ open: boolean; resellerId: string | null; resellerName?: string }>({
+  const [showSendNow, setShowSendNow] = useState<{
+    open: boolean;
+    resellerId: string | null;
+    resellerName?: string;
+  }>({
     open: false,
     resellerId: null,
     resellerName: undefined,
@@ -218,45 +251,60 @@ export default function RevendaPage() {
   const [messageText, setMessageText] = useState("");
   const [selectedSessionNow, setSelectedSessionNow] = useState("default"); // ✅ NOVO
 
-  const [showScheduleMsg, setShowScheduleMsg] = useState<{ open: boolean; resellerId: string | null; resellerName?: string }>({
+  const [showScheduleMsg, setShowScheduleMsg] = useState<{
+    open: boolean;
+    resellerId: string | null;
+    resellerName?: string;
+  }>({
     open: false,
     resellerId: null,
     resellerName: undefined,
   });
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleText, setScheduleText] = useState("");
-  const [selectedSessionSchedule, setSelectedSessionSchedule] = useState("default"); // ✅ NOVO
+  const [selectedSessionSchedule, setSelectedSessionSchedule] =
+    useState("default"); // ✅ NOVO
 
   // ✅ NOVO: Opções de sessão dinâmicas (Busca os telefones reais da VM)
-  const [sessionOptions, setSessionOptions] = useState<{id: string, label: string}[]>([
-    { id: "default", label: "Carregando..." }
-  ]);
+  const [sessionOptions, setSessionOptions] = useState<
+    { id: string; label: string }[]
+  >([{ id: "default", label: "Carregando..." }]);
 
   async function loadWhatsAppSessions() {
-    try {
-      const [res1, res2] = await Promise.all([
-        fetch("/api/whatsapp/profile", { cache: "no-store" }).catch(() => null),
-        fetch("/api/whatsapp/profile2", { cache: "no-store" }).catch(() => null)
-      ]);
+    try {
+      const [res1, res2] = await Promise.all([
+        fetch("/api/whatsapp/profile", { cache: "no-store" }).catch(() => null),
+        fetch("/api/whatsapp/profile2", { cache: "no-store" }).catch(
+          () => null,
+        ),
+      ]);
 
-      const prof1 = res1 && res1.ok ? await res1.json().catch(()=>({})) : {};
-      const prof2 = res2 && res2.ok ? await res2.json().catch(()=>({})) : {};
+      const prof1 = res1 && res1.ok ? await res1.json().catch(() => ({})) : {};
+      const prof2 = res2 && res2.ok ? await res2.json().catch(() => ({})) : {};
 
-      const name1 = typeof window !== "undefined" ? localStorage.getItem("wa_label_1") || "Contato Principal" : "Contato Principal";
-      const name2 = typeof window !== "undefined" ? localStorage.getItem("wa_label_2") || "Contato Secundário" : "Contato Secundário";
+      const name1 =
+        typeof window !== "undefined"
+          ? localStorage.getItem("wa_label_1") || "Contato Principal"
+          : "Contato Principal";
+      const name2 =
+        typeof window !== "undefined"
+          ? localStorage.getItem("wa_label_2") || "Contato Secundário"
+          : "Contato Secundário";
 
-      const options = [
-        { id: "default", label: buildWhatsAppSessionLabel(prof1, name1) }
-      ];
+      const options = [
+        { id: "default", label: buildWhatsAppSessionLabel(prof1, name1) },
+      ]; // ✅ TRAVA: Só exibe a opção de envio pela sessão 2 se ela estiver conectada
 
-      // ✅ TRAVA: Só exibe a opção de envio pela sessão 2 se ela estiver conectada
-      if (prof2 && prof2.connected) {
-        options.push({ id: "session2", label: buildWhatsAppSessionLabel(prof2, name2) });
-      }
+      if (prof2 && prof2.connected) {
+        options.push({
+          id: "session2",
+          label: buildWhatsAppSessionLabel(prof2, name2),
+        });
+      }
 
-      setSessionOptions(options);
-    } catch (e) {}
-  }
+      setSessionOptions(options);
+    } catch (e) {}
+  }
 
   // Modal Novo Alerta
   const [showNewAlert, setShowNewAlert] = useState<{
@@ -271,16 +319,23 @@ export default function RevendaPage() {
   const [newAlertText, setNewAlertText] = useState("");
 
   // Templates
-  const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>([]);
-  const [selectedTemplateNowId, setSelectedTemplateNowId] = useState<string>("");
-  const [selectedTemplateScheduleId, setSelectedTemplateScheduleId] = useState<string>("");
+  const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
+    [],
+  );
+  const [selectedTemplateNowId, setSelectedTemplateNowId] =
+    useState<string>("");
+  const [selectedTemplateScheduleId, setSelectedTemplateScheduleId] =
+    useState<string>("");
 
   const [sendingNow, setSendingNow] = useState(false);
   const sendNowAbortRef = useRef<AbortController | null>(null);
   const [scheduling, setScheduling] = useState(false);
 
   // Novo Template
-  const [showNewTemplate, setShowNewTemplate] = useState<{ open: boolean; target: "now" | "schedule" }>({
+  const [showNewTemplate, setShowNewTemplate] = useState<{
+    open: boolean;
+    target: "now" | "schedule";
+  }>({
     open: false,
     target: "now",
   });
@@ -289,8 +344,14 @@ export default function RevendaPage() {
   const [savingTemplate, setSavingTemplate] = useState(false);
 
   // Agendamentos
-  const [scheduledMap, setScheduledMap] = useState<Record<string, ScheduledMsg[]>>({});
-  const [showScheduledModal, setShowScheduledModal] = useState<{ open: boolean; resellerId: string | null; resellerName?: string }>({
+  const [scheduledMap, setScheduledMap] = useState<
+    Record<string, ScheduledMsg[]>
+  >({});
+  const [showScheduledModal, setShowScheduledModal] = useState<{
+    open: boolean;
+    resellerId: string | null;
+    resellerName?: string;
+  }>({
     open: false,
     resellerId: null,
     resellerName: undefined,
@@ -310,7 +371,11 @@ export default function RevendaPage() {
 
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  function addToast(type: "success" | "error", title: string, message?: string) {
+  function addToast(
+    type: "success" | "error",
+    title: string,
+    message?: string,
+  ) {
     const id = Date.now();
     setToasts((prev) => [...prev, { id, type, title, message }]);
     setTimeout(() => removeToast(id), 4000);
@@ -321,78 +386,78 @@ export default function RevendaPage() {
   }
 
   async function getToken() {
-    const { data: { session } } = await supabaseBrowser.auth.getSession();
+    const {
+      data: { session },
+    } = await supabaseBrowser.auth.getSession();
     if (!session?.access_token) throw new Error("Sem sessão");
     return session.access_token;
   }
 
-async function loadMessageTemplates(tid: string) {
-  const { data, error } = await supabaseBrowser
-    .from("message_templates")
-    .select("id,name,content,image_url,category") // ✅ NOVO: Busca category
-    .eq("tenant_id", tid)
-    .order("name", { ascending: true });
+  async function loadMessageTemplates(tid: string) {
+    const { data, error } = await supabaseBrowser
+      .from("message_templates")
+      .select("id,name,content,image_url,category") // ✅ NOVO: Busca category
+      .eq("tenant_id", tid)
+      .order("name", { ascending: true });
 
-  if (error) {
-    setMessageTemplates([]);
-    return;
+    if (error) {
+      setMessageTemplates([]);
+      return;
+    }
+
+    const list: MessageTemplate[] = ((data as any[]) || []).map((r) => ({
+      id: String(r.id),
+      name: String(r.name ?? ""),
+      content: String(r.content ?? ""),
+      image_url: r.image_url || null,
+      category: r.category || "Geral", // ✅ Salvando no front
+    }));
+
+    setMessageTemplates(list);
   }
-
-  const list: MessageTemplate[] = ((data as any[]) || []).map((r) => ({
-    id: String(r.id),
-    name: String(r.name ?? ""),
-    content: String(r.content ?? ""),
-    image_url: r.image_url || null,
-    category: r.category || "Geral", // ✅ Salvando no front
-  }));
-
-  setMessageTemplates(list);
-}
-
 
   async function loadScheduledForResellers(tid: string, resellerIds: string[]) {
-  if (!resellerIds.length) {
-    setScheduledMap({});
-    return;
+    if (!resellerIds.length) {
+      setScheduledMap({});
+      return;
+    }
+
+    const { data, error } = await supabaseBrowser
+      .from("client_message_jobs")
+      .select("id,reseller_id,send_at,message,status")
+      .eq("tenant_id", tid)
+      .in("reseller_id", resellerIds)
+      .in("status", ["SCHEDULED", "QUEUED"])
+      .order("send_at", { ascending: true })
+      .gte("send_at", new Date().toISOString());
+
+    if (error) {
+      setScheduledMap({});
+      return;
+    }
+
+    const map: Record<string, ScheduledMsg[]> = {};
+    for (const row of (data as any[]) || []) {
+      const rid = String((row as any).reseller_id || "");
+      if (!rid) continue;
+
+      if (!map[rid]) map[rid] = [];
+      map[rid].push({
+        id: String((row as any).id),
+        reseller_id: rid,
+        send_at: String((row as any).send_at),
+        message: String((row as any).message ?? ""),
+        status: (row as any).status ?? null,
+      });
+    }
+
+    setScheduledMap(map);
   }
-
-  const { data, error } = await supabaseBrowser
-    .from("client_message_jobs")
-    .select("id,reseller_id,send_at,message,status")
-    .eq("tenant_id", tid)
-    .in("reseller_id", resellerIds)
-    .in("status", ["SCHEDULED", "QUEUED"])
-    .order("send_at", { ascending: true })
-    .gte("send_at", new Date().toISOString());
-
-  if (error) {
-    setScheduledMap({});
-    return;
-  }
-
-  const map: Record<string, ScheduledMsg[]> = {};
-  for (const row of (data as any[]) || []) {
-    const rid = String((row as any).reseller_id || "");
-    if (!rid) continue;
-
-    if (!map[rid]) map[rid] = [];
-    map[rid].push({
-      id: String((row as any).id),
-      reseller_id: rid,
-      send_at: String((row as any).send_at),
-      message: String((row as any).message ?? ""),
-      status: (row as any).status ?? null,
-    });
-  }
-
-  setScheduledMap(map);
-}
-
 
   async function loadOpenAlertsCountByTarget(
     tid: string,
     targetKind: AlertTargetKind,
-    targetIds: string[]
+    targetIds: string[],
   ) {
     if (!targetIds.length) return new Map<string, number>();
 
@@ -435,7 +500,11 @@ async function loadMessageTemplates(tid: string) {
       if (error) throw error;
       setResellerAlerts(data || []);
     } catch (e: any) {
-      addToast("error", "Erro ao carregar alertas", e?.message || "Erro desconhecido");
+      addToast(
+        "error",
+        "Erro ao carregar alertas",
+        e?.message || "Erro desconhecido",
+      );
     }
   }
 
@@ -448,10 +517,16 @@ async function loadMessageTemplates(tid: string) {
         .eq("id", alertId);
 
       if (error) throw error;
-      setResellerAlerts((prev) => (prev as any[]).filter((a) => a.id !== alertId));
+      setResellerAlerts((prev) =>
+        (prev as any[]).filter((a) => a.id !== alertId),
+      );
       await loadData();
     } catch (e: any) {
-      addToast("error", "Erro ao excluir alerta", e?.message || "Erro desconhecido");
+      addToast(
+        "error",
+        "Erro ao excluir alerta",
+        e?.message || "Erro desconhecido",
+      );
     }
   }
 
@@ -459,7 +534,7 @@ async function loadMessageTemplates(tid: string) {
     setLoading(true);
     const tid = await getCurrentTenantId();
     setTenantId(tid);
-    
+
     if (tid) {
       await loadMessageTemplates(tid);
       await loadWhatsAppSessions(); // ✅ Carrega as opções de sessão para o Select
@@ -472,30 +547,34 @@ async function loadMessageTemplates(tid: string) {
       return;
     }
 
-    const viewName = archivedFilter === "Sim" ? "vw_resellers_list_archived" : "vw_resellers_list_active";
+    const viewName =
+      archivedFilter === "Sim"
+        ? "vw_resellers_list_archived"
+        : "vw_resellers_list_active";
 
     // 🚀 Buscamos ABSOLUTAMENTE TUDO de uma vez só! Sem duplicação.
-    const [resellersRes, salesRes, serversDataRes, linksRes] = await Promise.all([
-      supabaseBrowser
-        .from(viewName)
-        .select("*")
-        .eq("tenant_id", tid)
-        .order("display_name", { ascending: true }),
-      supabaseBrowser
-        .from("server_credit_sales")
-        .select("reseller_server_id, server_id, credits_sold")
-        .not("reseller_server_id", "is", null) // ✅ Apenas vendas para revendedores
-        .eq("tenant_id", tid),
-      supabaseBrowser
-        .from("servers")
-        .select("id, name, avg_credit_cost_brl") // ✅ Tudo do servidor de uma vez só
-        .eq("tenant_id", tid)
-        .order("name", { ascending: true }),
-      supabaseBrowser
-        .from("reseller_servers")
-        .select("id, reseller_id, server_id")
-        .eq("tenant_id", tid),
-    ]);
+    const [resellersRes, salesRes, serversDataRes, linksRes] =
+      await Promise.all([
+        supabaseBrowser
+          .from(viewName)
+          .select("*")
+          .eq("tenant_id", tid)
+          .order("display_name", { ascending: true }),
+        supabaseBrowser
+          .from("server_credit_sales")
+          .select("reseller_server_id, server_id, credits_sold")
+          .not("reseller_server_id", "is", null) // ✅ Apenas vendas para revendedores
+          .eq("tenant_id", tid),
+        supabaseBrowser
+          .from("servers")
+          .select("id, name, avg_credit_cost_brl") // ✅ Tudo do servidor de uma vez só
+          .eq("tenant_id", tid)
+          .order("name", { ascending: true }),
+        supabaseBrowser
+          .from("reseller_servers")
+          .select("id, reseller_id, server_id")
+          .eq("tenant_id", tid),
+      ]);
 
     // 1. Configurar as opções do select de filtro no topo da tela
     if (!serversDataRes.error && serversDataRes.data) {
@@ -542,12 +621,12 @@ async function loadMessageTemplates(tid: string) {
       for (const s of salesRes.data as any[]) {
         const rsId = String(s.reseller_server_id);
         const resellerId = rsToResellerMap.get(rsId);
-        
+
         if (!resellerId) continue;
 
         const creditsSold = Number(s.credits_sold || 0);
         const unitCost = serverCostMap.get(String(s.server_id)) || 0;
-        
+
         // Mágica: Quantidade Vendida * Custo Unitário do Servidor
         const cost = creditsSold * unitCost;
 
@@ -567,7 +646,9 @@ async function loadMessageTemplates(tid: string) {
         if (!name) return;
         if (!mapServers[rid]) mapServers[rid] = [];
         mapServers[rid].push(name);
-        mapServers[rid] = Array.from(new Set(mapServers[rid])).sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
+        mapServers[rid] = Array.from(new Set(mapServers[rid])).sort((a, b) =>
+          a.localeCompare(b, "pt-BR", { sensitivity: "base" }),
+        );
       });
       setServersByReseller(mapServers);
     }
@@ -599,12 +680,16 @@ async function loadMessageTemplates(tid: string) {
         status: archived ? "Arquivado" : "Ativo",
         archived,
         alertsCount: 0,
-        notes: r.notes || ""
+        notes: r.notes || "",
       };
     });
 
     const ids = mapped.map((m) => m.id);
-    const alertsCountMap = await loadOpenAlertsCountByTarget(tid, "reseller", ids);
+    const alertsCountMap = await loadOpenAlertsCountByTarget(
+      tid,
+      "reseller",
+      ids,
+    );
     await loadScheduledForResellers(tid, ids);
 
     const mappedWithAlerts = mapped.map((m) => ({
@@ -639,7 +724,9 @@ async function loadMessageTemplates(tid: string) {
           .eq("server_id", serverFilter);
 
         if (error) throw error;
-        const ids = new Set<string>((data || []).map((x: any) => String(x.reseller_id)));
+        const ids = new Set<string>(
+          (data || []).map((x: any) => String(x.reseller_id)),
+        );
         setResellerIdsByServer(ids);
       } catch (e) {
         setResellerIdsByServer(null);
@@ -654,10 +741,18 @@ async function loadMessageTemplates(tid: string) {
       const key = "resellers_list_toasts";
       const raw = window.sessionStorage.getItem(key);
       if (!raw) return;
-      const arr = JSON.parse(raw) as { type: "success" | "error"; title: string; message?: string }[];
+      const arr = JSON.parse(raw) as {
+        type: "success" | "error";
+        title: string;
+        message?: string;
+      }[];
       window.sessionStorage.removeItem(key);
-      for (const t of arr) { addToast(t.type, t.title, t.message); }
-    } catch { /* ignora */ }
+      for (const t of arr) {
+        addToast(t.type, t.title, t.message);
+      }
+    } catch {
+      /* ignora */
+    }
   }, [loading]);
 
   useEffect(() => {
@@ -680,7 +775,9 @@ async function loadMessageTemplates(tid: string) {
       if (statusFilter !== "Todos" && r.status !== statusFilter) return false;
       if (resellerIdsByServer && !resellerIdsByServer.has(r.id)) return false;
       if (q) {
-        const hay = [r.name, r.primary_phone, r.email, r.status].join(" ").toLowerCase();
+        const hay = [r.name, r.primary_phone, r.email, r.status]
+          .join(" ")
+          .toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -692,19 +789,34 @@ async function loadMessageTemplates(tid: string) {
     list.sort((a, b) => {
       let cmp = 0;
       switch (sortKey) {
-        case "name": cmp = compareText(a.name, b.name); break;
-        case "status": cmp = compareNumber(statusRank(a.status), statusRank(b.status)); break;
-        case "servers": cmp = compareNumber(a.linked_servers_count, b.linked_servers_count); break;
-        case "revenue": cmp = compareNumber(a.revenueVal, b.revenueVal); break;
-        case "cost": cmp = compareNumber(a.costVal, b.costVal); break;
-        case "profit": cmp = compareNumber(a.profitVal, b.profitVal); break;
+        case "name":
+          cmp = compareText(a.name, b.name);
+          break;
+        case "status":
+          cmp = compareNumber(statusRank(a.status), statusRank(b.status));
+          break;
+        case "servers":
+          cmp = compareNumber(a.linked_servers_count, b.linked_servers_count);
+          break;
+        case "revenue":
+          cmp = compareNumber(a.revenueVal, b.revenueVal);
+          break;
+        case "cost":
+          cmp = compareNumber(a.costVal, b.costVal);
+          break;
+        case "profit":
+          cmp = compareNumber(a.profitVal, b.profitVal);
+          break;
       }
       return sortDir === "asc" ? cmp : -cmp;
     });
     return list;
   }, [filtered, sortKey, sortDir]);
 
-  const visible = useMemo(() => sorted.slice(0, showCount), [sorted, showCount]);
+  const visible = useMemo(
+    () => sorted.slice(0, showCount),
+    [sorted, showCount],
+  );
 
   const serverSelectedName = useMemo(() => {
     if (!serverFilter || serverFilter === "Todos") return "";
@@ -720,7 +832,10 @@ async function loadMessageTemplates(tid: string) {
 
   function toggleSort(nextKey: SortKey) {
     if (sortKey === nextKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else { setSortKey(nextKey); setSortDir("asc"); }
+    else {
+      setSortKey(nextKey);
+      setSortDir("asc");
+    }
   }
 
   const handleOpenEdit = (r: ResellerRow) => {
@@ -768,7 +883,10 @@ async function loadMessageTemplates(tid: string) {
       });
 
       if (error) throw error;
-      addToast("success", goingToArchive ? "Revenda arquivada" : "Revenda restaurada");
+      addToast(
+        "success",
+        goingToArchive ? "Revenda arquivada" : "Revenda restaurada",
+      );
       loadData();
     } catch (e: any) {
       addToast("error", "Erro ao atualizar", e.message || "Erro desconhecido");
@@ -778,7 +896,11 @@ async function loadMessageTemplates(tid: string) {
   const handleDeleteForever = async (r: ResellerRow) => {
     if (!tenantId) return;
     if (!r.archived) {
-      addToast("error", "Ação bloqueada", "Só é possível excluir definitivamente pela Lixeira.");
+      addToast(
+        "error",
+        "Ação bloqueada",
+        "Só é possível excluir definitivamente pela Lixeira.",
+      );
       return;
     }
 
@@ -787,10 +909,7 @@ async function loadMessageTemplates(tid: string) {
       subtitle: "Essa ação NÃO pode ser desfeita.",
       tone: "rose",
       icon: "⚠️",
-      details: [
-        `Revenda: ${r.name}`,
-        "Ação: excluir para sempre",
-      ],
+      details: [`Revenda: ${r.name}`, "Ação: excluir para sempre"],
       confirmText: "Excluir",
       cancelText: "Voltar",
     });
@@ -827,7 +946,9 @@ async function loadMessageTemplates(tid: string) {
         status: "OPEN",
       });
 
-      const { error } = await supabaseBrowser.from("client_alerts").insert(payload);
+      const { error } = await supabaseBrowser
+        .from("client_alerts")
+        .insert(payload);
       if (error) throw error;
 
       addToast("success", "Alerta criado!");
@@ -835,7 +956,11 @@ async function loadMessageTemplates(tid: string) {
       setNewAlertText("");
       await loadData();
     } catch (e: any) {
-      addToast("error", "Erro ao criar alerta", e?.message || "Erro desconhecido");
+      addToast(
+        "error",
+        "Erro ao criar alerta",
+        e?.message || "Erro desconhecido",
+      );
     }
   };
 
@@ -845,14 +970,20 @@ async function loadMessageTemplates(tid: string) {
 
     const msg = (messageText || "").trim();
     if (!msg) {
-      addToast("error", "Mensagem vazia", "Digite uma mensagem antes de enviar.");
+      addToast(
+        "error",
+        "Mensagem vazia",
+        "Digite uma mensagem antes de enviar.",
+      );
       return;
     }
 
     try {
       setSendingNow(true);
       if (sendNowAbortRef.current) {
-        try { sendNowAbortRef.current.abort(); } catch { }
+        try {
+          sendNowAbortRef.current.abort();
+        } catch {}
       }
       const controller = new AbortController();
       sendNowAbortRef.current = controller;
@@ -866,27 +997,37 @@ async function loadMessageTemplates(tid: string) {
         },
         cache: "no-store",
         signal: controller.signal,
-body: JSON.stringify({
-   tenant_id: tenantId,
-   reseller_id: showSendNow.resellerId,
-   message: msg,
-   whatsapp_session: selectedSessionNow, // ✅ AGORA USA A SESSÃO ESCOLHIDA
-   message_template_id: selectedTemplateNowId, 
- }),
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          reseller_id: showSendNow.resellerId,
+          message: msg,
+          whatsapp_session: selectedSessionNow, // ✅ AGORA USA A SESSÃO ESCOLHIDA
+          message_template_id: selectedTemplateNowId,
+        }),
       });
 
       const raw = await res.text();
       let json: any = {};
-      try { json = raw ? JSON.parse(raw) : {}; } catch { }
+      try {
+        json = raw ? JSON.parse(raw) : {};
+      } catch {}
       if (!res.ok) throw new Error(json?.error || raw || "Falha ao enviar");
 
-      addToast("success", "Enviado", "Mensagem enviada imediatamente via WhatsApp.");
+      addToast(
+        "success",
+        "Enviado",
+        "Mensagem enviada imediatamente via WhatsApp.",
+      );
       setShowSendNow({ open: false, resellerId: null });
       setMessageText("");
       setSelectedTemplateNowId("");
     } catch (e: any) {
       if (e?.name !== "AbortError") {
-        addToast("error", "Erro ao enviar mensagem", e?.message || "Falha desconhecida");
+        addToast(
+          "error",
+          "Erro ao enviar mensagem",
+          e?.message || "Falha desconhecida",
+        );
       }
     } finally {
       setSendingNow(false);
@@ -906,7 +1047,11 @@ body: JSON.stringify({
 
     const local = (scheduleDate || "").trim();
     if (!local) {
-      addToast("error", "Data/hora inválida", "Selecione a data e hora do envio.");
+      addToast(
+        "error",
+        "Data/hora inválida",
+        "Selecione a data e hora do envio.",
+      );
       return;
     }
 
@@ -914,41 +1059,51 @@ body: JSON.stringify({
     try {
       const sendAtRaw = scheduleDate.trim(); // ex: "2026-02-19T10:30" (sem TZ)
     } catch (e: any) {
-      addToast("error", "Data/hora inválida", e?.message || "Data/hora inválida.");
+      addToast(
+        "error",
+        "Data/hora inválida",
+        e?.message || "Data/hora inválida.",
+      );
       return;
     }
 
     try {
       setScheduling(true);
-const token = await getToken();
+      const token = await getToken();
 
-const res = await fetch("/api/whatsapp/envio_agendado", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  },
-  cache: "no-store",
-  body: JSON.stringify({
-   tenant_id: tenantId,
-   reseller_id: showScheduleMsg.resellerId, // ✅ REVenda
-   message: msg,
-   send_at: sendAtIso,
-   whatsapp_session: selectedSessionSchedule, // ✅ AGORA USA A SESSÃO ESCOLHIDA
-   message_template_id: selectedTemplateScheduleId, 
- }),
-});
+      const res = await fetch("/api/whatsapp/envio_agendado", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        cache: "no-store",
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          reseller_id: showScheduleMsg.resellerId, // ✅ REVenda
+          message: msg,
+          send_at: sendAtIso,
+          whatsapp_session: selectedSessionSchedule, // ✅ AGORA USA A SESSÃO ESCOLHIDA
+          message_template_id: selectedTemplateScheduleId,
+        }),
+      });
 
-const raw = await res.text();
-let json: any = {};
-try { json = raw ? JSON.parse(raw) : {}; } catch {}
+      const raw = await res.text();
+      let json: any = {};
+      try {
+        json = raw ? JSON.parse(raw) : {};
+      } catch {}
 
-if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
+      if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
 
-// jobId é o uuid retornado (se você quiser logar/debugar)
+      // jobId é o uuid retornado (se você quiser logar/debugar)
 
       addToast("success", "Agendado", "Mensagem agendada com sucesso.");
-      setShowScheduleMsg({ open: false, resellerId: null, resellerName: undefined });
+      setShowScheduleMsg({
+        open: false,
+        resellerId: null,
+        resellerName: undefined,
+      });
       setScheduleText("");
       setScheduleDate("");
       setSelectedTemplateScheduleId("");
@@ -963,7 +1118,9 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
   function openNewTemplate(target: "now" | "schedule") {
     setShowNewTemplate({ open: true, target });
     setNewTemplateName("");
-    setNewTemplateContent(target === "now" ? (messageText || "") : (scheduleText || ""));
+    setNewTemplateContent(
+      target === "now" ? messageText || "" : scheduleText || "",
+    );
   }
 
   async function handleSaveNewTemplate() {
@@ -1010,30 +1167,33 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
       addToast("success", "Template criado", "Template salvo com sucesso.");
       setShowNewTemplate({ open: false, target: "now" });
     } catch (e: any) {
-      addToast("error", "Erro ao salvar template", e?.message || "Erro desconhecido");
+      addToast(
+        "error",
+        "Erro ao salvar template",
+        e?.message || "Erro desconhecido",
+      );
     } finally {
       setSavingTemplate(false);
     }
   }
 
-  function closeAllPopups() { setMsgMenuForId(null); }
+  function closeAllPopups() {
+    setMsgMenuForId(null);
+  }
 
   return (
-  <div
-    className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors"
-    onClick={closeAllPopups}
-  >
-
-
-  {/* Topo (Contrato UI: mb-2, pt-0) */}
-  <div className="px-3 sm:px-0 flex items-center justify-between gap-2 pb-0 mb-2">
-
-    {/* Título */}
-    <div className="min-w-0 text-left">
-      <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
-        Gestão de Revendas
-      </h1>
-    </div>
+    <div
+      className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors"
+      onClick={closeAllPopups}
+    >
+      {/* Topo (Contrato UI: mb-2, pt-0) */}
+      <div className="px-3 sm:px-0 flex items-center justify-between gap-2 pb-0 mb-2">
+        {/* Título */}
+        <div className="min-w-0 text-left">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
+            Gestão de Revendas
+          </h1>
+        </div>
 
         <div className="flex items-center gap-2 justify-end shrink-0">
           <button
@@ -1041,10 +1201,11 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
               e.stopPropagation();
               setArchivedFilter(archivedFilter === "Não" ? "Sim" : "Não");
             }}
-            className={`hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-bold border transition-colors items-center justify-center ${archivedFilter === "Sim"
-              ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-              : "bg-white dark:bg-white/5 border-slate-200 dark:border-border text-slate-500 dark:text-white/60"
-              }`}
+            className={`hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-bold border transition-colors items-center justify-center ${
+              archivedFilter === "Sim"
+                ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
+                : "bg-white dark:bg-white/5 border-slate-200 dark:border-border text-slate-500 dark:text-white/60"
+            }`}
           >
             {archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
           </button>
@@ -1069,7 +1230,7 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
         <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-muted-foreground tracking-wider mb-2">
           Filtros Rápidos
         </div>
-        
+
         {/* MOBILE: Pesquisa + Botão Filtros */}
         <div className="md:hidden flex items-center gap-2">
           <div className="flex-1 relative">
@@ -1091,7 +1252,9 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
           <button
             onClick={() => setMobileFiltersOpen((v) => !v)}
             className={`h-10 px-3 rounded-lg border font-bold text-sm transition-colors ${
-              (statusFilter !== "Todos" || serverFilter !== "Todos" || archivedFilter === "Sim")
+              statusFilter !== "Todos" ||
+              serverFilter !== "Todos" ||
+              archivedFilter === "Sim"
                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
                 : "border-slate-200 dark:border-border bg-white dark:bg-white/5 text-slate-600 dark:text-muted-foreground hover:bg-slate-50 dark:hover:bg-white/10"
             }`}
@@ -1138,13 +1301,18 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
             >
               <option value="Todos">Servidor (Todos)</option>
               {(serversOptions || []).map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
               ))}
             </select>
           </div>
           <button
             onClick={() => {
-              setSearch(""); setStatusFilter("Todos"); setServerFilter("Todos"); setArchivedFilter("Não");
+              setSearch("");
+              setStatusFilter("Todos");
+              setServerFilter("Todos");
+              setArchivedFilter("Não");
             }}
             className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
           >
@@ -1156,15 +1324,21 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
         {mobileFiltersOpen && (
           <div className="md:hidden mt-3 p-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 space-y-2">
             <button
-              onClick={() => setArchivedFilter((cur) => (cur === "Não" ? "Sim" : "Não"))}
+              onClick={() =>
+                setArchivedFilter((cur) => (cur === "Não" ? "Sim" : "Não"))
+              }
               className={`w-full h-10 px-3 rounded-lg text-sm font-bold border transition-colors flex items-center justify-between ${
                 archivedFilter === "Sim"
                   ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
                   : "bg-white dark:bg-white/5 border-slate-200 dark:border-border text-slate-600 dark:text-muted-foreground"
               }`}
             >
-              <span className="flex items-center gap-2"><IconTrash /> Filtrar Lixeira</span>
-              <span className="text-xs opacity-80">{archivedFilter === "Sim" ? "ON" : "OFF"}</span>
+              <span className="flex items-center gap-2">
+                <IconTrash /> Filtrar Lixeira
+              </span>
+              <span className="text-xs opacity-80">
+                {archivedFilter === "Sim" ? "ON" : "OFF"}
+              </span>
             </button>
             <select
               value={statusFilter}
@@ -1183,12 +1357,18 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
             >
               <option value="Todos">Servidor (Todos)</option>
               {(serversOptions || []).map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
               ))}
             </select>
             <button
               onClick={() => {
-                setSearch(""); setStatusFilter("Todos"); setServerFilter("Todos"); setArchivedFilter("Não"); setMobileFiltersOpen(false);
+                setSearch("");
+                setStatusFilter("Todos");
+                setServerFilter("Todos");
+                setArchivedFilter("Não");
+                setMobileFiltersOpen(false);
               }}
               className="w-full h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
             >
@@ -1206,7 +1386,9 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
           <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
             <div className="text-sm font-bold text-slate-700 dark:text-white whitespace-nowrap">
               Lista de Revendas{" "}
-              <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600/70 dark:text-emerald-500/70 text-xs">{filtered.length}</span>
+              <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600/70 dark:text-emerald-500/70 text-xs">
+                {filtered.length}
+              </span>
             </div>
 
             <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-white/50 shrink-0">
@@ -1228,28 +1410,68 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[900px]">
               <thead>
-  {/* Ajustado: text-xs, text-white/40 e removido bg e tracking-widest */}
-  <tr className="border-b border-slate-200 dark:border-border text-xs font-bold uppercase text-slate-500 dark:text-muted-foreground">
-    <Th width={40}>
-      <input 
-        type="checkbox" 
-        className="rounded border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-white/5" 
-      />
-    </Th>
-    <ThSort label="Revenda / Contato" active={sortKey === "name"} dir={sortDir} onClick={() => toggleSort("name")} />
-    <ThSort label="Servidores" active={sortKey === "servers"} dir={sortDir} onClick={() => toggleSort("servers")} />
-    <ThSort label="Faturamento" active={sortKey === "revenue"} dir={sortDir} onClick={() => toggleSort("revenue")} />
-    <ThSort label="Custo" active={sortKey === "cost"} dir={sortDir} onClick={() => toggleSort("cost")} />
-    <ThSort label="Lucro" active={sortKey === "profit"} dir={sortDir} onClick={() => toggleSort("profit")} />
-    <ThSort label="Status" active={sortKey === "status"} dir={sortDir} onClick={() => toggleSort("status")} />
-    <Th align="right" className="pr-6">Ações</Th>
-  </tr>
-</thead>
+                {/* Ajustado: text-xs, text-white/40 e removido bg e tracking-widest */}
+                <tr className="border-b border-slate-200 dark:border-border text-xs font-bold uppercase text-slate-500 dark:text-muted-foreground">
+                  <Th width={40}>
+                    <input
+                      type="checkbox"
+                      className="rounded border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-white/5"
+                    />
+                  </Th>
+                  <ThSort
+                    label="Revenda / Contato"
+                    active={sortKey === "name"}
+                    dir={sortDir}
+                    onClick={() => toggleSort("name")}
+                  />
+                  <ThSort
+                    label="Servidores"
+                    active={sortKey === "servers"}
+                    dir={sortDir}
+                    onClick={() => toggleSort("servers")}
+                  />
+                  <ThSort
+                    label="Faturamento"
+                    active={sortKey === "revenue"}
+                    dir={sortDir}
+                    onClick={() => toggleSort("revenue")}
+                  />
+                  <ThSort
+                    label="Custo"
+                    active={sortKey === "cost"}
+                    dir={sortDir}
+                    onClick={() => toggleSort("cost")}
+                  />
+                  <ThSort
+                    label="Lucro"
+                    active={sortKey === "profit"}
+                    dir={sortDir}
+                    onClick={() => toggleSort("profit")}
+                  />
+                  <ThSort
+                    label="Status"
+                    active={sortKey === "status"}
+                    dir={sortDir}
+                    onClick={() => toggleSort("status")}
+                  />
+                  <Th align="right" className="pr-6">
+                    Ações
+                  </Th>
+                </tr>
+              </thead>
 
               <tbody className="text-sm divide-y divide-slate-100 dark:divide-white/5">
                 {visible.map((r) => (
-                  <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-all group">
-                    <Td><input type="checkbox" className="rounded border-slate-300 dark:border-white/20 bg-white dark:bg-black/20 text-emerald-500 focus:ring-emerald-500/30" /></Td>
+                  <tr
+                    key={r.id}
+                    className="hover:bg-slate-50 dark:hover:bg-white/5 transition-all group"
+                  >
+                    <Td>
+                      <input
+                        type="checkbox"
+                        className="rounded border-slate-300 dark:border-white/20 bg-white dark:bg-black/20 text-emerald-500 focus:ring-emerald-500/30"
+                      />
+                    </Td>
 
                     <Td>
                       <div className="flex flex-col max-w-[180px] sm:max-w-none">
@@ -1268,7 +1490,10 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleOpenAlertList({ kind: "reseller", id: r.id }, r.name)
+                                  handleOpenAlertList(
+                                    { kind: "reseller", id: r.id },
+                                    r.name,
+                                  );
                                 }}
                                 title={`${r.alertsCount} alerta(s)`}
                                 className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-600 border border-amber-200 text-[10px] font-bold hover:bg-amber-200 transition-colors animate-pulse"
@@ -1282,7 +1507,11 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setShowScheduledModal({ open: true, resellerId: r.id, resellerName: r.name });
+                                  setShowScheduledModal({
+                                    open: true,
+                                    resellerId: r.id,
+                                    resellerName: r.name,
+                                  });
                                 }}
                                 title={`${scheduledMap[r.id]?.length || 0} agendada(s)`}
                                 className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-bold hover:bg-purple-200 transition-colors animate-pulse"
@@ -1294,14 +1523,17 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
                         </div>
 
                         <span className="text-xs font-medium text-emerald-600/70 dark:text-emerald-500/70 truncate">
-  {r.whatsapp_username ? `@${r.whatsapp_username}` : r.primary_phone}
-</span>
+                          {r.whatsapp_username
+                            ? `@${r.whatsapp_username}`
+                            : r.primary_phone}
+                        </span>
                       </div>
                     </Td>
 
                     <Td>
                       <div className="flex flex-wrap items-center justify-center gap-1">
-                        {((serversByReseller[r.id] || []) as string[]).length === 0 ? (
+                        {((serversByReseller[r.id] || []) as string[])
+                          .length === 0 ? (
                           <span className="inline-flex items-center justify-center min-w-[28px] px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-border text-xs font-bold text-slate-600 dark:text-muted-foreground shadow-sm">
                             0
                           </span>
@@ -1319,48 +1551,122 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
                       </div>
                     </Td>
 
-                    <Td><span className="font-mono font-bold text-slate-700 dark:text-white/80">{r.revenueLabel}</span></Td>
-                    <Td><span className="font-mono font-bold text-slate-500 dark:text-muted-foreground">{r.costLabel}</span></Td>
-                    <Td><span className="font-mono font-bold text-emerald-600/70 dark:text-emerald-500/70">{r.profitLabel}</span></Td>
+                    <Td>
+                      <span className="font-mono font-bold text-slate-700 dark:text-white/80">
+                        {r.revenueLabel}
+                      </span>
+                    </Td>
+                    <Td>
+                      <span className="font-mono font-bold text-slate-500 dark:text-muted-foreground">
+                        {r.costLabel}
+                      </span>
+                    </Td>
+                    <Td>
+                      <span className="font-mono font-bold text-emerald-600/70 dark:text-emerald-500/70">
+                        {r.profitLabel}
+                      </span>
+                    </Td>
 
-                    <Td><StatusBadge status={r.status} /></Td>
+                    <Td>
+                      <StatusBadge status={r.status} />
+                    </Td>
 
                     <Td align="right" className="pr-6">
                       <div className="flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100 relative transition-opacity">
                         <div className="relative">
-                          <IconActionBtn title="Mensagem" tone="blue" onClick={(e) => { e.stopPropagation(); setMsgMenuForId((cur) => (cur === r.id ? null : r.id)); }}>
+                          <IconActionBtn
+                            title="Mensagem"
+                            tone="blue"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMsgMenuForId((cur) =>
+                                cur === r.id ? null : r.id,
+                              );
+                            }}
+                          >
                             <IconChat />
                           </IconActionBtn>
 
                           {msgMenuForId === r.id && (
-                            <div onClick={(e) => e.stopPropagation()} className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 dark:border-border bg-white dark:bg-card z-50 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-1">
-                              <MenuItem icon={<IconSend />} label="Enviar agora" onClick={() => { setMsgMenuForId(null); setMessageText(""); setShowSendNow({ open: true, resellerId: r.id }); }} />
-                              <MenuItem icon={<IconClock />} label="Programar" onClick={() => { setMsgMenuForId(null); setScheduleText(""); setScheduleDate(""); setShowScheduleMsg({ open: true, resellerId: r.id }); }} />
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 dark:border-border bg-white dark:bg-card z-50 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-1"
+                            >
+                              <MenuItem
+                                icon={<IconSend />}
+                                label="Enviar agora"
+                                onClick={() => {
+                                  setMsgMenuForId(null);
+                                  setMessageText("");
+                                  setShowSendNow({
+                                    open: true,
+                                    resellerId: r.id,
+                                  });
+                                }}
+                              />
+                              <MenuItem
+                                icon={<IconClock />}
+                                label="Programar"
+                                onClick={() => {
+                                  setMsgMenuForId(null);
+                                  setScheduleText("");
+                                  setScheduleDate("");
+                                  setShowScheduleMsg({
+                                    open: true,
+                                    resellerId: r.id,
+                                  });
+                                }}
+                              />
                             </div>
                           )}
                         </div>
 
-                        <IconActionBtn title="Recarga / Venda" tone="green" onClick={(e) => {
-                          e.stopPropagation();
-                          if (r.linked_servers_count <= 0) { addToast("error", "Sem servidores", "Vincule servidores antes de vender créditos."); return; }
-                          setShowRecharge({ open: true, resellerId: r.id, resellerName: r.name });
-                        }}>
+                        <IconActionBtn
+                          title="Recarga / Venda"
+                          tone="green"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (r.linked_servers_count <= 0) {
+                              addToast(
+                                "error",
+                                "Sem servidores",
+                                "Vincule servidores antes de vender créditos.",
+                              );
+                              return;
+                            }
+                            setShowRecharge({
+                              open: true,
+                              resellerId: r.id,
+                              resellerName: r.name,
+                            });
+                          }}
+                        >
                           <IconMoney />
                         </IconActionBtn>
 
-                        <IconActionBtn title="Editar" tone="amber" onClick={(e) => { e.stopPropagation(); handleOpenEdit(r); }}>
+                        <IconActionBtn
+                          title="Editar"
+                          tone="amber"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenEdit(r);
+                          }}
+                        >
                           <IconEdit />
                         </IconActionBtn>
 
-                        <IconActionBtn title="Novo alerta" tone="purple" onClick={(e) => {
-                          e.stopPropagation();
-                          setNewAlertText("");
-                          setShowNewAlert({
-                            open: true,
-                            target: { kind: "reseller", id: r.id },
-                            targetName: r.name,
-                          });
-                        }}
+                        <IconActionBtn
+                          title="Novo alerta"
+                          tone="purple"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setNewAlertText("");
+                            setShowNewAlert({
+                              open: true,
+                              target: { kind: "reseller", id: r.id },
+                              targetName: r.name,
+                            });
+                          }}
                         >
                           <IconBell />
                         </IconActionBtn>
@@ -1368,7 +1674,10 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
                         <IconActionBtn
                           title={r.archived ? "Restaurar" : "Arquivar"}
                           tone={r.archived ? "green" : "red"}
-                          onClick={(e) => { e.stopPropagation(); handleArchiveToggle(r); }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleArchiveToggle(r);
+                          }}
                         >
                           {r.archived ? <IconRestore /> : <IconTrash />}
                         </IconActionBtn>
@@ -1390,17 +1699,21 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
                   </tr>
                 ))}
 
-{visible.length === 0 && (
+                {visible.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="p-12 text-center text-slate-400 dark:text-white/30 italic font-medium bg-slate-50/30 dark:bg-white/5">Nenhuma revenda encontrada com os filtros atuais.</td>
+                    <td
+                      colSpan={8}
+                      className="p-12 text-center text-slate-400 dark:text-white/30 italic font-medium bg-slate-50/30 dark:bg-white/5"
+                    >
+                      Nenhuma revenda encontrada com os filtros atuais.
+                    </td>
                   </tr>
                 )}
               </tbody>
             </table>
-            
+
             {/* ✅ Espaço fixo depois do último item (para o menu do WhatsApp não ser cortado) */}
             <div className="h-24 md:h-20" />
-            
           </div>
         </div>
       )}
@@ -1416,7 +1729,10 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
           onSuccess={async () => {
             setShowFormModal(false);
             setResellerToEdit(null);
-            addToast("success", resellerToEdit ? "Revenda atualizada!" : "Revenda criada!");
+            addToast(
+              "success",
+              resellerToEdit ? "Revenda atualizada!" : "Revenda criada!",
+            );
             await loadData();
           }}
           onError={(msg: string) => addToast("error", "Erro ao salvar", msg)}
@@ -1427,12 +1743,26 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
         <QuickRechargeModal
           resellerId={showRecharge.resellerId}
           resellerName={showRecharge.resellerName || "Revenda"}
-          onClose={() => setShowRecharge({ open: false, resellerId: null, resellerName: undefined })}
+          onClose={() =>
+            setShowRecharge({
+              open: false,
+              resellerId: null,
+              resellerName: undefined,
+            })
+          }
           onDone={async () => {
-            setShowRecharge({ open: false, resellerId: null, resellerName: undefined });
+            setShowRecharge({
+              open: false,
+              resellerId: null,
+              resellerName: undefined,
+            });
             loadData();
             setTimeout(() => {
-              addToast("success", "Venda realizada", "Créditos adicionados com sucesso.");
+              addToast(
+                "success",
+                "Venda realizada",
+                "Créditos adicionados com sucesso.",
+              );
             }, 150);
           }}
         />
@@ -1441,7 +1771,13 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
       {showNewAlert.open && (
         <Modal
           title={`Novo alerta: ${showNewAlert.targetName || "Registro"}`}
-          onClose={() => setShowNewAlert({ open: false, target: null, targetName: undefined })}
+          onClose={() =>
+            setShowNewAlert({
+              open: false,
+              target: null,
+              targetName: undefined,
+            })
+          }
         >
           <textarea
             value={newAlertText}
@@ -1451,7 +1787,13 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
           />
           <div className="mt-4 flex justify-end gap-3">
             <button
-              onClick={() => setShowNewAlert({ open: false, target: null, targetName: undefined })}
+              onClick={() =>
+                setShowNewAlert({
+                  open: false,
+                  target: null,
+                  targetName: undefined,
+                })
+              }
               className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/5 font-semibold text-sm transition-colors"
             >
               Cancelar
@@ -1467,14 +1809,16 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
       )}
 
       {showSendNow.open && (
-        <Modal title="Enviar mensagem agora" onClose={() => {
-          setShowSendNow({ open: false, resellerId: null });
-          setSelectedTemplateNowId("");
-          setMessageText("");
-          setSelectedSessionNow("default");
-        }}>
+        <Modal
+          title="Enviar mensagem agora"
+          onClose={() => {
+            setShowSendNow({ open: false, resellerId: null });
+            setSelectedTemplateNowId("");
+            setMessageText("");
+            setSelectedSessionNow("default");
+          }}
+        >
           <div className="space-y-4">
-            
             {/* ✅ GRID LADO A LADO: Sessão e Template */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Sessão */}
@@ -1487,8 +1831,10 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
                   onChange={(e) => setSelectedSessionNow(e.target.value)}
                   className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-lg text-sm font-medium text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
                 >
-                  {sessionOptions.map(s => (
-                    <option key={s.id} value={s.id}>{s.label}</option>
+                  {sessionOptions.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -1510,19 +1856,27 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
                   className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors text-sm"
                 >
                   <option value="">Selecionar...</option>
-                {messageTemplates
-                  // ✅ FILTRA SOMENTE REVENDA IPTV (Ou pelo nome caso ainda não tenha salvo)
-                  .filter((t) => t.category === "Revenda IPTV" || t.name === "Recarga Revenda")
-                  .map((t) => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </select>
+                  {messageTemplates
+                    // ✅ FILTRA SOMENTE REVENDA IPTV (Ou pelo nome caso ainda não tenha salvo)
+                    .filter(
+                      (t) =>
+                        t.category === "Revenda IPTV" ||
+                        t.name === "Recarga Revenda",
+                    )
+                    .map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                </select>
               </div>
             </div>
 
             {/* ✅ PREVIEW DA IMAGEM DO TEMPLATE (ENVIO AGORA) */}
             {(() => {
-              const tpl = messageTemplates.find((t) => t.id === selectedTemplateNowId);
+              const tpl = messageTemplates.find(
+                (t) => t.id === selectedTemplateNowId,
+              );
               if (!tpl?.image_url) return null;
               return (
                 <div className="animate-in fade-in zoom-in-95 duration-200">
@@ -1531,7 +1885,11 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
                   </span>
                   <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-border shadow-sm relative bg-slate-100 dark:bg-black/40">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={tpl.image_url} alt="Anexo do template" className="w-full h-full object-cover" />
+                    <img
+                      src={tpl.image_url}
+                      alt="Anexo do template"
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                 </div>
               );
@@ -1547,7 +1905,9 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
 
             <div className="flex justify-end gap-3">
               <button
-                onClick={() => setShowSendNow({ open: false, resellerId: null })}
+                onClick={() =>
+                  setShowSendNow({ open: false, resellerId: null })
+                }
                 className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 font-semibold text-sm transition-colors"
               >
                 Cancelar
@@ -1565,15 +1925,17 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
       )}
 
       {showScheduleMsg.open && (
-        <Modal title="Agendar mensagem" onClose={() => {
-          setShowScheduleMsg({ open: false, resellerId: null });
-          setSelectedTemplateScheduleId("");
-          setScheduleText("");
-          setScheduleDate("");
-          setSelectedSessionSchedule("default");
-        }}>
+        <Modal
+          title="Agendar mensagem"
+          onClose={() => {
+            setShowScheduleMsg({ open: false, resellerId: null });
+            setSelectedTemplateScheduleId("");
+            setScheduleText("");
+            setScheduleDate("");
+            setSelectedSessionSchedule("default");
+          }}
+        >
           <div className="space-y-4">
-            
             {/* ✅ GRID LADO A LADO: Sessão e Template */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Sessão */}
@@ -1586,8 +1948,10 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
                   onChange={(e) => setSelectedSessionSchedule(e.target.value)}
                   className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-lg text-sm font-medium text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
                 >
-                  {sessionOptions.map(s => (
-                    <option key={s.id} value={s.id}>{s.label}</option>
+                  {sessionOptions.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -1608,19 +1972,29 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
                   }}
                   className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors text-sm"
                 >
-                  <option value="">Selecionar mensagem pronta (opcional)...</option>
-                {messageTemplates
-                  // ✅ FILTRA SOMENTE REVENDA IPTV (Ou pelo nome caso ainda não tenha salvo)
-                  .filter((t) => t.category === "Revenda IPTV" || t.name === "Recarga Revenda")
-                  .map((t) => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </select>
+                  <option value="">
+                    Selecionar mensagem pronta (opcional)...
+                  </option>
+                  {messageTemplates
+                    // ✅ FILTRA SOMENTE REVENDA IPTV (Ou pelo nome caso ainda não tenha salvo)
+                    .filter(
+                      (t) =>
+                        t.category === "Revenda IPTV" ||
+                        t.name === "Recarga Revenda",
+                    )
+                    .map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                </select>
               </div>
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">Data e Hora do Envio</label>
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+                Data e Hora do Envio
+              </label>
 
               <input
                 type="datetime-local"
@@ -1632,7 +2006,9 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
 
             {/* ✅ PREVIEW DA IMAGEM DO TEMPLATE (AGENDAMENTO) */}
             {(() => {
-              const tpl = messageTemplates.find((t) => t.id === selectedTemplateScheduleId);
+              const tpl = messageTemplates.find(
+                (t) => t.id === selectedTemplateScheduleId,
+              );
               if (!tpl?.image_url) return null;
               return (
                 <div className="animate-in fade-in zoom-in-95 duration-200">
@@ -1641,7 +2017,11 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
                   </span>
                   <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-border shadow-sm relative bg-slate-100 dark:bg-black/40">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={tpl.image_url} alt="Anexo do template" className="w-full h-full object-cover" />
+                    <img
+                      src={tpl.image_url}
+                      alt="Anexo do template"
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                 </div>
               );
@@ -1662,7 +2042,9 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
 
             <div className="flex justify-end gap-3 pt-2">
               <button
-                onClick={() => setShowScheduleMsg({ open: false, resellerId: null })}
+                onClick={() =>
+                  setShowScheduleMsg({ open: false, resellerId: null })
+                }
                 className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 font-semibold text-sm transition-colors"
               >
                 Cancelar
@@ -1681,89 +2063,128 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
       {showScheduledModal.open && showScheduledModal.resellerId && (
         <Modal
           title={`Agendadas: ${showScheduledModal.resellerName || "Revenda"}`}
-          onClose={() => setShowScheduledModal({ open: false, resellerId: null, resellerName: undefined })}
+          onClose={() =>
+            setShowScheduledModal({
+              open: false,
+              resellerId: null,
+              resellerName: undefined,
+            })
+          }
         >
           <div className="space-y-3">
-            {((scheduledMap[showScheduledModal.resellerId] || []) as ScheduledMsg[]).length === 0 ? (
+            {(
+              (scheduledMap[showScheduledModal.resellerId] ||
+                []) as ScheduledMsg[]
+            ).length === 0 ? (
               <div className="text-sm text-slate-500 dark:text-white/50">
                 Nenhuma mensagem agendada.
               </div>
             ) : (
               <div className="space-y-2">
-                {(scheduledMap[showScheduledModal.resellerId] || []).map((s) => (
-                  <div
-                    key={s.id}
-                    className="p-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20"
-                  >
-                    {/* Alterado para flex justify-between para acomodar o botão Excluir */}
-                    <div className="px-3 sm:px-0 flex items-center justify-between gap-2 mb-2">
+                {(scheduledMap[showScheduledModal.resellerId] || []).map(
+                  (s) => (
+                    <div
+                      key={s.id}
+                      className="p-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20"
+                    >
+                      {/* Alterado para flex justify-between para acomodar o botão Excluir */}
+                      <div className="px-3 sm:px-0 flex items-center justify-between gap-2 mb-2">
+                        <div className="text-xs font-extrabold text-slate-600 dark:text-muted-foreground flex items-center gap-2">
+                          <IconClock />
+                          <span>
+                            {new Date(s.send_at).toLocaleString("pt-BR")}
+                          </span>
+                          {s.status ? (
+                            <span className="text-[10px] opacity-60 ml-1">
+                              {String(s.status)}
+                            </span>
+                          ) : null}
+                        </div>
 
-                      <div className="text-xs font-extrabold text-slate-600 dark:text-muted-foreground flex items-center gap-2">
-                        <IconClock />
-                        <span>{new Date(s.send_at).toLocaleString("pt-BR")}</span>
-                        {s.status ? <span className="text-[10px] opacity-60 ml-1">{String(s.status)}</span> : null}
-                      </div>
+                        {/* ✅ BOTÃO EXCLUIR QUE FALTAVA + CONFIRM BONITÃO */}
+                        <button
+                          onClick={async () => {
+                            if (!tenantId) return;
 
-                      {/* ✅ BOTÃO EXCLUIR QUE FALTAVA + CONFIRM BONITÃO */}
-                      <button
-                        onClick={async () => {
-                          if (!tenantId) return;
-
-                          const ok = await confirm({
-                            title: "Cancelar agendamento",
-                            subtitle: "A mensagem será removida da fila de envios.",
-                            tone: "rose",
-                            icon: "🗑️",
-                            details: [
-                              `Destino: ${showScheduledModal.resellerName}`,
-                              `Mensagem: "${s.message.substring(0, 25)}..."`
-                            ],
-                            confirmText: "Sim, Excluir",
-                            cancelText: "Voltar",
-                          });
-
-                          if (!ok) return;
-
-                          try {
-                            const { error } = await supabaseBrowser.rpc("client_message_cancel", { 
-                                p_tenant_id: tenantId, 
-                                p_job_id: s.id 
+                            const ok = await confirm({
+                              title: "Cancelar agendamento",
+                              subtitle:
+                                "A mensagem será removida da fila de envios.",
+                              tone: "rose",
+                              icon: "🗑️",
+                              details: [
+                                `Destino: ${showScheduledModal.resellerName}`,
+                                `Mensagem: "${s.message.substring(0, 25)}..."`,
+                              ],
+                              confirmText: "Sim, Excluir",
+                              cancelText: "Voltar",
                             });
 
-                            if (error) throw error;
+                            if (!ok) return;
 
-                            addToast("success", "Removido", "Agendamento cancelado.");
+                            try {
+                              const { error } = await supabaseBrowser.rpc(
+                                "client_message_cancel",
+                                {
+                                  p_tenant_id: tenantId,
+                                  p_job_id: s.id,
+                                },
+                              );
 
-                            // Atualiza a lista visualmente
-                            const newMap = { ...scheduledMap };
-                            if (showScheduledModal.resellerId) {
-                                newMap[showScheduledModal.resellerId] = (newMap[showScheduledModal.resellerId] || []).filter(x => x.id !== s.id);
+                              if (error) throw error;
+
+                              addToast(
+                                "success",
+                                "Removido",
+                                "Agendamento cancelado.",
+                              );
+
+                              // Atualiza a lista visualmente
+                              const newMap = { ...scheduledMap };
+                              if (showScheduledModal.resellerId) {
+                                newMap[showScheduledModal.resellerId] = (
+                                  newMap[showScheduledModal.resellerId] || []
+                                ).filter((x) => x.id !== s.id);
                                 setScheduledMap(newMap);
-                            }
-                            
-                            // Recarrega do banco
-                            await loadScheduledForResellers(tenantId, rows.map(r => r.id));
-                          } catch (e: any) {
-                            addToast("error", "Erro", e.message || "Falha ao cancelar.");
-                          }
-                        }}
-                        className="text-[10px] text-rose-500 font-bold hover:underline hover:text-rose-600 transition-colors"
-                      >
-                        Excluir
-                      </button>
-                    </div>
+                              }
 
-                    <div className="text-sm text-slate-700 dark:text-white/80 whitespace-pre-wrap">
-                      {s.message}
+                              // Recarrega do banco
+                              await loadScheduledForResellers(
+                                tenantId,
+                                rows.map((r) => r.id),
+                              );
+                            } catch (e: any) {
+                              addToast(
+                                "error",
+                                "Erro",
+                                e.message || "Falha ao cancelar.",
+                              );
+                            }
+                          }}
+                          className="text-[10px] text-rose-500 font-bold hover:underline hover:text-rose-600 transition-colors"
+                        >
+                          Excluir
+                        </button>
+                      </div>
+
+                      <div className="text-sm text-slate-700 dark:text-white/80 whitespace-pre-wrap">
+                        {s.message}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ),
+                )}
               </div>
             )}
 
             <div className="pt-3 flex justify-end">
               <button
-                onClick={() => setShowScheduledModal({ open: false, resellerId: null, resellerName: undefined })}
+                onClick={() =>
+                  setShowScheduledModal({
+                    open: false,
+                    resellerId: null,
+                    resellerName: undefined,
+                  })
+                }
                 className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-600 dark:text-muted-foreground hover:bg-slate-200 dark:hover:bg-white/5 font-semibold text-sm transition-colors"
               >
                 Fechar
@@ -1776,7 +2197,13 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
       {showAlertList.open && showAlertList.target && (
         <Modal
           title={`Alertas: ${showAlertList.targetName || "Registro"}`}
-          onClose={() => setShowAlertList({ open: false, target: null, targetName: undefined })}
+          onClose={() =>
+            setShowAlertList({
+              open: false,
+              target: null,
+              targetName: undefined,
+            })
+          }
         >
           <div className="space-y-3">
             {(resellerAlerts as any[]).length === 0 ? (
@@ -1797,11 +2224,15 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
 
                       <div className="flex-1">
                         <div className="text-sm text-slate-700 dark:text-white/80 whitespace-pre-wrap">
-                          {String(a.message ?? a.text ?? a.alert_text ?? "Alerta")}
+                          {String(
+                            a.message ?? a.text ?? a.alert_text ?? "Alerta",
+                          )}
                         </div>
                         {a.created_at ? (
                           <div className="mt-1 text-[11px] text-slate-500 dark:text-muted-foreground">
-                            {new Date(String(a.created_at)).toLocaleString("pt-BR")}
+                            {new Date(String(a.created_at)).toLocaleString(
+                              "pt-BR",
+                            )}
                           </div>
                         ) : null}
                       </div>
@@ -1821,7 +2252,13 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
 
             <div className="pt-3 flex justify-end">
               <button
-                onClick={() => setShowAlertList({ open: false, target: null, targetName: undefined })}
+                onClick={() =>
+                  setShowAlertList({
+                    open: false,
+                    target: null,
+                    targetName: undefined,
+                  })
+                }
                 className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-600 dark:text-muted-foreground hover:bg-slate-200 dark:hover:bg-white/5 font-semibold text-sm transition-colors"
               >
                 Fechar
@@ -1863,7 +2300,9 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
 
             <div className="flex justify-end gap-3 pt-2">
               <button
-                onClick={() => setShowNewTemplate({ open: false, target: "now" })}
+                onClick={() =>
+                  setShowNewTemplate({ open: false, target: "now" })
+                }
                 className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 font-semibold text-sm transition-colors"
               >
                 Cancelar
@@ -1882,7 +2321,7 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
 
       {ConfirmUI}
 
-    {/* ✅ Spacer do Rodapé (Contrato UI) */}
+      {/* ✅ Spacer do Rodapé (Contrato UI) */}
       <div className="h-24 md:h-20" />
 
       <div className="relative z-[999999]">
@@ -1891,29 +2330,79 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
 
       <style jsx global>{`
         input[type="date"]::-webkit-calendar-picker-indicator,
-        input[type="time"]::-webkit-calendar-picker-indicator { opacity: 0; display: none; }
+        input[type="time"]::-webkit-calendar-picker-indicator {
+          opacity: 0;
+          display: none;
+        }
       `}</style>
     </div>
   );
 }
 
-const ALIGN_CLASS: Record<string, string> = { left: "text-left", right: "text-right" };
+const ALIGN_CLASS: Record<string, string> = {
+  left: "text-left",
+  right: "text-right",
+};
 
-function Th({ children, width, align = "left", className = "" }: { children: React.ReactNode, width?: number, align?: "left" | "right", className?: string }) {
-  return <th className={`px-4 py-3 ${ALIGN_CLASS[align]} ${className}`} style={{ width }}>{children}</th>;
+function Th({
+  children,
+  width,
+  align = "left",
+  className = "",
+}: {
+  children: React.ReactNode;
+  width?: number;
+  align?: "left" | "right";
+  className?: string;
+}) {
+  return (
+    <th
+      className={`px-4 py-3 ${ALIGN_CLASS[align]} ${className}`}
+      style={{ width }}
+    >
+      {children}
+    </th>
+  );
 }
 
-function Td({ children, align = "left", className = "" }: { children: React.ReactNode, align?: "left" | "right", className?: string }) {
-  return <td className={`px-4 py-3 ${ALIGN_CLASS[align]} align-middle ${className}`}>{children}</td>;
+function Td({
+  children,
+  align = "left",
+  className = "",
+}: {
+  children: React.ReactNode;
+  align?: "left" | "right";
+  className?: string;
+}) {
+  return (
+    <td className={`px-4 py-3 ${ALIGN_CLASS[align]} align-middle ${className}`}>
+      {children}
+    </td>
+  );
 }
 
-function ThSort({ label, active, dir, onClick }: { label: string, active: boolean, dir: SortDir, onClick: () => void }) {
+function ThSort({
+  label,
+  active,
+  dir,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  dir: SortDir;
+  onClick: () => void;
+}) {
   return (
     // Removido text-[11px] e tracking-widest. Mantido classes de hover e layout.
-    <th onClick={onClick} className="px-4 py-3 cursor-pointer select-none group hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors text-left">
+    <th
+      onClick={onClick}
+      className="px-4 py-3 cursor-pointer select-none group hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors text-left"
+    >
       <div className="flex items-center gap-1">
         {label}
-        <span className={`transition-opacity ${active ? "opacity-100 text-emerald-600 dark:text-emerald-500" : "opacity-40 group-hover:opacity-70"}`}>
+        <span
+          className={`transition-opacity ${active ? "opacity-100 text-emerald-600 dark:text-emerald-500" : "opacity-40 group-hover:opacity-70"}`}
+        >
           {dir === "asc" ? <IconSortUp /> : <IconSortDown />}
         </span>
       </div>
@@ -1938,73 +2427,204 @@ function formatPhoneE164BR(raw?: string | null) {
 }
 
 function StatusBadge({ status }: { status: ResellerStatus }) {
-  const tone = status === "Ativo" ? { bg: "bg-emerald-500/10", text: "text-emerald-600/70 dark:text-emerald-500/70", border: "border-emerald-500/20" }
-    : status === "Arquivado" ? { bg: "bg-rose-500/10", text: "text-rose-600 dark:text-rose-400", border: "border-rose-500/20" }
-      : { bg: "bg-amber-500/10", text: "text-amber-600 dark:text-amber-400", border: "border-amber-500/20" };
-  
+  const tone =
+    status === "Ativo"
+      ? {
+          bg: "bg-emerald-500/10",
+          text: "text-emerald-600/70 dark:text-emerald-500/70",
+          border: "border-emerald-500/20",
+        }
+      : status === "Arquivado"
+        ? {
+            bg: "bg-rose-500/10",
+            text: "text-rose-600 dark:text-rose-400",
+            border: "border-rose-500/20",
+          }
+        : {
+            bg: "bg-amber-500/10",
+            text: "text-amber-600 dark:text-amber-400",
+            border: "border-amber-500/20",
+          };
+
   // Alterado: rounded-lg -> rounded-full (Padrão Pílula)
-  return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border shadow-sm ${tone.bg} ${tone.text} ${tone.border}`}>{status}</span>;
-}
-
-function IconActionBtn({ children, title, tone, onClick }: { children: React.ReactNode, title: string, tone: "blue" | "green" | "amber" | "purple" | "red", onClick: (e: React.MouseEvent) => void }) {
-  const colors = {
-    blue: "text-sky-500 dark:text-sky-400 bg-sky-500/10 border-sky-500/20 hover:bg-sky-500/20",
-    green: "text-emerald-600/70 dark:text-emerald-500/70 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20",
-    amber: "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20",
-    purple: "text-purple-600 dark:text-purple-400 bg-purple-500/10 border-purple-500/20 hover:bg-purple-500/20",
-    red: "text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20",
-  };
-  return <button onClick={(e) => { e.stopPropagation(); onClick(e); }} title={title} className={`p-1.5 rounded-lg border border-transparent transition-all active:scale-95 shadow-sm ${colors[tone]} hover:bg-white/5`}>{children}</button>;
-}
-
-function MenuItem({ icon, label, onClick }: { icon: React.ReactNode, label: string, onClick: () => void }) {
   return (
-<button
-  onClick={onClick}
-  className="group w-full px-4 py-2.5 flex items-center gap-3 text-slate-600 dark:text-white/60 hover:bg-emerald-500/10 dark:hover:bg-white/5 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all text-left text-sm font-bold tracking-tight rounded-lg"
->
-  <span className="opacity-70 group-hover:scale-110 transition-transform">{icon}</span>
-  {label}
-</button>
-
+    <span
+      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border shadow-sm ${tone.bg} ${tone.text} ${tone.border}`}
+    >
+      {status}
+    </span>
   );
 }
 
-function Modal({ title, children, onClose }: { title: string, children: React.ReactNode, onClose: () => void }) {
+function IconActionBtn({
+  children,
+  title,
+  tone,
+  onClick,
+}: {
+  children: React.ReactNode;
+  title: string;
+  tone: "blue" | "green" | "amber" | "purple" | "red";
+  onClick: (e: React.MouseEvent) => void;
+}) {
+  const colors = {
+    blue: "text-sky-500 dark:text-sky-400 bg-sky-500/10 border-sky-500/20 hover:bg-sky-500/20",
+    green:
+      "text-emerald-600/70 dark:text-emerald-500/70 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20",
+    amber:
+      "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20",
+    purple:
+      "text-purple-600 dark:text-purple-400 bg-purple-500/10 border-purple-500/20 hover:bg-purple-500/20",
+    red: "text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20",
+  };
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick(e);
+      }}
+      title={title}
+      className={`p-1.5 rounded-lg border border-transparent transition-all active:scale-95 shadow-sm ${colors[tone]} hover:bg-white/5`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function MenuItem({
+  icon,
+  label,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="group w-full px-4 py-2.5 flex items-center gap-3 text-slate-600 dark:text-white/60 hover:bg-emerald-500/10 dark:hover:bg-white/5 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all text-left text-sm font-bold tracking-tight rounded-lg"
+    >
+      <span className="opacity-70 group-hover:scale-110 transition-transform">
+        {icon}
+      </span>
+      {label}
+    </button>
+  );
+}
+
+function Modal({
+  title,
+  children,
+  onClose,
+}: {
+  title: string;
+  children: React.ReactNode;
+  onClose: () => void;
+}) {
   if (typeof document === "undefined") return null;
   return createPortal(
-    <div onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }} className="fixed inset-0 bg-black/70 backdrop-blur-sm grid place-items-center z-[99999] p-4 animate-in fade-in duration-200">
-      <div onMouseDown={(e) => e.stopPropagation()} className="w-full max-w-lg bg-white dark:bg-card border border-slate-200 dark:border-border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+    <div
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 bg-black/70 backdrop-blur-sm grid place-items-center z-[99999] p-4 animate-in fade-in duration-200"
+    >
+      <div
+        onMouseDown={(e) => e.stopPropagation()}
+        className="w-full max-w-lg bg-white dark:bg-card border border-slate-200 dark:border-border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300"
+      >
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-border bg-slate-50 dark:bg-white/5">
-          <div className="font-bold text-slate-800 dark:text-white tracking-tight">{title}</div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 transition-colors"><IconX /></button>
+          <div className="font-bold text-slate-800 dark:text-white tracking-tight">
+            {title}
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 transition-colors"
+          >
+            <IconX />
+          </button>
         </div>
         <div className="p-6">{children}</div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }
 
-function IconX() { return <X className="w-4 h-4" />; }
-function IconSortUp() { return <ChevronUp className="w-3 h-3" />; }
-function IconSortDown() { return <ChevronDown className="w-3 h-3" />; }
-function IconChat() { return <MessageCircle className="w-4 h-4" />; }
-function IconSend() { return <Send className="w-4 h-4" />; }
-function IconClock() { return <Clock className="w-4 h-4" />; }
-function IconMoney() { return <CreditCard className="w-4 h-4" />; }
-function IconPlus() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14" /></svg>; }
-function IconEdit() { return <Pencil className="w-4 h-4" />; }
-function IconBell() { return <Bell className="w-4 h-4" />; }
-function IconTrash() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>; }
-function IconRestore() {
+function IconX() {
+  return <X className="w-4 h-4" />;
+}
+function IconSortUp() {
+  return <ChevronUp className="w-3 h-3" />;
+}
+function IconSortDown() {
+  return <ChevronDown className="w-3 h-3" />;
+}
+function IconChat() {
+  return <MessageCircle className="w-4 h-4" />;
+}
+function IconSend() {
+  return <Send className="w-4 h-4" />;
+}
+function IconClock() {
+  return <Clock className="w-4 h-4" />;
+}
+function IconMoney() {
+  return <CreditCard className="w-4 h-4" />;
+}
+function IconPlus() {
   return (
-    <RefreshCcw className="w-4 h-4" />
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+    >
+      <path d="M12 5v14M5 12h14" />
+    </svg>
   );
+}
+function IconEdit() {
+  return <Pencil className="w-4 h-4" />;
+}
+function IconBell() {
+  return <Bell className="w-4 h-4" />;
+}
+function IconTrash() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    </svg>
+  );
+}
+function IconRestore() {
+  return <RefreshCcw className="w-4 h-4" />;
 }
 function IconFilter() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M22 3H2l8 9v7l4 2v-9l8-9Z" />
     </svg>
   );

@@ -1,6 +1,12 @@
 "use client";
 
-import React, { createContext, useContext, useCallback, useState, ReactNode } from "react";
+import React, {
+  createContext,
+  useContext,
+  useCallback,
+  useState,
+  ReactNode,
+} from "react";
 import ConfirmDialog, { ConfirmDialogProps } from "@/app/admin/ConfirmDialog";
 
 type ConfirmOptions = Omit<
@@ -42,7 +48,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
   return (
     <ConfirmContext.Provider value={{ confirm }}>
       {children}
-      
+
       {opts && (
         <ConfirmDialog
           open={open}
@@ -66,7 +72,7 @@ export function useConfirm() {
   if (!context) {
     throw new Error("useConfirm deve ser usado dentro de um ConfirmProvider");
   }
-  
+
   // ✅ TRUQUE DE MESTRE: Retornamos ConfirmUI como null.
   // Assim, as páginas antigas que fazem `const { confirm, ConfirmUI } = useConfirm()`
   // NÃO VÃO QUEBRAR. Elas simplesmente vão renderizar null onde estava o {ConfirmUI}.

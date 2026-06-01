@@ -101,16 +101,22 @@ export default function ConfirmDialog({
         className="w-full max-w-sm bg-white dark:bg-card border border-slate-200 dark:border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-200"
       >
         <div className="flex items-center gap-3">
-          <div className={`w-12 h-12 rounded-full ${t.iconBg} flex items-center justify-center text-2xl`}>
+          <div
+            className={`w-12 h-12 rounded-full ${t.iconBg} flex items-center justify-center text-2xl`}
+          >
             {icon ?? "✅"}
           </div>
           <div className="min-w-0">
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white truncate">{title}</h3>
-            <p className="text-xs text-slate-500 dark:text-white/60">{subtitle}</p>
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white truncate">
+              {title}
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-white/60">
+              {subtitle}
+            </p>
           </div>
         </div>
 
-{details.length > 0 && (
+        {details.length > 0 && (
           <div className="bg-slate-50 dark:bg-white/5 rounded-xl p-4 border border-slate-100 dark:border-border">
             <ul className="space-y-2">
               {details.map((line, i) => {
@@ -134,9 +140,14 @@ export default function ConfirmDialog({
 
                 // Padrão antigo para textos normais (Com a bolinha)
                 return (
-                  <li key={i} className="text-sm text-slate-700 dark:text-slate-300 flex items-start gap-2">
+                  <li
+                    key={i}
+                    className="text-sm text-slate-700 dark:text-slate-300 flex items-start gap-2"
+                  >
                     <span className={`${t.dot} font-bold`}>•</span>
-                    <span className="break-words whitespace-pre-wrap">{line}</span>
+                    <span className="break-words whitespace-pre-wrap">
+                      {line}
+                    </span>
                   </li>
                 );
               })}
@@ -164,6 +175,6 @@ export default function ConfirmDialog({
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

@@ -59,7 +59,5 @@ function EyeSvg() {
 }
 
 function EyeOffSvg() {
-  return (
-    <EyeOff className="w-4 h-4" />
-  );
+  return <EyeOff className="w-4 h-4" />;
 }

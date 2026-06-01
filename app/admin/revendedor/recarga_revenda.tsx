@@ -1,7 +1,6 @@
 "use client";
 import { Loader2 } from "lucide-react";
 
-
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabaseBrowser } from "@/lib/supabase/browser";
@@ -18,7 +17,11 @@ interface MessageTemplate {
 }
 
 // ✅ Helper para Toast na Listagem Principal
-function queueToast(type: "success" | "error", title: string, message?: string) {
+function queueToast(
+  type: "success" | "error",
+  title: string,
+  message?: string,
+) {
   try {
     if (typeof window === "undefined") return;
     const key = "resellers_list_toasts"; // Chave separada para a tela de revendas
@@ -26,8 +29,7 @@ function queueToast(type: "success" | "error", title: string, message?: string) 
     const arr = raw ? JSON.parse(raw) : [];
     arr.push({ type, title, message, ts: Date.now() });
     window.sessionStorage.setItem(key, JSON.stringify(arr));
-  } catch (e) {
-  }
+  } catch (e) {}
 }
 
 type ResellerServerRow = {
@@ -70,8 +72,10 @@ function formatBRPhoneFromDigits(digits: string): string {
     const country = digits.slice(0, 2);
     const ddd = digits.slice(2, 4);
     const rest = digits.slice(4);
-    if (rest.length === 9) return `+${country} (${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
-    if (rest.length === 8) return `+${country} (${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
+    if (rest.length === 9)
+      return `+${country} (${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
+    if (rest.length === 8)
+      return `+${country} (${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
     return `+${country} (${ddd}) ${rest}`;
   }
   return `+${digits}`;
@@ -171,7 +175,8 @@ async function loadFxRate(tid: string, currency: Currency) {
       ? Number((fx as any)?.usd_to_brl ?? NaN)
       : Number((fx as any)?.eur_to_brl ?? NaN);
 
-  if (!Number.isFinite(rate) || rate <= 0) throw new Error("Câmbio inválido no tenant_fx_rates");
+  if (!Number.isFinite(rate) || rate <= 0)
+    throw new Error("Câmbio inválido no tenant_fx_rates");
 
   const asOf = (fx as any)?.as_of_date ? String((fx as any).as_of_date) : null;
   return { rate, asOf };
@@ -192,7 +197,8 @@ export default function QuickRechargeModal({
   const [loadErr, setLoadErr] = useState<string | null>(null);
 
   const [servers, setServers] = useState<ResellerServerRow[]>([]);
-  const [selectedResellerServerId, setSelectedResellerServerId] = useState<string>("");
+  const [selectedResellerServerId, setSelectedResellerServerId] =
+    useState<string>("");
 
   const [qtyCredits, setQtyCredits] = useState<string>("");
   const [currency, setCurrency] = useState<Currency>("BRL");
@@ -208,7 +214,7 @@ export default function QuickRechargeModal({
   const [saving, setSaving] = useState(false);
   const [loadingText, setLoadingText] = useState("Processando..."); // ✅ Texto dinâmico do botão
 
-// ✅ Estados do WhatsApp
+  // ✅ Estados do WhatsApp
   const [sendWhats, setSendWhats] = useState(true);
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
@@ -216,34 +222,44 @@ export default function QuickRechargeModal({
 
   // ✅ NOVO: Controle de Sessão
   const [selectedSession, setSelectedSession] = useState("default");
-  const [sessionOptions, setSessionOptions] = useState<{id: string, label: string}[]>([
-    { id: "default", label: "Carregando..." }
-  ]);
+  const [sessionOptions, setSessionOptions] = useState<
+    { id: string; label: string }[]
+  >([{ id: "default", label: "Carregando..." }]);
 
   async function loadWhatsAppSessions() {
-    try {
-      const [res1, res2] = await Promise.all([
-        fetch("/api/whatsapp/profile", { cache: "no-store" }).catch(() => null),
-        fetch("/api/whatsapp/profile2", { cache: "no-store" }).catch(() => null)
-      ]);
-      const prof1 = res1 && res1.ok ? await res1.json().catch(()=>({})) : {};
-      const prof2 = res2 && res2.ok ? await res2.json().catch(()=>({})) : {};
+    try {
+      const [res1, res2] = await Promise.all([
+        fetch("/api/whatsapp/profile", { cache: "no-store" }).catch(() => null),
+        fetch("/api/whatsapp/profile2", { cache: "no-store" }).catch(
+          () => null,
+        ),
+      ]);
+      const prof1 = res1 && res1.ok ? await res1.json().catch(() => ({})) : {};
+      const prof2 = res2 && res2.ok ? await res2.json().catch(() => ({})) : {};
 
-      const name1 = typeof window !== "undefined" ? localStorage.getItem("wa_label_1") || "Contato Principal" : "Contato Principal";
-      const name2 = typeof window !== "undefined" ? localStorage.getItem("wa_label_2") || "Contato Secundário" : "Contato Secundário";
+      const name1 =
+        typeof window !== "undefined"
+          ? localStorage.getItem("wa_label_1") || "Contato Principal"
+          : "Contato Principal";
+      const name2 =
+        typeof window !== "undefined"
+          ? localStorage.getItem("wa_label_2") || "Contato Secundário"
+          : "Contato Secundário";
 
-      const options = [
-        { id: "default", label: buildWhatsAppSessionLabel(prof1, name1) }
-      ];
+      const options = [
+        { id: "default", label: buildWhatsAppSessionLabel(prof1, name1) },
+      ]; // ✅ TRAVA: Só exibe a opção de envio pela sessão 2 se ela estiver conectada
 
-      // ✅ TRAVA: Só exibe a opção de envio pela sessão 2 se ela estiver conectada
-      if (prof2 && prof2.connected) {
-        options.push({ id: "session2", label: buildWhatsAppSessionLabel(prof2, name2) });
-      }
+      if (prof2 && prof2.connected) {
+        options.push({
+          id: "session2",
+          label: buildWhatsAppSessionLabel(prof2, name2),
+        });
+      }
 
-      setSessionOptions(options);
-    } catch (e) {}
-  }
+      setSessionOptions(options);
+    } catch (e) {}
+  }
 
   // --- Lógica derivada ---
   const qty = useMemo(() => {
@@ -251,10 +267,18 @@ export default function QuickRechargeModal({
     return Number.isFinite(n) && n > 0 ? n : 0;
   }, [qtyCredits]);
 
-  const unitCurrency = useMemo(() => toNumberLoose(unitPriceCurrency), [unitPriceCurrency]);
+  const unitCurrency = useMemo(
+    () => toNumberLoose(unitPriceCurrency),
+    [unitPriceCurrency],
+  );
 
   const selectedLink = useMemo(() => {
-    return servers.find((s) => String(s.reseller_server_id) === String(selectedResellerServerId)) || null;
+    return (
+      servers.find(
+        (s) =>
+          String(s.reseller_server_id) === String(selectedResellerServerId),
+      ) || null
+    );
   }, [servers, selectedResellerServerId]);
 
   const totalCurrency = useMemo(() => {
@@ -278,11 +302,21 @@ export default function QuickRechargeModal({
     if (!qty || qty <= 0) return false;
     if (!Number.isFinite(unitCurrency) || unitCurrency <= 0) return false;
 
-    if (currency !== "BRL" && (!Number.isFinite(fxRate) || fxRate <= 0)) return false;
+    if (currency !== "BRL" && (!Number.isFinite(fxRate) || fxRate <= 0))
+      return false;
     if (!Number.isFinite(totalBRL) || totalBRL <= 0) return false;
 
     return true;
-  }, [tenantId, selectedResellerServerId, selectedLink, qty, unitCurrency, currency, fxRate, totalBRL]);
+  }, [
+    tenantId,
+    selectedResellerServerId,
+    selectedLink,
+    qty,
+    unitCurrency,
+    currency,
+    fxRate,
+    totalBRL,
+  ]);
 
   // --- Busca Inteligente: Histórico ou Override ---
   // --- VERSÃO DE DEBUG ---
@@ -293,40 +327,41 @@ export default function QuickRechargeModal({
     // 1. Tenta buscar a última venda no histórico
     const { data } = await supabaseBrowser.rpc("get_last_reseller_sale", {
       p_tenant_id: tenantId,
-      p_reseller_server_id: rsId
+      p_reseller_server_id: rsId,
     });
 
     // Se encontrou histórico
     if (data && data.length > 0) {
       const last = data[0];
-      
+
       // Preenche Qtde (Check de null para aceitar 0 se necessário, embora improvável)
       if (last.last_qty != null) {
-          setQtyCredits(String(last.last_qty));
+        setQtyCredits(String(last.last_qty));
       }
-      
+
       // Preenche Preço
       if (last.last_unit_price != null) {
-          setUnitPriceCurrency(toBRMoneyInput(Number(last.last_unit_price)));
+        setUnitPriceCurrency(toBRMoneyInput(Number(last.last_unit_price)));
       }
-      
+
       // Preenche Moeda (Confia que vem certa: BRL, USD ou EUR)
       if (last.last_currency) {
         setCurrency(last.last_currency as Currency);
       }
-      
+
       return; // Histórico venceu
     }
 
     // 2. Se NÃO tem histórico, tenta o Override
-    const link = servers.find(s => String(s.reseller_server_id) === String(rsId));
-    
+    const link = servers.find(
+      (s) => String(s.reseller_server_id) === String(rsId),
+    );
+
     // Só aplica override se preço estiver vazio
     if (link && link.unit_price_override != null && !unitPriceCurrency) {
-       setUnitPriceCurrency(toBRMoneyInput(Number(link.unit_price_override)));
+      setUnitPriceCurrency(toBRMoneyInput(Number(link.unit_price_override)));
     }
   }
-
 
   // --- Load tenant + servers (VIEW) ---
   useEffect(() => {
@@ -370,10 +405,12 @@ export default function QuickRechargeModal({
           server_is_archived: r.server_is_archived ?? false,
 
           unit_price_override:
-            r.unit_price_override != null ? Number(r.unit_price_override) : null,
+            r.unit_price_override != null
+              ? Number(r.unit_price_override)
+              : null,
         }));
 
-if (!alive) return;
+        if (!alive) return;
         setServers(mapped);
 
         // ✅ BUSCAR TEMPLATES E PRÉ-SELECIONAR "RECARGA REVENDA"
@@ -385,7 +422,9 @@ if (!alive) return;
 
         if (tmplData && alive) {
           setTemplates(tmplData);
-          const defaultTpl = tmplData.find((t) => t.name.toLowerCase().includes("recarga revenda"));
+          const defaultTpl = tmplData.find((t) =>
+            t.name.toLowerCase().includes("recarga revenda"),
+          );
           if (defaultTpl) {
             setSelectedTemplateId(defaultTpl.id);
             setMessageContent(defaultTpl.content);
@@ -394,7 +433,10 @@ if (!alive) return;
 
         // seleção inicial
         const preselect =
-          resellerServerId && mapped.some((x) => String(x.reseller_server_id) === String(resellerServerId))
+          resellerServerId &&
+          mapped.some(
+            (x) => String(x.reseller_server_id) === String(resellerServerId),
+          )
             ? String(resellerServerId)
             : mapped.length === 1
               ? String(mapped[0].reseller_server_id)
@@ -404,9 +446,16 @@ if (!alive) return;
 
         // preço default do vínculo (se existir)
         if (preselect) {
-          const chosen = mapped.find((x) => String(x.reseller_server_id) === String(preselect));
-          if (chosen?.unit_price_override != null && Number.isFinite(chosen.unit_price_override)) {
-            setUnitPriceCurrency(toBRMoneyInput(Number(chosen.unit_price_override)));
+          const chosen = mapped.find(
+            (x) => String(x.reseller_server_id) === String(preselect),
+          );
+          if (
+            chosen?.unit_price_override != null &&
+            Number.isFinite(chosen.unit_price_override)
+          ) {
+            setUnitPriceCurrency(
+              toBRMoneyInput(Number(chosen.unit_price_override)),
+            );
           }
         }
       } catch (e: any) {
@@ -424,7 +473,7 @@ if (!alive) return;
     };
   }, [resellerId, resellerServerId]);
 
-// Quando troca servidor (ou quando o tenant termina de carregar): Dispara a sugestão
+  // Quando troca servidor (ou quando o tenant termina de carregar): Dispara a sugestão
   useEffect(() => {
     // 1. Só roda se tiver servidor selecionado E se já tivermos o ID do tenant
     // Isso impede que rode antes da hora e falhe silenciosamente
@@ -433,10 +482,9 @@ if (!alive) return;
     // 2. Limpa os campos (opcional, mas bom pra UX)
     setQtyCredits("");
     setUnitPriceCurrency("");
-    
+
     // 3. Chama a busca no banco
     fetchSmartSuggestion(selectedResellerServerId);
-
   }, [selectedResellerServerId, tenantId]); // <--- AGORA SIM: tenantId adicionado
 
   // --- FX (do banco) ---
@@ -476,14 +524,15 @@ if (!alive) return;
     };
   }, [tenantId, currency]);
 
-async function onSave() {
+  async function onSave() {
     if (!canSave || saving) return;
 
     setSaving(true);
     setLoadingText("Processando recarga..."); // ✅ Adicionado
     try {
       if (!tenantId) throw new Error("Tenant inválido");
-      if (!selectedLink?.server_id) throw new Error("Servidor inválido no vínculo");
+      if (!selectedLink?.server_id)
+        throw new Error("Servidor inválido no vínculo");
 
       // 1) Busca dados do servidor para saber se tem integração
       const { data: serverData, error: serverErr } = await supabaseBrowser
@@ -497,31 +546,33 @@ async function onSave() {
       const hasIntegration = Boolean(serverData?.panel_integration);
 
       // 2) Prepara payload base
-const autoNote = [
-  `Venda revenda · ${resellerName}`,
-  `${qty} créditos`,
-  `Unit: ${fmtMoney(currency, unitCurrency)}`,
-  currency !== "BRL" ? `Câmbio: ${Number(fxRate).toFixed(4)}` : null,
-  `Total: ${fmtMoney("BRL", totalBRL)}`,
-  notes.trim() ? `Obs: ${notes.trim()}` : null,
-].filter(Boolean).join(" · ");
+      const autoNote = [
+        `Venda revenda · ${resellerName}`,
+        `${qty} créditos`,
+        `Unit: ${fmtMoney(currency, unitCurrency)}`,
+        currency !== "BRL" ? `Câmbio: ${Number(fxRate).toFixed(4)}` : null,
+        `Total: ${fmtMoney("BRL", totalBRL)}`,
+        notes.trim() ? `Obs: ${notes.trim()}` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
 
-const payload = {
-  p_tenant_id: tenantId,
-  p_server_id: selectedLink.server_id,
-  p_reseller_server_id: selectedResellerServerId,
-  p_credits_sold: qty,
-  p_unit_price: unitCurrency,
-  p_sale_currency: currency as any,
-  p_total_amount_brl: totalBRL,
-  p_notes: autoNote,
-};
+      const payload = {
+        p_tenant_id: tenantId,
+        p_server_id: selectedLink.server_id,
+        p_reseller_server_id: selectedResellerServerId,
+        p_credits_sold: qty,
+        p_unit_price: unitCurrency,
+        p_sale_currency: currency as any,
+        p_total_amount_brl: totalBRL,
+        p_notes: autoNote,
+      };
 
       if (hasIntegration) {
         // 3A) Servidor COM integração → salva log + sync
         const { error: saleErr } = await supabaseBrowser.rpc(
           "sell_credits_to_reseller_without_balance",
-          payload as any
+          payload as any,
         );
 
         if (saleErr) throw new Error(saleErr.message);
@@ -536,33 +587,39 @@ const payload = {
         if (integErr) throw new Error(integErr.message);
 
         const provider = String(integData?.provider || "").toUpperCase();
-        const syncUrl = provider === "FAST"
-          ? "/api/integrations/fast/sync"
-          : "/api/integrations/natv/sync";
+        const syncUrl =
+          provider === "FAST"
+            ? "/api/integrations/fast/sync"
+            : "/api/integrations/natv/sync";
 
-// 3C) Chama sync
+        // 3C) Chama sync
         // ✅ INJEÇÃO DO TOKEN DE SEGURANÇA
         const { data: sess } = await supabaseBrowser.auth.getSession();
         const token = sess?.session?.access_token;
 
         const syncRes = await fetch(syncUrl, {
           method: "POST",
-          headers: { 
+          headers: {
             "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}) // 🔒 Envio obrigatório
+            ...(token ? { Authorization: `Bearer ${token}` } : {}), // 🔒 Envio obrigatório
           },
-          body: JSON.stringify({ integration_id: serverData.panel_integration }),
+          body: JSON.stringify({
+            integration_id: serverData.panel_integration,
+          }),
         });
 
         const syncJson = await syncRes.json().catch(() => ({}));
         if (!syncRes.ok || !syncJson?.ok) {
-          throw new Error("Venda registrada, mas falhou ao sincronizar saldo: " + (syncJson?.error || ""));
+          throw new Error(
+            "Venda registrada, mas falhou ao sincronizar saldo: " +
+              (syncJson?.error || ""),
+          );
         }
       } else {
         // 4) Servidor SEM integração → venda normal (desconta saldo)
         const { error } = await supabaseBrowser.rpc(
           "sell_credits_to_reseller_and_log",
-          payload as any
+          payload as any,
         );
 
         if (error) throw new Error(error.message);
@@ -592,12 +649,24 @@ const payload = {
           });
 
           if (!res.ok) throw new Error("API retornou erro");
-          queueToast("success", "Mensagem Enviada", "A recarga foi feita e o comprovante entregue no WhatsApp.");
+          queueToast(
+            "success",
+            "Mensagem Enviada",
+            "A recarga foi feita e o comprovante entregue no WhatsApp.",
+          );
         } catch (e) {
-          queueToast("error", "Recarga Feita", "A recarga funcionou, mas o envio do WhatsApp falhou.");
+          queueToast(
+            "error",
+            "Recarga Feita",
+            "A recarga funcionou, mas o envio do WhatsApp falhou.",
+          );
         }
       } else {
-         queueToast("success", "Recarga Concluída", "Créditos adicionados com sucesso.");
+        queueToast(
+          "success",
+          "Recarga Concluída",
+          "Créditos adicionados com sucesso.",
+        );
       }
 
       setLoadingText("Concluído!");
@@ -605,7 +674,6 @@ const payload = {
         await onDone();
         onClose();
       }, 500);
-
     } catch (err: any) {
       const msg = err?.message || String(err);
       onError?.(msg);
@@ -659,15 +727,18 @@ const payload = {
                   value={selectedResellerServerId}
                   disabled={!!lockServer}
                   onChange={(e) => {
-  if (lockServer) return;
-  // Apenas atualiza o ID. O useEffect lá em cima fará toda a mágica (buscar histórico ou aplicar override).
-  setSelectedResellerServerId(e.target.value);
-  setNotes("");
-}}
+                    if (lockServer) return;
+                    // Apenas atualiza o ID. O useEffect lá em cima fará toda a mágica (buscar histórico ou aplicar override).
+                    setSelectedResellerServerId(e.target.value);
+                    setNotes("");
+                  }}
                 >
                   <option value="">Selecione o servidor...</option>
                   {servers.map((s) => (
-                    <option key={s.reseller_server_id} value={s.reseller_server_id}>
+                    <option
+                      key={s.reseller_server_id}
+                      value={s.reseller_server_id}
+                    >
                       {s.server_name || "Servidor"}
                     </option>
                   ))}
@@ -695,7 +766,10 @@ const payload = {
                 <div className="grid grid-cols-2 gap-2 animate-in slide-in-from-bottom-3 duration-400">
                   <div>
                     <Label>Moeda</Label>
-                    <Select value={currency} onChange={(e) => setCurrency(e.target.value as Currency)}>
+                    <Select
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value as Currency)}
+                    >
                       <option value="BRL">BRL</option>
                       <option value="USD">USD</option>
                       <option value="EUR">EUR</option>
@@ -720,7 +794,9 @@ const payload = {
                     <Label>
                       <span className="flex justify-between">
                         Câmbio {currency} → BRL{" "}
-                        {fxLoading && <span className="animate-pulse">...</span>}
+                        {fxLoading && (
+                          <span className="animate-pulse">...</span>
+                        )}
                       </span>
                     </Label>
 
@@ -728,7 +804,11 @@ const payload = {
                       <input
                         type="number"
                         step="0.0001"
-                        value={Number.isFinite(fxRate) ? Number(fxRate).toFixed(4) : ""}
+                        value={
+                          Number.isFinite(fxRate)
+                            ? Number(fxRate).toFixed(4)
+                            : ""
+                        }
                         onChange={(e) => setFxRate(Number(e.target.value))}
                         className="col-span-2 h-10 px-3 bg-white dark:bg-black/30 border border-sky-200 dark:border-sky-500/30 rounded-lg text-slate-700 dark:text-white font-bold font-mono outline-none"
                       />
@@ -745,7 +825,8 @@ const payload = {
 
                     {fxAsOf && !fxError && (
                       <div className="text-[10px] text-slate-400 dark:text-white/30">
-                        Última taxa registrada: <span className="font-mono">{fxAsOf}</span>
+                        Última taxa registrada:{" "}
+                        <span className="font-mono">{fxAsOf}</span>
                       </div>
                     )}
                   </div>
@@ -753,7 +834,9 @@ const payload = {
                   <div className="space-y-1">
                     <Label>Subtotal ({currency})</Label>
                     <div className="h-10 flex items-center px-3 bg-white dark:bg-black/30 border border-sky-200 dark:border-sky-500/30 rounded-lg text-slate-700 dark:text-white font-bold font-mono">
-                      {Number.isFinite(totalCurrency) ? fmtMoney(currency, totalCurrency) : "—"}
+                      {Number.isFinite(totalCurrency)
+                        ? fmtMoney(currency, totalCurrency)
+                        : "—"}
                     </div>
                   </div>
                 </div>
@@ -766,7 +849,9 @@ const payload = {
                     Valor contábil final
                   </span>
                   <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tracking-tight">
-                    {Number.isFinite(totalBRL) ? fmtMoney("BRL", totalBRL) : "—"}
+                    {Number.isFinite(totalBRL)
+                      ? fmtMoney("BRL", totalBRL)
+                      : "—"}
                   </div>
                 </div>
                 <div className="text-[10px] text-slate-400 dark:text-white/20 italic text-right max-w-[160px]">
@@ -774,15 +859,18 @@ const payload = {
                 </div>
               </div>
 
-   {/* ✅ BLOCO DO WHATSAPP (Agora com 2 selects) */}
+              {/* ✅ BLOCO DO WHATSAPP (Agora com 2 selects) */}
               <div className="bg-slate-50 dark:bg-black/20 p-3 rounded-xl border border-slate-200 dark:border-border flex flex-col gap-3 animate-in zoom-in-95 duration-500">
-                
                 {/* Toggle */}
-                <div 
-                  onClick={() => setSendWhats(!sendWhats)} 
+                <div
+                  onClick={() => setSendWhats(!sendWhats)}
                   className="cursor-pointer flex items-center gap-3 shrink-0"
                 >
-                  <Switch checked={sendWhats} onChange={setSendWhats} label="" />
+                  <Switch
+                    checked={sendWhats}
+                    onChange={setSendWhats}
+                    label=""
+                  />
                   <span className="text-xs font-bold text-slate-600 dark:text-muted-foreground">
                     Enviar comprovante?
                   </span>
@@ -798,8 +886,10 @@ const payload = {
                         onChange={(e) => setSelectedSession(e.target.value)}
                         className="h-9 w-full text-xs font-semibold text-slate-600 dark:text-muted-foreground"
                       >
-                        {sessionOptions.map(s => (
-                          <option key={s.id} value={s.id}>{s.label}</option>
+                        {sessionOptions.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.label}
+                          </option>
                         ))}
                       </Select>
                     </div>
@@ -818,10 +908,16 @@ const payload = {
                       >
                         <option value="">-- Personalizado --</option>
                         {templates
-                          .filter((t) => t.category === "Revenda IPTV" || t.name === "Recarga Revenda") // ✅ FILTRA SÓ REVENDA IPTV
+                          .filter(
+                            (t) =>
+                              t.category === "Revenda IPTV" ||
+                              t.name === "Recarga Revenda",
+                          ) // ✅ FILTRA SÓ REVENDA IPTV
                           .map((t) => (
-                          <option key={t.id} value={t.id}>{t.name}</option>
-                        ))}
+                            <option key={t.id} value={t.id}>
+                              {t.name}
+                            </option>
+                          ))}
                       </Select>
                     </div>
                   </div>
@@ -858,9 +954,7 @@ const payload = {
                   disabled={!canSave || saving}
                   className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:hover:bg-emerald-600 disabled:opacity-50 text-white font-bold transition-colors flex items-center justify-center gap-2"
                 >
-                  {saving && (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  )}
+                  {saving && <Loader2 className="w-4 h-4 animate-spin" />}
                   {saving ? loadingText : "Confirmar recarga"}
                 </button>
               </div>
@@ -869,16 +963,38 @@ const payload = {
         </div>
       </div>
     </div>,
-    typeof document !== "undefined" ? document.body : null
+    typeof document !== "undefined" ? document.body : null,
   );
 }
 
-function Switch({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string; }) {
+function Switch({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+}) {
   return (
     <div className="flex items-center justify-between gap-3">
-      {label && <span className="text-xs text-slate-700 dark:text-muted-foreground">{label}</span>}
-      <button type="button" onClick={(e) => { e.stopPropagation(); onChange(!checked); }} className={`relative w-12 h-7 rounded-full transition-colors border ${checked ? "bg-emerald-600 border-emerald-600" : "bg-slate-200 dark:bg-white/10 border-slate-300 dark:border-border"}`} aria-pressed={checked}>
-        <span className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform ${checked ? "translate-x-5" : "translate-x-0"}`} />
+      {label && (
+        <span className="text-xs text-slate-700 dark:text-muted-foreground">
+          {label}
+        </span>
+      )}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onChange(!checked);
+        }}
+        className={`relative w-12 h-7 rounded-full transition-colors border ${checked ? "bg-emerald-600 border-emerald-600" : "bg-slate-200 dark:bg-white/10 border-slate-300 dark:border-border"}`}
+        aria-pressed={checked}
+      >
+        <span
+          className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform ${checked ? "translate-x-5" : "translate-x-0"}`}
+        />
       </button>
     </div>
   );

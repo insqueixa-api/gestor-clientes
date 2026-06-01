@@ -1,30 +1,104 @@
 "use client";
 import { X, Pencil, MessageCircle } from "lucide-react";
 
-
 import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { getCurrentTenantId } from "@/lib/tenant";
-import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
-
+import ToastNotifications, {
+  ToastMessage,
+} from "@/app/admin/ToastNotifications";
 
 // --- ÍCONES (ADICIONAR/SUBSTITUIR NO TOPO) ---
-function IconEye() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>; }
-function IconEdit() { return <Pencil className="w-4 h-4" />; }
-function IconTrash() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>; }
-function IconX() { return <X className="w-4 h-4" />; }
-function IconImage() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>; }
-function IconUpload() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>; }
+function IconEye() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+function IconEdit() {
+  return <Pencil className="w-4 h-4" />;
+}
+function IconTrash() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    </svg>
+  );
+}
+function IconX() {
+  return <X className="w-4 h-4" />;
+}
+function IconImage() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+      <circle cx="8.5" cy="8.5" r="1.5" />
+      <polyline points="21 15 16 10 5 21" />
+    </svg>
+  );
+}
+function IconUpload() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+  );
+}
 
 // --- DEFINIÇÃO DAS TAGS (REORGANIZADO) ---
 const TAG_GROUPS = [
   {
     title: "🤖 Automação Inteligente & Prazos",
-    color: "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400",
+    color:
+      "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400",
     tags: [
       { label: "{saudacao_tempo}", desc: "Bom dia / Boa tarde / Boa noite" },
-      { label: "{dias_desde_cadastro}", desc: "Dias como cliente (Ex: 45 dias)" },
+      {
+        label: "{dias_desde_cadastro}",
+        desc: "Dias como cliente (Ex: 45 dias)",
+      },
       { label: "{dias_para_vencimento}", desc: "Dias restantes (Ex: 5 dias)" },
       { label: "{dias_atraso}", desc: "Dias de atraso (Ex: 2 dias)" },
       { label: "{hoje_data}", desc: "Data atual (DD/MM/AAAA)" },
@@ -46,7 +120,8 @@ const TAG_GROUPS = [
   },
   {
     title: "🖥️ Acesso e Servidor",
-    color: "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400",
+    color:
+      "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400",
     tags: [
       { label: "{usuario_app}", desc: "Usuário (server_username)" },
       { label: "{senha_app}", desc: "Senha (server_password)" },
@@ -67,18 +142,23 @@ const TAG_GROUPS = [
   },
   {
     title: "🏢 Dados da Revenda",
-    color: "bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400",
+    color:
+      "bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400",
     tags: [
       { label: "{revenda_nome}", desc: "Nome do Revendedor" },
-      { label: "{usuario_revenda}", desc: "Usuário no Painel (server_username)" }, // ✅ NOVO
+      {
+        label: "{usuario_revenda}",
+        desc: "Usuário no Painel (server_username)",
+      }, // ✅ NOVO
       { label: "{revenda_site}", desc: "Link Painel (panel_web_url)" },
       { label: "{revenda_telegram}", desc: "Telegram (panel_telegram_group)" },
       { label: "{revenda_dns}", desc: "Lista DNS (dns)" },
     ],
   },
-{
+  {
     title: "💰 Financeiro",
-    color: "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400",
+    color:
+      "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400",
     tags: [
       { label: "{venda_creditos}", desc: "Qtd. de Créditos da Última Recarga" },
       { label: "{link_pagamento}", desc: "Link Área do Cliente / Fatura" },
@@ -97,14 +177,11 @@ const TAG_GROUPS = [
       { label: "{transfer_iban}", desc: "Código IBAN (Conta Int.)" },
       { label: "{transfer_swift}", desc: "Código SWIFT/BIC (Conta Int.)" },
     ],
-  }
+  },
 ];
 
 // --- Nomes Protegidos pelo Sistema ---
-const PROTECTED_TEMPLATES = [
-  "Pagamento Realizado",
-  "Teste - Boas-vindas"
-];
+const PROTECTED_TEMPLATES = ["Pagamento Realizado", "Teste - Boas-vindas"];
 
 // --- TIPOS ---
 type MessageTemplate = {
@@ -112,8 +189,8 @@ type MessageTemplate = {
   name: string;
   content: string;
   updated_at: string;
-  is_system_default: boolean; 
-  image_url: string | null; 
+  is_system_default: boolean;
+  image_url: string | null;
   category?: string | null;
 };
 
@@ -124,13 +201,14 @@ const MESSAGE_CATEGORIES = [
   "Promoções",
   "Manutenção",
   "Fidelidade",
-  "Geral"
+  "Geral",
 ];
 
 // ✅ Reconhecedor Automático Simplificado
 function getTemplateCategory(msg: MessageTemplate) {
-  if (msg.category && msg.category !== 'Geral') return msg.category;
-  if (msg.name === "Pagamento Realizado" || msg.name === "Teste - Boas-vindas") return "Cliente IPTV";
+  if (msg.category && msg.category !== "Geral") return msg.category;
+  if (msg.name === "Pagamento Realizado" || msg.name === "Teste - Boas-vindas")
+    return "Cliente IPTV";
   return "Geral";
 }
 
@@ -145,7 +223,8 @@ export default function MessagesPage() {
   // Modais
   const [showEditor, setShowEditor] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<MessageTemplate | null>(null);
+  const [selectedTemplate, setSelectedTemplate] =
+    useState<MessageTemplate | null>(null);
 
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
@@ -154,23 +233,26 @@ export default function MessagesPage() {
     setToasts((p) => [...p, { id, type, title, message: msg }]);
     setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 4000);
   };
-  const removeToast = (id: number) => setToasts((p) => p.filter((t) => t.id !== id));
+  const removeToast = (id: number) =>
+    setToasts((p) => p.filter((t) => t.id !== id));
 
- async function loadMessages() {
-  setLoading(true);
-  const tid = await getCurrentTenantId();
+  async function loadMessages() {
+    setLoading(true);
+    const tid = await getCurrentTenantId();
 
-  if (!tid) {
-    setLoading(false);
-    return;
-  }
+    if (!tid) {
+      setLoading(false);
+      return;
+    }
 
-  // ✅ Acesso total, sem travas
-  const { data, error } = await supabaseBrowser
-    .from("message_templates")
-    .select("id, name, content, updated_at, is_system_default, image_url, category")
-    .eq("tenant_id", tid)
-    .order("is_system_default", { ascending: false });
+    // ✅ Acesso total, sem travas
+    const { data, error } = await supabaseBrowser
+      .from("message_templates")
+      .select(
+        "id, name, content, updated_at, is_system_default, image_url, category",
+      )
+      .eq("tenant_id", tid)
+      .order("is_system_default", { ascending: false });
 
     if (error) {
       addToast("error", "Erro ao carregar", error.message);
@@ -186,21 +268,21 @@ export default function MessagesPage() {
 
   // Deletar Mensagem
   async function handleDelete(id: string) {
-    if (!confirm("Tem certeza que deseja excluir este modelo permanentemente?")) return;
+    if (!confirm("Tem certeza que deseja excluir este modelo permanentemente?"))
+      return;
 
     const tid = await getCurrentTenantId();
     if (!tid) return;
 
     // ✅ Encontra o template para ver se tem imagem
-    const tpl = messages.find(m => m.id === id);
+    const tpl = messages.find((m) => m.id === id);
     if (tpl?.image_url) {
       try {
-        const oldPath = tpl.image_url.split('/chat_media/')[1];
+        const oldPath = tpl.image_url.split("/chat_media/")[1];
         if (oldPath) {
           await supabaseBrowser.storage.from("chat_media").remove([oldPath]);
         }
-      } catch (e) {
-      }
+      } catch (e) {}
     }
 
     const { error } = await supabaseBrowser
@@ -217,105 +299,115 @@ export default function MessagesPage() {
     }
   }
 
-// Filtro + Ordenação (A–Z) — só visual, não muda regra do banco
-const filteredMessages = useMemo(() => {
-  const q = search.trim().toLowerCase();
+  // Filtro + Ordenação (A–Z) — só visual, não muda regra do banco
+  const filteredMessages = useMemo(() => {
+    const q = search.trim().toLowerCase();
 
-  const filtered = !q
-    ? messages
-    : messages.filter((m) => {
-        const name = String(m.name ?? "").toLowerCase();
-        const content = String(m.content ?? "").toLowerCase();
-        return name.includes(q) || content.includes(q);
-      });
+    const filtered = !q
+      ? messages
+      : messages.filter((m) => {
+          const name = String(m.name ?? "").toLowerCase();
+          const content = String(m.content ?? "").toLowerCase();
+          return name.includes(q) || content.includes(q);
+        });
 
-  // A–Z (case-insensitive / pt-BR)
-  return [...filtered].sort((a, b) =>
-    String(a.name ?? "").localeCompare(String(b.name ?? ""), "pt-BR", { sensitivity: "base" })
-  );
-}, [messages, search]);
+    // A–Z (case-insensitive / pt-BR)
+    return [...filtered].sort((a, b) =>
+      String(a.name ?? "").localeCompare(String(b.name ?? ""), "pt-BR", {
+        sensitivity: "base",
+      }),
+    );
+  }, [messages, search]);
 
   return (
-  <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors">
-    {/* Topo (padrão admin) */}
-    <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0 md:px-4">
-      <div className="min-w-0 text-left">
-        <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
-          Mensagens
-        </h1>
-      </div>
-
-      <div className="flex items-center gap-2 justify-end shrink-0">
-        <button
-          onClick={() => {
-            setSelectedTemplate(null);
-            setShowEditor(true);
-          }}
-          className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2 whitespace-nowrap"
-        >
-          <span className="text-base md:text-lg leading-none mb-0.5">+</span> Nova Mensagem
-        </button>
-      </div>
-    </div>
-
-    {/* Barra de Busca (padrão admin) */}
-    <div
-      className="p-0 px-3 sm:px-0 md:p-4 bg-transparent md:bg-white md:dark:bg-card border-0 md:border md:border-slate-200 md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-4 md:mb-6 md:sticky md:top-4 z-20"
-      onClick={(e) => e.stopPropagation()}
-    >
-      <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-muted-foreground tracking-wider">
-        Busca
-      </div>
-
-      <div className="flex items-center gap-2">
-        <div className="flex-1 relative">
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar modelo (nome ou conteúdo)..."
-            className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
-          />
-
-          {search && (
-            <button
-              onClick={() => setSearch("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500"
-              title="Limpar busca"
-              aria-label="Limpar busca"
-            >
-              <IconX />
-            </button>
-          )}
+    <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors">
+      {/* Topo (padrão admin) */}
+      <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0 md:px-4">
+        <div className="min-w-0 text-left">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
+            Mensagens
+          </h1>
         </div>
 
-        <button
-          onClick={() => setSearch("")}
-          className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors items-center justify-center gap-2"
-        >
-          <IconX /> Limpar
-        </button>
+        <div className="flex items-center gap-2 justify-end shrink-0">
+          <button
+            onClick={() => {
+              setSelectedTemplate(null);
+              setShowEditor(true);
+            }}
+            className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2 whitespace-nowrap"
+          >
+            <span className="text-base md:text-lg leading-none mb-0.5">+</span>{" "}
+            Nova Mensagem
+          </button>
+        </div>
       </div>
-    </div>
 
+      {/* Barra de Busca (padrão admin) */}
+      <div
+        className="p-0 px-3 sm:px-0 md:p-4 bg-transparent md:bg-white md:dark:bg-card border-0 md:border md:border-slate-200 md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-4 md:mb-6 md:sticky md:top-4 z-20"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-muted-foreground tracking-wider">
+          Busca
+        </div>
 
+        <div className="flex items-center gap-2">
+          <div className="flex-1 relative">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar modelo (nome ou conteúdo)..."
+              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+            />
 
-                  {/* LISTA DE MENSAGENS (LISTA COM SELEÇÃO + AÇÕES À DIREITA) */}
-{loading ? (
-  <div className="p-12 text-center text-slate-400 dark:text-muted-foreground animate-pulse bg-white dark:bg-card rounded-none sm:rounded-xl border border-slate-200 dark:border-border font-medium">
-    Carregando modelos...
-  </div>
-) : filteredMessages.length === 0 ? (
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500"
+                title="Limpar busca"
+                aria-label="Limpar busca"
+              >
+                <IconX />
+              </button>
+            )}
+          </div>
 
+          <button
+            onClick={() => setSearch("")}
+            className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors items-center justify-center gap-2"
+          >
+            <IconX /> Limpar
+          </button>
+        </div>
+      </div>
+
+      {/* LISTA DE MENSAGENS (LISTA COM SELEÇÃO + AÇÕES À DIREITA) */}
+      {loading ? (
+        <div className="p-12 text-center text-slate-400 dark:text-muted-foreground animate-pulse bg-white dark:bg-card rounded-none sm:rounded-xl border border-slate-200 dark:border-border font-medium">
+          Carregando modelos...
+        </div>
+      ) : filteredMessages.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-card border border-dashed border-slate-300 dark:border-border rounded-none sm:rounded-2xl">
-          <div className="w-16 h-16 bg-slate-100 dark:bg-white/5 rounded-full flex items-center justify-center mb-4 text-3xl"><MessageCircle className="w-4 h-4" /></div>
-          <h3 className="text-lg font-bold text-slate-700 dark:text-white">Nenhum modelo encontrado</h3>
-          <p className="text-sm text-slate-500 dark:text-white/50 mt-1">Crie um novo modelo ou ajuste sua busca.</p>
+          <div className="w-16 h-16 bg-slate-100 dark:bg-white/5 rounded-full flex items-center justify-center mb-4 text-3xl">
+            <MessageCircle className="w-4 h-4" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-700 dark:text-white">
+            Nenhum modelo encontrado
+          </h3>
+          <p className="text-sm text-slate-500 dark:text-white/50 mt-1">
+            Crie um novo modelo ou ajuste sua busca.
+          </p>
         </div>
       ) : (
         <div className="space-y-6">
           {(() => {
             // Função auxiliadora para renderizar os blocos separados
-            const renderGroup = (title: string, icon: string, items: MessageTemplate[]) => {
+            const renderGroup = (
+              title: string,
+              icon: string,
+              items: MessageTemplate[],
+            ) => {
               if (items.length === 0) return null;
               return (
                 <div className="bg-white dark:bg-card border-y sm:border border-slate-200 dark:border-border rounded-none sm:rounded-xl shadow-sm overflow-hidden">
@@ -336,7 +428,9 @@ const filteredMessages = useMemo(() => {
                   <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:gap-[1px] bg-slate-100 dark:bg-white/5">
                     {items.map((msg) => {
                       const isSelected = selectedTemplate?.id === msg.id;
-                      const isProtected = msg.is_system_default || PROTECTED_TEMPLATES.includes(msg.name);
+                      const isProtected =
+                        msg.is_system_default ||
+                        PROTECTED_TEMPLATES.includes(msg.name);
 
                       return (
                         <div
@@ -344,26 +438,74 @@ const filteredMessages = useMemo(() => {
                           role="button"
                           tabIndex={0}
                           onClick={() => setSelectedTemplate(msg)}
-                          onKeyDown={(e) => { if (e.key === "Enter") setSelectedTemplate(msg); }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") setSelectedTemplate(msg);
+                          }}
                           className={[
                             "w-full flex items-center justify-between gap-2 px-3 sm:px-5 py-3 transition-colors cursor-pointer bg-white dark:bg-card",
-                            isSelected ? "bg-emerald-50/70 dark:bg-emerald-500/10" : "hover:bg-slate-50 dark:hover:bg-white/5",
+                            isSelected
+                              ? "bg-emerald-50/70 dark:bg-emerald-500/10"
+                              : "hover:bg-slate-50 dark:hover:bg-white/5",
                           ].join(" ")}
                         >
                           <div className="min-w-0 flex-1 pr-2">
                             <div className="flex items-center gap-2 min-w-0">
-                              <span className={["inline-flex w-2 h-2 rounded-full shrink-0", isSelected ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"].join(" ")} />
-                              <h3 className="font-bold text-slate-800 dark:text-white text-sm sm:text-base truncate" title={msg.name}>{msg.name}</h3>
+                              <span
+                                className={[
+                                  "inline-flex w-2 h-2 rounded-full shrink-0",
+                                  isSelected
+                                    ? "bg-emerald-500"
+                                    : "bg-slate-300 dark:bg-white/20",
+                                ].join(" ")}
+                              />
+                              <h3
+                                className="font-bold text-slate-800 dark:text-white text-sm sm:text-base truncate"
+                                title={msg.name}
+                              >
+                                {msg.name}
+                              </h3>
                             </div>
                             <div className="mt-1 text-[10px] sm:text-xs text-slate-500 dark:text-white/50 ml-4">
-                              Atualizado: {new Date(msg.updated_at).toLocaleDateString("pt-BR")}
+                              Atualizado:{" "}
+                              {new Date(msg.updated_at).toLocaleDateString(
+                                "pt-BR",
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center justify-end gap-1.5 shrink-0">
-                            <button onClick={(e) => { e.stopPropagation(); setSelectedTemplate(msg); setShowPreview(true); }} className="flex items-center justify-center w-8 h-8 rounded-lg border border-sky-200 dark:border-sky-500/20 bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-all" title="Ver"><IconEye /></button>
-                            <button onClick={(e) => { e.stopPropagation(); setSelectedTemplate(msg); setShowEditor(true); }} className="flex items-center justify-center w-8 h-8 rounded-lg border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-all" title="Editar"><IconEdit /></button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedTemplate(msg);
+                                setShowPreview(true);
+                              }}
+                              className="flex items-center justify-center w-8 h-8 rounded-lg border border-sky-200 dark:border-sky-500/20 bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-all"
+                              title="Ver"
+                            >
+                              <IconEye />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedTemplate(msg);
+                                setShowEditor(true);
+                              }}
+                              className="flex items-center justify-center w-8 h-8 rounded-lg border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-all"
+                              title="Editar"
+                            >
+                              <IconEdit />
+                            </button>
                             {!isProtected && (
-                              <button onClick={(e) => { e.stopPropagation(); handleDelete(msg.id); }} className="flex items-center justify-center w-8 h-8 rounded-lg border border-rose-200 dark:border-rose-500/20 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-all" title="Excluir"><IconTrash /></button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(msg.id);
+                                }}
+                                className="flex items-center justify-center w-8 h-8 rounded-lg border border-rose-200 dark:border-rose-500/20 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-all"
+                                title="Excluir"
+                              >
+                                <IconTrash />
+                              </button>
                             )}
                           </div>
                         </div>
@@ -376,8 +518,10 @@ const filteredMessages = useMemo(() => {
 
             return (
               <>
-                {MESSAGE_CATEGORIES.map(cat => {
-                  let items = filteredMessages.filter(m => getTemplateCategory(m) === cat);
+                {MESSAGE_CATEGORIES.map((cat) => {
+                  let items = filteredMessages.filter(
+                    (m) => getTemplateCategory(m) === cat,
+                  );
                   if (items.length === 0) return null;
 
                   // Título dinâmico
@@ -391,7 +535,11 @@ const filteredMessages = useMemo(() => {
                   else if (cat === "Manutenção") icon = "⚙️";
                   else if (cat === "Fidelidade") icon = "⭐";
 
-                  return <div key={cat}>{renderGroup(displayTitle, icon, items)}</div>;
+                  return (
+                    <div key={cat}>
+                      {renderGroup(displayTitle, icon, items)}
+                    </div>
+                  );
                 })}
               </>
             );
@@ -402,12 +550,11 @@ const filteredMessages = useMemo(() => {
       {/* Espaço fixo pós-lista */}
       <div className="h-24 md:h-20" />
 
-
       {/* MODAL EDITOR (CRIAR/EDITAR) */}
       {showEditor && (
         <EditorModal
-          templateToEdit={selectedTemplate}
-          onClose={() => setShowEditor(false)}
+          templateToEdit={selectedTemplate}
+          onClose={() => setShowEditor(false)}
           onSuccess={() => {
             setShowEditor(false);
             loadMessages();
@@ -456,10 +603,11 @@ function PreviewModal({
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
       <div className="w-full h-full sm:h-auto max-w-lg bg-white dark:bg-card border-0 sm:border border-slate-200 dark:border-border rounded-none sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[100dvh] sm:max-h-[80vh]">
-        
         {/* Cabeçalho */}
         <div className="px-4 py-3 sm:px-5 sm:py-4 border-b border-slate-100 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5 shrink-0">
-          <h3 className="font-bold text-slate-800 dark:text-white truncate pr-4 text-base sm:text-lg">{template.name}</h3>
+          <h3 className="font-bold text-slate-800 dark:text-white truncate pr-4 text-base sm:text-lg">
+            {template.name}
+          </h3>
           <button
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-slate-800 dark:hover:text-white transition-colors"
@@ -475,7 +623,11 @@ function PreviewModal({
             {template.image_url && (
               <div className="relative w-full max-w-sm mx-auto bg-slate-100 dark:bg-black/40 rounded-lg overflow-hidden border border-slate-200 dark:border-border">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={template.image_url} alt="Imagem da mensagem" className="w-full h-auto object-cover" />
+                <img
+                  src={template.image_url}
+                  alt="Imagem da mensagem"
+                  className="w-full h-auto object-cover"
+                />
               </div>
             )}
             <div>{template.content}</div>
@@ -484,7 +636,6 @@ function PreviewModal({
 
         {/* Rodapé e Botões (AGORA COM O BOTÃO DE COPIAR) */}
         <div className="px-4 py-3 sm:px-5 sm:py-4 border-t border-slate-100 dark:border-border flex justify-end gap-2 bg-white dark:bg-card shrink-0">
-          
           {/* ✅ NOVO: BOTÃO DE COPIAR */}
           <button
             onClick={() => {
@@ -493,19 +644,42 @@ function PreviewModal({
               setTimeout(() => setCopied(false), 2000); // Volta ao normal após 2 segundos
             }}
             className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-lg border font-bold text-xs transition-colors uppercase flex items-center justify-center gap-1.5 ${
-              copied 
-                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" 
+              copied
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                 : "border-slate-200 dark:border-border text-slate-700 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5"
             }`}
           >
             {copied ? (
               <>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
                 Copiado!
               </>
             ) : (
               <>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
                 Copiar
               </>
             )}
@@ -517,7 +691,7 @@ function PreviewModal({
           >
             Fechar
           </button>
-          
+
           <button
             onClick={onEdit}
             className="flex-1 sm:flex-none px-6 py-2.5 sm:py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-lg shadow-amber-500/20 transition-transform active:scale-95 uppercase flex items-center justify-center gap-2"
@@ -525,10 +699,9 @@ function PreviewModal({
             ✏️ Editar Modelo
           </button>
         </div>
-
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }
 
@@ -548,18 +721,24 @@ function EditorModal({
 }) {
   const [name, setName] = useState(templateToEdit?.name || "");
   const [content, setContent] = useState(templateToEdit?.content || "");
-  const [category, setCategory] = useState(templateToEdit ? getTemplateCategory(templateToEdit) : "Geral"); // ✅ Inicia com a categoria certa
-  
+  const [category, setCategory] = useState(
+    templateToEdit ? getTemplateCategory(templateToEdit) : "Geral",
+  ); // ✅ Inicia com a categoria certa
+
   // ✅ Controle de Grupos Minimizados (inicia tudo fechado/vazio)
   const [openDesktopGroups, setOpenDesktopGroups] = useState<number[]>([]);
   const toggleDesktopGroup = (idx: number) => {
-    setOpenDesktopGroups(prev => prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]);
+    setOpenDesktopGroups((prev) =>
+      prev.includes(idx) ? prev.filter((i) => i !== idx) : [...prev, idx],
+    );
   };
 
   // ✅ NOVO: Controle de Imagem
-  const [previewUrl, setPreviewUrl] = useState<string | null>(templateToEdit?.image_url || null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(
+    templateToEdit?.image_url || null,
+  );
   const [imageFile, setImageFile] = useState<File | null>(null);
-  
+
   const [loading, setLoading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -590,11 +769,15 @@ function EditorModal({
           canvas.height = height;
           const ctx = canvas.getContext("2d");
           ctx?.drawImage(img, 0, 0, width, height);
-          
-          canvas.toBlob((blob) => {
-            if (blob) resolve(blob);
-            else reject(new Error("Falha na compressão"));
-          }, "image/jpeg", 0.75); // 75% de Qualidade
+
+          canvas.toBlob(
+            (blob) => {
+              if (blob) resolve(blob);
+              else reject(new Error("Falha na compressão"));
+            },
+            "image/jpeg",
+            0.75,
+          ); // 75% de Qualidade
         };
         img.onerror = (e) => reject(e);
       };
@@ -603,7 +786,9 @@ function EditorModal({
   }
 
   // ✅ Descobre se o template aberto é bloqueado para troca de nome
-  const isProtected = templateToEdit?.is_system_default || (templateToEdit?.name && PROTECTED_TEMPLATES.includes(templateToEdit.name));
+  const isProtected =
+    templateToEdit?.is_system_default ||
+    (templateToEdit?.name && PROTECTED_TEMPLATES.includes(templateToEdit.name));
 
   // MOBILE tags (novo)
   const [mobileTagsOpen, setMobileTagsOpen] = useState(false);
@@ -619,7 +804,10 @@ function EditorModal({
     setTimeout(() => {
       if (textareaRef.current) {
         textareaRef.current.focus();
-        textareaRef.current.setSelectionRange(start + tag.length, start + tag.length);
+        textareaRef.current.setSelectionRange(
+          start + tag.length,
+          start + tag.length,
+        );
       }
     }, 0);
   };
@@ -638,8 +826,9 @@ function EditorModal({
 
       // 1. Se o usuário deletou a foto antiga
       if (!previewUrl && templateToEdit?.image_url) {
-        const oldPath = templateToEdit.image_url.split('/chat_media/')[1];
-        if (oldPath) await supabaseBrowser.storage.from("chat_media").remove([oldPath]);
+        const oldPath = templateToEdit.image_url.split("/chat_media/")[1];
+        if (oldPath)
+          await supabaseBrowser.storage.from("chat_media").remove([oldPath]);
         finalImageUrl = null;
       }
 
@@ -651,17 +840,26 @@ function EditorModal({
 
         const { error: uploadErr } = await supabaseBrowser.storage
           .from("chat_media")
-          .upload(filePath, compressedBlob, { contentType: "image/jpeg", upsert: true });
-        
-        if (uploadErr) throw new Error("Falha ao fazer upload da imagem: " + uploadErr.message);
+          .upload(filePath, compressedBlob, {
+            contentType: "image/jpeg",
+            upsert: true,
+          });
 
-        const { data: pubData } = supabaseBrowser.storage.from("chat_media").getPublicUrl(filePath);
+        if (uploadErr)
+          throw new Error(
+            "Falha ao fazer upload da imagem: " + uploadErr.message,
+          );
+
+        const { data: pubData } = supabaseBrowser.storage
+          .from("chat_media")
+          .getPublicUrl(filePath);
         finalImageUrl = pubData.publicUrl;
 
         // Limpa a foto anterior do banco se existia
         if (templateToEdit?.image_url) {
-           const oldPath = templateToEdit.image_url.split('/chat_media/')[1];
-           if (oldPath) await supabaseBrowser.storage.from("chat_media").remove([oldPath]);
+          const oldPath = templateToEdit.image_url.split("/chat_media/")[1];
+          if (oldPath)
+            await supabaseBrowser.storage.from("chat_media").remove([oldPath]);
         }
       }
 
@@ -670,7 +868,7 @@ function EditorModal({
         name,
         content,
         category, // ✅ Salva a categoria no banco
-        image_url: finalImageUrl, 
+        image_url: finalImageUrl,
         updated_at: new Date().toISOString(),
       };
 
@@ -683,7 +881,9 @@ function EditorModal({
 
         if (error) throw error;
       } else {
-        const { error } = await supabaseBrowser.from("message_templates").insert(payload);
+        const { error } = await supabaseBrowser
+          .from("message_templates")
+          .insert(payload);
 
         if (error) throw error;
       }
@@ -703,7 +903,7 @@ function EditorModal({
         ...tag,
         groupTitle: group.title,
         color: group.color,
-      }))
+      })),
     );
 
     const q = mobileTagsQuery.trim().toLowerCase();
@@ -717,21 +917,21 @@ function EditorModal({
 
   if (typeof document === "undefined") return null;
 
-return createPortal(
-  <div className="fixed inset-0 z-[99999] flex items-stretch sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
-    <div
-      className="w-full h-full sm:h-auto max-w-6xl bg-white dark:bg-card border-0 sm:border border-slate-200 dark:border-border rounded-none sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[100dvh] sm:max-h-[90vh]"
-      onClick={(e) => e.stopPropagation()}
-    >
-
+  return createPortal(
+    <div className="fixed inset-0 z-[99999] flex items-stretch sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
+      <div
+        className="w-full h-full sm:h-auto max-w-6xl bg-white dark:bg-card border-0 sm:border border-slate-200 dark:border-border rounded-none sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[100dvh] sm:max-h-[90vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-100 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-xl"><Pencil className="w-4 h-4" /></div>
+            <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-xl">
+              <Pencil className="w-4 h-4" />
+            </div>
             <div>
               <h2 className="text-lg font-bold text-slate-800 dark:text-white">
                 {templateToEdit ? "Editar Mensagem" : "Criar Nova Mensagem"}
               </h2>
-
             </div>
           </div>
           <button
@@ -757,7 +957,9 @@ return createPortal(
                     (toque para {mobileTagsOpen ? "fechar" : "abrir"})
                   </span>
                 </span>
-                <span className="text-slate-400">{mobileTagsOpen ? "▲" : "▼"}</span>
+                <span className="text-slate-400">
+                  {mobileTagsOpen ? "▲" : "▼"}
+                </span>
               </button>
 
               {mobileTagsOpen && (
@@ -766,7 +968,9 @@ return createPortal(
                     <h3 className="text-xs font-bold text-slate-600 dark:text-white uppercase tracking-widest flex items-center gap-2">
                       🏷️ Variáveis Disponíveis
                     </h3>
-                    <p className="text-[10px] text-slate-400 mt-1">Toque para inserir no texto</p>
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Toque para inserir no texto
+                    </p>
 
                     <input
                       value={mobileTagsQuery}
@@ -778,7 +982,9 @@ return createPortal(
 
                   <div className="max-h-[38vh] overflow-y-auto p-3 space-y-2 custom-scrollbar bg-slate-50/30 dark:bg-black/10">
                     {filteredMobileTags.length === 0 ? (
-                      <div className="text-xs text-slate-400 py-6 text-center">Nenhuma variável encontrada.</div>
+                      <div className="text-xs text-slate-400 py-6 text-center">
+                        Nenhuma variável encontrada.
+                      </div>
                     ) : (
                       filteredMobileTags.map((tag) => (
                         <button
@@ -790,7 +996,9 @@ return createPortal(
                           className={`text-left px-3 py-2.5 rounded-lg border border-slate-200 dark:border-border hover:brightness-95 hover:shadow-sm active:scale-95 transition-all flex flex-col group ${tag.color} bg-white dark:bg-[#1c2128]`}
                         >
                           <div className="flex items-center justify-between gap-3">
-                            <span className="font-mono text-xs font-bold tracking-tight">{tag.label}</span>
+                            <span className="font-mono text-xs font-bold tracking-tight">
+                              {tag.label}
+                            </span>
                             <span className="text-[10px] text-slate-400 dark:text-white/30 font-bold truncate">
                               {tag.groupTitle}
                             </span>
@@ -827,7 +1035,8 @@ return createPortal(
               />
               {isProtected && (
                 <p className="text-[10px] text-sky-600 dark:text-sky-400 mt-2 font-bold flex items-center gap-1">
-                  🔒 Este é um modelo fundamental do sistema. O nome não pode ser alterado, apenas o seu conteúdo.
+                  🔒 Este é um modelo fundamental do sistema. O nome não pode
+                  ser alterado, apenas o seu conteúdo.
                 </p>
               )}
             </div>
@@ -835,15 +1044,17 @@ return createPortal(
             {/* ✅ NOVO: Seletor de Categoria */}
             <div>
               <label className="block text-xs font-bold text-slate-500 dark:text-white/50 uppercase mb-1.5 tracking-wider">
-                Categoria da Mensagem 
+                Categoria da Mensagem
               </label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 className="w-full h-12 px-4 border rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500 transition-colors font-medium bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-border"
               >
-                {MESSAGE_CATEGORIES.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
+                {MESSAGE_CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
                 ))}
               </select>
             </div>
@@ -883,7 +1094,11 @@ return createPortal(
                 <div className="relative mb-3 w-max group animate-in fade-in zoom-in-95 duration-200">
                   <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-border shadow-sm relative">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                    <img
+                      src={previewUrl}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                    />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <IconImage />
                     </div>
@@ -910,7 +1125,6 @@ return createPortal(
                   placeholder="Olá {primeiro_nome}, sua fatura..."
                   className="w-full h-full min-h-[220px] sm:min-h-[300px] p-4 sm:p-5 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-xl text-slate-700 dark:text-white outline-none focus:border-emerald-500 transition-colors resize-none leading-relaxed text-sm font-mono shadow-inner"
                 />
-
               </div>
             </div>
           </div>
@@ -921,25 +1135,32 @@ return createPortal(
               <h3 className="text-xs font-bold text-slate-600 dark:text-white uppercase tracking-widest flex items-center gap-2">
                 🏷️ Variáveis Disponíveis
               </h3>
-              <p className="text-[10px] text-slate-400 mt-1">Clique para inserir no texto</p>
+              <p className="text-[10px] text-slate-400 mt-1">
+                Clique para inserir no texto
+              </p>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-slate-50/30 dark:bg-black/10">
               {TAG_GROUPS.map((group, idx) => {
                 const isOpen = openDesktopGroups.includes(idx);
                 return (
-                  <div key={idx} className="bg-white dark:bg-[#1c2128] rounded-xl border border-slate-200 dark:border-border overflow-hidden transition-all shadow-sm">
+                  <div
+                    key={idx}
+                    className="bg-white dark:bg-[#1c2128] rounded-xl border border-slate-200 dark:border-border overflow-hidden transition-all shadow-sm"
+                  >
                     <button
                       type="button"
                       onClick={() => toggleDesktopGroup(idx)}
-                      className={`w-full flex items-center justify-between p-3 text-left transition-colors ${isOpen ? 'bg-slate-50 dark:bg-white/5 border-b border-slate-100 dark:border-border' : 'hover:bg-slate-50 dark:hover:bg-white/5'}`}
+                      className={`w-full flex items-center justify-between p-3 text-left transition-colors ${isOpen ? "bg-slate-50 dark:bg-white/5 border-b border-slate-100 dark:border-border" : "hover:bg-slate-50 dark:hover:bg-white/5"}`}
                     >
                       <h4 className="text-[10px] font-bold text-slate-500 dark:text-muted-foreground uppercase tracking-wider">
                         {group.title}
                       </h4>
-                      <span className="text-slate-400 text-xs">{isOpen ? "▲" : "▼"}</span>
+                      <span className="text-slate-400 text-xs">
+                        {isOpen ? "▲" : "▼"}
+                      </span>
                     </button>
-                    
+
                     {isOpen && (
                       <div className="p-3 grid grid-cols-1 gap-2 bg-slate-50/30 dark:bg-black/10">
                         {group.tags.map((tag) => (
@@ -948,7 +1169,9 @@ return createPortal(
                             onClick={() => insertTag(tag.label)}
                             className={`text-left px-3 py-2.5 rounded-lg border border-slate-200 dark:border-border hover:brightness-95 hover:shadow-sm active:scale-95 transition-all flex flex-col group ${group.color} bg-white dark:bg-[#1c2128]`}
                           >
-                            <span className="font-mono text-xs font-bold tracking-tight">{tag.label}</span>
+                            <span className="font-mono text-xs font-bold tracking-tight">
+                              {tag.label}
+                            </span>
                             <span className="text-[10px] opacity-60 group-hover:opacity-100 mt-0.5 font-medium">
                               {tag.desc}
                             </span>
@@ -965,7 +1188,8 @@ return createPortal(
 
         <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-slate-100 dark:border-border bg-slate-50 dark:bg-white/5 flex justify-between items-center">
           <div className="text-xs text-slate-400 hidden sm:block">
-            💡 Dica: Use <strong>{`{saudacao_tempo}`}</strong> para enviar "Bom dia" automático.
+            💡 Dica: Use <strong>{`{saudacao_tempo}`}</strong> para enviar "Bom
+            dia" automático.
           </div>
           <div className="flex gap-3 w-full sm:w-auto justify-end">
             <button
@@ -979,12 +1203,16 @@ return createPortal(
               disabled={loading}
               className="flex-1 sm:flex-none px-8 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-900/20 transition-transform active:scale-95 flex items-center justify-center gap-2 uppercase tracking-wider disabled:opacity-50"
             >
-              {loading ? "Salvando..." : templateToEdit ? "Atualizar Modelo" : "Salvar Modelo"}
+              {loading
+                ? "Salvando..."
+                : templateToEdit
+                  ? "Atualizar Modelo"
+                  : "Salvar Modelo"}
             </button>
           </div>
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

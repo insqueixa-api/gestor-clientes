@@ -2,7 +2,7 @@
 import { useRouter, usePathname } from "next/navigation";
 
 const MODULES_META: Record<string, { label: string; icon: string }> = {
-  iptv:       { label: "IPTV",       icon: "📺" },
+  iptv: { label: "IPTV", icon: "📺" },
   financeiro: { label: "Financeiro", icon: "📊" },
 };
 
@@ -13,7 +13,7 @@ export function DashboardFilter({
   availableModules: string[];
   currentViews: string[];
 }) {
-  const router   = useRouter();
+  const router = useRouter();
   const pathname = usePathname();
 
   function select(key: string) {
@@ -23,7 +23,7 @@ export function DashboardFilter({
 
   return (
     <div className="flex bg-slate-100 dark:bg-black/30 p-1 rounded-xl border border-slate-200 dark:border-border">
-      {availableModules.map(key => {
+      {availableModules.map((key) => {
         const active = currentViews.length === 1 && currentViews[0] === key;
         const meta = MODULES_META[key] ?? { label: key, icon: "❓" };
         return (

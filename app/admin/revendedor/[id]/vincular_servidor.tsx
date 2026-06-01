@@ -34,7 +34,10 @@ interface Props {
 // Exibe: 10.5 -> "10,50"
 function toMoneyInput(n: number | null | undefined) {
   if (n === null || n === undefined) return "";
-  return n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return n.toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 // Salva: "1.000,50" -> 1000.5
@@ -54,7 +57,10 @@ function Label({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Input({ className = "", ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
+function Input({
+  className = "",
+  ...props
+}: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
@@ -63,7 +69,11 @@ function Input({ className = "", ...props }: React.InputHTMLAttributes<HTMLInput
   );
 }
 
-function Select({ children, className = "", ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
+function Select({
+  children,
+  className = "",
+  ...props
+}: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...props}
@@ -92,12 +102,18 @@ export default function VincularServidor({
 
   // Estados do Formulário
   const [serverId, setServerId] = useState<string>(initial?.server_id ?? "");
-  const [username, setUsername] = useState<string>(initial?.server_username ?? "");
-  const [password, setPassword] = useState<string>(initial?.server_password ?? "");
+  const [username, setUsername] = useState<string>(
+    initial?.server_username ?? "",
+  );
+  const [password, setPassword] = useState<string>(
+    initial?.server_password ?? "",
+  );
 
   // Preço Personalizado (String visual)
   const [priceOverride, setPriceOverride] = useState<string>(
-    initial?.unit_price_override != null ? toMoneyInput(initial.unit_price_override) : ""
+    initial?.unit_price_override != null
+      ? toMoneyInput(initial.unit_price_override)
+      : "",
   );
 
   // 1. Carregar lista de servidores
@@ -170,14 +186,16 @@ export default function VincularServidor({
         if (error) throw error;
       } else {
         // --- CRIAR: Insert direto (evita 42P10 da RPC com ON CONFLICT incorreto) ---
-        const { error } = await supabaseBrowser.from("reseller_servers").insert({
-          tenant_id: tenantId,
-          reseller_id: resellerId,
-          server_id: serverId,
-          server_username: username.trim(),
-          server_password: password.trim() || null,
-          unit_price_override: finalPrice,
-        });
+        const { error } = await supabaseBrowser
+          .from("reseller_servers")
+          .insert({
+            tenant_id: tenantId,
+            reseller_id: resellerId,
+            server_id: serverId,
+            server_username: username.trim(),
+            server_password: password.trim() || null,
+            unit_price_override: finalPrice,
+          });
 
         if (error) throw error;
       }
@@ -185,10 +203,10 @@ export default function VincularServidor({
       onSaved();
       onClose();
     } catch (e: any) {
-
       // Duplicidade (unique constraint)
       if (e?.code === "23505") {
-        const msg = "Já existe um vínculo com este servidor e este usuário para esta revenda.";
+        const msg =
+          "Já existe um vínculo com este servidor e este usuário para esta revenda.";
         if (onError) onError(msg);
         else alert(msg);
       } else {
@@ -274,7 +292,6 @@ export default function VincularServidor({
                   />
                 </div>
               </div>
-              
             </div>
           )}
         </div>
@@ -302,6 +319,6 @@ export default function VincularServidor({
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

@@ -4,7 +4,7 @@ import "./globals.css";
 
 // 1. IMPORTANTE: Importe o Provider que você criou
 // (Confirme se o caminho está certo, baseado no código que você me mandou antes)
-import { ThemeProvider } from "@/components/theme/ThemeProvider"; 
+import { ThemeProvider } from "@/components/theme/ThemeProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -23,12 +23,12 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "UniGestor",
   description: "Sistema de Gestão",
-  manifest: "/manifest.webmanifest", 
+  manifest: "/manifest.webmanifest",
   icons: {
     // Ao usar o PNG branco aqui, o Chrome fica satisfeito com a resolução e não rouba o azul do manifesto!
-    icon: "/brand/icon-192x192blue.png",      
-    shortcut: "/brand/icon-192x192blue.png",  
-    apple: "/brand/icon-192x192blue.png", 
+    icon: "/brand/icon-192x192blue.png",
+    shortcut: "/brand/icon-192x192blue.png",
+    apple: "/brand/icon-192x192blue.png",
   },
   appleWebApp: {
     capable: true,
@@ -49,9 +49,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {/* 3. AQUI ESTÁ A MÁGICA: O Provider precisa "abraçar" todo o site */}
-        <ThemeProvider>
-            {children}
-        </ThemeProvider>
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );

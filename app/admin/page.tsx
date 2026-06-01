@@ -120,10 +120,14 @@ function toNumber(v: unknown): number {
 }
 
 const fmtBRL = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+    v,
+  );
 
 const fmtBRLNoSymbol = (v: number) =>
-  fmtBRL(v).replace(/\s?R\$\s?/g, "").trim();
+  fmtBRL(v)
+    .replace(/\s?R\$\s?/g, "")
+    .trim();
 
 const fmtInt = (v: number) => new Intl.NumberFormat("pt-BR").format(v);
 
@@ -202,31 +206,44 @@ export default async function AdminDashboardPage({
   const resolvedParams = await searchParams;
 
   // Sessão (single-user)
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   // Tenant id pra filtrar consultas diretas (server_credit_purchases, fin_*)
   const memberResult = user
-    ? await supabase.from("tenant_members").select("tenant_id").eq("user_id", user.id).maybeSingle()
+    ? await supabase
+        .from("tenant_members")
+        .select("tenant_id")
+        .eq("user_id", user.id)
+        .maybeSingle()
     : null;
   const myTenantId = (memberResult?.data as any)?.tenant_id ?? null;
 
   // Filtro: apenas IPTV e Financeiro
   const availableModules = ["iptv", "financeiro"] as const;
   const paramViews = resolvedParams?.view
-    ? resolvedParams.view.split(",").filter(v => (availableModules as readonly string[]).includes(v))
+    ? resolvedParams.view
+        .split(",")
+        .filter((v) => (availableModules as readonly string[]).includes(v))
     : [];
-  const activeViews = paramViews.length > 0 ? paramViews : [...availableModules];
+  const activeViews =
+    paramViews.length > 0 ? paramViews : [...availableModules];
   const showClientesView = activeViews.includes("iptv");
-  const showTestes       = activeViews.includes("iptv");
-  const showRankings     = activeViews.includes("iptv");
-  const showFinView      = activeViews.includes("financeiro");
+  const showTestes = activeViews.includes("iptv");
+  const showRankings = activeViews.includes("iptv");
+  const showFinView = activeViews.includes("financeiro");
 
   // Datas do mês atual para o painel de finanças pessoais
   const _finToday = todayInSaoPaulo();
   const _finYear = _finToday.getFullYear();
   const _finMonth = _finToday.getMonth() + 1;
   const _finMonthStart = isoDateFromYMD(_finYear, _finMonth, 1);
-  const _finMonthEnd = isoDateFromYMD(_finYear, _finMonth, new Date(_finYear, _finMonth, 0).getDate());
+  const _finMonthEnd = isoDateFromYMD(
+    _finYear,
+    _finMonth,
+    new Date(_finYear, _finMonth, 0).getDate(),
+  );
 
   const [
     kpisRes,
@@ -241,10 +258,24 @@ export default async function AdminDashboardPage({
     supabase.from("vw_dashboard_kpis_current_month").select("*").limit(1),
     supabase.from("vw_dashboard_due_5_days").select("*"),
     supabase.from("vw_dashboard_finance_cards").select("*").limit(1),
-    supabase.from("vw_dashboard_new_registrations_daily_current_month").select("*").order("day", { ascending: true }),
-    supabase.from("vw_dashboard_payments_daily_current_month").select("*").order("day", { ascending: true }),
-    supabase.from("vw_dashboard_top_servers_current_month").select("*").order("clients_created", { ascending: false }).limit(5),
-    supabase.from("vw_dashboard_top_apps_current_month").select("*").order("clients_count", { ascending: false }).limit(5),
+    supabase
+      .from("vw_dashboard_new_registrations_daily_current_month")
+      .select("*")
+      .order("day", { ascending: true }),
+    supabase
+      .from("vw_dashboard_payments_daily_current_month")
+      .select("*")
+      .order("day", { ascending: true }),
+    supabase
+      .from("vw_dashboard_top_servers_current_month")
+      .select("*")
+      .order("clients_created", { ascending: false })
+      .limit(5),
+    supabase
+      .from("vw_dashboard_top_apps_current_month")
+      .select("*")
+      .order("clients_count", { ascending: false })
+      .limit(5),
     (myTenantId
       ? supabase
           .from("server_credit_purchases")
@@ -253,10 +284,18 @@ export default async function AdminDashboardPage({
           .gte(
             "created_at",
             isoDateFromYMD(
-              new Date(todayInSaoPaulo().getFullYear(), todayInSaoPaulo().getMonth() - 1, 1).getFullYear(),
-              new Date(todayInSaoPaulo().getFullYear(), todayInSaoPaulo().getMonth() - 1, 1).getMonth() + 1,
-              1
-            )
+              new Date(
+                todayInSaoPaulo().getFullYear(),
+                todayInSaoPaulo().getMonth() - 1,
+                1,
+              ).getFullYear(),
+              new Date(
+                todayInSaoPaulo().getFullYear(),
+                todayInSaoPaulo().getMonth() - 1,
+                1,
+              ).getMonth() + 1,
+              1,
+            ),
           )
       : Promise.resolve({ data: null })) as Promise<any>,
   ]);
@@ -265,14 +304,20 @@ export default async function AdminDashboardPage({
   const finance = (financeRes.data?.[0] ?? null) as VwFinanceCards | null;
 
   // Despesas (server_credit_purchases) para cálculo de Lucro
-  const purchasesRows = (purchasesRes?.data ?? []) as { created_at: string, total_amount_brl: number }[];
+  const purchasesRows = (purchasesRes?.data ?? []) as {
+    created_at: string;
+    total_amount_brl: number;
+  }[];
   let expensesMonthVal = 0;
   let expensesPrevMonthVal = 0;
 
   const today = todayInSaoPaulo();
   for (const row of purchasesRows) {
     const d = new Date(row.created_at);
-    if (d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear()) {
+    if (
+      d.getMonth() === today.getMonth() &&
+      d.getFullYear() === today.getFullYear()
+    ) {
       expensesMonthVal += toNumber(row.total_amount_brl);
     } else {
       expensesPrevMonthVal += toNumber(row.total_amount_brl);
@@ -298,17 +343,19 @@ export default async function AdminDashboardPage({
     const _finNextMonthStart = isoDateFromYMD(
       _finMonth === 12 ? _finYear + 1 : _finYear,
       _finMonth === 12 ? 1 : _finMonth + 1,
-      1
+      1,
     );
 
     const [trxRes, catRes] = await Promise.allSettled([
       supabase
         .from("fin_transacoes")
-        .select("id, tipo, valor, status, data_vencimento, data_pagamento, categoria_id")
+        .select(
+          "id, tipo, valor, status, data_vencimento, data_pagamento, categoria_id",
+        )
         .eq("tenant_id", myTenantId)
         .or(
           `and(data_vencimento.gte.${_finMonthStart},data_vencimento.lte.${_finMonthEnd}),` +
-          `and(status.eq.PAGO,data_pagamento.gte.${_finMonthStart},data_pagamento.lt.${_finNextMonthStart})`
+            `and(status.eq.PAGO,data_pagamento.gte.${_finMonthStart},data_pagamento.lt.${_finNextMonthStart})`,
         ),
       supabase
         .from("fin_categorias")
@@ -319,7 +366,10 @@ export default async function AdminDashboardPage({
     if (trxRes.status === "fulfilled" && !trxRes.value.error) {
       const seen = new Set<string>();
       for (const t of trxRes.value.data ?? []) {
-        if (!seen.has(t.id)) { seen.add(t.id); finTrxRows.push(t as FinTrx); }
+        if (!seen.has(t.id)) {
+          seen.add(t.id);
+          finTrxRows.push(t as FinTrx);
+        }
       }
     } else {
     }
@@ -339,7 +389,9 @@ export default async function AdminDashboardPage({
 
     if (contasRes.data && contasRes.data.length > 0) {
       const saldos = await Promise.allSettled(
-        contasRes.data.map(c => supabase.rpc("get_saldo_conta", { p_conta_id: c.id }))
+        contasRes.data.map((c) =>
+          supabase.rpc("get_saldo_conta", { p_conta_id: c.id }),
+        ),
       );
       for (const s of saldos) {
         if (s.status === "fulfilled" && !s.value.error) {
@@ -356,27 +408,49 @@ export default async function AdminDashboardPage({
   };
 
   const finReceitasPagas = finTrxRows
-    .filter(t => t.tipo === "RECEITA" && isFinPagoNoMes(t))
+    .filter((t) => t.tipo === "RECEITA" && isFinPagoNoMes(t))
     .reduce((acc, t) => acc + toNumber(t.valor), 0);
 
   const finDespesasPagas = finTrxRows
-    .filter(t => t.tipo === "DESPESA" && isFinPagoNoMes(t))
+    .filter((t) => t.tipo === "DESPESA" && isFinPagoNoMes(t))
     .reduce((acc, t) => acc + toNumber(t.valor), 0);
 
   const finReceitasTotal = finTrxRows
-    .filter(t => t.tipo === "RECEITA" && t.data_vencimento >= _finMonthStart && t.data_vencimento <= _finMonthEnd)
+    .filter(
+      (t) =>
+        t.tipo === "RECEITA" &&
+        t.data_vencimento >= _finMonthStart &&
+        t.data_vencimento <= _finMonthEnd,
+    )
     .reduce((acc, t) => acc + toNumber(t.valor), 0);
 
   const finDespesasTotal = finTrxRows
-    .filter(t => t.tipo === "DESPESA" && t.data_vencimento >= _finMonthStart && t.data_vencimento <= _finMonthEnd)
+    .filter(
+      (t) =>
+        t.tipo === "DESPESA" &&
+        t.data_vencimento >= _finMonthStart &&
+        t.data_vencimento <= _finMonthEnd,
+    )
     .reduce((acc, t) => acc + toNumber(t.valor), 0);
 
   const finReceitasPendentes = finTrxRows
-    .filter(t => t.tipo === "RECEITA" && t.status !== "PAGO" && t.data_vencimento >= _finMonthStart && t.data_vencimento <= _finMonthEnd)
+    .filter(
+      (t) =>
+        t.tipo === "RECEITA" &&
+        t.status !== "PAGO" &&
+        t.data_vencimento >= _finMonthStart &&
+        t.data_vencimento <= _finMonthEnd,
+    )
     .reduce((acc, t) => acc + toNumber(t.valor), 0);
 
   const finDespesasPendentes = finTrxRows
-    .filter(t => t.tipo === "DESPESA" && t.status !== "PAGO" && t.data_vencimento >= _finMonthStart && t.data_vencimento <= _finMonthEnd)
+    .filter(
+      (t) =>
+        t.tipo === "DESPESA" &&
+        t.status !== "PAGO" &&
+        t.data_vencimento >= _finMonthStart &&
+        t.data_vencimento <= _finMonthEnd,
+    )
     .reduce((acc, t) => acc + toNumber(t.valor), 0);
 
   // Rankings por categoria (Separando Previsto e Executado)
@@ -391,10 +465,15 @@ export default async function AdminDashboardPage({
     const dpDate = t.data_pagamento ? t.data_pagamento.split("T")[0] : null;
 
     // Executado: PAGO com data_pagamento no mês (normalizado para evitar bug do último dia)
-    const inExec = t.status === "PAGO" && !!dpDate && dpDate >= _finMonthStart && dpDate <= _finMonthEnd;
+    const inExec =
+      t.status === "PAGO" &&
+      !!dpDate &&
+      dpDate >= _finMonthStart &&
+      dpDate <= _finMonthEnd;
 
     // Previsto: vencimento no mês (independente de status ou data de pagamento)
-    const inPrev = t.data_vencimento >= _finMonthStart && t.data_vencimento <= _finMonthEnd;
+    const inPrev =
+      t.data_vencimento >= _finMonthStart && t.data_vencimento <= _finMonthEnd;
 
     if (!inPrev && !inExec) continue;
 
@@ -416,7 +495,9 @@ export default async function AdminDashboardPage({
   }
 
   const getTop5 = (map: Map<string, { label: string; value: number }>) =>
-    Array.from(map.values()).sort((a, b) => b.value - a.value).slice(0, 5);
+    Array.from(map.values())
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
 
   const finCatRevPrevItems = getTop5(catRevPrevMap);
   const finCatRevExecItems = getTop5(catRevExecMap);
@@ -464,7 +545,9 @@ export default async function AdminDashboardPage({
   const resellerMonthVal = toNumber(finance?.reseller_paid_month_brl);
 
   const clientsPrevMonthQty = toNumber(finance?.clients_paid_prev_month_qty);
-  const clientsPrevMonthVal = toNumber(finance?.clients_paid_prev_month_brl_estimated);
+  const clientsPrevMonthVal = toNumber(
+    finance?.clients_paid_prev_month_brl_estimated,
+  );
   const resellerPrevMonthQty = toNumber(finance?.reseller_paid_prev_month_qty);
   const resellerPrevMonthVal = toNumber(finance?.reseller_paid_prev_month_brl);
 
@@ -481,18 +564,19 @@ export default async function AdminDashboardPage({
     });
   }
 
-  const chartRegsData: SimpleBarChartDatum[] = daysFromMonthStartToTodaySP().map(({ iso, dayNum }) => {
-    const found = regsMap.get(iso) ?? { clients: 0, trials: 0 };
-    const total = found.clients + found.trials;
+  const chartRegsData: SimpleBarChartDatum[] =
+    daysFromMonthStartToTodaySP().map(({ iso, dayNum }) => {
+      const found = regsMap.get(iso) ?? { clients: 0, trials: 0 };
+      const total = found.clients + found.trials;
 
-    return {
-      label: String(dayNum),
-      value: total,
-      displayValue: total,
-      tooltipTitle: spTitleFromISO(iso),
-      tooltipContent: `${fmtInt(found.clients)} Clientes / ${fmtInt(found.trials)} Testes`,
-    };
-  });
+      return {
+        label: String(dayNum),
+        value: total,
+        displayValue: total,
+        tooltipTitle: spTitleFromISO(iso),
+        tooltipContent: `${fmtInt(found.clients)} Clientes / ${fmtInt(found.trials)} Testes`,
+      };
+    });
 
   // Gráfico: pagamentos
   const payMap = new Map<string, { clients: number; reseller: number }>();
@@ -504,18 +588,19 @@ export default async function AdminDashboardPage({
     });
   }
 
-  const chartPaymentsData: SimpleBarChartDatum[] = daysFromMonthStartToTodaySP().map(({ iso, dayNum }) => {
-    const found = payMap.get(iso) ?? { clients: 0, reseller: 0 };
-    const totalVal = found.clients + found.reseller;
+  const chartPaymentsData: SimpleBarChartDatum[] =
+    daysFromMonthStartToTodaySP().map(({ iso, dayNum }) => {
+      const found = payMap.get(iso) ?? { clients: 0, reseller: 0 };
+      const totalVal = found.clients + found.reseller;
 
-    return {
-      label: String(dayNum),
-      value: totalVal,
-      displayValue: totalVal,
-      tooltipTitle: spTitleFromISO(iso),
-      tooltipContent: `Clientes: ${fmtBRL(found.clients)} • Revenda: ${fmtBRL(found.reseller)} • Total: ${fmtBRL(totalVal)}`,
-    };
-  });
+      return {
+        label: String(dayNum),
+        value: totalVal,
+        displayValue: totalVal,
+        tooltipTitle: spTitleFromISO(iso),
+        tooltipContent: `Clientes: ${fmtBRL(found.clients)} • Revenda: ${fmtBRL(found.reseller)} • Total: ${fmtBRL(totalVal)}`,
+      };
+    });
 
   const topServersItems: BarItem[] = topServers.map((s) => ({
     label: s.server_name,
@@ -528,8 +613,10 @@ export default async function AdminDashboardPage({
   }));
 
   return (
-    <div id="dashboard-values" className="space-y-6 pt-0 pb-6 px-0 sm:px-6 text-zinc-800 dark:text-zinc-200">
-
+    <div
+      id="dashboard-values"
+      className="space-y-6 pt-0 pb-6 px-0 sm:px-6 text-zinc-800 dark:text-zinc-200"
+    >
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3 px-3 sm:px-0">
         <div>
@@ -552,7 +639,9 @@ export default async function AdminDashboardPage({
 
       {/* CARDS TOPO */}
       {showClientesView && (
-        <div className={`grid grid-cols-1 gap-3 sm:gap-6 ${showTestes ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
+        <div
+          className={`grid grid-cols-1 gap-3 sm:gap-6 ${showTestes ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}
+        >
           <MetricCardView
             title="Ativos"
             accent="green"
@@ -595,11 +684,36 @@ export default async function AdminDashboardPage({
         <>
           <SectionTitle title="VENCIMENTOS (5 DIAS)" />
           <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-5">
-            <VencimentoCard diff={-2} map={dueByOffset} title="Venceu há 2 dias" color="gray" />
-            <VencimentoCard diff={-1} map={dueByOffset} title="Venceu Ontem" color="gray" />
-            <VencimentoCard diff={0} map={dueByOffset} title="Vence Hoje" color="yellow" />
-            <VencimentoCard diff={1} map={dueByOffset} title="Vence Amanhã" color="amber" />
-            <VencimentoCard diff={2} map={dueByOffset} title="Vence em 2 dias" color="blue" />
+            <VencimentoCard
+              diff={-2}
+              map={dueByOffset}
+              title="Venceu há 2 dias"
+              color="gray"
+            />
+            <VencimentoCard
+              diff={-1}
+              map={dueByOffset}
+              title="Venceu Ontem"
+              color="gray"
+            />
+            <VencimentoCard
+              diff={0}
+              map={dueByOffset}
+              title="Vence Hoje"
+              color="yellow"
+            />
+            <VencimentoCard
+              diff={1}
+              map={dueByOffset}
+              title="Vence Amanhã"
+              color="amber"
+            />
+            <VencimentoCard
+              diff={2}
+              map={dueByOffset}
+              title="Vence em 2 dias"
+              color="blue"
+            />
           </div>
         </>
       )}
@@ -614,22 +728,29 @@ export default async function AdminDashboardPage({
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-4">
-
             <MetricCardView
               title="Recebidos Hoje"
               accent="green"
               leftLabel={`Clientes (${fmtInt(clientsTodayQty)})`}
               leftValue={
                 <>
-                  <span className="sm:hidden">{fmtBRLNoSymbol(clientsTodayVal)}</span>
-                  <span className="hidden sm:inline">{fmtBRL(clientsTodayVal)}</span>
+                  <span className="sm:hidden">
+                    {fmtBRLNoSymbol(clientsTodayVal)}
+                  </span>
+                  <span className="hidden sm:inline">
+                    {fmtBRL(clientsTodayVal)}
+                  </span>
                 </>
               }
               rightLabel={`Revenda (${fmtInt(resellerTodayQty)})`}
               rightValue={
                 <>
-                  <span className="sm:hidden">{fmtBRLNoSymbol(resellerTodayVal)}</span>
-                  <span className="hidden sm:inline">{fmtBRL(resellerTodayVal)}</span>
+                  <span className="sm:hidden">
+                    {fmtBRLNoSymbol(resellerTodayVal)}
+                  </span>
+                  <span className="hidden sm:inline">
+                    {fmtBRL(resellerTodayVal)}
+                  </span>
                 </>
               }
               footer={
@@ -650,33 +771,50 @@ export default async function AdminDashboardPage({
               leftLabel={`Clientes (${fmtInt(clientsMonthQty)})`}
               leftValue={
                 <>
-                  <span className="sm:hidden">{fmtBRLNoSymbol(clientsMonthVal)}</span>
-                  <span className="hidden sm:inline">{fmtBRL(clientsMonthVal)}</span>
+                  <span className="sm:hidden">
+                    {fmtBRLNoSymbol(clientsMonthVal)}
+                  </span>
+                  <span className="hidden sm:inline">
+                    {fmtBRL(clientsMonthVal)}
+                  </span>
                 </>
               }
               rightLabel={`Revenda (${fmtInt(resellerMonthQty)})`}
               rightValue={
                 <>
-                  <span className="sm:hidden">{fmtBRLNoSymbol(resellerMonthVal)}</span>
-                  <span className="hidden sm:inline">{fmtBRL(resellerMonthVal)}</span>
+                  <span className="sm:hidden">
+                    {fmtBRLNoSymbol(resellerMonthVal)}
+                  </span>
+                  <span className="hidden sm:inline">
+                    {fmtBRL(resellerMonthVal)}
+                  </span>
                 </>
               }
               footer={
                 <div className="flex justify-between items-center w-full">
                   <div>
                     <span className="sm:hidden">
-                      Total: {fmtBRLNoSymbol(clientsMonthVal + resellerMonthVal)}
+                      Total:{" "}
+                      {fmtBRLNoSymbol(clientsMonthVal + resellerMonthVal)}
                     </span>
                     <span className="hidden sm:inline">
                       Total: {fmtBRL(clientsMonthVal + resellerMonthVal)}
                     </span>
                   </div>
-                  <div className={`${(clientsMonthVal + resellerMonthVal) - expensesMonthVal < 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-700 dark:text-emerald-400"}`}>
+                  <div
+                    className={`${clientsMonthVal + resellerMonthVal - expensesMonthVal < 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-700 dark:text-emerald-400"}`}
+                  >
                     <span className="sm:hidden">
-                      Lucro: {fmtBRLNoSymbol((clientsMonthVal + resellerMonthVal) - expensesMonthVal)}
+                      Lucro:{" "}
+                      {fmtBRLNoSymbol(
+                        clientsMonthVal + resellerMonthVal - expensesMonthVal,
+                      )}
                     </span>
                     <span className="hidden sm:inline">
-                      Lucro: {fmtBRL((clientsMonthVal + resellerMonthVal) - expensesMonthVal)}
+                      Lucro:{" "}
+                      {fmtBRL(
+                        clientsMonthVal + resellerMonthVal - expensesMonthVal,
+                      )}
                     </span>
                   </div>
                 </div>
@@ -689,8 +827,12 @@ export default async function AdminDashboardPage({
               leftLabel={`Clientes (${fmtInt(toReceiveQty)})`}
               leftValue={
                 <>
-                  <span className="sm:hidden">{fmtBRLNoSymbol(toReceiveVal)}</span>
-                  <span className="hidden sm:inline">{fmtBRL(toReceiveVal)}</span>
+                  <span className="sm:hidden">
+                    {fmtBRLNoSymbol(toReceiveVal)}
+                  </span>
+                  <span className="hidden sm:inline">
+                    {fmtBRL(toReceiveVal)}
+                  </span>
                 </>
               }
               footer="Até o fim do mês"
@@ -702,26 +844,58 @@ export default async function AdminDashboardPage({
               leftLabel={`Clientes (${fmtInt(clientsPrevMonthQty)})`}
               leftValue={
                 <>
-                  <span className="sm:hidden">{fmtBRLNoSymbol(clientsPrevMonthVal)}</span>
-                  <span className="hidden sm:inline">{fmtBRL(clientsPrevMonthVal)}</span>
+                  <span className="sm:hidden">
+                    {fmtBRLNoSymbol(clientsPrevMonthVal)}
+                  </span>
+                  <span className="hidden sm:inline">
+                    {fmtBRL(clientsPrevMonthVal)}
+                  </span>
                 </>
               }
               rightLabel={`Revenda (${fmtInt(resellerPrevMonthQty)})`}
               rightValue={
                 <>
-                  <span className="sm:hidden">{fmtBRLNoSymbol(resellerPrevMonthVal)}</span>
-                  <span className="hidden sm:inline">{fmtBRL(resellerPrevMonthVal)}</span>
+                  <span className="sm:hidden">
+                    {fmtBRLNoSymbol(resellerPrevMonthVal)}
+                  </span>
+                  <span className="hidden sm:inline">
+                    {fmtBRL(resellerPrevMonthVal)}
+                  </span>
                 </>
               }
               footer={
                 <div className="flex justify-between items-center w-full">
                   <div>
-                    <span className="sm:hidden">Total: {fmtBRLNoSymbol(clientsPrevMonthVal + resellerPrevMonthVal)}</span>
-                    <span className="hidden sm:inline">Total: {fmtBRL(clientsPrevMonthVal + resellerPrevMonthVal)}</span>
+                    <span className="sm:hidden">
+                      Total:{" "}
+                      {fmtBRLNoSymbol(
+                        clientsPrevMonthVal + resellerPrevMonthVal,
+                      )}
+                    </span>
+                    <span className="hidden sm:inline">
+                      Total:{" "}
+                      {fmtBRL(clientsPrevMonthVal + resellerPrevMonthVal)}
+                    </span>
                   </div>
-                  <div className={`${(clientsPrevMonthVal + resellerPrevMonthVal) - expensesPrevMonthVal < 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-700 dark:text-emerald-400"}`}>
-                    <span className="sm:hidden">Lucro: {fmtBRLNoSymbol((clientsPrevMonthVal + resellerPrevMonthVal) - expensesPrevMonthVal)}</span>
-                    <span className="hidden sm:inline">Lucro: {fmtBRL((clientsPrevMonthVal + resellerPrevMonthVal) - expensesPrevMonthVal)}</span>
+                  <div
+                    className={`${clientsPrevMonthVal + resellerPrevMonthVal - expensesPrevMonthVal < 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-700 dark:text-emerald-400"}`}
+                  >
+                    <span className="sm:hidden">
+                      Lucro:{" "}
+                      {fmtBRLNoSymbol(
+                        clientsPrevMonthVal +
+                          resellerPrevMonthVal -
+                          expensesPrevMonthVal,
+                      )}
+                    </span>
+                    <span className="hidden sm:inline">
+                      Lucro:{" "}
+                      {fmtBRL(
+                        clientsPrevMonthVal +
+                          resellerPrevMonthVal -
+                          expensesPrevMonthVal,
+                      )}
+                    </span>
                   </div>
                 </div>
               }
@@ -755,7 +929,9 @@ export default async function AdminDashboardPage({
             />
             <MetricCardView
               title="📊 Saldo do Mês"
-              accent={finReceitasPagas - finDespesasPagas >= 0 ? "green" : "red"}
+              accent={
+                finReceitasPagas - finDespesasPagas >= 0 ? "green" : "red"
+              }
               leftLabel="Resultado no Mês"
               leftValue={fmtBRL(finReceitasPagas - finDespesasPagas)}
               footer={`Previsão: ${fmtBRL(finReceitasTotal - finDespesasTotal)}`}
@@ -770,34 +946,45 @@ export default async function AdminDashboardPage({
             />
           </div>
 
-          {(finCatRevPrevItems.length > 0 || finCatRevExecItems.length > 0 || finCatExpPrevItems.length > 0 || finCatExpExecItems.length > 0) ? (
+          {finCatRevPrevItems.length > 0 ||
+          finCatRevExecItems.length > 0 ||
+          finCatExpPrevItems.length > 0 ||
+          finCatExpExecItems.length > 0 ? (
             <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
-              {(finCatRevPrevItems.length > 0 || finCatRevExecItems.length > 0) && (
+              {(finCatRevPrevItems.length > 0 ||
+                finCatRevExecItems.length > 0) && (
                 <div className="sv">
-                  <RankingCard 
-                    title="Receitas por Categoria" 
-                    itemsPrevisto={finCatRevPrevItems} 
-                    itemsExecutado={finCatRevExecItems} 
-                    accentColor="emerald" 
-                    mode="currency" 
+                  <RankingCard
+                    title="Receitas por Categoria"
+                    itemsPrevisto={finCatRevPrevItems}
+                    itemsExecutado={finCatRevExecItems}
+                    accentColor="emerald"
+                    mode="currency"
                   />
                 </div>
               )}
-              {(finCatExpPrevItems.length > 0 || finCatExpExecItems.length > 0) && (
+              {(finCatExpPrevItems.length > 0 ||
+                finCatExpExecItems.length > 0) && (
                 <div className="sv">
-                  <RankingCard 
-                    title="Despesas por Categoria" 
-                    itemsPrevisto={finCatExpPrevItems} 
-                    itemsExecutado={finCatExpExecItems} 
-                    accentColor="rose" 
-                    mode="currency" 
+                  <RankingCard
+                    title="Despesas por Categoria"
+                    itemsPrevisto={finCatExpPrevItems}
+                    itemsExecutado={finCatExpExecItems}
+                    accentColor="rose"
+                    mode="currency"
                   />
                 </div>
               )}
             </div>
           ) : (
             <div className="rounded-xl border border-dashed border-slate-200 dark:border-border p-10 text-center text-slate-400 dark:text-white/30 text-sm">
-              Nenhuma transação registrada no mês. <Link href="/admin/settings/financeiro_pessoal" className="underline hover:text-slate-600 dark:hover:text-white/60">Adicionar transações →</Link>
+              Nenhuma transação registrada no mês.{" "}
+              <Link
+                href="/admin/settings/financeiro_pessoal"
+                className="underline hover:text-slate-600 dark:hover:text-white/60"
+              >
+                Adicionar transações →
+              </Link>
             </div>
           )}
         </>
@@ -805,7 +992,9 @@ export default async function AdminDashboardPage({
 
       {/* GRÁFICOS IPTV */}
       {showClientesView && (
-        <div className={`grid grid-cols-1 gap-3 sm:gap-6 ${showRankings ? "lg:grid-cols-2" : "lg:grid-cols-2 xl:grid-cols-2"}`}>
+        <div
+          className={`grid grid-cols-1 gap-3 sm:gap-6 ${showRankings ? "lg:grid-cols-2" : "lg:grid-cols-2 xl:grid-cols-2"}`}
+        >
           <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
             <div className="flex justify-between items-center mb-2 sm:mb-4">
               <div>
@@ -822,7 +1011,9 @@ export default async function AdminDashboardPage({
                 heightClass="h-40 sm:h-56"
               />
               {chartRegsData.length === 0 && (
-                <div className="text-zinc-400 text-sm mt-3">Sem dados no mês atual.</div>
+                <div className="text-zinc-400 text-sm mt-3">
+                  Sem dados no mês atual.
+                </div>
               )}
             </div>
           </div>
@@ -843,7 +1034,9 @@ export default async function AdminDashboardPage({
                 heightClass="h-40 sm:h-56"
               />
               {chartPaymentsData.length === 0 && (
-                <div className="text-zinc-400 text-sm mt-3">Sem dados no mês atual.</div>
+                <div className="text-zinc-400 text-sm mt-3">
+                  Sem dados no mês atual.
+                </div>
               )}
             </div>
           </div>
@@ -853,8 +1046,20 @@ export default async function AdminDashboardPage({
       {/* RANKINGS */}
       {showRankings && (
         <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
-          <div className="sv"><RankingCard title="Top Servidores (Mês Atual)" items={topServersItems} accentColor="sky" /></div>
-          <div className="sv"><RankingCard title="Top Aplicativos (Mês Atual)" items={topAppsItems} accentColor="emerald" /></div>
+          <div className="sv">
+            <RankingCard
+              title="Top Servidores (Mês Atual)"
+              items={topServersItems}
+              accentColor="sky"
+            />
+          </div>
+          <div className="sv">
+            <RankingCard
+              title="Top Aplicativos (Mês Atual)"
+              items={topAppsItems}
+              accentColor="emerald"
+            />
+          </div>
         </div>
       )}
 
@@ -864,7 +1069,6 @@ export default async function AdminDashboardPage({
           <EvolucaoFinanceira myTenantId={myTenantId} />
         </div>
       )}
-
     </div>
   );
 }
@@ -877,7 +1081,9 @@ function SectionTitle({ title }: { title: string }) {
   return (
     <div className="flex items-center gap-4 py-2 opacity-50">
       <div className="h-px flex-1 bg-current" />
-      <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 tracking-widest uppercase">{title}</span>
+      <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 tracking-widest uppercase">
+        {title}
+      </span>
       <div className="h-px flex-1 bg-current" />
     </div>
   );
@@ -899,9 +1105,9 @@ function VencimentoCard({
   let filterSlug = "";
   if (diff === -2) filterSlug = "venceu_2_dias";
   if (diff === -1) filterSlug = "venceu_ontem";
-  if (diff === 0)  filterSlug = "vence_hoje";
-  if (diff === 1)  filterSlug = "vence_amanha";
-  if (diff === 2)  filterSlug = "vence_2_dias";
+  if (diff === 0) filterSlug = "vence_hoje";
+  if (diff === 1) filterSlug = "vence_amanha";
+  if (diff === 2) filterSlug = "vence_2_dias";
 
   return (
     <MetricCardView

@@ -46,7 +46,13 @@ type EditableItem = {
   price3: string;
 };
 
-const PERIOD_ORDER = ["MONTHLY", "BIMONTHLY", "QUARTERLY", "SEMIANNUAL", "ANNUAL"];
+const PERIOD_ORDER = [
+  "MONTHLY",
+  "BIMONTHLY",
+  "QUARTERLY",
+  "SEMIANNUAL",
+  "ANNUAL",
+];
 
 const PERIOD_LABELS: Record<string, string> = {
   MONTHLY: "Mensal",
@@ -65,9 +71,11 @@ function Label({ children }: { children: React.ReactNode }) {
 }
 
 // ✅ Função para enfileirar toasts que a página pai vai ler ao recarregar
-function queueListToast(
-  toast: { type: "success" | "error" | "warning"; title: string; message?: string }
-) {
+function queueListToast(toast: {
+  type: "success" | "error" | "warning";
+  title: string;
+  message?: string;
+}) {
   try {
     if (typeof window === "undefined") return;
     const key = "planos_list_toasts"; // Chave específica para a página de planos
@@ -75,8 +83,7 @@ function queueListToast(
     const arr = raw ? (JSON.parse(raw) as any[]) : [];
     arr.push({ ...toast, ts: Date.now() });
     window.sessionStorage.setItem(key, JSON.stringify(arr));
-  } catch (e) {
-  }
+  } catch (e) {}
 }
 
 export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
@@ -84,7 +91,9 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
 
   const [name, setName] = useState("");
   const [currency, setCurrency] = useState<"BRL" | "USD" | "EUR">("BRL");
-  const [originalCurrency, setOriginalCurrency] = useState<"BRL" | "USD" | "EUR">("BRL");
+  const [originalCurrency, setOriginalCurrency] = useState<
+    "BRL" | "USD" | "EUR"
+  >("BRL");
   const [items, setItems] = useState<EditableItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -94,14 +103,19 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
   const TOAST_DURATION = 5000;
   const toastSeq = useRef(1);
 
-  const addToast = (type: "success" | "error" | "warning", title: string, message?: string) => {
+  const addToast = (
+    type: "success" | "error" | "warning",
+    title: string,
+    message?: string,
+  ) => {
     const id = Date.now() * 1000 + (toastSeq.current++ % 1000);
     setToasts((prev) => [
       ...prev,
       { id, type, title, message, durationMs: TOAST_DURATION },
     ]);
   };
-  const removeToast = (id: number) => setToasts((prev) => prev.filter((t) => t.id !== id));
+  const removeToast = (id: number) =>
+    setToasts((prev) => prev.filter((t) => t.id !== id));
 
   // Carregar dados iniciais
   useEffect(() => {
@@ -123,13 +137,13 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
 
     const existingItems = plan.items || [];
 
-    const ordered: EditableItem[] = PERIOD_ORDER.map(period => {
-      const item = existingItems.find(i => i.period === period);
+    const ordered: EditableItem[] = PERIOD_ORDER.map((period) => {
+      const item = existingItems.find((i) => i.period === period);
       if (item) {
         const pricesArr = Array.isArray(item.prices) ? item.prices : [];
-        const p1 = pricesArr.find(p => p.screens_count === 1);
-        const p2 = pricesArr.find(p => p.screens_count === 2);
-        const p3 = pricesArr.find(p => p.screens_count === 3);
+        const p1 = pricesArr.find((p) => p.screens_count === 1);
+        const p2 = pricesArr.find((p) => p.screens_count === 2);
+        const p3 = pricesArr.find((p) => p.screens_count === 3);
 
         return {
           itemId: item.id,
@@ -141,12 +155,20 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
         };
       } else {
         // ITEM FANTASMA: Resolve o bug visual da tabela vazia
-        const creditsMap: Record<string, number> = { MONTHLY: 1, BIMONTHLY: 2, QUARTERLY: 3, SEMIANNUAL: 6, ANNUAL: 12 };
+        const creditsMap: Record<string, number> = {
+          MONTHLY: 1,
+          BIMONTHLY: 2,
+          QUARTERLY: 3,
+          SEMIANNUAL: 6,
+          ANNUAL: 12,
+        };
         return {
           itemId: `temp-${period}`,
           period: period,
           credits: creditsMap[period] || 1,
-          price1: "", price2: "", price3: ""
+          price1: "",
+          price2: "",
+          price3: "",
         };
       }
     });
@@ -163,7 +185,8 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
     try {
       const { data: defaultTable } = await supabase
         .from("plan_tables")
-        .select(`
+        .select(
+          `
           id,
           items:plan_table_items (
             id,
@@ -175,7 +198,8 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
               price_amount
             )
           )
-        `)
+        `,
+        )
         .eq("tenant_id", tenantId)
         .eq("is_system_default", true)
         .eq("currency", curr)
@@ -183,28 +207,38 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
         .single();
 
       if (defaultTable && defaultTable.items && defaultTable.items.length > 0) {
-        const clonedItems = (defaultTable.items as any[]).map((srcItem: any) => {
-          const pricesArr = Array.isArray(srcItem.prices) ? srcItem.prices : [];
-          const p1 = pricesArr.find((p: any) => p.screens_count === 1);
-          const p2 = pricesArr.find((p: any) => p.screens_count === 2);
-          const p3 = pricesArr.find((p: any) => p.screens_count === 3);
-          
-          return {
-            itemId: `temp-${srcItem.period}`,
-            period: srcItem.period,
-            credits: srcItem.credits_base || 0,
-            price1: p1?.price_amount?.toString() ?? "",
-            price2: p2?.price_amount?.toString() ?? "",
-            price3: p3?.price_amount?.toString() ?? "",
-          };
-        });
-        
-        const ordered = PERIOD_ORDER.map(period => clonedItems.find(m => m.period === period)).filter(Boolean) as EditableItem[];
+        const clonedItems = (defaultTable.items as any[]).map(
+          (srcItem: any) => {
+            const pricesArr = Array.isArray(srcItem.prices)
+              ? srcItem.prices
+              : [];
+            const p1 = pricesArr.find((p: any) => p.screens_count === 1);
+            const p2 = pricesArr.find((p: any) => p.screens_count === 2);
+            const p3 = pricesArr.find((p: any) => p.screens_count === 3);
+
+            return {
+              itemId: `temp-${srcItem.period}`,
+              period: srcItem.period,
+              credits: srcItem.credits_base || 0,
+              price1: p1?.price_amount?.toString() ?? "",
+              price2: p2?.price_amount?.toString() ?? "",
+              price3: p3?.price_amount?.toString() ?? "",
+            };
+          },
+        );
+
+        const ordered = PERIOD_ORDER.map((period) =>
+          clonedItems.find((m) => m.period === period),
+        ).filter(Boolean) as EditableItem[];
         setItems(ordered);
       } else {
         const emptyItems: EditableItem[] = PERIOD_ORDER.map((period) => {
           const creditsMap: Record<string, number> = {
-            MONTHLY: 1, BIMONTHLY: 2, QUARTERLY: 3, SEMIANNUAL: 6, ANNUAL: 12
+            MONTHLY: 1,
+            BIMONTHLY: 2,
+            QUARTERLY: 3,
+            SEMIANNUAL: 6,
+            ANNUAL: 12,
           };
           return {
             itemId: `temp-${period}`,
@@ -231,10 +265,16 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
     }
   }, [currency]);
 
-  const handlePriceChange = (period: string, field: 'price1'|'price2'|'price3', val: string) => {
-    setItems(prev => prev.map(item => 
-      item.period === period ? { ...item, [field]: val } : item
-    ));
+  const handlePriceChange = (
+    period: string,
+    field: "price1" | "price2" | "price3",
+    val: string,
+  ) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.period === period ? { ...item, [field]: val } : item,
+      ),
+    );
   };
 
   async function handleSave() {
@@ -248,14 +288,24 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
     const tenantId = await getCurrentTenantId();
 
     if (!tenantId) {
-      addToast("error", "Erro de sessão", "Recarregue a página e tente novamente.");
+      addToast(
+        "error",
+        "Erro de sessão",
+        "Recarregue a página e tente novamente.",
+      );
       setSaving(false);
       return;
     }
 
     try {
       const maxScreens = 3; // Fixo para IPTV
-      const monthsMap: Record<string, number> = { MONTHLY: 1, BIMONTHLY: 2, QUARTERLY: 3, SEMIANNUAL: 6, ANNUAL: 12 };
+      const monthsMap: Record<string, number> = {
+        MONTHLY: 1,
+        BIMONTHLY: 2,
+        QUARTERLY: 3,
+        SEMIANNUAL: 6,
+        ANNUAL: 12,
+      };
 
       if (isEditing && plan) {
         // Atualiza a Tabela
@@ -264,16 +314,16 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
           .update({ name: name.trim(), currency })
           .eq("id", plan.id)
           .eq("tenant_id", tenantId);
-          
+
         if (updErr) throw new Error("Falha ao atualizar a tabela.");
 
         // ATUALIZAÇÃO SEGURA DOS PREÇOS (Com auto-reparo de tabelas vazias)
         for (const row of items) {
           let currentItemId = row.itemId;
-          
+
           // Se for temp-, significa que o item fantasma foi preenchido. Vamos recriar no banco!
           if (currentItemId.startsWith("temp-")) {
-             const { data: newItem } = await supabase
+            const { data: newItem } = await supabase
               .from("plan_table_items")
               .insert({
                 tenant_id: tenantId,
@@ -284,21 +334,29 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
               })
               .select()
               .single();
-              
-              if (newItem) {
-                currentItemId = newItem.id;
-                // Insere os espaços de preços
-                const pricesToInsert = [1, 2, 3].map(s => ({ tenant_id: tenantId, plan_table_item_id: currentItemId, screens_count: s, price_amount: null }));
-                await supabase.from("plan_table_item_prices").insert(pricesToInsert);
-              }
+
+            if (newItem) {
+              currentItemId = newItem.id;
+              // Insere os espaços de preços
+              const pricesToInsert = [1, 2, 3].map((s) => ({
+                tenant_id: tenantId,
+                plan_table_item_id: currentItemId,
+                screens_count: s,
+                price_amount: null,
+              }));
+              await supabase
+                .from("plan_table_item_prices")
+                .insert(pricesToInsert);
+            }
           }
 
           // Salva os valores digitados
           for (let screen = 1; screen <= maxScreens; screen++) {
             const val = row[`price${screen}` as keyof EditableItem] as string;
             const numVal = val === "" ? null : Number(val);
-            if (numVal !== null && numVal < 0) throw new Error("Os preços não podem ser negativos.");
-            
+            if (numVal !== null && numVal < 0)
+              throw new Error("Os preços não podem ser negativos.");
+
             await supabase
               .from("plan_table_item_prices")
               .update({ price_amount: numVal })
@@ -344,13 +402,30 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
             .single();
 
           if (itemError || !newItem) {
-            throw new Error(`Erro ao salvar item "${item.period}": ${itemError?.message || "resposta vazia"}`);
+            throw new Error(
+              `Erro ao salvar item "${item.period}": ${itemError?.message || "resposta vazia"}`,
+            );
           }
-          
+
           const pricesToInsert = [
-            { tenant_id: tenantId, plan_table_item_id: newItem.id, screens_count: 1, price_amount: getSafeNum(item.price1) },
-            { tenant_id: tenantId, plan_table_item_id: newItem.id, screens_count: 2, price_amount: getSafeNum(item.price2) },
-            { tenant_id: tenantId, plan_table_item_id: newItem.id, screens_count: 3, price_amount: getSafeNum(item.price3) },
+            {
+              tenant_id: tenantId,
+              plan_table_item_id: newItem.id,
+              screens_count: 1,
+              price_amount: getSafeNum(item.price1),
+            },
+            {
+              tenant_id: tenantId,
+              plan_table_item_id: newItem.id,
+              screens_count: 2,
+              price_amount: getSafeNum(item.price2),
+            },
+            {
+              tenant_id: tenantId,
+              plan_table_item_id: newItem.id,
+              screens_count: 3,
+              price_amount: getSafeNum(item.price3),
+            },
           ];
 
           await supabase.from("plan_table_item_prices").insert(pricesToInsert);
@@ -361,36 +436,41 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
       queueListToast({
         type: "success",
         title: isEditing ? "Tabela Atualizada" : "Tabela Criada",
-        message: "Ação concluída com sucesso!"
+        message: "Ação concluída com sucesso!",
       });
-      
+
       // ✅ NOVO: Pequeno delay visual antes de fechar e recarregar a tabela de fundo
       setTimeout(() => {
         onSuccess();
         onClose();
       }, 500);
-
     } catch (err: any) {
-      if (process.env.NODE_ENV !== "production") console.error("Erro ao salvar:", err?.message || err);
-      addToast("error", "Erro ao salvar", err?.message || "Ocorreu um erro inesperado.");
+      if (process.env.NODE_ENV !== "production")
+        console.error("Erro ao salvar:", err?.message || err);
+      addToast(
+        "error",
+        "Erro ao salvar",
+        err?.message || "Ocorreu um erro inesperado.",
+      );
     } finally {
       setSaving(false);
     }
   }
 
   // Adicione o estado 'mounted' logo após os outros states:
-  
+
   const [mounted, setMounted] = useState(false); // ✅ NOVO
 
-// Adicione este useEffect para alterar o 'mounted' após o client carregar
+  // Adicione este useEffect para alterar o 'mounted' após o client carregar
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const formatCurrency = (c: string) => c === 'BRL' ? 'R$' : c === 'USD' ? '$' : '€';
+  const formatCurrency = (c: string) =>
+    c === "BRL" ? "R$" : c === "USD" ? "$" : "€";
 
   // ✅ NOVO: Substitui o typeof document por !mounted
-  if (!mounted) return null; 
+  if (!mounted) return null;
 
   return createPortal(
     <>
@@ -401,30 +481,29 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
         </div>
       </div>
 
-      <div 
+      <div
         className="fixed inset-0 z-[99990] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
         onPointerDown={(e) => {
           if (e.target === e.currentTarget) onClose();
         }}
       >
-        <div 
+        <div
           className="w-full max-w-[1200px] max-h-[90vh] bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors"
           onPointerDown={(e) => e.stopPropagation()}
         >
-          
           <div className="px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-border sticky top-0 z-10">
             <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white tracking-tight">
               {isEditing ? "Editar Tabela" : "Nova Tabela de Preço"}
             </h2>
 
             <div className="flex gap-2 sm:gap-3">
-              <button 
-                onClick={onClose} 
+              <button
+                onClick={onClose}
                 className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-slate-500 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/10 text-xs sm:text-sm font-semibold transition-colors"
               >
                 Cancelar
               </button>
-              <button 
+              <button
                 onClick={handleSave}
                 disabled={saving || loading}
                 className="px-3 sm:px-6 py-1.5 sm:py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs sm:text-sm font-bold shadow-lg shadow-emerald-900/20 transition-all"
@@ -435,14 +514,13 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
           </div>
 
           <div className="flex-1 overflow-y-auto bg-white dark:bg-card">
-            
             <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-border space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label>Nome da tabela</Label>
-                  <input 
+                  <input
                     value={name}
-                    onChange={e => setName(e.target.value)}
+                    onChange={(e) => setName(e.target.value)}
                     placeholder="Ex: Tabela especial revenda"
                     disabled={plan?.is_system_default}
                     className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50"
@@ -451,15 +529,17 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                 <div>
                   <Label>Moeda</Label>
                   <div className="flex bg-slate-100 dark:bg-white/5 rounded-lg p-1 border border-slate-200 dark:border-border">
-                    {(['BRL', 'USD', 'EUR'] as const).map(c => (
+                    {(["BRL", "USD", "EUR"] as const).map((c) => (
                       <button
                         key={c}
                         type="button"
                         onClick={() => setCurrency(c)}
                         className={`flex-1 py-2 rounded-md text-xs font-bold transition-all uppercase tracking-wider
-                          ${currency === c 
-                            ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-sm' 
-                            : 'text-slate-500 dark:text-muted-foreground hover:text-slate-800 dark:hover:text-white'}`}
+                          ${
+                            currency === c
+                              ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-sm"
+                              : "text-slate-500 dark:text-muted-foreground hover:text-slate-800 dark:hover:text-white"
+                          }`}
                       >
                         {c}
                       </button>
@@ -480,24 +560,31 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                   {isEditing ? "Carregando dados..." : "Preparando tabela..."}
                 </div>
               ) : (
-               [1, 2, 3].map((screenCount) => (
-                  <div key={screenCount} className="animate-in slide-in-from-left-2 duration-300">
+                [1, 2, 3].map((screenCount) => (
+                  <div
+                    key={screenCount}
+                    className="animate-in slide-in-from-left-2 duration-300"
+                  >
                     <h3 className="text-xs font-bold text-slate-500 dark:text-muted-foreground mb-3 ml-1 tracking-tight">
-                      Preços para {screenCount} {screenCount === 1 ? "Tela" : "Telas"}
+                      Preços para {screenCount}{" "}
+                      {screenCount === 1 ? "Tela" : "Telas"}
                     </h3>
-                    
+
                     <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
                       {PERIOD_ORDER.map((period) => {
-                        const item = items.find(i => i.period === period);
+                        const item = items.find((i) => i.period === period);
                         if (!item) return null;
 
                         const currentCredits = item.credits * screenCount;
-                        const field = `price${screenCount}` as 'price1' | 'price2' | 'price3';
+                        const field = `price${screenCount}` as
+                          | "price1"
+                          | "price2"
+                          | "price3";
                         const value = item[field];
 
                         return (
-                          <div 
-                            key={period} 
+                          <div
+                            key={period}
                             className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 flex flex-col justify-center h-16 sm:h-20 relative focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/20 transition-all group"
                           >
                             <div className="flex justify-between items-center w-full mb-1">
@@ -508,17 +595,23 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                                 {currentCredits} cr
                               </span>
                             </div>
-                            
+
                             <div className="relative">
                               <span className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/20 text-xs font-bold">
                                 {formatCurrency(currency)}
                               </span>
-                              <input 
-                                type="number" 
+                              <input
+                                type="number"
                                 step="0.01"
                                 value={value}
                                 disabled={false}
-                                onChange={(e) => handlePriceChange(period, field, e.target.value)}
+                                onChange={(e) =>
+                                  handlePriceChange(
+                                    period,
+                                    field,
+                                    e.target.value,
+                                  )
+                                }
                                 className="w-full bg-transparent border-none p-0 pl-6 sm:pl-7 text-sm sm:text-base font-bold text-slate-800 dark:text-white focus:ring-0 outline-none placeholder-slate-300 dark:placeholder-white/5 transition-colors disabled:opacity-50"
                                 placeholder="0,00"
                               />
@@ -535,8 +628,9 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
 
           <div className="px-4 sm:px-6 py-3 sm:py-4 bg-slate-50 dark:bg-white/5 border-t border-slate-200 dark:border-border flex justify-between items-center transition-colors">
             <span className="text-[10px] text-slate-400 italic">
-              * {isEditing 
-                ? "Altere o nome, moeda e valores conforme necessário" 
+              *{" "}
+              {isEditing
+                ? "Altere o nome, moeda e valores conforme necessário"
                 : "Ajuste os valores clonados da tabela padrão"}
             </span>
             <span className="text-[10px] text-slate-400 dark:text-white/30">
@@ -546,6 +640,6 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
         </div>
       </div>
     </>,
-    document.body
+    document.body,
   );
 }

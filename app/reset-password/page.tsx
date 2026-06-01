@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 // Inicializa o cliente Supabase
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
 
 export default function ResetPasswordPage() {
@@ -15,21 +15,24 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  
+
   // Novos estados para validar o link
   const [isValidating, setIsValidating] = useState(true);
   const [hasValidSession, setHasValidSession] = useState(false);
-  
+
   const router = useRouter();
 
   // Verifica se a URL contém uma sessão válida de recuperação
   useEffect(() => {
     async function checkSession() {
-      const { data: { session } } = await supabase.auth.getSession();
-      
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
       // Além da sessão nula, verifica se a URL retornou erro do Supabase (ex: token expirado)
       const hash = typeof window !== "undefined" ? window.location.hash : "";
-      const hasErrorInUrl = hash.includes("error_code") || hash.includes("error_description");
+      const hasErrorInUrl =
+        hash.includes("error_code") || hash.includes("error_description");
 
       if (!session || hasErrorInUrl) {
         setHasValidSession(false);
@@ -38,7 +41,7 @@ export default function ResetPasswordPage() {
       }
       setIsValidating(false);
     }
-    
+
     checkSession();
   }, []);
 
@@ -61,15 +64,16 @@ export default function ResetPasswordPage() {
 
       if (error) throw error;
 
-setMsg("Senha atualizada com sucesso! Redirecionando para o login...");
-      
+      setMsg("Senha atualizada com sucesso! Redirecionando para o login...");
+
       setTimeout(() => {
         // Redirecionamento absoluto para o endereço correto
         window.location.href = "https://unigestor.net.br/login";
       }, 2000);
-      
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "Erro ao atualizar a senha.");
+      setErrorMsg(
+        err instanceof Error ? err.message : "Erro ao atualizar a senha.",
+      );
     } finally {
       setLoading(false);
     }
@@ -79,7 +83,9 @@ setMsg("Senha atualizada com sucesso! Redirecionando para o login...");
   if (isValidating) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center bg-slate-50 dark:bg-background">
-        <div className="text-slate-500 dark:text-white/60 animate-pulse">Validando link de segurança...</div>
+        <div className="text-slate-500 dark:text-white/60 animate-pulse">
+          Validando link de segurança...
+        </div>
       </div>
     );
   }
@@ -102,7 +108,6 @@ setMsg("Senha atualizada com sucesso! Redirecionando para o login...");
 
       <div className="relative z-10 w-full max-w-[420px] sm:max-w-md">
         <div className="rounded-2xl border border-white/20 bg-white/85 backdrop-blur-xl shadow-2xl dark:bg-card/80 dark:border-border overflow-hidden">
-          
           <div className="px-5 sm:px-8 pt-5 sm:pt-8 pb-3 sm:pb-6 text-center">
             <div className="flex items-center justify-center">
               <img
@@ -129,7 +134,8 @@ setMsg("Senha atualizada com sucesso! Redirecionando para o login...");
                   Link Inválido
                 </h1>
                 <p className="mt-2 text-sm text-slate-500 dark:text-white/60">
-                  Este link de recuperação expirou ou já foi utilizado. Por questões de segurança, solicite um novo acesso.
+                  Este link de recuperação expirou ou já foi utilizado. Por
+                  questões de segurança, solicite um novo acesso.
                 </p>
               </>
             )}
@@ -180,7 +186,9 @@ setMsg("Senha atualizada com sucesso! Redirecionando para o login...");
               </form>
             ) : (
               <button
-                onClick={() => window.location.href = "https://unigestor.net.br/login"}
+                onClick={() =>
+                  (window.location.href = "https://unigestor.net.br/login")
+                }
                 className="w-full rounded-xl py-3 font-semibold transition bg-slate-800 text-white hover:bg-slate-900 dark:bg-white/10 dark:hover:bg-white/20"
               >
                 Voltar ao Login
