@@ -1161,12 +1161,12 @@ function MetricCardView({
   href?: string;
 }) {
   const colors: Record<Accent, string> = {
-    green: "border-l-emerald-500",
-    red: "border-l-rose-500",
-    amber: "border-l-amber-500",
-    yellow: "border-l-yellow-500",
-    blue: "border-l-blue-500",
-    gray: "border-l-zinc-500",
+    green: "border-l-emerald-500 dark:border-l-emerald-500",
+    red: "border-l-rose-500 dark:border-l-rose-500",
+    amber: "border-l-amber-500 dark:border-l-amber-500",
+    yellow: "border-l-yellow-500 dark:border-l-yellow-500",
+    blue: "border-l-blue-500 dark:border-l-blue-500",
+    gray: "border-l-zinc-500 dark:border-l-zinc-500",
   };
 
   const content = (
@@ -1180,7 +1180,7 @@ function MetricCardView({
           <div className="text-[9px] sm:text-[10px] uppercase font-semibold tracking-wider text-zinc-500 dark:text-zinc-400 mb-1">
             {leftLabel}
           </div>
-          <div className="sv text-[15px] sm:text-xl font-bold dark:font-medium text-zinc-900 dark:text-zinc-100 leading-tight whitespace-nowrap tabular-nums">
+          <div className="sv text-[15px] sm:text-xl font-medium dark:font-normal text-zinc-900 dark:text-zinc-100 leading-tight whitespace-nowrap tabular-nums">
             {leftValue}
           </div>
         </div>
@@ -1190,7 +1190,7 @@ function MetricCardView({
             <div className="text-[9px] sm:text-[10px] uppercase font-semibold tracking-wider text-zinc-500 dark:text-zinc-400 mb-1">
               {rightLabel}
             </div>
-            <div className="sv text-[15px] sm:text-xl font-bold dark:font-medium text-zinc-900 dark:text-zinc-100 leading-tight whitespace-nowrap tabular-nums">
+            <div className="sv text-[15px] sm:text-xl font-medium dark:font-normal text-zinc-900 dark:text-zinc-100 leading-tight whitespace-nowrap tabular-nums">
               {rightValue}
             </div>
           </div>

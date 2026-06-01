@@ -231,7 +231,7 @@ export function RankingCard({
 
                 {/* Value */}
                 <span
-                  className={`text-[13px] font-bold dark:font-medium tabular-nums flex-shrink-0 ${c.value}`}
+                  className={`text-[13px] font-medium dark:font-normal tabular-nums flex-shrink-0 ${c.value}`}
                 >
                   {fmt(item.value)}
                   {valueLabel && (

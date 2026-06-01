@@ -1153,7 +1153,7 @@ function FinanceiroPageContent() {
 
   return (
     <div
-      className="space-y-3 sm:space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors"
+      className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors"
       id="dashboard-values"
     >
       {/* CSS PARA OCULTAR VALORES COM O EYE-TOGGLE */}
@@ -1181,7 +1181,7 @@ function FinanceiroPageContent() {
       <div className="min-w-0 text-left pt-1 pb-0 px-3 md:hidden -mt-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h1 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight whitespace-nowrap">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight whitespace-nowrap">
               Controle Financeiro
             </h1>
             <EyeToggle />
@@ -1201,7 +1201,7 @@ function FinanceiroPageContent() {
         {/* Título Desktop (Só aparece em telas grandes) */}
         <div className="min-w-0 text-left hidden md:block">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
               Controle Financeiro
             </h1>
             <EyeToggle />
