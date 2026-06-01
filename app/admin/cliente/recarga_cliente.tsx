@@ -248,7 +248,6 @@ interface MessageTemplate {
       arr.push({ type, title, message, ts: Date.now() });
       window.sessionStorage.setItem(key, JSON.stringify(arr));
     } catch (e) {
-      console.error("Erro ao salvar toast", e);
     }
   }
 
@@ -426,7 +425,6 @@ const [renewAutomatic, setRenewAutomatic] = useState(false);
           if (!alive) return;
 
           if (cErr || !rawClient) {
-            console.error("❌ Erro carregando cliente:", cErr);
             onClose();
             return;
           }
@@ -468,7 +466,6 @@ const [renewAutomatic, setRenewAutomatic] = useState(false);
       dbPriceCurrency = typeof pc === "string" ? pc : null;
     }
   } catch (e) {
-    console.error("Falha ao buscar fonte da verdade do cliente (clients):", e);
   }
 
   // ✅ Ajusta o clientData do modal com a verdade do banco
@@ -507,10 +504,8 @@ const [renewAutomatic, setRenewAutomatic] = useState(false);
       if (!logErr && logData) {
         paymentLog = logData as any;
       } else if (logErr) {
-        console.error("Falha ao buscar log do pagamento (auditoria):", logErr);
       }
     } catch (e) {
-      console.error("Erro inesperado ao buscar log do pagamento:", e);
     }
   }
 
@@ -542,7 +537,6 @@ if (c.server_id) {
       setIsEliteProvider(false);
     }
   } catch (e) {
-    console.error("Erro ao verificar integração:", e);
     setHasIntegration(false);
     setRenewAutomatic(false);
     setIntegrationProvider("NONE");
@@ -616,7 +610,6 @@ let baseDate: Date;
             .eq("table_type", "iptv");
 
           if (tErr) {
-            console.error("❌ Erro carregando plan_tables:", tErr);
             addToast("error", "Falha ao carregar tabelas", tErr.message);
           }
 
@@ -678,7 +671,6 @@ let baseDate: Date;
       .maybeSingle();
 
     if (fxErr) {
-      console.error("❌ tenant_fx_rates error:", fxErr);
       addToast("error", "Falha ao carregar câmbio", fxErr.message);
       setFxRate(5);
     } else {
@@ -736,7 +728,6 @@ let baseDate: Date;
           setTimeout(() => { isFirstLoad.current = false; }, 500);
 
         } catch (err: any) {
-        console.error("❌ Crash load:", err);
       } finally {
         if (alive) setFetching(false);
       }
@@ -982,7 +973,6 @@ if (renewAutomatic && clientData?.server_id) {
       .eq("id", clientData.server_id)
       .single();
 
-    console.log("🔵 Servidor:", srv, srvErr);
 
     if (srvErr) {
       throw new Error("Erro ao buscar servidor: " + srvErr.message);
@@ -1120,7 +1110,6 @@ try {
         }, 15000);
     });
 } catch (syncErr) {
-    console.warn("Aviso: Renovação feita, mas o sync de saldo falhou silenciosamente.", syncErr);
 }
 
               } else {
@@ -1378,7 +1367,6 @@ if (registerPayment && renewAutomatic) {
           // ✅ Usa queueToast para garantir que apareça na lista de clientes após o modal fechar
           queueToast("success", "Mensagem enviada", "Comprovante entregue no WhatsApp.", toastKey);
         } catch (e) {
-          console.error("Falha envio Whats:", e);
 
           // ✅ Atualiza via RPC (RLS bloqueia UPDATE direto no client_portal_payments pelo browser)
           if (paymentLogId) {
@@ -1419,7 +1407,6 @@ setTimeout(async () => {
 }, 500);
 
     } catch (err: any) {
-      console.error("CRASH:", err);
       addToast("error", "Erro ao salvar", err.message || "Falha desconhecida");
       setLoading(false);
       isSavingRef.current = false; // ✅ Destranca se der erro para permitir tentar novamente

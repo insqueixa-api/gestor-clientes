@@ -322,7 +322,6 @@ export default async function AdminDashboardPage({
         if (!seen.has(t.id)) { seen.add(t.id); finTrxRows.push(t as FinTrx); }
       }
     } else {
-      console.error("[fin_transacoes]", trxRes.status === "rejected" ? trxRes.reason : trxRes.value.error);
     }
 
     if (catRes.status === "fulfilled" && !catRes.value.error) {
@@ -330,7 +329,6 @@ export default async function AdminDashboardPage({
         finCatById.set(c.id, { nome: c.nome, icone: c.icone });
       }
     } else {
-      console.error("[fin_categorias]", catRes.status === "rejected" ? catRes.reason : catRes.value.error);
     }
 
     // Saldo atual: soma de todas as contas via RPC

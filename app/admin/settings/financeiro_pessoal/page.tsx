@@ -363,7 +363,6 @@ let valorIptv = 0;
         upsertDinamico("IPTV - Recarga de Servidores", valorDespesas, catIPTV, "DESPESA"),
       ]);
     } catch (e) {
-      console.error("Erro na sincronização:", e);
     }
   };
 

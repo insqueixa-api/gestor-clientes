@@ -232,7 +232,6 @@ phoneVariants(s).forEach(v => phoneIndex.set(v, serverName));
     });
 
   } catch (error: any) {
-    console.error("Erro em sync-labels-from-clients:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

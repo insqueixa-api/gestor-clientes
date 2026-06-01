@@ -112,7 +112,6 @@ async function consultarOperadoraExterna(phoneDigits: string): Promise<string | 
 
     // Tratamento de erros da Telein (códigos 99, 990 a 999)
     if (codigoDaOperadora.startsWith("99")) {
-      console.error("Aviso/Erro da Telein:", textoRetorno);
       return null;
     }
 
@@ -135,7 +134,6 @@ async function consultarOperadoraExterna(phoneDigits: string): Promise<string | 
     return mapOperadoras[codigoDaOperadora] || "Celular/Fixo";
 
   } catch (error) {
-    console.error("Erro na consulta Telein:", error);
     return null;
   }
 }
@@ -295,7 +293,6 @@ export async function POST(req: Request) {
     });
 
   } catch (error: any) {
-    console.error("Erro na sync de operadora:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

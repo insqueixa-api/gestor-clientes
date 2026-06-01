@@ -169,7 +169,6 @@ function AuditoriaPageContent() {
         setRows(mapped);
       }
     } catch (e: any) {
-      console.error(e);
       addToast("error", "Erro ao carregar auditoria", e.message);
     } finally {
       setLoading(false);
@@ -366,7 +365,6 @@ function AuditoriaPageContent() {
       addToast("success", "Mensagem enviada", "Comprovante enviado com sucesso!");
       loadData(); 
     } catch (err: any) {
-      console.error(err);
       addToast("error", "Erro ao reenviar", err.message);
     } finally {
       setLoading(false);

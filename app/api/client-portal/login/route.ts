@@ -11,7 +11,6 @@ const NO_STORE_HEADERS = {
 
 function safeServerLog(...args: any[]) {
   if (process.env.NODE_ENV !== "production") {
-    console.error(...args);
   }
 }
 

@@ -171,7 +171,6 @@ export default function MessagesPage() {
     .order("is_system_default", { ascending: false });
 
     if (error) {
-      console.error(error);
       addToast("error", "Erro ao carregar", error.message);
     } else {
       setMessages(data || []);
@@ -199,7 +198,6 @@ export default function MessagesPage() {
           await supabaseBrowser.storage.from("chat_media").remove([oldPath]);
         }
       } catch (e) {
-        console.error("Falha ao remover imagem antiga do storage", e);
       }
     }
 
@@ -692,7 +690,6 @@ function EditorModal({
 
       onSuccess();
     } catch (error: any) {
-      console.error(error);
       onError(error.message || "Erro ao salvar.");
     } finally {
       setLoading(false);

@@ -5,7 +5,6 @@ import { makeSessionKey } from "@/lib/whatsapp/wa-context";
 
 function safeServerLog(...args: any[]) {
   if (process.env.NODE_ENV !== "production") {
-    console.log(...args);
   }
 }
 

@@ -508,7 +508,6 @@ const [sortKey, setSortKey] = useState<SortKey>("due");
 
       setSessionOptions(options);
     } catch (e) {
-      console.error("Erro ao carregar sessões", e);
     }
   }
 
@@ -618,7 +617,6 @@ if (error) {
       .order("name", { ascending: true });
 
     if (error) {
-      console.error("Erro ao carregar templates:", error);
       setMessageTemplates([]);
       return;
     }
@@ -660,7 +658,6 @@ async function loadData() {
       .eq("is_active", true);
 
     if (appsErr) {
-      console.warn("Erro ao carregar catálogo de apps:", appsErr.message);
     }
 
     // ✅ NOVO: Carrega as URLs das integrações do App
@@ -700,7 +697,6 @@ if (appsData && appsData.length > 0) {
       .order("vencimento", { ascending: true });
 
     if (error) {
-      console.error(error);
       addToast("error", "Erro ao carregar clientes", error.message);
       setRows([]);
       return;
@@ -783,7 +779,6 @@ function copyToClipboard(value?: string | null) {
     navigator.clipboard.writeText(v);
     addToast("success", "Copiado", "Valor copiado para a área de transferência.");
   } catch (e) {
-    console.error(e);
     addToast("error", "Falha ao copiar", "Não foi possível copiar este valor.");
   }
 }
@@ -1124,7 +1119,6 @@ if (!error && data) {
 
   }
 } catch (e) {
-  console.error("Falha ao buscar plan_table_id/price_currency/m3u_url do clients:", e);
 }
 
 
@@ -1291,7 +1285,6 @@ if (!ok) return;
       // Recarrega a lista principal para atualizar o contador
       loadData(); 
     } catch (error: any) {
-      console.error("Erro ao salvar alerta:", error);
       addToast("error", "Erro ao criar alerta", error.message);
     }
   };
@@ -1333,7 +1326,6 @@ if (!ok) return;
       loadData();
       
     } catch (error: any) {
-      console.error("Erro ao excluir alerta:", error);
       addToast("error", "Erro ao excluir", error.message);
     }
   };
@@ -1360,7 +1352,6 @@ const handleOpenAlertList = async (clientId: string, clientName: string) => {
 
       setClientAlerts(data || []);
     } catch (error: any) {
-      console.error("Erro ao buscar alertas:", error);
       addToast("error", "Erro ao carregar alertas", error.message);
     }
   };
@@ -2952,7 +2943,6 @@ function ScheduledMessagesModal({
       await onDeleted();
       // Não fecha o modal (onClose) para permitir excluir outros se quiser
     } catch (e: any) {
-      console.error(e);
       addToast("error", "Erro ao excluir", e?.message || "Erro desconhecido");
     } finally {
       setDeletingId(null);

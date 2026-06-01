@@ -190,7 +190,6 @@ export default function AdminShell({
             });
           }
         } catch (e) {
-          console.error("Erro ao buscar notificações financeiras:", e);
         }
       }
 
@@ -216,7 +215,6 @@ export default function AdminShell({
             });
           }
         } catch (e) {
-          console.error("Erro ao buscar renovações pendentes:", e);
         }
       }
 
@@ -243,7 +241,6 @@ export default function AdminShell({
             });
           }
         } catch (e) {
-          console.error("Erro ao buscar falhas de whatsapp:", e);
         }
       }
 
@@ -271,7 +268,6 @@ export default function AdminShell({
             });
           }
         } catch (e) {
-          console.error("Erro ao buscar servidores com saldo baixo:", e);
         }
       }
 

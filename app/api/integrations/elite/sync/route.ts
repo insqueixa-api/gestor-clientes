@@ -108,7 +108,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Ação não especificada (use get_credentials ou save_sync)." }, { status: 400 });
 
   } catch (e: any) {
-    console.error("[ELITE SYNC ERROR]", e);
     return NextResponse.json({ ok: false, error: e.message || "Falha no sync ELITE." }, { status: 500 });
   }
 }

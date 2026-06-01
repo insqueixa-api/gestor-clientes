@@ -25,7 +25,6 @@ function queueToast(type: "success" | "error", title: string, message?: string) 
     arr.push({ type, title, message, ts: Date.now() });
     window.sessionStorage.setItem(key, JSON.stringify(arr));
   } catch (e) {
-    console.error("Erro ao salvar toast", e);
   }
 }
 
@@ -593,7 +592,6 @@ const payload = {
           if (!res.ok) throw new Error("API retornou erro");
           queueToast("success", "Mensagem Enviada", "A recarga foi feita e o comprovante entregue no WhatsApp.");
         } catch (e) {
-          console.error("Falha envio Whats:", e);
           queueToast("error", "Recarga Feita", "A recarga funcionou, mas o envio do WhatsApp falhou.");
         }
       } else {

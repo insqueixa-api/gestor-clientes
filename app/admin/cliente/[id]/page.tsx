@@ -393,7 +393,6 @@ const tid = await getCurrentTenantId();
     if (!t.error && t.data?.name) finalTableName = String(t.data.name);
   }
 } catch (e) {
-  console.error("Falha ao buscar fonte da verdade (clients/plan_tables):", e);
 }
 
 
@@ -500,7 +499,6 @@ plan_table_name: finalTableName ?? null,
           .limit(200);
 
         if (ev.error) {
-          console.error(ev.error);
           addToast("error", "Falha ao carregar timeline", ev.error.message);
           setTimeline([]);
         } else {
@@ -511,7 +509,6 @@ plan_table_name: finalTableName ?? null,
 
     } catch (e: unknown) {
       const msg = (e as { message?: string })?.message || "Erro ao carregar";
-      console.error(e);
       addToast("error", "Falha ao carregar cliente", msg);
       setClient(null);
       setTimeline([]);
@@ -567,7 +564,6 @@ plan_table_name: finalTableName ?? null,
     loadData();
   } catch (e: unknown) {
     const msg = (e as { message?: string })?.message || "Erro desconhecido";
-    console.error(e);
     addToast("error", "Falha ao atualizar cliente", msg);
   }
 }
@@ -608,7 +604,6 @@ const handleDeleteForever = async () => {
       // ✅ Joga de volta pra listagem geral de clientes (já que ele não existe mais)
       window.location.href = "/admin/cliente"; 
     } catch (e: any) {
-      console.error(e);
       addToast("error", "Erro ao excluir", e.message);
     }
   };

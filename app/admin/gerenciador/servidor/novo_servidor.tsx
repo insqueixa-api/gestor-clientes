@@ -228,7 +228,6 @@ const [panelType, setPanelType] = useState<"WEB" | "TELEGRAM" | "">("");
 
         setIntegrationOptions((data as any) || []);
       } catch (e) {
-        console.error(e);
         if (alive) setIntegrationOptions([]);
       } finally {
         if (alive) setLoadingIntegrations(false);
@@ -561,7 +560,6 @@ const payload = {
       onSuccess();
 } catch (error: any) {
       // ✅ Agora mostra a mensagem real para conseguirmos debugar!
-      console.error("Falha ao salvar servidor:", error);
       alert(`Erro ao salvar servidor: ${error?.message || "Verifique os dados e tente novamente."}`);
       setSaving(false);
     }

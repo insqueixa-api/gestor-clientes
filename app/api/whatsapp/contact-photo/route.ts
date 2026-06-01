@@ -42,7 +42,6 @@ const picRes = await fetch(`${VM_BASE}/profile-picture?jid=${encodeURIComponent(
 });
 
     const picText = await picRes.text();
-console.log("[contact-photo] VM status:", picRes.status, "body:", picText);
 
 if (!picRes.ok) {
   return NextResponse.json({ error: "Foto não disponível ou protegida.", vm_status: picRes.status, vm_body: picText }, { status: 404 });
@@ -111,7 +110,6 @@ if (!photoUrl) return NextResponse.json({ error: "Foto protegida.", vm_response:
 
     return NextResponse.json({ success: true, avatar_url: finalAvatarUrl });
   } catch (error: any) {
-    console.error("Erro em contact-photo:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

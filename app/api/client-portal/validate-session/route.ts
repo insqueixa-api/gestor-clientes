@@ -35,7 +35,6 @@ function isPlausibleSessionToken(t: string) {
 function safeServerLog(...args: any[]) {
   if (process.env.NODE_ENV !== "production") {
     // em dev, ok logar pra depurar
-    console.error(...args);
   }
 }
 

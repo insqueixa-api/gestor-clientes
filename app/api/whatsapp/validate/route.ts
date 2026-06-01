@@ -20,7 +20,6 @@ export async function POST(req: Request) {
     if (r1.ok) return NextResponse.json(r1.json, { status: r1.status });
 
     // Fallback: Sessão 2 (se sessão 1 não estiver conectada)
-    console.log("[WA-VALIDATE] Sessão 1 indisponível, tentando fallback na Sessão 2...");
     const ctx2 = await getWAContext(2);
     if (!ctx2) return NextResponse.json(r1.json, { status: r1.status });
 

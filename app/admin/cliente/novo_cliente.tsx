@@ -1064,7 +1064,6 @@ useEffect(() => {
       if (isTrialMode) setTestHours(2);
 
     } catch (e) {
-      console.error("Erro ao detectar provider/integração:", e);
       if (!mounted) return;
       setHasIntegration(false);
       setSyncWithServer(false);
@@ -1124,7 +1123,6 @@ useEffect(() => {
       setServerDomains(domains);
 
     } catch (e) {
-      console.error("Erro ao buscar domínios:", e);
       setServerDomains([]);
     }
   })();
@@ -1155,7 +1153,6 @@ useEffect(() => {
           .eq("is_active", true);
           
         if (appsErr) {
-          console.warn("Erro ao carregar catálogo de apps:", appsErr.message);
         }
 
         // ✅ NOVO: Busca as integrações configuradas dos Apps (onde mora a URL do painel deles)
@@ -1187,7 +1184,6 @@ useEffect(() => {
 if (!alive) return;
 
 if (tmplErr) {
-  console.warn("Erro ao carregar templates:", tmplErr.message);
 } else {
   // Apenas mantém a categoria original, sem forçar regras de Revenda
       const list = ((tmplData as any[]) || []).map((r) => ({
@@ -1408,7 +1404,6 @@ if (clientPlanTableId) {
         .maybeSingle();
 
       if (fxErr) {
-        console.error("tenant_fx_rates error:", fxErr);
         setFxRate(5);
       } else {
         const rate =
@@ -1603,7 +1598,6 @@ setSelectedApps(instances);
 
       } catch (err) {
 
-        console.error(err);
 
       } finally {
 
@@ -1762,7 +1756,6 @@ useEffect(() => {
 
       } catch (e: any) {
 
-        console.error("Crash FX:", e);
 
         setFxRate(5);
 
@@ -2289,7 +2282,6 @@ useEffect(() => {
         .maybeSingle();
 
       if (existingContact) {
-        console.log("Contato já existe na agenda. Pulando sync.");
         return;
       }
 
@@ -2346,7 +2338,6 @@ useEffect(() => {
                 body: JSON.stringify({ contact_ids: [newContactData.id] })
               });
             } catch (err) {
-              console.error("Falha silenciosa ao sincronizar operadora:", err);
             }
 
             // 📸 5.2 Sincroniza a Foto do WhatsApp
@@ -2367,7 +2358,6 @@ useEffect(() => {
         }
       }
     } catch (error) {
-      console.error("Falha ao salvar na agenda:", error);
     }
   }
 
@@ -2548,7 +2538,6 @@ if (finalM3u) patchEdit.m3u_url = finalM3u;
 if (finalCreatedAt) patchEdit.created_at = finalCreatedAt;
 
 if (Object.keys(patchEdit).length > 0) {
-  console.log("🟢 [EDIÇÃO] Atualizando dados extras (M3U / Data):", patchEdit);
   
   // ✅ Delay de segurança
   await new Promise(resolve => setTimeout(resolve, 50));
@@ -2561,9 +2550,7 @@ if (Object.keys(patchEdit).length > 0) {
     .select();
   
   if (patchErr) {
-    console.error("❌ Erro ao atualizar M3U/Data:", patchErr);
   } else {
-    console.log("✅ M3U/Data atualizado com sucesso!", patchResult);
   }
 }
 
@@ -2924,7 +2911,6 @@ serverName = servers.find((s) => s.id === serverId)?.name || "Servidor";
     
             if (!syncRes.ok) {
               const t = await syncRes.text().catch(() => "");
-              console.warn("⚠️ Sync falhou:", syncRes.status, t);
             } else {
               const syncData = await syncRes.json().catch(() => ({}));
               if (syncData?.username) apiUsername = syncData.username;
@@ -2942,7 +2928,6 @@ serverName = servers.find((s) => s.id === serverId)?.name || "Servidor";
     }
   } catch (apiErr: any) {
     const msg = String(apiErr?.message || apiErr || "").trim();
-    console.error("Erro ao chamar API de Teste:", { apiUrl, apiErr, msg });
     queueListToast("trial", {
       type: "error",
       title: "Teste Manual Criado",
@@ -3090,7 +3075,6 @@ if (clientId) {
   if (finalExternalUserId) patch.external_user_id = finalExternalUserId;
   if (finalCreatedAt) patch.created_at = finalCreatedAt; // ✅ ADICIONADO
 
-  console.log("🟢 Salvando PATCH no banco:", patch);
 
 
 
@@ -3116,11 +3100,9 @@ if (clientId) {
 
   if (patchErr) {
 
-    console.error("❌ Erro ao salvar PATCH:", patchErr);
 
   } else {
 
-    console.log("✅ PATCH salvo com sucesso!", updateResult);
 
   }
 
@@ -3166,7 +3148,6 @@ if (clientId) {
                   try {
                     const macValueAuto = getMacFromApp(app);
                     if (!macValueAuto || macValueAuto.trim() === "") {
-                        console.warn(`[Automação] App ${app.name} ignorado pois o MAC não foi encontrado.`);
                         continue; 
                     }
 
@@ -3257,7 +3238,6 @@ if (clientId) {
                     }
 
                   } catch (errApp) {
-                    console.error("Falha na automação do App:", app.name, errApp);
                   }
                 }
               }
@@ -3282,7 +3262,6 @@ if (clientId) {
       created_at: new Date().toISOString(),
     });
   } catch (e) {
-    console.warn("Papa testes: falha silenciosa", e);
   }
 }
 
@@ -3348,7 +3327,6 @@ if (isTrialMode && sendTrialWhats && whatsappOptIn && messageContent && messageC
     });
 
   } catch (e) {
-          console.error("Falha envio Whats (teste):", e);
           queueListToast("trial", {
             type: "error",
             title: "Erro no envio",
@@ -3491,7 +3469,6 @@ if (sendPaymentMsg && whatsappOptIn && messageContent && messageContent.trim()) 
 
       } catch (e) {
 
-        console.error("Falha envio Whats (renovação):", e);
 
         queueListToast("client", {
 
@@ -3515,7 +3492,6 @@ if (sendPaymentMsg && whatsappOptIn && messageContent && messageContent.trim()) 
 
     } catch (err: unknown) {
 
-      console.error("Erro RPC:", err);
 
       const errorMsg = err instanceof Error ? err.message : "Erro desconhecido";
 

@@ -265,7 +265,6 @@ const { data, error } = await supabaseBrowser
 
 
       if (error) {
-        console.error("[QueueMonitor] Erro ao buscar fila:", error);
         setQueueData([]);
         return;
       }
@@ -348,7 +347,6 @@ const handleGlobalPause = async () => {
         .in("id", jobIdsToCancel); // ✅ Proteção Ativa
 
       if (error) {
-        console.error("[QueueMonitor] Erro ao cancelar tudo:", error);
         return;
       }
 
@@ -644,7 +642,6 @@ const addToast = (
         setClients(clientData as ClientLight[] || []);
 
     } catch (error: any) {
-        console.error("Erro LoadData:", error);
         addToast("error", "Erro ao carregar", error.message);
     } finally {
         setLoading(false);
@@ -1582,7 +1579,6 @@ if (error) throw error;
             if (error) throw error;
             onSuccess();
         } catch (e: any) {
-            console.error(e);
             onError(e.message || "Erro ao salvar no banco.");
         } finally {
             setSaving(false);
@@ -1859,7 +1855,6 @@ function LogsModal({ ruleId, ruleName, onClose }: { ruleId: string, ruleName: st
         .limit(50);
 
         if (error) {
-        console.error("Erro ao carregar logs:", error);
         setLogs([]);
         } else {
         setLogs((data as LogEntry[]) || []);

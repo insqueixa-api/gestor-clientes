@@ -488,7 +488,6 @@ const [showPapaTestes, setShowPapaTestes] = useState(false);
       .gte("send_at", new Date().toISOString());
 
     if (error) {
-      console.error("Erro ao carregar agendamentos:", error);
       setScheduledMap({});
       return;
     }
@@ -548,7 +547,6 @@ const [showPapaTestes, setShowPapaTestes] = useState(false);
       if (appInts) setAppIntegrations(appInts);
 
     } catch (e) {
-      console.error("Falha ao carregar apps:", e);
       setAppsIndex({ byId: {}, byName: {} });
     } finally {
       setAppsLoading(false);
@@ -564,7 +562,6 @@ const [showPapaTestes, setShowPapaTestes] = useState(false);
       .order("name", { ascending: true });
 
     if (error) {
-      console.error("Erro ao carregar templates:", error);
       setMessageTemplates([]);
       return;
     }
@@ -618,7 +615,6 @@ const viewName = archivedFilter === "Sim" ? "vw_trials_list_archived" : "vw_tria
     .order("vencimento", { ascending: false, nullsFirst: false });
 
   if (error) {
-    console.error(error);
     addToast("error", "Erro ao carregar testes", error.message);
     setRows([]);
     setLoading(false);
@@ -653,11 +649,9 @@ try {
         prefixMap[id] = typeof pref === "string" ? pref : "";
       }
     } else if (cErr) {
-      console.error("Falha ao carregar notes do clients:", cErr);
     }
   }
 } catch (e) {
-  console.error("Crash ao carregar notes do clients:", e);
 }
 
 const mapped: TrialRow[] = typed.map((r) => {
@@ -910,7 +904,6 @@ const { error } = await supabaseBrowser.rpc("delete_client_forever", {
     addToast("success", "Excluído", "Teste removido definitivamente.");
     loadData();
   } catch (e: any) {
-    console.error(e);
     addToast("error", "Falha ao excluir", e?.message || "Erro desconhecido");
   }
 };
@@ -954,7 +947,6 @@ const { error } = await supabaseBrowser.rpc("delete_client_forever", {
 
       await loadData();
     } catch (e: any) {
-      console.error(e);
       queueTrialsListToast({
         type: "error",
         title: "Falha ao atualizar teste",

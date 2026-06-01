@@ -252,7 +252,6 @@ export default function AdminServersPage() {
       setServers(mergedServers);
 
     } catch (error) {
-      console.error("Erro ao buscar servidores:", error);
       // addToast("error", "Erro", "Não foi possível carregar os servidores."); (Opcional se você tiver Toast aqui)
     } finally {
       setLoading(false);
@@ -309,7 +308,6 @@ async function handleSyncIntegration(server: ServerRow) {
       
       // Se você mudou o nome sem querer, o sistema agora te diz QUAL nome está lá
       if (!url) {
-        console.warn(`[SYNC] Servidor desconhecido: "${provider}"`);
         throw new Error(`O servidor "${provider}" não possui uma rota de sincronização. Verifique se escreveu 'ELITE' corretamente.`);
       }
 
@@ -369,7 +367,6 @@ async function handleSyncIntegration(server: ServerRow) {
     } catch (e: any) {
       // Mostra o erro amigável no Toast
       addToast("error", "Falha na Sincronização", e.message);
-      console.error("[ELITE SYNC DEBUG]:", e);
     } finally {
       setSyncingServerId(null);
     }
@@ -460,7 +457,6 @@ const { error } = await supabaseBrowser.rpc("delete_archived_server", {
       fetchServers();
     } catch (error: any) {
       // ✅ BLINDADO: Não vaza o objeto de erro inteiro no navegador do cliente
-      console.error("Falha ao excluir servidor (Dev)");
       addToast("error", "Erro ao excluir", "Não foi possível remover o servidor.");
     }
   }

@@ -100,7 +100,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
-    console.error("❌ [API_EMAIL] Falha crítica no disparo de e-mail:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

@@ -92,7 +92,6 @@ useEffect(() => {
 
     } catch (e) {
       // não trava o modal
-      console.error(e);
     } finally {
       if (alive) setLoadingEdit(false);
     }

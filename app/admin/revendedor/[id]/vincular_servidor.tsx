@@ -185,7 +185,6 @@ export default function VincularServidor({
       onSaved();
       onClose();
     } catch (e: any) {
-      console.error("Erro ao salvar:", e);
 
       // Duplicidade (unique constraint)
       if (e?.code === "23505") {

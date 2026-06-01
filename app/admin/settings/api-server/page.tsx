@@ -93,7 +93,6 @@ if (appRes.error) throw appRes.error;
 setIntegrations((srvRes.data as IntegrationRow[]) || []);
 setAppList((appRes.data as AppIntegration[]) || []);
     } catch (e: any) {
-      console.error(e);
       addToast("error", "Erro ao carregar", e?.message ?? "Falha ao carregar dados.");
     } finally {
       setLoading(false);

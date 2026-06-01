@@ -38,7 +38,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ presignedUrl, publicUrl });
   } catch (error: any) {
-    console.error("Erro ao gerar presigned URL:", error);
     return NextResponse.json({ error: "Falha ao gerar URL de upload." }, { status: 500 });
   }
 }

@@ -146,7 +146,6 @@ export default function PlanosPage() {
         return out;
       });
     } catch (error) {
-      console.error("Erro ao carregar planos:", error);
     } finally {
       setLoading(false);
       checkQueuedToasts(); // ✅ Puxa os alertas da fila e exibe

@@ -140,7 +140,6 @@ if (refreshToken) {
     return NextResponse.redirect(`${origin}/admin/agenda?sync=success&count=${recordsToInsert.length}`);
 
   } catch (err: any) {
-    console.error("Erro no Callback do Google:", err);
     // HACK DE PRODUÇÃO: Manda a mensagem de erro real direto para a URL
     return NextResponse.redirect(`${origin}/admin/agenda?error=${encodeURIComponent(err.message)}`);
   }

@@ -69,7 +69,6 @@ export async function GET(req: Request) {
       const data = await tryFrankfurter(base, to);
       return NextResponse.json({ base, to, ...data });
     } catch (err1) {
-      console.warn(`[FX] Frankfurter failed for ${base}-${to}, trying backup...`, err1);
     }
 
     // 3. Tenta AwesomeAPI (Backup)
@@ -77,7 +76,6 @@ export async function GET(req: Request) {
       const data = await tryAwesomeApi(base, to);
       return NextResponse.json({ base, to, ...data });
     } catch (err2) {
-      console.error(`[FX] AwesomeAPI also failed for ${base}-${to}`, err2);
     }
 
     // 4. Se tudo falhar, retorna erro 500 (O Front usará o fallback 5 ou 6)

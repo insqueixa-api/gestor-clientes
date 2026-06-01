@@ -326,7 +326,6 @@ export async function POST(req: Request) {
       { status: 400 }
     );
   } catch (e: any) {
-    console.error("[IBOSOL API]", e);
     return NextResponse.json(
       { ok: false, error: e.message || "Erro interno." },
       { status: 500 }

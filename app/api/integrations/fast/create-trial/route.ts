@@ -119,7 +119,6 @@ export async function POST(req: NextRequest) {
         allBouquetIds = bqData.data.map((b: any) => Number(b.id));
       }
     } catch (err) {
-      console.error("Erro ao buscar bouquets do Fast:", err);
     }
 
     // Se não conseguiu carregar nenhum pacote, bloqueia a criação para não dar erro na API deles

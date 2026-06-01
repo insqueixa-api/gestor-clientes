@@ -28,7 +28,6 @@ export async function POST(req: NextRequest) {
     // Passo 1: Valida o MAC (Avisa a API que vamos logar)
     const valRes = await fetch(`${apiBase}/validate_mac?mac=${encodeURIComponent(safeMac)}`, { headers: baseHeaders });
     if (!valRes.ok) {
-        console.log("QuickPlayer Proxy: Falha no validate_mac", valRes.status);
     }
 
     // Passo 2: CAPTCHA (Aquece a sessão invisível)
@@ -43,7 +42,6 @@ export async function POST(req: NextRequest) {
 
     if (!loginRes.ok) {
       const text = await loginRes.text();
-      console.log("QuickPlayer Proxy: Falha no login", loginRes.status, text);
       return NextResponse.json({ ok: false, error: `Falha no Login (HTTP ${loginRes.status}). Pode ser bloqueio de segurança.` });
     }
 
@@ -117,7 +115,6 @@ export async function POST(req: NextRequest) {
 
         if (!createRes.ok) {
             const text = await createRes.text();
-            console.log("QuickPlayer Proxy: Falha ao Criar", createRes.status, text);
             return NextResponse.json({ ok: false, error: `Falha HTTP ${createRes.status} ao enviar lista.` });
         }
 
@@ -136,7 +133,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Ação inválida." }, { status: 400 });
 
   } catch (err: any) {
-    console.error("QuickPlayer Proxy Exception:", err);
     return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
   }
 }

@@ -9,7 +9,6 @@ export const dynamic = "force-dynamic";
 // Adiciona no topo do arquivo
 function safeServerLog(...args: any[]) {
   if (process.env.NODE_ENV !== "production") {
-    console.error(...args);
   }
 }
 

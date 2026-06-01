@@ -76,7 +76,6 @@ function queueListToast(
     arr.push({ ...toast, ts: Date.now() });
     window.sessionStorage.setItem(key, JSON.stringify(arr));
   } catch (e) {
-    console.error("Erro ao enfileirar toast", e);
   }
 }
 
@@ -219,7 +218,6 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
         setItems(emptyItems);
       }
     } catch (err) {
-      console.error("Erro ao clonar tabela padrão:", err);
     } finally {
       setLoading(false);
     }

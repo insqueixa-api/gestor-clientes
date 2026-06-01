@@ -332,7 +332,6 @@ async function loadMessageTemplates(tid: string) {
     .order("name", { ascending: true });
 
   if (error) {
-    console.error("Erro ao carregar templates:", error);
     setMessageTemplates([]);
     return;
   }
@@ -365,7 +364,6 @@ async function loadMessageTemplates(tid: string) {
     .gte("send_at", new Date().toISOString());
 
   if (error) {
-    console.error("Erro ao carregar agendamentos:", error);
     setScheduledMap({});
     return;
   }
@@ -406,7 +404,6 @@ async function loadMessageTemplates(tid: string) {
       .eq("status", "OPEN");
 
     if (error) {
-      console.error("Erro ao carregar alertas:", error);
       return new Map<string, number>();
     }
 
@@ -436,7 +433,6 @@ async function loadMessageTemplates(tid: string) {
       if (error) throw error;
       setResellerAlerts(data || []);
     } catch (e: any) {
-      console.error(e);
       addToast("error", "Erro ao carregar alertas", e?.message || "Erro desconhecido");
     }
   }
@@ -453,7 +449,6 @@ async function loadMessageTemplates(tid: string) {
       setResellerAlerts((prev) => (prev as any[]).filter((a) => a.id !== alertId));
       await loadData();
     } catch (e: any) {
-      console.error(e);
       addToast("error", "Erro ao excluir alerta", e?.message || "Erro desconhecido");
     }
   }
@@ -514,7 +509,6 @@ async function loadMessageTemplates(tid: string) {
     const { data, error } = resellersRes;
 
     if (error) {
-      console.error(error);
       addToast("error", "Erro ao carregar revendas", error.message);
       setRows([]);
       setLoading(false);
@@ -646,7 +640,6 @@ async function loadMessageTemplates(tid: string) {
         const ids = new Set<string>((data || []).map((x: any) => String(x.reseller_id)));
         setResellerIdsByServer(ids);
       } catch (e) {
-        console.error(e);
         setResellerIdsByServer(null);
       }
     })();
@@ -812,7 +805,6 @@ async function loadMessageTemplates(tid: string) {
       addToast("success", "Excluído", "Revenda removida definitivamente.");
       await loadData();
     } catch (e: any) {
-      console.error(e);
       addToast("error", "Falha ao excluir", e?.message || "Erro desconhecido");
     }
   };
@@ -841,7 +833,6 @@ async function loadMessageTemplates(tid: string) {
       setNewAlertText("");
       await loadData();
     } catch (e: any) {
-      console.error(e);
       addToast("error", "Erro ao criar alerta", e?.message || "Erro desconhecido");
     }
   };
@@ -893,7 +884,6 @@ body: JSON.stringify({
       setSelectedTemplateNowId("");
     } catch (e: any) {
       if (e?.name !== "AbortError") {
-        console.error(e);
         addToast("error", "Erro ao enviar mensagem", e?.message || "Falha desconhecida");
       }
     } finally {
@@ -962,7 +952,6 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
       setSelectedTemplateScheduleId("");
       await loadData();
     } catch (e: any) {
-      console.error(e);
       addToast("error", "Erro ao agendar", e?.message || "Erro desconhecido");
     } finally {
       setScheduling(false);
@@ -1019,7 +1008,6 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
       addToast("success", "Template criado", "Template salvo com sucesso.");
       setShowNewTemplate({ open: false, target: "now" });
     } catch (e: any) {
-      console.error(e);
       addToast("error", "Erro ao salvar template", e?.message || "Erro desconhecido");
     } finally {
       setSavingTemplate(false);
@@ -1754,7 +1742,6 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
                             // Recarrega do banco
                             await loadScheduledForResellers(tenantId, rows.map(r => r.id));
                           } catch (e: any) {
-                            console.error(e);
                             addToast("error", "Erro", e.message || "Falha ao cancelar.");
                           }
                         }}

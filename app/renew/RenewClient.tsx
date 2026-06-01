@@ -871,7 +871,6 @@ async function handleMethodConfirmDirect(
         startPolling(String(paymentData.payment_id));
       }
     } catch (e: any) {
-      console.error("STRIPE ERROR:", e);
       alert((e?.message) || "Erro ao processar pagamento. Tente novamente.");
     } finally {
       setStripeLoading(false);

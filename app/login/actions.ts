@@ -110,7 +110,6 @@ async function refreshFxIfNeeded(
     if (rpcErr) console.warn("[FX] RPC falhou:", rpcErr.message);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.warn("[FX] Refresh falhou (best effort):", msg);
   }
 }
 
@@ -161,9 +160,7 @@ export async function loginAction(
     const userId = data.user.id;
 
     // ✅ Dispara o background task sem 'await' (Fire and Forget seguro)
-    refreshFxIfNeeded(token, userId, origin).catch((err) =>
-      console.warn("[FX BG Error]", err)
-    );
+    refreshFxIfNeeded(token, userId, origin).catch((err) => {});
 
     // ✅ Redireciona imediatamente
     redirect("/admin");

@@ -22,7 +22,6 @@ const NO_STORE_HEADERS = {
 // ✅ Log “cego”: em produção não imprime detalhes
 function safeServerLog(...args: any[]) {
   if (process.env.NODE_ENV !== "production") {
-    console.error(...args);
   }
 }
 
