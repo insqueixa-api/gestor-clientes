@@ -209,7 +209,7 @@ export default function NovaIntegracaoModal({
             </div>
             <button
               onClick={onClose}
-              className="h-9 px-3 rounded-lg border border-border bg-card dark:bg-white/5 text-muted-foreground dark:text-muted-foreground text-xs font-medium hover:bg-muted/50 dark:hover:bg-white/10 transition-colors"
+              className="h-9 px-3 rounded-lg border border-border bg-card dark:bg-card/5 text-muted-foreground dark:text-muted-foreground text-xs font-medium hover:bg-muted/50 dark:hover:bg-card/10 transition-colors"
               type="button"
             >
               Fechar
@@ -274,8 +274,8 @@ export default function NovaIntegracaoModal({
               onClick={() => setIsActive((v) => !v)}
               className={`h-9 px-3 rounded-lg text-xs font-medium border transition-colors ${
                 isActive
-                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                  : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
+                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                  : "bg-rose-500/10 text-rose-400 border-rose-500/20"
               }`}
             >
               {isActive ? "Ativa" : "Inativa"}
@@ -398,7 +398,7 @@ export default function NovaIntegracaoModal({
         <div className="p-5 border-t border-border bg-muted/50 flex items-center justify-end gap-2">
           <button
             onClick={onClose}
-            className="h-10 px-4 rounded-xl border border-border bg-card dark:bg-white/5 text-muted-foreground dark:text-muted-foreground text-xs font-medium hover:bg-muted/50 dark:hover:bg-white/10 transition-colors"
+            className="h-10 px-4 rounded-xl border border-border bg-card dark:bg-card/5 text-muted-foreground dark:text-muted-foreground text-xs font-medium hover:bg-muted/50 dark:hover:bg-card/10 transition-colors"
             type="button"
             disabled={saving}
           >
@@ -410,7 +410,7 @@ export default function NovaIntegracaoModal({
             className={`h-10 px-4 rounded-xl text-xs font-medium text-white transition-colors ${
               canSave
                 ? "bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-900/20"
-                : "bg-slate-300 dark:bg-white/10 cursor-not-allowed"
+                : "bg-slate-300 dark:bg-card/10 cursor-not-allowed"
             }`}
             type="button"
             disabled={!canSave || saving}

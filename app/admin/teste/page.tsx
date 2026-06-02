@@ -1125,7 +1125,7 @@ export default function TrialsPage() {
               e.stopPropagation();
               setShowPapaTestes(true);
             }}
-            className="hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-medium border transition-colors items-center justify-center gap-1.5 bg-card dark:bg-white/5 border-border text-muted-foreground dark:text-white/60 hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-400 hover:border-violet-200 dark:hover:border-violet-500/30"
+            className="hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-medium border transition-colors items-center justify-center gap-1.5 bg-card dark:bg-card/5 border-border text-muted-foreground dark:text-white/60 hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-400 hover:border-violet-200 dark:hover:border-violet-500/30"
           >
             🕵️ Papa Testes
           </button>
@@ -1138,7 +1138,7 @@ export default function TrialsPage() {
             className={`hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-medium border transition-colors items-center justify-center ${
               archivedFilter === "Sim"
                 ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-                : "bg-card dark:bg-white/5 border-border text-muted-foreground dark:text-white/60"
+                : "bg-card dark:bg-card/5 border-border text-muted-foreground dark:text-white/60"
             }`}
           >
             {archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
@@ -1191,8 +1191,8 @@ export default function TrialsPage() {
               statusFilter !== "Todos" ||
               serverFilter !== "Todos" ||
               archivedFilter === "Sim"
-                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                : "border-border bg-card dark:bg-white/5 text-muted-foreground dark:text-muted-foreground hover:bg-muted/50 dark:hover:bg-white/10"
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                : "border-border bg-card dark:bg-card/5 text-muted-foreground dark:text-muted-foreground hover:bg-muted/50 dark:hover:bg-card/10"
             }`}
             title="Filtros"
           >
@@ -1297,7 +1297,7 @@ export default function TrialsPage() {
               setAppFilter("Todos"); // ✅ Resetando o novo filtro
               setArchivedFilter("Não");
             }}
-            className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-medium hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+            className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
           >
             <IconX /> Limpar
           </button>
@@ -1314,7 +1314,7 @@ export default function TrialsPage() {
               className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-colors flex items-center justify-between ${
                 archivedFilter === "Sim"
                   ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-                  : "bg-card dark:bg-white/5 border-border text-muted-foreground dark:text-muted-foreground"
+                  : "bg-card dark:bg-card/5 border-border text-muted-foreground dark:text-muted-foreground"
               }`}
               title="Filtrar Lixeira"
             >
@@ -1400,7 +1400,7 @@ export default function TrialsPage() {
                 setArchivedFilter("Não");
                 setMobileFiltersOpen(false);
               }}
-              className="w-full h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-medium hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+              className="w-full h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
             >
               <IconX /> Limpar
             </button>
@@ -1422,7 +1422,7 @@ export default function TrialsPage() {
           <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/50">
             <div className="text-sm font-medium text-foreground/90 whitespace-nowrap">
               Lista de Testes{" "}
-              <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600/70 dark:text-emerald-500/70 text-xs">
+              <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400/70 dark:text-emerald-500/70 text-xs">
                 {filtered.length}
               </span>
             </div>
@@ -1487,14 +1487,14 @@ export default function TrialsPage() {
                   return (
                     <tr
                       key={r.id}
-                      className="hover:bg-muted/50 dark:hover:bg-white/5 transition-colors group"
+                      className="hover:bg-muted/50 dark:hover:bg-card/5 transition-colors group"
                     >
                       <Td>
                         <div className="flex flex-col max-w-[180px] sm:max-w-none">
                           <div className="flex items-center gap-2 whitespace-nowrap">
                             <Link
                               href={`/admin/teste/${r.id}`}
-                              className="font-semibold text-foreground/90 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors hover:underline decoration-emerald-500/30 underline-offset-2 truncate"
+                              className="font-semibold text-foreground/90 group-hover:text-emerald-400 dark:group-hover:text-emerald-400 transition-colors hover:underline decoration-emerald-500/30 underline-offset-2 truncate"
                               title={r.name}
                             >
                               {r.name.split(" ")[0]}
@@ -1517,7 +1517,7 @@ export default function TrialsPage() {
                                       trialName: r.name,
                                     });
                                   }}
-                                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-medium hover:bg-purple-200 transition-colors animate-pulse"
+                                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] font-medium hover:bg-purple-500/30 transition-colors animate-pulse"
                                   title="Ver mensagens programadas"
                                 >
                                   🗓️ {scheduledMap[r.id].length}
@@ -1530,7 +1530,7 @@ export default function TrialsPage() {
                             {r.username}
                           </span>
                           {r.whatsapp_username && (
-                            <span className="text-xs font-medium text-emerald-600/70 dark:text-emerald-500/70 truncate">
+                            <span className="text-xs font-medium text-emerald-400/70 dark:text-emerald-500/70 truncate">
                               @{r.whatsapp_username}
                             </span>
                           )}
@@ -1590,11 +1590,11 @@ export default function TrialsPage() {
 
                           const colors = {
                             green:
-                              "bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20",
-                            red: "bg-rose-100 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-500/20",
+                              "bg-emerald-100 dark:bg-emerald-500/10 text-emerald-400 border-emerald-200 dark:border-emerald-500/20",
+                            red: "bg-rose-500/20 text-rose-400 border-rose-200 dark:border-rose-500/20",
                             amber:
                               "bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/20",
-                            blue: "bg-sky-100 dark:bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-500/20",
+                            blue: "bg-sky-500/20 text-sky-400 border-sky-500/30",
                           };
 
                           return (
@@ -1611,8 +1611,8 @@ export default function TrialsPage() {
                         <span
                           className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase ${
                             r.converted
-                              ? "bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-500 border-emerald-200 dark:border-emerald-500/20"
-                              : "bg-slate-100 dark:bg-white/5 text-muted-foreground dark:text-white/50 border-border"
+                              ? "bg-emerald-100 dark:bg-emerald-500/10 text-emerald-400 border-emerald-200 dark:border-emerald-500/20"
+                              : "bg-black/20 text-muted-foreground dark:text-white/50 border-border"
                           }`}
                           title={
                             r.converted
@@ -1631,7 +1631,7 @@ export default function TrialsPage() {
                       </Td>
 
                       <Td>
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-white/5 text-muted-foreground border border-border uppercase">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-card/5 text-muted-foreground border border-border uppercase">
                           {r.technology || "—"}
                         </span>
                       </Td>
@@ -1650,7 +1650,7 @@ export default function TrialsPage() {
                                     e.stopPropagation();
                                     openEditById(r.id, "apps");
                                   }}
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-medium tracking-tight shadow-sm hover:bg-emerald-100 dark:hover:bg-emerald-500/20 active:scale-95 transition-all"
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-[10px] font-medium tracking-tight shadow-sm hover:bg-emerald-100 dark:hover:bg-emerald-500/20 active:scale-95 transition-all"
                                   title="Configurar aplicativo"
                                 >
                                   {name || "App"}
@@ -1661,7 +1661,7 @@ export default function TrialsPage() {
                                     if (!catApp?.integration_type) return null;
                                     return (
                                       <span
-                                        className="shrink-0 inline-flex items-center justify-center w-4 h-4 rounded bg-sky-100 dark:bg-sky-500/20 border border-sky-200 dark:border-sky-500/30 text-sky-600 dark:text-sky-400"
+                                        className="shrink-0 inline-flex items-center justify-center w-4 h-4 rounded bg-sky-500/20 border border-sky-500/30 text-sky-400"
                                         title={
                                           catApp.integration_type ===
                                           "GERENCIAAPP"
@@ -1968,7 +1968,7 @@ export default function TrialsPage() {
                     trialName: undefined,
                   })
                 }
-                className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-muted-foreground hover:bg-slate-200 dark:hover:bg-white/5 font-semibold text-sm transition-colors"
+                className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-muted-foreground hover:bg-black/30 dark:hover:bg-card/5 font-semibold text-sm transition-colors"
               >
                 Fechar
               </button>
@@ -2058,7 +2058,7 @@ export default function TrialsPage() {
                   <span className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                     Imagem Anexada
                   </span>
-                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-border shadow-sm relative bg-slate-100 dark:bg-black/40">
+                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-border shadow-sm relative bg-black/20">
                     <img
                       src={tpl.image_url}
                       alt="Anexo do template"
@@ -2192,7 +2192,7 @@ export default function TrialsPage() {
                   <span className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                     Imagem Anexada
                   </span>
-                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-border shadow-sm relative bg-slate-100 dark:bg-black/40">
+                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-border shadow-sm relative bg-black/20">
                     <img
                       src={tpl.image_url}
                       alt="Anexo do template"
@@ -2301,7 +2301,7 @@ function ThSort({
       <div className="flex items-center gap-1">
         {label}
         <span
-          className={`transition-opacity ${active ? "opacity-100 text-emerald-600 dark:text-emerald-500" : "opacity-40 group-hover:opacity-70"}`}
+          className={`transition-opacity ${active ? "opacity-100 text-emerald-400" : "opacity-40 group-hover:opacity-70"}`}
         >
           {dir === "asc" ? <IconSortUp /> : <IconSortDown />}
         </span>
@@ -2339,17 +2339,17 @@ function StatusBadge({ status }: { status: TrialStatus }) {
     status === "Ativo"
       ? {
           bg: "bg-emerald-100 dark:bg-emerald-500/10",
-          text: "text-emerald-700 dark:text-emerald-500",
+          text: "text-emerald-400",
           border: "border-emerald-200 dark:border-emerald-500/20",
         }
       : status === "Vencido"
         ? {
-            bg: "bg-rose-100 dark:bg-rose-500/10",
-            text: "text-rose-700 dark:text-rose-500",
+            bg: "bg-rose-500/20",
+            text: "text-rose-400",
             border: "border-rose-200 dark:border-rose-500/20",
           }
         : {
-            bg: "bg-slate-100 dark:bg-white/5",
+            bg: "bg-black/20",
             text: "text-muted-foreground dark:text-white/50",
             border: "border-border",
           };
@@ -2379,14 +2379,14 @@ function IconActionBtn({
   loading?: boolean; // ✅ NOVO
 }) {
   const colors = {
-    blue: "text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/20 hover:bg-sky-100 dark:hover:bg-sky-500/20",
+    blue: "text-sky-400 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20 dark:hover:bg-sky-500/20",
     green:
-      "text-emerald-600/70 dark:text-emerald-500/70 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20",
+      "text-emerald-400/70 dark:text-emerald-500/70 bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20",
     amber:
-      "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20",
+      "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20",
     purple:
-      "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 border-purple-200 dark:border-purple-500/20 hover:bg-purple-100 dark:hover:bg-purple-500/20",
-    red: "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20 hover:bg-rose-100 dark:hover:bg-rose-500/20",
+      "text-purple-400 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20 dark:hover:bg-purple-500/20",
+    red: "text-rose-400 bg-rose-500/10 border-rose-200 dark:border-rose-500/20 hover:bg-rose-500/20 dark:hover:bg-rose-500/20",
   };
 
   return (
@@ -2423,7 +2423,7 @@ function MenuItem({
   return (
     <button
       onClick={onClick}
-      className="w-full px-4 py-2 flex items-center gap-3 text-foreground/90/80 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-emerald-600 dark:hover:text-white transition-colors text-left text-sm font-medium"
+      className="w-full px-4 py-2 flex items-center gap-3 text-foreground/90/80 hover:bg-black/20 dark:hover:bg-card/5 hover:text-emerald-400 dark:hover:text-white transition-colors text-left text-sm font-medium"
     >
       <span className="opacity-70">{icon}</span>
       {label}
@@ -2467,7 +2467,7 @@ function Modal({
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white"
+            className="p-1 rounded-lg hover:bg-black/30 dark:hover:bg-card/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white"
           >
             <IconX />
           </button>
@@ -2629,7 +2629,7 @@ function PapaTestesModal({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-muted-foreground dark:text-white/60"
+            className="p-1.5 rounded-lg hover:bg-black/30 dark:hover:bg-card/10 text-muted-foreground dark:text-white/60"
           >
             <IconX />
           </button>
@@ -2699,7 +2699,7 @@ function PapaTestesModal({
                       {recs[0]?.client_name || "—"}
                     </span>
                     {recs[0]?.whatsapp_username && (
- <span className="text-xs text-emerald-600/70 dark:text-emerald-500/70 ">
+ <span className="text-xs text-emerald-400/70 dark:text-emerald-500/70 ">
                         @{recs[0].whatsapp_username}
                       </span>
                     )}
@@ -2720,14 +2720,14 @@ function PapaTestesModal({
                   {recs.map((r) => (
                     <div
                       key={r.id}
-                      className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/50 dark:hover:bg-white/5 transition-colors"
+                      className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/50 dark:hover:bg-card/5 transition-colors"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <span
                           className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm border shrink-0 ${
                             r.is_trial
-                              ? "bg-sky-100 dark:bg-sky-500/20 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-500/30"
-                              : "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30"
+                              ? "bg-sky-500/20 text-sky-400 border-sky-500/30"
+                              : "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-400 border-emerald-200 dark:border-emerald-500/30"
                           }`}
                         >
                           {r.is_trial ? "Teste" : "Cliente"}
@@ -2746,7 +2746,7 @@ function PapaTestesModal({
                           </span>
                         )}
                         {r.plan_price && (
-                          <span className="text-xs font-medium text-emerald-600/70 dark:text-emerald-500/70 shrink-0">
+                          <span className="text-xs font-medium text-emerald-400/70 dark:text-emerald-500/70 shrink-0">
                             {new Intl.NumberFormat("pt-BR", {
                               style: "currency",
                               currency: r.plan_currency || "BRL",
@@ -2757,7 +2757,7 @@ function PapaTestesModal({
                       <button
                         onClick={() => handleDelete(r.id, r.client_name || "—")}
                         disabled={deletingId === r.id}
-                        className="p-1.5 text-muted-foreground/80 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-colors shrink-0 ml-2"
+                        className="p-1.5 text-muted-foreground/80 hover:text-rose-500 hover:bg-rose-500/10 dark:hover:bg-rose-500/10 rounded-lg transition-colors shrink-0 ml-2"
                         title="Excluir registro"
                       >
                         {deletingId === r.id ? (
@@ -2782,7 +2782,7 @@ function PapaTestesModal({
           </span>
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-slate-100 dark:bg-white/10 text-foreground/90 font-medium text-xs hover:bg-slate-200 dark:hover:bg-white/20 transition-colors"
+            className="px-4 py-2 rounded-lg bg-black/20 text-foreground/90 font-medium text-xs hover:bg-black/30 dark:hover:bg-card/20 transition-colors"
           >
             Fechar
           </button>

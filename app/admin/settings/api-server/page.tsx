@@ -351,7 +351,7 @@ export default function ApiServerPage() {
                     setEditingIntegration(null);
                     setIsModalOpen(true);
                   }}
-                  className="w-full px-4 py-3 text-left text-sm font-medium text-foreground/90 hover:bg-muted/50 dark:hover:bg-white/5 flex items-center gap-2 border-b border-slate-100 dark:border-border"
+                  className="w-full px-4 py-3 text-left text-sm font-medium text-foreground/90 hover:bg-muted/50 dark:hover:bg-card/5 flex items-center gap-2 border-b border-border"
                 >
                   🖥️ Servidor
                 </button>
@@ -361,7 +361,7 @@ export default function ApiServerPage() {
                     setEditingApp(null);
                     setIsModalAppOpen(true);
                   }}
-                  className="w-full px-4 py-3 text-left text-sm font-medium text-foreground/90 hover:bg-muted/50 dark:hover:bg-white/5 flex items-center gap-2"
+                  className="w-full px-4 py-3 text-left text-sm font-medium text-foreground/90 hover:bg-muted/50 dark:hover:bg-card/5 flex items-center gap-2"
                 >
                   📱 Aplicativo
                 </button>
@@ -419,7 +419,7 @@ export default function ApiServerPage() {
                           {row.integration_name}
                         </h2>
 
-                        <span className="inline-flex items-center text-[10px] font-medium bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 px-2.5 py-0.5 rounded-full uppercase">
+                        <span className="inline-flex items-center text-[10px] font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20 px-2.5 py-0.5 rounded-full uppercase">
                           {providerLabel(row.provider)}
                         </span>
 
@@ -494,7 +494,7 @@ export default function ApiServerPage() {
                       </div>
                     </div>
 
-                    <div className="space-y-2 sm:border-l sm:pl-4 border-slate-100 dark:border-border">
+                    <div className="space-y-2 sm:border-l sm:pl-4 border-border">
                       <div className="flex justify-between items-center">
                         <span className="text-muted-foreground">
                           🧾 Créditos
@@ -502,7 +502,7 @@ export default function ApiServerPage() {
                         <span
                           className={`font-medium px-2 py-0.5 rounded-lg text-xs ${
                             (row.credits_last_known ?? 0) > 10
-                              ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
+                              ? "text-emerald-400 bg-emerald-500/10"
                               : "text-rose-500 bg-rose-500/10"
                           }`}
                         >
@@ -569,7 +569,7 @@ export default function ApiServerPage() {
                       <h2 className="text-base font-medium truncate text-foreground/90 tracking-tight">
                         {row.label}
                       </h2>
-                      <span className="inline-flex items-center text-[10px] font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 px-2.5 py-0.5 rounded-full uppercase">
+                      <span className="inline-flex items-center text-[10px] font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2.5 py-0.5 rounded-full uppercase">
                         {appLabel(row.app_name)}
                       </span>
                       {!row.is_active && (
@@ -623,7 +623,7 @@ export default function ApiServerPage() {
                             href={row.api_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="font-mono text-xs text-sky-600 dark:text-sky-400 hover:underline truncate max-w-[180px]"
+                            className="font-mono text-xs text-sky-400 hover:underline truncate max-w-[180px]"
                             title={row.api_url}
                           >
                             {row.api_url.replace(/^https?:\/\//, "")}
@@ -633,7 +633,7 @@ export default function ApiServerPage() {
                             onClick={() =>
                               navigator.clipboard.writeText(row.api_url!)
                             }
-                            className="shrink-0 p-1 rounded hover:bg-slate-100 dark:hover:bg-white/10 text-muted-foreground/80 hover:text-sky-500 transition-colors"
+                            className="shrink-0 p-1 rounded hover:bg-black/20 dark:hover:bg-card/10 text-muted-foreground/80 hover:text-sky-500 transition-colors"
                             title="Copiar URL"
                           >
                             <svg
@@ -710,14 +710,14 @@ function IconActionBtn({
   onClick: (e: MouseEvent<HTMLButtonElement>) => void;
 }) {
   const colors = {
-    blue: "text-sky-500 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/20 hover:bg-sky-100 dark:hover:bg-sky-500/20",
+    blue: "text-sky-500 dark:text-sky-400 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20 dark:hover:bg-sky-500/20",
     green:
-      "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20",
+      "text-emerald-400 bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20",
     amber:
-      "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20",
+      "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20",
     purple:
-      "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 border-purple-200 dark:border-purple-500/20 hover:bg-purple-100 dark:hover:bg-purple-500/20",
-    red: "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20 hover:bg-rose-100 dark:hover:bg-rose-500/20",
+      "text-purple-400 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20 dark:hover:bg-purple-500/20",
+    red: "text-rose-400 bg-rose-500/10 border-rose-200 dark:border-rose-500/20 hover:bg-rose-500/20 dark:hover:bg-rose-500/20",
   };
 
   return (

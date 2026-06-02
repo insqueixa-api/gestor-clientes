@@ -421,7 +421,7 @@ export default function LoginClient() {
                   className={[
                     "w-full rounded-xl py-3 font-semibold transition",
                     !canSubmit || loadingResolve || loadingLogin
-                      ? "bg-white/10 text-foreground/50 cursor-not-allowed"
+                      ? "bg-card/10 text-foreground/50 cursor-not-allowed"
                       : "bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800",
                   ].join(" ")}
                 >

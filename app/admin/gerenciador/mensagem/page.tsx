@@ -108,7 +108,7 @@ const TAG_GROUPS = [
   },
   {
     title: "👤 Dados do Cliente",
-    color: "bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400",
+    color: "bg-blue-500/10 text-blue-400 dark:bg-blue-500/10 dark:text-blue-400",
     tags: [
       { label: "{saudacao}", desc: "Sr., Sra. (name_prefix)" },
       { label: "{primeiro_nome}", desc: "Primeiro nome (Ex: João)" },
@@ -121,7 +121,7 @@ const TAG_GROUPS = [
   {
     title: "🖥️ Acesso e Servidor",
     color:
-      "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400",
+      "bg-emerald-500/10 text-emerald-400 dark:bg-emerald-500/10 dark:text-emerald-400",
     tags: [
       { label: "{usuario_app}", desc: "Usuário (server_username)" },
       { label: "{senha_app}", desc: "Senha (server_password)" },
@@ -133,7 +133,7 @@ const TAG_GROUPS = [
   },
   {
     title: "📅 Dados da Assinatura (Datas)",
-    color: "bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400",
+    color: "bg-rose-500/10 text-rose-400 dark:bg-rose-500/10 dark:text-rose-400",
     tags: [
       { label: "{data_vencimento}", desc: "Data exata (DD/MM/AAAA)" },
       { label: "{hora_vencimento}", desc: "Hora exata (HH:MM)" },
@@ -143,7 +143,7 @@ const TAG_GROUPS = [
   {
     title: "🏢 Dados da Revenda",
     color:
-      "bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400",
+      "bg-purple-500/10 text-purple-400 dark:bg-purple-500/10 dark:text-purple-400",
     tags: [
       { label: "{revenda_nome}", desc: "Nome do Revendedor" },
       {
@@ -158,7 +158,7 @@ const TAG_GROUPS = [
   {
     title: "💰 Financeiro",
     color:
-      "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400",
+      "bg-amber-500/10 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400",
     tags: [
       { label: "{venda_creditos}", desc: "Qtd. de Créditos da Última Recarga" },
       { label: "{link_pagamento}", desc: "Link Área do Cliente / Fatura" },
@@ -337,7 +337,7 @@ export default function MessagesPage() {
               setSelectedTemplate(null);
               setShowEditor(true);
             }}
-            className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400 font-medium text-xs md:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2 whitespace-nowrap"
+            className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500/10 text-emerald-400 dark:bg-emerald-500/10 dark:text-emerald-400 font-medium text-xs md:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2 whitespace-nowrap"
           >
             <span className="text-base md:text-lg leading-none mb-0.5">+</span>{" "}
             Nova Mensagem
@@ -377,7 +377,7 @@ export default function MessagesPage() {
 
           <button
             onClick={() => setSearch("")}
-            className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-medium hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors items-center justify-center gap-2"
+            className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors items-center justify-center gap-2"
           >
             <IconX /> Limpar
           </button>
@@ -391,7 +391,7 @@ export default function MessagesPage() {
         </div>
       ) : filteredMessages.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 bg-card border border-dashed border-border dark:border-border rounded-none sm:rounded-2xl">
-          <div className="w-16 h-16 bg-slate-100 dark:bg-white/5 rounded-full flex items-center justify-center mb-4 text-3xl">
+          <div className="w-16 h-16 bg-black/20 rounded-full flex items-center justify-center mb-4 text-3xl">
             <MessageCircle className="w-4 h-4" />
           </div>
           <h3 className="text-lg font-medium text-foreground/90">
@@ -413,13 +413,13 @@ export default function MessagesPage() {
               if (items.length === 0) return null;
               return (
                 <div className="bg-card border-y sm:border border-border rounded-none sm:rounded-xl shadow-sm overflow-hidden">
-                  <div className="px-3 sm:px-5 py-3 border-b border-slate-100 dark:border-border flex items-center justify-between bg-muted/50/60 dark:bg-white/5">
+                  <div className="px-3 sm:px-5 py-3 border-b border-border flex items-center justify-between bg-muted/50/60 dark:bg-card/5">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="text-lg">{icon}</span>
                       <h2 className="text-sm font-medium text-foreground/90 truncate">
                         {title}
                       </h2>
-                      <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-medium">
+                      <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-xs font-medium">
                         {items.length}
                       </span>
                     </div>
@@ -427,7 +427,7 @@ export default function MessagesPage() {
                       Selecione para destacar
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:gap-[1px] bg-slate-100 dark:bg-white/5">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:gap-[1px] bg-black/20">
                     {items.map((msg) => {
                       const isSelected = selectedTemplate?.id === msg.id;
                       const isProtected =
@@ -446,8 +446,8 @@ export default function MessagesPage() {
                           className={[
                             "w-full flex items-center justify-between gap-2 px-3 sm:px-5 py-3 transition-colors cursor-pointer bg-card",
                             isSelected
-                              ? "bg-emerald-50/70 dark:bg-emerald-500/10"
-                              : "hover:bg-muted/50 dark:hover:bg-white/5",
+                              ? "bg-emerald-500/10/70 dark:bg-emerald-500/10"
+                              : "hover:bg-muted/50 dark:hover:bg-card/5",
                           ].join(" ")}
                         >
                           <div className="min-w-0 flex-1 pr-2">
@@ -457,7 +457,7 @@ export default function MessagesPage() {
                                   "inline-flex w-2 h-2 rounded-full shrink-0",
                                   isSelected
                                     ? "bg-emerald-500"
-                                    : "bg-slate-300 dark:bg-white/20",
+                                    : "bg-slate-300 dark:bg-card/20",
                                 ].join(" ")}
                               />
                               <h3
@@ -481,7 +481,7 @@ export default function MessagesPage() {
                                 setSelectedTemplate(msg);
                                 setShowPreview(true);
                               }}
-                              className="flex items-center justify-center w-8 h-8 rounded-lg border border-sky-200 dark:border-sky-500/20 bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-all"
+                              className="flex items-center justify-center w-8 h-8 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 dark:hover:bg-sky-500/20 transition-all"
                               title="Ver"
                             >
                               <IconEye />
@@ -492,7 +492,7 @@ export default function MessagesPage() {
                                 setSelectedTemplate(msg);
                                 setShowEditor(true);
                               }}
-                              className="flex items-center justify-center w-8 h-8 rounded-lg border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-all"
+                              className="flex items-center justify-center w-8 h-8 rounded-lg border border-amber-200 dark:border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-all"
                               title="Editar"
                             >
                               <IconEdit />
@@ -503,7 +503,7 @@ export default function MessagesPage() {
                                   e.stopPropagation();
                                   handleDelete(msg.id);
                                 }}
-                                className="flex items-center justify-center w-8 h-8 rounded-lg border border-rose-200 dark:border-rose-500/20 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-all"
+                                className="flex items-center justify-center w-8 h-8 rounded-lg border border-rose-200 dark:border-rose-500/20 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-all"
                                 title="Excluir"
                               >
                                 <IconTrash />
@@ -606,13 +606,13 @@ function PreviewModal({
     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
       <div className="w-full h-full sm:h-auto max-w-lg bg-card border-0 sm:border border-border rounded-none sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[100dvh] sm:max-h-[80vh]">
         {/* Cabeçalho */}
-        <div className="px-4 py-3 sm:px-5 sm:py-4 border-b border-slate-100 dark:border-border flex justify-between items-center bg-muted/50 shrink-0">
+        <div className="px-4 py-3 sm:px-5 sm:py-4 border-b border-border flex justify-between items-center bg-muted/50 shrink-0">
           <h3 className="font-medium text-foreground truncate pr-4 text-base sm:text-lg">
             {template.name}
           </h3>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-foreground dark:hover:text-white transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:bg-black/30 dark:hover:bg-card/10 hover:text-foreground dark:hover:text-white transition-colors"
           >
             ✕
           </button>
@@ -623,7 +623,7 @@ function PreviewModal({
           <div className="flex flex-col gap-4 whitespace-pre-wrap text-sm text-muted-foreground dark:text-slate-300 font-mono leading-relaxed bg-card dark:bg-background p-3 sm:p-4 rounded-xl border border-border shadow-sm min-h-full">
             {/* ✅ PREVIEW DA IMAGEM SE HOUVER */}
             {template.image_url && (
-              <div className="relative w-full max-w-sm mx-auto bg-slate-100 dark:bg-black/40 rounded-lg overflow-hidden border border-border">
+              <div className="relative w-full max-w-sm mx-auto bg-black/20 rounded-lg overflow-hidden border border-border">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={template.image_url}
@@ -637,7 +637,7 @@ function PreviewModal({
         </div>
 
         {/* Rodapé e Botões (AGORA COM O BOTÃO DE COPIAR) */}
-        <div className="px-4 py-3 sm:px-5 sm:py-4 border-t border-slate-100 dark:border-border flex justify-end gap-2 bg-card shrink-0">
+        <div className="px-4 py-3 sm:px-5 sm:py-4 border-t border-border flex justify-end gap-2 bg-card shrink-0">
           {/* ✅ NOVO: BOTÃO DE COPIAR */}
           <button
             onClick={() => {
@@ -647,8 +647,8 @@ function PreviewModal({
             }}
             className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-lg border font-medium text-xs transition-colors uppercase flex items-center justify-center gap-1.5 ${
               copied
-                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                : "border-border text-foreground/90 hover:bg-muted/50 dark:hover:bg-white/5"
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                : "border-border text-foreground/90 hover:bg-muted/50 dark:hover:bg-card/5"
             }`}
           >
             {copied ? (
@@ -689,7 +689,7 @@ function PreviewModal({
 
           <button
             onClick={onClose}
-            className="flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 font-medium text-xs hover:bg-muted/50 dark:hover:bg-white/5 transition-colors uppercase"
+            className="flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 font-medium text-xs hover:bg-muted/50 dark:hover:bg-card/5 transition-colors uppercase"
           >
             Fechar
           </button>
@@ -925,7 +925,7 @@ function EditorModal({
         className="w-full h-full sm:h-auto max-w-6xl bg-card border-0 sm:border border-border rounded-none sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[100dvh] sm:max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-100 dark:border-border flex justify-between items-center bg-muted/50">
+        <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-border flex justify-between items-center bg-muted/50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-xl">
               <Pencil className="w-4 h-4" />
@@ -938,7 +938,7 @@ function EditorModal({
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:text-foreground hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:text-foreground hover:bg-black/30 dark:hover:bg-card/10 transition-colors"
           >
             ✕
           </button>
@@ -946,7 +946,7 @@ function EditorModal({
 
         <div className="flex-1 overflow-hidden flex flex-col lg:flex-row">
           {/* MOBILE: Variáveis como filtro acima do conteúdo */}
-          <div className="lg:hidden border-b border-slate-100 dark:border-border bg-card">
+          <div className="lg:hidden border-b border-border bg-card">
             <div className="p-3">
               <button
                 type="button"
@@ -966,7 +966,7 @@ function EditorModal({
 
               {mobileTagsOpen && (
                 <div className="mt-3 rounded-xl border border-border bg-card overflow-hidden">
-                  <div className="p-3 border-b border-slate-100 dark:border-border bg-muted/50/50 dark:bg-white/5">
+                  <div className="p-3 border-b border-border bg-muted/50/50 dark:bg-card/5">
                     <h3 className="text-xs font-medium text-muted-foreground dark:text-white uppercase tracking-widest flex items-center gap-2">
                       🏷️ Variáveis Disponíveis
                     </h3>
@@ -1018,7 +1018,7 @@ function EditorModal({
           </div>
 
           {/* Editor */}
-          <div className="flex-1 p-3 sm:p-6 flex flex-col gap-5 overflow-y-auto custom-scrollbar lg:border-r border-slate-100 dark:border-border">
+          <div className="flex-1 p-3 sm:p-6 flex flex-col gap-5 overflow-y-auto custom-scrollbar lg:border-r border-border">
             <div>
               <label className="block text-xs font-medium text-muted-foreground uppercase mb-1.5 tracking-wider">
                 Nome do Modelo (Identificação interna)
@@ -1030,13 +1030,13 @@ function EditorModal({
                 readOnly={isProtected} // 🔒 Trava a edição do nome
                 className={`w-full h-12 px-4 border rounded-xl text-foreground outline-none focus:border-emerald-500 transition-colors font-medium ${
                   isProtected
-                    ? "bg-slate-100 dark:bg-white/5 border-dashed border-border text-muted-foreground cursor-not-allowed"
+                    ? "bg-black/20 border-dashed border-border text-muted-foreground cursor-not-allowed"
                     : "bg-muted/50 border-border"
                 }`}
                 autoFocus={!isProtected}
               />
               {isProtected && (
-                <p className="text-[10px] text-sky-600 dark:text-sky-400 mt-2 font-medium flex items-center gap-1">
+                <p className="text-[10px] text-sky-400 mt-2 font-medium flex items-center gap-1">
                   🔒 Este é um modelo fundamental do sistema. O nome não pode
                   ser alterado, apenas o seu conteúdo.
                 </p>
@@ -1084,7 +1084,7 @@ function EditorModal({
                 {!previewUrl && (
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-sky-200 dark:border-sky-500/30 bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 text-[11px] font-medium hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-400 text-[11px] font-medium hover:bg-sky-500/20 dark:hover:bg-sky-500/20 transition-colors"
                   >
                     <IconUpload /> Adicionar Imagem
                   </button>
@@ -1111,7 +1111,7 @@ function EditorModal({
                       setImageFile(null);
                       if (fileInputRef.current) fileInputRef.current.value = "";
                     }}
-                    className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400 shadow-md flex items-center justify-center hover:scale-110 transition-transform"
+                    className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-rose-500/10 text-rose-400 dark:bg-rose-500/10 dark:text-rose-400 shadow-md flex items-center justify-center hover:scale-110 transition-transform"
                     title="Remover Imagem"
                   >
                     ✕
@@ -1133,7 +1133,7 @@ function EditorModal({
 
           {/* DESKTOP: Variáveis na lateral (sem mudar lógica) */}
           <div className="hidden lg:flex w-96 bg-card flex-col">
-            <div className="p-4 border-b border-slate-100 dark:border-border bg-muted/50/50 dark:bg-white/5">
+            <div className="p-4 border-b border-border bg-muted/50/50 dark:bg-card/5">
               <h3 className="text-xs font-medium text-muted-foreground dark:text-white uppercase tracking-widest flex items-center gap-2">
                 🏷️ Variáveis Disponíveis
               </h3>
@@ -1153,7 +1153,7 @@ function EditorModal({
                     <button
                       type="button"
                       onClick={() => toggleDesktopGroup(idx)}
-                      className={`w-full flex items-center justify-between p-3 text-left transition-colors ${isOpen ? "bg-muted/50 border-b border-slate-100 dark:border-border" : "hover:bg-muted/50 dark:hover:bg-white/5"}`}
+                      className={`w-full flex items-center justify-between p-3 text-left transition-colors ${isOpen ? "bg-muted/50 border-b border-border" : "hover:bg-muted/50 dark:hover:bg-card/5"}`}
                     >
                       <h4 className="text-[10px] font-medium text-muted-foreground dark:text-muted-foreground uppercase tracking-wider">
                         {group.title}
@@ -1188,7 +1188,7 @@ function EditorModal({
           </div>
         </div>
 
-        <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-slate-100 dark:border-border bg-muted/50 flex justify-between items-center">
+        <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-border bg-muted/50 flex justify-between items-center">
           <div className="text-xs text-muted-foreground/80 hidden sm:block">
             💡 Dica: Use <strong>{`{saudacao_tempo}`}</strong> para enviar "Bom
             dia" automático.
@@ -1196,14 +1196,14 @@ function EditorModal({
           <div className="flex gap-3 w-full sm:w-auto justify-end">
             <button
               onClick={onClose}
-              className="flex-1 sm:flex-none px-6 py-3 rounded-xl border border-border text-muted-foreground font-medium text-xs hover:bg-card dark:hover:bg-white/10 transition-colors uppercase tracking-wider"
+              className="flex-1 sm:flex-none px-6 py-3 rounded-xl border border-border text-muted-foreground font-medium text-xs hover:bg-card dark:hover:bg-card/10 transition-colors uppercase tracking-wider"
             >
               Cancelar
             </button>
             <button
               onClick={handleSave}
               disabled={loading}
-              className="flex-1 sm:flex-none px-8 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400 font-medium text-xs shadow-lg shadow-emerald-900/20 transition-transform active:scale-95 flex items-center justify-center gap-2 uppercase tracking-wider disabled:opacity-50"
+              className="flex-1 sm:flex-none px-8 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500/10 text-emerald-400 dark:bg-emerald-500/10 dark:text-emerald-400 font-medium text-xs shadow-lg shadow-emerald-900/20 transition-transform active:scale-95 flex items-center justify-center gap-2 uppercase tracking-wider disabled:opacity-50"
             >
               {loading
                 ? "Salvando..."

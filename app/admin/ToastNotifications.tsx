@@ -61,10 +61,10 @@ export default function ToastNotifications({ toasts, removeToast }: Props) {
             key={t.id}
             className={`pointer-events-auto relative overflow-hidden flex items-start gap-3 p-4 rounded-xl shadow-2xl border-2 transition-all animate-in fade-in slide-in-from-top-5 duration-300 backdrop-blur-md ${
               t.type === "success"
-                ? "bg-white/95 dark:bg-zinc-900/95 border-emerald-300 dark:border-emerald-500/40 text-emerald-800 dark:text-emerald-100 shadow-emerald-500/20 ring-1 ring-emerald-200/50 dark:ring-emerald-500/20"
+                ? "bg-card/95 dark:bg-zinc-900/95 border-emerald-300 dark:border-emerald-500/40 text-emerald-400 shadow-emerald-500/20 ring-1 ring-emerald-200/50 dark:ring-emerald-500/20"
                 : t.type === "warning"
-                  ? "bg-white/95 dark:bg-zinc-900/95 border-amber-300 dark:border-amber-500/40 text-amber-800 dark:text-amber-100 shadow-amber-500/20 ring-1 ring-amber-200/50 dark:ring-amber-500/20"
-                  : "bg-white/95 dark:bg-zinc-900/95 border-rose-300 dark:border-rose-500/40 text-rose-800 dark:text-rose-100 shadow-rose-500/20 ring-1 ring-rose-200/50 dark:ring-rose-500/20"
+                  ? "bg-card/95 dark:bg-zinc-900/95 border-amber-300 dark:border-amber-500/40 text-amber-800 dark:text-amber-100 shadow-amber-500/20 ring-1 ring-amber-200/50 dark:ring-amber-500/20"
+                  : "bg-card/95 dark:bg-zinc-900/95 border-rose-300 dark:border-rose-500/40 text-rose-400 shadow-rose-500/20 ring-1 ring-rose-200/50 dark:ring-rose-500/20"
             }`}
           >
             {/* Ícone */}
@@ -141,7 +141,7 @@ export default function ToastNotifications({ toasts, removeToast }: Props) {
                 }
                 removeToast(t.id);
               }}
-              className="text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300 transition-colors"
+              className="text-zinc-400 hover:text-muted-foreground dark:hover:text-zinc-300 transition-colors"
               aria-label="Fechar toast"
             >
               <svg
@@ -160,7 +160,7 @@ export default function ToastNotifications({ toasts, removeToast }: Props) {
             </button>
 
             {/* Barra de tempo */}
-            <div className="absolute left-0 right-0 bottom-0 h-[3px] bg-white/10">
+            <div className="absolute left-0 right-0 bottom-0 h-[3px] bg-card/10">
               <div
                 className={`h-full ${
                   t.type === "success"

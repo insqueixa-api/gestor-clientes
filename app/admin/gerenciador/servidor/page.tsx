@@ -501,7 +501,7 @@ export default function AdminServersPage() {
               navigator.clipboard.writeText(dns);
               addToast("success", "Copiado", "DNS copiada com sucesso!");
             }}
-            className="p-1.5 text-muted-foreground/80 dark:text-muted-foreground hover:text-sky-600 dark:hover:text-sky-400 hover:bg-slate-100 dark:hover:bg-white/10 rounded transition-colors shrink-0"
+            className="p-1.5 text-muted-foreground/80 dark:text-muted-foreground hover:text-sky-400 dark:hover:text-sky-400 hover:bg-black/20 dark:hover:bg-card/10 rounded transition-colors shrink-0"
             title="Copiar"
           >
             <svg
@@ -631,7 +631,7 @@ export default function AdminServersPage() {
             className={`h-10 px-3 rounded-lg text-xs font-medium border transition-colors items-center justify-center ${
               showArchived
                 ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-                : "bg-card dark:bg-white/5 border-border text-muted-foreground dark:text-white/60"
+                : "bg-card dark:bg-card/5 border-border text-muted-foreground dark:text-white/60"
             }`}
           >
             {showArchived ? "Ocultar Lixeira" : "Ver Lixeira"}
@@ -686,12 +686,12 @@ export default function AdminServersPage() {
                         className="w-8 h-8 rounded-lg object-cover border border-border shrink-0"
                       />
                     ) : (
-                      <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-base">
+                      <div className="w-8 h-8 rounded-lg bg-black/20 flex items-center justify-center shrink-0 text-base">
                         📡
                       </div>
                     )}
                     <h2
-                      className="text-base font-medium truncate text-foreground/90 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors tracking-tight flex items-center gap-2"
+                      className="text-base font-medium truncate text-foreground/90 group-hover:text-emerald-400 dark:group-hover:text-emerald-400 transition-colors tracking-tight flex items-center gap-2"
                       title={server.name}
                     >
                       {server.name}
@@ -699,7 +699,7 @@ export default function AdminServersPage() {
                       {server.panel_integration && (
                         <span
                           title="Servidor com integração"
-                          className="inline-flex items-center justify-center text-sky-600 dark:text-sky-400"
+                          className="inline-flex items-center justify-center text-sky-400"
                         >
                           <IconPlug />
                         </span>
@@ -787,7 +787,7 @@ export default function AdminServersPage() {
                       href={`/admin/gerenciador/servidor/${server.id}`}
                       onClick={(e) => e.stopPropagation()}
                       title="Detalhes"
-                      className="p-1.5 rounded-lg border transition-all text-sky-500 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/20 hover:bg-sky-100 dark:hover:bg-sky-500/20"
+                      className="p-1.5 rounded-lg border transition-all text-sky-500 dark:text-sky-400 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20 dark:hover:bg-sky-500/20"
                     >
                       <IconDetails />
                     </Link>
@@ -822,7 +822,7 @@ export default function AdminServersPage() {
                     </div>
 
                     <div className="flex justify-between items-center text-xs">
-<div className="flex items-center gap-2.5 text-emerald-600 dark:text-emerald-400 font-normal">           
+<div className="flex items-center gap-2.5 text-emerald-400 font-normal">           
                <svg
                           width="16"
                           height="16"
@@ -870,7 +870,7 @@ export default function AdminServersPage() {
                       </Link>
                     </div>
 
-                    <div className="border-t border-slate-100 dark:border-border my-1" />
+                    <div className="border-t border-border my-1" />
 
                     <div className="flex justify-between items-center text-xs">
 <div className="flex items-center gap-2.5 text-amber-500 dark:text-amber-400 font-normal">                    
@@ -912,12 +912,12 @@ export default function AdminServersPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-2 pl-0 sm:pl-4 sm:border-l border-slate-100 dark:border-border">
+                  <div className="space-y-2 pl-0 sm:pl-4 sm:border-l border-border">
                     <div className="flex justify-between items-center">
                       <span className="flex items-center gap-2 text-muted-foreground">
                         <IconCardCusto /> Custo crédito
                       </span>
-<span className="font-normal text-foreground/90 bg-slate-100 dark:bg-white/10 px-2 py-0.5 rounded-lg text-xs">
+<span className="font-normal text-foreground/90 bg-black/20 px-2 py-0.5 rounded-lg text-xs">
                         {formatMoney(
                           server.credit_unit_cost_brl ??
                             server.default_credit_unit_price,
@@ -933,7 +933,7 @@ export default function AdminServersPage() {
                       <span
                         className={`font-normal px-2 py-0.5 rounded-lg text-xs ${
     server.credits_available > 10
-                            ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
+                            ? "text-emerald-400 bg-emerald-500/10"
                             : "text-rose-500 bg-rose-500/10"
                         }`}
                       >
@@ -945,7 +945,7 @@ export default function AdminServersPage() {
                       <span className="text-muted-foreground flex items-center gap-2">
                         {server.panel_integration ? (
                           <span
-                            className="text-sky-600 dark:text-sky-400"
+                            className="text-sky-400"
                             title="Conectado"
                           >
                             <IconPlug />
@@ -1007,7 +1007,7 @@ export default function AdminServersPage() {
     e.stopPropagation();
     handleViewDns(server);
   }}
-  className="font-normal px-2 py-0.5 rounded-lg text-xs text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 hover:bg-sky-100 dark:hover:bg-sky-500/20 border border-sky-100 dark:border-sky-500/20 transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+  className="font-normal px-2 py-0.5 rounded-lg text-xs text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 dark:hover:bg-sky-500/20 border border-sky-500/20 transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
   title="Ver DNS configuradas"
 >
                           {server.dns.filter((d) => d.trim()).length}
@@ -1048,7 +1048,7 @@ export default function AdminServersPage() {
                         <a
                           href={server.panel_web_url}
                           target="_blank"
-                          className="text-emerald-600 dark:text-emerald-400 hover:underline truncate font-medium"
+                          className="text-emerald-400 hover:underline truncate font-medium"
                         >
                           {server.panel_web_url}
                         </a>
@@ -1067,8 +1067,8 @@ export default function AdminServersPage() {
                           }
                           target="_blank"
                           rel="noreferrer"
-                          // Usei 'text-sky-600' (Azul) para o Telegram, mantendo o estilo de fonte do link acima
-                          className="text-sky-600 dark:text-sky-400 hover:underline truncate font-medium"
+                          // Usei 'text-sky-400' (Azul) para o Telegram, mantendo o estilo de fonte do link acima
+                          className="text-sky-400 hover:underline truncate font-medium"
                         >
                           {server.panel_telegram_group}
                         </a>
@@ -1142,14 +1142,14 @@ function IconActionBtn({
   onClick: (e: MouseEvent<HTMLButtonElement>) => void;
 }) {
   const colors = {
-    blue: "text-sky-500 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/20 hover:bg-sky-100 dark:hover:bg-sky-500/20",
+    blue: "text-sky-500 dark:text-sky-400 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20 dark:hover:bg-sky-500/20",
     green:
-      "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20",
+      "text-emerald-400 bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20",
     amber:
-      "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20",
+      "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20",
     purple:
-      "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 border-purple-200 dark:border-purple-500/20 hover:bg-purple-100 dark:hover:bg-purple-500/20",
-    red: "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20 hover:bg-rose-100 dark:hover:bg-rose-500/20",
+      "text-purple-400 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20 dark:hover:bg-purple-500/20",
+    red: "text-rose-400 bg-rose-500/10 border-rose-200 dark:border-rose-500/20 hover:bg-rose-500/20 dark:hover:bg-rose-500/20",
   };
 
   return (

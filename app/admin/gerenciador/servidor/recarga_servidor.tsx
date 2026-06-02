@@ -384,13 +384,13 @@ export default function RecargaServidorModal({
             <h2 className="text-lg font-medium text-foreground tracking-tight">
               Nova Recarga
             </h2>
-            <div className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-0.5">
+            <div className="text-xs text-emerald-400 font-medium mt-0.5">
               {server.name}
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-muted-foreground dark:text-white/60"
+            className="p-1 rounded-lg hover:bg-black/30 dark:hover:bg-card/10 text-muted-foreground dark:text-white/60"
           >
             ✕
           </button>
@@ -432,7 +432,7 @@ export default function RecargaServidorModal({
                   onChange={(e) => setQty(e.target.value)}
                   placeholder="0"
                   autoFocus
-                  className="font-medium text-emerald-600"
+                  className="font-medium text-emerald-400"
                 />
               </div>
               <div className="col-span-4 space-y-1">
@@ -473,7 +473,7 @@ export default function RecargaServidorModal({
           </div>
 
           {/* TOTALIZADORES */}
-          <div className="flex justify-between items-end bg-slate-100 dark:bg-black/20 p-3 rounded-lg border border-border">
+          <div className="flex justify-between items-end bg-black/20 p-3 rounded-lg border border-border">
             <div>
               <div className="text-[10px] uppercase font-medium text-muted-foreground/80">
                 Total Original
@@ -489,7 +489,7 @@ export default function RecargaServidorModal({
               <div className="text-[10px] uppercase font-medium text-muted-foreground/80">
                 Total em BRL (Custo Real)
               </div>
- <div className=" text-xl font-medium text-emerald-600 dark:text-emerald-400">
+ <div className=" text-xl font-medium text-emerald-400">
                 {new Intl.NumberFormat("pt-BR", {
                   style: "currency",
                   currency: "BRL",
@@ -512,7 +512,7 @@ export default function RecargaServidorModal({
         {/* FOOTER */}
         <div className="px-6 py-4 border-t border-border bg-muted/50 space-y-3">
           {hasIntegration && (
-            <div className="p-3 bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 rounded-lg text-xs text-sky-700 dark:text-sky-400">
+            <div className="p-3 bg-sky-500/10 border border-sky-500/30 rounded-lg text-xs text-sky-400">
               ℹ️{" "}
               <strong>
                 Servidor com integração "{server.panel_integration_name}"
@@ -525,7 +525,7 @@ export default function RecargaServidorModal({
           <div className="flex justify-end gap-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/5 text-sm font-semibold transition-colors"
+              className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-black/30 dark:hover:bg-card/5 text-sm font-semibold transition-colors"
             >
               Cancelar
             </button>

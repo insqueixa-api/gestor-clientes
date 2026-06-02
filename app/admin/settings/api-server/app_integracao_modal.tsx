@@ -197,7 +197,7 @@ export default function AppIntegracaoModal({
           </div>
           <button
             onClick={onCloseAction}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-white/10 text-muted-foreground/80 transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/20 dark:hover:bg-card/10 text-muted-foreground/80 transition-colors"
             type="button"
           >
             <svg
@@ -219,12 +219,12 @@ export default function AppIntegracaoModal({
         {/* Body com Grid */}
         <div className="p-6 overflow-y-auto custom-scrollbar space-y-5">
           {/* Upload Master Simplificado - Agora sempre visível */}
-          <div className="flex items-center justify-between p-4 bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 rounded-xl">
+          <div className="flex items-center justify-between p-4 bg-sky-500/10 border border-sky-500/30 rounded-xl">
             <div>
               <h3 className="text-xs font-medium text-sky-800 dark:text-sky-300">
                 Atualizar Robô (Extensão)
               </h3>
-              <p className="text-[10px] text-sky-600 dark:text-sky-400 mt-0.5">
+              <p className="text-[10px] text-sky-400 mt-0.5">
                 Substitua o arquivo .zip na nuvem.
               </p>
             </div>
@@ -368,7 +368,7 @@ export default function AppIntegracaoModal({
             {/* PIN (Exclusivo para Apps que Exigem) animado */}
             {needsPin && (
               <div className="sm:col-span-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                <label className="block text-[10px] font-medium text-emerald-600 dark:text-emerald-400 mb-1.5 uppercase tracking-wider">
+                <label className="block text-[10px] font-medium text-emerald-400 mb-1.5 uppercase tracking-wider">
                   PIN Padrão (Criação de Teste)
                 </label>
                 <div className="relative">
@@ -381,7 +381,7 @@ export default function AppIntegracaoModal({
                     placeholder="Ex: 123456"
                     type="text"
                     maxLength={6}
-                    className="w-full h-11 rounded-xl border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-500/5 px-10 text-sm text-foreground outline-none focus:border-emerald-500 focus:bg-card dark:focus:bg-black/40 transition-colors font-mono tracking-widest"
+                    className="w-full h-11 rounded-xl border border-emerald-200 dark:border-emerald-500/30 bg-emerald-500/10/50 dark:bg-emerald-500/5 px-10 text-sm text-foreground outline-none focus:border-emerald-500 focus:bg-card dark:focus:bg-black/40 transition-colors font-mono tracking-widest"
                   />
                 </div>
                 <p className="text-[10px] text-foreground/70 mt-1.5 ml-1">
@@ -407,7 +407,7 @@ export default function AppIntegracaoModal({
                   className={`relative w-12 h-6 rounded-full transition-colors border ${
                     isActive
                       ? "bg-emerald-500 border-emerald-500"
-                      : "bg-slate-300 dark:bg-white/10 border-transparent"
+                      : "bg-slate-300 dark:bg-card/10 border-transparent"
                   }`}
                 >
                   <span
@@ -423,7 +423,7 @@ export default function AppIntegracaoModal({
         <div className="px-6 py-4 border-t border-border bg-muted/50 flex items-center justify-end gap-3 shrink-0">
           <button
             onClick={onCloseAction}
-            className="h-10 px-5 rounded-xl text-muted-foreground dark:text-muted-foreground text-sm font-medium hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
+            className="h-10 px-5 rounded-xl text-muted-foreground dark:text-muted-foreground text-sm font-medium hover:bg-black/30 dark:hover:bg-card/10 transition-colors"
             type="button"
             disabled={saving}
           >
@@ -434,7 +434,7 @@ export default function AppIntegracaoModal({
             className={`h-10 px-6 rounded-xl text-sm font-medium text-white transition-all transform active:scale-95 flex items-center gap-2 ${
               canSave
                 ? "bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-600/20"
-                : "bg-slate-300 dark:bg-white/10 cursor-not-allowed opacity-70"
+                : "bg-slate-300 dark:bg-card/10 cursor-not-allowed opacity-70"
             }`}
             type="button"
             disabled={!canSave || saving}

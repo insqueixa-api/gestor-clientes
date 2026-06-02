@@ -577,7 +577,7 @@ function Switch({
         className={`relative w-12 h-7 rounded-full transition-colors border ${
           checked
             ? "bg-emerald-600 border-emerald-600"
-            : "bg-slate-200 dark:bg-white/10 border-border dark:border-border"
+            : "bg-black/30 border-border dark:border-border"
         } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`} // ✅ NOVO
         aria-pressed={checked}
       >
@@ -612,7 +612,7 @@ function PhoneRow({
     <div>
       <Label>{label}</Label>
       <div className="flex gap-2">
-        <div className="h-10 min-w-[160px] px-3 bg-slate-100 dark:bg-black/30 border border-border rounded-lg flex items-center text-xs font-medium text-foreground/90">
+        <div className="h-10 min-w-[160px] px-3 bg-black/20 border border-border rounded-lg flex items-center text-xs font-medium text-foreground/90">
           {countryLabel || "—"}
         </div>
 
@@ -627,7 +627,7 @@ function PhoneRow({
           <button
             type="button"
             onClick={onDone}
-            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 flex items-center justify-center"
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 flex items-center justify-center"
             title="Normalizar"
           >
             ✓
@@ -3885,7 +3885,7 @@ export default function NovoCliente({
               navigator.clipboard.writeText(dns);
               addToast("success", "Copiado", "DNS copiada com sucesso!");
             }}
-            className="p-1.5 text-muted-foreground/80 dark:text-muted-foreground hover:text-sky-600 dark:hover:text-sky-400 hover:bg-slate-100 dark:hover:bg-white/10 rounded transition-colors shrink-0"
+            className="p-1.5 text-muted-foreground/80 dark:text-muted-foreground hover:text-sky-400 dark:hover:text-sky-400 hover:bg-black/20 dark:hover:bg-card/10 rounded transition-colors shrink-0"
             title="Copiar"
           >
             <svg
@@ -4057,7 +4057,7 @@ export default function NovoCliente({
             <button
               onClick={onClose}
               type="button"
-              className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 text-muted-foreground/80 dark:text-muted-foreground transition-colors"
+              className="p-1.5 rounded-lg hover:bg-black/20 dark:hover:bg-card/10 text-muted-foreground/80 dark:text-muted-foreground transition-colors"
             >
               <IconX />
             </button>
@@ -4065,8 +4065,8 @@ export default function NovoCliente({
 
           {/* ABAS */}
 
-          <div className="flex justify-center border-b border-border bg-muted/50/50 dark:bg-white/5 px-4 py-2">
-            <div className="flex bg-slate-200/50 dark:bg-black/20 rounded-lg p-1 w-full sm:w-auto overflow-x-auto">
+          <div className="flex justify-center border-b border-border bg-muted/50/50 dark:bg-card/5 px-4 py-2">
+            <div className="flex bg-black/30/50 dark:bg-black/20 rounded-lg p-1 w-full sm:w-auto overflow-x-auto">
               {(
                 [
                   { key: "dados", label: "DADOS" },
@@ -4084,7 +4084,7 @@ export default function NovoCliente({
                   onClick={() => setActiveTab(tab.key)}
                   className={`flex-1 sm:flex-none px-6 py-2 text-xs font-medium rounded-md transition-all uppercase tracking-wider whitespace-nowrap ${
                     activeTab === tab.key
-                      ? "bg-card dark:bg-white/10 text-emerald-600 dark:text-emerald-400 shadow-sm"
+                      ? "bg-card dark:bg-card/10 text-emerald-400 shadow-sm"
                       : "text-muted-foreground dark:text-muted-foreground hover:text-foreground dark:hover:text-white"
                   }`}
                 >
@@ -4183,7 +4183,7 @@ export default function NovoCliente({
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 hover:text-emerald-600"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 hover:text-emerald-400"
                           title="Abrir conversa"
                         >
                           <IconChat />
@@ -4192,7 +4192,7 @@ export default function NovoCliente({
                     </div>
                     {waValidation && (
                       <div
-                        className={`mt-1 flex items-center gap-1.5 text-[11px] font-medium ${waValidation.loading ? "text-muted-foreground/80" : waValidation.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}
+                        className={`mt-1 flex items-center gap-1.5 text-[11px] font-medium ${waValidation.loading ? "text-muted-foreground/80" : waValidation.exists ? "text-emerald-400" : "text-rose-500"}`}
                       >
                         {waValidation.loading ? (
                           <>
@@ -4237,14 +4237,14 @@ export default function NovoCliente({
                                 details: lines.map((line, i) => (
                                   <div
                                     key={i}
-                                    className="text-xs text-foreground/90/80 py-1 border-b border-slate-100 dark:border-border last:border-0"
+                                    className="text-xs text-foreground/90/80 py-1 border-b border-border last:border-0"
                                   >
                                     {line}
                                   </div>
                                 )),
                               });
                             }}
-                            className="gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-colors flex items-center gap-1"
+                            className="gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-colors flex items-center gap-1"
                           >
                             ⚠️ {papaTesteInfo.count} registro
                             {papaTesteInfo.count > 1 ? "s" : ""} anteriore
@@ -4263,7 +4263,7 @@ export default function NovoCliente({
                     <button
                       type="button"
                       onClick={() => setShowSecondary(true)}
-                      className="text-[10px] px-2 py-0.5 bg-emerald-500/10 rounded text-emerald-600 dark:text-emerald-400 font-medium border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
+                      className="text-[10px] px-2 py-0.5 bg-emerald-500/10 rounded text-emerald-400 font-medium border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
                     >
                       + ADD CONTATO SECUNDÁRIO
                     </button>
@@ -4362,7 +4362,7 @@ export default function NovoCliente({
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 hover:text-emerald-600"
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 hover:text-emerald-400"
                               title="Abrir conversa"
                             >
                               <IconChat />
@@ -4371,7 +4371,7 @@ export default function NovoCliente({
                         </div>
                         {secondaryWaValidation && (
                           <div
-                            className={`mt-1.5 flex items-center gap-1.5 text-[11px] font-medium ${secondaryWaValidation.loading ? "text-muted-foreground/80" : secondaryWaValidation.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}
+                            className={`mt-1.5 flex items-center gap-1.5 text-[11px] font-medium ${secondaryWaValidation.loading ? "text-muted-foreground/80" : secondaryWaValidation.exists ? "text-emerald-400" : "text-rose-500"}`}
                           >
                             {secondaryWaValidation.loading ? (
                               <>
@@ -4573,10 +4573,10 @@ export default function NovoCliente({
                           <button
                             type="button"
                             onClick={handleViewDns}
-                            className="text-[10px] px-2 py-0.5 rounded text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 font-medium border border-sky-100 dark:border-sky-500/20 hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-colors flex items-center gap-1 shadow-sm"
+                            className="text-[10px] px-2 py-0.5 rounded text-sky-400 bg-sky-500/10 font-medium border border-sky-500/20 hover:bg-sky-500/20 dark:hover:bg-sky-500/20 transition-colors flex items-center gap-1 shadow-sm"
                           >
                             DNS{" "}
-                            <span className="bg-sky-100 dark:bg-sky-500/20 px-1 rounded-sm">
+                            <span className="bg-sky-500/20 px-1 rounded-sm">
                               {serverDomains.length}
                             </span>
                           </button>
@@ -4615,7 +4615,7 @@ export default function NovoCliente({
                                 "Usuário copiado para a área de transferência.",
                               );
                             }}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground/80 dark:text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-200 dark:hover:bg-white/10 rounded transition-colors"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground/80 dark:text-muted-foreground hover:text-emerald-400 dark:hover:text-emerald-400 hover:bg-black/30 dark:hover:bg-card/10 rounded transition-colors"
                             title="Copiar usuário"
                           >
                             <svg
@@ -4663,7 +4663,7 @@ export default function NovoCliente({
                                 "Senha copiada para a área de transferência.",
                               );
                             }}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground/80 dark:text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-200 dark:hover:bg-white/10 rounded transition-colors"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground/80 dark:text-muted-foreground hover:text-emerald-400 dark:hover:text-emerald-400 hover:bg-black/30 dark:hover:bg-card/10 rounded transition-colors"
                             title="Copiar senha"
                           >
                             <svg
@@ -4864,7 +4864,7 @@ export default function NovoCliente({
                       <div className="col-span-2 sm:col-span-1">
                         <Label>Créditos</Label>
 
-                        <div className="h-10 w-full bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 rounded-lg flex items-center justify-center text-sm font-medium text-blue-700 dark:text-blue-300">
+                        <div className="h-10 w-full bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 rounded-lg flex items-center justify-center text-sm font-medium text-blue-400">
                           {creditsInfo ? creditsInfo.used : "—"}
                         </div>
                       </div>
@@ -4877,7 +4877,7 @@ export default function NovoCliente({
                     <div>
                       <Label>Moeda</Label>
 
-                      <div className="h-10 w-full bg-slate-100 dark:bg-black/30 border border-border rounded-lg flex items-center justify-center text-sm font-medium text-foreground/90">
+                      <div className="h-10 w-full bg-black/20 border border-border rounded-lg flex items-center justify-center text-sm font-medium text-foreground/90">
                         {currency}
                       </div>
                     </div>
@@ -4899,7 +4899,7 @@ export default function NovoCliente({
                   </div>
 
                   {showFx && (
-                    <div className="p-3 bg-sky-50 dark:bg-sky-500/10 rounded-lg border border-sky-100 dark:border-sky-500/20 grid grid-cols-2 gap-3">
+                    <div className="p-3 bg-sky-500/10 rounded-lg border border-sky-500/20 grid grid-cols-2 gap-3">
                       <div>
                         <Label>Câmbio</Label>
 
@@ -4908,14 +4908,14 @@ export default function NovoCliente({
                           step="0.0001"
                           value={Number(fxRate || 0).toFixed(4)}
                           onChange={(e) => setFxRate(Number(e.target.value))}
-                          className="w-full h-9 px-3 bg-card dark:bg-black/30 border border-sky-200 dark:border-sky-500/20 rounded text-sm outline-none dark:text-white"
+                          className="w-full h-9 px-3 bg-card dark:bg-black/30 border border-sky-500/30 rounded text-sm outline-none dark:text-white"
                         />
                       </div>
 
                       <div>
                         <Label>Total BRL</Label>
 
-                        <div className="w-full h-9 flex items-center justify-center bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/20 rounded text-emerald-800 dark:text-emerald-200 font-medium">
+                        <div className="w-full h-9 flex items-center justify-center bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/20 rounded text-emerald-400 font-medium">
                           {fmtMoney("BRL", totalBrl)}
                         </div>
                       </div>
@@ -5000,7 +5000,7 @@ export default function NovoCliente({
                         <button
                           type="button"
                           onClick={() => setDueTime("23:59")}
-                          className="px-2 rounded-lg bg-slate-200 dark:bg-white/10 text-[10px] font-medium text-muted-foreground dark:text-muted-foreground hover:bg-slate-300 dark:hover:bg-white/20 border border-border whitespace-nowrap"
+                          className="px-2 rounded-lg bg-black/30 text-[10px] font-medium text-muted-foreground dark:text-muted-foreground hover:bg-slate-300 dark:hover:bg-card/20 border border-border whitespace-nowrap"
                           title="Fim do dia"
                         >
                           23:59
@@ -5028,8 +5028,8 @@ export default function NovoCliente({
                             }
                             className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col justify-center gap-3 ${
                               syncWithServer
-                                ? "bg-sky-50 border-sky-200 dark:bg-sky-500/10 dark:border-sky-500/20"
-                                : "bg-muted/50 border-border dark:bg-white/5 dark:border-border"
+                                ? "bg-sky-500/10 border-sky-500/30 dark:bg-sky-500/10 dark:border-sky-500/20"
+                                : "bg-muted/50 border-border dark:bg-card/5 dark:border-border"
                             } ${!hasIntegration ? "opacity-50 cursor-not-allowed" : "h-full"}`}
                           >
                             <div className="flex items-center justify-between w-full">
@@ -5038,7 +5038,7 @@ export default function NovoCliente({
 
                                 <div>
                                   <span
-                                    className={`text-sm font-medium block ${syncWithServer ? "text-sky-700 dark:text-sky-400" : "text-muted-foreground"}`}
+                                    className={`text-sm font-medium block ${syncWithServer ? "text-sky-400" : "text-muted-foreground"}`}
                                   >
                                     Teste Automático
                                   </span>
@@ -5063,10 +5063,10 @@ export default function NovoCliente({
 
                           {/* COLUNA DIREITA: WhatsApp Empilhado */}
 
-                          <div className="p-3 rounded-xl border border-border bg-card dark:bg-white/5 flex flex-col gap-3">
+                          <div className="p-3 rounded-xl border border-border bg-card dark:bg-card/5 flex flex-col gap-3">
                             <div
                               onClick={() => setSendTrialWhats(!sendTrialWhats)}
-                              className="h-10 px-3 rounded-lg border border-border bg-muted/50 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-between gap-3 shrink-0"
+                              className="h-10 px-3 rounded-lg border border-border bg-muted/50 cursor-pointer hover:bg-black/20 dark:hover:bg-card/10 transition-colors flex items-center justify-between gap-3 shrink-0"
                             >
                               <span className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
                                 Enviar msg teste?
@@ -5155,15 +5155,15 @@ export default function NovoCliente({
                                 }
                                 className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
                                   syncWithServer
-                                    ? "bg-sky-50 border-sky-200 dark:bg-sky-500/10 dark:border-sky-500/20"
-                                    : "bg-muted/50 border-border dark:bg-white/5 dark:border-border"
+                                    ? "bg-sky-500/10 border-sky-500/30 dark:bg-sky-500/10 dark:border-sky-500/20"
+                                    : "bg-muted/50 border-border dark:bg-card/5 dark:border-border"
                                 } ${!hasIntegration ? "opacity-50 cursor-not-allowed" : ""}`}
                               >
                                 <div className="flex items-center gap-2">
                                   <span className="text-lg">☁️</span>
                                   <div>
                                     <span
-                                      className={`text-xs font-medium block ${syncWithServer ? "text-sky-700 dark:text-sky-400" : "text-muted-foreground"}`}
+                                      className={`text-xs font-medium block ${syncWithServer ? "text-sky-400" : "text-muted-foreground"}`}
                                     >
                                       Sincronizar Painel
                                     </span>
@@ -5196,8 +5196,8 @@ export default function NovoCliente({
                               }}
                               className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
                                 registerRenewal
-                                  ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20"
-                                  : "bg-muted/50 border-border dark:bg-white/5 dark:border-border"
+                                  ? "bg-emerald-500/10 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20"
+                                  : "bg-muted/50 border-border dark:bg-card/5 dark:border-border"
                               }`}
                             >
                               <div className="flex items-center gap-2">
@@ -5205,7 +5205,7 @@ export default function NovoCliente({
 
                                 <div>
                                   <span
-                                    className={`text-xs font-medium block ${registerRenewal ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground"}`}
+                                    className={`text-xs font-medium block ${registerRenewal ? "text-emerald-400" : "text-muted-foreground"}`}
                                   >
                                     Registrar Financeiro
                                   </span>
@@ -5230,7 +5230,7 @@ export default function NovoCliente({
 
                           {/* LINHA 2: WhatsApp */}
 
-                          <div className="p-3 rounded-xl border border-border bg-card dark:bg-white/5">
+                          <div className="p-3 rounded-xl border border-border bg-card dark:bg-card/5">
                             <div
                               className={`grid grid-cols-1 ${sendPaymentMsg ? "sm:grid-cols-2" : ""} gap-3 items-center`}
                             >
@@ -5238,7 +5238,7 @@ export default function NovoCliente({
                                 onClick={() =>
                                   setSendPaymentMsg(!sendPaymentMsg)
                                 }
-                                className="h-10 px-3 rounded-lg border border-border bg-muted/50 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-between gap-3"
+                                className="h-10 px-3 rounded-lg border border-border bg-muted/50 cursor-pointer hover:bg-black/20 dark:hover:bg-card/10 transition-colors flex items-center justify-between gap-3"
                               >
                                 <span className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
                                   Enviar msg pagto?
@@ -5379,7 +5379,7 @@ export default function NovoCliente({
                               )
                             }
                           >
-                            <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                            <span className="text-xs font-medium text-emerald-400 uppercase tracking-wider flex items-center gap-2">
                               {(() => {
                                 const catAppIcon = catalog.find(
                                   (c) => c.id === app.app_id,
@@ -5398,7 +5398,7 @@ export default function NovoCliente({
                               {hasInteg && (
                                 <span
                                   title={`Integração: ${integrationType}`}
-                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-100 dark:bg-sky-500/15 border border-sky-200 dark:border-sky-500/30 text-sky-600 dark:text-sky-400"
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-500/20 border border-sky-500/30 text-sky-400"
                                 >
                                   <svg
                                     width="10"
@@ -5426,7 +5426,7 @@ export default function NovoCliente({
                                     ? "Vencido no Painel"
                                     : `Vence em ${diffDays} dias`
                                 }
-                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-500/15 border border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-400 animate-pulse shadow-sm ml-1"
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-500/20 border border-rose-200 dark:border-rose-500/30 text-rose-400 animate-pulse shadow-sm ml-1"
                               >
                                 <svg
                                   width="10"
@@ -5544,7 +5544,7 @@ export default function NovoCliente({
                                             "Nenhum link configurado para esta integração.",
                                           );
                                       }}
-                                      className="h-10 rounded-lg bg-slate-100 dark:bg-white/10 border border-border text-muted-foreground dark:text-muted-foreground hover:bg-slate-200 dark:hover:bg-white/20 transition-colors flex items-center justify-center gap-1.5"
+                                      className="h-10 rounded-lg bg-black/20 border border-border text-muted-foreground dark:text-muted-foreground hover:bg-black/30 dark:hover:bg-card/20 transition-colors flex items-center justify-center gap-1.5"
                                       title="Abrir painel no navegador"
                                     >
                                       <svg
@@ -5577,7 +5577,7 @@ export default function NovoCliente({
                                         if (ok)
                                           await handleDeleteApp(app.instanceId);
                                       }}
-                                      className="h-10 rounded-lg bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-1.5"
+                                      className="h-10 rounded-lg bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-400 hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-1.5"
                                       title="Remover do painel oficial"
                                     >
                                       <svg
@@ -5611,13 +5611,13 @@ export default function NovoCliente({
                                     }
                                     className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify-between gap-3 transition-colors ${
                                       app.auto_configure !== false
-                                        ? "bg-sky-50 border-sky-200 dark:bg-sky-500/10 dark:border-sky-500/20"
-                                        : "bg-muted/50 border-border dark:bg-white/5 dark:border-border"
+                                        ? "bg-sky-500/10 border-sky-500/30 dark:bg-sky-500/10 dark:border-sky-500/20"
+                                        : "bg-muted/50 border-border dark:bg-card/5 dark:border-border"
                                     }`}
                                   >
                                     <div className="flex items-center gap-2">
                                       <svg
-                                        className={`w-3.5 h-3.5 shrink-0 ${app.auto_configure !== false ? "text-sky-600 dark:text-sky-400" : "text-muted-foreground/80"}`}
+                                        className={`w-3.5 h-3.5 shrink-0 ${app.auto_configure !== false ? "text-sky-400" : "text-muted-foreground/80"}`}
                                         fill="none"
                                         viewBox="0 0 24 24"
                                         stroke="currentColor"
@@ -5630,7 +5630,7 @@ export default function NovoCliente({
                                         />
                                       </svg>
                                       <span
-                                        className={`text-xs font-medium ${app.auto_configure !== false ? "text-sky-700 dark:text-sky-400" : "text-muted-foreground"}`}
+                                        className={`text-xs font-medium ${app.auto_configure !== false ? "text-sky-400" : "text-muted-foreground"}`}
                                       >
                                         Configurar {appLabel} automaticamente
                                       </span>
@@ -5864,7 +5864,7 @@ export default function NovoCliente({
                         setShowAppSelector(true);
                         setAppSearch("");
                       }}
-                      className="w-full h-14 border-2 border-dashed border-border dark:border-border rounded-xl text-muted-foreground dark:text-white/60 hover:text-emerald-600 hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all font-medium text-sm uppercase flex items-center justify-center gap-2"
+                      className="w-full h-14 border-2 border-dashed border-border dark:border-border rounded-xl text-muted-foreground dark:text-white/60 hover:text-emerald-400 hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all font-medium text-sm uppercase flex items-center justify-center gap-2"
                     >
                       <span className="text-lg">+</span> Adicionar Aplicativo
                     </button>
@@ -5962,7 +5962,7 @@ export default function NovoCliente({
                               <button
                                 key={app.id}
                                 onClick={() => addAppToClient(app)}
-                                className="w-full text-left px-4 py-3 text-sm text-foreground/90 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 hover:text-emerald-700 dark:hover:text-emerald-400 border-b border-slate-50 dark:border-border last:border-0 transition-colors flex items-center justify-between group"
+                                className="w-full text-left px-4 py-3 text-sm text-foreground/90 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/10 hover:text-emerald-400 dark:hover:text-emerald-400 border-b border-slate-50 dark:border-border last:border-0 transition-colors flex items-center justify-between group"
                               >
                                 <div className="flex items-center gap-2">
                                   <span className="font-medium">
@@ -5971,7 +5971,7 @@ export default function NovoCliente({
                                   {hasInteg && (
                                     <span
                                       title={`Integração Automática: ${intLabel}`}
-                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-100 dark:bg-sky-500/15 border border-sky-200 dark:border-sky-500/30 text-sky-600 dark:text-sky-400"
+                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-500/20 border border-sky-500/30 text-sky-400"
                                     >
                                       <svg
                                         width="10"
@@ -5991,7 +5991,7 @@ export default function NovoCliente({
                                     </span>
                                   )}
                                 </div>
-                                <span className="text-[10px] uppercase font-medium opacity-0 group-hover:opacity-100 transition-opacity text-emerald-600 dark:text-emerald-400">
+                                <span className="text-[10px] uppercase font-medium opacity-0 group-hover:opacity-100 transition-opacity text-emerald-400">
                                   Selecionar
                                 </span>
                               </button>
@@ -6012,7 +6012,7 @@ export default function NovoCliente({
             <button
               onClick={onClose}
               type="button"
-              className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/10 text-xs font-medium transition-colors"
+              className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-black/30 dark:hover:bg-card/10 text-xs font-medium transition-colors"
             >
               Cancelar
             </button>
@@ -6056,7 +6056,7 @@ export default function NovoCliente({
               </div>
             </div>
 
-            <div className="bg-muted/50 rounded-xl p-4 border border-slate-100 dark:border-border">
+            <div className="bg-muted/50 rounded-xl p-4 border border-border">
               <ul className="space-y-2.5">
                 {confirmModal.details.map((line, i) => (
                   <li
@@ -6074,7 +6074,7 @@ export default function NovoCliente({
             <div className="flex gap-3 pt-2">
               <button
                 onClick={() => setConfirmModal(null)}
-                className="flex-1 h-12 rounded-xl border border-border text-muted-foreground dark:text-muted-foreground/80 font-medium text-sm hover:bg-muted/50 dark:hover:bg-white/5 transition-colors"
+                className="flex-1 h-12 rounded-xl border border-border text-muted-foreground dark:text-muted-foreground/80 font-medium text-sm hover:bg-muted/50 dark:hover:bg-card/5 transition-colors"
               >
                 Voltar
               </button>

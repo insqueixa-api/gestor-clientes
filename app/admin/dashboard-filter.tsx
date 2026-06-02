@@ -22,7 +22,7 @@ export function DashboardFilter({
   }
 
   return (
-    <div className="flex bg-slate-100 dark:bg-black/30 p-1 rounded-xl border border-border">
+    <div className="flex bg-black/20 p-1 rounded-xl border border-border">
       {availableModules.map((key) => {
         const active = currentViews.length === 1 && currentViews[0] === key;
         const meta = MODULES_META[key] ?? { label: key, icon: "❓" };
@@ -32,7 +32,7 @@ export function DashboardFilter({
             onClick={() => select(key)}
             className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all flex items-center gap-1.5 ${
               active
-                ? "bg-card text-emerald-600 dark:text-white shadow-sm"
+                ? "bg-card text-emerald-400 shadow-sm"
                 : "text-muted-foreground hover:text-foreground dark:hover:text-white/80"
             }`}
           >

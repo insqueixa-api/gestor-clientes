@@ -10,7 +10,7 @@ function toneClasses(tone: Tone) {
     case "rose":
       return {
         ring: "shadow-rose-500/30",
-        iconBg: "bg-rose-100 dark:bg-rose-500/20",
+        iconBg: "bg-rose-500/20",
         dot: "text-rose-500",
         confirm: "bg-rose-600 hover:bg-rose-500",
       };
@@ -24,14 +24,14 @@ function toneClasses(tone: Tone) {
     case "sky":
       return {
         ring: "shadow-sky-500/30",
-        iconBg: "bg-sky-100 dark:bg-sky-500/20",
+        iconBg: "bg-sky-500/20",
         dot: "text-sky-500",
         confirm: "bg-sky-600 hover:bg-sky-500",
       };
     case "slate":
       return {
         ring: "shadow-slate-500/20",
-        iconBg: "bg-slate-100 dark:bg-white/10",
+        iconBg: "bg-black/20",
         dot: "text-muted-foreground",
         confirm: "bg-slate-800 hover:bg-slate-700",
       };
@@ -117,14 +117,14 @@ export default function ConfirmDialog({
         </div>
 
         {details.length > 0 && (
-          <div className="bg-muted/50 rounded-xl p-4 border border-slate-100 dark:border-border">
+          <div className="bg-muted/50 rounded-xl p-4 border border-border">
             <ul className="space-y-2">
               {details.map((line, i) => {
                 // Divisor
                 if (line === "---") {
                   return (
                     <li key={i} className="py-1">
-                      <div className="w-full h-px bg-slate-200 dark:bg-white/10" />
+                      <div className="w-full h-px bg-black/30" />
                     </li>
                   );
                 }
@@ -160,7 +160,7 @@ export default function ConfirmDialog({
             <button
               onClick={onCancel}
               disabled={loading}
-              className="flex-1 py-3 rounded-xl border border-border text-muted-foreground dark:text-muted-foreground/80 font-medium text-sm hover:bg-muted/50 dark:hover:bg-white/5 transition-colors disabled:opacity-60"
+              className="flex-1 py-3 rounded-xl border border-border text-muted-foreground dark:text-muted-foreground/80 font-medium text-sm hover:bg-muted/50 dark:hover:bg-card/5 transition-colors disabled:opacity-60"
             >
               {cancelText}
             </button>

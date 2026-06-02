@@ -634,7 +634,7 @@ const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
   return (
     <div
       id="dashboard-values"
-      className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-background transition-colors text-zinc-800 dark:text-zinc-200"
+      className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-background transition-colors text-foreground"
     >
       {/* Header */}
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
@@ -644,7 +644,7 @@ const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
             <EyeToggle />
           </div>
           <div className="flex items-center gap-3 mt-1">
-            <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-md">
+            <p className="text-sm font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">
               {monthLabelPtBr()}
             </p>
           </div>
@@ -821,7 +821,7 @@ const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
                     </span>
                   </div>
                   <div
-                    className={`${clientsMonthVal + resellerMonthVal - expensesMonthVal < 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-700 dark:text-emerald-400"}`}
+                    className={`${clientsMonthVal + resellerMonthVal - expensesMonthVal < 0 ? "text-rose-400" : "text-emerald-400"}`}
                   >
                     <span className="sm:hidden">
                       Lucro:{" "}
@@ -897,7 +897,7 @@ const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
                     </span>
                   </div>
                   <div
-                    className={`${clientsPrevMonthVal + resellerPrevMonthVal - expensesPrevMonthVal < 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-700 dark:text-emerald-400"}`}
+                    className={`${clientsPrevMonthVal + resellerPrevMonthVal - expensesPrevMonthVal < 0 ? "text-rose-400" : "text-emerald-400"}`}
                   >
                     <span className="sm:hidden">
                       Lucro:{" "}
@@ -1014,10 +1014,10 @@ const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
         <div
           className={`grid grid-cols-1 gap-3 sm:gap-6 ${showRankings ? "lg:grid-cols-2" : "lg:grid-cols-2 xl:grid-cols-2"}`}
         >
-          <div className="bg-card dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
+          <div className="bg-card dark:bg-zinc-900 rounded-xl border border-border p-3 sm:p-6 shadow-sm">
             <div className="flex justify-between items-center mb-2 sm:mb-4">
               <div>
-                <h3 className="text-base sm:text-lg font-bold dark:font-medium text-zinc-800 dark:text-zinc-200">
+                <h3 className="text-base sm:text-lg font-bold dark:font-medium text-foreground">
                   Novos clientes
                 </h3>
               </div>
@@ -1037,10 +1037,10 @@ const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
             </div>
           </div>
 
-          <div className="bg-card dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
+          <div className="bg-card dark:bg-zinc-900 rounded-xl border border-border p-3 sm:p-6 shadow-sm">
             <div className="flex justify-between items-center mb-2 sm:mb-4">
               <div>
-                <h3 className="text-base sm:text-lg font-bold dark:font-medium text-zinc-800 dark:text-zinc-200">
+                <h3 className="text-base sm:text-lg font-bold dark:font-medium text-foreground">
                   Pagamentos Recebidos
                 </h3>
               </div>
@@ -1100,7 +1100,7 @@ function SectionTitle({ title }: { title: string }) {
   return (
     <div className="flex items-center gap-4 py-2">
       <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
-      <span className="text-xs font-medium dark:font-semibold text-zinc-500 dark:text-zinc-400 tracking-widest uppercase">
+      <span className="text-xs font-medium dark:font-semibold text-muted-foreground tracking-widest uppercase">
         {title}
       </span>
       <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
@@ -1171,26 +1171,26 @@ function MetricCardView({
 
   const content = (
     <>
-      <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-zinc-100 dark:border-zinc-800 font-semibold dark:font-medium text-zinc-800 dark:text-zinc-200 text-[13px] sm:text-sm flex justify-between items-center">
+      <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-zinc-100 dark:border-zinc-800 font-semibold dark:font-medium text-foreground text-[13px] sm:text-sm flex justify-between items-center">
         {title}
         {href && <span className="opacity-40 text-xs">↗</span>}
       </div>
       <div className="p-3 sm:p-4 flex gap-2 sm:gap-4 flex-1">
         <div className="min-w-0 flex-1">
-          <div className="text-[9px] sm:text-[10px] uppercase font-semibold tracking-wider text-zinc-500 dark:text-zinc-400 mb-1">
+          <div className="text-[9px] sm:text-[10px] uppercase font-semibold tracking-wider text-muted-foreground mb-1">
             {leftLabel}
           </div>
-          <div className="sv text-[15px] sm:text-xl font-medium dark:font-normal text-zinc-900 dark:text-zinc-100 leading-tight whitespace-nowrap tabular-nums">
+          <div className="sv text-[15px] sm:text-xl font-medium dark:font-normal text-foreground leading-tight whitespace-nowrap tabular-nums">
             {leftValue}
           </div>
         </div>
 
         {rightLabel && rightValue && (
           <div className="text-right min-w-0 flex-1">
-            <div className="text-[9px] sm:text-[10px] uppercase font-semibold tracking-wider text-zinc-500 dark:text-zinc-400 mb-1">
+            <div className="text-[9px] sm:text-[10px] uppercase font-semibold tracking-wider text-muted-foreground mb-1">
               {rightLabel}
             </div>
-            <div className="sv text-[15px] sm:text-xl font-medium dark:font-normal text-zinc-900 dark:text-zinc-100 leading-tight whitespace-nowrap tabular-nums">
+            <div className="sv text-[15px] sm:text-xl font-medium dark:font-normal text-foreground leading-tight whitespace-nowrap tabular-nums">
               {rightValue}
             </div>
           </div>
@@ -1198,14 +1198,14 @@ function MetricCardView({
       </div>
 
       {footer && (
-        <div className="sv px-3 sm:px-4 py-2 text-[11px] sm:text-xs bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 dark:text-zinc-400">
+        <div className="sv px-3 sm:px-4 py-2 text-[11px] sm:text-xs bg-black/10 text-muted-foreground">
           {footer}
         </div>
       )}
     </>
   );
 
-  const baseClass = `rounded-xl border border-zinc-200 dark:border-zinc-800 bg-card dark:bg-zinc-900 shadow-sm overflow-hidden flex flex-col border-l-4 ${colors[accent]}`;
+  const baseClass = `rounded-xl border border-border bg-card dark:bg-zinc-900 shadow-sm overflow-hidden flex flex-col border-l-4 ${colors[accent]}`;
 
   if (href) {
     return (

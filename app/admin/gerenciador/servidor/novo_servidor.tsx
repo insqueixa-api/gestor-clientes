@@ -739,7 +739,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white transition-colors"
+            className="p-1 rounded-lg hover:bg-black/30 dark:hover:bg-card/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white transition-colors"
           >
             ✕
           </button>
@@ -804,7 +804,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
                       }
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-center h-10 w-10 shrink-0 bg-muted/50 border border-border rounded-lg text-muted-foreground dark:text-white/60 hover:text-emerald-600 hover:border-emerald-500/50 dark:hover:text-emerald-400 transition-colors"
+                      className="flex items-center justify-center h-10 w-10 shrink-0 bg-muted/50 border border-border rounded-lg text-muted-foreground dark:text-white/60 hover:text-emerald-400 hover:border-emerald-500/50 dark:hover:text-emerald-400 transition-colors"
                       title="Acessar link"
                     >
                       <svg
@@ -855,7 +855,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
                   className="w-12 h-12 rounded-lg object-cover border border-border shrink-0"
                 />
               ) : (
-                <div className="w-12 h-12 rounded-lg bg-slate-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-2xl">
+                <div className="w-12 h-12 rounded-lg bg-black/20 flex items-center justify-center shrink-0 text-2xl">
                   📡
                 </div>
               )}
@@ -870,7 +870,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
                 </p>
               </div>
               <label className="cursor-pointer shrink-0">
-                <span className="h-8 px-3 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs font-medium flex items-center hover:bg-emerald-500/20 transition-colors">
+                <span className="h-8 px-3 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-medium flex items-center hover:bg-emerald-500/20 transition-colors">
                   {uploadingIcon ? "..." : "Selecionar"}
                 </span>
                 <input
@@ -901,7 +901,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
           <div className="p-4 bg-muted/50 rounded-xl border border-border grid grid-cols-1 md:grid-cols-3 gap-5 animate-in slide-in-from-bottom-3 duration-400">
             <div className="space-y-1">
               <Label>Moeda padrão</Label>
-              <div className="flex bg-slate-200/50 dark:bg-black/20 rounded-lg p-1 border border-border h-10">
+              <div className="flex bg-black/30/50 dark:bg-black/20 rounded-lg p-1 border border-border h-10">
                 {(["BRL", "USD", "EUR"] as const).map((c) => (
                   <button
                     key={c}
@@ -909,7 +909,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
                     onClick={() => setCurrency(c)}
                     className={`flex-1 h-full rounded-md text-xs font-medium transition-all ${
                       currency === c
-                        ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-sm"
+                        ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-sm"
                         : "text-muted-foreground dark:text-muted-foreground hover:text-foreground/90 dark:hover:text-white"
                     }`}
                   >
@@ -940,12 +940,12 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
                 // ✅ CAMPO LIBERADO
                 className={
                   isEditing
-                    ? "font-medium text-emerald-600 dark:text-emerald-400"
+                    ? "font-medium text-emerald-400"
                     : ""
                 }
               />
               {isEditing && (
-                <div className="mt-1 p-2 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded text-[10px] text-amber-700 dark:text-amber-400 flex items-start gap-2">
+                <div className="mt-1 p-2 bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded text-[10px] text-amber-700 dark:text-amber-400 flex items-start gap-2">
                   <span className="font-medium shrink-0">⚠️ Atenção:</span>
                   <span>
                     Ajuste manual de balanço (não gera registro financeiro).
@@ -954,18 +954,18 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
                 </div>
               )}
               {!isEditing && (
-                <p className="text-[10px] text-emerald-600/80 italic px-1">
+                <p className="text-[10px] text-emerald-400/80 italic px-1">
                   * Saldo inicial do servidor (registrado como compra).
                 </p>
               )}
               {!isEditing && (
-                <p className="text-[10px] text-emerald-600/80 italic px-1">
+                <p className="text-[10px] text-emerald-400/80 italic px-1">
                   * Saldo inicial do servidor (registrado como compra).
                 </p>
               )}
 
               {integration && integration.trim() && (
-                <div className="mt-1 p-2 bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 rounded text-[10px] text-sky-700 dark:text-sky-300">
+                <div className="mt-1 p-2 bg-sky-500/10 border border-sky-500/30 rounded text-[10px] text-sky-400">
                   ✅ Integração selecionada: ao salvar, o saldo será
                   sincronizado e sobrescrito pelo painel.
                 </div>
@@ -1035,7 +1035,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
                     <button
                       type="button"
                       onClick={() => handleCopyDns(dns, idx)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground/80 dark:text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-200 dark:hover:bg-white/10 rounded transition-colors"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground/80 dark:text-muted-foreground hover:text-emerald-400 dark:hover:text-emerald-400 hover:bg-black/30 dark:hover:bg-card/10 rounded transition-colors"
                       title="Copiar DNS"
                     >
                       {copiedDnsIndex === idx ? (
@@ -1098,7 +1098,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
         <div className="px-6 py-4 border-t border-border flex justify-end gap-3 bg-muted/50 transition-colors">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/5 transition-colors text-sm font-semibold"
+            className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-black/30 dark:hover:bg-card/5 transition-colors text-sm font-semibold"
           >
             Cancelar
           </button>

@@ -499,7 +499,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
             <div className="flex gap-2 sm:gap-3">
               <button
                 onClick={onClose}
-                className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-muted-foreground dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/10 text-xs sm:text-sm font-semibold transition-colors"
+                className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-muted-foreground dark:text-white/60 hover:bg-black/30 dark:hover:bg-card/10 text-xs sm:text-sm font-semibold transition-colors"
               >
                 Cancelar
               </button>
@@ -528,7 +528,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                 </div>
                 <div>
                   <Label>Moeda</Label>
-                  <div className="flex bg-slate-100 dark:bg-white/5 rounded-lg p-1 border border-border">
+                  <div className="flex bg-black/20 rounded-lg p-1 border border-border">
                     {(["BRL", "USD", "EUR"] as const).map((c) => (
                       <button
                         key={c}
@@ -537,7 +537,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                         className={`flex-1 py-2 rounded-md text-xs font-medium transition-all uppercase tracking-wider
                           ${
                             currency === c
-                              ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-sm"
+                              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-sm"
                               : "text-muted-foreground dark:text-muted-foreground hover:text-foreground dark:hover:text-white"
                           }`}
                       >
@@ -591,7 +591,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                               <span className="text-[10px] sm:text-[11px] font-medium text-muted-foreground/80 dark:text-white/20">
                                 {PERIOD_LABELS[period]}
                               </span>
-                              <span className="text-[8px] sm:text-[9px] font-medium text-emerald-600 dark:text-emerald-400/80 bg-emerald-500/10 px-1.5 py-0.5 rounded-lg border border-emerald-500/10">
+                              <span className="text-[8px] sm:text-[9px] font-medium text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-lg border border-emerald-500/10">
                                 {currentCredits} cr
                               </span>
                             </div>

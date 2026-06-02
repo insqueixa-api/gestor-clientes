@@ -698,7 +698,7 @@ export default function QuickRechargeModal({
 
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white transition-colors"
+            className="p-1 rounded-lg hover:bg-black/30 dark:hover:bg-card/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white transition-colors"
             aria-label="Fechar"
             type="button"
           >
@@ -709,7 +709,7 @@ export default function QuickRechargeModal({
         {/* BODY */}
         <div className="p-6 space-y-6 overflow-y-auto bg-card">
           {loadErr && (
-            <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-600 dark:text-rose-400 text-sm font-medium animate-in slide-in-from-top-2">
+            <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-sm font-medium animate-in slide-in-from-top-2">
               <span className="font-medium">Erro:</span> {loadErr}
             </div>
           )}
@@ -789,7 +789,7 @@ export default function QuickRechargeModal({
 
               {/* FX automático (do banco) */}
               {currency !== "BRL" && (
-                <div className="p-4 bg-sky-50 dark:bg-sky-500/10 rounded-xl border border-sky-100 dark:border-sky-500/20 grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
+                <div className="p-4 bg-sky-500/10 rounded-xl border border-sky-500/20 grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
                   <div className="space-y-1">
                     <Label>
                       <span className="flex justify-between">
@@ -810,15 +810,15 @@ export default function QuickRechargeModal({
                             : ""
                         }
                         onChange={(e) => setFxRate(Number(e.target.value))}
- className="col-span-2 h-10 px-3 bg-card dark:bg-black/30 border border-sky-200 dark:border-sky-500/30 rounded-lg text-foreground/90 font-medium outline-none"
+ className="col-span-2 h-10 px-3 bg-card dark:bg-black/30 border border-sky-500/30 rounded-lg text-foreground/90 font-medium outline-none"
                       />
-                      <div className="h-10 flex items-center justify-center px-2 bg-card dark:bg-black/30 border border-sky-200 dark:border-sky-500/30 rounded-lg text-[10px] text-muted-foreground font-semibold">
+                      <div className="h-10 flex items-center justify-center px-2 bg-card dark:bg-black/30 border border-sky-500/30 rounded-lg text-[10px] text-muted-foreground font-semibold">
                         {fxError ? "Erro" : fxAsOf ? "AUTO" : "—"}
                       </div>
                     </div>
 
                     {fxError && (
-                      <div className="text-[11px] text-rose-600 dark:text-rose-400 font-semibold">
+                      <div className="text-[11px] text-rose-400 font-semibold">
                         {fxError}
                       </div>
                     )}
@@ -833,7 +833,7 @@ export default function QuickRechargeModal({
 
                   <div className="space-y-1">
                     <Label>Subtotal ({currency})</Label>
- <div className="h-10 flex items-center px-3 bg-card dark:bg-black/30 border border-sky-200 dark:border-sky-500/30 rounded-lg text-foreground/90 font-medium ">
+ <div className="h-10 flex items-center px-3 bg-card dark:bg-black/30 border border-sky-500/30 rounded-lg text-foreground/90 font-medium ">
                       {Number.isFinite(totalCurrency)
                         ? fmtMoney(currency, totalCurrency)
                         : "—"}
@@ -848,7 +848,7 @@ export default function QuickRechargeModal({
                   <span className="text-[10px] font-medium text-muted-foreground/80 dark:text-white/20 uppercase tracking-widest">
                     Valor contábil final
                   </span>
-                  <div className="text-2xl font-medium text-emerald-600 dark:text-emerald-400 tracking-tight">
+                  <div className="text-2xl font-medium text-emerald-400 tracking-tight">
                     {Number.isFinite(totalBRL)
                       ? fmtMoney("BRL", totalBRL)
                       : "—"}
@@ -937,7 +937,7 @@ export default function QuickRechargeModal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-muted-foreground hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+                  className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-muted-foreground hover:bg-black/20 dark:hover:bg-card/5 transition-colors"
                 >
                   Cancelar
                 </button>
@@ -989,7 +989,7 @@ function Switch({
           e.stopPropagation();
           onChange(!checked);
         }}
-        className={`relative w-12 h-7 rounded-full transition-colors border ${checked ? "bg-emerald-600 border-emerald-600" : "bg-slate-200 dark:bg-white/10 border-border dark:border-border"}`}
+        className={`relative w-12 h-7 rounded-full transition-colors border ${checked ? "bg-emerald-600 border-emerald-600" : "bg-black/30 border-border dark:border-border"}`}
         aria-pressed={checked}
       >
         <span

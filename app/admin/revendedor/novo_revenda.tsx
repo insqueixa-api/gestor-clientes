@@ -173,13 +173,13 @@ function ToggleLine({
     <button
       type="button"
       onClick={() => onChange(!value)}
-      className="w-full h-10 px-3 py-2 rounded-lg border border-border bg-muted/50 hover:bg-slate-100 dark:hover:bg-white/5 transition flex items-center justify-between"
+      className="w-full h-10 px-3 py-2 rounded-lg border border-border bg-muted/50 hover:bg-black/20 dark:hover:bg-card/5 transition flex items-center justify-between"
     >
       <span className="text-foreground font-semibold text-sm">
         {label}
       </span>
       <div
-        className={`w-10 h-5 rounded-full border relative transition-colors ${value ? "bg-emerald-500/60 border-emerald-500/50" : "bg-white/10 border-border"}`}
+        className={`w-10 h-5 rounded-full border relative transition-colors ${value ? "bg-emerald-500/60 border-emerald-500/50" : "bg-card/10 border-border"}`}
       >
         <div
           className={`absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-card transition-all ${value ? "left-[22px]" : "left-[4px]"}`}
@@ -611,7 +611,7 @@ export default function ResellerFormModal({
         {/* BODY */}
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6 space-y-6">
           {submitAttempted && errors.length > 0 && (
-            <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-lg text-rose-600 dark:text-rose-400 text-xs font-medium animate-in slide-in-from-top-2">
+            <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-lg text-rose-400 text-xs font-medium animate-in slide-in-from-top-2">
               <ul className="list-disc pl-4 space-y-0.5">
                 {errors.map((e, i) => (
                   <li key={i}>{e}</li>
@@ -645,7 +645,7 @@ export default function ResellerFormModal({
             <div>
               <Label>Telefone principal</Label>
               <div className="flex gap-2">
-                <div className="h-10 px-3 bg-slate-100 dark:bg-white/5 border border-border rounded-lg flex items-center text-xs text-muted-foreground dark:text-muted-foreground/80 whitespace-nowrap font-medium min-w-[120px]">
+                <div className="h-10 px-3 bg-black/20 border border-border rounded-lg flex items-center text-xs text-muted-foreground dark:text-muted-foreground/80 whitespace-nowrap font-medium min-w-[120px]">
                   {primaryCountryLabel}
                 </div>
 
@@ -664,8 +664,8 @@ export default function ResellerFormModal({
                     onClick={handlePrimaryValidate}
                     className={`absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded flex items-center justify-center transition-colors ${
                       primaryConfirmed
-                        ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
-                        : "text-muted-foreground/80 hover:bg-slate-200"
+                        ? "text-emerald-400 bg-emerald-500/10"
+                        : "text-muted-foreground/80 hover:bg-black/30"
                     }`}
                   >
                     ✓
@@ -703,7 +703,7 @@ export default function ResellerFormModal({
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 hover:text-emerald-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 hover:text-emerald-400"
                     title="Abrir no WhatsApp"
                   >
                     <IconWa />
@@ -712,7 +712,7 @@ export default function ResellerFormModal({
               </div>
               {waValidation && (
                 <div
-                  className={`mt-1 flex items-center gap-1.5 text-[11px] font-medium ${waValidation.loading ? "text-muted-foreground/80" : waValidation.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}
+                  className={`mt-1 flex items-center gap-1.5 text-[11px] font-medium ${waValidation.loading ? "text-muted-foreground/80" : waValidation.exists ? "text-emerald-400" : "text-rose-500"}`}
                 >
                   {waValidation.loading ? (
                     <>
@@ -764,7 +764,7 @@ export default function ResellerFormModal({
         <div className="px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t bg-muted/50 shrink-0 rounded-b-xl flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-4 h-10 rounded-lg border border-border text-foreground/90 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-white/5 transition"
+            className="px-4 h-10 rounded-lg border border-border text-foreground/90 text-sm font-semibold hover:bg-black/20 dark:hover:bg-card/5 transition"
           >
             Cancelar
           </button>

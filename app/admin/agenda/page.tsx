@@ -1355,7 +1355,7 @@ function AgendaPageContent() {
                   setPhotoFilter("Todos");
                   setPage(1);
                 }} // <--- ATUALIZADO
-                className="h-10 px-3 rounded-lg text-xs font-medium text-rose-500 border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors whitespace-nowrap"
+                className="h-10 px-3 rounded-lg text-xs font-medium text-rose-500 border border-rose-200 dark:border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors whitespace-nowrap"
               >
                 ✕ Limpar
               </button>
@@ -1461,7 +1461,7 @@ function AgendaPageContent() {
                   setPhotoFilter("Todos");
                   setPage(1);
                 }} // <--- ATUALIZADO
-                className="h-10 px-3 rounded-lg text-sm font-medium text-rose-500 border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10"
+                className="h-10 px-3 rounded-lg text-sm font-medium text-rose-500 border border-rose-200 dark:border-rose-500/30 bg-rose-500/10"
               >
                 ✕ Limpar filtros
               </button>
@@ -1571,7 +1571,7 @@ function AgendaPageContent() {
                         <button
                           key={lbl}
                           onClick={() => handleMassAssignGroup(lbl)}
-                          className="text-[11px] px-2 py-0.5 rounded font-medium bg-slate-100 dark:bg-white/5 text-muted-foreground dark:text-muted-foreground border border-border hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-colors"
+                          className="text-[11px] px-2 py-0.5 rounded font-medium bg-black/20 text-muted-foreground dark:text-muted-foreground border border-border hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-colors"
                         >
                           {lbl}
                         </button>
@@ -1618,7 +1618,7 @@ function AgendaPageContent() {
           <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-border bg-muted/50">
             <div className="text-sm font-medium tracking-tight text-foreground whitespace-nowrap">
               Lista de Contatos{" "}
-              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-medium">
+              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-xs font-medium">
                 {filtered.length}
               </span>
             </div>
@@ -1637,7 +1637,7 @@ function AgendaPageContent() {
                         visible.every((r) => selectedIds.has(r.id))
                       }
                       onChange={(e) => setAllVisible(e.target.checked)}
-                      className="rounded border-border bg-slate-100 dark:bg-white/5 cursor-pointer"
+                      className="rounded border-border bg-black/20 cursor-pointer"
                     />
                   </Th>
                   <ThSort
@@ -1669,7 +1669,7 @@ function AgendaPageContent() {
                   return (
                     <tr
                       key={r.id}
-                      className={`transition-colors group cursor-pointer ${selectedIds.has(r.id) ? "bg-indigo-50/50 dark:bg-indigo-500/10" : "hover:bg-muted/50 dark:hover:bg-white/5"}`}
+                      className={`transition-colors group cursor-pointer ${selectedIds.has(r.id) ? "bg-indigo-50/50 dark:bg-indigo-500/10" : "hover:bg-muted/50 dark:hover:bg-card/5"}`}
                       onClick={() =>
                         toggleSelected(r.id, !selectedIds.has(r.id))
                       }
@@ -1682,7 +1682,7 @@ function AgendaPageContent() {
                             toggleSelected(r.id, e.target.checked)
                           }
                           onClick={(e) => e.stopPropagation()}
-                          className="rounded border-border bg-slate-100 dark:bg-white/5"
+                          className="rounded border-border bg-black/20"
                         />
                       </Td>
 
@@ -1696,7 +1696,7 @@ function AgendaPageContent() {
                               className="w-[40px] h-[40px] rounded-full object-cover border border-border shadow-sm shrink-0"
                             />
                           ) : (
-                            <div className="w-[40px] h-[40px] rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center font-medium text-muted-foreground text-xl shrink-0">
+                            <div className="w-[40px] h-[40px] rounded-full bg-black/30 flex items-center justify-center font-medium text-muted-foreground text-xl shrink-0">
                               {r.display_name?.charAt(0) || "?"}
                             </div>
                           )}
@@ -1745,7 +1745,7 @@ function AgendaPageContent() {
                                 <span className="font-medium text-muted-foreground">
                                   {e.label}:{" "}
                                 </span>
-                                <span className="text-sky-600 dark:text-sky-400">
+                                <span className="text-sky-400">
                                   {e.value}
                                 </span>
                               </div>
@@ -1767,7 +1767,7 @@ function AgendaPageContent() {
                               .map((l) => (
                                 <span
                                   key={l}
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-white/[0.08] text-muted-foreground dark:text-white/75 border border-border dark:border-white/15"
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-card/[0.08] text-muted-foreground dark:text-white/75 border border-border dark:border-white/15"
                                 >
                                   {l}
                                 </span>
@@ -1880,14 +1880,14 @@ function AgendaPageContent() {
                   <button
                     onClick={() => setPage(1)}
                     disabled={safePage === 1}
-                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 transition-colors text-xs font-medium"
+                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-black/20 dark:hover:bg-card/10 disabled:opacity-30 transition-colors text-xs font-medium"
                   >
                     «
                   </button>
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={safePage === 1}
-                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 transition-colors text-xs font-medium"
+                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-black/20 dark:hover:bg-card/10 disabled:opacity-30 transition-colors text-xs font-medium"
                   >
                     ‹
                   </button>
@@ -1916,7 +1916,7 @@ function AgendaPageContent() {
                         <button
                           key={p}
                           onClick={() => setPage(p as number)}
-                          className={`h-7 w-7 rounded flex items-center justify-center text-xs font-bold transition-colors ${safePage === p ? "bg-emerald-600 text-white" : "text-muted-foreground hover:bg-slate-100 dark:hover:bg-white/10"}`}
+                          className={`h-7 w-7 rounded flex items-center justify-center text-xs font-bold transition-colors ${safePage === p ? "bg-emerald-600 text-white" : "text-muted-foreground hover:bg-black/20 dark:hover:bg-card/10"}`}
                         >
                           {p}
                         </button>
@@ -1925,14 +1925,14 @@ function AgendaPageContent() {
                   <button
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={safePage === totalPages}
-                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 transition-colors text-xs font-medium"
+                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-black/20 dark:hover:bg-card/10 disabled:opacity-30 transition-colors text-xs font-medium"
                   >
                     ›
                   </button>
                   <button
                     onClick={() => setPage(totalPages)}
                     disabled={safePage === totalPages}
-                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 transition-colors text-xs font-medium"
+                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-black/20 dark:hover:bg-card/10 disabled:opacity-30 transition-colors text-xs font-medium"
                   >
                     »
                   </button>
@@ -1953,7 +1953,7 @@ function AgendaPageContent() {
           }
         >
           <div className="space-y-4">
-            <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 p-3 rounded-lg flex items-center gap-3">
+            <div className="bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 p-3 rounded-lg flex items-center gap-3">
               <span className="text-xl">
                 <MessageCircle className="w-4 h-4" />
               </span>
@@ -2038,7 +2038,7 @@ function AgendaPageContent() {
                   className="w-24 h-24 rounded-full object-cover border-2 border-border dark:border-white/20 group-hover:opacity-50 transition-opacity"
                 />
               ) : (
-                <div className="w-24 h-24 rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center font-medium text-muted-foreground dark:text-muted-foreground text-2xl group-hover:opacity-50 transition-opacity">
+                <div className="w-24 h-24 rounded-full bg-black/30 flex items-center justify-center font-medium text-muted-foreground dark:text-muted-foreground text-2xl group-hover:opacity-50 transition-opacity">
                   {editForm.display_name?.charAt(0) || "?"}
                 </div>
               )}
@@ -2178,7 +2178,7 @@ function AgendaPageContent() {
                               return n;
                             });
                           }}
-                          className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg"
+                          className="p-2 text-rose-500 hover:bg-rose-500/10 dark:hover:bg-rose-500/10 rounded-lg"
                         >
                           <IconTrash />
                         </button>
@@ -2195,12 +2195,12 @@ function AgendaPageContent() {
                           }}
                           className={`px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-colors ${
                             wa?.loading
-                              ? "bg-slate-100 dark:bg-white/5 text-muted-foreground border-border"
+                              ? "bg-black/20 text-muted-foreground border-border"
                               : wa?.exists
-                                ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30"
+                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-200 dark:border-emerald-500/30"
                                 : wa?.exists === false
-                                  ? "bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/30"
-                                  : "bg-slate-100 dark:bg-white/5 text-muted-foreground border-border hover:bg-slate-200 dark:hover:bg-white/10"
+                                  ? "bg-rose-500/10 text-rose-400 border-rose-200 dark:border-rose-500/30"
+                                  : "bg-black/20 text-muted-foreground border-border hover:bg-black/30 dark:hover:bg-card/10"
                           }`}
                         >
                           {wa?.loading
@@ -2250,12 +2250,12 @@ function AgendaPageContent() {
                           }}
                           className={`px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-colors ${
                             wa?.photoStatus === "loading"
-                              ? "bg-slate-100 dark:bg-white/5 text-muted-foreground border-border"
+                              ? "bg-black/20 text-muted-foreground border-border"
                               : wa?.photoStatus === "synced"
-                                ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30"
+                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-200 dark:border-emerald-500/30"
                                 : wa?.photoStatus === "protected"
-                                  ? "bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/30"
-                                  : "bg-slate-100 dark:bg-white/5 text-muted-foreground border-border hover:bg-slate-200 dark:hover:bg-white/10"
+                                  ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/30"
+                                  : "bg-black/20 text-muted-foreground border-border hover:bg-black/30 dark:hover:bg-card/10"
                           }`}
                         >
                           {wa?.photoStatus === "loading"
@@ -2277,12 +2277,12 @@ function AgendaPageContent() {
                             }}
                             className={`px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-colors ${
                               wa?.opLoading
-                                ? "bg-slate-100 dark:bg-white/5 text-muted-foreground border-border"
+                                ? "bg-black/20 text-muted-foreground border-border"
                                 : wa?.opName
-                                  ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30"
+                                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-200 dark:border-emerald-500/30"
                                   : wa?.opError
-                                    ? "bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/30"
-                                    : "bg-slate-100 dark:bg-white/5 text-muted-foreground border-border hover:bg-slate-200 dark:hover:bg-white/10"
+                                    ? "bg-rose-500/10 text-rose-400 border-rose-200 dark:border-rose-500/30"
+                                    : "bg-black/20 text-muted-foreground border-border hover:bg-black/30 dark:hover:bg-card/10"
                             }`}
                           >
                             {wa?.opLoading
@@ -2294,7 +2294,7 @@ function AgendaPageContent() {
                                   : "Sincronizar Operadora"}
                           </button>
                         ) : (
-                          <div className="px-3 py-1.5 rounded-lg text-[11px] font-medium border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center gap-1 cursor-default">
+                          <div className="px-3 py-1.5 rounded-lg text-[11px] font-medium border border-emerald-200 dark:border-emerald-500/30 bg-emerald-500/10 text-emerald-400 flex items-center gap-1 cursor-default">
                             🌍{" "}
                             {DDI_OPTIONS.find((o) => o.code === p.ddi)?.label ||
                               "Internacional"}
@@ -2379,7 +2379,7 @@ function AgendaPageContent() {
                           emails: prev.emails.filter((x) => x.id !== e.id),
                         }))
                       }
-                      className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg"
+                      className="p-2 text-rose-500 hover:bg-rose-500/10 dark:hover:bg-rose-500/10 rounded-lg"
                     >
                       <IconTrash />
                     </button>
@@ -2430,7 +2430,7 @@ function AgendaPageContent() {
                               : [...prev.labels, lbl],
                           }))
                         }
-                        className={`text-[10px] px-2 py-0.5 rounded font-medium border transition-colors ${active ? "bg-amber-500 text-white border-amber-500" : "bg-slate-100 dark:bg-white/5 text-muted-foreground border-border hover:bg-slate-200 dark:hover:bg-white/10"}`}
+                        className={`text-[10px] px-2 py-0.5 rounded font-medium border transition-colors ${active ? "bg-amber-500 text-white border-amber-500" : "bg-black/20 text-muted-foreground border-border hover:bg-black/30 dark:hover:bg-card/10"}`}
                       >
                         {lbl}
                       </button>
@@ -2441,7 +2441,7 @@ function AgendaPageContent() {
             </div>
 
             {/* Botões */}
-            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-border">
+            <div className="flex justify-end gap-3 pt-4 border-t border-border">
               <button
                 onClick={() => setEditModal({ open: false, contact: null })}
                 className="px-4 py-2 rounded-lg text-muted-foreground dark:text-muted-foreground text-sm font-medium"
@@ -2471,12 +2471,12 @@ function AgendaPageContent() {
               Você está prestes a excluir o contato{" "}
               <strong>{deleteModal.contact.display_name}</strong>.
             </p>
-            <label className="flex items-center gap-3 p-3 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-lg cursor-pointer">
+            <label className="flex items-center gap-3 p-3 bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-lg cursor-pointer">
               <input
                 type="checkbox"
                 checked={deleteFromGoogle}
                 onChange={(e) => setDeleteFromGoogle(e.target.checked)}
-                className="w-5 h-5 rounded border-rose-300 text-rose-600 focus:ring-rose-500"
+                className="w-5 h-5 rounded border-rose-300 text-rose-400 focus:ring-rose-500"
               />
               <span className="text-sm font-medium text-rose-900 dark:text-rose-200">
                 Excluir também da agenda do celular (Google Contacts)
@@ -2568,7 +2568,7 @@ function ThSort({
       <div className="flex items-center gap-1">
         {label}{" "}
         <span
-          className={`transition-opacity ${active ? "opacity-100 text-emerald-600" : "opacity-40 group-hover:opacity-70"}`}
+          className={`transition-opacity ${active ? "opacity-100 text-emerald-400" : "opacity-40 group-hover:opacity-70"}`}
         >
           {dir === "asc" ? <IconSortUp /> : <IconSortDown />}
         </span>
@@ -2594,7 +2594,7 @@ function SortClick({
     >
       <span className="font-medium uppercase text-xs tracking-wide">{label}</span>
       <span
-        className={`transition-opacity flex items-center ${active ? "opacity-100 text-emerald-600" : "opacity-30"}`}
+        className={`transition-opacity flex items-center ${active ? "opacity-100 text-emerald-400" : "opacity-30"}`}
       >
         {dir === "asc" ? <IconSortUp /> : <IconSortDown />}
       </span>
@@ -2629,14 +2629,14 @@ function IconActionBtn({
   onClick: (e: React.MouseEvent) => void;
 }) {
   const colors = {
-    blue: "text-sky-500 bg-sky-50 border-sky-200 hover:bg-sky-100 dark:bg-sky-500/10 dark:border-sky-500/20",
+    blue: "text-sky-500 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20 dark:border-sky-500/20",
     green:
-      "text-emerald-600 bg-emerald-50 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:border-emerald-500/20",
+      "text-emerald-400 bg-emerald-500/10 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:border-emerald-500/20",
     amber:
-      "text-amber-600 bg-amber-50 border-amber-200 hover:bg-amber-100 dark:bg-amber-500/10 dark:border-amber-500/20",
+      "text-amber-600 bg-amber-500/10 border-amber-200 hover:bg-amber-100 dark:bg-amber-500/10 dark:border-amber-500/20",
     purple:
-      "text-purple-600 bg-purple-50 border-purple-200 hover:bg-purple-100",
-    red: "text-rose-600 bg-rose-50 border-rose-200 hover:bg-rose-100 dark:bg-rose-500/10 dark:border-rose-500/20",
+      "text-purple-400 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20",
+    red: "text-rose-400 bg-rose-500/10 border-rose-200 hover:bg-rose-500/20 dark:border-rose-500/20",
   };
   return (
     <button
@@ -2664,7 +2664,7 @@ function MenuItem({
   return (
     <button
       onClick={onClick}
-      className="group w-full px-4 py-2.5 flex items-center gap-3 text-muted-foreground hover:bg-emerald-500/10 hover:text-emerald-600 transition-all text-left text-sm font-medium tracking-tight rounded-lg"
+      className="group w-full px-4 py-2.5 flex items-center gap-3 text-muted-foreground hover:bg-emerald-500/10 hover:text-emerald-400 transition-all text-left text-sm font-medium tracking-tight rounded-lg"
     >
       <span className="opacity-70 group-hover:scale-110 transition-transform">
         {icon}
@@ -2710,7 +2710,7 @@ function Modal({
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-muted-foreground"
+            className="p-1 rounded-lg hover:bg-black/30 dark:hover:bg-card/10 text-muted-foreground"
           >
             <IconX />
           </button>

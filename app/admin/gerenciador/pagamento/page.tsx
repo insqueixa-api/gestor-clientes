@@ -383,7 +383,7 @@ function renderStepWithLinks(text: string) {
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-emerald-600 dark:text-emerald-400 font-medium underline underline-offset-2 hover:text-emerald-700 break-all"
+        className="text-emerald-400 font-medium underline underline-offset-2 hover:text-emerald-400 break-all"
       >
         {url}
       </a>,
@@ -421,14 +421,14 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
               href={help.link}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-emerald-600 dark:text-emerald-400 font-medium hover:underline mt-0.5 inline-block"
+              className="text-xs text-emerald-400 font-medium hover:underline mt-0.5 inline-block"
             >
               {help.linkLabel}
             </a>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:text-foreground dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:text-foreground dark:hover:text-white hover:bg-black/30 dark:hover:bg-card/10 transition-colors"
           >
             <IconX />
           </button>
@@ -439,7 +439,7 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
           <ol className="space-y-3">
             {help.steps.map((step, i) => (
               <li key={i} className="flex items-start gap-3">
-                <span className="shrink-0 w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-medium flex items-center justify-center mt-0.5">
+                <span className="shrink-0 w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-400 text-xs font-medium flex items-center justify-center mt-0.5">
                   {i + 1}
                 </span>
                 <span className="text-sm text-foreground/90/80 leading-relaxed">
@@ -454,7 +454,7 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
               {help.warnings.map((w, i) => (
                 <p
                   key={i}
-                  className="text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-lg px-3 py-2"
+                  className="text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-lg px-3 py-2"
                 >
                   {w}
                 </p>
@@ -466,7 +466,7 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
         <div className="px-5 py-3 border-t border-border bg-muted/50 rounded-b-xl">
           <button
             onClick={onClose}
-            className="w-full h-9 rounded-lg bg-slate-200 dark:bg-white/10 text-foreground/90 font-medium text-sm hover:bg-slate-300 dark:hover:bg-white/20 transition-colors"
+            className="w-full h-9 rounded-lg bg-black/30 text-foreground/90 font-medium text-sm hover:bg-slate-300 dark:hover:bg-card/20 transition-colors"
           >
             Fechar
           </button>
@@ -651,7 +651,7 @@ function GatewayModal({
           </div>
           <button
             onClick={onClose}
-            className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:text-foreground dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:text-foreground dark:hover:text-white hover:bg-black/30 dark:hover:bg-card/10 transition-colors"
           >
             <IconX />
           </button>
@@ -684,12 +684,12 @@ function GatewayModal({
                         }}
                         className={`w-full p-4 rounded-xl border text-left transition-all ${
                           selected
-                            ? "border-emerald-500/40 bg-emerald-50/70 dark:bg-emerald-500/10"
-                            : "border-border bg-card hover:bg-muted/50 dark:hover:bg-white/5"
+                            ? "border-emerald-500/40 bg-emerald-500/10/70 dark:bg-emerald-500/10"
+                            : "border-border bg-card hover:bg-muted/50 dark:hover:bg-card/5"
                         }`}
                       >
                         <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-xl shrink-0">
+                          <div className="w-10 h-10 rounded-xl bg-black/20 flex items-center justify-center text-xl shrink-0">
                             {m.icon}
                           </div>
                           <div className="min-w-0 pr-6">
@@ -703,7 +703,7 @@ function GatewayModal({
                               {m.currencies.map((c) => (
                                 <span
                                   key={c}
-                                  className="gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-white/5 text-muted-foreground dark:text-muted-foreground border border-border"
+                                  className="gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-card/5 text-muted-foreground dark:text-muted-foreground border border-border"
                                 >
                                   {c}
                                 </span>
@@ -711,7 +711,7 @@ function GatewayModal({
                               <span
                                 className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm border ${
                                   m.is_online
-                                    ? "bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/20"
+                                    ? "bg-sky-500/10 text-sky-400 border-sky-500/20"
                                     : "bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20"
                                 }`}
                               >
@@ -730,7 +730,7 @@ function GatewayModal({
                             e.stopPropagation();
                             setHelpType(m.type);
                           }}
-                          className="absolute top-3 right-3 w-6 h-6 rounded-full bg-slate-200 dark:bg-white/10 text-muted-foreground hover:bg-blue-100 dark:hover:bg-blue-500/20 hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center justify-center text-xs font-medium"
+                          className="absolute top-3 right-3 w-6 h-6 rounded-full bg-black/30 text-muted-foreground hover:bg-blue-100 dark:hover:bg-blue-500/20 hover:text-blue-400 dark:hover:text-blue-400 transition-colors flex items-center justify-center text-xs font-medium"
                           title="Como obter as credenciais"
                         >
                           ?
@@ -764,7 +764,7 @@ function GatewayModal({
                     <span
                       className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm border ${
                         meta.is_online
-                          ? "bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/20"
+                          ? "bg-sky-500/10 text-sky-400 border-sky-500/20"
                           : "bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20"
                       }`}
                     >
@@ -881,7 +881,7 @@ function GatewayModal({
                     onClick={() => setIsActive(!isActive)}
                     className={`w-full h-10 px-3 rounded-lg border text-sm font-medium transition-colors ${
                       isActive
-                        ? "border-emerald-500/30 bg-emerald-50/70 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                        ? "border-emerald-500/30 bg-emerald-500/10/70 dark:bg-emerald-500/10 text-emerald-400"
                         : "border-border bg-muted/50 text-muted-foreground"
                     }`}
                   >
@@ -911,7 +911,7 @@ function GatewayModal({
                       className={`relative w-12 h-6 rounded-full transition-colors ${
                         isManualFallback
                           ? "bg-violet-600"
-                          : "bg-slate-300 dark:bg-white/20"
+                          : "bg-slate-300 dark:bg-card/20"
                       }`}
                     >
                       <span
@@ -927,7 +927,7 @@ function GatewayModal({
           )}
 
           {error && (
-            <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300 text-sm">
+            <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm">
               ⚠️ {error}
             </div>
           )}
@@ -937,7 +937,7 @@ function GatewayModal({
         <div className="px-6 py-4 border-t border-border bg-muted/50 flex justify-end gap-2 rounded-b-xl">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-muted-foreground dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg text-sm font-medium transition-colors"
+            className="px-4 py-2 text-muted-foreground dark:text-white/60 hover:bg-black/30 dark:hover:bg-card/10 rounded-lg text-sm font-medium transition-colors"
           >
             Cancelar
           </button>
@@ -1005,7 +1005,7 @@ function GatewayCard({
               <span
                 className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm border ${
                   gateway.is_online
-                    ? "bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/20"
+                    ? "bg-sky-500/10 text-sky-400 border-sky-500/20"
                     : "bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20"
                 }`}
               >
@@ -1021,7 +1021,7 @@ function GatewayCard({
           className={`relative w-11 h-6 rounded-full transition-colors ${
             gateway.is_active
               ? "bg-emerald-600"
-              : "bg-slate-300 dark:bg-white/20"
+              : "bg-slate-300 dark:bg-card/20"
           }`}
           title={gateway.is_active ? "Desativar" : "Ativar"}
         >
@@ -1040,7 +1040,7 @@ function GatewayCard({
           {gateway.currency.map((c) => (
             <span
               key={c}
-              className="gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-white/5 text-muted-foreground dark:text-muted-foreground border border-border"
+              className="gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-card/5 text-muted-foreground dark:text-muted-foreground border border-border"
             >
               {c}
             </span>
@@ -1079,7 +1079,7 @@ function GatewayCard({
         <div className="flex gap-2 pt-2 border-t border-border">
           <button
             onClick={onEdit}
-            className="flex-1 h-9 rounded-lg border border-border bg-muted/50 text-foreground/90 dark:text-muted-foreground text-xs font-medium hover:bg-slate-100 dark:hover:bg-white/5 transition-colors flex items-center justify-center gap-2"
+            className="flex-1 h-9 rounded-lg border border-border bg-muted/50 text-foreground/90 dark:text-muted-foreground text-xs font-medium hover:bg-black/20 dark:hover:bg-card/5 transition-colors flex items-center justify-center gap-2"
           >
             <IconEdit />
             Editar
@@ -1088,7 +1088,7 @@ function GatewayCard({
           <button
             onClick={onDelete}
             disabled={isDeleting}
-            className="h-9 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-300 text-xs font-medium hover:bg-rose-500/15 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            className="h-9 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-xs font-medium hover:bg-rose-500/15 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
             title="Excluir"
           >
             {isDeleting ? "..." : <IconTrash />}
@@ -1311,7 +1311,7 @@ export default function PagamentosPage() {
                     <h2 className="text-sm font-medium text-foreground">
                       Gateways BRL
                     </h2>
-                    <span className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 gap-1 px-2 py-1 rounded-lg text-xs font-medium tracking-tight shadow-sm">
+                    <span className="bg-emerald-500/20 text-emerald-400 gap-1 px-2 py-1 rounded-lg text-xs font-medium tracking-tight shadow-sm">
                       {brlGateways.length}
                     </span>
                   </div>
@@ -1348,7 +1348,7 @@ export default function PagamentosPage() {
                     <h2 className="text-sm font-medium text-foreground">
                       Gateways Internacionais
                     </h2>
-                    <span className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 gap-1 px-2 py-1 rounded-lg text-xs font-medium tracking-tight shadow-sm">
+                    <span className="bg-emerald-500/20 text-emerald-400 gap-1 px-2 py-1 rounded-lg text-xs font-medium tracking-tight shadow-sm">
                       {intlGateways.length}
                     </span>
                   </div>

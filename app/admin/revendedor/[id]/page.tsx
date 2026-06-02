@@ -494,7 +494,7 @@ export default function ResellerDetailPage() {
               className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase ${
                 reseller.is_archived
                   ? "bg-muted/500/10 text-muted-foreground dark:text-muted-foreground border-slate-500/20"
-                  : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                  : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
               }`}
             >
               {reseller.is_archived ? "Arquivado" : "Ativo"}
@@ -511,7 +511,7 @@ export default function ResellerDetailPage() {
           {/* Voltar (Só Desktop) */}
           <Link
             href="/admin/revendedor"
-            className="hidden sm:inline-flex h-9 px-3 rounded-lg border border-border text-muted-foreground dark:text-white/60 font-medium text-xs hover:bg-slate-200 dark:hover:bg-white/5 transition-all items-center justify-center"
+            className="hidden sm:inline-flex h-9 px-3 rounded-lg border border-border text-muted-foreground dark:text-white/60 font-medium text-xs hover:bg-black/30 dark:hover:bg-card/5 transition-all items-center justify-center"
           >
             Voltar
           </Link>
@@ -539,7 +539,7 @@ export default function ResellerDetailPage() {
               Resumo da Conta
             </h3>
             <div className="space-y-3 text-sm">
-              <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-border">
+              <div className="flex justify-between items-center pb-2 border-b border-border">
                 <span className="text-muted-foreground dark:text-muted-foreground font-medium">
                   Desde
                 </span>
@@ -557,11 +557,11 @@ export default function ResellerDetailPage() {
               </div>
 
               {/* TOTAL INVESTIDO */}
-              <div className="pt-4 mt-2 border-t border-slate-100 dark:border-border flex justify-between items-center bg-muted/50 p-3 rounded-lg">
+              <div className="pt-4 mt-2 border-t border-border flex justify-between items-center bg-muted/50 p-3 rounded-lg">
                 <span className="text-muted-foreground dark:text-muted-foreground font-medium text-[11px] uppercase tracking-tight">
                   Total Investido
                 </span>
- <div className="text-right font-medium text-base text-emerald-600 dark:text-emerald-400">
+ <div className="text-right font-medium text-base text-emerald-400">
                   {fmtBRL(totalInvested)}
                 </div>
               </div>
@@ -575,7 +575,7 @@ export default function ResellerDetailPage() {
             </h3>
             <div className="space-y-3 text-sm">
               {/* Email */}
-              <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-border">
+              <div className="flex justify-between items-center pb-2 border-b border-border">
                 <span className="text-muted-foreground dark:text-muted-foreground font-medium">
                   Email
                 </span>
@@ -588,7 +588,7 @@ export default function ResellerDetailPage() {
               </div>
 
               {/* WhatsApp Display */}
-              <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-border">
+              <div className="flex justify-between items-center pb-2 border-b border-border">
                 <span className="text-muted-foreground dark:text-muted-foreground font-medium">
                   Telefone
                 </span>
@@ -607,7 +607,7 @@ export default function ResellerDetailPage() {
                     href={`https://wa.me/${reseller.whatsapp_e164?.replace(/\D/g, "")}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 font-medium hover:underline"
+                    className="inline-flex items-center gap-1.5 text-emerald-400 hover:text-emerald-500 font-medium hover:underline"
                   >
                     <IconWhatsapp />@{reseller.whatsapp_username}
                   </a>
@@ -616,7 +616,7 @@ export default function ResellerDetailPage() {
                     href={`https://wa.me/${reseller.whatsapp_e164?.replace(/\D/g, "")}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 font-medium hover:underline"
+                    className="inline-flex items-center gap-1.5 text-emerald-400 hover:text-emerald-500 font-medium hover:underline"
                   >
                     <IconWhatsapp />
                     {formatPhoneDisplay(reseller.whatsapp_e164)}
@@ -627,17 +627,17 @@ export default function ResellerDetailPage() {
               </div>
 
               {/* Opt-in */}
-              <div className="py-2 border-t border-b border-slate-100 dark:border-border">
+              <div className="py-2 border-t border-b border-border">
                 <div className="text-[10px] font-medium text-muted-foreground/80 dark:text-white/30 uppercase mb-1">
                   Receber mensagem?
                 </div>
                 {reseller.whatsapp_opt_in ? (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-400">
                     <span className="w-2 h-2 rounded-full bg-emerald-500"></span>{" "}
                     Sim
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-rose-600 dark:text-rose-400">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-rose-400">
                     <span className="w-2 h-2 rounded-full bg-rose-500"></span>{" "}
                     Não
                   </span>
@@ -689,7 +689,7 @@ export default function ResellerDetailPage() {
                         <div className="text-xs text-muted-foreground flex items-center gap-2">
                           <span>User: {s.server_username || "—"}</span>
                           {s.server_password && (
-                            <span className="text-[10px] px-1.5 rounded bg-slate-200 dark:bg-white/10 opacity-70">
+                            <span className="text-[10px] px-1.5 rounded bg-black/30 opacity-70">
                               Senha salva
                             </span>
                           )}
@@ -705,7 +705,7 @@ export default function ResellerDetailPage() {
                           setQrResellerServerId(s.reseller_server_id);
                           setQrOpen(true);
                         }}
-                        className="px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-medium border border-emerald-500/20 hover:bg-emerald-500/20 transition-all mr-1"
+                        className="px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 text-xs font-medium border border-emerald-500/20 hover:bg-emerald-500/20 transition-all mr-1"
                       >
                         + Recarga
                       </button>
@@ -753,7 +753,7 @@ export default function ResellerDetailPage() {
 
             <div className="space-y-0 px-2">
               {history.length === 0 ? (
-                <div className="py-12 text-center text-muted-foreground/80 dark:text-white/20 text-sm italic border-2 border-dashed border-slate-100 dark:border-border rounded-xl">
+                <div className="py-12 text-center text-muted-foreground/80 dark:text-white/20 text-sm italic border-2 border-dashed border-border rounded-xl">
                   Nenhuma movimentação registrada.
                 </div>
               ) : (
@@ -772,11 +772,11 @@ export default function ResellerDetailPage() {
                   return (
                     <div
                       key={String(h.id)}
-                      className="relative pl-8 pb-1.5 last:pb-0 border-l-2 border-slate-100 dark:border-border last:border-0 group"
+                      className="relative pl-8 pb-1.5 last:pb-0 border-l-2 border-border last:border-0 group"
                     >
                       <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 border-white dark:border-[#161b22] bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.4)] transition-transform group-hover:scale-125" />
 
-                      <div className="flex justify-between items-start gap-2 bg-muted/50/50 dark:bg-white/5 p-2 rounded-xl border border-transparent hover:border-border dark:hover:border-white/10 transition-all">
+                      <div className="flex justify-between items-start gap-2 bg-muted/50/50 dark:bg-card/5 p-2 rounded-xl border border-transparent hover:border-border dark:hover:border-white/10 transition-all">
                         <div className="min-w-0">
                           {/* LINHA 1 — TÍTULO */}
                           <div className="text-sm font-medium text-foreground tracking-tight">
@@ -911,14 +911,14 @@ function IconActionBtn({
   onClick: (e: React.MouseEvent) => void;
 }) {
   const colors = {
-    blue: "text-sky-500 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/20 hover:bg-sky-100 dark:hover:bg-sky-500/20",
+    blue: "text-sky-500 dark:text-sky-400 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20 dark:hover:bg-sky-500/20",
     green:
-      "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20",
+      "text-emerald-400 bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20",
     amber:
-      "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20",
+      "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20",
     purple:
-      "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 border-purple-200 dark:border-purple-500/20 hover:bg-purple-100 dark:hover:bg-purple-500/20",
-    red: "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20 hover:bg-rose-100 dark:hover:bg-rose-500/20",
+      "text-purple-400 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20 dark:hover:bg-purple-500/20",
+    red: "text-rose-400 bg-rose-500/10 border-rose-200 dark:border-rose-500/20 hover:bg-rose-500/20 dark:hover:bg-rose-500/20",
   };
 
   return (

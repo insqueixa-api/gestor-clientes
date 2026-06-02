@@ -52,10 +52,10 @@ function tableLabelFromClient(
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
     ACTIVE:
-      "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+      "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
     OVERDUE:
-      "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
-    TRIAL: "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20",
+      "bg-rose-500/10 text-rose-400 border-rose-500/20",
+    TRIAL: "bg-sky-500/10 text-sky-400 border-sky-500/20",
     ARCHIVED:
       "bg-muted/500/10 text-muted-foreground dark:text-muted-foreground border-slate-500/20",
   };
@@ -715,7 +715,7 @@ export default function ClientDetailsPage() {
           {/* Voltar (Só no Desktop) */}
           <Link
             href="/admin/cliente"
-            className="hidden sm:inline-flex h-9 px-3 rounded-lg border border-border text-muted-foreground dark:text-white/60 font-medium text-xs hover:bg-slate-200 dark:hover:bg-white/5 transition-all items-center justify-center"
+            className="hidden sm:inline-flex h-9 px-3 rounded-lg border border-border text-muted-foreground dark:text-white/60 font-medium text-xs hover:bg-black/30 dark:hover:bg-card/5 transition-all items-center justify-center"
           >
             Voltar
           </Link>
@@ -737,8 +737,8 @@ export default function ClientDetailsPage() {
             onClick={handleArchiveToggle}
             className={`h-9 sm:h-9 px-3 rounded-lg border font-medium text-xs transition-all shadow-sm inline-flex items-center justify-center gap-2 ${
               client.client_is_archived
-                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20"
-                : "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20"
+                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20"
+                : "bg-rose-500/10 border-rose-500/20 text-rose-400 hover:bg-rose-500/20"
             }`}
             title={client.client_is_archived ? "Restaurar" : "Arquivar"}
           >
@@ -801,7 +801,7 @@ export default function ClientDetailsPage() {
               setTimeout(() => setIsTrialLoading(false), 5000);
             }}
             disabled={client.client_is_archived || isTrialLoading}
-            className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 font-medium text-xs hover:bg-sky-500/20 transition-all shadow-sm inline-flex items-center gap-2 justify-center"
+            className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-400 font-medium text-xs hover:bg-sky-500/20 transition-all shadow-sm inline-flex items-center gap-2 justify-center"
             title="Criar teste rápido com os dados deste cliente"
           >
             {isTrialLoading ? <IconLoading /> : <IconFastTimer />}
@@ -849,7 +849,7 @@ export default function ClientDetailsPage() {
                 <span className="text-muted-foreground dark:text-muted-foreground font-medium">
                   Tecnologia
                 </span>
-                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-white/5 text-muted-foreground border border-border uppercase">
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-card/5 text-muted-foreground border border-border uppercase">
                   {client.technology || "—"}
                 </span>
               </div>
@@ -907,7 +907,7 @@ export default function ClientDetailsPage() {
 
               {/* DIVISOR FINANCEIRO (Com margem ajustada) */}
               <div className="pt-3 pb-1">
-                <div className="border-t border-slate-100 dark:border-border mb-3"></div>
+                <div className="border-t border-border mb-3"></div>
                 <div className="text-[10px] font-medium text-muted-foreground/80 dark:text-white/20 uppercase tracking-widest">
                   Financeiro
                 </div>
@@ -927,7 +927,7 @@ export default function ClientDetailsPage() {
                 <span className="text-muted-foreground dark:text-muted-foreground font-medium">
                   Plano
                 </span>
-                <span className="font-medium text-emerald-600 dark:text-emerald-400 tracking-tight">
+                <span className="font-medium text-emerald-400 tracking-tight">
                   {extractPeriod(client.plan_name)}
                 </span>
               </div>
@@ -945,14 +945,14 @@ export default function ClientDetailsPage() {
                 <span className="text-muted-foreground dark:text-muted-foreground font-medium">
                   Valor
                 </span>
- <span className=" font-medium text-foreground bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-md">
+ <span className=" font-medium text-foreground bg-black/20 px-2 py-0.5 rounded-md">
                   {fmtMoney(client.price_amount, client.price_currency)}
                 </span>
               </div>
 
               {/* VENCIMENTO GERAL DESTACADO */}
               <div className="pt-2">
-                <div className="flex justify-between items-center bg-muted/50 p-3 rounded-lg border border-slate-100 dark:border-border mt-1">
+                <div className="flex justify-between items-center bg-muted/50 p-3 rounded-lg border border-border mt-1">
                   <span className="text-muted-foreground dark:text-muted-foreground font-medium text-[11px] uppercase tracking-tight">
                     Vencimento
                   </span>
@@ -979,7 +979,7 @@ export default function ClientDetailsPage() {
             </h3>
 
             <div className="space-y-3 text-sm">
-              <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-border">
+              <div className="flex justify-between items-center pb-2 border-b border-border">
                 <span className="text-muted-foreground dark:text-muted-foreground font-medium">
                   Data do Cadastro
                 </span>
@@ -990,7 +990,7 @@ export default function ClientDetailsPage() {
                 </span>
               </div>
 
-              <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-border">
+              <div className="flex justify-between items-center pb-2 border-b border-border">
                 <span className="text-muted-foreground dark:text-muted-foreground font-medium">
                   Nome do Cliente
                 </span>
@@ -999,7 +999,7 @@ export default function ClientDetailsPage() {
                 </span>
               </div>
 
-              <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-border">
+              <div className="flex justify-between items-center pb-2 border-b border-border">
                 <span className="text-muted-foreground dark:text-muted-foreground font-medium">
                   Telefone Principal
                 </span>
@@ -1009,7 +1009,7 @@ export default function ClientDetailsPage() {
               </div>
 
               {/* WhatsApp Principal com Link */}
-              <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-border">
+              <div className="flex justify-between items-center pb-2 border-b border-border">
                 <span className="text-muted-foreground dark:text-muted-foreground font-medium">
                   WhatsApp Principal
                 </span>
@@ -1018,7 +1018,7 @@ export default function ClientDetailsPage() {
                     href={`https://wa.me/${client.whatsapp_e164?.replace(/\D/g, "")}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium hover:underline text-right"
+                    className="inline-flex items-center gap-1.5 text-emerald-400 font-medium hover:underline text-right"
                   >
                     <IconWhatsapp />@{client.whatsapp_username}
                   </a>
@@ -1027,7 +1027,7 @@ export default function ClientDetailsPage() {
                     href={`https://wa.me/${client.whatsapp_e164?.replace(/\D/g, "")}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium hover:underline text-right"
+                    className="inline-flex items-center gap-1.5 text-emerald-400 font-medium hover:underline text-right"
                   >
                     <IconWhatsapp />
                     {formatPhoneDisplay(client.whatsapp_e164)}
@@ -1043,7 +1043,7 @@ export default function ClientDetailsPage() {
               {(client.secondary_display_name ||
                 client.secondary_phone_e164 ||
                 client.secondary_whatsapp_username) && (
-                <div className="bg-muted/50 p-3 rounded-lg border border-slate-100 dark:border-border mt-2 mb-2">
+                <div className="bg-muted/50 p-3 rounded-lg border border-border mt-2 mb-2">
                   <div className="text-[10px] font-medium text-muted-foreground/80 dark:text-white/30 uppercase mb-2 tracking-widest">
                     Contato Secundário
                   </div>
@@ -1068,7 +1068,7 @@ export default function ClientDetailsPage() {
                         href={`https://wa.me/${client.secondary_phone_e164.replace(/\D/g, "")}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium text-xs hover:underline text-right"
+                        className="inline-flex items-center gap-1.5 text-emerald-400 font-medium text-xs hover:underline text-right"
                       >
                         <IconWhatsapp />
                         {client.secondary_whatsapp_username
@@ -1086,12 +1086,12 @@ export default function ClientDetailsPage() {
                   Receber Msg?
                 </span>
                 {client.whatsapp_opt_in ? (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 text-right">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-400 text-right">
                     <span className="w-2 h-2 rounded-full bg-emerald-500"></span>{" "}
                     Sim
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-rose-600 dark:text-rose-400 text-right">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-rose-400 text-right">
                     <span className="w-2 h-2 rounded-full bg-rose-500"></span>{" "}
                     Não
                   </span>
@@ -1137,18 +1137,18 @@ export default function ClientDetailsPage() {
 
           <div className="space-y-0 px-2">
             {timeline.length === 0 ? (
-              <div className="py-12 text-center text-muted-foreground/80 dark:text-white/20 text-sm italic border-2 border-dashed border-slate-100 dark:border-border rounded-xl">
+              <div className="py-12 text-center text-muted-foreground/80 dark:text-white/20 text-sm italic border-2 border-dashed border-border rounded-xl">
                 Nenhum evento registrado até o momento.
               </div>
             ) : (
               timeline.map((item, idx) => (
                 <div
                   key={idx}
-                  className="relative pl-8 pb-1.5 last:pb-0 border-l-2 border-slate-100 dark:border-border last:border-0 group"
+                  className="relative pl-8 pb-1.5 last:pb-0 border-l-2 border-border last:border-0 group"
                 >
-                  <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 border-white dark:border-[#161b22] bg-slate-300 dark:bg-white/20"></div>
+                  <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 border-white dark:border-[#161b22] bg-slate-300 dark:bg-card/20"></div>
 
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 bg-muted/50/50 dark:bg-white/5 p-2 rounded-xl border border-transparent hover:border-border dark:hover:border-white/10 transition-all">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 bg-muted/50/50 dark:bg-card/5 p-2 rounded-xl border border-transparent hover:border-border dark:hover:border-white/10 transition-all">
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-foreground tracking-tight">
                         {EVENT_LABELS[item.event_type] ?? item.event_type}
@@ -1199,7 +1199,7 @@ export default function ClientDetailsPage() {
       {showRenewWarning && client && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-md bg-card border border-border rounded-xl shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-200">
-            <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 p-4 rounded-lg flex gap-3">
+            <div className="bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 p-4 rounded-lg flex gap-3">
               <span className="text-2xl">📢</span>
               <div>
                 <h3 className="text-sm font-medium text-foreground mb-1">
@@ -1221,7 +1221,7 @@ export default function ClientDetailsPage() {
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowRenewWarning(false)}
-                className="px-4 py-2 rounded-lg border border-border dark:border-border text-foreground/90 font-medium hover:bg-muted/50 dark:hover:bg-white/5 transition-colors text-xs uppercase"
+                className="px-4 py-2 rounded-lg border border-border dark:border-border text-foreground/90 font-medium hover:bg-muted/50 dark:hover:bg-card/5 transition-colors text-xs uppercase"
               >
                 Voltar
               </button>

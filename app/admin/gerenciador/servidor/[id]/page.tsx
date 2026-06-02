@@ -555,7 +555,7 @@ export default function ServerDetailsPage() {
                 className="w-10 h-10 rounded-xl object-cover border border-border shrink-0"
               />
             ) : (
-              <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-xl">
+              <div className="w-10 h-10 rounded-xl bg-black/20 flex items-center justify-center shrink-0 text-xl">
                 📡
               </div>
             )}
@@ -566,8 +566,8 @@ export default function ServerDetailsPage() {
             <span
               className={`px-2 py-0.5 rounded-lg text-xs font-medium border shadow-sm ${
                 server.credits_available > 10
-                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                  : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
+                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                  : "bg-rose-500/10 text-rose-400 border-rose-500/20"
               }`}
             >
               {fmtInt(server.credits_available)} créditos disponíveis
@@ -590,10 +590,10 @@ export default function ServerDetailsPage() {
 
         {/* SELETOR DE MÊS */}
         <div className="w-full md:w-auto flex justify-end">
-          <div className="flex items-center bg-slate-100 dark:bg-white/5 rounded-lg p-1 border border-border shadow-sm w-full md:w-auto"></div>
+          <div className="flex items-center bg-black/20 rounded-lg p-1 border border-border shadow-sm w-full md:w-auto"></div>
           <button
             onClick={handlePrevMonth}
-            className="p-2 hover:bg-card dark:hover:bg-white/10 rounded-md text-muted-foreground dark:text-muted-foreground transition-all active:scale-95"
+            className="p-2 hover:bg-card dark:hover:bg-card/10 rounded-md text-muted-foreground dark:text-muted-foreground transition-all active:scale-95"
           >
             <svg
               className="w-4 h-4"
@@ -614,7 +614,7 @@ export default function ServerDetailsPage() {
           </span>
           <button
             onClick={handleNextMonth}
-            className="p-2 hover:bg-card dark:hover:bg-white/10 rounded-md text-muted-foreground dark:text-muted-foreground transition-all active:scale-95"
+            className="p-2 hover:bg-card dark:hover:bg-card/10 rounded-md text-muted-foreground dark:text-muted-foreground transition-all active:scale-95"
           >
             <svg
               className="w-4 h-4"
@@ -635,7 +635,7 @@ export default function ServerDetailsPage() {
         <div className="flex gap-3 w-full md:w-auto justify-end">
           <Link
             href="/admin/gerenciador/servidor"
-            className="h-10 px-4 rounded-lg border border-border text-muted-foreground dark:text-muted-foreground hover:bg-muted/50 dark:hover:bg-white/10 text-sm font-medium transition-all shadow-sm inline-flex items-center justify-center"
+            className="h-10 px-4 rounded-lg border border-border text-muted-foreground dark:text-muted-foreground hover:bg-muted/50 dark:hover:bg-card/10 text-sm font-medium transition-all shadow-sm inline-flex items-center justify-center"
           >
             Voltar
           </Link>
@@ -672,7 +672,7 @@ export default function ServerDetailsPage() {
               value={fmtMoney(metrics.estimatedProfit)}
               className={
                 metrics.estimatedProfit >= 0
-                  ? "text-emerald-600 dark:text-emerald-400"
+                  ? "text-emerald-400"
                   : "text-rose-500"
               }
             />
@@ -692,7 +692,7 @@ export default function ServerDetailsPage() {
               Métricas de clientes
             </div>
             <div className="p-5 space-y-6">
-              <div className="grid grid-cols-3 gap-4 border-b border-slate-100 dark:border-border pb-6">
+              <div className="grid grid-cols-3 gap-4 border-b border-border pb-6">
                 <DetailStat
                   label="Total clientes"
                   value={fmtInt(clientStats.total)}
@@ -700,7 +700,7 @@ export default function ServerDetailsPage() {
                 <DetailStat
                   label="Ativos"
                   value={fmtInt(clientStats.active)}
-                  valueColor="text-emerald-600 dark:text-emerald-400"
+                  valueColor="text-emerald-400"
                 />
                 <DetailStat
                   label="Consumo"
@@ -720,7 +720,7 @@ export default function ServerDetailsPage() {
                 <DetailStat
                   label="Lucro"
                   value={fmtMoney(metrics.cliente.profit)}
-                  valueColor="text-emerald-600 dark:text-emerald-400"
+                  valueColor="text-emerald-400"
                 />
               </div>
             </div>
@@ -733,7 +733,7 @@ export default function ServerDetailsPage() {
               Métricas de revendas
             </div>
             <div className="p-5 space-y-6">
-              <div className="grid grid-cols-2 gap-4 border-b border-slate-100 dark:border-border pb-6">
+              <div className="grid grid-cols-2 gap-4 border-b border-border pb-6">
                 <DetailStat
                   label="Total revendas"
                   value={fmtInt(resellerCount)}
@@ -756,7 +756,7 @@ export default function ServerDetailsPage() {
                 <DetailStat
                   label="Lucro"
                   value={fmtMoney(metrics.resellers.profit)}
-                  valueColor="text-emerald-600 dark:text-emerald-400"
+                  valueColor="text-emerald-400"
                 />
               </div>
             </div>
@@ -841,7 +841,7 @@ export default function ServerDetailsPage() {
                   filteredMovements.map((m) => (
                     <tr
                       key={m.id}
-                      className="hover:bg-muted/50 dark:hover:bg-white/5 transition-all text-foreground/90/80 group"
+                      className="hover:bg-muted/50 dark:hover:bg-card/5 transition-all text-foreground/90/80 group"
                     >
                       <td className="px-5 py-3 whitespace-nowrap font-mono text-[11px] opacity-60">
                         {fmtDate(m.happened_at)}
@@ -850,10 +850,10 @@ export default function ServerDetailsPage() {
                         <span
                           className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm-lg border shadow-sm whitespace-nowrap ${
                             m.kind === "PURCHASE"
-                              ? "bg-sky-500/20 text-sky-700 dark:text-sky-200 border-sky-400/30"
+                              ? "bg-sky-500/20 text-sky-400 border-sky-400/30"
                               : m.kind === "RESELLER_SALE"
                                 ? "bg-orange-500/20 text-orange-700 dark:text-orange-200 border-orange-400/30"
-                                : "bg-emerald-500/20 text-emerald-700 dark:text-emerald-200 border-emerald-400/30"
+                                : "bg-emerald-500/20 text-emerald-400 border-emerald-400/30"
                           }`}
                         >
                           {m.kind === "PURCHASE"
@@ -952,7 +952,7 @@ function StatCard({
   className?: string;
 }) {
   return (
-    <div className="bg-slate-100/50 dark:bg-black/20 p-4 rounded-xl border border-border flex flex-col justify-between h-24 transition-all hover:border-emerald-500/30">
+    <div className="bg-black/20/50 dark:bg-black/20 p-4 rounded-xl border border-border flex flex-col justify-between h-24 transition-all hover:border-emerald-500/30">
       <div className="text-[10px] uppercase font-medium text-muted-foreground/80 dark:text-white/20 tracking-widest">
         {title}
       </div>

@@ -42,22 +42,22 @@ const accents: Record<
 > = {
   sky: {
     bar: "linear-gradient(to right,#0284c7,#38bdf8)",
-    barBg: "bg-sky-100 dark:bg-sky-950/30",
-    rank: "text-sky-600 dark:text-sky-400",
-    rankBg: "bg-sky-50 dark:bg-sky-900/40",
+    barBg: "bg-sky-500/20",
+    rank: "text-sky-400",
+    rankBg: "bg-sky-500/10",
     dot: "bg-sky-400",
-    label: "text-zinc-700 dark:text-zinc-200",
-    value: "text-sky-700 dark:text-sky-300",
+    label: "text-foreground/90",
+    value: "text-sky-400",
     topBar: "linear-gradient(to right,#0369a1,#0ea5e9,#7dd3fc)",
   },
   emerald: {
     bar: "linear-gradient(to right,#059669,#34d399)",
     barBg: "bg-emerald-100 dark:bg-emerald-950/30",
-    rank: "text-emerald-600 dark:text-emerald-400",
-    rankBg: "bg-emerald-50 dark:bg-emerald-900/40",
+    rank: "text-emerald-400",
+    rankBg: "bg-emerald-500/10",
     dot: "bg-emerald-400",
-    label: "text-zinc-700 dark:text-zinc-200",
-    value: "text-emerald-700 dark:text-emerald-300",
+    label: "text-foreground/90",
+    value: "text-emerald-400",
     topBar: "linear-gradient(to right,#065f46,#059669,#6ee7b7)",
   },
   violet: {
@@ -66,27 +66,27 @@ const accents: Record<
     rank: "text-violet-600 dark:text-violet-400",
     rankBg: "bg-violet-50 dark:bg-violet-900/40",
     dot: "bg-violet-400",
-    label: "text-zinc-700 dark:text-zinc-200",
+    label: "text-foreground/90",
     value: "text-violet-700 dark:text-violet-300",
     topBar: "linear-gradient(to right,#4c1d95,#7c3aed,#c4b5fd)",
   },
   rose: {
     bar: "linear-gradient(to right,#e11d48,#fb7185)",
-    barBg: "bg-rose-100 dark:bg-rose-950/30",
-    rank: "text-rose-600 dark:text-rose-400",
-    rankBg: "bg-rose-50 dark:bg-rose-900/40",
+    barBg: "bg-rose-500/20",
+    rank: "text-rose-400",
+    rankBg: "bg-rose-500/10",
     dot: "bg-rose-400",
-    label: "text-zinc-700 dark:text-zinc-200",
-    value: "text-rose-700 dark:text-rose-300",
+    label: "text-foreground/90",
+    value: "text-rose-400",
     topBar: "linear-gradient(to right,#881337,#e11d48,#fda4af)",
   },
   amber: {
     bar: "linear-gradient(to right,#d97706,#fbbf24)",
     barBg: "bg-amber-100 dark:bg-amber-950/30",
     rank: "text-amber-600 dark:text-amber-400",
-    rankBg: "bg-amber-50 dark:bg-amber-900/40",
+    rankBg: "bg-amber-500/10",
     dot: "bg-amber-400",
-    label: "text-zinc-700 dark:text-zinc-200",
+    label: "text-foreground/90",
     value: "text-amber-700 dark:text-amber-300",
     topBar: "linear-gradient(to right,#92400e,#d97706,#fcd34d)",
   },
@@ -96,7 +96,7 @@ const accents: Record<
     rank: "text-indigo-600 dark:text-indigo-400",
     rankBg: "bg-indigo-50 dark:bg-indigo-900/40",
     dot: "bg-indigo-400",
-    label: "text-zinc-700 dark:text-zinc-200",
+    label: "text-foreground/90",
     value: "text-indigo-700 dark:text-indigo-300",
     topBar: "linear-gradient(to right,#1e1b4b,#4338ca,#a5b4fc)",
   },
@@ -136,15 +136,15 @@ export function RankingCard({
   const max = Math.max(...currentItems.map((i) => i.value), 1);
 
   return (
-    <div className="bg-card dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+    <div className="bg-card dark:bg-zinc-900 rounded-xl border border-border shadow-sm overflow-hidden">
       {/* Header */}
       <div className="px-5 pt-5 pb-4 flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800">
         <div>
-          <h3 className="text-sm font-medium dark:font-medium text-zinc-900 dark:text-zinc-100 tracking-tight">
+          <h3 className="text-sm font-medium dark:font-medium text-foreground tracking-tight">
             {title}
           </h3>
           {subtitle && (
-            <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
+            <p className="text-xs text-zinc-400 dark:text-muted-foreground mt-0.5">
               {subtitle}
             </p>
           )}
@@ -152,13 +152,13 @@ export function RankingCard({
 
         {/* ✅ SELETOR (Só aparece se você passar os itemsPrevisto/itemsExecutado lá no page.tsx) */}
         {hasToggle && (
-          <div className="flex bg-zinc-100 dark:bg-zinc-950/50 p-1 rounded-lg border border-zinc-200 dark:border-zinc-800 shrink-0">
+          <div className="flex bg-black/20 p-1 rounded-lg border border-border shrink-0">
             <button
               onClick={() => setView("previsto")}
               className={`px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider rounded-md transition-all ${
                 view === "previsto"
-                  ? "bg-card dark:bg-zinc-800 text-zinc-800 dark:text-white shadow-sm"
-                  : "text-zinc-500 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                  ? "bg-card dark:bg-zinc-800 text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground/90 dark:hover:text-zinc-300"
               }`}
             >
               Previsto
@@ -167,8 +167,8 @@ export function RankingCard({
               onClick={() => setView("executado")}
               className={`px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider rounded-md transition-all ${
                 view === "executado"
-                  ? "bg-card dark:bg-zinc-800 text-zinc-800 dark:text-white shadow-sm"
-                  : "text-zinc-500 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                  ? "bg-card dark:bg-zinc-800 text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground/90 dark:hover:text-zinc-300"
               }`}
             >
               Executado
@@ -180,7 +180,7 @@ export function RankingCard({
       {/* Items */}
       <div className="px-5 py-4 space-y-3">
         {currentItems.length === 0 && (
-          <p className="text-zinc-400 dark:text-zinc-600 text-sm py-2">
+          <p className="text-zinc-400 dark:text-muted-foreground text-sm py-2">
             Sem dados {view === "previsto" ? "previstos" : "executados"}.
           </p>
         )}
@@ -218,7 +218,7 @@ export function RankingCard({
                     <img
                       src={item.logo_url}
                       alt=""
-                      className="w-5 h-5 rounded-md object-cover border border-zinc-200 dark:border-zinc-800 shrink-0"
+                      className="w-5 h-5 rounded-md object-cover border border-border shrink-0"
                     />
                   )}
                   <span

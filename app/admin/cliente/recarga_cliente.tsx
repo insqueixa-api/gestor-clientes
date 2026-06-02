@@ -1616,7 +1616,7 @@ export default function RecargaCliente({
             {/* ... conteúdo do header ... */}
             <div className="flex items-center gap-3">
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center ${isFromTrial ? "bg-sky-100 text-sky-600" : "bg-emerald-100 text-emerald-600"} dark:bg-white/5`}
+                className={`w-8 h-8 rounded-full flex items-center justify-center ${isFromTrial ? "bg-sky-500/20 text-sky-400" : "bg-emerald-100 text-emerald-400"} dark:bg-card/5`}
               >
                 {isFromTrial ? (
                   <svg
@@ -1660,7 +1660,7 @@ export default function RecargaCliente({
             </div>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-muted-foreground/80 hover:text-foreground hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+              className="p-1.5 rounded-lg text-muted-foreground/80 hover:text-foreground hover:bg-black/20 dark:hover:bg-card/10 transition-colors"
             >
               <IconX />
             </button>
@@ -1694,7 +1694,7 @@ export default function RecargaCliente({
                     <button
                       type="button"
                       onClick={() => setDueTime("23:59")}
-                      className="px-3 h-10 rounded-lg bg-card dark:bg-white/5 border border-border text-xs font-medium text-muted-foreground hover:text-emerald-600 hover:border-emerald-500/50 transition-all"
+                      className="px-3 h-10 rounded-lg bg-card dark:bg-card/5 border border-border text-xs font-medium text-muted-foreground hover:text-emerald-400 hover:border-emerald-500/50 transition-all"
                     >
                       23:59
                     </button>
@@ -1704,12 +1704,12 @@ export default function RecargaCliente({
             </div>
 
             {/* 2. SEÇÃO PLANO & FINANCEIRO (Unificado Visualmente ou Estilo Card NovoCliente) */}
-            <div className="bg-card dark:bg-white/5 border border-border rounded-xl p-3 sm:p-4 space-y-4">
+            <div className="bg-card dark:bg-card/5 border border-border rounded-xl p-3 sm:p-4 space-y-4">
               {/* 3. SEÇÃO FINANCEIRO */}
               <div className="bg-card dark:bg-black/20 border border-border rounded-xl p-3 sm:p-4 shadow-sm">
                 {/* HEADER FINANCEIRO - ✅ IGUAL NOVO CLIENTE */}
-                <div className="flex justify-between items-center gap-3 border-b border-slate-100 dark:border-border pb-3 mb-3">
-                  <span className="text-xs font-medium uppercase text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                <div className="flex justify-between items-center gap-3 border-b border-border pb-3 mb-3">
+                  <span className="text-xs font-medium uppercase text-emerald-400 flex items-center gap-1">
                     💰 Financeiro
                   </span>
                   <div className="flex items-center gap-2">
@@ -1774,7 +1774,7 @@ export default function RecargaCliente({
                 </div>
                 <div>
                   <Label>Créditos</Label>
-                  <div className="h-10 w-full bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 rounded-lg flex items-center justify-center text-sm font-medium text-blue-700 dark:text-blue-300">
+                  <div className="h-10 w-full bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 rounded-lg flex items-center justify-center text-sm font-medium text-blue-400">
                     {creditsInfo ? creditsInfo.used : "-"}
                   </div>
                 </div>
@@ -1784,7 +1784,7 @@ export default function RecargaCliente({
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <Label>Moeda</Label>
-                  <div className="h-10 w-full bg-slate-100 dark:bg-black/30 border border-border rounded-lg flex items-center justify-center text-sm font-medium text-foreground/90">
+                  <div className="h-10 w-full bg-black/20 border border-border rounded-lg flex items-center justify-center text-sm font-medium text-foreground/90">
                     {currency}
                   </div>
                 </div>
@@ -1804,7 +1804,7 @@ export default function RecargaCliente({
 
               {/* CÂMBIO (Se houver) */}
               {showFx && (
-                <div className="p-3 bg-sky-50 dark:bg-sky-500/10 rounded-lg border border-sky-100 dark:border-sky-500/20 grid grid-cols-2 gap-3">
+                <div className="p-3 bg-sky-500/10 rounded-lg border border-sky-500/20 grid grid-cols-2 gap-3">
                   <div>
                     <Label>Câmbio</Label>
                     <input
@@ -1812,12 +1812,12 @@ export default function RecargaCliente({
                       step="0.0001"
                       value={Number(fxRate || 0).toFixed(4)}
                       onChange={(e) => setFxRate(Number(e.target.value))}
-                      className="w-full h-9 px-3 bg-card dark:bg-black/30 border border-sky-200 dark:border-sky-500/20 rounded text-sm outline-none dark:text-white"
+                      className="w-full h-9 px-3 bg-card dark:bg-black/30 border border-sky-500/30 rounded text-sm outline-none dark:text-white"
                     />
                   </div>
                   <div>
                     <Label>Total BRL</Label>
-                    <div className="w-full h-9 flex items-center justify-center bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/20 rounded text-emerald-800 dark:text-emerald-200 font-medium">
+                    <div className="w-full h-9 flex items-center justify-center bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/20 rounded text-emerald-400 font-medium">
                       {fmtMoney("BRL", totalBrl)}
                     </div>
                   </div>
@@ -1828,10 +1828,10 @@ export default function RecargaCliente({
               {Boolean(allowConvertWithoutPayment) && (
                 <div
                   onClick={() => setRegisterPayment(!registerPayment)}
-                  className={`cursor-pointer p-2.5 rounded-lg border transition-all flex items-center justify-between ${registerPayment ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20" : "bg-muted/50 border-border dark:bg-white/5 dark:border-border"}`}
+                  className={`cursor-pointer p-2.5 rounded-lg border transition-all flex items-center justify-between ${registerPayment ? "bg-emerald-500/10 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20" : "bg-muted/50 border-border dark:bg-card/5 dark:border-border"}`}
                 >
                   <span
-                    className={`text-xs font-medium ${registerPayment ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground"}`}
+                    className={`text-xs font-medium ${registerPayment ? "text-emerald-400" : "text-muted-foreground"}`}
                   >
                     Registrar Pagamento?
                   </span>
@@ -1844,7 +1844,7 @@ export default function RecargaCliente({
               )}
 
               {registerPayment && (
-                <div className="bg-muted/50 p-3 rounded-lg border border-slate-100 dark:border-border animate-in slide-in-from-top-2">
+                <div className="bg-muted/50 p-3 rounded-lg border border-border animate-in slide-in-from-top-2">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label>Método</Label>
@@ -1881,8 +1881,8 @@ export default function RecargaCliente({
                 }
                 className={`p-3 rounded-xl border transition-all cursor-pointer ${
                   renewAutomatic
-                    ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20"
-                    : "bg-muted/50 border-border dark:bg-white/5 dark:border-border"
+                    ? "bg-emerald-500/10 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20"
+                    : "bg-muted/50 border-border dark:bg-card/5 dark:border-border"
                 } ${!hasIntegration ? "opacity-50 cursor-not-allowed" : ""}`}
               >
                 <div className="flex items-center justify-between gap-3">
@@ -1892,7 +1892,7 @@ export default function RecargaCliente({
                     </span>
                     <div>
                       <span
-                        className={`text-xs font-medium block ${renewAutomatic ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground"}`}
+                        className={`text-xs font-medium block ${renewAutomatic ? "text-emerald-400" : "text-muted-foreground"}`}
                       >
                         Renovação Automática
                       </span>
@@ -1921,7 +1921,7 @@ export default function RecargaCliente({
                   {/* Botão de Ligar/Desligar Envio */}
                   <div
                     onClick={() => setSendWhats(!sendWhats)}
-                    className="h-10 px-3 bg-card dark:bg-white/5 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors flex items-center justify-between"
+                    className="h-10 px-3 bg-card dark:bg-card/5 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors flex items-center justify-between"
                   >
                     <span className="text-[11px] font-medium text-muted-foreground dark:text-muted-foreground tracking-tight">
                       Enviar Mensagem?
@@ -2004,10 +2004,10 @@ export default function RecargaCliente({
           </div>
 
           {/* FOOTER */}
-          <div className="px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-slate-100 dark:border-border bg-muted/50 flex justify-end gap-3 rounded-b-xl shrink-0">
+          <div className="px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-border bg-muted/50 flex justify-end gap-3 rounded-b-xl shrink-0">
             <button
               onClick={onClose}
-              className="px-5 py-2.5 rounded-xl border border-border text-muted-foreground dark:text-white/60 font-medium text-sm hover:bg-card dark:hover:bg-white/10 transition-all"
+              className="px-5 py-2.5 rounded-xl border border-border text-muted-foreground dark:text-white/60 font-medium text-sm hover:bg-card dark:hover:bg-card/10 transition-all"
             >
               Cancelar
             </button>
@@ -2173,7 +2173,7 @@ function Switch({
         className={`relative w-12 h-7 rounded-full transition-colors border ${
           checked
             ? "bg-emerald-600 border-emerald-600"
-            : "bg-slate-200 dark:bg-white/10 border-border dark:border-border"
+            : "bg-black/30 border-border dark:border-border"
         }`}
         aria-pressed={checked}
       >

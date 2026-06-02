@@ -1203,7 +1203,7 @@ export default function ProfileSettingsPage() {
           <div className="relative">
             <button
               onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
-              className="h-9 w-9 shrink-0 rounded-xl border font-medium text-xs flex items-center justify-center bg-card border-border text-muted-foreground dark:text-muted-foreground hover:bg-muted/50 dark:hover:bg-white/5 transition-all shadow-sm"
+              className="h-9 w-9 shrink-0 rounded-xl border font-medium text-xs flex items-center justify-center bg-card border-border text-muted-foreground dark:text-muted-foreground hover:bg-muted/50 dark:hover:bg-card/5 transition-all shadow-sm"
               title="Configurações"
             >
               <Settings className="w-4 h-4" />
@@ -1217,7 +1217,7 @@ export default function ProfileSettingsPage() {
                 />
                 <div className="absolute right-0 top-full mt-2 w-56 bg-card dark:bg-[#1e2530] border border-border rounded-xl shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-200">
                   {/* Tema */}
-                  <div className="px-3 py-2.5 border-b border-slate-100 dark:border-border">
+                  <div className="px-3 py-2.5 border-b border-border">
                     <p className="text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-2">
                       Tema do Sistema
                     </p>
@@ -1227,7 +1227,7 @@ export default function ProfileSettingsPage() {
                           setTheme("light");
                           setShowSettingsDropdown(false);
                         }}
-                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${theme !== "dark" ? "bg-slate-100 text-foreground" : "text-muted-foreground dark:text-muted-foreground hover:bg-white/5"}`}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${theme !== "dark" ? "bg-black/20 text-foreground" : "text-muted-foreground dark:text-muted-foreground hover:bg-card/5"}`}
                       >
                         <svg
                           width="12"
@@ -1254,7 +1254,7 @@ export default function ProfileSettingsPage() {
                           setTheme("dark");
                           setShowSettingsDropdown(false);
                         }}
-                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${theme === "dark" ? "bg-white/10 text-white" : "text-muted-foreground hover:bg-muted/50"}`}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${theme === "dark" ? "bg-card/10 text-white" : "text-muted-foreground hover:bg-muted/50"}`}
                       >
                         <svg
                           width="12"
@@ -1277,7 +1277,7 @@ export default function ProfileSettingsPage() {
                       setShowSettingsDropdown(false);
                       setIsEditing(true);
                     }}
-                    className="w-full text-left px-3 py-2.5 text-xs font-medium text-muted-foreground dark:text-white/80 hover:bg-muted/50 dark:hover:bg-white/5 flex items-center gap-2.5 transition-colors border-b border-slate-100 dark:border-border"
+                    className="w-full text-left px-3 py-2.5 text-xs font-medium text-muted-foreground dark:text-white/80 hover:bg-muted/50 dark:hover:bg-card/5 flex items-center gap-2.5 transition-colors border-b border-border"
                   >
                     <Pencil className="w-4 h-4" />
                     Editar Perfil
@@ -1291,7 +1291,7 @@ export default function ProfileSettingsPage() {
                         setIsEditing(true);
                         setShowSettingsDropdown(false);
                       }}
-                      className="w-full text-left px-3 py-2.5 text-xs font-medium text-muted-foreground dark:text-white/80 hover:bg-muted/50 dark:hover:bg-white/5 flex items-center gap-2.5 transition-colors border-b border-slate-100 dark:border-border"
+                      className="w-full text-left px-3 py-2.5 text-xs font-medium text-muted-foreground dark:text-white/80 hover:bg-muted/50 dark:hover:bg-card/5 flex items-center gap-2.5 transition-colors border-b border-border"
                     >
                       <svg
                         width="14"
@@ -1311,7 +1311,7 @@ export default function ProfileSettingsPage() {
                         setIsEditing(true);
                         setShowSettingsDropdown(false);
                       }}
-                      className="w-full text-left px-3 py-2.5 text-xs font-medium text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 flex items-center gap-2.5 transition-colors border-b border-slate-100 dark:border-border"
+                      className="w-full text-left px-3 py-2.5 text-xs font-medium text-rose-500 hover:bg-rose-500/10 dark:hover:bg-rose-500/10 flex items-center gap-2.5 transition-colors border-b border-border"
                     >
                       <svg
                         width="14"
@@ -1332,7 +1332,7 @@ export default function ProfileSettingsPage() {
                       setShowSettingsDropdown(false);
                       handleResetPassword();
                     }}
-                    className="w-full text-left px-3 py-2.5 text-xs font-medium text-muted-foreground dark:text-white/80 hover:bg-muted/50 dark:hover:bg-white/5 flex items-center gap-2.5 transition-colors"
+                    className="w-full text-left px-3 py-2.5 text-xs font-medium text-muted-foreground dark:text-white/80 hover:bg-muted/50 dark:hover:bg-card/5 flex items-center gap-2.5 transition-colors"
                   >
                     <svg
                       width="14"
@@ -1363,7 +1363,7 @@ export default function ProfileSettingsPage() {
           <div
             className={`bg-card border-y sm:border border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-6 transition-all ${isEditing ? "ring-1 ring-emerald-500/20" : ""}`}
           >
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-border pb-3">
+            <div className="flex items-center justify-between border-b border-border pb-3">
               <h3 className="text-xs font-medium text-muted-foreground/80 dark:text-white/30 uppercase tracking-widest">
                 Dados Cadastrais
               </h3>
@@ -1404,7 +1404,7 @@ export default function ProfileSettingsPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
               <div>
                 <Label>País</Label>
-                <div className="h-11 px-3 bg-slate-100 dark:bg-black/30 border border-border rounded-xl flex items-center text-xs font-medium text-foreground/90 truncate">
+                <div className="h-11 px-3 bg-black/20 border border-border rounded-xl flex items-center text-xs font-medium text-foreground/90 truncate">
                   {phonePrettyPrefix || "—"}
                 </div>
               </div>
@@ -1425,7 +1425,7 @@ export default function ProfileSettingsPage() {
                     type="button"
                     onClick={handlePhoneDone}
                     disabled={!isEditing}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg bg-slate-100 dark:bg-white/10 text-muted-foreground hover:text-emerald-500 transition-colors flex items-center justify-center font-medium"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg bg-black/20 text-muted-foreground hover:text-emerald-500 transition-colors flex items-center justify-center font-medium"
                   >
                     ✓
                   </button>
@@ -1450,7 +1450,7 @@ export default function ProfileSettingsPage() {
                       href={`https://wa.me/${whatsappUsername}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 hover:text-emerald-600"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 hover:text-emerald-400"
                       title="Abrir conversa"
                     >
                       <svg
@@ -1466,7 +1466,7 @@ export default function ProfileSettingsPage() {
                 </div>
                 {waValidation && (
                   <div
-                    className={`mt-1.5 flex items-center gap-1.5 text-[10px] font-medium ${waValidation.loading ? "text-muted-foreground/80" : waValidation.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}
+                    className={`mt-1.5 flex items-center gap-1.5 text-[10px] font-medium ${waValidation.loading ? "text-muted-foreground/80" : waValidation.exists ? "text-emerald-400" : "text-rose-500"}`}
                   >
                     {waValidation.loading ? (
                       <>
@@ -1532,7 +1532,7 @@ export default function ProfileSettingsPage() {
 
           {/* CARD 2 DINÂMICO: SAÚDE OU PLANILHAS */}
           <div className="bg-card border-y sm:border border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-6 animate-in fade-in duration-300">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-border pb-3">
+            <div className="flex items-center justify-between border-b border-border pb-3">
               <h3 className="text-xs font-medium text-muted-foreground/80 dark:text-white/30 uppercase tracking-widest">
                 Saúde &amp; Avaliações
               </h3>
@@ -1606,7 +1606,7 @@ export default function ProfileSettingsPage() {
                         weight: "",
                       });
                     }}
-                    className="flex-1 h-10 border border-border text-muted-foreground font-medium rounded-xl text-xs hover:bg-muted/50 dark:hover:bg-white/5 transition-colors"
+                    className="flex-1 h-10 border border-border text-muted-foreground font-medium rounded-xl text-xs hover:bg-muted/50 dark:hover:bg-card/5 transition-colors"
                   >
                     Cancelar
                   </button>
@@ -1643,7 +1643,7 @@ export default function ProfileSettingsPage() {
                         return (
                           <div
                             key={record.id}
-                            className={`items-center gap-3 p-3 rounded-xl border transition-colors group ${isNewest ? "border-emerald-200 dark:border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/5" : "border-slate-100 dark:border-border bg-muted/50/50 dark:bg-black/10"} ${hideOnMobile ? "hidden xl:flex" : "flex"}`}
+                            className={`items-center gap-3 p-3 rounded-xl border transition-colors group ${isNewest ? "border-emerald-200 dark:border-emerald-500/20 bg-emerald-500/10/50 dark:bg-emerald-500/5" : "border-border bg-muted/50/50 dark:bg-black/10"} ${hideOnMobile ? "hidden xl:flex" : "flex"}`}
                           >
                             {/* Data em bloco */}
                             <div className="shrink-0 text-center w-10">
@@ -1666,7 +1666,7 @@ export default function ProfileSettingsPage() {
                                 ).getFullYear()}
                               </p>
                             </div>
-                            <div className="w-px h-9 bg-slate-200 dark:bg-white/10 shrink-0" />
+                            <div className="w-px h-9 bg-black/30 shrink-0" />
 
                             {/* Métricas */}
                             <div className="flex-1 min-w-0 flex flex-wrap items-center gap-2">
@@ -1681,7 +1681,7 @@ export default function ProfileSettingsPage() {
                                 </span>
                               )}
                               {isNewest && (
-                                <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full">
+                                <span className="text-[10px] font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full">
                                   Mais recente
                                 </span>
                               )}
@@ -1699,7 +1699,7 @@ export default function ProfileSettingsPage() {
                                   });
                                   setShowHealthForm(true);
                                 }}
-                                className="w-7 h-7 rounded-lg bg-card dark:bg-white/5 border border-border flex items-center justify-center text-muted-foreground/80 hover:text-amber-500 transition-colors"
+                                className="w-7 h-7 rounded-lg bg-card dark:bg-card/5 border border-border flex items-center justify-center text-muted-foreground/80 hover:text-amber-500 transition-colors"
                               >
                                 <Pencil className="w-4 h-4" />
                               </button>
@@ -1708,7 +1708,7 @@ export default function ProfileSettingsPage() {
                                 onClick={() =>
                                   void handleDeleteHealthRecord(record.id)
                                 }
-                                className="w-7 h-7 rounded-lg bg-card dark:bg-white/5 border border-border flex items-center justify-center text-muted-foreground/80 hover:text-rose-500 transition-colors"
+                                className="w-7 h-7 rounded-lg bg-card dark:bg-card/5 border border-border flex items-center justify-center text-muted-foreground/80 hover:text-rose-500 transition-colors"
                               >
                                 <svg
                                   width="11"
@@ -1827,7 +1827,7 @@ export default function ProfileSettingsPage() {
                   hasImc && hasRef ? scaleY(idealImcMin, imcs, ROW_H) : null;
 
                 return (
-                  <div className="pt-4 border-t border-slate-100 dark:border-border">
+                  <div className="pt-4 border-t border-border">
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4">
                       <div>
                         <Label>Histórico de Composição</Label>
@@ -1853,7 +1853,7 @@ export default function ProfileSettingsPage() {
                         </div>
                       </div>
                       {hasRef && idealWMin && (
-                        <span className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full shrink-0">
+                        <span className="text-[10px] font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full shrink-0">
                           <Target className="w-4 h-4 inline-block mr-1.5 text-emerald-500" />{" "}
                           Peso ideal: {idealWMin}–{idealWMax} kg · IMC 18,5–24,9
                         </span>
@@ -1912,7 +1912,7 @@ export default function ProfileSettingsPage() {
                                       <b
                                         className={
                                           diffFirst < 0
-                                            ? "text-emerald-600 dark:text-emerald-400"
+                                            ? "text-emerald-400"
                                             : diffFirst > 0
                                               ? "text-rose-500"
                                               : "text-muted-foreground/80"
@@ -1930,7 +1930,7 @@ export default function ProfileSettingsPage() {
                                       <b
                                         className={
                                           diffPrev < 0
-                                            ? "text-emerald-600 dark:text-emerald-400"
+                                            ? "text-emerald-400"
                                             : diffPrev > 0
                                               ? "text-rose-500"
                                               : "text-muted-foreground/80"
@@ -2200,14 +2200,14 @@ export default function ProfileSettingsPage() {
         <div className="space-y-6">
           {/* PAINEL SESSÃO 1 */}
           <div className="bg-card border-y sm:border border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-border pb-2">
+            <div className="flex items-center justify-between border-b border-border pb-2">
               <h3 className="text-xs font-medium text-muted-foreground/80 dark:text-white/30 uppercase tracking-widest">
                 WhatsApp — Instância 1
               </h3>
             </div>
 
             {!canPairWhatsApp ? (
-              <div className="p-3 rounded-lg bg-amber-50 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 text-xs text-center font-medium">
+              <div className="p-3 rounded-lg bg-amber-500/10 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 text-xs text-center font-medium">
                 Aguardando login estrutural.
               </div>
             ) : (
@@ -2231,7 +2231,7 @@ export default function ProfileSettingsPage() {
                           type="button"
                           onClick={() => void refreshWhatsAppPanel()}
                           disabled={waLoading}
-                          className="w-8 h-8 rounded-lg bg-card dark:bg-white/5 border border-border flex items-center justify-center text-muted-foreground hover:text-emerald-600 transition-colors shadow-sm disabled:opacity-50"
+                          className="w-8 h-8 rounded-lg bg-card dark:bg-card/5 border border-border flex items-center justify-center text-muted-foreground hover:text-emerald-400 transition-colors shadow-sm disabled:opacity-50"
                           title="Sincronizar"
                         >
                           {waLoading ? (
@@ -2253,7 +2253,7 @@ export default function ProfileSettingsPage() {
                           <button
                             type="button"
                             onClick={() => setShowWa1Settings(true)}
-                            className="w-8 h-8 rounded-lg bg-card dark:bg-white/5 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground dark:hover:text-white transition-colors shadow-sm"
+                            className="w-8 h-8 rounded-lg bg-card dark:bg-card/5 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground dark:hover:text-white transition-colors shadow-sm"
                             title="Configurações de Chamada"
                           >
                             <svg
@@ -2272,7 +2272,7 @@ export default function ProfileSettingsPage() {
                       </div>
 
                       {/* ✅ Círculo — só foto de perfil, QR foi movido para baixo */}
-                      <div className="w-24 h-24 sm:w-28 sm:h-28 shrink-0 rounded-full bg-card border-4 border-slate-100 dark:border-border overflow-hidden flex items-center justify-center shadow-sm">
+                      <div className="w-24 h-24 sm:w-28 sm:h-28 shrink-0 rounded-full bg-card border-4 border-border overflow-hidden flex items-center justify-center shadow-sm">
                         {waProfilePicUrl ? (
                           <img
                             src={waProfilePicUrl}
@@ -2314,7 +2314,7 @@ export default function ProfileSettingsPage() {
                             Status:
                           </span>
                           <span
-                            className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm border ${waConnected ? "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400" : "bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400"}`}
+                            className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm border ${waConnected ? "bg-emerald-500/10 text-emerald-400 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400" : "bg-rose-500/10 text-rose-400 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400"}`}
                           >
                             {waConnected ? "On-line" : "Off-line"}
                           </span>
@@ -2324,13 +2324,13 @@ export default function ProfileSettingsPage() {
 
                     {/* ✅ QR Code grande — aparece abaixo do card quando offline */}
                     {waQrDataUrl && !waConnected && (
-                      <div className="flex flex-col items-center gap-2 p-3 rounded-xl border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/5">
+                      <div className="flex flex-col items-center gap-2 p-3 rounded-xl border border-emerald-200 dark:border-emerald-500/20 bg-emerald-500/10">
                         <img
                           src={waQrDataUrl}
                           alt="QR Code WhatsApp"
                           className="w-52 h-52 rounded-xl object-contain"
                         />
-                        <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium text-center">
+                        <p className="text-[11px] text-emerald-400 font-medium text-center">
                           📱 Escaneie com o WhatsApp
                         </p>
                       </div>
@@ -2341,7 +2341,7 @@ export default function ProfileSettingsPage() {
                         type="button"
                         onClick={() => void handleReconnectWhatsApp()}
                         disabled={waReconnecting}
-                        className="flex-1 py-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400 font-medium text-xs hover:bg-amber-100 transition-colors shadow-sm"
+                        className="flex-1 py-2 rounded-xl bg-amber-500/10 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400 font-medium text-xs hover:bg-amber-100 transition-colors shadow-sm"
                       >
                         <RefreshCcw className="w-4 h-4 mr-1.5 inline-block" />{" "}
                         Reiniciar
@@ -2350,7 +2350,7 @@ export default function ProfileSettingsPage() {
                         <button
                           type="button"
                           onClick={() => void handleDisconnectWhatsApp()}
-                          className="flex-1 py-2 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400 font-medium text-xs hover:bg-rose-100 transition-colors shadow-sm"
+                          className="flex-1 py-2 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400 font-medium text-xs hover:bg-rose-500/20 transition-colors shadow-sm"
                         >
                           <Plug className="w-4 h-4 mr-1.5 inline-block" />{" "}
                           Desconectar
@@ -2378,7 +2378,7 @@ export default function ProfileSettingsPage() {
 
           {/* CARD IMPORT / EXPORT */}
           <div className="bg-card border-y sm:border border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-border pb-3">
+            <div className="flex items-center justify-between border-b border-border pb-3">
               <h3 className="text-xs font-medium text-muted-foreground/80 dark:text-white/30 uppercase tracking-widest">
                 Dados &amp; Planilhas
               </h3>
@@ -2386,7 +2386,7 @@ export default function ProfileSettingsPage() {
                 type="button"
                 onClick={() => setActionModal("template")}
                 disabled={!tenantId}
-                className="flex items-center gap-1.5 h-8 px-2 sm:px-3 rounded-xl border border-border bg-muted/50 text-muted-foreground dark:text-muted-foreground hover:bg-slate-100 dark:hover:bg-white/10 transition-all"
+                className="flex items-center gap-1.5 h-8 px-2 sm:px-3 rounded-xl border border-border bg-muted/50 text-muted-foreground dark:text-muted-foreground hover:bg-black/20 dark:hover:bg-card/10 transition-all"
                 title="Baixar Templates"
               >
                 <svg
@@ -2411,7 +2411,7 @@ export default function ProfileSettingsPage() {
                 type="button"
                 onClick={() => setActionModal("export")}
                 disabled={!tenantId || exporting}
-                className="flex-1 h-11 px-3 rounded-xl border border-border bg-muted/50 font-medium text-xs text-foreground/90 hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+                className="flex-1 h-11 px-3 rounded-xl border border-border bg-muted/50 font-medium text-xs text-foreground/90 hover:bg-black/20 dark:hover:bg-card/10 transition-all flex items-center justify-center gap-2"
               >
                 <svg
                   width="14"
@@ -2440,7 +2440,7 @@ export default function ProfileSettingsPage() {
                   importingMessage ||
                   importingServer
                 }
-                className="flex-1 h-11 px-3 rounded-xl border border-border bg-muted/50 font-medium text-xs text-foreground/90 hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+                className="flex-1 h-11 px-3 rounded-xl border border-border bg-muted/50 font-medium text-xs text-foreground/90 hover:bg-black/20 dark:hover:bg-card/10 transition-all flex items-center justify-center gap-2"
               >
                 <svg
                   width="14"
@@ -2626,7 +2626,7 @@ export default function ProfileSettingsPage() {
                     setActionModal(null);
                     item.act();
                   }}
-                  className="w-full text-left text-xs p-3 font-semibold rounded-lg border border-border bg-muted/50 hover:bg-slate-100 dark:hover:bg-white/10 text-foreground/90 transition-colors flex items-center gap-2"
+                  className="w-full text-left text-xs p-3 font-semibold rounded-lg border border-border bg-muted/50 hover:bg-black/20 dark:hover:bg-card/10 text-foreground/90 transition-colors flex items-center gap-2"
                 >
                   <span>{item.icon}</span> {item.n}
                 </button>
@@ -2663,7 +2663,7 @@ export default function ProfileSettingsPage() {
                 <button
                   type="button"
                   onClick={() => setShowWa1Settings(false)}
-                  className="shrink-0 w-8 h-8 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-muted-foreground hover:text-foreground dark:hover:text-white text-lg leading-none transition-colors"
+                  className="shrink-0 w-8 h-8 rounded-xl bg-black/20 flex items-center justify-center text-muted-foreground hover:text-foreground dark:hover:text-white text-lg leading-none transition-colors"
                 >
                   ×
                 </button>
@@ -2675,7 +2675,7 @@ export default function ProfileSettingsPage() {
                 <button
                   type="button"
                   onClick={() => setWaRejectCalls((v) => !v)}
-                  className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 overflow-hidden ${waRejectCalls ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}
+                  className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 overflow-hidden ${waRejectCalls ? "bg-emerald-500" : "bg-slate-300 dark:bg-card/20"}`}
                 >
                   <span
                     className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-card shadow-sm transition-transform duration-200 ${waRejectCalls ? "translate-x-5" : "translate-x-0"}`}
@@ -2696,7 +2696,7 @@ export default function ProfileSettingsPage() {
                           key={tag}
                           type="button"
                           onClick={() => setWaRejectMessage((v) => v + tag)}
- className="text-[10px] px-2 py-0.5 rounded border border-border bg-card dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-muted-foreground dark:text-white transition-colors"
+ className="text-[10px] px-2 py-0.5 rounded border border-border bg-card dark:bg-card/5 hover:bg-emerald-500/10 dark:hover:bg-emerald-900/20 text-muted-foreground dark:text-white transition-colors"
                         >
                           {tag}
                         </button>
@@ -2732,7 +2732,7 @@ export default function ProfileSettingsPage() {
                             ...waAllowedList,
                           ])
                         }
-                        className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 hover:underline"
+                        className="text-[10px] font-medium text-emerald-400 hover:underline"
                       >
                         + Adicionar
                       </button>
@@ -2790,7 +2790,7 @@ export default function ProfileSettingsPage() {
                                     prev.filter((r) => r.id !== row.id),
                                   )
                                 }
-                                className="w-8 h-8 flex items-center justify-center text-rose-500 bg-card border border-border rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
+                                className="w-8 h-8 flex items-center justify-center text-rose-500 bg-card border border-border rounded-lg hover:bg-rose-500/10 dark:hover:bg-rose-500/10 transition-colors"
                               >
                                 <svg
                                   width="14"
@@ -2831,11 +2831,11 @@ export default function ProfileSettingsPage() {
                 </div>
               )}
 
-              <div className="flex gap-3 pt-2 border-t border-slate-100 dark:border-border mt-4">
+              <div className="flex gap-3 pt-2 border-t border-border mt-4">
                 <button
                   type="button"
                   onClick={() => setShowWa1Settings(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-border text-muted-foreground dark:text-muted-foreground/80 font-medium text-xs hover:bg-muted/50 dark:hover:bg-white/5 transition-colors"
+                  className="flex-1 py-2.5 rounded-xl border border-border text-muted-foreground dark:text-muted-foreground/80 font-medium text-xs hover:bg-muted/50 dark:hover:bg-card/5 transition-colors"
                 >
                   Cancelar
                 </button>
@@ -3060,7 +3060,7 @@ function WhatsAppSession2Panel({
 
   return (
     <div className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-4 animate-in fade-in">
-      <div className="flex items-center justify-between border-b border-slate-100 dark:border-border pb-2">
+      <div className="flex items-center justify-between border-b border-border pb-2">
         <h3 className="text-xs font-medium text-muted-foreground/80 dark:text-white/30 uppercase tracking-widest">
           WhatsApp — Instância 2
         </h3>
@@ -3093,7 +3093,7 @@ function WhatsAppSession2Panel({
                   type="button"
                   onClick={() => void refreshPanel()}
                   disabled={waLoading}
-                  className="w-8 h-8 rounded-lg bg-card dark:bg-white/5 border border-border flex items-center justify-center text-muted-foreground hover:text-emerald-600 transition-colors shadow-sm disabled:opacity-50"
+                  className="w-8 h-8 rounded-lg bg-card dark:bg-card/5 border border-border flex items-center justify-center text-muted-foreground hover:text-emerald-400 transition-colors shadow-sm disabled:opacity-50"
                   title="Sincronizar"
                 >
                   {waLoading ? (
@@ -3115,7 +3115,7 @@ function WhatsAppSession2Panel({
                   <button
                     type="button"
                     onClick={() => setShowWa2Settings(true)}
-                    className="w-8 h-8 rounded-lg bg-card dark:bg-white/5 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground dark:hover:text-white transition-colors shadow-sm"
+                    className="w-8 h-8 rounded-lg bg-card dark:bg-card/5 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground dark:hover:text-white transition-colors shadow-sm"
                     title="Configurações"
                   >
                     <svg
@@ -3133,7 +3133,7 @@ function WhatsAppSession2Panel({
                 )}
               </div>
 
-              <div className="w-24 h-24 sm:w-28 sm:h-28 shrink-0 rounded-full bg-card border-4 border-slate-100 dark:border-border overflow-hidden flex items-center justify-center shadow-sm">
+              <div className="w-24 h-24 sm:w-28 sm:h-28 shrink-0 rounded-full bg-card border-4 border-border overflow-hidden flex items-center justify-center shadow-sm">
                 {waProfilePicUrl ? (
                   <img
                     src={waProfilePicUrl}
@@ -3181,7 +3181,7 @@ function WhatsAppSession2Panel({
                     Status:
                   </span>
                   <span
-                    className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm border ${waConnected ? "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400" : "bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400"}`}
+                    className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm border ${waConnected ? "bg-emerald-500/10 text-emerald-400 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400" : "bg-rose-500/10 text-rose-400 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400"}`}
                   >
                     {waConnected ? "On-line" : "Off-line"}
                   </span>
@@ -3194,7 +3194,7 @@ function WhatsAppSession2Panel({
                 type="button"
                 onClick={() => void handleReconnect()}
                 disabled={isReconnecting}
-                className="flex-1 py-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400 font-medium text-xs hover:bg-amber-100 transition-colors shadow-sm"
+                className="flex-1 py-2 rounded-xl bg-amber-500/10 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400 font-medium text-xs hover:bg-amber-100 transition-colors shadow-sm"
               >
                 <RefreshCcw className="w-4 h-4 mr-1.5 inline-block" /> Reiniciar
               </button>
@@ -3202,7 +3202,7 @@ function WhatsAppSession2Panel({
                 <button
                   type="button"
                   onClick={() => void handleDisconnect()}
-                  className="flex-1 py-2 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400 font-medium text-xs hover:bg-rose-100 transition-colors shadow-sm"
+                  className="flex-1 py-2 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400 font-medium text-xs hover:bg-rose-500/20 transition-colors shadow-sm"
                 >
                   <Plug className="w-4 h-4 mr-1.5 inline-block" /> Desligar
                 </button>
@@ -3229,7 +3229,7 @@ function WhatsAppSession2Panel({
                 <button
                   type="button"
                   onClick={() => setShowWa2Settings(false)}
-                  className="shrink-0 w-8 h-8 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-muted-foreground hover:text-foreground dark:hover:text-white text-lg leading-none transition-colors"
+                  className="shrink-0 w-8 h-8 rounded-xl bg-black/20 flex items-center justify-center text-muted-foreground hover:text-foreground dark:hover:text-white text-lg leading-none transition-colors"
                 >
                   ×
                 </button>
@@ -3241,7 +3241,7 @@ function WhatsAppSession2Panel({
                 <button
                   type="button"
                   onClick={() => setWaRejectCalls((v) => !v)}
-                  className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${waRejectCalls ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}
+                  className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${waRejectCalls ? "bg-emerald-500" : "bg-slate-300 dark:bg-card/20"}`}
                 >
                   <span
                     className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-card shadow transition-transform ${waRejectCalls ? "translate-x-5" : "translate-x-0"}`}
@@ -3261,7 +3261,7 @@ function WhatsAppSession2Panel({
                           key={tag}
                           type="button"
                           onClick={() => setWaRejectMessage((v) => v + tag)}
- className="text-[10px] px-2 py-0.5 rounded border border-border bg-card dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-muted-foreground dark:text-white transition-colors"
+ className="text-[10px] px-2 py-0.5 rounded border border-border bg-card dark:bg-card/5 hover:bg-emerald-500/10 dark:hover:bg-emerald-900/20 text-muted-foreground dark:text-white transition-colors"
                         >
                           {tag}
                         </button>
@@ -3296,7 +3296,7 @@ function WhatsAppSession2Panel({
                             ...waAllowedList,
                           ])
                         }
-                        className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 hover:underline"
+                        className="text-[10px] font-medium text-emerald-400 hover:underline"
                       >
                         + Adicionar
                       </button>
@@ -3354,7 +3354,7 @@ function WhatsAppSession2Panel({
                                     prev.filter((r) => r.id !== row.id),
                                   )
                                 }
-                                className="w-8 h-8 flex items-center justify-center text-rose-500 bg-card border border-border rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
+                                className="w-8 h-8 flex items-center justify-center text-rose-500 bg-card border border-border rounded-lg hover:bg-rose-500/10 dark:hover:bg-rose-500/10 transition-colors"
                               >
                                 <svg
                                   width="14"
@@ -3395,11 +3395,11 @@ function WhatsAppSession2Panel({
                 </div>
               )}
 
-              <div className="flex gap-3 pt-2 border-t border-slate-100 dark:border-border mt-4">
+              <div className="flex gap-3 pt-2 border-t border-border mt-4">
                 <button
                   type="button"
                   onClick={() => setShowWa2Settings(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-border text-muted-foreground dark:text-muted-foreground/80 font-medium text-xs hover:bg-muted/50 dark:hover:bg-white/5 transition-colors"
+                  className="flex-1 py-2.5 rounded-xl border border-border text-muted-foreground dark:text-muted-foreground/80 font-medium text-xs hover:bg-muted/50 dark:hover:bg-card/5 transition-colors"
                 >
                   Cancelar
                 </button>

@@ -311,7 +311,7 @@ export default function PlanosPage() {
 
           <button
             onClick={() => setSearch("")}
-            className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-medium hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors items-center justify-center gap-2"
+            className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors items-center justify-center gap-2"
           >
             <IconX /> Limpar
           </button>
@@ -362,7 +362,7 @@ export default function PlanosPage() {
                     <span className="text-sm font-medium text-foreground/90 whitespace-nowrap">
                       {group.label}
                     </span>
-                    <span className="ml-1 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-medium">
+                    <span className="ml-1 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-xs font-medium">
                       {group.plans.length}
                     </span>
                   </div>
@@ -388,13 +388,13 @@ export default function PlanosPage() {
                                 </h2>
 
                                 <div className="flex items-center gap-2">
-                                  <span className="text-xs font-medium text-muted-foreground/80 dark:text-white/30 uppercase tracking-widest bg-slate-200/50 dark:bg-white/5 px-2 py-0.5 rounded">
+                                  <span className="text-xs font-medium text-muted-foreground/80 dark:text-white/30 uppercase tracking-widest bg-black/30/50 dark:bg-card/5 px-2 py-0.5 rounded">
                                     {plan.currency}
                                   </span>
 
                                   {plan.is_system_default ||
                                   plan.name.startsWith("Padrão") ? (
-                                    <span className="gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 shadow-sm">
+                                    <span className="gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm-lg bg-sky-500/10 text-sky-400 border border-sky-500/20 shadow-sm">
                                       Padrão do Sistema
                                     </span>
                                   ) : (
@@ -402,8 +402,8 @@ export default function PlanosPage() {
                                       className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm-lg border shadow-sm
                                     ${
                                       plan.is_active
-                                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                                        : "bg-slate-100 text-muted-foreground/80 border-border dark:bg-white/5 dark:border-border dark:text-white/20"
+                                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                        : "bg-black/20 text-muted-foreground/80 border-border dark:bg-card/5 dark:border-border dark:text-white/20"
                                     }`}
                                     >
                                       {plan.is_active ? "Ativa" : "Inativa"}
@@ -490,7 +490,7 @@ export default function PlanosPage() {
                                   !plan.name.startsWith("Padrão") && (
                                     <button
                                       onClick={() => handleDelete(plan)}
-                                      className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 transition-all shadow-sm"
+                                      className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 transition-all shadow-sm"
                                       title="Excluir Tabela"
                                     >
                                       <svg
@@ -543,7 +543,7 @@ export default function PlanosPage() {
                                               </span>
                                             </div>
 
-                                            <div className="text-sm font-medium text-foreground tracking-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                                            <div className="text-sm font-medium text-foreground tracking-tight group-hover:text-emerald-400 dark:group-hover:text-emerald-400 transition-colors">
                                               {formatMoney(
                                                 price,
                                                 plan.currency,

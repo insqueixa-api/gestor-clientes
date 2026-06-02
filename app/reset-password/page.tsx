@@ -165,7 +165,7 @@ export default function ResetPasswordPage() {
                   className={[
                     "w-full rounded-xl py-3 font-semibold transition mt-2",
                     loading || password.length < 6
-                      ? "bg-white/10 text-foreground/50 cursor-not-allowed"
+                      ? "bg-card/10 text-foreground/50 cursor-not-allowed"
                       : "bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800",
                   ].join(" ")}
                 >
@@ -173,13 +173,13 @@ export default function ResetPasswordPage() {
                 </button>
 
                 {msg && (
-                  <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-400 text-center font-medium">
+                  <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-400 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-400 text-center font-medium">
                     {msg}
                   </div>
                 )}
 
                 {errorMsg && (
-                  <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400 text-center font-medium">
+                  <div className="mt-4 rounded-xl border border-red-200 bg-red-500/10 px-4 py-3 text-sm text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400 text-center font-medium">
                     {errorMsg}
                   </div>
                 )}
@@ -189,7 +189,7 @@ export default function ResetPasswordPage() {
                 onClick={() =>
                   (window.location.href = "https://unigestor.net.br/login")
                 }
-                className="w-full rounded-xl py-3 font-semibold transition bg-slate-800 text-white hover:bg-slate-900 dark:bg-white/10 dark:hover:bg-white/20"
+                className="w-full rounded-xl py-3 font-semibold transition bg-slate-800 text-white hover:bg-slate-900 dark:bg-card/10 dark:hover:bg-card/20"
               >
                 Voltar ao Login
               </button>

@@ -231,7 +231,7 @@ export default function VincularServidor({
           </h2>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white transition-colors"
+            className="p-1 rounded-lg hover:bg-black/30 dark:hover:bg-card/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white transition-colors"
           >
             ✕
           </button>
@@ -240,7 +240,7 @@ export default function VincularServidor({
         {/* BODY */}
         <div className="p-6 space-y-6 overflow-y-auto bg-card">
           {loadErr && (
-            <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-600 dark:text-rose-400 text-sm font-medium animate-in slide-in-from-top-2">
+            <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-sm font-medium animate-in slide-in-from-top-2">
               <span className="font-medium">Erro:</span> {loadErr}
             </div>
           )}
@@ -300,7 +300,7 @@ export default function VincularServidor({
         <div className="px-6 py-4 border-t border-border bg-muted/50 flex items-center justify-end gap-3 transition-colors">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/10 text-sm font-semibold transition-colors"
+            className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-black/30 dark:hover:bg-card/10 text-sm font-semibold transition-colors"
           >
             Cancelar
           </button>
