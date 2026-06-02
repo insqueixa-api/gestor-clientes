@@ -105,7 +105,7 @@ export default function LoginPage() {
       {/* Card */}
       {/* ✅ Reduzido o max-width no mobile para ficar mais elegante */}
       <div className="relative z-10 w-full max-w-[420px] sm:max-w-md">
-        <div className="rounded-2xl border border-white/20 bg-white/85 backdrop-blur-xl shadow-2xl dark:bg-card/80 dark:border-border overflow-hidden">
+        <div className="rounded-2xl border border-white/20 bg-card/80 backdrop-blur-xl shadow-2xl dark:border-border overflow-hidden">
           {/* Header */}
           {/* ✅ Ajuste do pt-5 para a logo ficar mais próxima do topo no mobile */}
           <div className="px-5 sm:px-8 pt-5 sm:pt-8 pb-3 sm:pb-6 text-center">
@@ -129,7 +129,7 @@ export default function LoginPage() {
 
           {/* Tabs */}
           <div className="px-5 sm:px-8">
-            <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1 dark:bg-black/20">
+            <div className="grid grid-cols-2 gap-2 rounded-xl bg-black/20 p-1">
               <button
                 type="button"
                 onClick={() => {
@@ -274,7 +274,7 @@ export default function LoginPage() {
                   className={[
                     "w-full rounded-xl py-3 font-semibold transition",
                     !canSubmit || pending
-                      ? "bg-slate-300 text-white cursor-not-allowed dark:bg-white/15"
+                      ? "bg-white/10 text-foreground/50 cursor-not-allowed"
                       : "bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800",
                   ].join(" ")}
                 >
@@ -323,7 +323,7 @@ export default function LoginPage() {
                   className={[
                     "w-full rounded-xl py-3 font-semibold transition",
                     !canSubmit || isResetting
-                      ? "bg-slate-300 text-white cursor-not-allowed dark:bg-white/15"
+                      ? "bg-white/10 text-foreground/50 cursor-not-allowed"
                       : "bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800",
                   ].join(" ")}
                 >

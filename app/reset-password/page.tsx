@@ -107,7 +107,7 @@ export default function ResetPasswordPage() {
       </div>
 
       <div className="relative z-10 w-full max-w-[420px] sm:max-w-md">
-        <div className="rounded-2xl border border-white/20 bg-white/85 backdrop-blur-xl shadow-2xl dark:bg-card/80 dark:border-border overflow-hidden">
+        <div className="rounded-2xl border border-white/20 bg-card/80 backdrop-blur-xl shadow-2xl dark:border-border overflow-hidden">
           <div className="px-5 sm:px-8 pt-5 sm:pt-8 pb-3 sm:pb-6 text-center">
             <div className="flex items-center justify-center">
               <img
@@ -165,7 +165,7 @@ export default function ResetPasswordPage() {
                   className={[
                     "w-full rounded-xl py-3 font-semibold transition mt-2",
                     loading || password.length < 6
-                      ? "bg-slate-300 text-white cursor-not-allowed dark:bg-white/15"
+                      ? "bg-white/10 text-foreground/50 cursor-not-allowed"
                       : "bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800",
                   ].join(" ")}
                 >
