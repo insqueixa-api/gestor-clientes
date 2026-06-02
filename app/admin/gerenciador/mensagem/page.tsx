@@ -492,7 +492,7 @@ export default function MessagesPage() {
                                 setSelectedTemplate(msg);
                                 setShowEditor(true);
                               }}
-                              className="flex items-center justify-center w-8 h-8 rounded-lg border border-amber-200 dark:border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-all"
+                              className="flex items-center justify-center w-8 h-8 rounded-lg border border-amber-200 dark:border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 dark:hover:bg-amber-500/20 transition-all"
                               title="Editar"
                             >
                               <IconEdit />
@@ -927,7 +927,7 @@ function EditorModal({
       >
         <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-border flex justify-between items-center bg-muted/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-xl">
+            <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-xl">
               <Pencil className="w-4 h-4" />
             </div>
             <div>

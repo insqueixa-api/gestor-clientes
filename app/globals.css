@@ -4,6 +4,7 @@
 
 /* === MODO "CLARO" (AGORA É UM TEMA DARK SUAVE) === */
 :root {
+  color-scheme: dark;
   --background: #1e293b;   /* slate-800 – fundo escuro suave */
   --foreground: #f8fafc;   /* slate-50 – texto claro */
   --card: #334155;         /* slate-700 – cards escuros um pouco mais claros que o fundo */

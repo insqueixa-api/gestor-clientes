@@ -378,7 +378,7 @@ function GlobalQueueMonitor({
       <div
         onClick={() => setShowModal(true)}
         className={`mb-4 border rounded-xl p-3 flex items-center justify-between cursor-pointer hover:shadow-md transition-all
-    ${isGlobalPaused ? "bg-amber-100 border-amber-300" : "bg-emerald-500/10 border-emerald-200"}`}
+    ${isGlobalPaused ? "bg-amber-500/20 border-amber-300" : "bg-emerald-500/10 border-emerald-200"}`}
       >
         <div className="flex items-center gap-3">
           <div className="relative flex items-center justify-center w-5 h-5">
@@ -498,7 +498,7 @@ function GlobalQueueMonitor({
                         {/* STATUS */}
                         <td className="p-4 whitespace-nowrap">
                           <span
-                            className={`gap-1 px-2 py-1 rounded-lg text-xs font-medium tracking-tight shadow-sm ${job.status === "PAUSED" ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-400"}`}
+                            className={`gap-1 px-2 py-1 rounded-lg text-xs font-medium tracking-tight shadow-sm ${job.status === "PAUSED" ? "bg-amber-500/20 text-amber-800" : "bg-emerald-500/20 text-emerald-400"}`}
                           >
                             {job.status}
                           </span>
@@ -1487,7 +1487,7 @@ function AutomationCard({
               {/* Secundários */}
               <button
                 onClick={onEdit}
-                className="px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-700 text-xs font-medium hover:bg-amber-100 dark:bg-amber-500/10 dark:text-amber-300 transition"
+                className="px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-700 text-xs font-medium hover:bg-amber-500/20 dark:text-amber-300 transition"
                 title="Editar"
               >
                 Editar
@@ -2452,7 +2452,7 @@ function LogsModal({
                     </td>
                     <td className="p-2">
                       <span
-                        className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm uppercase ${log.status === "SENT" ? "bg-emerald-100 text-emerald-400" : log.status === "FAILED" ? "bg-rose-500/20 text-rose-400" : "bg-black/20 text-muted-foreground"}`}
+                        className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm uppercase ${log.status === "SENT" ? "bg-emerald-500/20 text-emerald-400" : log.status === "FAILED" ? "bg-rose-500/20 text-rose-400" : "bg-black/20 text-muted-foreground"}`}
                       >
                         {log.status}
                       </span>

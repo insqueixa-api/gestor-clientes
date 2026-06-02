@@ -458,13 +458,13 @@ function AuditoriaPageContent() {
   function getPaymentBadge(status: string) {
     if (status === "approved" || status === "PAGO")
       return (
-        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-emerald-100 dark:bg-emerald-500/20 text-emerald-400 text-[10px] font-medium uppercase border border-emerald-200 dark:border-emerald-500/30">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-emerald-500/20 text-emerald-400 text-[10px] font-medium uppercase border border-emerald-200 dark:border-emerald-500/30">
           Aprovado
         </span>
       );
     if (status === "pending")
       return (
-        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[10px] font-medium uppercase border border-amber-200 dark:border-amber-500/30">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[10px] font-medium uppercase border border-amber-200 dark:border-amber-500/30">
           Pendente
         </span>
       );
@@ -512,13 +512,13 @@ function AuditoriaPageContent() {
     // 4. Fluxo normal pós-pagamento aprovado
     if (status === "done")
       return (
-        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-blue-100 dark:bg-blue-500/20 text-blue-400 text-[10px] font-medium uppercase border border-blue-200 dark:border-blue-500/30">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-blue-500/20 text-blue-400 text-[10px] font-medium uppercase border border-blue-200 dark:border-blue-500/30">
           Concluído
         </span>
       );
     if (status === "manual_done")
       return (
-        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 text-[10px] font-medium uppercase border border-indigo-200 dark:border-indigo-500/30">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 text-[10px] font-medium uppercase border border-indigo-200 dark:border-indigo-500/30">
           Concluído Manualmente
         </span>
       );
@@ -574,7 +574,7 @@ function AuditoriaPageContent() {
     // 4. Se a renovação deu certo, mostramos o status real vindo do campo whatsapp_status
     if (status === "sent")
       return (
-        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-emerald-100 dark:bg-emerald-500/20 text-emerald-400 text-[10px] font-medium uppercase border border-emerald-200 dark:border-emerald-500/30">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-emerald-500/20 text-emerald-400 text-[10px] font-medium uppercase border border-emerald-200 dark:border-emerald-500/30">
           Enviado
         </span>
       );

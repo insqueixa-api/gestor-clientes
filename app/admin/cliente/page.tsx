@@ -2336,7 +2336,7 @@ function ClientePageContent() {
                                     e.stopPropagation();
                                     handleOpenAlertList(r.id, r.name);
                                   }}
-                                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-600 border border-amber-200 text-[10px] font-medium hover:bg-amber-200 transition-colors animate-pulse"
+                                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-600 border border-amber-200 text-[10px] font-medium hover:bg-amber-200 transition-colors animate-pulse"
                                   title="Ver alertas pendentes"
                                 >
                                   🔔 {r.alertsCount}
@@ -2517,7 +2517,7 @@ function ClientePageContent() {
                                     e.stopPropagation();
                                     openEditById(r.id, "apps");
                                   }}
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-[10px] font-medium tracking-tight shadow-sm hover:bg-emerald-100 dark:hover:bg-emerald-500/20 active:scale-95 transition-all max-w-[170px] truncate"
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-[10px] font-medium tracking-tight shadow-sm hover:bg-emerald-500/20 dark:hover:bg-emerald-500/20 active:scale-95 transition-all max-w-[170px] truncate"
                                   title={`Configurar aplicativo: ${app}`}
                                 >
                                   <span className="truncate flex-1 min-w-0 text-left">
@@ -3571,7 +3571,7 @@ function StatusBadge({
 
   return (
     <span
-      className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium uppercase tracking-tight shadow-sm bg-${color}-50 dark:bg-${color}-500/10 text-${color}-700 dark:text-${color}-400 border-${color}-200 dark:border-${color}-500/20 whitespace-nowrap`}
+      className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium uppercase tracking-tight shadow-sm bg-${color}-500/10 text-${color}-400 border-${color}-500/20 whitespace-nowrap`}
     >
       {customLabel || status}
     </span>
@@ -3592,14 +3592,14 @@ function IconActionBtn({
   loading?: boolean; // ✅ NOVO
 }) {
   const colors = {
-    blue: "text-sky-500 dark:text-sky-400 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20 dark:hover:bg-sky-500/20",
+    blue: "text-sky-400 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20",
     green:
-      "text-emerald-400/70 dark:text-emerald-500/70 bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20",
+      "text-emerald-400/90 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20",
     amber:
-      "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20",
+      "text-amber-400 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20",
     purple:
-      "text-purple-400 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20 dark:hover:bg-purple-500/20",
-    red: "text-rose-400 bg-rose-500/10 border-rose-200 dark:border-rose-500/20 hover:bg-rose-500/20 dark:hover:bg-rose-500/20",
+      "text-purple-400 bg-purple-500/10 border-purple-500/20 hover:bg-purple-500/20",
+    red: "text-rose-400 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20",
   };
   return (
     <button

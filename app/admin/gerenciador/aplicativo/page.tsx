@@ -552,7 +552,7 @@ export default function AppManagerPage() {
               <>
                 <button
                   onClick={() => openEdit(app)}
-                  className="p-1.5 text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20 rounded-lg transition-all"
+                  className="p-1.5 text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 hover:bg-amber-500/20 dark:hover:bg-amber-500/20 rounded-lg transition-all"
                   title="Editar"
                 >
                   <IconEdit />

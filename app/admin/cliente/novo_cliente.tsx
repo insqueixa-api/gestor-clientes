@@ -4244,7 +4244,7 @@ export default function NovoCliente({
                                 )),
                               });
                             }}
-                            className="gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-colors flex items-center gap-1"
+                            className="gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 dark:hover:bg-amber-500/20 transition-colors flex items-center gap-1"
                           >
                             ⚠️ {papaTesteInfo.count} registro
                             {papaTesteInfo.count > 1 ? "s" : ""} anteriore
@@ -4915,7 +4915,7 @@ export default function NovoCliente({
                       <div>
                         <Label>Total BRL</Label>
 
-                        <div className="w-full h-9 flex items-center justify-center bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/20 rounded text-emerald-400 font-medium">
+                        <div className="w-full h-9 flex items-center justify-center bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/20 rounded text-emerald-400 font-medium">
                           {fmtMoney("BRL", totalBrl)}
                         </div>
                       </div>
@@ -6041,7 +6041,7 @@ export default function NovoCliente({
         <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200">
           <div className="w-full max-w-sm bg-card border border-border rounded-xl shadow-2xl p-6 flex flex-col gap-5 overflow-hidden min-h-0 max-h-[90vh] animate-in fade-in zoom-in-95 duration-200 max-h-[90dvh]">
             <div className="flex flex-col items-center text-center gap-3">
-              <div className="w-14 h-14 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-3xl">
+              <div className="w-14 h-14 rounded-full bg-emerald-500/20 flex items-center justify-center text-3xl">
                 💰
               </div>
 

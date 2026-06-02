@@ -52,7 +52,7 @@ const accents: Record<
   },
   emerald: {
     bar: "linear-gradient(to right,#059669,#34d399)",
-    barBg: "bg-emerald-100 dark:bg-emerald-950/30",
+    barBg: "bg-emerald-500/20",
     rank: "text-emerald-400",
     rankBg: "bg-emerald-500/10",
     dot: "bg-emerald-400",
@@ -82,7 +82,7 @@ const accents: Record<
   },
   amber: {
     bar: "linear-gradient(to right,#d97706,#fbbf24)",
-    barBg: "bg-amber-100 dark:bg-amber-950/30",
+    barBg: "bg-amber-500/20",
     rank: "text-amber-600 dark:text-amber-400",
     rankBg: "bg-amber-500/10",
     dot: "bg-amber-400",
@@ -92,7 +92,7 @@ const accents: Record<
   },
   indigo: {
     bar: "linear-gradient(to right,#4338ca,#818cf8)",
-    barBg: "bg-indigo-100 dark:bg-indigo-950/30",
+    barBg: "bg-indigo-500/20",
     rank: "text-indigo-600 dark:text-indigo-400",
     rankBg: "bg-indigo-50 dark:bg-indigo-900/40",
     dot: "bg-indigo-400",

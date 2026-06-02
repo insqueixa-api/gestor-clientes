@@ -439,7 +439,7 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
           <ol className="space-y-3">
             {help.steps.map((step, i) => (
               <li key={i} className="flex items-start gap-3">
-                <span className="shrink-0 w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-400 text-xs font-medium flex items-center justify-center mt-0.5">
+                <span className="shrink-0 w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-medium flex items-center justify-center mt-0.5">
                   {i + 1}
                 </span>
                 <span className="text-sm text-foreground/90/80 leading-relaxed">
@@ -730,7 +730,7 @@ function GatewayModal({
                             e.stopPropagation();
                             setHelpType(m.type);
                           }}
-                          className="absolute top-3 right-3 w-6 h-6 rounded-full bg-black/30 text-muted-foreground hover:bg-blue-100 dark:hover:bg-blue-500/20 hover:text-blue-400 dark:hover:text-blue-400 transition-colors flex items-center justify-center text-xs font-medium"
+                          className="absolute top-3 right-3 w-6 h-6 rounded-full bg-black/30 text-muted-foreground hover:bg-blue-500/20 dark:hover:bg-blue-500/20 hover:text-blue-400 dark:hover:text-blue-400 transition-colors flex items-center justify-center text-xs font-medium"
                           title="Como obter as credenciais"
                         >
                           ?

@@ -1616,7 +1616,7 @@ export default function RecargaCliente({
             {/* ... conteúdo do header ... */}
             <div className="flex items-center gap-3">
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center ${isFromTrial ? "bg-sky-500/20 text-sky-400" : "bg-emerald-100 text-emerald-400"} dark:bg-card/5`}
+                className={`w-8 h-8 rounded-full flex items-center justify-center ${isFromTrial ? "bg-sky-500/20 text-sky-400" : "bg-emerald-500/20 text-emerald-400"} dark:bg-card/5`}
               >
                 {isFromTrial ? (
                   <svg
@@ -1817,7 +1817,7 @@ export default function RecargaCliente({
                   </div>
                   <div>
                     <Label>Total BRL</Label>
-                    <div className="w-full h-9 flex items-center justify-center bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/20 rounded text-emerald-400 font-medium">
+                    <div className="w-full h-9 flex items-center justify-center bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/20 rounded text-emerald-400 font-medium">
                       {fmtMoney("BRL", totalBrl)}
                     </div>
                   </div>

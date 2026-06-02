@@ -2631,9 +2631,9 @@ function IconActionBtn({
   const colors = {
     blue: "text-sky-500 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20 dark:border-sky-500/20",
     green:
-      "text-emerald-400 bg-emerald-500/10 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:border-emerald-500/20",
+      "text-emerald-400 bg-emerald-500/10 border-emerald-200 hover:bg-emerald-500/20 dark:border-emerald-500/20",
     amber:
-      "text-amber-600 bg-amber-500/10 border-amber-200 hover:bg-amber-100 dark:bg-amber-500/10 dark:border-amber-500/20",
+      "text-amber-600 bg-amber-500/10 border-amber-200 hover:bg-amber-500/20 dark:border-amber-500/20",
     purple:
       "text-purple-400 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20",
     red: "text-rose-400 bg-rose-500/10 border-rose-200 hover:bg-rose-500/20 dark:border-rose-500/20",

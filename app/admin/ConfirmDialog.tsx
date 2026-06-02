@@ -17,7 +17,7 @@ function toneClasses(tone: Tone) {
     case "amber":
       return {
         ring: "shadow-amber-500/30",
-        iconBg: "bg-amber-100 dark:bg-amber-500/20",
+        iconBg: "bg-amber-500/20",
         dot: "text-amber-500",
         confirm: "bg-amber-600 hover:bg-amber-500",
       };
@@ -38,7 +38,7 @@ function toneClasses(tone: Tone) {
     default:
       return {
         ring: "shadow-emerald-500/30",
-        iconBg: "bg-emerald-100 dark:bg-emerald-500/20",
+        iconBg: "bg-emerald-500/20",
         dot: "text-emerald-500",
         confirm: "bg-emerald-600 hover:bg-emerald-500",
       };

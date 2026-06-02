@@ -1590,10 +1590,10 @@ export default function TrialsPage() {
 
                           const colors = {
                             green:
-                              "bg-emerald-100 dark:bg-emerald-500/10 text-emerald-400 border-emerald-200 dark:border-emerald-500/20",
+                              "bg-emerald-500/20 text-emerald-400 border-emerald-200 dark:border-emerald-500/20",
                             red: "bg-rose-500/20 text-rose-400 border-rose-200 dark:border-rose-500/20",
                             amber:
-                              "bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/20",
+                              "bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/20",
                             blue: "bg-sky-500/20 text-sky-400 border-sky-500/30",
                           };
 
@@ -1611,7 +1611,7 @@ export default function TrialsPage() {
                         <span
                           className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase ${
                             r.converted
-                              ? "bg-emerald-100 dark:bg-emerald-500/10 text-emerald-400 border-emerald-200 dark:border-emerald-500/20"
+                              ? "bg-emerald-500/20 text-emerald-400 border-emerald-200 dark:border-emerald-500/20"
                               : "bg-black/20 text-muted-foreground dark:text-white/50 border-border"
                           }`}
                           title={
@@ -1650,7 +1650,7 @@ export default function TrialsPage() {
                                     e.stopPropagation();
                                     openEditById(r.id, "apps");
                                   }}
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-[10px] font-medium tracking-tight shadow-sm hover:bg-emerald-100 dark:hover:bg-emerald-500/20 active:scale-95 transition-all"
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-[10px] font-medium tracking-tight shadow-sm hover:bg-emerald-500/20 dark:hover:bg-emerald-500/20 active:scale-95 transition-all"
                                   title="Configurar aplicativo"
                                 >
                                   {name || "App"}
@@ -2338,7 +2338,7 @@ function StatusBadge({ status }: { status: TrialStatus }) {
   const tone =
     status === "Ativo"
       ? {
-          bg: "bg-emerald-100 dark:bg-emerald-500/10",
+          bg: "bg-emerald-500/20",
           text: "text-emerald-400",
           border: "border-emerald-200 dark:border-emerald-500/20",
         }
@@ -2381,9 +2381,9 @@ function IconActionBtn({
   const colors = {
     blue: "text-sky-400 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20 dark:hover:bg-sky-500/20",
     green:
-      "text-emerald-400/70 dark:text-emerald-500/70 bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20",
+      "text-emerald-400/70 dark:text-emerald-500/70 bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-500/20 dark:hover:bg-emerald-500/20",
     amber:
-      "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20",
+      "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-200 dark:border-amber-500/20 hover:bg-amber-500/20 dark:hover:bg-amber-500/20",
     purple:
       "text-purple-400 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20 dark:hover:bg-purple-500/20",
     red: "text-rose-400 bg-rose-500/10 border-rose-200 dark:border-rose-500/20 hover:bg-rose-500/20 dark:hover:bg-rose-500/20",
@@ -2704,7 +2704,7 @@ function PapaTestesModal({
                       </span>
                     )}
                     {recs.length > 1 && (
-                      <span className="gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30">
+                      <span className="gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30">
                         {recs.length}x
                       </span>
                     )}
@@ -2727,7 +2727,7 @@ function PapaTestesModal({
                           className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm border shrink-0 ${
                             r.is_trial
                               ? "bg-sky-500/20 text-sky-400 border-sky-500/30"
-                              : "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-400 border-emerald-200 dark:border-emerald-500/30"
+                              : "bg-emerald-500/20 text-emerald-400 border-emerald-200 dark:border-emerald-500/30"
                           }`}
                         >
                           {r.is_trial ? "Teste" : "Cliente"}

@@ -221,9 +221,9 @@ function ActionBtn({
   const colors = {
     blue: "text-sky-500 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20 dark:border-sky-500/20 dark:hover:bg-sky-500/20",
     green:
-      "text-emerald-500 bg-emerald-500/10 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:hover:bg-emerald-500/20",
+      "text-emerald-500 bg-emerald-500/10 border-emerald-200 hover:bg-emerald-500/20 dark:border-emerald-500/20 dark:hover:bg-emerald-500/20",
     amber:
-      "text-amber-500 bg-amber-500/10 border-amber-200 hover:bg-amber-100 dark:bg-amber-500/10 dark:border-amber-500/20 dark:hover:bg-amber-500/20",
+      "text-amber-500 bg-amber-500/10 border-amber-200 hover:bg-amber-500/20 dark:border-amber-500/20 dark:hover:bg-amber-500/20",
     red: "text-rose-500 bg-rose-500/10 border-rose-200 hover:bg-rose-500/20 dark:border-rose-500/20 dark:hover:bg-rose-500/20",
   };
   return (
@@ -1713,12 +1713,12 @@ function FinanceiroPageContent() {
                     <td className="px-4 py-3 text-center">
                       {(() => {
                         let cor =
-                          "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-400/30";
+                          "bg-amber-500/20 text-amber-700 border-amber-200 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-400/30";
                         let label = cStatus;
 
                         if (cStatus === "PAGO") {
                           cor =
-                            "bg-emerald-100 text-emerald-400 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-200 dark:border-emerald-400/30";
+                            "bg-emerald-500/20 text-emerald-400 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-200 dark:border-emerald-400/30";
                           label = t.tipo === "RECEITA" ? "RECEBIDO" : "PAGO";
                         } else if (cStatus === "VENCIDO") {
                           cor =
@@ -3531,13 +3531,13 @@ function ModalTransacao({
               <div className="flex bg-muted/50 rounded-lg border border-border p-1 h-10">
                 <button
                   onClick={() => setStatus("PENDENTE")}
-                  className={`flex-1 rounded-md text-xs font-medium transition-colors ${status === "PENDENTE" ? "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400" : "text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80"}`}
+                  className={`flex-1 rounded-md text-xs font-medium transition-colors ${status === "PENDENTE" ? "bg-amber-500/20 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400" : "text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80"}`}
                 >
                   ⏳ Pendente
                 </button>
                 <button
                   onClick={() => setStatus("PAGO")}
-                  className={`flex-1 rounded-md text-xs font-medium transition-colors ${status === "PAGO" ? "bg-emerald-100 text-emerald-400 dark:bg-emerald-500/20 dark:text-emerald-400" : "text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80"}`}
+                  className={`flex-1 rounded-md text-xs font-medium transition-colors ${status === "PAGO" ? "bg-emerald-500/20 text-emerald-400 dark:bg-emerald-500/20 dark:text-emerald-400" : "text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80"}`}
                 >
                   ✅ Pago
                 </button>
@@ -3649,7 +3649,7 @@ function ModalTransacao({
                     <button
                       type="button"
                       onClick={() => setEscopoEdicao("UNICA")}
-                      className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopoEdicao === "UNICA" ? "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400 shadow-sm" : "text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80"}`}
+                      className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopoEdicao === "UNICA" ? "bg-amber-500/20 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400 shadow-sm" : "text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80"}`}
                     >
                       📅 Apenas nesta
                     </button>
@@ -4041,7 +4041,7 @@ function ModalBaixa({
                 onClick={() => setEscopo("UNICA")}
                 className={`flex-1 rounded-md text-xs font-medium transition-colors ${
                   escopo === "UNICA"
-                    ? "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400 shadow-sm"
+                    ? "bg-amber-500/20 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400 shadow-sm"
                     : "text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80"
                 }`}
               >

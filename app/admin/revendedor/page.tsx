@@ -1498,7 +1498,7 @@ export default function RevendaPage() {
                                   );
                                 }}
                                 title={`${r.alertsCount} alerta(s)`}
-                                className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-600 border border-amber-200 text-[10px] font-medium hover:bg-amber-200 transition-colors animate-pulse"
+                                className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-600 border border-amber-200 text-[10px] font-medium hover:bg-amber-200 transition-colors animate-pulse"
                               >
                                 🔔 {r.alertsCount}
                               </button>

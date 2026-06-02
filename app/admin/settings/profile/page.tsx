@@ -2341,7 +2341,7 @@ export default function ProfileSettingsPage() {
                         type="button"
                         onClick={() => void handleReconnectWhatsApp()}
                         disabled={waReconnecting}
-                        className="flex-1 py-2 rounded-xl bg-amber-500/10 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400 font-medium text-xs hover:bg-amber-100 transition-colors shadow-sm"
+                        className="flex-1 py-2 rounded-xl bg-amber-500/10 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400 font-medium text-xs hover:bg-amber-500/20 transition-colors shadow-sm"
                       >
                         <RefreshCcw className="w-4 h-4 mr-1.5 inline-block" />{" "}
                         Reiniciar
@@ -3194,7 +3194,7 @@ function WhatsAppSession2Panel({
                 type="button"
                 onClick={() => void handleReconnect()}
                 disabled={isReconnecting}
-                className="flex-1 py-2 rounded-xl bg-amber-500/10 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400 font-medium text-xs hover:bg-amber-100 transition-colors shadow-sm"
+                className="flex-1 py-2 rounded-xl bg-amber-500/10 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400 font-medium text-xs hover:bg-amber-500/20 transition-colors shadow-sm"
               >
                 <RefreshCcw className="w-4 h-4 mr-1.5 inline-block" /> Reiniciar
               </button>
