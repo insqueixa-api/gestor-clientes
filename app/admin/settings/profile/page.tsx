@@ -2696,7 +2696,7 @@ export default function ProfileSettingsPage() {
                           key={tag}
                           type="button"
                           onClick={() => setWaRejectMessage((v) => v + tag)}
-                          className="text-[10px] px-2 py-0.5 rounded border border-slate-200 dark:border-border bg-white dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-slate-600 dark:text-white font-mono transition-colors"
+ className="text-[10px] px-2 py-0.5 rounded border border-slate-200 dark:border-border bg-white dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-slate-600 dark:text-white transition-colors"
                         >
                           {tag}
                         </button>
@@ -3261,7 +3261,7 @@ function WhatsAppSession2Panel({
                           key={tag}
                           type="button"
                           onClick={() => setWaRejectMessage((v) => v + tag)}
-                          className="text-[10px] px-2 py-0.5 rounded border border-slate-200 dark:border-border bg-white dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-slate-600 dark:text-white font-mono transition-colors"
+ className="text-[10px] px-2 py-0.5 rounded border border-slate-200 dark:border-border bg-white dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-slate-600 dark:text-white transition-colors"
                         >
                           {tag}
                         </button>

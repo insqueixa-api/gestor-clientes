@@ -447,7 +447,7 @@ function GlobalQueueMonitor({
                         className="hover:bg-gray-50 dark:hover:bg-white/5 align-top"
                       >
                         {/* QUANDO */}
-                        <td className="p-4 font-mono text-gray-600 dark:text-gray-400 whitespace-nowrap">
+ <td className="p-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">
                           {job.when_sp || "--"}
                         </td>
 
@@ -468,7 +468,7 @@ function GlobalQueueMonitor({
                         </td>
 
                         {/* WHATSAPP */}
-                        <td className="p-4 font-mono text-xs text-slate-600 dark:text-muted-foreground whitespace-nowrap">
+ <td className="p-4 text-xs text-slate-600 dark:text-muted-foreground whitespace-nowrap">
                           {job.whatsapp_username || "--"}
                         </td>
 
@@ -505,7 +505,7 @@ function GlobalQueueMonitor({
                         </td>
 
                         {/* ID */}
-                        <td className="p-4 text-right font-mono text-xs text-gray-400 whitespace-nowrap">
+ <td className="p-4 text-right text-xs text-gray-400 whitespace-nowrap">
                           {job.id.slice(0, 8)}
                         </td>
                       </tr>
@@ -1591,7 +1591,7 @@ function ImpactListModal({
                             Titular
                           </span>
                         </span>
-                        <span className="text-xs font-mono text-slate-500">
+ <span className="text-xs text-slate-500">
                           📞 {c.whatsapp_username || "--"}
                         </span>
                       </div>
@@ -1605,7 +1605,7 @@ function ImpactListModal({
                               Secundário
                             </span>
                           </span>
-                          <span className="text-xs font-mono text-slate-500">
+ <span className="text-xs text-slate-500">
                             📞 {c.secondary_whatsapp_username || "--"}
                           </span>
                         </div>
@@ -1643,7 +1643,7 @@ function ImpactListModal({
                           {formatTimeSP(
                             isCadastro ? c.created_at : c.vencimento,
                           ) && (
-                            <span className="text-xs font-mono text-slate-500 mt-0.5">
+ <span className="text-xs text-slate-500 mt-0.5">
                               ⏰{" "}
                               {formatTimeSP(
                                 isCadastro ? c.created_at : c.vencimento,
@@ -2440,7 +2440,7 @@ function LogsModal({
                     key={log.id}
                     className="border-b border-slate-50 dark:border-border last:border-0 hover:bg-slate-50 dark:hover:bg-white/5"
                   >
-                    <td className="p-2 text-slate-500 font-mono text-xs">
+ <td className="p-2 text-slate-500 text-xs">
                       {formatDateTimeSP(log.sent_at)}
                     </td>
 

@@ -1554,17 +1554,17 @@ export default function RevendaPage() {
                     </Td>
 
                     <Td>
-                      <span className="font-mono font-medium text-slate-700 dark:text-white/80">
+ <span className=" font-medium text-slate-700 dark:text-white/80">
                         {r.revenueLabel}
                       </span>
                     </Td>
                     <Td>
-                      <span className="font-mono font-medium text-slate-500 dark:text-muted-foreground">
+ <span className=" font-medium text-slate-500 dark:text-muted-foreground">
                         {r.costLabel}
                       </span>
                     </Td>
                     <Td>
-                      <span className="font-mono font-medium text-emerald-600/70 dark:text-emerald-500/70">
+ <span className=" font-medium text-emerald-600/70 dark:text-emerald-500/70">
                         {r.profitLabel}
                       </span>
                     </Td>

@@ -478,7 +478,7 @@ export default function RecargaServidorModal({
               <div className="text-[10px] uppercase font-medium text-slate-400">
                 Total Original
               </div>
-              <div className="font-mono text-sm font-medium text-slate-600 dark:text-slate-300">
+ <div className=" text-sm font-medium text-slate-600 dark:text-slate-300">
                 {new Intl.NumberFormat("pt-BR", {
                   style: "currency",
                   currency: currency,
@@ -489,7 +489,7 @@ export default function RecargaServidorModal({
               <div className="text-[10px] uppercase font-medium text-slate-400">
                 Total em BRL (Custo Real)
               </div>
-              <div className="font-mono text-xl font-medium text-emerald-600 dark:text-emerald-400">
+ <div className=" text-xl font-medium text-emerald-600 dark:text-emerald-400">
                 {new Intl.NumberFormat("pt-BR", {
                   style: "currency",
                   currency: "BRL",

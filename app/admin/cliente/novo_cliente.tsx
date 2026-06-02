@@ -3875,7 +3875,7 @@ export default function NovoCliente({
           key={idx}
           className="flex items-center justify-between bg-white dark:bg-black/20 p-2.5 rounded-lg border border-slate-200 dark:border-border mb-1.5 shadow-sm"
         >
-          <span className="font-mono text-xs text-slate-600 dark:text-muted-foreground truncate mr-2 select-all">
+ <span className=" text-xs text-slate-600 dark:text-muted-foreground truncate mr-2 select-all">
             {dns}
           </span>
           <button
@@ -4701,7 +4701,7 @@ export default function NovoCliente({
                           value={m3uUrl}
                           onChange={(e) => setM3uUrl(e.target.value)}
                           placeholder="http://dominio/get.php?username=...&password=...&type=m3u_plus&output=ts"
-                          className="flex-1 text-xs font-mono"
+ className="flex-1 text-xs "
                         />
 
                         <button

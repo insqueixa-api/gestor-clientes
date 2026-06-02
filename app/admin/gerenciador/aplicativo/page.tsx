@@ -971,7 +971,7 @@ export default function AppManagerPage() {
                       <span className="flex-1 text-sm font-medium text-slate-700 dark:text-white/80">
                         {FIELD_LABELS[field.type]}
                       </span>
-                      <span className="text-[10px] font-mono text-slate-400 bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 rounded">
+ <span className="text-[10px] text-slate-400 bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 rounded">
                         #{index + 1}
                       </span>
                       <button

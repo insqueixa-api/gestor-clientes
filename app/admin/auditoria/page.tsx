@@ -717,7 +717,7 @@ function AuditoriaPageContent() {
                         {/* Data e Hora */}
                         <td className="px-4 py-3">
                           <div className="flex flex-col">
-                            <span className="font-mono text-slate-700 dark:text-white/90">
+ <span className=" text-slate-700 dark:text-white/90">
                               {dateObj.toLocaleDateString("pt-BR", {
                                 timeZone: "America/Sao_Paulo",
                               })}
@@ -739,7 +739,7 @@ function AuditoriaPageContent() {
                               {r.client_name}
                             </span>
                             <div className="flex items-center gap-1.5 mt-0.5">
-                              <span className="text-xs font-mono text-slate-500 dark:text-white/60">
+ <span className="text-xs text-slate-500 dark:text-white/60">
                                 {r.server_username}
                               </span>
                               <span className="text-slate-300 dark:text-white/20">
@@ -790,7 +790,7 @@ function AuditoriaPageContent() {
                                     "Código da transação copiado!",
                                   );
                                 }}
-                                className="text-[9px] font-mono text-slate-400 dark:text-muted-foreground bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 rounded border border-slate-200 dark:border-border hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+ className="text-[9px] text-slate-400 dark:text-muted-foreground bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 rounded border border-slate-200 dark:border-border hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
                                 title="Clique para copiar a referência"
                               >
                                 Ref: {String(r.mp_payment_id).slice(-8)}

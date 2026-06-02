@@ -1658,7 +1658,7 @@ function AgendaPageContent() {
                                     ? p.label
                                     : `${p.label}:`}{" "}
                                 </span>
-                                <span className="font-mono font-medium text-slate-800 dark:text-white/90">
+                                <span className="text-slate-700 dark:text-white/80">
                                   {displayPhone(p.value)}
                                 </span>
                               </div>
@@ -1896,7 +1896,7 @@ function AgendaPageContent() {
               </span>
               <div className="text-sm text-emerald-900 dark:text-emerald-200">
                 Enviando para{" "}
-                <strong className="font-mono">
+ <strong className=" ">
                   {displayPhone(showSendNow.phone!)}
                 </strong>
               </div>
@@ -2099,7 +2099,7 @@ function AgendaPageContent() {
                             })
                           }
                           onBlur={() => confirmPhone(idx)}
-                          className="flex-1 p-2 border border-slate-200 dark:border-border rounded-lg bg-white dark:bg-black/20 text-slate-800 dark:text-white text-sm font-mono min-w-0"
+ className="flex-1 p-2 border border-slate-200 dark:border-border rounded-lg bg-white dark:bg-black/20 text-slate-800 dark:text-white text-sm min-w-0"
                         />
 
                         {/* Remover */}

@@ -60,3 +60,30 @@ body {
   user-select: none;
   pointer-events: none;
 }
+
+/* ── Select / Option: fundo correto no dark mode ── */
+:root.dark select,
+:root.dark select option {
+  background-color: #18181b; /* zinc-900 */
+  color: #fafafa;            /* zinc-50 */
+}
+
+:root.dark select option:checked {
+  background-color: #27272a; /* zinc-800 - item selecionado */
+  color: #fafafa;
+}
+
+:root.dark select option:hover {
+  background-color: #3f3f46; /* zinc-700 */
+}
+
+/* ── Tema claro: garantir legibilidade ── */
+select option {
+  background-color: #ffffff;
+  color: #18181b;
+}
+
+select option:checked {
+  background-color: #f4f4f5; /* zinc-100 */
+  color: #09090b;
+}

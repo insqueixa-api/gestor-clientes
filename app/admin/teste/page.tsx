@@ -1545,7 +1545,7 @@ export default function TrialsPage() {
                       <Td>
                         <div className="flex flex-col">
                           <span
-                            className={`font-mono font-medium ${isExpired ? "text-rose-500" : "text-slate-600 dark:text-white/80"}`}
+ className={` font-medium ${isExpired ? "text-rose-500" : "text-slate-600 dark:text-white/80"}`}
                           >
                             {r.dueLabelDate}
                           </span>
@@ -2699,7 +2699,7 @@ function PapaTestesModal({
                       {recs[0]?.client_name || "—"}
                     </span>
                     {recs[0]?.whatsapp_username && (
-                      <span className="text-xs text-emerald-600/70 dark:text-emerald-500/70 font-mono">
+ <span className="text-xs text-emerald-600/70 dark:text-emerald-500/70 ">
                         @{recs[0].whatsapp_username}
                       </span>
                     )}
@@ -2710,7 +2710,7 @@ function PapaTestesModal({
                     )}
                   </div>
                   {recs[0]?.phone_e164 && (
-                    <span className="text-xs text-slate-400 dark:text-muted-foreground font-mono">
+ <span className="text-xs text-slate-400 dark:text-muted-foreground ">
                       {recs[0].phone_e164}
                     </span>
                   )}
@@ -2741,7 +2741,7 @@ function PapaTestesModal({
                           </span>
                         )}
                         {r.username && (
-                          <span className="text-xs font-mono text-slate-500 dark:text-white/50 truncate">
+ <span className="text-xs text-slate-500 dark:text-white/50 truncate">
                             {r.username}
                           </span>
                         )}

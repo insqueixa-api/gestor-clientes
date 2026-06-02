@@ -810,7 +810,7 @@ export default function QuickRechargeModal({
                             : ""
                         }
                         onChange={(e) => setFxRate(Number(e.target.value))}
-                        className="col-span-2 h-10 px-3 bg-white dark:bg-black/30 border border-sky-200 dark:border-sky-500/30 rounded-lg text-slate-700 dark:text-white font-medium font-mono outline-none"
+ className="col-span-2 h-10 px-3 bg-white dark:bg-black/30 border border-sky-200 dark:border-sky-500/30 rounded-lg text-slate-700 dark:text-white font-medium outline-none"
                       />
                       <div className="h-10 flex items-center justify-center px-2 bg-white dark:bg-black/30 border border-sky-200 dark:border-sky-500/30 rounded-lg text-[10px] text-slate-500 dark:text-white/50 font-semibold">
                         {fxError ? "Erro" : fxAsOf ? "AUTO" : "—"}
@@ -826,14 +826,14 @@ export default function QuickRechargeModal({
                     {fxAsOf && !fxError && (
                       <div className="text-[10px] text-slate-400 dark:text-white/30">
                         Última taxa registrada:{" "}
-                        <span className="font-mono">{fxAsOf}</span>
+ <span className=" ">{fxAsOf}</span>
                       </div>
                     )}
                   </div>
 
                   <div className="space-y-1">
                     <Label>Subtotal ({currency})</Label>
-                    <div className="h-10 flex items-center px-3 bg-white dark:bg-black/30 border border-sky-200 dark:border-sky-500/30 rounded-lg text-slate-700 dark:text-white font-medium font-mono">
+ <div className="h-10 flex items-center px-3 bg-white dark:bg-black/30 border border-sky-200 dark:border-sky-500/30 rounded-lg text-slate-700 dark:text-white font-medium ">
                       {Number.isFinite(totalCurrency)
                         ? fmtMoney(currency, totalCurrency)
                         : "—"}

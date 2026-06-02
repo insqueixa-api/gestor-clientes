@@ -866,7 +866,7 @@ export default function ServerDetailsPage() {
                       <td className="px-5 py-3 font-medium text-center group-hover:text-emerald-500 transition-colors">
                         {m.qty_credits}
                       </td>
-                      <td className="px-5 py-3 font-mono font-medium">
+ <td className="px-5 py-3 font-medium">
                         {m.total_brl !== null ? fmtMoney(m.total_brl) : "--"}
                       </td>
                       {/* ✅ Nova formatação da Descrição */}

@@ -1067,7 +1067,7 @@ function GatewayCard({
                 <span className="text-slate-400 dark:text-muted-foreground font-medium truncate">
                   {field.label}:
                 </span>
-                <span className="text-slate-600 dark:text-muted-foreground font-mono truncate max-w-[55%]">
+ <span className="text-slate-600 dark:text-muted-foreground truncate max-w-[55%]">
                   {masked}
                 </span>
               </div>

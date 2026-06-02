@@ -561,7 +561,7 @@ export default function ResellerDetailPage() {
                 <span className="text-slate-500 dark:text-muted-foreground font-medium text-[11px] uppercase tracking-tight">
                   Total Investido
                 </span>
-                <div className="text-right font-mono font-medium text-base text-emerald-600 dark:text-emerald-400">
+ <div className="text-right font-medium text-base text-emerald-600 dark:text-emerald-400">
                   {fmtBRL(totalInvested)}
                 </div>
               </div>
@@ -592,7 +592,7 @@ export default function ResellerDetailPage() {
                 <span className="text-slate-500 dark:text-muted-foreground font-medium">
                   Telefone
                 </span>
-                <span className="font-mono font-medium text-slate-800 dark:text-white text-right">
+ <span className=" font-medium text-slate-800 dark:text-white text-right">
                   {formatPhoneDisplay(reseller.whatsapp_e164)}
                 </span>
               </div>
@@ -791,7 +791,7 @@ export default function ResellerDetailPage() {
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
-                          <div className="text-[10px] font-medium text-slate-400 dark:text-white/20 font-mono bg-white dark:bg-black/20 px-2 py-1 rounded-md shadow-sm whitespace-nowrap">
+ <div className="text-[10px] font-medium text-slate-400 dark:text-white/20 bg-white dark:bg-black/20 px-2 py-1 rounded-md shadow-sm whitespace-nowrap">
                             {fmtDate(h.created_at ?? null)}
                           </div>
                           <button

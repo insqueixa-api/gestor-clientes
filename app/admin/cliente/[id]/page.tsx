@@ -659,7 +659,7 @@ export default function ClientDetailsPage() {
   if (!clientIdSafe) {
     return (
       <div className="p-10 text-center text-rose-500 font-medium">
-        Rota inválida: não encontrei o <span className="font-mono">id</span> do
+ Rota inválida: não encontrei o <span className=" ">id</span> do
         cliente nos params.
       </div>
     );
@@ -945,7 +945,7 @@ export default function ClientDetailsPage() {
                 <span className="text-slate-500 dark:text-muted-foreground font-medium">
                   Valor
                 </span>
-                <span className="font-mono font-medium text-slate-800 dark:text-white bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-md">
+ <span className=" font-medium text-slate-800 dark:text-white bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-md">
                   {fmtMoney(client.price_amount, client.price_currency)}
                 </span>
               </div>
@@ -957,7 +957,7 @@ export default function ClientDetailsPage() {
                     Vencimento
                   </span>
                   <div
-                    className={`text-right font-mono font-medium text-base ${
+ className={`text-right font-medium text-base ${
                       client.computed_status === "OVERDUE"
                         ? "text-rose-500"
                         : client.computed_status === "ACTIVE"
@@ -983,7 +983,7 @@ export default function ClientDetailsPage() {
                 <span className="text-slate-500 dark:text-muted-foreground font-medium">
                   Data do Cadastro
                 </span>
-                <span className="font-mono text-slate-800 dark:text-white text-right">
+ <span className=" text-slate-800 dark:text-white text-right">
                   {client.created_at
                     ? new Date(client.created_at).toLocaleDateString("pt-BR")
                     : "—"}
@@ -1003,7 +1003,7 @@ export default function ClientDetailsPage() {
                 <span className="text-slate-500 dark:text-muted-foreground font-medium">
                   Telefone Principal
                 </span>
-                <span className="font-mono font-medium text-slate-800 dark:text-white text-right">
+ <span className=" font-medium text-slate-800 dark:text-white text-right">
                   {formatPhoneDisplay(client.whatsapp_e164)}
                 </span>
               </div>
@@ -1159,7 +1159,7 @@ export default function ClientDetailsPage() {
                       </div>
                     </div>
                     <div className="flex items-start gap-2 shrink-0">
-                      <div className="text-[10px] font-medium text-slate-400 dark:text-white/20 font-mono bg-white dark:bg-black/20 px-2 py-1 rounded-md shadow-sm">
+ <div className="text-[10px] font-medium text-slate-400 dark:text-white/20 bg-white dark:bg-black/20 px-2 py-1 rounded-md shadow-sm">
                         {fmtDate(item.created_at)}
                       </div>
                       <button

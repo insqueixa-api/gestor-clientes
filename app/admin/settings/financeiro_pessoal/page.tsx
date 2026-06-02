@@ -1705,7 +1705,7 @@ function FinanceiroPageContent() {
                     </td>
 
                     <td className="px-4 py-3 text-center">
-                      <span className="font-mono text-slate-600 dark:text-white/80">
+ <span className=" text-slate-600 dark:text-white/80">
                         {t.data_vencimento.split("-").reverse().join("/")}
                       </span>
                     </td>
@@ -3496,7 +3496,7 @@ function ModalTransacao({
                   onFocus={(e) => e.target.select()}
                   placeholder="DD/MM/AAAA"
                   maxLength={10}
-                  className="w-full h-10 px-3 pr-10 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 font-mono"
+ className="w-full h-10 px-3 pr-10 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 "
                 />
                 <button
                   type="button"
@@ -3615,7 +3615,7 @@ function ModalTransacao({
               <button
                 type="button"
                 onClick={() => setShowPagamentoPicker(true)}
-                className={`w-full h-10 px-3 flex justify-center items-center bg-white dark:bg-black/20 border rounded-lg transition-colors text-sm font-mono font-medium ${status === "PAGO" ? "border-emerald-200 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-300 hover:border-emerald-500" : "border-slate-200 dark:border-border text-slate-400 dark:text-white/50 hover:border-slate-400"}`}
+ className={`w-full h-10 px-3 flex justify-center items-center bg-white dark:bg-black/20 border rounded-lg transition-colors text-sm font-medium ${status === "PAGO" ? "border-emerald-200 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-300 hover:border-emerald-500" : "border-slate-200 dark:border-border text-slate-400 dark:text-white/50 hover:border-slate-400"}`}
               >
                 {pagamentoDisplay}
               </button>
@@ -4077,7 +4077,7 @@ function ModalBaixa({
                 onFocus={(e) => e.target.select()}
                 placeholder="DD/MM/AAAA"
                 maxLength={10}
-                className="w-full h-10 px-3 pr-10 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 font-mono"
+ className="w-full h-10 px-3 pr-10 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 "
               />
               <button
                 type="button"

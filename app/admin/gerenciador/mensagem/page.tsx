@@ -998,7 +998,7 @@ function EditorModal({
                           className={`text-left px-3 py-2.5 rounded-lg border border-slate-200 dark:border-border hover:brightness-95 hover:shadow-sm active:scale-95 transition-all flex flex-col group ${tag.color} bg-white dark:bg-[#1c2128]`}
                         >
                           <div className="flex items-center justify-between gap-3">
-                            <span className="font-mono text-xs font-medium tracking-tight">
+ <span className=" text-xs font-medium tracking-tight">
                               {tag.label}
                             </span>
                             <span className="text-[10px] text-slate-400 dark:text-white/30 font-medium truncate">
@@ -1171,7 +1171,7 @@ function EditorModal({
                             onClick={() => insertTag(tag.label)}
                             className={`text-left px-3 py-2.5 rounded-lg border border-slate-200 dark:border-border hover:brightness-95 hover:shadow-sm active:scale-95 transition-all flex flex-col group ${group.color} bg-white dark:bg-[#1c2128]`}
                           >
-                            <span className="font-mono text-xs font-medium tracking-tight">
+ <span className=" text-xs font-medium tracking-tight">
                               {tag.label}
                             </span>
                             <span className="text-[10px] opacity-60 group-hover:opacity-100 mt-0.5 font-medium">
