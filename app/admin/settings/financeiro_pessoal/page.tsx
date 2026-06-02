@@ -1156,26 +1156,7 @@ function FinanceiroPageContent() {
       className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-background transition-colors"
       id="dashboard-values"
     >
-      {/* CSS PARA OCULTAR VALORES COM O EYE-TOGGLE */}
-      <style
-        dangerouslySetInnerHTML={{
-          __html: `
-        #dashboard-values[data-values-hidden="true"] .finance-value {
-          filter: blur(8px);
-          opacity: 0.6;
-          pointer-events: none;
-          user-select: none;
-        }
-      `,
-        }}
-      />
-
-      <div className="relative z-[999999]">
-        <ToastNotifications
-          toasts={toasts}
-          removeToast={(id) => setToasts((t) => t.filter((x) => x.id !== id))}
-        />
-      </div>
+      
 
       {/* Topo */}
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
@@ -2692,10 +2673,30 @@ function ModalNovaCategoria({
           </button>
         </div>
       </div>
+      <div className="h-24 sm:h-20" />
+      {/* CSS PARA OCULTAR VALORES COM O EYE-TOGGLE */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+        #dashboard-values[data-values-hidden="true"] .finance-value {
+          filter: blur(8px);
+          opacity: 0.6;
+          pointer-events: none;
+          user-select: none;
+        }
+      `,
+        }}
+      />
+
+      <div className="relative z-[999999]">
+        <ToastNotifications
+          toasts={toasts}
+          removeToast={(id) => setToasts((t) => t.filter((x) => x.id !== id))}
+        />
+      </div>
     </div>
   );
 }
-
 function ModalTransacao({
   tenantId,
   onClose,
