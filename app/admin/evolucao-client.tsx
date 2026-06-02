@@ -139,8 +139,8 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
   const TICK = isDark ? "rgba(148,163,184,0.65)" : "rgba(71,85,105,0.65)";
   const BAR1 = "rgba(16,185,129,0.2)";
   const BAR2 = "rgba(244,63,94,0.2)";
-  const L1 = isDark ? "#10b981" : "#10b981";
-  const L2 = isDark ? "#f43f5e" : "#e11d48";
+  const L1 = isDark ? "rgba(16,185,129,0.5)" : "#10b981";
+  const L2 = isDark ? "rgba(244,63,94,0.5)" : "#e11d48";
   const BAR_W = Math.min(COL_W * 0.27, 20);
 
   const makePath = (key: "line1" | "line2") =>
@@ -156,9 +156,9 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
     {
       label: "Receita Prevista",
       key: "bar1",
-      dot: "#22c55e",
+      dot: "rgba(16,185,129,0.5)",
       lightColor: "#15803d",
-      darkColor: "#22c55e",
+      darkColor: "rgba(16,185,129,0.6)",
       bold: false,
       colorValues: false,
       rowBg: isDark ? "rgba(16,185,129,0.035)" : "rgba(16,185,129,0.04)",
@@ -166,9 +166,9 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
     {
       label: "Receita Executada",
       key: "line1",
-      dot: "#16a34a",
+      dot: "rgba(16,185,129,0.5)",
       lightColor: "#166534",
-      darkColor: "#10b981",
+      darkColor: "rgba(16,185,129,0.6)",
       bold: false,
       colorValues: true,
       rowBg: isDark ? "rgba(16,185,129,0.035)" : "rgba(16,185,129,0.04)", // Fundo aplicado
@@ -177,9 +177,9 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
     {
       label: "Despesa Prevista",
       key: "bar2",
-      dot: "#ef4444",
+      dot: "rgba(244,63,94,0.5)",
       lightColor: "#dc2626",
-      darkColor: "#ef4444",
+      darkColor: "rgba(244,63,94,0.6)",
       bold: false,
       colorValues: false,
       rowBg: isDark ? "rgba(244,63,94,0.035)" : "rgba(244,63,94,0.04)",
@@ -187,9 +187,9 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
     {
       label: "Despesa Executada",
       key: "line2",
-      dot: "#dc2626",
+      dot: "rgba(244,63,94,0.5)",
       lightColor: "#7f1d1d",
-      darkColor: "#f43f5e",
+      darkColor: "rgba(244,63,94,0.6)",
       bold: false,
       colorValues: true,
       rowBg: isDark ? "rgba(244,63,94,0.035)" : "rgba(244,63,94,0.04)", // Fundo aplicado
