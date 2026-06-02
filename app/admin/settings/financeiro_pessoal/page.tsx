@@ -1177,29 +1177,10 @@ function FinanceiroPageContent() {
         />
       </div>
 
-      {/* 1. TÍTULO MOBILE: Rola junto com a tela e desaparece */}
-      <div className="min-w-0 text-left pt-1 pb-0 px-3 md:hidden -mt-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight whitespace-nowrap">
-              Controle Financeiro
-            </h1>
-            <EyeToggle />
-          </div>
-          <button
-            onClick={() => setShowMobileCards(!showMobileCards)}
-            className="text-[11px] font-medium text-muted-foreground bg-black/20 px-2 py-1 rounded-md dark:bg-card/10 dark:text-muted-foreground"
-          >
-            {showMobileCards ? "Ocultar Valores" : "Exibir Valores"}
-          </button>
-        </div>
-      </div>
-
-      {/* 2. HEADER STICKY: Botões no Mobile / Título + Botões no Desktop */}
-      {/* top-14 crava nos exatos 56px da TopBar, fechando qualquer buraco visual */}
-      <div className="sticky top-14 md:top-0 z-[40] bg-background px-3 pb-3 pt-0 md:pt-0 sm:mx-0 sm:px-0 border-b border-border/50 dark:border-border sm:border-none flex items-center justify-end md:justify-between shadow-sm sm:shadow-none transition-colors">
-        {/* Título Desktop (Só aparece em telas grandes) */}
-        <div className="min-w-0 text-left hidden md:block">
+      {/* Topo */}
+      <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
+        {/* Título (esquerda) */}
+        <div className="min-w-0 text-left">
           <div className="flex items-center gap-3">
             <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">
               Controle Financeiro
@@ -1208,7 +1189,14 @@ function FinanceiroPageContent() {
           </div>
         </div>
 
-        {/* Botões do Calendário */}
+        <div className="flex items-center gap-2 justify-end shrink-0">
+          <button
+            onClick={() => setShowMobileCards(!showMobileCards)}
+            className="md:hidden text-[11px] font-medium text-muted-foreground bg-black/20 px-2 py-1 rounded-md dark:bg-card/10 dark:border dark:border-white/5 hover:text-white dark:text-muted-foreground transition-colors mr-2"
+          >
+            {showMobileCards ? "Ocultar Valores" : "Exibir Valores"}
+          </button>
+          {/* Botões do Calendário */}
         <div className="flex items-center w-full md:w-auto gap-2">
           <div className="flex items-center flex-1 md:flex-none justify-between bg-card dark:bg-card/5 border border-border rounded-lg shadow-sm">
             <button
@@ -1248,6 +1236,7 @@ function FinanceiroPageContent() {
             onClose={() => setShowDatePicker(false)}
           />
         )}
+        </div>
       </div>
 
       <div
