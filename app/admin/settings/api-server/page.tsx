@@ -323,9 +323,21 @@ export default function ApiServerPage() {
 
   return (
     <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-background transition-colors">
-      {/* Topo */}
-      <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
-        <div className="min-w-0 text-left">
+      {/* 1. TÍTULO MOBILE: Rola junto com a tela e desaparece */}
+      <div className="min-w-0 text-left pt-1 pb-0 px-3 md:hidden -mt-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight whitespace-nowrap">
+              API de Integrações
+            </h1>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. HEADER STICKY: Botões no Mobile / Título + Botões no Desktop */}
+      <div className="sticky top-14 md:top-0 z-[40] bg-background px-3 pb-3 pt-0 md:pt-0 sm:mx-0 sm:px-0 border-b border-border/50 dark:border-border sm:border-none flex items-center justify-end md:justify-between shadow-sm sm:shadow-none transition-colors">
+        {/* Título Desktop (Só aparece em telas grandes) */}
+        <div className="min-w-0 text-left hidden md:block">
           <div className="flex items-center gap-3">
             <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">
               API de Integrações
