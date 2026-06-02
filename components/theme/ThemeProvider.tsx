@@ -75,7 +75,7 @@ export function useTheme() {
   const ctx = useContext(ThemeContext);
   
   // Fallback seguro para evitar que o projeto quebre se o hook for chamado fora do Provider
-  // Mantida a correção para o setTheme conforme seu ajuste anterior
+  // Mantida a correção para o setTheme conforme seu ajuste anterior 
   return ctx || { 
     theme: 'light', 
     setTheme: () => {}, 
