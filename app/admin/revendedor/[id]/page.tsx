@@ -487,7 +487,7 @@ export default function ResellerDetailPage() {
         {/* Título + Badge */}
         <div className="min-w-0 text-left flex flex-col">
           <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">
               {reseller.name}
             </h1>
             <span

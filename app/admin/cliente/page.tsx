@@ -1726,7 +1726,7 @@ function ClientePageContent() {
         {/* Título (esquerda) */}
         <div className="min-w-0 text-left">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">
               Gestão de {entidadeLabel}s
             </h1>
             <button
@@ -2761,7 +2761,7 @@ function ClientePageContent() {
                   </strong>{" "}
                   possui pendências/alertas em aberto.
                 </p>
-                <p className="text-slate-500 dark:text-white/60 text-xs mt-1">
+                <p className="text-foreground/70 text-xs mt-1">
                   Recomendamos verificar os alertas antes de realizar a
                   renovação para evitar problemas.
                 </p>

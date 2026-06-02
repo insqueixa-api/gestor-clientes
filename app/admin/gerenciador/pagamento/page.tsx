@@ -643,7 +643,7 @@ function GatewayModal({
             <h2 className="text-lg font-medium text-slate-800 dark:text-white">
               {isEdit ? "Editar Integração" : "Nova Integração de Pagamento"}
             </h2>
-            <p className="text-xs text-slate-500 dark:text-white/60 mt-0.5">
+            <p className="text-xs text-foreground/70 mt-0.5">
               {isEdit
                 ? "Atualize as configurações da integração"
                 : "Configure uma nova forma de recebimento"}
@@ -1256,7 +1256,7 @@ export default function PagamentosPage() {
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
         <div className="min-w-0 text-left">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate text-slate-800 dark:text-white">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate text-foreground">
               Pagamentos
             </h1>
           </div>
@@ -1287,7 +1287,7 @@ export default function PagamentosPage() {
             <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">
               Nenhuma integração configurada
             </h3>
-            <p className="text-slate-500 dark:text-white/60 text-sm mb-6">
+            <p className="text-foreground/70 text-sm mb-6">
               Configure ao menos um gateway para habilitar renovações na Área do
               Cliente.
             </p>

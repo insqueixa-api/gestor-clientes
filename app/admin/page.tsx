@@ -640,7 +640,7 @@ const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
         <div className="min-w-0 text-left">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-bold dark:font-semibold text-slate-800 dark:text-white tracking-tight truncate">Dashboard</h1>
+            <h1 className="text-xl sm:text-2xl font-bold dark:font-semibold text-foreground tracking-tight truncate">Dashboard</h1>
             <EyeToggle />
           </div>
           <div className="flex items-center gap-3 mt-1">

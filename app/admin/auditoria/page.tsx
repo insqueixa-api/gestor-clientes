@@ -597,11 +597,11 @@ function AuditoriaPageContent() {
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
         <div className="min-w-0 text-left">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate flex items-center gap-2">
               Auditoria do Portal
             </h1>
           </div>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-white/60 mt-1">
+          <p className="text-xs sm:text-sm text-foreground/70 mt-1">
             Log completo de ponta a ponta dos pagamentos e renovações.
           </p>
         </div>

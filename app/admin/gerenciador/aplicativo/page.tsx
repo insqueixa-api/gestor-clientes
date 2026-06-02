@@ -622,7 +622,7 @@ export default function AppManagerPage() {
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
         <div className="min-w-0 text-left">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate text-slate-800 dark:text-white">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate text-foreground">
               Aplicativos
             </h1>
           </div>
@@ -891,7 +891,7 @@ export default function AppManagerPage() {
                       <option value="FUNPLAY">Fun Play</option>
                       <option value="FOCOXPLAY">FocoX Play</option>
                     </select>
-                    <p className="text-[11px] text-slate-500 dark:text-muted-foreground mt-1">
+                    <p className="text-[11px] text-foreground/70 mt-1">
                       Quando configurado, habilita automação ao criar clientes.
                     </p>
                   </div>

@@ -1181,7 +1181,7 @@ function FinanceiroPageContent() {
       <div className="min-w-0 text-left pt-1 pb-0 px-3 md:hidden -mt-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight whitespace-nowrap">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight whitespace-nowrap">
               Controle Financeiro
             </h1>
             <EyeToggle />
@@ -1201,7 +1201,7 @@ function FinanceiroPageContent() {
         {/* Título Desktop (Só aparece em telas grandes) */}
         <div className="min-w-0 text-left hidden md:block">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">
               Controle Financeiro
             </h1>
             <EyeToggle />

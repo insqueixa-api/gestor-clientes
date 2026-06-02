@@ -617,7 +617,7 @@ export default function AdminServersPage() {
         {/* Título (esquerda) */}
         <div className="min-w-0 text-left">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-medium text-slate-800 dark:text-white tracking-tight truncate">
+            <h1 className="text-xl sm:text-2xl font-medium text-foreground tracking-tight truncate">
               Servidores
             </h1>
           </div>

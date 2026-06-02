@@ -1053,7 +1053,7 @@ export default function AdminShell({
                 <p className="text-slate-700 dark:text-white/90 text-sm font-medium">
                   {selectedNotification.title}
                 </p>
-                <p className="text-slate-500 dark:text-white/60 text-xs mt-1">
+                <p className="text-foreground/70 text-xs mt-1">
                   {selectedNotification.message}
                 </p>
               </div>
@@ -1089,7 +1089,7 @@ export default function AdminShell({
                 <p className="text-slate-700 dark:text-white/90 text-sm font-medium">
                   Nenhuma sessão do WhatsApp está conectada no momento.
                 </p>
-                <p className="text-slate-500 dark:text-white/60 text-xs mt-1">
+                <p className="text-foreground/70 text-xs mt-1">
                   Os disparos automáticos e manuais estão pausados. Reconecte
                   para retomar o envio de mensagens.
                 </p>

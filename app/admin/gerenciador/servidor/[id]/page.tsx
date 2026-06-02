@@ -559,7 +559,7 @@ export default function ServerDetailsPage() {
                 📡
               </div>
             )}
-            <h1 className="text-2xl font-medium text-slate-800 dark:text-white tracking-tight">
+            <h1 className="text-2xl font-medium text-foreground tracking-tight">
               {server.name}
             </h1>
 

@@ -325,7 +325,7 @@ export default function MessagesPage() {
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
         <div className="min-w-0 text-left">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-medium text-slate-800 dark:text-white tracking-tight truncate">
+            <h1 className="text-xl sm:text-2xl font-medium text-foreground tracking-tight truncate">
               Mensagens
             </h1>
           </div>
@@ -397,7 +397,7 @@ export default function MessagesPage() {
           <h3 className="text-lg font-medium text-slate-700 dark:text-white">
             Nenhum modelo encontrado
           </h3>
-          <p className="text-sm text-slate-500 dark:text-white/50 mt-1">
+          <p className="text-sm text-foreground/70 dark:text-white/50 mt-1">
             Crie um novo modelo ou ajuste sua busca.
           </p>
         </div>

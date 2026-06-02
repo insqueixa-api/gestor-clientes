@@ -110,7 +110,7 @@ export default function ConfirmDialog({
             <h3 className="text-lg font-semibold text-slate-800 dark:text-white truncate">
               {title}
             </h3>
-            <p className="text-xs text-slate-500 dark:text-white/60">
+            <p className="text-xs text-foreground/70">
               {subtitle}
             </p>
           </div>

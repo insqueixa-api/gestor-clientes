@@ -201,7 +201,7 @@ export default function NovaIntegracaoModal({
               <h2 className="text-base sm:text-lg font-medium text-slate-800 dark:text-white tracking-tight truncate">
                 {isEdit ? "Editar Integração" : "Nova Integração"}
               </h2>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-white/50 mt-1">
+              <p className="text-xs sm:text-sm text-foreground/70 dark:text-white/50 mt-1">
                 {isEdit
                   ? "Atualize os dados da integração (token/secret ficam visíveis para facilitar manutenção)."
                   : "Cadastre a integração para automatizações e consulta de saldo."}
@@ -253,7 +253,7 @@ export default function NovaIntegracaoModal({
               placeholder='Ex: "Revenda Principal"'
               className="w-full h-10 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
             />
-            <p className="text-[11px] text-slate-500 dark:text-muted-foreground mt-1">
+            <p className="text-[11px] text-foreground/70 mt-1">
               Esse nome é só para você identificar na lista.
             </p>
           </div>
@@ -296,7 +296,7 @@ export default function NovaIntegracaoModal({
                     className="w-full h-10 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
                     disabled={loadingEdit}
                   />
-                  <p className="text-[11px] text-slate-500 dark:text-muted-foreground mt-1">
+                  <p className="text-[11px] text-foreground/70 mt-1">
                     A URL será formatada e salva automaticamente sem a barra
                     final.
                   </p>
@@ -387,7 +387,7 @@ export default function NovaIntegracaoModal({
               </div>
             )}
 
-            <p className="text-[11px] text-slate-500 dark:text-muted-foreground">
+            <p className="text-[11px] text-foreground/70">
               {loadingEdit
                 ? "Carregando dados da integração..."
                 : "Esse valor fica visível para facilitar manutenção."}

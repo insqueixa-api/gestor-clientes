@@ -700,7 +700,7 @@ export default function ClientDetailsPage() {
         {/* Título (Nome + Badge) */}
         <div className="min-w-0 text-left flex flex-col">
           <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">
               {client.client_name}
             </h1>
             <StatusBadge status={client.computed_status} />
@@ -1212,7 +1212,7 @@ export default function ClientDetailsPage() {
                   </strong>{" "}
                   possui pendências em aberto.
                 </p>
-                <p className="text-xs text-slate-500 dark:text-white/60 mt-1">
+                <p className="text-xs text-foreground/70 mt-1">
                   Verifique os alertas antes de renovar.
                 </p>
               </div>

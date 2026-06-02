@@ -1104,7 +1104,7 @@ export default function BillingPage() {
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
         <div className="min-w-0 text-left">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-medium tracking-tight truncate text-slate-800 dark:text-white">
+            <h1 className="text-xl sm:text-2xl font-medium tracking-tight truncate text-foreground">
               Automação de Cobranças
             </h1>
           </div>
@@ -1164,7 +1164,7 @@ export default function BillingPage() {
           <h3 className="text-lg font-medium text-slate-700 dark:text-white">
             Nenhuma regra ativa
           </h3>
-          <p className="text-sm text-slate-500 dark:text-white/50 mt-1">
+          <p className="text-sm text-foreground/70 dark:text-white/50 mt-1">
             Crie sua primeira automação de cobrança.
           </p>
         </div>
@@ -1545,7 +1545,7 @@ function ImpactListModal({
             <h3 className="text-lg font-medium text-slate-800 dark:text-white">
               Clientes Afetados Hoje
             </h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-foreground/70">
               Regra: <strong>{data.ruleName}</strong> • Total:{" "}
               <strong>{data.clients.length}</strong>
             </p>
@@ -2044,7 +2044,7 @@ function AutomationWizard({
           {step === 2 && (
             <div className="space-y-6">
                                          {" "}
-              <p className="text-sm text-slate-500 dark:text-white/60 mb-4">
+              <p className="text-sm text-foreground/70 mb-4">
                 Selecione quem receberá esta mensagem. Deixe vazio para "Todos".
               </p>
                                          {" "}
@@ -2404,7 +2404,7 @@ function LogsModal({
             <h3 className="text-lg font-medium text-slate-800 dark:text-white">
               Logs de Envio
             </h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-foreground/70">
               Regra: <strong>{ruleName}</strong>
             </p>
           </div>

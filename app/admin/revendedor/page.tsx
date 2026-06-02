@@ -1191,7 +1191,7 @@ export default function RevendaPage() {
         {/* Título */}
         <div className="min-w-0 text-left">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">
               Gestão de Revendas
             </h1>
           </div>

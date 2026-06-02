@@ -1242,7 +1242,7 @@ function AgendaPageContent() {
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
         <div className="min-w-0 text-left">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">
               Agenda
             </h1>
           </div>
@@ -1561,7 +1561,7 @@ function AgendaPageContent() {
                   onClick={(e) => e.stopPropagation()}
                   className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl z-50 p-3 space-y-2"
                 >
-                  <p className="text-[11px] font-medium text-slate-500 dark:text-muted-foreground uppercase tracking-wide">
+                  <p className="text-[11px] font-medium text-foreground/70 uppercase tracking-wide">
                     Grupos existentes
                   </p>
                   <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto">
@@ -1578,7 +1578,7 @@ function AgendaPageContent() {
                       ))}
                   </div>
                   <div className="border-t border-slate-200 dark:border-border pt-2">
-                    <p className="text-[11px] font-medium text-slate-500 dark:text-muted-foreground uppercase tracking-wide mb-1.5">
+                    <p className="text-[11px] font-medium text-foreground/70 uppercase tracking-wide mb-1.5">
                       Novo grupo
                     </p>
                     <div className="flex gap-1.5">

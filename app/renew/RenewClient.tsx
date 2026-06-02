@@ -991,7 +991,7 @@ export default function RenewClient() {
                     Cartão de Crédito / Débito
                   </p>
                 </div>
-                <p className="text-xs text-slate-500 dark:text-white/50 mb-1">
+                <p className="text-xs text-foreground/70 dark:text-white/50 mb-1">
                   Somente Visa ou Mastercard
                 </p>
                 <span className="inline-block px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full">
@@ -1011,7 +1011,7 @@ export default function RenewClient() {
                 <p className="font-bold text-slate-800 dark:text-white mb-0.5">
                   Apple Pay / Google Pay
                 </p>
-                <p className="text-xs text-slate-500 dark:text-white/50 mb-1">
+                <p className="text-xs text-foreground/70 dark:text-white/50 mb-1">
                   Utilize a carteira digital do seu dispositivo
                 </p>
                 <span className="inline-block px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full">
@@ -1031,7 +1031,7 @@ export default function RenewClient() {
                 <p className="font-bold text-slate-800 dark:text-white mb-0.5">
                   Transferência Bancária
                 </p>
-                <p className="text-xs text-slate-500 dark:text-white/50 mb-1">
+                <p className="text-xs text-foreground/70 dark:text-white/50 mb-1">
                   IBAN / SEPA — confirmação via suporte
                 </p>
                 <span className="inline-block px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded-full">
@@ -1338,7 +1338,7 @@ export default function RenewClient() {
                 {/* Código Copia e Cola - Visual Premium */}
                 {paymentPhase !== "renewing" && paymentData.pix_qr_code && (
                   <div className="bg-slate-50 dark:bg-white/5 p-3 rounded-xl border border-slate-200 dark:border-border space-y-2">
-                    <p className="text-xs font-bold text-slate-500 dark:text-white/60 uppercase tracking-wider text-center">
+                    <p className="text-xs font-bold text-foreground/70 uppercase tracking-wider text-center">
                       Ou copie o código:
                     </p>
                     <div className="relative group">
@@ -1456,7 +1456,7 @@ export default function RenewClient() {
                               {paymentData.beneficiary_name}
                             </p>
                           )}
-                          <p className="text-xs text-slate-500 dark:text-white/50">
+                          <p className="text-xs text-foreground/70 dark:text-white/50">
                             {paymentData.institution || "Stripe"}
                           </p>
                         </div>
@@ -1590,7 +1590,7 @@ export default function RenewClient() {
                       <p className="text-sm font-bold text-slate-800 dark:text-white">
                         Processando renovação...
                       </p>
-                      <p className="text-xs text-slate-500 dark:text-white/50">
+                      <p className="text-xs text-foreground/70 dark:text-white/50">
                         Atualizando sua assinatura no servidor.
                       </p>
                     </div>
@@ -1648,7 +1648,7 @@ export default function RenewClient() {
                                 {paymentData.beneficiary_name}
                               </p>
                             )}
-                            <p className="text-xs text-slate-500 dark:text-white/50">
+                            <p className="text-xs text-foreground/70 dark:text-white/50">
                               {paymentData.institution || "Stripe"}
                             </p>
                           </div>
@@ -1761,7 +1761,7 @@ export default function RenewClient() {
                           {copiedKey ? "✅ Copiado" : "📋 Copiar"}
                         </button>
                       </div>
-                      <p className="text-xs text-slate-500 dark:text-white/50 mt-1">
+                      <p className="text-xs text-foreground/70 dark:text-white/50 mt-1">
                         Tipo: {paymentData.pix_key_type?.toUpperCase() || "—"}
                       </p>
                     </div>
@@ -2171,7 +2171,7 @@ export default function RenewClient() {
           <h1 className="text-2xl font-bold text-red-500 mb-2">
             Sessão Expirada
           </h1>
-          <p className="text-slate-500 dark:text-white/60 mb-6">{error}</p>
+          <p className="text-foreground/70 mb-6">{error}</p>
           <button
             onClick={() => {
               clearStoredSession();
@@ -2276,10 +2276,10 @@ export default function RenewClient() {
         {/* --- CORPO DA PÁGINA --- */}
         <div className="max-w-2xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
           <div className="mb-4 sm:mb-6">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
               {getGreeting()}! 👋
             </h1>
-            <p className="text-slate-500 dark:text-white/60 text-sm mt-1">
+            <p className="text-foreground/70 text-sm mt-1">
               Qual conta você deseja gerenciar hoje?
             </p>
           </div>
@@ -2332,7 +2332,7 @@ export default function RenewClient() {
 
                     {/* Linha 2: Servidor + Telas (Esq) | Plano (Dir) */}
                     <div className="flex items-center justify-between mb-4">
-                      <p className="text-sm font-medium text-slate-500 dark:text-white/60 truncate">
+                      <p className="text-sm font-medium text-foreground/70 truncate">
                         {account.server_name} • {account.screens} tela
                         {account.screens > 1 ? "s" : ""}
                       </p>
@@ -2368,7 +2368,7 @@ export default function RenewClient() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <div className="max-w-md w-full bg-white dark:bg-card rounded-2xl shadow-2xl p-8 text-center">
-          <p className="text-slate-500 dark:text-white/60">
+          <p className="text-foreground/70">
             Nenhuma conta encontrada
           </p>
         </div>
@@ -2803,7 +2803,7 @@ export default function RenewClient() {
                                 </span>
                               )}
                             </div>
-                            <p className="text-xs text-slate-500 dark:text-white/50 mt-1 ml-7">
+                            <p className="text-xs text-foreground/70 dark:text-white/50 mt-1 ml-7">
                               {price.price_amount > 0
                                 ? `${formatMoney(price.price_amount / months, selectedAccount.price_currency)}/mês`
                                 : "—"}

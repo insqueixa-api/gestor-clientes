@@ -121,10 +121,10 @@ export default function ResetPasswordPage() {
             {/* Renderização Condicional baseada na validade do Link */}
             {hasValidSession ? (
               <>
-                <h1 className="mt-4 text-xl sm:text-2xl font-semibold text-slate-800 dark:text-white">
+                <h1 className="mt-4 text-xl sm:text-2xl font-semibold text-foreground">
                   Nova Senha
                 </h1>
-                <p className="mt-1 text-sm text-slate-500 dark:text-white/60">
+                <p className="mt-1 text-sm text-foreground/70">
                   Digite a sua nova senha de acesso.
                 </p>
               </>
@@ -133,7 +133,7 @@ export default function ResetPasswordPage() {
                 <h1 className="mt-4 text-xl sm:text-2xl font-semibold text-red-600 dark:text-red-400">
                   Link Inválido
                 </h1>
-                <p className="mt-2 text-sm text-slate-500 dark:text-white/60">
+                <p className="mt-2 text-sm text-foreground/70">
                   Este link de recuperação expirou ou já foi utilizado. Por
                   questões de segurança, solicite um novo acesso.
                 </p>

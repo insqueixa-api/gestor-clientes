@@ -327,10 +327,10 @@ export default function LoginClient() {
                 draggable={false}
               />
             </div>
-            <h1 className="mt-4 text-xl sm:text-2xl font-semibold text-slate-800 dark:text-white">
+            <h1 className="mt-4 text-xl sm:text-2xl font-semibold text-foreground">
               Área do Cliente
             </h1>
-            <p className="mt-1 text-sm text-slate-500 dark:text-white/60">
+            <p className="mt-1 text-sm text-foreground/70">
               Renovação automática da sua assinatura.
             </p>
           </div>
@@ -367,7 +367,7 @@ export default function LoginClient() {
                   )}
                 </div>
 
-                <p className="mt-2 text-[11px] font-semibold text-slate-500 dark:text-white/50 text-center">
+                <p className="mt-2 text-[11px] font-semibold text-foreground/70 dark:text-white/50 text-center">
                   Se o número estiver errado, solicite um novo link.
                 </p>
               </div>
@@ -396,7 +396,7 @@ export default function LoginClient() {
                 />
 
                 {!!pinHint && (
-                  <p className="mt-2 text-[11px] font-semibold text-slate-500 dark:text-white/50 text-center">
+                  <p className="mt-2 text-[11px] font-semibold text-foreground/70 dark:text-white/50 text-center">
                     PIN: Digite os últimos 4 dígitos do WhatsApp:{" "}
                     <span className="font-extrabold">{pinHint}</span>
                   </p>

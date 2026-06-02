@@ -6050,7 +6050,7 @@ export default function NovoCliente({
                   {confirmModal.title}
                 </h3>
 
-                <p className="text-sm text-slate-500 dark:text-white/60 mt-1">
+                <p className="text-sm text-foreground/70 mt-1">
                   Confira os dados financeiros.
                 </p>
               </div>

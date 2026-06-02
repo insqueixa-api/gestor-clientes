@@ -191,7 +191,7 @@ export default function AppIntegracaoModal({
             <h2 className="text-lg font-medium text-slate-800 dark:text-white tracking-tight">
               {isEdit ? "Editar Integração" : "Nova Integração"}
             </h2>
-            <p className="text-xs text-slate-500 dark:text-white/50 mt-0.5">
+            <p className="text-xs text-foreground/70 dark:text-white/50 mt-0.5">
               Configure as credenciais para o robô atuar no painel.
             </p>
           </div>
@@ -384,7 +384,7 @@ export default function AppIntegracaoModal({
                     className="w-full h-11 rounded-xl border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-500/5 px-10 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500 focus:bg-white dark:focus:bg-black/40 transition-colors font-mono tracking-widest"
                   />
                 </div>
-                <p className="text-[10px] text-slate-500 dark:text-muted-foreground mt-1.5 ml-1">
+                <p className="text-[10px] text-foreground/70 mt-1.5 ml-1">
                   Usado automaticamente na geração das playlists.
                 </p>
               </div>

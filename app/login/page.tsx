@@ -119,10 +119,10 @@ export default function LoginPage() {
               />
             </div>
 
-            <h1 className="mt-4 text-xl sm:text-2xl font-semibold text-slate-800 dark:text-white">
+            <h1 className="mt-4 text-xl sm:text-2xl font-semibold text-foreground">
               {title}
             </h1>
-            <p className="mt-1 text-sm text-slate-500 dark:text-white/60">
+            <p className="mt-1 text-sm text-foreground/70">
               {subtitle}
             </p>
           </div>

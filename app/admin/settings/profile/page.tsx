@@ -1193,7 +1193,7 @@ export default function ProfileSettingsPage() {
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
         <div className="min-w-0 text-left">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">
               Perfil do Usuário
             </h1>
           </div>
@@ -1907,7 +1907,7 @@ export default function ProfileSettingsPage() {
                                     {d.imc > 0 ? ` · IMC ${d.imc}` : ""}
                                   </p>
                                   {diffFirst !== null && (
-                                    <p className="text-[10px] text-slate-500 dark:text-white/60">
+                                    <p className="text-[10px] text-foreground/70">
                                       {arrow(diffFirst)}{" "}
                                       <b
                                         className={
@@ -1925,7 +1925,7 @@ export default function ProfileSettingsPage() {
                                     </p>
                                   )}
                                   {diffPrev !== null && (
-                                    <p className="text-[10px] text-slate-500 dark:text-white/60">
+                                    <p className="text-[10px] text-foreground/70">
                                       {arrow(diffPrev)}{" "}
                                       <b
                                         className={
