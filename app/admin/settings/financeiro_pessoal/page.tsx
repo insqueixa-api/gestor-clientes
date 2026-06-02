@@ -1954,6 +1954,28 @@ function FinanceiroPageContent() {
           addToast={addToast}
         />
       )}
+
+      <div className="h-24 sm:h-20" />
+      {/* CSS PARA OCULTAR VALORES COM O EYE-TOGGLE */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+        #dashboard-values[data-values-hidden="true"] .finance-value {
+          filter: blur(8px);
+          opacity: 0.6;
+          pointer-events: none;
+          user-select: none;
+        }
+      `,
+        }}
+      />
+
+      <div className="relative z-[999999]">
+        <ToastNotifications
+          toasts={toasts}
+          removeToast={(id) => setToasts((t) => t.filter((x) => x.id !== id))}
+        />
+      </div>
     </div>
   );
 }
@@ -2672,27 +2694,6 @@ function ModalNovaCategoria({
             Salvar Categoria
           </button>
         </div>
-      </div>
-      <div className="h-24 sm:h-20" />
-      {/* CSS PARA OCULTAR VALORES COM O EYE-TOGGLE */}
-      <style
-        dangerouslySetInnerHTML={{
-          __html: `
-        #dashboard-values[data-values-hidden="true"] .finance-value {
-          filter: blur(8px);
-          opacity: 0.6;
-          pointer-events: none;
-          user-select: none;
-        }
-      `,
-        }}
-      />
-
-      <div className="relative z-[999999]">
-        <ToastNotifications
-          toasts={toasts}
-          removeToast={(id) => setToasts((t) => t.filter((x) => x.id !== id))}
-        />
       </div>
     </div>
   );
