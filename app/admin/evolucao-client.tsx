@@ -422,6 +422,7 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
                   <div
                     key={`div-${ri}`}
                     style={{ height: 1, background: DIVIDER }}
+                  />
                 );
               }
 
