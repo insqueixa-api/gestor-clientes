@@ -139,8 +139,8 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
   const TICK = isDark ? "rgba(148,163,184,0.65)" : "rgba(71,85,105,0.65)";
   const BAR1 = "rgba(16,185,129,0.2)";
   const BAR2 = "rgba(244,63,94,0.2)";
-  const L1 = isDark ? "#34d399" : "#10b981";
-  const L2 = isDark ? "#fb7185" : "#e11d48";
+  const L1 = isDark ? "#10b981" : "#10b981";
+  const L2 = isDark ? "#f43f5e" : "#e11d48";
   const BAR_W = Math.min(COL_W * 0.27, 20);
 
   const makePath = (key: "line1" | "line2") =>
@@ -156,9 +156,9 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
     {
       label: "Receita Prevista",
       key: "bar1",
-      dot: "#86efac",
+      dot: "#22c55e",
       lightColor: "#15803d",
-      darkColor: "#4ade80",
+      darkColor: "#22c55e",
       bold: false,
       colorValues: false,
       rowBg: isDark ? "rgba(16,185,129,0.035)" : "rgba(16,185,129,0.04)",
@@ -168,7 +168,7 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
       key: "line1",
       dot: "#16a34a",
       lightColor: "#166534",
-      darkColor: "#34d399",
+      darkColor: "#10b981",
       bold: false,
       colorValues: true,
       rowBg: isDark ? "rgba(16,185,129,0.035)" : "rgba(16,185,129,0.04)", // Fundo aplicado
@@ -177,9 +177,9 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
     {
       label: "Despesa Prevista",
       key: "bar2",
-      dot: "#fca5a5",
+      dot: "#ef4444",
       lightColor: "#dc2626",
-      darkColor: "#f87171",
+      darkColor: "#ef4444",
       bold: false,
       colorValues: false,
       rowBg: isDark ? "rgba(244,63,94,0.035)" : "rgba(244,63,94,0.04)",
@@ -189,7 +189,7 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
       key: "line2",
       dot: "#dc2626",
       lightColor: "#7f1d1d",
-      darkColor: "#fb7185",
+      darkColor: "#f43f5e",
       bold: false,
       colorValues: true,
       rowBg: isDark ? "rgba(244,63,94,0.035)" : "rgba(244,63,94,0.04)", // Fundo aplicado

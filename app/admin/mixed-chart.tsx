@@ -120,8 +120,8 @@ function MixedChartBase({
   const textColor = isDark ? "rgba(148,163,184,0.6)" : "rgba(71,85,105,0.6)";
   const bar1Color = isDark ? "rgba(16,185,129,0.22)" : "rgba(16,185,129,0.22)";
   const bar2Color = isDark ? "rgba(244,63,94,0.22)" : "rgba(244,63,94,0.22)";
-  const line1Color = isDark ? "#34d399" : "#10b981";
-  const line2Color = isDark ? "#fb7185" : "#e11d48";
+  const line1Color = isDark ? "#10b981" : "#10b981";
+  const line2Color = isDark ? "#f43f5e" : "#e11d48";
 
   const paddingLeft = 48;
   const paddingRight = 16;
