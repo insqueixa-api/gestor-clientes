@@ -134,9 +134,9 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
   const getY = (v: number) => CHART_H - PAD_B - (v / maxVal) * DRAW_H;
 
   // ── Colors ───────────────────────────────────────────────────────
-  const BG = isDark ? "#18212f" : "#ffffff";
-  const GRID = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
-  const TICK = isDark ? "rgba(148,163,184,0.65)" : "rgba(71,85,105,0.65)";
+  const BG = "transparent";
+  const GRID = "rgba(255,255,255,0.06)";
+  const TICK = "rgba(255,255,255,0.5)";
   const BAR1 = "rgba(16,185,129,0.2)";
   const BAR2 = "rgba(244,63,94,0.2)";
   const L1 = isDark ? "#10b981" : "#10b981";
@@ -426,12 +426,12 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
                 );
               }
 
-              const labelColor = row.bold ? (isDark ? "#f8fafc" : "#0f172a") : TICK;
-              const valColor = (val: number) => {
-                if (val === 0) return isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)";
-                // Using a clear, readable color for all numbers instead of applying red/green to text!
-                return isDark ? "#e2e8f0" : "#334155";
-              };
+              const labelColor = row.bold ? "#f8fafc" : "rgba(255,255,255,0.7)";
+  const valColor = (val: number) => {
+    if (val === 0) return "rgba(255,255,255,0.15)";
+    // Since both light and dark themes are now dark backgrounds, we MUST use light text
+    return "#e2e8f0";
+  };
 
               return (
                 <div
