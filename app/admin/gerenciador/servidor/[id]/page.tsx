@@ -535,7 +535,7 @@ export default function ServerDetailsPage() {
 
   if (loading && !server)
     return (
-      <div className="text-slate-400 dark:text-muted-foreground animate-pulse p-8">
+      <div className="text-muted-foreground/80 dark:text-muted-foreground animate-pulse p-8">
         Carregando detalhes...
       </div>
     );
@@ -545,14 +545,14 @@ export default function ServerDetailsPage() {
   return (
     <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6">
       {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-start gap-3 pb-1 mb-6 border-b border-slate-200 dark:border-border">
+      <div className="flex flex-col md:flex-row justify-between items-start gap-3 pb-1 mb-6 border-b border-border">
         <div className="w-full md:w-auto text-left">
           <div className="flex items-center justify-start gap-3">
             {server.logo_url ? (
               <img
                 src={server.logo_url}
                 alt={server.name}
-                className="w-10 h-10 rounded-xl object-cover border border-slate-200 dark:border-border shrink-0"
+                className="w-10 h-10 rounded-xl object-cover border border-border shrink-0"
               />
             ) : (
               <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-xl">
@@ -574,7 +574,7 @@ export default function ServerDetailsPage() {
             </span>
           </div>
 
-          <div className="text-slate-500 dark:text-muted-foreground mt-1 text-xs flex items-center justify-start gap-2 font-medium">
+          <div className="text-muted-foreground dark:text-muted-foreground mt-1 text-xs flex items-center justify-start gap-2 font-medium">
             <Link
               href="/admin/gerenciador/servidor"
               className="hover:text-emerald-500 transition-colors"
@@ -584,16 +584,16 @@ export default function ServerDetailsPage() {
 
             <span className="opacity-30">/</span>
 
-            <span className="text-slate-400">detalhes</span>
+            <span className="text-muted-foreground/80">detalhes</span>
           </div>
         </div>
 
         {/* SELETOR DE MÊS */}
         <div className="w-full md:w-auto flex justify-end">
-          <div className="flex items-center bg-slate-100 dark:bg-white/5 rounded-lg p-1 border border-slate-200 dark:border-border shadow-sm w-full md:w-auto"></div>
+          <div className="flex items-center bg-slate-100 dark:bg-white/5 rounded-lg p-1 border border-border shadow-sm w-full md:w-auto"></div>
           <button
             onClick={handlePrevMonth}
-            className="p-2 hover:bg-white dark:hover:bg-white/10 rounded-md text-slate-500 dark:text-muted-foreground transition-all active:scale-95"
+            className="p-2 hover:bg-card dark:hover:bg-white/10 rounded-md text-muted-foreground dark:text-muted-foreground transition-all active:scale-95"
           >
             <svg
               className="w-4 h-4"
@@ -609,12 +609,12 @@ export default function ServerDetailsPage() {
               />
             </svg>
           </button>
-          <span className="px-6 text-sm font-medium text-slate-700 dark:text-white min-w-[160px] text-center capitalize tracking-tight">
+          <span className="px-6 text-sm font-medium text-foreground/90 min-w-[160px] text-center capitalize tracking-tight">
             {formatMonth(selectedDate)}
           </span>
           <button
             onClick={handleNextMonth}
-            className="p-2 hover:bg-white dark:hover:bg-white/10 rounded-md text-slate-500 dark:text-muted-foreground transition-all active:scale-95"
+            className="p-2 hover:bg-card dark:hover:bg-white/10 rounded-md text-muted-foreground dark:text-muted-foreground transition-all active:scale-95"
           >
             <svg
               className="w-4 h-4"
@@ -635,7 +635,7 @@ export default function ServerDetailsPage() {
         <div className="flex gap-3 w-full md:w-auto justify-end">
           <Link
             href="/admin/gerenciador/servidor"
-            className="h-10 px-4 rounded-lg border border-slate-200 dark:border-border text-slate-600 dark:text-muted-foreground hover:bg-slate-50 dark:hover:bg-white/10 text-sm font-medium transition-all shadow-sm inline-flex items-center justify-center"
+            className="h-10 px-4 rounded-lg border border-border text-muted-foreground dark:text-muted-foreground hover:bg-muted/50 dark:hover:bg-white/10 text-sm font-medium transition-all shadow-sm inline-flex items-center justify-center"
           >
             Voltar
           </Link>
@@ -652,9 +652,9 @@ export default function ServerDetailsPage() {
 
       <div className="space-y-6">
         {/* BLOCO 1: RESUMO FINANCEIRO */}
-        <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl overflow-hidden shadow-sm transition-colors">
-          <div className="px-5 py-3 border-b border-slate-200 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5">
-            <span className="text-sm font-medium text-slate-800 dark:text-white tracking-tight">
+        <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm transition-colors">
+          <div className="px-5 py-3 border-b border-border flex justify-between items-center bg-muted/50">
+            <span className="text-sm font-medium text-foreground tracking-tight">
               Resumo financeiro ({formatMonth(selectedDate)})
             </span>
           </div>
@@ -686,8 +686,8 @@ export default function ServerDetailsPage() {
         {/* BLOCO 2: STATS */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Clientes */}
-          <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl overflow-hidden shadow-sm flex flex-col transition-colors">
-            <div className="px-5 py-3 border-b border-slate-200 dark:border-border flex items-center gap-2 bg-slate-50 dark:bg-white/5 font-medium text-sm text-slate-800 dark:text-white tracking-tight">
+          <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm flex flex-col transition-colors">
+            <div className="px-5 py-3 border-b border-border flex items-center gap-2 bg-muted/50 font-medium text-sm text-foreground tracking-tight">
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               Métricas de clientes
             </div>
@@ -727,8 +727,8 @@ export default function ServerDetailsPage() {
           </div>
 
           {/* Revendas */}
-          <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl overflow-hidden shadow-sm flex flex-col transition-colors">
-            <div className="px-5 py-3 border-b border-slate-200 dark:border-border flex items-center gap-2 bg-slate-50 dark:bg-white/5 font-medium text-sm text-slate-800 dark:text-white tracking-tight">
+          <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm flex flex-col transition-colors">
+            <div className="px-5 py-3 border-b border-border flex items-center gap-2 bg-muted/50 font-medium text-sm text-foreground tracking-tight">
               <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
               Métricas de revendas
             </div>
@@ -764,17 +764,17 @@ export default function ServerDetailsPage() {
         </div>
 
         {/* BLOCO 4: MOVIMENTAÇÕES (TABELA) */}
-        <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl overflow-hidden shadow-sm transition-colors">
+        <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm transition-colors">
           {/* HEADER DA TABELA COM FILTROS */}
-          <div className="px-5 py-4 border-b border-slate-200 dark:border-border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50 dark:bg-white/5">
-            <span className="text-sm font-medium text-slate-800 dark:text-white tracking-tight shrink-0">
+          <div className="px-5 py-4 border-b border-border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-muted/50">
+            <span className="text-sm font-medium text-foreground tracking-tight shrink-0">
               Movimentações de {formatMonth(selectedDate)}
             </span>
 
             {/* Controles de Filtro */}
             <div className="flex w-full sm:w-auto items-center gap-2">
               <div className="relative flex-1 sm:w-64">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/80 text-xs">
                   🔍
                 </span>
                 <input
@@ -782,13 +782,13 @@ export default function ServerDetailsPage() {
                   placeholder="Buscar cliente, obs, data..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full h-9 pl-8 pr-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500 transition-colors"
+                  className="w-full h-9 pl-8 pr-3 bg-card dark:bg-black/20 border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
               <select
                 value={filterKind}
                 onChange={(e) => setFilterKind(e.target.value)}
-                className="h-9 px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-xs font-medium text-slate-700 dark:text-white outline-none focus:border-emerald-500 transition-colors cursor-pointer"
+                className="h-9 px-2 bg-card dark:bg-black/20 border border-border rounded-lg text-xs font-medium text-foreground/90 outline-none focus:border-emerald-500 transition-colors cursor-pointer"
               >
                 <option value="ALL">Todos os Tipos</option>
                 <optgroup label="Clientes">
@@ -807,7 +807,7 @@ export default function ServerDetailsPage() {
 
           <div className="overflow-x-auto max-h-[400px]">
             <table className="w-full text-sm text-left relative border-collapse">
-              <thead className="bg-slate-50 dark:bg-black/20 text-slate-500 dark:text-muted-foreground border-b border-slate-200 dark:border-border sticky top-0 z-10 backdrop-blur-md">
+              <thead className="bg-muted/50 text-muted-foreground dark:text-muted-foreground border-b border-border sticky top-0 z-10 backdrop-blur-md">
                 <tr>
                   <th className="px-5 py-3 font-medium text-[11px] uppercase tracking-wider">
                     Data
@@ -832,7 +832,7 @@ export default function ServerDetailsPage() {
                   <tr>
                     <td
                       colSpan={5}
-                      className="px-5 py-12 text-center text-slate-400 dark:text-white/20 italic"
+                      className="px-5 py-12 text-center text-muted-foreground/80 dark:text-white/20 italic"
                     >
                       Nenhum registro encontrado.
                     </td>
@@ -841,7 +841,7 @@ export default function ServerDetailsPage() {
                   filteredMovements.map((m) => (
                     <tr
                       key={m.id}
-                      className="hover:bg-slate-50 dark:hover:bg-white/5 transition-all text-slate-700 dark:text-white/80 group"
+                      className="hover:bg-muted/50 dark:hover:bg-white/5 transition-all text-foreground/90/80 group"
                     >
                       <td className="px-5 py-3 whitespace-nowrap font-mono text-[11px] opacity-60">
                         {fmtDate(m.happened_at)}
@@ -872,7 +872,7 @@ export default function ServerDetailsPage() {
                       {/* ✅ Nova formatação da Descrição */}
                       <td className="px-5 py-3 text-xs leading-relaxed max-w-[300px]">
                         {m.kind === "CLIENT_RENEWAL" ? (
-                          <span className="font-medium text-slate-800 dark:text-slate-200">
+                          <span className="font-medium text-foreground dark:text-slate-200">
                             {m.label}
                           </span>
                         ) : (
@@ -883,7 +883,7 @@ export default function ServerDetailsPage() {
                         <button
                           onClick={() => handleDeleteMovement(m)}
                           disabled={deletingId === m.id}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 disabled:opacity-30"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-rose-500/10 text-muted-foreground/80 hover:text-rose-500 disabled:opacity-30"
                           title="Apagar registro"
                         >
                           {deletingId === m.id ? (
@@ -952,12 +952,12 @@ function StatCard({
   className?: string;
 }) {
   return (
-    <div className="bg-slate-100/50 dark:bg-black/20 p-4 rounded-xl border border-slate-200 dark:border-border flex flex-col justify-between h-24 transition-all hover:border-emerald-500/30">
-      <div className="text-[10px] uppercase font-medium text-slate-400 dark:text-white/20 tracking-widest">
+    <div className="bg-slate-100/50 dark:bg-black/20 p-4 rounded-xl border border-border flex flex-col justify-between h-24 transition-all hover:border-emerald-500/30">
+      <div className="text-[10px] uppercase font-medium text-muted-foreground/80 dark:text-white/20 tracking-widest">
         {title}
       </div>
       <div
-        className={`text-xl font-medium text-slate-800 dark:text-white tracking-tight ${className}`}
+        className={`text-xl font-medium text-foreground tracking-tight ${className}`}
       >
         {value}
       </div>
@@ -968,7 +968,7 @@ function StatCard({
 function DetailStat({
   label,
   value,
-  valueColor = "text-slate-800 dark:text-white",
+  valueColor = "text-foreground",
   sub,
 }: {
   label: string;
@@ -978,7 +978,7 @@ function DetailStat({
 }) {
   return (
     <div className="group">
-      <div className="text-[11px] font-medium text-slate-400 dark:text-white/30 mb-1 tracking-tight">
+      <div className="text-[11px] font-medium text-muted-foreground/80 dark:text-white/30 mb-1 tracking-tight">
         {label}
       </div>
       <div
@@ -987,7 +987,7 @@ function DetailStat({
         {value}
       </div>
       {sub && (
-        <div className="text-[10px] text-slate-400 dark:text-white/20 font-medium">
+        <div className="text-[10px] text-muted-foreground/80 dark:text-white/20 font-medium">
           {sub}
         </div>
       )}

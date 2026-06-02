@@ -408,13 +408,13 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl flex flex-col max-h-[90vh]"
+        className="w-full max-w-lg bg-card border border-border rounded-xl shadow-2xl flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 py-4 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 rounded-t-xl flex items-center justify-between">
+        <div className="px-5 py-4 border-b border-border bg-muted/50 rounded-t-xl flex items-center justify-between">
           <div>
-            <h2 className="text-base font-medium text-slate-800 dark:text-white">
+            <h2 className="text-base font-medium text-foreground">
               📖 {help.title}
             </h2>
             <a
@@ -428,7 +428,7 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:text-foreground dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
           >
             <IconX />
           </button>
@@ -442,7 +442,7 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
                 <span className="shrink-0 w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-medium flex items-center justify-center mt-0.5">
                   {i + 1}
                 </span>
-                <span className="text-sm text-slate-700 dark:text-white/80 leading-relaxed">
+                <span className="text-sm text-foreground/90/80 leading-relaxed">
                   {renderStepWithLinks(step)}
                 </span>
               </li>
@@ -450,7 +450,7 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
           </ol>
 
           {help.warnings && help.warnings.length > 0 && (
-            <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-border">
+            <div className="space-y-2 pt-2 border-t border-border">
               {help.warnings.map((w, i) => (
                 <p
                   key={i}
@@ -463,10 +463,10 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
           )}
         </div>
 
-        <div className="px-5 py-3 border-t border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 rounded-b-xl">
+        <div className="px-5 py-3 border-t border-border bg-muted/50 rounded-b-xl">
           <button
             onClick={onClose}
-            className="w-full h-9 rounded-lg bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-white font-medium text-sm hover:bg-slate-300 dark:hover:bg-white/20 transition-colors"
+            className="w-full h-9 rounded-lg bg-slate-200 dark:bg-white/10 text-foreground/90 font-medium text-sm hover:bg-slate-300 dark:hover:bg-white/20 transition-colors"
           >
             Fechar
           </button>
@@ -479,7 +479,7 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
 // ─── UI (padrão Admin) ────────────────────────────────────────────────────────
 function Label({ children }: { children: ReactNode }) {
   return (
-    <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">
+    <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1 uppercase tracking-wider">
       {children}
     </label>
   );
@@ -492,7 +492,7 @@ function Input({
   return (
     <input
       {...props}
-      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     />
   );
 }
@@ -504,7 +504,7 @@ function Select({
   return (
     <select
       {...props}
-      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     />
   );
 }
@@ -516,7 +516,7 @@ function Textarea({
   return (
     <textarea
       {...props}
-      className={`w-full px-3 py-2.5 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors resize-none ${className}`}
+      className={`w-full px-3 py-2.5 bg-muted/50 border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors resize-none ${className}`}
     />
   );
 }
@@ -634,13 +634,13 @@ function GatewayModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl flex flex-col max-h-[90vh]"
+        className="w-full max-w-2xl bg-card border border-border rounded-xl shadow-2xl flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* HEADER MODAL */}
-        <div className="px-6 py-4 border-b border-slate-200 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5 rounded-t-xl">
+        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-muted/50 rounded-t-xl">
           <div>
-            <h2 className="text-lg font-medium text-slate-800 dark:text-white">
+            <h2 className="text-lg font-medium text-foreground">
               {isEdit ? "Editar Integração" : "Nova Integração de Pagamento"}
             </h2>
             <p className="text-xs text-foreground/70 mt-0.5">
@@ -651,7 +651,7 @@ function GatewayModal({
           </div>
           <button
             onClick={onClose}
-            className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:text-foreground dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
           >
             <IconX />
           </button>
@@ -685,7 +685,7 @@ function GatewayModal({
                         className={`w-full p-4 rounded-xl border text-left transition-all ${
                           selected
                             ? "border-emerald-500/40 bg-emerald-50/70 dark:bg-emerald-500/10"
-                            : "border-slate-200 dark:border-border bg-white dark:bg-card hover:bg-slate-50 dark:hover:bg-white/5"
+                            : "border-border bg-card hover:bg-muted/50 dark:hover:bg-white/5"
                         }`}
                       >
                         <div className="flex items-start gap-3">
@@ -693,17 +693,17 @@ function GatewayModal({
                             {m.icon}
                           </div>
                           <div className="min-w-0 pr-6">
-                            <div className="font-medium text-slate-800 dark:text-white text-sm">
+                            <div className="font-medium text-foreground text-sm">
                               {m.label}
                             </div>
-                            <div className="text-xs text-slate-500 dark:text-white/60 mt-0.5 leading-tight">
+                            <div className="text-xs text-muted-foreground dark:text-white/60 mt-0.5 leading-tight">
                               {m.description}
                             </div>
                             <div className="flex flex-wrap gap-1.5 mt-2">
                               {m.currencies.map((c) => (
                                 <span
                                   key={c}
-                                  className="gap-1 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-500/20 bg-slate-50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-white/5 text-slate-600 dark:text-muted-foreground border border-slate-200 dark:border-border"
+                                  className="gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-white/5 text-muted-foreground dark:text-muted-foreground border border-border"
                                 >
                                   {c}
                                 </span>
@@ -730,7 +730,7 @@ function GatewayModal({
                             e.stopPropagation();
                             setHelpType(m.type);
                           }}
-                          className="absolute top-3 right-3 w-6 h-6 rounded-full bg-slate-200 dark:bg-white/10 text-slate-500 dark:text-white/50 hover:bg-blue-100 dark:hover:bg-blue-500/20 hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center justify-center text-xs font-medium"
+                          className="absolute top-3 right-3 w-6 h-6 rounded-full bg-slate-200 dark:bg-white/10 text-muted-foreground hover:bg-blue-100 dark:hover:bg-blue-500/20 hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center justify-center text-xs font-medium"
                           title="Como obter as credenciais"
                         >
                           ?
@@ -746,16 +746,16 @@ function GatewayModal({
           {/* Conteúdo do tipo selecionado */}
           {meta && (
             <>
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-border">
+              <div className="p-4 rounded-xl bg-muted/50 border border-border">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-white dark:bg-black/20 border border-slate-200 dark:border-border flex items-center justify-center text-xl">
+                  <div className="w-10 h-10 rounded-xl bg-card dark:bg-black/20 border border-border flex items-center justify-center text-xl">
                     {meta.icon}
                   </div>
                   <div className="min-w-0">
-                    <div className="font-medium text-slate-800 dark:text-white">
+                    <div className="font-medium text-foreground">
                       {meta.label}
                     </div>
-                    <div className="text-xs text-slate-500 dark:text-white/60 truncate">
+                    <div className="text-xs text-muted-foreground dark:text-white/60 truncate">
                       {meta.description}
                     </div>
                   </div>
@@ -841,7 +841,7 @@ function GatewayModal({
                                 [field.key]: !prev[field.key],
                               }))
                             }
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-white text-xs"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/80 hover:text-foreground/90 dark:hover:text-white text-xs"
                             title={
                               showSecrets[field.key] ? "Ocultar" : "Mostrar"
                             }
@@ -853,7 +853,7 @@ function GatewayModal({
                     )}
 
                     {field.hint && (
-                      <p className="text-[11px] text-slate-400 dark:text-muted-foreground mt-1">
+                      <p className="text-[11px] text-muted-foreground/80 dark:text-muted-foreground mt-1">
                         {field.hint}
                       </p>
                     )}
@@ -862,7 +862,7 @@ function GatewayModal({
               </div>
 
               {/* Extras */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-200 dark:border-border">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-border">
                 <div>
                   <Label>Prioridade</Label>
                   <Select
@@ -882,7 +882,7 @@ function GatewayModal({
                     className={`w-full h-10 px-3 rounded-lg border text-sm font-medium transition-colors ${
                       isActive
                         ? "border-emerald-500/30 bg-emerald-50/70 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-                        : "border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 text-slate-600 dark:text-white/60"
+                        : "border-border bg-muted/50 text-muted-foreground"
                     }`}
                   >
                     {isActive ? "✅ Ativo" : "⭕ Inativo"}
@@ -915,7 +915,7 @@ function GatewayModal({
                       }`}
                     >
                       <span
-                        className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                        className={`absolute top-1 w-4 h-4 bg-card rounded-full shadow transition-transform ${
                           isManualFallback ? "left-7" : "left-1"
                         }`}
                       />
@@ -934,10 +934,10 @@ function GatewayModal({
         </div>
 
         {/* FOOTER MODAL */}
-        <div className="px-6 py-4 border-t border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 flex justify-end gap-2 rounded-b-xl">
+        <div className="px-6 py-4 border-t border-border bg-muted/50 flex justify-end gap-2 rounded-b-xl">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-slate-500 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg text-sm font-medium transition-colors"
+            className="px-4 py-2 text-muted-foreground dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg text-sm font-medium transition-colors"
           >
             Cancelar
           </button>
@@ -981,24 +981,24 @@ function GatewayCard({
 
   return (
     <div
-      className={`bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-sm overflow-hidden transition-opacity ${
+      className={`bg-card border border-border rounded-xl shadow-sm overflow-hidden transition-opacity ${
         gateway.is_active ? "" : "opacity-70"
       }`}
     >
       {/* Header */}
-      <div className="px-4 py-3 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-border flex items-start justify-between gap-3">
+      <div className="px-4 py-3 bg-muted/50 border-b border-border flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-white dark:bg-black/20 border border-slate-200 dark:border-border flex items-center justify-center text-xl shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-card dark:bg-black/20 border border-border flex items-center justify-center text-xl shrink-0">
             {meta.icon}
           </div>
 
           <div className="min-w-0">
-            <h3 className="font-medium text-slate-800 dark:text-white text-sm truncate">
+            <h3 className="font-medium text-foreground text-sm truncate">
               {gateway.name}
             </h3>
 
             <div className="flex flex-wrap gap-1.5 mt-1">
-              <span className="gap-1 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-500/20 bg-slate-50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-black/20 text-slate-600 dark:text-muted-foreground border border-slate-200 dark:border-border">
+              <span className="gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-black/20 text-muted-foreground dark:text-muted-foreground border border-border">
                 {priorityLabel}
               </span>
 
@@ -1026,7 +1026,7 @@ function GatewayCard({
           title={gateway.is_active ? "Desativar" : "Ativar"}
         >
           <span
-            className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+            className={`absolute top-1 w-4 h-4 bg-card rounded-full shadow transition-transform ${
               gateway.is_active ? "left-6" : "left-1"
             }`}
           />
@@ -1040,7 +1040,7 @@ function GatewayCard({
           {gateway.currency.map((c) => (
             <span
               key={c}
-              className="gap-1 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-500/20 bg-slate-50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-white/5 text-slate-600 dark:text-muted-foreground border border-slate-200 dark:border-border"
+              className="gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-white/5 text-muted-foreground dark:text-muted-foreground border border-border"
             >
               {c}
             </span>
@@ -1064,10 +1064,10 @@ function GatewayCard({
                 key={field.key}
                 className="flex items-center justify-between gap-2 text-xs"
               >
-                <span className="text-slate-400 dark:text-muted-foreground font-medium truncate">
+                <span className="text-muted-foreground/80 dark:text-muted-foreground font-medium truncate">
                   {field.label}:
                 </span>
- <span className="text-slate-600 dark:text-muted-foreground truncate max-w-[55%]">
+ <span className="text-muted-foreground dark:text-muted-foreground truncate max-w-[55%]">
                   {masked}
                 </span>
               </div>
@@ -1076,10 +1076,10 @@ function GatewayCard({
         </div>
 
         {/* Ações */}
-        <div className="flex gap-2 pt-2 border-t border-slate-200 dark:border-border">
+        <div className="flex gap-2 pt-2 border-t border-border">
           <button
             onClick={onEdit}
-            className="flex-1 h-9 rounded-lg border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 text-slate-700 dark:text-muted-foreground text-xs font-medium hover:bg-slate-100 dark:hover:bg-white/5 transition-colors flex items-center justify-center gap-2"
+            className="flex-1 h-9 rounded-lg border border-border bg-muted/50 text-foreground/90 dark:text-muted-foreground text-xs font-medium hover:bg-slate-100 dark:hover:bg-white/5 transition-colors flex items-center justify-center gap-2"
           >
             <IconEdit />
             Editar
@@ -1278,13 +1278,13 @@ export default function PagamentosPage() {
       {/* CONTEÚDO */}
       <div className="px-3 sm:px-0 space-y-6 pt-3 sm:pt-4">
         {loading ? (
-          <div className="flex items-center justify-center py-16 text-slate-400">
+          <div className="flex items-center justify-center py-16 text-muted-foreground/80">
             <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : gateways.length === 0 ? (
-          <div className="bg-white dark:bg-card border border-dashed border-slate-300 dark:border-border rounded-xl p-10 text-center mx-0">
+          <div className="bg-card border border-dashed border-border dark:border-border rounded-xl p-10 text-center mx-0">
             <div className="text-5xl mb-3">💳</div>
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">
+            <h3 className="text-lg font-bold text-foreground mb-2">
               Nenhuma integração configurada
             </h3>
             <p className="text-foreground/70 text-sm mb-6">
@@ -1305,17 +1305,17 @@ export default function PagamentosPage() {
           <div className="space-y-6">
             {/* BRL */}
             {brlGateways.length > 0 && (
-              <div className="bg-white dark:bg-card border-y sm:border border-slate-200 dark:border-border rounded-none sm:rounded-xl shadow-sm overflow-visible -mx-3 sm:mx-0">
-                <div className="px-3 sm:px-5 py-3 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-border flex items-center justify-between">
+              <div className="bg-card border-y sm:border border-border rounded-none sm:rounded-xl shadow-sm overflow-visible -mx-3 sm:mx-0">
+                <div className="px-3 sm:px-5 py-3 bg-muted/50 border-b border-border flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-medium text-slate-800 dark:text-white">
+                    <h2 className="text-sm font-medium text-foreground">
                       Gateways BRL
                     </h2>
                     <span className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 gap-1 px-2 py-1 rounded-lg text-xs font-medium tracking-tight shadow-sm">
                       {brlGateways.length}
                     </span>
                   </div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500 dark:text-white/50">
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">
                     BRL
                   </span>
                 </div>
@@ -1342,17 +1342,17 @@ export default function PagamentosPage() {
 
             {/* Internacionais */}
             {intlGateways.length > 0 && (
-              <div className="bg-white dark:bg-card border-y sm:border border-slate-200 dark:border-border rounded-none sm:rounded-xl shadow-sm overflow-visible -mx-3 sm:mx-0">
-                <div className="px-3 sm:px-5 py-3 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-border flex items-center justify-between">
+              <div className="bg-card border-y sm:border border-border rounded-none sm:rounded-xl shadow-sm overflow-visible -mx-3 sm:mx-0">
+                <div className="px-3 sm:px-5 py-3 bg-muted/50 border-b border-border flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-medium text-slate-800 dark:text-white">
+                    <h2 className="text-sm font-medium text-foreground">
                       Gateways Internacionais
                     </h2>
                     <span className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 gap-1 px-2 py-1 rounded-lg text-xs font-medium tracking-tight shadow-sm">
                       {intlGateways.length}
                     </span>
                   </div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500 dark:text-white/50">
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">
                     USD/EUR
                   </span>
                 </div>

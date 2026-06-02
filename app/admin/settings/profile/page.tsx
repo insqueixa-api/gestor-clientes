@@ -174,7 +174,7 @@ function stringifyAllowedNumbers(rows: AllowedNumberRow[]): string[] {
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+    <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
       {children}
     </label>
   );
@@ -187,7 +187,7 @@ function Input({
   return (
     <input
       {...props}
-      className={`w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed read-only:opacity-70 read-only:cursor-pointer ${className}`}
+      className={`w-full h-11 px-3 bg-muted/50 border border-border rounded-xl text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed read-only:opacity-70 read-only:cursor-pointer ${className}`}
     />
   );
 }
@@ -1179,14 +1179,14 @@ export default function ProfileSettingsPage() {
 
   if (loading) {
     return (
-      <div className="p-10 text-center text-slate-400 dark:text-muted-foreground animate-pulse bg-white dark:bg-card border-slate-200 dark:border-border rounded-xl border m-6">
+      <div className="p-10 text-center text-muted-foreground/80 dark:text-muted-foreground animate-pulse bg-card border-border rounded-xl border m-6">
         Carregando painel...
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-background transition-colors text-slate-800 dark:text-white">
+    <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-background transition-colors text-foreground">
       <ToastNotifications toasts={toasts} removeToast={removeToast} />
 
       {/* HEADER DA PÁGINA */}
@@ -1203,7 +1203,7 @@ export default function ProfileSettingsPage() {
           <div className="relative">
             <button
               onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
-              className="h-9 w-9 shrink-0 rounded-xl border font-medium text-xs flex items-center justify-center bg-white dark:bg-card border-slate-200 dark:border-border text-slate-600 dark:text-muted-foreground hover:bg-slate-50 dark:hover:bg-white/5 transition-all shadow-sm"
+              className="h-9 w-9 shrink-0 rounded-xl border font-medium text-xs flex items-center justify-center bg-card border-border text-muted-foreground dark:text-muted-foreground hover:bg-muted/50 dark:hover:bg-white/5 transition-all shadow-sm"
               title="Configurações"
             >
               <Settings className="w-4 h-4" />
@@ -1215,10 +1215,10 @@ export default function ProfileSettingsPage() {
                   className="fixed inset-0 z-40"
                   onClick={() => setShowSettingsDropdown(false)}
                 />
-                <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-[#1e2530] border border-slate-200 dark:border-border rounded-xl shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-200">
+                <div className="absolute right-0 top-full mt-2 w-56 bg-card dark:bg-[#1e2530] border border-border rounded-xl shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-200">
                   {/* Tema */}
                   <div className="px-3 py-2.5 border-b border-slate-100 dark:border-border">
-                    <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-2">
+                    <p className="text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-2">
                       Tema do Sistema
                     </p>
                     <div className="flex items-center gap-1">
@@ -1227,7 +1227,7 @@ export default function ProfileSettingsPage() {
                           setTheme("light");
                           setShowSettingsDropdown(false);
                         }}
-                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${theme !== "dark" ? "bg-slate-100 text-slate-800" : "text-slate-500 dark:text-muted-foreground hover:bg-white/5"}`}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${theme !== "dark" ? "bg-slate-100 text-foreground" : "text-muted-foreground dark:text-muted-foreground hover:bg-white/5"}`}
                       >
                         <svg
                           width="12"
@@ -1254,7 +1254,7 @@ export default function ProfileSettingsPage() {
                           setTheme("dark");
                           setShowSettingsDropdown(false);
                         }}
-                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${theme === "dark" ? "bg-white/10 text-white" : "text-slate-500 hover:bg-slate-50"}`}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${theme === "dark" ? "bg-white/10 text-white" : "text-muted-foreground hover:bg-muted/50"}`}
                       >
                         <svg
                           width="12"
@@ -1277,7 +1277,7 @@ export default function ProfileSettingsPage() {
                       setShowSettingsDropdown(false);
                       setIsEditing(true);
                     }}
-                    className="w-full text-left px-3 py-2.5 text-xs font-medium text-slate-600 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2.5 transition-colors border-b border-slate-100 dark:border-border"
+                    className="w-full text-left px-3 py-2.5 text-xs font-medium text-muted-foreground dark:text-white/80 hover:bg-muted/50 dark:hover:bg-white/5 flex items-center gap-2.5 transition-colors border-b border-slate-100 dark:border-border"
                   >
                     <Pencil className="w-4 h-4" />
                     Editar Perfil
@@ -1291,7 +1291,7 @@ export default function ProfileSettingsPage() {
                         setIsEditing(true);
                         setShowSettingsDropdown(false);
                       }}
-                      className="w-full text-left px-3 py-2.5 text-xs font-medium text-slate-600 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2.5 transition-colors border-b border-slate-100 dark:border-border"
+                      className="w-full text-left px-3 py-2.5 text-xs font-medium text-muted-foreground dark:text-white/80 hover:bg-muted/50 dark:hover:bg-white/5 flex items-center gap-2.5 transition-colors border-b border-slate-100 dark:border-border"
                     >
                       <svg
                         width="14"
@@ -1332,7 +1332,7 @@ export default function ProfileSettingsPage() {
                       setShowSettingsDropdown(false);
                       handleResetPassword();
                     }}
-                    className="w-full text-left px-3 py-2.5 text-xs font-medium text-slate-600 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2.5 transition-colors"
+                    className="w-full text-left px-3 py-2.5 text-xs font-medium text-muted-foreground dark:text-white/80 hover:bg-muted/50 dark:hover:bg-white/5 flex items-center gap-2.5 transition-colors"
                   >
                     <svg
                       width="14"
@@ -1341,7 +1341,7 @@ export default function ProfileSettingsPage() {
                       fill="none"
                       stroke="currentColor"
                       strokeWidth="2.5"
-                      className="shrink-0 text-slate-400"
+                      className="shrink-0 text-muted-foreground/80"
                     >
                       <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                       <path d="M7 11V7a5 5 0 0 1 10 0v4" />
@@ -1361,10 +1361,10 @@ export default function ProfileSettingsPage() {
         <div className="space-y-6 xl:col-span-2">
           {/* CARD 1: DADOS PESSOAIS (SEMPRE VISÍVEL) */}
           <div
-            className={`bg-white dark:bg-card border-y sm:border border-slate-200 dark:border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-6 transition-all ${isEditing ? "ring-1 ring-emerald-500/20" : ""}`}
+            className={`bg-card border-y sm:border border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-6 transition-all ${isEditing ? "ring-1 ring-emerald-500/20" : ""}`}
           >
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-border pb-3">
-              <h3 className="text-xs font-medium text-slate-400 dark:text-white/30 uppercase tracking-widest">
+              <h3 className="text-xs font-medium text-muted-foreground/80 dark:text-white/30 uppercase tracking-widest">
                 Dados Cadastrais
               </h3>
               <div className="flex items-center gap-2">
@@ -1404,7 +1404,7 @@ export default function ProfileSettingsPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
               <div>
                 <Label>País</Label>
-                <div className="h-11 px-3 bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-border rounded-xl flex items-center text-xs font-medium text-slate-700 dark:text-white truncate">
+                <div className="h-11 px-3 bg-slate-100 dark:bg-black/30 border border-border rounded-xl flex items-center text-xs font-medium text-foreground/90 truncate">
                   {phonePrettyPrefix || "—"}
                 </div>
               </div>
@@ -1425,7 +1425,7 @@ export default function ProfileSettingsPage() {
                     type="button"
                     onClick={handlePhoneDone}
                     disabled={!isEditing}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg bg-slate-100 dark:bg-white/10 text-slate-500 hover:text-emerald-500 transition-colors flex items-center justify-center font-medium"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg bg-slate-100 dark:bg-white/10 text-muted-foreground hover:text-emerald-500 transition-colors flex items-center justify-center font-medium"
                   >
                     ✓
                   </button>
@@ -1434,7 +1434,7 @@ export default function ProfileSettingsPage() {
               <div>
                 <Label>WhatsApp Username</Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/80 text-sm font-medium">
                     @
                   </span>
                   <Input
@@ -1466,7 +1466,7 @@ export default function ProfileSettingsPage() {
                 </div>
                 {waValidation && (
                   <div
-                    className={`mt-1.5 flex items-center gap-1.5 text-[10px] font-medium ${waValidation.loading ? "text-slate-400" : waValidation.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}
+                    className={`mt-1.5 flex items-center gap-1.5 text-[10px] font-medium ${waValidation.loading ? "text-muted-foreground/80" : waValidation.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}
                   >
                     {waValidation.loading ? (
                       <>
@@ -1520,7 +1520,7 @@ export default function ProfileSettingsPage() {
                     if (!isEditing) setIsEditing(true);
                   }}
                   disabled={!isEditing}
-                  className="w-full h-11 px-2 sm:px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-xl text-xs sm:text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full h-11 px-2 sm:px-3 bg-muted/50 border border-border rounded-xl text-xs sm:text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="">Não informar</option>
                   <option value="M">Masculino</option>
@@ -1531,9 +1531,9 @@ export default function ProfileSettingsPage() {
           </div>
 
           {/* CARD 2 DINÂMICO: SAÚDE OU PLANILHAS */}
-          <div className="bg-white dark:bg-card border-y sm:border border-slate-200 dark:border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-6 animate-in fade-in duration-300">
+          <div className="bg-card border-y sm:border border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-6 animate-in fade-in duration-300">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-border pb-3">
-              <h3 className="text-xs font-medium text-slate-400 dark:text-white/30 uppercase tracking-widest">
+              <h3 className="text-xs font-medium text-muted-foreground/80 dark:text-white/30 uppercase tracking-widest">
                 Saúde &amp; Avaliações
               </h3>
               <button
@@ -1557,7 +1557,7 @@ export default function ProfileSettingsPage() {
             </div>
 
             {showHealthForm && (
-              <div className="p-4 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-xl space-y-4">
+              <div className="p-4 bg-muted/50 border border-border rounded-xl space-y-4">
                 {!profileHeight && (
                   <p className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold">
                     ⚠️ Informe sua altura nos Dados Pessoais para calcular o
@@ -1606,7 +1606,7 @@ export default function ProfileSettingsPage() {
                         weight: "",
                       });
                     }}
-                    className="flex-1 h-10 border border-slate-200 dark:border-border text-slate-600 dark:text-white/60 font-medium rounded-xl text-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                    className="flex-1 h-10 border border-border text-muted-foreground font-medium rounded-xl text-xs hover:bg-muted/50 dark:hover:bg-white/5 transition-colors"
                   >
                     Cancelar
                   </button>
@@ -1623,7 +1623,7 @@ export default function ProfileSettingsPage() {
 
             <div className="space-y-2">
               {sortedHistory.length === 0 ? (
-                <div className="text-xs text-slate-400 text-center py-6 bg-slate-50 dark:bg-white/5 rounded-xl border border-dashed border-slate-200 dark:border-border">
+                <div className="text-xs text-muted-foreground/80 text-center py-6 bg-muted/50 rounded-xl border border-dashed border-border">
                   Nenhuma avaliação registrada ainda.
                 </div>
               ) : (
@@ -1643,24 +1643,24 @@ export default function ProfileSettingsPage() {
                         return (
                           <div
                             key={record.id}
-                            className={`items-center gap-3 p-3 rounded-xl border transition-colors group ${isNewest ? "border-emerald-200 dark:border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/5" : "border-slate-100 dark:border-border bg-slate-50/50 dark:bg-black/10"} ${hideOnMobile ? "hidden xl:flex" : "flex"}`}
+                            className={`items-center gap-3 p-3 rounded-xl border transition-colors group ${isNewest ? "border-emerald-200 dark:border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/5" : "border-slate-100 dark:border-border bg-muted/50/50 dark:bg-black/10"} ${hideOnMobile ? "hidden xl:flex" : "flex"}`}
                           >
                             {/* Data em bloco */}
                             <div className="shrink-0 text-center w-10">
-                              <p className="text-[9px] font-medium text-slate-400 dark:text-white/30 uppercase leading-none">
+                              <p className="text-[9px] font-medium text-muted-foreground/80 dark:text-white/30 uppercase leading-none">
                                 {new Date(
                                   record.date + "T12:00:00",
                                 ).toLocaleDateString("pt-BR", {
                                   month: "short",
                                 })}
                               </p>
-                              <p className="text-lg font-black text-slate-700 dark:text-white leading-tight">
+                              <p className="text-lg font-black text-foreground/90 leading-tight">
                                 {new Date(record.date + "T12:00:00")
                                   .getDate()
                                   .toString()
                                   .padStart(2, "0")}
                               </p>
-                              <p className="text-[9px] text-slate-400 dark:text-white/30 leading-none">
+                              <p className="text-[9px] text-muted-foreground/80 dark:text-white/30 leading-none">
                                 {new Date(
                                   record.date + "T12:00:00",
                                 ).getFullYear()}
@@ -1670,7 +1670,7 @@ export default function ProfileSettingsPage() {
 
                             {/* Métricas */}
                             <div className="flex-1 min-w-0 flex flex-wrap items-center gap-2">
-                              <span className="text-sm font-medium text-slate-800 dark:text-white">
+                              <span className="text-sm font-medium text-foreground">
                                 {record.weight} kg
                               </span>
                               {record.imc > 0 && (
@@ -1699,7 +1699,7 @@ export default function ProfileSettingsPage() {
                                   });
                                   setShowHealthForm(true);
                                 }}
-                                className="w-7 h-7 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-border flex items-center justify-center text-slate-400 hover:text-amber-500 transition-colors"
+                                className="w-7 h-7 rounded-lg bg-card dark:bg-white/5 border border-border flex items-center justify-center text-muted-foreground/80 hover:text-amber-500 transition-colors"
                               >
                                 <Pencil className="w-4 h-4" />
                               </button>
@@ -1708,7 +1708,7 @@ export default function ProfileSettingsPage() {
                                 onClick={() =>
                                   void handleDeleteHealthRecord(record.id)
                                 }
-                                className="w-7 h-7 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-border flex items-center justify-center text-slate-400 hover:text-rose-500 transition-colors"
+                                className="w-7 h-7 rounded-lg bg-card dark:bg-white/5 border border-border flex items-center justify-center text-muted-foreground/80 hover:text-rose-500 transition-colors"
                               >
                                 <svg
                                   width="11"
@@ -1735,7 +1735,7 @@ export default function ProfileSettingsPage() {
                       onClick={() =>
                         setShowAllHealthRecords(!showAllHealthRecords)
                       }
-                      className="w-full py-2.5 mt-2 text-[11px] font-medium text-slate-500 dark:text-white/50 hover:text-slate-800 dark:hover:text-white transition-colors bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-border"
+                      className="w-full py-2.5 mt-2 text-[11px] font-medium text-muted-foreground hover:text-foreground dark:hover:text-white transition-colors bg-muted/50 rounded-xl border border-border"
                     >
                       {showAllHealthRecords ? (
                         "↑ Ocultar avaliações anteriores"
@@ -1831,17 +1831,17 @@ export default function ProfileSettingsPage() {
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4">
                       <div>
                         <Label>Histórico de Composição</Label>
-                        <div className="flex items-center gap-3 text-[10px] text-slate-400 dark:text-white/50 mt-1">
+                        <div className="flex items-center gap-3 text-[10px] text-muted-foreground/80 dark:text-white/50 mt-1">
                           <span className="flex items-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-full bg-white dark:bg-card border-2 border-[#10b981]" />
+                            <span className="w-2.5 h-2.5 rounded-full bg-card border-2 border-[#10b981]" />
                             Caiu
                           </span>
                           <span className="flex items-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-full bg-white dark:bg-card border-2 border-[#f43f5e]" />
+                            <span className="w-2.5 h-2.5 rounded-full bg-card border-2 border-[#f43f5e]" />
                             Subiu
                           </span>
                           <span className="flex items-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-full bg-white dark:bg-card border-2 border-[#94a3b8]" />
+                            <span className="w-2.5 h-2.5 rounded-full bg-card border-2 border-[#94a3b8]" />
                             Estável
                           </span>
                           {hasRef && (
@@ -1859,7 +1859,7 @@ export default function ProfileSettingsPage() {
                         </span>
                       )}
                     </div>
-                    <div className="w-full overflow-x-auto rounded-xl border border-slate-200 dark:border-border bg-white dark:bg-black/20">
+                    <div className="w-full overflow-x-auto rounded-xl border border-border bg-card dark:bg-black/20">
                       <div className="relative" style={{ minWidth: `${W}px` }}>
                         {hoveredPt !== null &&
                           (() => {
@@ -1886,7 +1886,7 @@ export default function ProfileSettingsPage() {
                               ) : v > 0 ? (
                                 <TrendingUp className="w-4 h-4 inline-block text-rose-500" />
                               ) : (
-                                <ArrowRight className="w-4 h-4 inline-block text-slate-400" />
+                                <ArrowRight className="w-4 h-4 inline-block text-muted-foreground/80" />
                               );
                             const pxX = (hoveredPt.x / W) * 100;
                             const flipLeft = pxX > 60;
@@ -1901,8 +1901,8 @@ export default function ProfileSettingsPage() {
                                     : "translate(8px, -100%)",
                                 }}
                               >
-                                <div className="bg-white dark:bg-[#1e2530] border border-slate-200 dark:border-white/15 rounded-xl shadow-xl px-3 py-2.5 space-y-1.5 min-w-[180px]">
-                                  <p className="text-[11px] font-black text-slate-800 dark:text-white">
+                                <div className="bg-card dark:bg-[#1e2530] border border-border dark:border-white/15 rounded-xl shadow-xl px-3 py-2.5 space-y-1.5 min-w-[180px]">
+                                  <p className="text-[11px] font-black text-foreground">
                                     {fmtFull(d.date)} — {d.weight} kg
                                     {d.imc > 0 ? ` · IMC ${d.imc}` : ""}
                                   </p>
@@ -1915,7 +1915,7 @@ export default function ProfileSettingsPage() {
                                             ? "text-emerald-600 dark:text-emerald-400"
                                             : diffFirst > 0
                                               ? "text-rose-500"
-                                              : "text-slate-400"
+                                              : "text-muted-foreground/80"
                                         }
                                       >
                                         {diffFirst > 0 ? "+" : ""}
@@ -1933,7 +1933,7 @@ export default function ProfileSettingsPage() {
                                             ? "text-emerald-600 dark:text-emerald-400"
                                             : diffPrev > 0
                                               ? "text-rose-500"
-                                              : "text-slate-400"
+                                              : "text-muted-foreground/80"
                                         }
                                       >
                                         {diffPrev > 0 ? "+" : ""}
@@ -1943,7 +1943,7 @@ export default function ProfileSettingsPage() {
                                     </p>
                                   )}
                                   {hoveredPt.i === 0 && (
-                                    <p className="text-[10px] text-slate-400 dark:text-muted-foreground italic">
+                                    <p className="text-[10px] text-muted-foreground/80 dark:text-muted-foreground italic">
                                       Primeiro registro
                                     </p>
                                   )}
@@ -2199,9 +2199,9 @@ export default function ProfileSettingsPage() {
         {/* COLUNA DIREITA: PAINÉIS DO WHATSAPP (SEMPRE VISÍVEL) */}
         <div className="space-y-6">
           {/* PAINEL SESSÃO 1 */}
-          <div className="bg-white dark:bg-card border-y sm:border border-slate-200 dark:border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
+          <div className="bg-card border-y sm:border border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-border pb-2">
-              <h3 className="text-xs font-medium text-slate-400 dark:text-white/30 uppercase tracking-widest">
+              <h3 className="text-xs font-medium text-muted-foreground/80 dark:text-white/30 uppercase tracking-widest">
                 WhatsApp — Instância 1
               </h3>
             </div>
@@ -2225,13 +2225,13 @@ export default function ProfileSettingsPage() {
                   </button>
                 ) : (
                   <>
-                    <div className="relative p-4 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 flex gap-5 items-center">
+                    <div className="relative p-4 rounded-xl border border-border bg-muted/50 flex gap-5 items-center">
                       <div className="absolute top-3 right-3 flex items-center gap-1.5">
                         <button
                           type="button"
                           onClick={() => void refreshWhatsAppPanel()}
                           disabled={waLoading}
-                          className="w-8 h-8 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-border flex items-center justify-center text-slate-500 hover:text-emerald-600 transition-colors shadow-sm disabled:opacity-50"
+                          className="w-8 h-8 rounded-lg bg-card dark:bg-white/5 border border-border flex items-center justify-center text-muted-foreground hover:text-emerald-600 transition-colors shadow-sm disabled:opacity-50"
                           title="Sincronizar"
                         >
                           {waLoading ? (
@@ -2253,7 +2253,7 @@ export default function ProfileSettingsPage() {
                           <button
                             type="button"
                             onClick={() => setShowWa1Settings(true)}
-                            className="w-8 h-8 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-border flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors shadow-sm"
+                            className="w-8 h-8 rounded-lg bg-card dark:bg-white/5 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground dark:hover:text-white transition-colors shadow-sm"
                             title="Configurações de Chamada"
                           >
                             <svg
@@ -2272,7 +2272,7 @@ export default function ProfileSettingsPage() {
                       </div>
 
                       {/* ✅ Círculo — só foto de perfil, QR foi movido para baixo */}
-                      <div className="w-24 h-24 sm:w-28 sm:h-28 shrink-0 rounded-full bg-white dark:bg-card border-4 border-slate-100 dark:border-border overflow-hidden flex items-center justify-center shadow-sm">
+                      <div className="w-24 h-24 sm:w-28 sm:h-28 shrink-0 rounded-full bg-card border-4 border-slate-100 dark:border-border overflow-hidden flex items-center justify-center shadow-sm">
                         {waProfilePicUrl ? (
                           <img
                             src={waProfilePicUrl}
@@ -2287,14 +2287,14 @@ export default function ProfileSettingsPage() {
                       </div>
 
                       <div className="flex-1 min-w-0 flex flex-col gap-1.5 justify-center">
-                        <div className="text-[11px] text-slate-500 dark:text-white/50">
-                          <span className="font-medium text-slate-800 dark:text-white">
+                        <div className="text-[11px] text-muted-foreground">
+                          <span className="font-medium text-foreground">
                             Nome:
                           </span>{" "}
                           {waPushName || "Aguardando"}
                         </div>
-                        <div className="text-[11px] text-slate-500 dark:text-white/50">
-                          <span className="font-medium text-slate-800 dark:text-white">
+                        <div className="text-[11px] text-muted-foreground">
+                          <span className="font-medium text-foreground">
                             Chamadas:
                           </span>{" "}
                           {waRejectCalls ? (
@@ -2309,8 +2309,8 @@ export default function ProfileSettingsPage() {
                             </span>
                           )}
                         </div>
-                        <div className="text-[11px] text-slate-500 dark:text-white/50 flex items-center gap-1 mt-1">
-                          <span className="font-medium text-slate-800 dark:text-white">
+                        <div className="text-[11px] text-muted-foreground flex items-center gap-1 mt-1">
+                          <span className="font-medium text-foreground">
                             Status:
                           </span>
                           <span
@@ -2377,16 +2377,16 @@ export default function ProfileSettingsPage() {
           )}
 
           {/* CARD IMPORT / EXPORT */}
-          <div className="bg-white dark:bg-card border-y sm:border border-slate-200 dark:border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
+          <div className="bg-card border-y sm:border border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-border pb-3">
-              <h3 className="text-xs font-medium text-slate-400 dark:text-white/30 uppercase tracking-widest">
+              <h3 className="text-xs font-medium text-muted-foreground/80 dark:text-white/30 uppercase tracking-widest">
                 Dados &amp; Planilhas
               </h3>
               <button
                 type="button"
                 onClick={() => setActionModal("template")}
                 disabled={!tenantId}
-                className="flex items-center gap-1.5 h-8 px-2 sm:px-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-muted-foreground hover:bg-slate-100 dark:hover:bg-white/10 transition-all"
+                className="flex items-center gap-1.5 h-8 px-2 sm:px-3 rounded-xl border border-border bg-muted/50 text-muted-foreground dark:text-muted-foreground hover:bg-slate-100 dark:hover:bg-white/10 transition-all"
                 title="Baixar Templates"
               >
                 <svg
@@ -2411,7 +2411,7 @@ export default function ProfileSettingsPage() {
                 type="button"
                 onClick={() => setActionModal("export")}
                 disabled={!tenantId || exporting}
-                className="flex-1 h-11 px-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 font-medium text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+                className="flex-1 h-11 px-3 rounded-xl border border-border bg-muted/50 font-medium text-xs text-foreground/90 hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2"
               >
                 <svg
                   width="14"
@@ -2440,7 +2440,7 @@ export default function ProfileSettingsPage() {
                   importingMessage ||
                   importingServer
                 }
-                className="flex-1 h-11 px-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 font-medium text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+                className="flex-1 h-11 px-3 rounded-xl border border-border bg-muted/50 font-medium text-xs text-foreground/90 hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2"
               >
                 <svg
                   width="14"
@@ -2539,8 +2539,8 @@ export default function ProfileSettingsPage() {
          ============================================================================ */}
       {actionModal && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-card w-full max-w-sm rounded-xl border border-slate-200 dark:border-border shadow-xl p-6 space-y-4 text-left">
-            <h3 className="text-sm font-medium text-slate-800 dark:text-white">
+          <div className="bg-card w-full max-w-sm rounded-xl border border-border shadow-xl p-6 space-y-4 text-left">
+            <h3 className="text-sm font-medium text-foreground">
               {actionModal === "export" && "⬇️ Exportar Dados"}
               {actionModal === "template" && "📄 Baixar Templates"}
               {actionModal === "import" && "⬆️ Importar Dados"}
@@ -2626,7 +2626,7 @@ export default function ProfileSettingsPage() {
                     setActionModal(null);
                     item.act();
                   }}
-                  className="w-full text-left text-xs p-3 font-semibold rounded-lg border border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-700 dark:text-white transition-colors flex items-center gap-2"
+                  className="w-full text-left text-xs p-3 font-semibold rounded-lg border border-border bg-muted/50 hover:bg-slate-100 dark:hover:bg-white/10 text-foreground/90 transition-colors flex items-center gap-2"
                 >
                   <span>{item.icon}</span> {item.n}
                 </button>
@@ -2635,7 +2635,7 @@ export default function ProfileSettingsPage() {
             <button
               type="button"
               onClick={() => setActionModal(null)}
-              className="w-full text-center text-xs font-medium text-slate-400 mt-2 hover:text-slate-600 dark:hover:text-white/80"
+              className="w-full text-center text-xs font-medium text-muted-foreground/80 mt-2 hover:text-muted-foreground dark:hover:text-white/80"
             >
               Fechar
             </button>
@@ -2648,28 +2648,28 @@ export default function ProfileSettingsPage() {
          ============================================================================ */}
       {showWa1Settings && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-card w-full max-w-md rounded-2xl border border-slate-200 dark:border-border p-6 shadow-2xl animate-in zoom-in-95 max-h-[92vh] overflow-y-auto">
+          <div className="bg-card w-full max-w-md rounded-2xl border border-border p-6 shadow-2xl animate-in zoom-in-95 max-h-[92vh] overflow-y-auto">
             <div className="space-y-5">
               {/* Cabeçalho */}
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-base font-medium text-slate-800 dark:text-white">
+                  <h3 className="text-base font-medium text-foreground">
                     ⚙️ Instância 1 — Configurações
                   </h3>
-                  <p className="text-xs text-slate-400 dark:text-muted-foreground mt-0.5">
+                  <p className="text-xs text-muted-foreground/80 dark:text-muted-foreground mt-0.5">
                     Controle de chamadas recebidas.
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowWa1Settings(false)}
-                  className="shrink-0 w-8 h-8 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-white text-lg leading-none transition-colors"
+                  className="shrink-0 w-8 h-8 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-muted-foreground hover:text-foreground dark:hover:text-white text-lg leading-none transition-colors"
                 >
                   ×
                 </button>
               </div>
-              <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20">
-                <span className="text-sm font-medium text-slate-700 dark:text-white">
+              <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-muted/50">
+                <span className="text-sm font-medium text-foreground/90">
                   📵 Rejeitar Chamadas
                 </span>
                 <button
@@ -2678,7 +2678,7 @@ export default function ProfileSettingsPage() {
                   className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 overflow-hidden ${waRejectCalls ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}
                 >
                   <span
-                    className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${waRejectCalls ? "translate-x-5" : "translate-x-0"}`}
+                    className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-card shadow-sm transition-transform duration-200 ${waRejectCalls ? "translate-x-5" : "translate-x-0"}`}
                   />
                 </button>
               </div>
@@ -2687,7 +2687,7 @@ export default function ProfileSettingsPage() {
                 <div className="space-y-4">
                   {/* MENSAGEM */}
                   <div>
-                    <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground uppercase mb-1.5">
+                    <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground uppercase mb-1.5">
                       Mensagem de Resposta
                     </label>
                     <div className="flex flex-wrap gap-1 mb-2">
@@ -2696,7 +2696,7 @@ export default function ProfileSettingsPage() {
                           key={tag}
                           type="button"
                           onClick={() => setWaRejectMessage((v) => v + tag)}
- className="text-[10px] px-2 py-0.5 rounded border border-slate-200 dark:border-border bg-white dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-slate-600 dark:text-white transition-colors"
+ className="text-[10px] px-2 py-0.5 rounded border border-border bg-card dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-muted-foreground dark:text-white transition-colors"
                         >
                           {tag}
                         </button>
@@ -2707,14 +2707,14 @@ export default function ProfileSettingsPage() {
                       onChange={(e) => setWaRejectMessage(e.target.value)}
                       rows={2}
                       placeholder="Ex: {saudacao}! Não atendo ligações..."
-                      className="w-full px-3 py-2 text-xs bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none"
+                      className="w-full px-3 py-2 text-xs bg-card border border-border rounded-xl text-foreground outline-none focus:border-emerald-500/50 resize-none"
                     />
                   </div>
 
                   {/* LISTA BRANCA */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-[10px] font-medium text-slate-400 dark:text-muted-foreground uppercase">
+                      <label className="text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground uppercase">
                         Lista Branca (Exceções)
                       </label>
                       <button
@@ -2740,14 +2740,14 @@ export default function ProfileSettingsPage() {
 
                     <div className="max-h-40 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                       {waAllowedList.length === 0 ? (
-                        <div className="text-xs text-center text-slate-400 py-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-dashed border-slate-200 dark:border-border">
+                        <div className="text-xs text-center text-muted-foreground/80 py-4 bg-muted/50 rounded-xl border border-dashed border-border">
                           Nenhum número liberado.
                         </div>
                       ) : (
                         waAllowedList.map((row) => (
                           <div
                             key={row.id}
-                            className="flex flex-col gap-1.5 p-2 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20"
+                            className="flex flex-col gap-1.5 p-2 rounded-xl border border-border bg-muted/50"
                           >
                             <div className="flex gap-2 items-center">
                               <input
@@ -2762,7 +2762,7 @@ export default function ProfileSettingsPage() {
                                   )
                                 }
                                 placeholder="Nome"
-                                className="w-1/3 h-8 px-2 text-xs bg-white dark:bg-card border border-slate-200 dark:border-border rounded-lg outline-none focus:border-emerald-500/50 text-slate-800 dark:text-white placeholder-slate-400"
+                                className="w-1/3 h-8 px-2 text-xs bg-card border border-border rounded-lg outline-none focus:border-emerald-500/50 text-foreground placeholder-slate-400"
                               />
                               <input
                                 value={row.raw}
@@ -2781,7 +2781,7 @@ export default function ProfileSettingsPage() {
                                 }
                                 onBlur={() => validateWaRow(row.id, row.raw)}
                                 placeholder="Número com DDI"
-                                className="flex-1 h-8 px-2 text-xs font-mono bg-white dark:bg-card border border-slate-200 dark:border-border rounded-lg outline-none focus:border-emerald-500/50 text-slate-800 dark:text-white placeholder-slate-400"
+                                className="flex-1 h-8 px-2 text-xs font-mono bg-card border border-border rounded-lg outline-none focus:border-emerald-500/50 text-foreground placeholder-slate-400"
                               />
                               <button
                                 type="button"
@@ -2790,7 +2790,7 @@ export default function ProfileSettingsPage() {
                                     prev.filter((r) => r.id !== row.id),
                                   )
                                 }
-                                className="w-8 h-8 flex items-center justify-center text-rose-500 bg-white dark:bg-card border border-slate-200 dark:border-border rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
+                                className="w-8 h-8 flex items-center justify-center text-rose-500 bg-card border border-border rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
                               >
                                 <svg
                                   width="14"
@@ -2806,7 +2806,7 @@ export default function ProfileSettingsPage() {
                             </div>
                             <div className="text-[9px] font-medium px-1">
                               {row.loading ? (
-                                <span className="text-slate-400">
+                                <span className="text-muted-foreground/80">
                                   Validando...
                                 </span>
                               ) : row.exists === true ? (
@@ -2818,7 +2818,7 @@ export default function ProfileSettingsPage() {
                                   ❌ Não tem WhatsApp
                                 </span>
                               ) : (
-                                <span className="text-slate-400">
+                                <span className="text-muted-foreground/80">
                                   Termine para validar
                                 </span>
                               )}
@@ -2835,7 +2835,7 @@ export default function ProfileSettingsPage() {
                 <button
                   type="button"
                   onClick={() => setShowWa1Settings(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-border text-slate-600 dark:text-slate-400 font-medium text-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                  className="flex-1 py-2.5 rounded-xl border border-border text-muted-foreground dark:text-muted-foreground/80 font-medium text-xs hover:bg-muted/50 dark:hover:bg-white/5 transition-colors"
                 >
                   Cancelar
                 </button>
@@ -3059,9 +3059,9 @@ function WhatsAppSession2Panel({
   }
 
   return (
-    <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-2xl p-6 shadow-sm space-y-4 animate-in fade-in">
+    <div className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-4 animate-in fade-in">
       <div className="flex items-center justify-between border-b border-slate-100 dark:border-border pb-2">
-        <h3 className="text-xs font-medium text-slate-400 dark:text-white/30 uppercase tracking-widest">
+        <h3 className="text-xs font-medium text-muted-foreground/80 dark:text-white/30 uppercase tracking-widest">
           WhatsApp — Instância 2
         </h3>
         <button
@@ -3087,13 +3087,13 @@ function WhatsAppSession2Panel({
           </button>
         ) : (
           <>
-            <div className="relative p-4 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 flex gap-5 items-center">
+            <div className="relative p-4 rounded-xl border border-border bg-muted/50 flex gap-5 items-center">
               <div className="absolute top-3 right-3 flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => void refreshPanel()}
                   disabled={waLoading}
-                  className="w-8 h-8 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-border flex items-center justify-center text-slate-500 hover:text-emerald-600 transition-colors shadow-sm disabled:opacity-50"
+                  className="w-8 h-8 rounded-lg bg-card dark:bg-white/5 border border-border flex items-center justify-center text-muted-foreground hover:text-emerald-600 transition-colors shadow-sm disabled:opacity-50"
                   title="Sincronizar"
                 >
                   {waLoading ? (
@@ -3115,7 +3115,7 @@ function WhatsAppSession2Panel({
                   <button
                     type="button"
                     onClick={() => setShowWa2Settings(true)}
-                    className="w-8 h-8 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-border flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors shadow-sm"
+                    className="w-8 h-8 rounded-lg bg-card dark:bg-white/5 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground dark:hover:text-white transition-colors shadow-sm"
                     title="Configurações"
                   >
                     <svg
@@ -3133,7 +3133,7 @@ function WhatsAppSession2Panel({
                 )}
               </div>
 
-              <div className="w-24 h-24 sm:w-28 sm:h-28 shrink-0 rounded-full bg-white dark:bg-card border-4 border-slate-100 dark:border-border overflow-hidden flex items-center justify-center shadow-sm">
+              <div className="w-24 h-24 sm:w-28 sm:h-28 shrink-0 rounded-full bg-card border-4 border-slate-100 dark:border-border overflow-hidden flex items-center justify-center shadow-sm">
                 {waProfilePicUrl ? (
                   <img
                     src={waProfilePicUrl}
@@ -3154,14 +3154,14 @@ function WhatsAppSession2Panel({
               </div>
 
               <div className="flex-1 min-w-0 flex flex-col gap-1.5 justify-center">
-                <div className="text-[11px] text-slate-500 dark:text-white/50">
-                  <span className="font-medium text-slate-800 dark:text-white">
+                <div className="text-[11px] text-muted-foreground">
+                  <span className="font-medium text-foreground">
                     Nome:
                   </span>{" "}
                   {waPushName || "Aguardando"}
                 </div>
-                <div className="text-[11px] text-slate-500 dark:text-white/50">
-                  <span className="font-medium text-slate-800 dark:text-white">
+                <div className="text-[11px] text-muted-foreground">
+                  <span className="font-medium text-foreground">
                     Chamadas:
                   </span>{" "}
                   {waRejectCalls ? (
@@ -3176,8 +3176,8 @@ function WhatsAppSession2Panel({
                     </span>
                   )}
                 </div>
-                <div className="text-[11px] text-slate-500 dark:text-white/50 flex items-center gap-1 mt-1">
-                  <span className="font-medium text-slate-800 dark:text-white">
+                <div className="text-[11px] text-muted-foreground flex items-center gap-1 mt-1">
+                  <span className="font-medium text-foreground">
                     Status:
                   </span>
                   <span
@@ -3215,27 +3215,27 @@ function WhatsAppSession2Panel({
       {/* Modal Settings Wa 2 */}
       {showWa2Settings && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-card w-full max-w-md rounded-2xl border border-slate-200 dark:border-border p-6 shadow-2xl animate-in zoom-in-95 max-h-[92vh] overflow-y-auto">
+          <div className="bg-card w-full max-w-md rounded-2xl border border-border p-6 shadow-2xl animate-in zoom-in-95 max-h-[92vh] overflow-y-auto">
             <div className="space-y-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-base font-medium text-slate-800 dark:text-white">
+                  <h3 className="text-base font-medium text-foreground">
                     ⚙️ Instância 2 — Configurações
                   </h3>
-                  <p className="text-xs text-slate-400 dark:text-muted-foreground mt-0.5">
+                  <p className="text-xs text-muted-foreground/80 dark:text-muted-foreground mt-0.5">
                     Controle de chamadas recebidas.
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowWa2Settings(false)}
-                  className="shrink-0 w-8 h-8 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-white text-lg leading-none transition-colors"
+                  className="shrink-0 w-8 h-8 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-muted-foreground hover:text-foreground dark:hover:text-white text-lg leading-none transition-colors"
                 >
                   ×
                 </button>
               </div>
-              <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20">
-                <span className="text-sm font-medium text-slate-700 dark:text-white">
+              <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-muted/50">
+                <span className="text-sm font-medium text-foreground/90">
                   📵 Rejeitar Chamadas
                 </span>
                 <button
@@ -3244,7 +3244,7 @@ function WhatsAppSession2Panel({
                   className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${waRejectCalls ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}
                 >
                   <span
-                    className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${waRejectCalls ? "translate-x-5" : "translate-x-0"}`}
+                    className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-card shadow transition-transform ${waRejectCalls ? "translate-x-5" : "translate-x-0"}`}
                   />
                 </button>
               </div>
@@ -3252,7 +3252,7 @@ function WhatsAppSession2Panel({
               {waRejectCalls && (
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground uppercase mb-1.5">
+                    <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground uppercase mb-1.5">
                       Mensagem de Resposta
                     </label>
                     <div className="flex flex-wrap gap-1 mb-2">
@@ -3261,7 +3261,7 @@ function WhatsAppSession2Panel({
                           key={tag}
                           type="button"
                           onClick={() => setWaRejectMessage((v) => v + tag)}
- className="text-[10px] px-2 py-0.5 rounded border border-slate-200 dark:border-border bg-white dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-slate-600 dark:text-white transition-colors"
+ className="text-[10px] px-2 py-0.5 rounded border border-border bg-card dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-muted-foreground dark:text-white transition-colors"
                         >
                           {tag}
                         </button>
@@ -3272,13 +3272,13 @@ function WhatsAppSession2Panel({
                       onChange={(e) => setWaRejectMessage(e.target.value)}
                       rows={2}
                       placeholder="Ex: {saudacao}! Não atendo ligações..."
-                      className="w-full px-3 py-2 text-xs bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none"
+                      className="w-full px-3 py-2 text-xs bg-card border border-border rounded-xl text-foreground outline-none focus:border-emerald-500/50 resize-none"
                     />
                   </div>
 
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-[10px] font-medium text-slate-400 dark:text-muted-foreground uppercase">
+                      <label className="text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground uppercase">
                         Lista Branca (Exceções)
                       </label>
                       <button
@@ -3304,14 +3304,14 @@ function WhatsAppSession2Panel({
 
                     <div className="max-h-40 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                       {waAllowedList.length === 0 ? (
-                        <div className="text-xs text-center text-slate-400 py-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-dashed border-slate-200 dark:border-border">
+                        <div className="text-xs text-center text-muted-foreground/80 py-4 bg-muted/50 rounded-xl border border-dashed border-border">
                           Nenhum número liberado.
                         </div>
                       ) : (
                         waAllowedList.map((row) => (
                           <div
                             key={row.id}
-                            className="flex flex-col gap-1.5 p-2 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20"
+                            className="flex flex-col gap-1.5 p-2 rounded-xl border border-border bg-muted/50"
                           >
                             <div className="flex gap-2 items-center">
                               <input
@@ -3326,7 +3326,7 @@ function WhatsAppSession2Panel({
                                   )
                                 }
                                 placeholder="Nome"
-                                className="w-1/3 h-8 px-2 text-xs bg-white dark:bg-card border border-slate-200 dark:border-border rounded-lg outline-none focus:border-emerald-500/50 text-slate-800 dark:text-white placeholder-slate-400"
+                                className="w-1/3 h-8 px-2 text-xs bg-card border border-border rounded-lg outline-none focus:border-emerald-500/50 text-foreground placeholder-slate-400"
                               />
                               <input
                                 value={row.raw}
@@ -3345,7 +3345,7 @@ function WhatsAppSession2Panel({
                                 }
                                 onBlur={() => validateWaRow(row.id, row.raw)}
                                 placeholder="Número com DDI"
-                                className="flex-1 h-8 px-2 text-xs font-mono bg-white dark:bg-card border border-slate-200 dark:border-border rounded-lg outline-none focus:border-emerald-500/50 text-slate-800 dark:text-white placeholder-slate-400"
+                                className="flex-1 h-8 px-2 text-xs font-mono bg-card border border-border rounded-lg outline-none focus:border-emerald-500/50 text-foreground placeholder-slate-400"
                               />
                               <button
                                 type="button"
@@ -3354,7 +3354,7 @@ function WhatsAppSession2Panel({
                                     prev.filter((r) => r.id !== row.id),
                                   )
                                 }
-                                className="w-8 h-8 flex items-center justify-center text-rose-500 bg-white dark:bg-card border border-slate-200 dark:border-border rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
+                                className="w-8 h-8 flex items-center justify-center text-rose-500 bg-card border border-border rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
                               >
                                 <svg
                                   width="14"
@@ -3370,7 +3370,7 @@ function WhatsAppSession2Panel({
                             </div>
                             <div className="text-[9px] font-medium px-1">
                               {row.loading ? (
-                                <span className="text-slate-400">
+                                <span className="text-muted-foreground/80">
                                   Validando...
                                 </span>
                               ) : row.exists === true ? (
@@ -3382,7 +3382,7 @@ function WhatsAppSession2Panel({
                                   ❌ Não tem WhatsApp
                                 </span>
                               ) : (
-                                <span className="text-slate-400">
+                                <span className="text-muted-foreground/80">
                                   Termine para validar
                                 </span>
                               )}
@@ -3399,7 +3399,7 @@ function WhatsAppSession2Panel({
                 <button
                   type="button"
                   onClick={() => setShowWa2Settings(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-border text-slate-600 dark:text-slate-400 font-medium text-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                  className="flex-1 py-2.5 rounded-xl border border-border text-muted-foreground dark:text-muted-foreground/80 font-medium text-xs hover:bg-muted/50 dark:hover:bg-white/5 transition-colors"
                 >
                   Cancelar
                 </button>

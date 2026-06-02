@@ -184,11 +184,11 @@ export default function AppIntegracaoModal({
         className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
         onClick={onCloseAction}
       />
-      <div className="relative w-full max-w-lg rounded-2xl border border-slate-200 dark:border-border bg-white dark:bg-card shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[90vh]">
+      <div className="relative w-full max-w-lg rounded-2xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[90vh]">
         {/* Header Elegante */}
-        <div className="px-6 py-5 border-b border-slate-200 dark:border-border flex items-center justify-between shrink-0">
+        <div className="px-6 py-5 border-b border-border flex items-center justify-between shrink-0">
           <div>
-            <h2 className="text-lg font-medium text-slate-800 dark:text-white tracking-tight">
+            <h2 className="text-lg font-medium text-foreground tracking-tight">
               {isEdit ? "Editar Integração" : "Nova Integração"}
             </h2>
             <p className="text-xs text-foreground/70 dark:text-white/50 mt-0.5">
@@ -197,7 +197,7 @@ export default function AppIntegracaoModal({
           </div>
           <button
             onClick={onCloseAction}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-white/10 text-muted-foreground/80 transition-colors"
             type="button"
           >
             <svg
@@ -243,7 +243,7 @@ export default function AppIntegracaoModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Aplicativo */}
             <div className="sm:col-span-2">
-              <label className="block text-[10px] font-medium text-slate-500 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Aplicativo
               </label>
               <select
@@ -255,7 +255,7 @@ export default function AppIntegracaoModal({
                   setPin("");
                   setApiUrl("");
                 }}
-                className="w-full h-11 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors cursor-pointer"
+                className="w-full h-11 rounded-xl border border-border bg-muted/50 px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card dark:focus:bg-black/40 transition-colors cursor-pointer"
               >
                 <option value="GERENCIAAPP">
                   GerenciaApp (IBO Revenda, etc)
@@ -273,7 +273,7 @@ export default function AppIntegracaoModal({
 
             {/* Nome da Integração */}
             <div className="sm:col-span-2">
-              <label className="block text-[10px] font-medium text-slate-500 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Nome de identificação
               </label>
               <input
@@ -298,13 +298,13 @@ export default function AppIntegracaoModal({
                                   ? 'Ex: "FocoX Play"'
                                   : 'Ex: "Nome do aplicativo"'
                 }
-                className="w-full h-11 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors"
+                className="w-full h-11 rounded-xl border border-border bg-muted/50 px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card dark:focus:bg-black/40 transition-colors"
               />
             </div>
 
             {/* URL da API */}
             <div className="sm:col-span-2">
-              <label className="block text-[10px] font-medium text-slate-500 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Link do Painel
               </label>
               <input
@@ -326,14 +326,14 @@ export default function AppIntegracaoModal({
                               : "Ex: https://gerenciaapp.top"
                 }
                 type="url"
-                className="w-full h-11 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors font-mono text-xs"
+                className="w-full h-11 rounded-xl border border-border bg-muted/50 px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card dark:focus:bg-black/40 transition-colors font-mono text-xs"
               />
             </div>
 
             {/* Email de Login */}
             {!noCredentials && (
               <div className={needsPin ? "sm:col-span-1" : "sm:col-span-2"}>
-                <label className="block text-[10px] font-medium text-slate-500 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+                <label className="block text-[10px] font-medium text-muted-foreground dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                   E-mail / Usuário
                 </label>
                 <input
@@ -344,7 +344,7 @@ export default function AppIntegracaoModal({
                   }
                   type="text"
                   autoCapitalize="none"
-                  className="w-full h-11 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors"
+                  className="w-full h-11 rounded-xl border border-border bg-muted/50 px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card dark:focus:bg-black/40 transition-colors"
                 />
               </div>
             )}
@@ -352,7 +352,7 @@ export default function AppIntegracaoModal({
             {/* Senha */}
             {!noCredentials && (
               <div className={needsPin ? "sm:col-span-1" : "sm:col-span-2"}>
-                <label className="block text-[10px] font-medium text-slate-500 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+                <label className="block text-[10px] font-medium text-muted-foreground dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                   Senha
                 </label>
                 <input
@@ -360,7 +360,7 @@ export default function AppIntegracaoModal({
                   onChange={(e) => setLoginPassword(e.target.value)}
                   placeholder="Senha de acesso"
                   type="text"
-                  className="w-full h-11 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors"
+                  className="w-full h-11 rounded-xl border border-border bg-muted/50 px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card dark:focus:bg-black/40 transition-colors"
                 />
               </div>
             )}
@@ -372,7 +372,7 @@ export default function AppIntegracaoModal({
                   PIN Padrão (Criação de Teste)
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/80">
                     🔒
                   </span>
                   <input
@@ -381,7 +381,7 @@ export default function AppIntegracaoModal({
                     placeholder="Ex: 123456"
                     type="text"
                     maxLength={6}
-                    className="w-full h-11 rounded-xl border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-500/5 px-10 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500 focus:bg-white dark:focus:bg-black/40 transition-colors font-mono tracking-widest"
+                    className="w-full h-11 rounded-xl border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-500/5 px-10 text-sm text-foreground outline-none focus:border-emerald-500 focus:bg-card dark:focus:bg-black/40 transition-colors font-mono tracking-widest"
                   />
                 </div>
                 <p className="text-[10px] text-foreground/70 mt-1.5 ml-1">
@@ -392,12 +392,12 @@ export default function AppIntegracaoModal({
 
             {/* Status */}
             <div className="sm:col-span-2 mt-2">
-              <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20">
+              <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-muted/50">
                 <div>
-                  <div className="text-sm font-medium text-slate-700 dark:text-white">
+                  <div className="text-sm font-medium text-foreground/90">
                     Integração Ativa
                   </div>
-                  <div className="text-[10px] text-slate-500 dark:text-muted-foreground mt-0.5">
+                  <div className="text-[10px] text-muted-foreground dark:text-muted-foreground mt-0.5">
                     Se desativar, não será acionada nos clientes.
                   </div>
                 </div>
@@ -411,7 +411,7 @@ export default function AppIntegracaoModal({
                   }`}
                 >
                   <span
-                    className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${isActive ? "translate-x-6" : "translate-x-0"}`}
+                    className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-card transition-transform ${isActive ? "translate-x-6" : "translate-x-0"}`}
                   />
                 </button>
               </div>
@@ -420,10 +420,10 @@ export default function AppIntegracaoModal({
         </div>
 
         {/* Footer Elegante */}
-        <div className="px-6 py-4 border-t border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 flex items-center justify-end gap-3 shrink-0">
+        <div className="px-6 py-4 border-t border-border bg-muted/50 flex items-center justify-end gap-3 shrink-0">
           <button
             onClick={onCloseAction}
-            className="h-10 px-5 rounded-xl text-slate-600 dark:text-muted-foreground text-sm font-medium hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
+            className="h-10 px-5 rounded-xl text-muted-foreground dark:text-muted-foreground text-sm font-medium hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
             type="button"
             disabled={saving}
           >

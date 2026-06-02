@@ -32,7 +32,7 @@ function toneClasses(tone: Tone) {
       return {
         ring: "shadow-slate-500/20",
         iconBg: "bg-slate-100 dark:bg-white/10",
-        dot: "text-slate-500",
+        dot: "text-muted-foreground",
         confirm: "bg-slate-800 hover:bg-slate-700",
       };
     default:
@@ -98,7 +98,7 @@ export default function ConfirmDialog({
     >
       <div
         onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-sm bg-white dark:bg-card border border-slate-200 dark:border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-200"
+        className="w-full max-w-sm bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-200"
       >
         <div className="flex items-center gap-3">
           <div
@@ -107,7 +107,7 @@ export default function ConfirmDialog({
             {icon ?? "✅"}
           </div>
           <div className="min-w-0">
-            <h3 className="text-lg font-semibold text-slate-800 dark:text-white truncate">
+            <h3 className="text-lg font-semibold text-foreground truncate">
               {title}
             </h3>
             <p className="text-xs text-foreground/70">
@@ -117,7 +117,7 @@ export default function ConfirmDialog({
         </div>
 
         {details.length > 0 && (
-          <div className="bg-slate-50 dark:bg-white/5 rounded-xl p-4 border border-slate-100 dark:border-border">
+          <div className="bg-muted/50 rounded-xl p-4 border border-slate-100 dark:border-border">
             <ul className="space-y-2">
               {details.map((line, i) => {
                 // Divisor
@@ -142,7 +142,7 @@ export default function ConfirmDialog({
                 return (
                   <li
                     key={i}
-                    className="text-sm text-slate-700 dark:text-slate-300 flex items-start gap-2"
+                    className="text-sm text-foreground/90 dark:text-slate-300 flex items-start gap-2"
                   >
                     <span className={`${t.dot} font-medium`}>•</span>
                     <span className="break-words whitespace-pre-wrap">
@@ -160,7 +160,7 @@ export default function ConfirmDialog({
             <button
               onClick={onCancel}
               disabled={loading}
-              className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-border text-slate-600 dark:text-slate-400 font-medium text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors disabled:opacity-60"
+              className="flex-1 py-3 rounded-xl border border-border text-muted-foreground dark:text-muted-foreground/80 font-medium text-sm hover:bg-muted/50 dark:hover:bg-white/5 transition-colors disabled:opacity-60"
             >
               {cancelText}
             </button>

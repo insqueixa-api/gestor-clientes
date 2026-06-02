@@ -36,7 +36,7 @@ function HomeRouter() {
 
   // Tela preta rápida apenas enquanto carrega
   if (hasToken === null) {
-    return <div className="min-h-screen bg-slate-50 dark:bg-background" />;
+    return <div className="min-h-screen bg-background" />;
   }
 
   // Agora a raiz ("/") exibe o Login do Cliente, com ou sem token inicial
@@ -46,7 +46,7 @@ function HomeRouter() {
 export default function HomePage() {
   return (
     <Suspense
-      fallback={<div className="min-h-screen bg-slate-50 dark:bg-background" />}
+      fallback={<div className="min-h-screen bg-background" />}
     >
       <HomeRouter />
     </Suspense>

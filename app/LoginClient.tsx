@@ -301,7 +301,7 @@ export default function LoginClient() {
   }, [cleanPhone]);
 
   return (
-    <div className="min-h-[100dvh] relative overflow-hidden flex items-center sm:items-center justify-center px-3 sm:px-6 pt-6 pb-6 sm:py-10 bg-slate-50 dark:bg-background">
+    <div className="min-h-[100dvh] relative overflow-hidden flex items-center sm:items-center justify-center px-3 sm:px-6 pt-6 pb-6 sm:py-10 bg-background">
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-gradient-to-br from-[#0b2a4a] via-[#0f141a] to-[#0e6b5c] opacity-90 dark:opacity-100" />
         <div className="absolute -top-[10%] -right-[10%] h-[40%] w-[40%] rounded-full bg-emerald-500/20 blur-3xl" />
@@ -343,7 +343,7 @@ export default function LoginClient() {
               className="space-y-3 sm:space-y-4"
             >
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/50 ml-1">
+                <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">
                   Seu WhatsApp
                 </label>
 
@@ -356,12 +356,12 @@ export default function LoginClient() {
                     data-1p-ignore="true"
                     data-lpignore="true"
                     placeholder={loadingResolve ? "Validando link..." : "—"}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-center font-bold text-base text-slate-900 outline-none transition
+                    className="w-full rounded-xl border border-border bg-card px-4 py-3 text-center font-bold text-base text-foreground outline-none transition
                       focus:ring-2 focus:ring-emerald-500/60
                       dark:border-border dark:bg-black/40 dark:text-white"
                   />
                   {loadingResolve && (
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500 dark:text-white/50">
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">
                       ...
                     </div>
                   )}
@@ -373,7 +373,7 @@ export default function LoginClient() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/50 ml-1">
+                <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">
                   PIN (4 dígitos)
                 </label>
                 <input
@@ -390,8 +390,8 @@ export default function LoginClient() {
                   }
                   placeholder="••••"
                   style={{ WebkitTextSecurity: "disc" } as any}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-center text-xl tracking-[0.5em]
-                    text-slate-900 outline-none transition focus:ring-2 focus:ring-emerald-500/60
+                  className="mt-1 w-full rounded-xl border border-border bg-card px-4 py-3 text-center text-xl tracking-[0.5em]
+                    text-foreground outline-none transition focus:ring-2 focus:ring-emerald-500/60
                     dark:border-border dark:bg-black/40 dark:text-white"
                 />
 

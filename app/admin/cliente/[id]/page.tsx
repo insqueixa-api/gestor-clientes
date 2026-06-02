@@ -57,7 +57,7 @@ function StatusBadge({ status }: { status: string }) {
       "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
     TRIAL: "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20",
     ARCHIVED:
-      "bg-slate-500/10 text-slate-500 dark:text-muted-foreground border-slate-500/20",
+      "bg-muted/500/10 text-muted-foreground dark:text-muted-foreground border-slate-500/20",
   };
   const labelMap: Record<string, string> = {
     ACTIVE: "Ativo",
@@ -681,7 +681,7 @@ export default function ClientDetailsPage() {
 
   if (loading)
     return (
-      <div className="p-10 text-center text-slate-400 dark:text-white/20 animate-pulse font-medium">
+      <div className="p-10 text-center text-muted-foreground/80 dark:text-white/20 animate-pulse font-medium">
         Carregando...
       </div>
     );
@@ -705,7 +705,7 @@ export default function ClientDetailsPage() {
             </h1>
             <StatusBadge status={client.computed_status} />
           </div>
-          <span className="text-xs text-slate-500 dark:text-white/50 font-medium truncate">
+          <span className="text-xs text-muted-foreground font-medium truncate">
             {client.username}
           </span>
         </div>
@@ -715,7 +715,7 @@ export default function ClientDetailsPage() {
           {/* Voltar (Só no Desktop) */}
           <Link
             href="/admin/cliente"
-            className="hidden sm:inline-flex h-9 px-3 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 font-medium text-xs hover:bg-slate-200 dark:hover:bg-white/5 transition-all items-center justify-center"
+            className="hidden sm:inline-flex h-9 px-3 rounded-lg border border-border text-muted-foreground dark:text-white/60 font-medium text-xs hover:bg-slate-200 dark:hover:bg-white/5 transition-all items-center justify-center"
           >
             Voltar
           </Link>
@@ -829,27 +829,27 @@ export default function ClientDetailsPage() {
         {/* COLUNA ESQUERDA */}
         <div className="space-y-4">
           {/* 1. CARD ASSINATURA ATUAL */}
-          <div className="bg-white dark:bg-card border-y sm:border border-slate-200 dark:border-border sm:rounded-xl p-4 shadow-sm transition-colors">
-            <h3 className="text-[10px] font-medium text-slate-400 dark:text-white/20 uppercase mb-3 tracking-widest">
+          <div className="bg-card border-y sm:border border-border sm:rounded-xl p-4 shadow-sm transition-colors">
+            <h3 className="text-[10px] font-medium text-muted-foreground/80 dark:text-white/20 uppercase mb-3 tracking-widest">
               Assinatura atual
             </h3>
 
             <div className="space-y-3 text-sm">
               {/* BLOCO DE ACESSO (Sem bordas internas) */}
               <div className="flex justify-between items-center">
-                <span className="text-slate-500 dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
                   Servidor
                 </span>
-                <span className="font-medium text-slate-800 dark:text-white text-right">
+                <span className="font-medium text-foreground text-right">
                   {client.server_name}
                 </span>
               </div>
 
               <div className="flex justify-between items-center">
-                <span className="text-slate-500 dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
                   Tecnologia
                 </span>
-                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-500/20 bg-slate-50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-white/5 text-slate-600 dark:text-white/60 border border-slate-200 dark:border-border uppercase">
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-white/5 text-muted-foreground border border-border uppercase">
                   {client.technology || "—"}
                 </span>
               </div>
@@ -878,7 +878,7 @@ export default function ClientDetailsPage() {
                           className="flex justify-between items-center"
                         >
                           <span
-                            className="text-slate-500 dark:text-muted-foreground font-medium flex items-center gap-1.5"
+                            className="text-muted-foreground dark:text-muted-foreground font-medium flex items-center gap-1.5"
                             title={label}
                           >
                             {app.icon_url ? (
@@ -893,7 +893,7 @@ export default function ClientDetailsPage() {
                             {label}
                           </span>
                           <span
-                            className={`text-xs text-right ${app.expiration ? (isExpiringSoon ? "text-rose-500 font-medium" : "text-slate-600 dark:text-muted-foreground font-medium") : "text-slate-400 dark:text-white/30 italic"}`}
+                            className={`text-xs text-right ${app.expiration ? (isExpiringSoon ? "text-rose-500 font-medium" : "text-muted-foreground dark:text-muted-foreground font-medium") : "text-muted-foreground/80 dark:text-white/30 italic"}`}
                           >
                             {app.expiration
                               ? `Vence: ${new Date(`${app.expiration}T12:00:00`).toLocaleDateString("pt-BR")}`
@@ -908,23 +908,23 @@ export default function ClientDetailsPage() {
               {/* DIVISOR FINANCEIRO (Com margem ajustada) */}
               <div className="pt-3 pb-1">
                 <div className="border-t border-slate-100 dark:border-border mb-3"></div>
-                <div className="text-[10px] font-medium text-slate-400 dark:text-white/20 uppercase tracking-widest">
+                <div className="text-[10px] font-medium text-muted-foreground/80 dark:text-white/20 uppercase tracking-widest">
                   Financeiro
                 </div>
               </div>
 
               {/* BLOCO FINANCEIRO (Sem bordas internas) */}
               <div className="flex justify-between items-center">
-                <span className="text-slate-500 dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
                   Tabela
                 </span>
-                <span className="font-medium text-slate-700 dark:text-white/90 tracking-tight text-right">
+                <span className="font-medium text-foreground/90/90 tracking-tight text-right">
                   {tableLabelFromClient(client)}
                 </span>
               </div>
 
               <div className="flex justify-between items-center">
-                <span className="text-slate-500 dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
                   Plano
                 </span>
                 <span className="font-medium text-emerald-600 dark:text-emerald-400 tracking-tight">
@@ -933,27 +933,27 @@ export default function ClientDetailsPage() {
               </div>
 
               <div className="flex justify-between items-center">
-                <span className="text-slate-500 dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
                   Telas
                 </span>
-                <span className="font-medium text-slate-800 dark:text-white">
+                <span className="font-medium text-foreground">
                   {client.screens}
                 </span>
               </div>
 
               <div className="flex justify-between items-center">
-                <span className="text-slate-500 dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
                   Valor
                 </span>
- <span className=" font-medium text-slate-800 dark:text-white bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-md">
+ <span className=" font-medium text-foreground bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-md">
                   {fmtMoney(client.price_amount, client.price_currency)}
                 </span>
               </div>
 
               {/* VENCIMENTO GERAL DESTACADO */}
               <div className="pt-2">
-                <div className="flex justify-between items-center bg-slate-50 dark:bg-white/5 p-3 rounded-lg border border-slate-100 dark:border-border mt-1">
-                  <span className="text-slate-500 dark:text-muted-foreground font-medium text-[11px] uppercase tracking-tight">
+                <div className="flex justify-between items-center bg-muted/50 p-3 rounded-lg border border-slate-100 dark:border-border mt-1">
+                  <span className="text-muted-foreground dark:text-muted-foreground font-medium text-[11px] uppercase tracking-tight">
                     Vencimento
                   </span>
                   <div
@@ -962,7 +962,7 @@ export default function ClientDetailsPage() {
                         ? "text-rose-500"
                         : client.computed_status === "ACTIVE"
                           ? "text-emerald-500"
-                          : "text-slate-500"
+                          : "text-muted-foreground"
                     }`}
                   >
                     {client.vencimento ? fmtDateTime(client.vencimento) : "—"}
@@ -973,17 +973,17 @@ export default function ClientDetailsPage() {
           </div>
 
           {/* 2. CARD CONTATOS E OBSERVAÇÕES */}
-          <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl p-5 shadow-sm transition-colors">
-            <h3 className="text-[11px] font-medium text-slate-400 dark:text-white/20 uppercase mb-4 tracking-widest">
+          <div className="bg-card border border-border rounded-xl p-5 shadow-sm transition-colors">
+            <h3 className="text-[11px] font-medium text-muted-foreground/80 dark:text-white/20 uppercase mb-4 tracking-widest">
               Contatos e observações
             </h3>
 
             <div className="space-y-3 text-sm">
               <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-border">
-                <span className="text-slate-500 dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
                   Data do Cadastro
                 </span>
- <span className=" text-slate-800 dark:text-white text-right">
+ <span className=" text-foreground text-right">
                   {client.created_at
                     ? new Date(client.created_at).toLocaleDateString("pt-BR")
                     : "—"}
@@ -991,26 +991,26 @@ export default function ClientDetailsPage() {
               </div>
 
               <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-border">
-                <span className="text-slate-500 dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
                   Nome do Cliente
                 </span>
-                <span className="font-medium text-slate-800 dark:text-white text-right">
+                <span className="font-medium text-foreground text-right">
                   {client.client_name}
                 </span>
               </div>
 
               <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-border">
-                <span className="text-slate-500 dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
                   Telefone Principal
                 </span>
- <span className=" font-medium text-slate-800 dark:text-white text-right">
+ <span className=" font-medium text-foreground text-right">
                   {formatPhoneDisplay(client.whatsapp_e164)}
                 </span>
               </div>
 
               {/* WhatsApp Principal com Link */}
               <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-border">
-                <span className="text-slate-500 dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
                   WhatsApp Principal
                 </span>
                 {client.whatsapp_username ? (
@@ -1033,7 +1033,7 @@ export default function ClientDetailsPage() {
                     {formatPhoneDisplay(client.whatsapp_e164)}
                   </a>
                 ) : (
-                  <span className="text-slate-400 italic text-sm text-right">
+                  <span className="text-muted-foreground/80 italic text-sm text-right">
                     Não informado
                   </span>
                 )}
@@ -1043,17 +1043,17 @@ export default function ClientDetailsPage() {
               {(client.secondary_display_name ||
                 client.secondary_phone_e164 ||
                 client.secondary_whatsapp_username) && (
-                <div className="bg-slate-50 dark:bg-white/5 p-3 rounded-lg border border-slate-100 dark:border-border mt-2 mb-2">
-                  <div className="text-[10px] font-medium text-slate-400 dark:text-white/30 uppercase mb-2 tracking-widest">
+                <div className="bg-muted/50 p-3 rounded-lg border border-slate-100 dark:border-border mt-2 mb-2">
+                  <div className="text-[10px] font-medium text-muted-foreground/80 dark:text-white/30 uppercase mb-2 tracking-widest">
                     Contato Secundário
                   </div>
 
                   {client.secondary_display_name && (
                     <div className="flex justify-between items-center mb-1">
-                      <span className="text-xs text-slate-500 dark:text-muted-foreground">
+                      <span className="text-xs text-muted-foreground dark:text-muted-foreground">
                         Nome Secundário
                       </span>
-                      <span className="text-xs font-medium text-slate-700 dark:text-white/90 text-right">
+                      <span className="text-xs font-medium text-foreground/90/90 text-right">
                         {client.secondary_display_name}
                       </span>
                     </div>
@@ -1061,7 +1061,7 @@ export default function ClientDetailsPage() {
 
                   {client.secondary_phone_e164 && (
                     <div className="flex justify-between items-center mb-1">
-                      <span className="text-xs text-slate-500 dark:text-muted-foreground">
+                      <span className="text-xs text-muted-foreground dark:text-muted-foreground">
                         WhatsApp Secundário
                       </span>
                       <a
@@ -1082,7 +1082,7 @@ export default function ClientDetailsPage() {
 
               {/* ✅ AJUSTE: Receber Msg? na mesma linha */}
               <div className="flex justify-between items-center py-1">
-                <span className="text-slate-500 dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
                   Receber Msg?
                 </span>
                 {client.whatsapp_opt_in ? (
@@ -1101,7 +1101,7 @@ export default function ClientDetailsPage() {
               {/* ✅ AJUSTE: Bloqueado Até na mesma linha */}
               {isMessageBlocked && (
                 <div className="flex justify-between items-center py-1">
-                  <span className="text-slate-500 dark:text-muted-foreground font-medium">
+                  <span className="text-muted-foreground dark:text-muted-foreground font-medium">
                     Bloqueado até
                   </span>
                   <span className="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-500/10 px-2 py-0.5 rounded text-right">
@@ -1111,14 +1111,14 @@ export default function ClientDetailsPage() {
               )}
 
               <div className="pt-2">
-                <div className="text-[11px] font-medium text-slate-500 dark:text-white/30 mb-1.5">
+                <div className="text-[11px] font-medium text-muted-foreground dark:text-white/30 mb-1.5">
                   Observações
                 </div>
-                <div className="text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-black/20 p-3 rounded-xl text-xs leading-relaxed border border-slate-200 dark:border-border min-h-[80px] whitespace-pre-wrap">
+                <div className="text-foreground/90 dark:text-slate-300 bg-muted/50 p-3 rounded-xl text-xs leading-relaxed border border-border min-h-[80px] whitespace-pre-wrap">
                   {client.notes ? (
                     client.notes
                   ) : (
-                    <span className="italic text-slate-400">
+                    <span className="italic text-muted-foreground/80">
                       Sem observações registradas.
                     </span>
                   )}
@@ -1129,15 +1129,15 @@ export default function ClientDetailsPage() {
         </div>
 
         {/* COLUNA DIREITA (TIMELINE) */}
-        <div className="lg:col-span-2 bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl p-5 shadow-sm h-fit transition-colors">
-          <h3 className="text-[11px] font-medium text-slate-400 dark:text-white/20 uppercase mb-6 tracking-widest flex items-center gap-2">
+        <div className="lg:col-span-2 bg-card border border-border rounded-xl p-5 shadow-sm h-fit transition-colors">
+          <h3 className="text-[11px] font-medium text-muted-foreground/80 dark:text-white/20 uppercase mb-6 tracking-widest flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
             Linha do tempo
           </h3>
 
           <div className="space-y-0 px-2">
             {timeline.length === 0 ? (
-              <div className="py-12 text-center text-slate-400 dark:text-white/20 text-sm italic border-2 border-dashed border-slate-100 dark:border-border rounded-xl">
+              <div className="py-12 text-center text-muted-foreground/80 dark:text-white/20 text-sm italic border-2 border-dashed border-slate-100 dark:border-border rounded-xl">
                 Nenhum evento registrado até o momento.
               </div>
             ) : (
@@ -1148,24 +1148,24 @@ export default function ClientDetailsPage() {
                 >
                   <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 border-white dark:border-[#161b22] bg-slate-300 dark:bg-white/20"></div>
 
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 bg-slate-50/50 dark:bg-white/5 p-2 rounded-xl border border-transparent hover:border-slate-200 dark:hover:border-white/10 transition-all">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 bg-muted/50/50 dark:bg-white/5 p-2 rounded-xl border border-transparent hover:border-border dark:hover:border-white/10 transition-all">
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-slate-800 dark:text-white tracking-tight">
+                      <div className="text-sm font-medium text-foreground tracking-tight">
                         {EVENT_LABELS[item.event_type] ?? item.event_type}
                       </div>
-                      <div className="text-xs text-slate-500 dark:text-white/50 mt-1.5 leading-relaxed">
+                      <div className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
                         {item.message ||
                           (item.meta ? JSON.stringify(item.meta) : "")}
                       </div>
                     </div>
                     <div className="flex items-start gap-2 shrink-0">
- <div className="text-[10px] font-medium text-slate-400 dark:text-white/20 bg-white dark:bg-black/20 px-2 py-1 rounded-md shadow-sm">
+ <div className="text-[10px] font-medium text-muted-foreground/80 dark:text-white/20 bg-card dark:bg-black/20 px-2 py-1 rounded-md shadow-sm">
                         {fmtDate(item.created_at)}
                       </div>
                       <button
                         onClick={() => handleDeleteEvent(item)}
                         disabled={deletingEventId === item.id}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 disabled:opacity-30"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-rose-500/10 text-muted-foreground/80 hover:text-rose-500 disabled:opacity-30"
                         title="Apagar evento"
                       >
                         {deletingEventId === item.id ? (
@@ -1198,14 +1198,14 @@ export default function ClientDetailsPage() {
       {/* ✅ MODAL DE AVISO DE ALERTA */}
       {showRenewWarning && client && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md bg-card border border-border rounded-xl shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-200">
             <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 p-4 rounded-lg flex gap-3">
               <span className="text-2xl">📢</span>
               <div>
-                <h3 className="text-sm font-medium text-slate-800 dark:text-white mb-1">
+                <h3 className="text-sm font-medium text-foreground mb-1">
                   Cliente com Alertas
                 </h3>
-                <p className="text-sm text-slate-700 dark:text-white/90">
+                <p className="text-sm text-foreground/90/90">
                   O cliente{" "}
                   <strong className="text-amber-700 dark:text-amber-400">
                     {client.client_name}
@@ -1221,7 +1221,7 @@ export default function ClientDetailsPage() {
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowRenewWarning(false)}
-                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-border text-slate-700 dark:text-white font-medium hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase"
+                className="px-4 py-2 rounded-lg border border-border dark:border-border text-foreground/90 font-medium hover:bg-muted/50 dark:hover:bg-white/5 transition-colors text-xs uppercase"
               >
                 Voltar
               </button>

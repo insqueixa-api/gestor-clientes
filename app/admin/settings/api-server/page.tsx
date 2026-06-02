@@ -344,14 +344,14 @@ export default function ApiServerPage() {
             </button>
 
             {showTypeChooser && (
-              <div className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 dark:border-border bg-white dark:bg-card shadow-2xl z-50 overflow-hidden">
+              <div className="absolute right-0 mt-2 w-48 rounded-xl border border-border bg-card shadow-2xl z-50 overflow-hidden">
                 <button
                   onClick={() => {
                     setShowTypeChooser(false);
                     setEditingIntegration(null);
                     setIsModalOpen(true);
                   }}
-                  className="w-full px-4 py-3 text-left text-sm font-medium text-slate-700 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2 border-b border-slate-100 dark:border-border"
+                  className="w-full px-4 py-3 text-left text-sm font-medium text-foreground/90 hover:bg-muted/50 dark:hover:bg-white/5 flex items-center gap-2 border-b border-slate-100 dark:border-border"
                 >
                   🖥️ Servidor
                 </button>
@@ -361,7 +361,7 @@ export default function ApiServerPage() {
                     setEditingApp(null);
                     setIsModalAppOpen(true);
                   }}
-                  className="w-full px-4 py-3 text-left text-sm font-medium text-slate-700 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2"
+                  className="w-full px-4 py-3 text-left text-sm font-medium text-foreground/90 hover:bg-muted/50 dark:hover:bg-white/5 flex items-center gap-2"
                 >
                   📱 Aplicativo
                 </button>
@@ -371,7 +371,7 @@ export default function ApiServerPage() {
         </div>
       </div>
 
-      <div className="flex gap-1 p-1 bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl w-fit shadow-sm">
+      <div className="flex gap-1 p-1 bg-card border border-border rounded-xl w-fit shadow-sm">
         {(["servidores", "aplicativos"] as const).map((tab) => (
           <button
             key={tab}
@@ -379,7 +379,7 @@ export default function ApiServerPage() {
             className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wider transition-all ${
               activeTab === tab
                 ? "bg-emerald-600 text-white shadow"
-                : "text-slate-500 dark:text-muted-foreground hover:text-slate-700 dark:hover:text-white"
+                : "text-muted-foreground dark:text-muted-foreground hover:text-foreground/90 dark:hover:text-white"
             }`}
           >
             {tab === "servidores"
@@ -390,7 +390,7 @@ export default function ApiServerPage() {
       </div>
 
       {loading && (
-        <div className="p-12 text-center text-slate-400 dark:text-muted-foreground animate-pulse bg-white dark:bg-card rounded-xl border border-slate-200 dark:border-border">
+        <div className="p-12 text-center text-muted-foreground/80 dark:text-muted-foreground animate-pulse bg-card rounded-xl border border-border">
           Carregando integrações...
         </div>
       )}
@@ -398,7 +398,7 @@ export default function ApiServerPage() {
       {activeTab === "servidores" && (
         <>
           {!loading && integrations.length === 0 && (
-            <div className="p-12 text-center text-slate-400 dark:text-white/30 bg-white dark:bg-card rounded-xl border border-dashed border-slate-200 dark:border-border">
+            <div className="p-12 text-center text-muted-foreground/80 dark:text-white/30 bg-card rounded-xl border border-dashed border-border">
               Nenhuma integração de servidor cadastrada.
             </div>
           )}
@@ -407,13 +407,13 @@ export default function ApiServerPage() {
               {integrations.map((row) => (
                 <div
                   key={row.id}
-                  className="rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-white dark:bg-card border-slate-200 dark:border-border hover:border-emerald-500/30"
+                  className="rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-card border-border hover:border-emerald-500/30"
                 >
-                  <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
+                  <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-border bg-muted/50">
                     <div className="min-w-0 pr-3">
                       <div className="flex items-center gap-2 min-w-0">
                         <h2
-                          className="text-base font-medium truncate text-slate-700 dark:text-white tracking-tight"
+                          className="text-base font-medium truncate text-foreground/90 tracking-tight"
                           title={row.integration_name}
                         >
                           {row.integration_name}
@@ -476,19 +476,19 @@ export default function ApiServerPage() {
                   <div className="p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
-                        <span className="text-slate-500 dark:text-white/50">
+                        <span className="text-muted-foreground">
                           👤 Usuário
                         </span>
-                        <span className="font-medium text-slate-700 dark:text-white">
+                        <span className="font-medium text-foreground/90">
                           {row.owner_username ?? "--"}
                         </span>
                       </div>
 
                       <div className="flex justify-between items-center">
-                        <span className="text-slate-500 dark:text-white/50">
+                        <span className="text-muted-foreground">
                           🆔 Owner ID
                         </span>
-                        <span className="font-medium text-slate-700 dark:text-white">
+                        <span className="font-medium text-foreground/90">
                           {row.owner_id ?? "--"}
                         </span>
                       </div>
@@ -496,7 +496,7 @@ export default function ApiServerPage() {
 
                     <div className="space-y-2 sm:border-l sm:pl-4 border-slate-100 dark:border-border">
                       <div className="flex justify-between items-center">
-                        <span className="text-slate-500 dark:text-white/50">
+                        <span className="text-muted-foreground">
                           🧾 Créditos
                         </span>
                         <span
@@ -513,10 +513,10 @@ export default function ApiServerPage() {
                       </div>
 
                       <div className="flex justify-between items-center">
-                        <span className="text-slate-500 dark:text-white/50">
+                        <span className="text-muted-foreground">
                           ⏱ Último sync
                         </span>
-                        <span className="font-medium text-slate-700 dark:text-white">
+                        <span className="font-medium text-foreground/90">
                           {row.credits_last_sync_at
                             ? new Date(row.credits_last_sync_at).toLocaleString(
                                 "pt-BR",
@@ -553,7 +553,7 @@ export default function ApiServerPage() {
       {activeTab === "aplicativos" && (
         <>
           {!loading && appList.length === 0 && (
-            <div className="p-12 text-center text-slate-400 dark:text-white/30 bg-white dark:bg-card rounded-xl border border-dashed border-slate-200 dark:border-border">
+            <div className="p-12 text-center text-muted-foreground/80 dark:text-white/30 bg-card rounded-xl border border-dashed border-border">
               Nenhuma integração de aplicativo cadastrada.
             </div>
           )}
@@ -562,11 +562,11 @@ export default function ApiServerPage() {
               {appList.map((row) => (
                 <div
                   key={row.id}
-                  className="rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-white dark:bg-card border-slate-200 dark:border-border hover:border-emerald-500/30"
+                  className="rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-card border-border hover:border-emerald-500/30"
                 >
-                  <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
+                  <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-border bg-muted/50">
                     <div className="flex items-center gap-2 min-w-0 pr-3">
-                      <h2 className="text-base font-medium truncate text-slate-700 dark:text-white tracking-tight">
+                      <h2 className="text-base font-medium truncate text-foreground/90 tracking-tight">
                         {row.label}
                       </h2>
                       <span className="inline-flex items-center text-[10px] font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 px-2.5 py-0.5 rounded-full uppercase">
@@ -615,7 +615,7 @@ export default function ApiServerPage() {
                   <div className="p-4 sm:p-5 text-sm space-y-2">
                     {row.api_url && (
                       <div className="flex justify-between items-center gap-2">
-                        <span className="text-slate-500 dark:text-white/50 shrink-0">
+                        <span className="text-muted-foreground shrink-0">
                           🔗 URL
                         </span>
                         <div className="flex items-center gap-1.5 min-w-0">
@@ -633,7 +633,7 @@ export default function ApiServerPage() {
                             onClick={() =>
                               navigator.clipboard.writeText(row.api_url!)
                             }
-                            className="shrink-0 p-1 rounded hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 hover:text-sky-500 transition-colors"
+                            className="shrink-0 p-1 rounded hover:bg-slate-100 dark:hover:bg-white/10 text-muted-foreground/80 hover:text-sky-500 transition-colors"
                             title="Copiar URL"
                           >
                             <svg
@@ -655,10 +655,10 @@ export default function ApiServerPage() {
                     )}
                     {row.login_email && (
                       <div className="flex justify-between items-center">
-                        <span className="text-slate-500 dark:text-white/50">
+                        <span className="text-muted-foreground">
                           📧 Login
                         </span>
-                        <span className="font-medium text-slate-700 dark:text-white">
+                        <span className="font-medium text-foreground/90">
                           {row.login_email}
                         </span>
                       </div>

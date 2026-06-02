@@ -996,11 +996,11 @@ const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
               )}
             </div>
           ) : (
-            <div className="rounded-xl border border-dashed border-slate-200 dark:border-border p-10 text-center text-slate-400 dark:text-white/30 text-sm">
+            <div className="rounded-xl border border-dashed border-border p-10 text-center text-muted-foreground/80 dark:text-white/30 text-sm">
               Nenhuma transação registrada no mês.{" "}
               <Link
                 href="/admin/settings/financeiro_pessoal"
-                className="underline hover:text-slate-600 dark:hover:text-white/60"
+                className="underline hover:text-muted-foreground dark:hover:text-white/60"
               >
                 Adicionar transações →
               </Link>
@@ -1014,7 +1014,7 @@ const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
         <div
           className={`grid grid-cols-1 gap-3 sm:gap-6 ${showRankings ? "lg:grid-cols-2" : "lg:grid-cols-2 xl:grid-cols-2"}`}
         >
-          <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
+          <div className="bg-card dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
             <div className="flex justify-between items-center mb-2 sm:mb-4">
               <div>
                 <h3 className="text-base sm:text-lg font-bold dark:font-medium text-zinc-800 dark:text-zinc-200">
@@ -1037,7 +1037,7 @@ const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
             </div>
           </div>
 
-          <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
+          <div className="bg-card dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
             <div className="flex justify-between items-center mb-2 sm:mb-4">
               <div>
                 <h3 className="text-base sm:text-lg font-bold dark:font-medium text-zinc-800 dark:text-zinc-200">
@@ -1205,7 +1205,7 @@ function MetricCardView({
     </>
   );
 
-  const baseClass = `rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden flex flex-col border-l-4 ${colors[accent]}`;
+  const baseClass = `rounded-xl border border-zinc-200 dark:border-zinc-800 bg-card dark:bg-zinc-900 shadow-sm overflow-hidden flex flex-col border-l-4 ${colors[accent]}`;
 
   if (href) {
     return (

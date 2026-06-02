@@ -1265,7 +1265,7 @@ function AgendaPageContent() {
       </div>
 
       {/* FILTROS */}
-      <div className="px-3 md:p-4 bg-transparent md:bg-white md:dark:bg-card border-0 md:border md:border-slate-200 md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm mb-4 z-20">
+      <div className="px-3 md:p-4 bg-transparent md:bg-card md:dark:bg-card border-0 md:border md:border-border md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm mb-4 z-20">
         {/* UMA linha no desktop, busca + botão filtros no mobile */}
         <div className="flex gap-2 items-center">
           <div className="flex-1">
@@ -1276,7 +1276,7 @@ function AgendaPageContent() {
                 setPage(1);
               }}
               placeholder="Pesquisar por nome, telefone ou email..."
-              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-white/20"
+              className="w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none text-foreground/90 placeholder-slate-400 dark:placeholder-white/20"
             />
           </div>
 
@@ -1288,7 +1288,7 @@ function AgendaPageContent() {
                 setLabelFilter(e.target.value);
                 setPage(1);
               }}
-              className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-600 dark:text-white"
+              className="h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
             >
               <option value="Todos">Grupo (Todos)</option>
               <option value="__SEM_GRUPO__">Sem grupo</option>
@@ -1305,7 +1305,7 @@ function AgendaPageContent() {
                 setEmailLabelFilter(e.target.value);
                 setPage(1);
               }}
-              className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-600 dark:text-white"
+              className="h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
             >
               <option value="Todos">📧 E-mail (Todos)</option>
               {uniqueEmailLabels.map((lbl) => (
@@ -1322,7 +1322,7 @@ function AgendaPageContent() {
                 setPhoneLabelFilter(e.target.value);
                 setPage(1);
               }}
-              className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-600 dark:text-white"
+              className="h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
             >
               <option value="Todos">📱 Operadora (Todas)</option>
               {uniquePhoneLabels.map((lbl) => (
@@ -1339,7 +1339,7 @@ function AgendaPageContent() {
                 setPhotoFilter(e.target.value);
                 setPage(1);
               }}
-              className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-600 dark:text-white"
+              className="h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
             >
               <option value="Todos">📷 Foto (Todas)</option>
               <option value="ComFoto">Com foto</option>
@@ -1368,7 +1368,7 @@ function AgendaPageContent() {
             className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition-colors flex items-center gap-1.5 ${
               hasActiveFilters
                 ? "bg-amber-500 text-white border-amber-500"
-                : "bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-border text-slate-600 dark:text-white"
+                : "bg-muted/50 border-border text-muted-foreground dark:text-white"
             }`}
           >
             <svg
@@ -1394,7 +1394,7 @@ function AgendaPageContent() {
                 setLabelFilter(e.target.value);
                 setPage(1);
               }}
-              className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-600 dark:text-white"
+              className="h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
             >
               <option value="Todos">Grupo (Todos)</option>
               <option value="__SEM_GRUPO__">Sem grupo</option>
@@ -1411,7 +1411,7 @@ function AgendaPageContent() {
                 setEmailLabelFilter(e.target.value);
                 setPage(1);
               }}
-              className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-600 dark:text-white"
+              className="h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
             >
               <option value="Todos">📧 E-mail (Todos)</option>
               {uniqueEmailLabels.map((lbl) => (
@@ -1428,7 +1428,7 @@ function AgendaPageContent() {
                 setPhoneLabelFilter(e.target.value);
                 setPage(1);
               }}
-              className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-600 dark:text-white"
+              className="h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
             >
               <option value="Todos">📱 Operadora (Todas)</option>
               {uniquePhoneLabels.map((lbl) => (
@@ -1445,7 +1445,7 @@ function AgendaPageContent() {
                 setPhotoFilter(e.target.value);
                 setPage(1);
               }}
-              className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-600 dark:text-white"
+              className="h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
             >
               <option value="Todos">📷 Foto (Todas)</option>
               <option value="ComFoto">Com foto</option>
@@ -1559,7 +1559,7 @@ function AgendaPageContent() {
               {showGroupPopover && (
                 <div
                   onClick={(e) => e.stopPropagation()}
-                  className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl z-50 p-3 space-y-2"
+                  className="absolute right-0 top-full mt-2 w-64 bg-card border border-border rounded-xl shadow-2xl z-50 p-3 space-y-2"
                 >
                   <p className="text-[11px] font-medium text-foreground/70 uppercase tracking-wide">
                     Grupos existentes
@@ -1571,13 +1571,13 @@ function AgendaPageContent() {
                         <button
                           key={lbl}
                           onClick={() => handleMassAssignGroup(lbl)}
-                          className="text-[11px] px-2 py-0.5 rounded font-medium bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-muted-foreground border border-slate-200 dark:border-border hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-colors"
+                          className="text-[11px] px-2 py-0.5 rounded font-medium bg-slate-100 dark:bg-white/5 text-muted-foreground dark:text-muted-foreground border border-border hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-colors"
                         >
                           {lbl}
                         </button>
                       ))}
                   </div>
-                  <div className="border-t border-slate-200 dark:border-border pt-2">
+                  <div className="border-t border-border pt-2">
                     <p className="text-[11px] font-medium text-foreground/70 uppercase tracking-wide mb-1.5">
                       Novo grupo
                     </p>
@@ -1590,7 +1590,7 @@ function AgendaPageContent() {
                             handleMassAssignGroup(newGroupInput);
                         }}
                         placeholder="Nome do grupo..."
-                        className="flex-1 h-8 px-2 text-xs border border-slate-200 dark:border-border rounded-lg bg-slate-50 dark:bg-black/20 text-slate-800 dark:text-white outline-none focus:border-amber-500"
+                        className="flex-1 h-8 px-2 text-xs border border-border rounded-lg bg-muted/50 text-foreground outline-none focus:border-amber-500"
                         autoFocus
                       />
                       <button
@@ -1614,9 +1614,9 @@ function AgendaPageContent() {
 
       {/* TABELA */}
       {!loading && (
-        <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0">
-          <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
-            <div className="text-sm font-medium tracking-tight text-slate-800 dark:text-white whitespace-nowrap">
+        <div className="bg-card border border-border rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0">
+          <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-border bg-muted/50">
+            <div className="text-sm font-medium tracking-tight text-foreground whitespace-nowrap">
               Lista de Contatos{" "}
               <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-medium">
                 {filtered.length}
@@ -1627,7 +1627,7 @@ function AgendaPageContent() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[700px] table-fixed">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-border text-xs font-medium uppercase text-slate-500 dark:text-white/55">
+                <tr className="border-b border-border text-xs font-medium uppercase text-muted-foreground dark:text-white/55">
                   <Th width={36}>
                     <input
                       ref={selectAllRef}
@@ -1637,7 +1637,7 @@ function AgendaPageContent() {
                         visible.every((r) => selectedIds.has(r.id))
                       }
                       onChange={(e) => setAllVisible(e.target.checked)}
-                      className="rounded border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-white/5 cursor-pointer"
+                      className="rounded border-border bg-slate-100 dark:bg-white/5 cursor-pointer"
                     />
                   </Th>
                   <ThSort
@@ -1669,7 +1669,7 @@ function AgendaPageContent() {
                   return (
                     <tr
                       key={r.id}
-                      className={`transition-colors group cursor-pointer ${selectedIds.has(r.id) ? "bg-indigo-50/50 dark:bg-indigo-500/10" : "hover:bg-slate-50 dark:hover:bg-white/5"}`}
+                      className={`transition-colors group cursor-pointer ${selectedIds.has(r.id) ? "bg-indigo-50/50 dark:bg-indigo-500/10" : "hover:bg-muted/50 dark:hover:bg-white/5"}`}
                       onClick={() =>
                         toggleSelected(r.id, !selectedIds.has(r.id))
                       }
@@ -1682,7 +1682,7 @@ function AgendaPageContent() {
                             toggleSelected(r.id, e.target.checked)
                           }
                           onClick={(e) => e.stopPropagation()}
-                          className="rounded border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-white/5"
+                          className="rounded border-border bg-slate-100 dark:bg-white/5"
                         />
                       </Td>
 
@@ -1693,14 +1693,14 @@ function AgendaPageContent() {
                             <img
                               src={r.avatar_url}
                               alt="Foto"
-                              className="w-[40px] h-[40px] rounded-full object-cover border border-slate-200 dark:border-border shadow-sm shrink-0"
+                              className="w-[40px] h-[40px] rounded-full object-cover border border-border shadow-sm shrink-0"
                             />
                           ) : (
-                            <div className="w-[40px] h-[40px] rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center font-medium text-slate-500 dark:text-white/50 text-xl shrink-0">
+                            <div className="w-[40px] h-[40px] rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center font-medium text-muted-foreground text-xl shrink-0">
                               {r.display_name?.charAt(0) || "?"}
                             </div>
                           )}
-                          <div className="font-medium text-sm text-slate-800 dark:text-white leading-tight max-w-[160px]">
+                          <div className="font-medium text-sm text-foreground leading-tight max-w-[160px]">
                             {r.display_name || "Sem Nome"}
                           </div>
                         </div>
@@ -1715,18 +1715,18 @@ function AgendaPageContent() {
                                 key={p.id}
                                 className="text-[13px] whitespace-nowrap"
                               >
-                                <span className="font-medium text-slate-500 dark:text-white/50">
+                                <span className="font-medium text-muted-foreground">
                                   {p.label?.endsWith(":")
                                     ? p.label
                                     : `${p.label}:`}{" "}
                                 </span>
-                                <span className="text-slate-700 dark:text-white/80">
+                                <span className="text-foreground/90/80">
                                   {displayPhone(p.value)}
                                 </span>
                               </div>
                             ))
                           ) : (
-                            <span className="italic text-slate-400 text-xs">
+                            <span className="italic text-muted-foreground/80 text-xs">
                               Sem telefone
                             </span>
                           )}
@@ -1742,7 +1742,7 @@ function AgendaPageContent() {
                                 key={e.id}
                                 className="text-[13px] truncate max-w-[240px]"
                               >
-                                <span className="font-medium text-slate-500 dark:text-white/50">
+                                <span className="font-medium text-muted-foreground">
                                   {e.label}:{" "}
                                 </span>
                                 <span className="text-sky-600 dark:text-sky-400">
@@ -1751,7 +1751,7 @@ function AgendaPageContent() {
                               </div>
                             ))
                           ) : (
-                            <span className="italic text-slate-400 text-xs">
+                            <span className="italic text-muted-foreground/80 text-xs">
                               —
                             </span>
                           )}
@@ -1767,7 +1767,7 @@ function AgendaPageContent() {
                               .map((l) => (
                                 <span
                                   key={l}
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-500/20 bg-slate-50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-white/[0.08] text-slate-600 dark:text-white/75 border border-slate-200 dark:border-white/15"
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-white/[0.08] text-muted-foreground dark:text-white/75 border border-border dark:border-white/15"
                                 >
                                   {l}
                                 </span>
@@ -1804,7 +1804,7 @@ function AgendaPageContent() {
                             {msgMenuForId === r.id && (
                               <div
                                 onClick={(e) => e.stopPropagation()}
-                                className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 dark:border-border bg-white dark:bg-background z-50 shadow-2xl overflow-hidden"
+                                className="absolute right-0 mt-2 w-48 rounded-xl border border-border bg-card dark:bg-background z-50 shadow-2xl overflow-hidden"
                               >
                                 {rPhones.map((p) => (
                                   <MenuItem
@@ -1854,9 +1854,9 @@ function AgendaPageContent() {
             </table>
             {/* PAGINAÇÃO */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 dark:border-border">
+              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-500 dark:text-muted-foreground">
+                  <span className="text-xs text-muted-foreground dark:text-muted-foreground">
                     {(safePage - 1) * pageSize + 1}–
                     {Math.min(safePage * pageSize, sorted.length)} de{" "}
                     {sorted.length}
@@ -1867,7 +1867,7 @@ function AgendaPageContent() {
                       setPageSize(Number(e.target.value));
                       setPage(1);
                     }}
-                    className="h-7 px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded text-xs text-slate-600 dark:text-white"
+                    className="h-7 px-2 bg-muted/50 border border-border rounded text-xs text-muted-foreground dark:text-white"
                   >
                     <option value={30}>30 por página</option>
                     <option value={50}>50 por página</option>
@@ -1880,14 +1880,14 @@ function AgendaPageContent() {
                   <button
                     onClick={() => setPage(1)}
                     disabled={safePage === 1}
-                    className="h-7 w-7 rounded flex items-center justify-center text-slate-500 dark:text-white/50 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 transition-colors text-xs font-medium"
+                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 transition-colors text-xs font-medium"
                   >
                     «
                   </button>
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={safePage === 1}
-                    className="h-7 w-7 rounded flex items-center justify-center text-slate-500 dark:text-white/50 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 transition-colors text-xs font-medium"
+                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 transition-colors text-xs font-medium"
                   >
                     ‹
                   </button>
@@ -1908,7 +1908,7 @@ function AgendaPageContent() {
                       p === "..." ? (
                         <span
                           key={`ellipsis-${i}`}
-                          className="h-7 w-7 flex items-center justify-center text-slate-400 text-xs"
+                          className="h-7 w-7 flex items-center justify-center text-muted-foreground/80 text-xs"
                         >
                           …
                         </span>
@@ -1916,7 +1916,7 @@ function AgendaPageContent() {
                         <button
                           key={p}
                           onClick={() => setPage(p as number)}
-                          className={`h-7 w-7 rounded flex items-center justify-center text-xs font-bold transition-colors ${safePage === p ? "bg-emerald-600 text-white" : "text-slate-500 dark:text-white/50 hover:bg-slate-100 dark:hover:bg-white/10"}`}
+                          className={`h-7 w-7 rounded flex items-center justify-center text-xs font-bold transition-colors ${safePage === p ? "bg-emerald-600 text-white" : "text-muted-foreground hover:bg-slate-100 dark:hover:bg-white/10"}`}
                         >
                           {p}
                         </button>
@@ -1925,14 +1925,14 @@ function AgendaPageContent() {
                   <button
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={safePage === totalPages}
-                    className="h-7 w-7 rounded flex items-center justify-center text-slate-500 dark:text-white/50 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 transition-colors text-xs font-medium"
+                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 transition-colors text-xs font-medium"
                   >
                     ›
                   </button>
                   <button
                     onClick={() => setPage(totalPages)}
                     disabled={safePage === totalPages}
-                    className="h-7 w-7 rounded flex items-center justify-center text-slate-500 dark:text-white/50 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 transition-colors text-xs font-medium"
+                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 transition-colors text-xs font-medium"
                   >
                     »
                   </button>
@@ -1965,13 +1965,13 @@ function AgendaPageContent() {
               </div>
             </div>
             <div>
-              <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Sessão de Envio
               </label>
               <select
                 value={selectedSessionNow}
                 onChange={(e) => setSelectedSessionNow(e.target.value)}
-                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-xl text-slate-800 dark:text-white outline-none text-sm font-medium"
+                className="w-full h-11 px-3 bg-muted/50 border border-border dark:border-border rounded-xl text-foreground outline-none text-sm font-medium"
               >
                 {sessionOptions.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -1983,7 +1983,7 @@ function AgendaPageContent() {
             <textarea
               value={messageText}
               onChange={(e) => setMessageText(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-xl p-4 text-slate-800 dark:text-white outline-none min-h-[120px] text-sm resize-none"
+              className="w-full bg-muted/50 border border-border dark:border-border rounded-xl p-4 text-foreground outline-none min-h-[120px] text-sm resize-none"
               placeholder="Digite a sua mensagem..."
               autoFocus
             />
@@ -1992,7 +1992,7 @@ function AgendaPageContent() {
                 onClick={() =>
                   setShowSendNow({ open: false, contactId: null, phone: null })
                 }
-                className="px-4 py-2 rounded-lg text-slate-500 dark:text-muted-foreground text-sm font-medium"
+                className="px-4 py-2 rounded-lg text-muted-foreground dark:text-muted-foreground text-sm font-medium"
               >
                 Cancelar
               </button>
@@ -2035,10 +2035,10 @@ function AgendaPageContent() {
                     ""
                   }
                   alt="Foto"
-                  className="w-24 h-24 rounded-full object-cover border-2 border-slate-200 dark:border-white/20 group-hover:opacity-50 transition-opacity"
+                  className="w-24 h-24 rounded-full object-cover border-2 border-border dark:border-white/20 group-hover:opacity-50 transition-opacity"
                 />
               ) : (
-                <div className="w-24 h-24 rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center font-medium text-slate-500 dark:text-muted-foreground text-2xl group-hover:opacity-50 transition-opacity">
+                <div className="w-24 h-24 rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center font-medium text-muted-foreground dark:text-muted-foreground text-2xl group-hover:opacity-50 transition-opacity">
                   {editForm.display_name?.charAt(0) || "?"}
                 </div>
               )}
@@ -2049,7 +2049,7 @@ function AgendaPageContent() {
 
             {/* Nome */}
             <div>
-              <label className="block text-xs font-medium text-slate-500 dark:text-muted-foreground mb-1">
+              <label className="block text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1">
                 Nome Completo
               </label>
               <input
@@ -2057,16 +2057,16 @@ function AgendaPageContent() {
                 onChange={(e) =>
                   setEditForm({ ...editForm, display_name: e.target.value })
                 }
-                className="w-full p-2.5 border border-slate-200 dark:border-border rounded-lg bg-slate-50 dark:bg-black/20 text-slate-800 dark:text-white outline-none focus:border-amber-500 text-sm font-medium"
+                className="w-full p-2.5 border border-border rounded-lg bg-muted/50 text-foreground outline-none focus:border-amber-500 text-sm font-medium"
               />
             </div>
 
-            <div className="border-t border-slate-200 dark:border-border" />
+            <div className="border-t border-border" />
 
             {/* ── TELEFONES ── */}
             <div>
               <div className="flex items-center justify-between mb-3">
-                <label className="block text-xs font-medium text-slate-500 dark:text-muted-foreground">
+                <label className="block text-xs font-medium text-muted-foreground dark:text-muted-foreground">
                   Telefones
                 </label>
                 <button
@@ -2102,7 +2102,7 @@ function AgendaPageContent() {
                   return (
                     <div
                       key={p.id}
-                      className="space-y-2 p-3 rounded-lg border border-slate-200 dark:border-border bg-slate-50/50 dark:bg-black/10"
+                      className="space-y-2 p-3 rounded-lg border border-border bg-muted/50/50 dark:bg-black/10"
                     >
                       {/* Linha 1: rótulo + DDI + número + confirmar + remover */}
                       <div className="flex gap-2 items-center">
@@ -2120,7 +2120,7 @@ function AgendaPageContent() {
                               return { ...prev, phones };
                             })
                           }
-                          className="w-20 p-2 border border-slate-200 dark:border-border rounded-lg bg-white dark:bg-black/30 text-slate-800 dark:text-white text-xs font-medium"
+                          className="w-20 p-2 border border-border rounded-lg bg-card dark:bg-black/30 text-foreground text-xs font-medium"
                         />
                         {/* DDI */}
                         <select
@@ -2136,7 +2136,7 @@ function AgendaPageContent() {
                               return { ...prev, phones };
                             })
                           }
-                          className="h-9 px-2 bg-white dark:bg-black/30 border border-slate-200 dark:border-border rounded-lg text-xs text-slate-700 dark:text-white"
+                          className="h-9 px-2 bg-card dark:bg-black/30 border border-border rounded-lg text-xs text-foreground/90"
                         >
                           {DDI_OPTIONS.map((o) => (
                             <option key={o.code} value={o.code}>
@@ -2162,7 +2162,7 @@ function AgendaPageContent() {
                             })
                           }
                           onBlur={() => confirmPhone(idx)}
- className="flex-1 p-2 border border-slate-200 dark:border-border rounded-lg bg-white dark:bg-black/20 text-slate-800 dark:text-white text-sm min-w-0"
+ className="flex-1 p-2 border border-border rounded-lg bg-card dark:bg-black/20 text-foreground text-sm min-w-0"
                         />
 
                         {/* Remover */}
@@ -2195,12 +2195,12 @@ function AgendaPageContent() {
                           }}
                           className={`px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-colors ${
                             wa?.loading
-                              ? "bg-slate-100 dark:bg-white/5 text-slate-500 border-slate-200 dark:border-border"
+                              ? "bg-slate-100 dark:bg-white/5 text-muted-foreground border-border"
                               : wa?.exists
                                 ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30"
                                 : wa?.exists === false
                                   ? "bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/30"
-                                  : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border-slate-200 dark:border-border hover:bg-slate-200 dark:hover:bg-white/10"
+                                  : "bg-slate-100 dark:bg-white/5 text-muted-foreground border-border hover:bg-slate-200 dark:hover:bg-white/10"
                           }`}
                         >
                           {wa?.loading
@@ -2250,12 +2250,12 @@ function AgendaPageContent() {
                           }}
                           className={`px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-colors ${
                             wa?.photoStatus === "loading"
-                              ? "bg-slate-100 dark:bg-white/5 text-slate-500 border-slate-200 dark:border-border"
+                              ? "bg-slate-100 dark:bg-white/5 text-muted-foreground border-border"
                               : wa?.photoStatus === "synced"
                                 ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30"
                                 : wa?.photoStatus === "protected"
                                   ? "bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/30"
-                                  : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border-slate-200 dark:border-border hover:bg-slate-200 dark:hover:bg-white/10"
+                                  : "bg-slate-100 dark:bg-white/5 text-muted-foreground border-border hover:bg-slate-200 dark:hover:bg-white/10"
                           }`}
                         >
                           {wa?.photoStatus === "loading"
@@ -2277,12 +2277,12 @@ function AgendaPageContent() {
                             }}
                             className={`px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-colors ${
                               wa?.opLoading
-                                ? "bg-slate-100 dark:bg-white/5 text-slate-500 border-slate-200 dark:border-border"
+                                ? "bg-slate-100 dark:bg-white/5 text-muted-foreground border-border"
                                 : wa?.opName
                                   ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30"
                                   : wa?.opError
                                     ? "bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/30"
-                                    : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border-slate-200 dark:border-border hover:bg-slate-200 dark:hover:bg-white/10"
+                                    : "bg-slate-100 dark:bg-white/5 text-muted-foreground border-border hover:bg-slate-200 dark:hover:bg-white/10"
                             }`}
                           >
                             {wa?.opLoading
@@ -2305,19 +2305,19 @@ function AgendaPageContent() {
                   );
                 })}
                 {editForm.phones.length === 0 && (
-                  <div className="text-xs text-slate-400 dark:text-white/30 italic">
+                  <div className="text-xs text-muted-foreground/80 dark:text-white/30 italic">
                     Nenhum telefone.
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="border-t border-slate-200 dark:border-border" />
+            <div className="border-t border-border" />
 
             {/* ── EMAILS ── */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-xs font-medium text-slate-500 dark:text-muted-foreground">
+                <label className="block text-xs font-medium text-muted-foreground dark:text-muted-foreground">
                   E-mails
                 </label>
                 <button
@@ -2355,7 +2355,7 @@ function AgendaPageContent() {
                           return { ...prev, emails };
                         })
                       }
-                      className="w-20 p-2 border border-slate-200 dark:border-border rounded-lg bg-white dark:bg-black/30 text-slate-800 dark:text-white text-xs font-medium"
+                      className="w-20 p-2 border border-border rounded-lg bg-card dark:bg-black/30 text-foreground text-xs font-medium"
                     />
                     <input
                       placeholder="email@exemplo.com"
@@ -2370,7 +2370,7 @@ function AgendaPageContent() {
                           return { ...prev, emails };
                         })
                       }
-                      className="flex-1 p-2 border border-slate-200 dark:border-border rounded-lg bg-slate-50 dark:bg-black/20 text-slate-800 dark:text-white text-sm"
+                      className="flex-1 p-2 border border-border rounded-lg bg-muted/50 text-foreground text-sm"
                     />
                     <button
                       onClick={() =>
@@ -2386,18 +2386,18 @@ function AgendaPageContent() {
                   </div>
                 ))}
                 {editForm.emails.length === 0 && (
-                  <div className="text-xs text-slate-400 dark:text-white/30 italic">
+                  <div className="text-xs text-muted-foreground/80 dark:text-white/30 italic">
                     Nenhum e-mail.
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="border-t border-slate-200 dark:border-border" />
+            <div className="border-t border-border" />
 
             {/* ── GRUPOS ── */}
             <div>
-              <label className="block text-xs font-medium text-slate-500 dark:text-muted-foreground mb-1.5">
+              <label className="block text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1.5">
                 Grupos / Marcadores (Google)
               </label>
               <input
@@ -2411,7 +2411,7 @@ function AgendaPageContent() {
                       .filter((s) => s),
                   })
                 }
-                className="w-full p-2.5 border border-slate-200 dark:border-border rounded-lg bg-slate-50 dark:bg-black/20 text-slate-800 dark:text-white outline-none focus:border-amber-500 text-sm"
+                className="w-full p-2.5 border border-border rounded-lg bg-muted/50 text-foreground outline-none focus:border-amber-500 text-sm"
                 placeholder="Ex: VIP, Família, Empresa"
               />
               {/* Tags clicáveis dos grupos existentes */}
@@ -2430,7 +2430,7 @@ function AgendaPageContent() {
                               : [...prev.labels, lbl],
                           }))
                         }
-                        className={`text-[10px] px-2 py-0.5 rounded font-medium border transition-colors ${active ? "bg-amber-500 text-white border-amber-500" : "bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-white/50 border-slate-200 dark:border-border hover:bg-slate-200 dark:hover:bg-white/10"}`}
+                        className={`text-[10px] px-2 py-0.5 rounded font-medium border transition-colors ${active ? "bg-amber-500 text-white border-amber-500" : "bg-slate-100 dark:bg-white/5 text-muted-foreground border-border hover:bg-slate-200 dark:hover:bg-white/10"}`}
                       >
                         {lbl}
                       </button>
@@ -2444,7 +2444,7 @@ function AgendaPageContent() {
             <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-border">
               <button
                 onClick={() => setEditModal({ open: false, contact: null })}
-                className="px-4 py-2 rounded-lg text-slate-500 dark:text-muted-foreground text-sm font-medium"
+                className="px-4 py-2 rounded-lg text-muted-foreground dark:text-muted-foreground text-sm font-medium"
               >
                 Cancelar
               </button>
@@ -2467,7 +2467,7 @@ function AgendaPageContent() {
           onClose={() => setDeleteModal({ open: false, contact: null })}
         >
           <div className="space-y-4">
-            <p className="text-sm text-slate-600 dark:text-muted-foreground">
+            <p className="text-sm text-muted-foreground dark:text-muted-foreground">
               Você está prestes a excluir o contato{" "}
               <strong>{deleteModal.contact.display_name}</strong>.
             </p>
@@ -2485,7 +2485,7 @@ function AgendaPageContent() {
             <div className="flex justify-end gap-3 pt-4">
               <button
                 onClick={() => setDeleteModal({ open: false, contact: null })}
-                className="px-4 py-2 rounded-lg text-slate-500 dark:text-muted-foreground text-sm font-medium"
+                className="px-4 py-2 rounded-lg text-muted-foreground dark:text-muted-foreground text-sm font-medium"
               >
                 Cancelar
               </button>
@@ -2515,7 +2515,7 @@ export default function AgendaPage() {
   return (
     <Suspense
       fallback={
-        <div className="p-12 text-center text-slate-400 animate-pulse">
+        <div className="p-12 text-center text-muted-foreground/80 animate-pulse">
           Carregando Agenda...
         </div>
       }
@@ -2664,7 +2664,7 @@ function MenuItem({
   return (
     <button
       onClick={onClick}
-      className="group w-full px-4 py-2.5 flex items-center gap-3 text-slate-600 dark:text-white/60 hover:bg-emerald-500/10 hover:text-emerald-600 transition-all text-left text-sm font-medium tracking-tight rounded-lg"
+      className="group w-full px-4 py-2.5 flex items-center gap-3 text-muted-foreground hover:bg-emerald-500/10 hover:text-emerald-600 transition-all text-left text-sm font-medium tracking-tight rounded-lg"
     >
       <span className="opacity-70 group-hover:scale-110 transition-transform">
         {icon}
@@ -2702,20 +2702,20 @@ function Modal({
     >
       <div
         onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-lg bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl overflow-hidden"
+        className="w-full max-w-lg bg-card border border-border rounded-xl shadow-2xl overflow-hidden"
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-muted">
-          <div className="font-medium text-slate-800 dark:text-white">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/50 dark:bg-muted">
+          <div className="font-medium text-foreground">
             {title}
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-white/50"
+            className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-muted-foreground"
           >
             <IconX />
           </button>
         </div>
-        <div className="p-4 bg-white dark:bg-card">{children}</div>
+        <div className="p-4 bg-card">{children}</div>
       </div>
     </div>,
     document.body,

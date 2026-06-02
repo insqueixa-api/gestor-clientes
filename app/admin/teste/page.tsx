@@ -1125,7 +1125,7 @@ export default function TrialsPage() {
               e.stopPropagation();
               setShowPapaTestes(true);
             }}
-            className="hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-medium border transition-colors items-center justify-center gap-1.5 bg-white dark:bg-white/5 border-slate-200 dark:border-border text-slate-500 dark:text-white/60 hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-400 hover:border-violet-200 dark:hover:border-violet-500/30"
+            className="hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-medium border transition-colors items-center justify-center gap-1.5 bg-card dark:bg-white/5 border-border text-muted-foreground dark:text-white/60 hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-400 hover:border-violet-200 dark:hover:border-violet-500/30"
           >
             🕵️ Papa Testes
           </button>
@@ -1138,7 +1138,7 @@ export default function TrialsPage() {
             className={`hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-medium border transition-colors items-center justify-center ${
               archivedFilter === "Sim"
                 ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-                : "bg-white dark:bg-white/5 border-slate-200 dark:border-border text-slate-500 dark:text-white/60"
+                : "bg-card dark:bg-white/5 border-border text-muted-foreground dark:text-white/60"
             }`}
           >
             {archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
@@ -1159,10 +1159,10 @@ export default function TrialsPage() {
 
       {/* Barra de Filtros (Padronizada) */}
       <div
-        className="p-0 px-3 sm:px-0 md:p-4 bg-transparent md:bg-white md:dark:bg-card border-0 md:border md:border-slate-200 md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
+        className="p-0 px-3 sm:px-0 md:p-4 bg-transparent md:bg-card md:dark:bg-card border-0 md:border md:border-border md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="hidden md:block text-xs font-medium uppercase text-slate-400 dark:text-muted-foreground tracking-wider mb-2">
+        <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground/80 dark:text-muted-foreground tracking-wider mb-2">
           Filtros Rápidos
         </div>
 
@@ -1172,12 +1172,12 @@ export default function TrialsPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Pesquisar..."
-              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+              className="w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
             />
             {search && (
               <button
                 onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/80 hover:text-rose-500"
                 title="Limpar pesquisa"
               >
                 <IconX />
@@ -1192,7 +1192,7 @@ export default function TrialsPage() {
               serverFilter !== "Todos" ||
               archivedFilter === "Sim"
                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                : "border-slate-200 dark:border-border bg-white dark:bg-white/5 text-slate-600 dark:text-muted-foreground hover:bg-slate-50 dark:hover:bg-white/10"
+                : "border-border bg-card dark:bg-white/5 text-muted-foreground dark:text-muted-foreground hover:bg-muted/50 dark:hover:bg-white/10"
             }`}
             title="Filtros"
           >
@@ -1206,12 +1206,12 @@ export default function TrialsPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Pesquisar..."
-              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+              className="w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
             />
             {search && (
               <button
                 onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/80 hover:text-rose-500"
                 title="Limpar pesquisa"
               >
                 <IconX />
@@ -1304,7 +1304,7 @@ export default function TrialsPage() {
         </div>
 
         {mobileFiltersOpen && (
-          <div className="md:hidden mt-3 p-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 space-y-2">
+          <div className="md:hidden mt-3 p-3 rounded-xl border border-border bg-muted/50 space-y-2">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -1314,7 +1314,7 @@ export default function TrialsPage() {
               className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-colors flex items-center justify-between ${
                 archivedFilter === "Sim"
                   ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-                  : "bg-white dark:bg-white/5 border-slate-200 dark:border-border text-slate-600 dark:text-muted-foreground"
+                  : "bg-card dark:bg-white/5 border-border text-muted-foreground dark:text-muted-foreground"
               }`}
               title="Filtrar Lixeira"
             >
@@ -1409,31 +1409,31 @@ export default function TrialsPage() {
       </div>
 
       {loading && (
-        <div className="p-12 text-center text-slate-400 dark:text-muted-foreground animate-pulse bg-white dark:bg-card rounded-xl border border-slate-200 dark:border-border">
+        <div className="p-12 text-center text-muted-foreground/80 dark:text-muted-foreground animate-pulse bg-card rounded-xl border border-border">
           Carregando dados...
         </div>
       )}
 
       {!loading && (
         <div
-          className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0"
+          className="bg-card border border-border rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
-            <div className="text-sm font-medium text-slate-700 dark:text-white whitespace-nowrap">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/50">
+            <div className="text-sm font-medium text-foreground/90 whitespace-nowrap">
               Lista de Testes{" "}
               <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600/70 dark:text-emerald-500/70 text-xs">
                 {filtered.length}
               </span>
             </div>
 
-            <div className="flex items-center justify-end gap-3 text-xs text-slate-500 dark:text-white/50 shrink-0">
+            <div className="flex items-center justify-end gap-3 text-xs text-muted-foreground shrink-0">
               <div className="flex items-center gap-2">
                 <span>Mostrar</span>
                 <select
                   value={showCount}
                   onChange={(e) => setShowCount(Number(e.target.value))}
-                  className="bg-transparent border border-slate-300 dark:border-border rounded px-1 py-0.5 outline-none text-slate-700 dark:text-white cursor-pointer hover:border-emerald-500/50 transition-colors"
+                  className="bg-transparent border border-border dark:border-border rounded px-1 py-0.5 outline-none text-foreground/90 cursor-pointer hover:border-emerald-500/50 transition-colors"
                 >
                   <option value={25}>25</option>
                   <option value={50}>50</option>
@@ -1446,7 +1446,7 @@ export default function TrialsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[980px]">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-border text-xs font-medium uppercase text-slate-500 dark:text-muted-foreground">
+                <tr className="border-b border-border text-xs font-medium uppercase text-muted-foreground dark:text-muted-foreground">
                   <ThSort
                     label="Teste"
                     active={sortKey === "name"}
@@ -1487,19 +1487,19 @@ export default function TrialsPage() {
                   return (
                     <tr
                       key={r.id}
-                      className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group"
+                      className="hover:bg-muted/50 dark:hover:bg-white/5 transition-colors group"
                     >
                       <Td>
                         <div className="flex flex-col max-w-[180px] sm:max-w-none">
                           <div className="flex items-center gap-2 whitespace-nowrap">
                             <Link
                               href={`/admin/teste/${r.id}`}
-                              className="font-semibold text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors hover:underline decoration-emerald-500/30 underline-offset-2 truncate"
+                              className="font-semibold text-foreground/90 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors hover:underline decoration-emerald-500/30 underline-offset-2 truncate"
                               title={r.name}
                             >
                               {r.name.split(" ")[0]}
                               {r.secondary_display_name && (
-                                <span className="text-slate-400 dark:text-white/30 font-medium">
+                                <span className="text-muted-foreground/80 dark:text-white/30 font-medium">
                                   {" / "}
                                   {r.secondary_display_name.split(" ")[0]}
                                 </span>
@@ -1526,7 +1526,7 @@ export default function TrialsPage() {
                             </div>
                           </div>
 
-                          <span className="text-xs font-medium text-slate-500 dark:text-white/60 truncate">
+                          <span className="text-xs font-medium text-muted-foreground dark:text-white/60 truncate">
                             {r.username}
                           </span>
                           {r.whatsapp_username && (
@@ -1535,7 +1535,7 @@ export default function TrialsPage() {
                             </span>
                           )}
                           {r.secondary_whatsapp_username && (
-                            <span className="text-xs font-medium text-slate-400 dark:text-white/45 truncate">
+                            <span className="text-xs font-medium text-muted-foreground/80 dark:text-white/45 truncate">
                               @{r.secondary_whatsapp_username}
                             </span>
                           )}
@@ -1545,11 +1545,11 @@ export default function TrialsPage() {
                       <Td>
                         <div className="flex flex-col">
                           <span
- className={` font-medium ${isExpired ? "text-rose-500" : "text-slate-600 dark:text-white/80"}`}
+ className={` font-medium ${isExpired ? "text-rose-500" : "text-muted-foreground dark:text-white/80"}`}
                           >
                             {r.dueLabelDate}
                           </span>
-                          <span className="text-xs font-medium text-slate-500 dark:text-white/60">
+                          <span className="text-xs font-medium text-muted-foreground dark:text-white/60">
                             {r.dueTime}
                           </span>
                         </div>
@@ -1612,7 +1612,7 @@ export default function TrialsPage() {
                           className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase ${
                             r.converted
                               ? "bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-500 border-emerald-200 dark:border-emerald-500/20"
-                              : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/50 border-slate-200 dark:border-border"
+                              : "bg-slate-100 dark:bg-white/5 text-muted-foreground dark:text-white/50 border-border"
                           }`}
                           title={
                             r.converted
@@ -1625,13 +1625,13 @@ export default function TrialsPage() {
                       </Td>
 
                       <Td>
-                        <span className="text-slate-600 dark:text-muted-foreground">
+                        <span className="text-muted-foreground dark:text-muted-foreground">
                           {r.server}
                         </span>
                       </Td>
 
                       <Td>
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-500/20 bg-slate-50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-white/5 text-slate-600 dark:text-white/60 border border-slate-200 dark:border-border uppercase">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-white/5 text-muted-foreground border border-border uppercase">
                           {r.technology || "—"}
                         </span>
                       </Td>
@@ -1700,7 +1700,7 @@ export default function TrialsPage() {
                             })}
                           </div>
                         ) : (
-                          <span className="text-xs text-slate-400 dark:text-white/20 italic">
+                          <span className="text-xs text-muted-foreground/80 dark:text-white/20 italic">
                             —
                           </span>
                         )}
@@ -1725,7 +1725,7 @@ export default function TrialsPage() {
                             {msgMenuForId === r.id && (
                               <div
                                 onClick={(e) => e.stopPropagation()}
-                                className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 dark:border-border bg-white dark:bg-background z-50 shadow-2xl overflow-hidden"
+                                className="absolute right-0 mt-2 w-48 rounded-xl border border-border bg-card dark:bg-background z-50 shadow-2xl overflow-hidden"
                               >
                                 <MenuItem
                                   icon={<IconSend />}
@@ -1818,7 +1818,7 @@ export default function TrialsPage() {
                   <tr>
                     <td
                       colSpan={8}
-                      className="p-8 text-center text-slate-400 dark:text-muted-foreground italic"
+                      className="p-8 text-center text-muted-foreground/80 dark:text-muted-foreground italic"
                     >
                       Nenhum teste encontrado.
                     </td>
@@ -1896,7 +1896,7 @@ export default function TrialsPage() {
             {(
               (scheduledMap[showScheduledModal.trialId] || []) as ScheduledMsg[]
             ).length === 0 ? (
-              <div className="text-sm text-slate-500 dark:text-white/50 text-center py-4">
+              <div className="text-sm text-muted-foreground text-center py-4">
                 Nenhuma mensagem agendada.
               </div>
             ) : (
@@ -1904,10 +1904,10 @@ export default function TrialsPage() {
                 {(scheduledMap[showScheduledModal.trialId] || []).map((s) => (
                   <div
                     key={s.id}
-                    className="p-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20"
+                    className="p-3 rounded-xl border border-border bg-muted/50"
                   >
                     <div className="flex items-center justify-between gap-2 mb-2">
-                      <div className="text-xs font-extrabold text-slate-600 dark:text-muted-foreground flex items-center gap-2">
+                      <div className="text-xs font-extrabold text-muted-foreground dark:text-muted-foreground flex items-center gap-2">
                         <IconClock />
                         <span>
                           {new Date(s.send_at).toLocaleString("pt-BR")}
@@ -1951,7 +1951,7 @@ export default function TrialsPage() {
                       </button>
                     </div>
 
-                    <div className="text-sm text-slate-700 dark:text-white/80 whitespace-pre-wrap">
+                    <div className="text-sm text-foreground/90/80 whitespace-pre-wrap">
                       {s.message}
                     </div>
                   </div>
@@ -1968,7 +1968,7 @@ export default function TrialsPage() {
                     trialName: undefined,
                   })
                 }
-                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-600 dark:text-muted-foreground hover:bg-slate-200 dark:hover:bg-white/5 font-semibold text-sm transition-colors"
+                className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-muted-foreground hover:bg-slate-200 dark:hover:bg-white/5 font-semibold text-sm transition-colors"
               >
                 Fechar
               </button>
@@ -1991,13 +1991,13 @@ export default function TrialsPage() {
         >
           <div className="space-y-4">
             <div>
-              <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Sessão de Envio
               </label>
               <select
                 value={selectedSessionNow}
                 onChange={(e) => setSelectedSessionNow(e.target.value)}
-                className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-lg text-sm font-medium text-slate-800 dark:text-white outline-none focus:border-sky-500 transition-colors"
+                className="w-full h-10 px-3 bg-muted/50 border border-border dark:border-border rounded-lg text-sm font-medium text-foreground outline-none focus:border-sky-500 transition-colors"
               >
                 {sessionOptions.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -2008,7 +2008,7 @@ export default function TrialsPage() {
             </div>
 
             <div>
-              <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Mensagem pronta (opcional)
               </label>
               <select
@@ -2023,7 +2023,7 @@ export default function TrialsPage() {
                     setMessageText("");
                   }
                 }}
-                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-xl text-slate-800 dark:text-white outline-none focus:border-sky-500 transition-colors text-sm"
+                className="w-full h-11 px-3 bg-muted/50 border border-border dark:border-border rounded-xl text-foreground outline-none focus:border-sky-500 transition-colors text-sm"
               >
                 <option value="">Selecionar...</option>
                 {Object.entries(
@@ -2055,10 +2055,10 @@ export default function TrialsPage() {
               if (!tpl?.image_url) return null;
               return (
                 <div className="animate-in fade-in zoom-in-95 duration-200">
-                  <span className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+                  <span className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                     Imagem Anexada
                   </span>
-                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-border shadow-sm relative bg-slate-100 dark:bg-black/40">
+                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-border shadow-sm relative bg-slate-100 dark:bg-black/40">
                     <img
                       src={tpl.image_url}
                       alt="Anexo do template"
@@ -2076,14 +2076,14 @@ export default function TrialsPage() {
                 if (selectedTemplateNowId) setSelectedTemplateNowId("");
                 setMessageText(e.target.value);
               }}
-              className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-lg p-3 text-slate-800 dark:text-white outline-none min-h-[120px]"
+              className="w-full bg-muted/50 border border-border dark:border-border rounded-lg p-3 text-foreground outline-none min-h-[120px]"
               placeholder="Digite a mensagem para enviar agora..."
             />
 
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowSendNow({ open: false, trialId: null })}
-                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-border text-slate-600 dark:text-white/60 text-sm font-medium"
+                className="px-4 py-2 rounded-lg border border-border dark:border-border text-muted-foreground text-sm font-medium"
               >
                 Cancelar
               </button>
@@ -2113,13 +2113,13 @@ export default function TrialsPage() {
         >
           <div className="space-y-4">
             <div>
-              <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Sessão de Envio
               </label>
               <select
                 value={selectedSessionSchedule}
                 onChange={(e) => setSelectedSessionSchedule(e.target.value)}
-                className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-lg text-sm font-medium text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors"
+                className="w-full h-10 px-3 bg-muted/50 border border-border dark:border-border rounded-lg text-sm font-medium text-foreground outline-none focus:border-purple-500 transition-colors"
               >
                 {sessionOptions.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -2130,19 +2130,19 @@ export default function TrialsPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-500 dark:text-white/60 mb-1 uppercase">
+              <label className="block text-xs font-medium text-muted-foreground dark:text-white/60 mb-1 uppercase">
                 Data e Hora do Envio
               </label>
               <input
                 type="datetime-local"
                 value={scheduleDate}
                 onChange={(e) => setScheduleDate(e.target.value)}
-                className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-lg text-slate-800 dark:text-white outline-none"
+                className="w-full h-10 px-3 bg-muted/50 border border-border dark:border-border rounded-lg text-foreground outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Mensagem pronta (opcional)
               </label>
               <select
@@ -2157,7 +2157,7 @@ export default function TrialsPage() {
                     setScheduleText("");
                   }
                 }}
-                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+                className="w-full h-11 px-3 bg-muted/50 border border-border dark:border-border rounded-xl text-foreground outline-none focus:border-emerald-500/50 transition-colors"
               >
                 <option value="">Selecionar...</option>
                 {Object.entries(
@@ -2189,10 +2189,10 @@ export default function TrialsPage() {
               if (!tpl?.image_url) return null;
               return (
                 <div className="animate-in fade-in zoom-in-95 duration-200">
-                  <span className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+                  <span className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                     Imagem Anexada
                   </span>
-                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-border shadow-sm relative bg-slate-100 dark:bg-black/40">
+                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-border shadow-sm relative bg-slate-100 dark:bg-black/40">
                     <img
                       src={tpl.image_url}
                       alt="Anexo do template"
@@ -2204,7 +2204,7 @@ export default function TrialsPage() {
             })()}
 
             <div>
-              <label className="block text-xs font-medium text-slate-500 dark:text-white/60 mb-1 uppercase">
+              <label className="block text-xs font-medium text-muted-foreground dark:text-white/60 mb-1 uppercase">
                 Mensagem
               </label>
               <textarea
@@ -2215,7 +2215,7 @@ export default function TrialsPage() {
                     setSelectedTemplateScheduleId("");
                   setScheduleText(e.target.value);
                 }}
-                className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-lg p-3 text-slate-800 dark:text-white outline-none min-h-[120px]"
+                className="w-full bg-muted/50 border border-border dark:border-border rounded-lg p-3 text-foreground outline-none min-h-[120px]"
                 placeholder="Digite a mensagem para agendar..."
               />
             </div>
@@ -2225,7 +2225,7 @@ export default function TrialsPage() {
                 onClick={() =>
                   setShowScheduleMsg({ open: false, trialId: null })
                 }
-                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-border text-slate-600 dark:text-white/60 text-sm font-medium"
+                className="px-4 py-2 rounded-lg border border-border dark:border-border text-muted-foreground text-sm font-medium"
               >
                 Cancelar
               </button>
@@ -2329,7 +2329,7 @@ function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...rest}
-      className={`w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white ${className}`}
+      className={`w-full h-10 px-3 bg-card dark:bg-black/20 border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90 ${className}`}
     />
   );
 }
@@ -2350,8 +2350,8 @@ function StatusBadge({ status }: { status: TrialStatus }) {
           }
         : {
             bg: "bg-slate-100 dark:bg-white/5",
-            text: "text-slate-600 dark:text-white/50",
-            border: "border-slate-200 dark:border-border",
+            text: "text-muted-foreground dark:text-white/50",
+            border: "border-border",
           };
 
   return (
@@ -2423,7 +2423,7 @@ function MenuItem({
   return (
     <button
       onClick={onClick}
-      className="w-full px-4 py-2 flex items-center gap-3 text-slate-700 dark:text-white/80 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-emerald-600 dark:hover:text-white transition-colors text-left text-sm font-medium"
+      className="w-full px-4 py-2 flex items-center gap-3 text-foreground/90/80 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-emerald-600 dark:hover:text-white transition-colors text-left text-sm font-medium"
     >
       <span className="opacity-70">{icon}</span>
       {label}
@@ -2459,15 +2459,15 @@ function Modal({
     >
       <div
         onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-lg bg-white dark:bg-background border border-slate-200 dark:border-border rounded-xl shadow-2xl overflow-hidden"
+        className="w-full max-w-lg bg-card dark:bg-background border border-border rounded-xl shadow-2xl overflow-hidden"
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
-          <div className="font-medium text-slate-800 dark:text-white">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/50">
+          <div className="font-medium text-foreground">
             {title}
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-white/60 hover:text-slate-800 dark:hover:text-white"
+            className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white"
           >
             <IconX />
           </button>
@@ -2612,42 +2612,42 @@ function PapaTestesModal({
     >
       <div
         onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-3xl bg-white dark:bg-background border border-slate-200 dark:border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90dvh]"
+        className="w-full max-w-3xl bg-card dark:bg-background border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90dvh]"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/50 shrink-0">
           <div>
-            <h2 className="font-medium text-slate-800 dark:text-white text-base flex items-center gap-2">
+            <h2 className="font-medium text-foreground text-base flex items-center gap-2">
               🕵️ Papa Testes
               <span className="gap-1 px-2 py-1 rounded-lg text-xs font-medium tracking-tight shadow-sm bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-500/30">
                 {records.length} registro{records.length !== 1 ? "s" : ""}
               </span>
             </h2>
-            <p className="text-xs text-slate-400 dark:text-muted-foreground mt-0.5">
+            <p className="text-xs text-muted-foreground/80 dark:text-muted-foreground mt-0.5">
               Histórico de todos os testes e clientes cadastrados.
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-white/60"
+            className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-muted-foreground dark:text-white/60"
           >
             <IconX />
           </button>
         </div>
 
         {/* Filtros */}
-        <div className="px-5 py-3 border-b border-slate-200 dark:border-border shrink-0 flex items-center gap-2 flex-wrap">
+        <div className="px-5 py-3 border-b border-border shrink-0 flex items-center gap-2 flex-wrap">
           <div className="flex-1 min-w-[180px] relative">
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por nome, WhatsApp, usuário..."
-              className="w-full h-9 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-violet-500/50 text-slate-700 dark:text-white"
+              className="w-full h-9 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none focus:border-violet-500/50 text-foreground/90"
             />
             {search && (
               <button
                 onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-500"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/80 hover:text-rose-500"
               >
                 <IconX />
               </button>
@@ -2656,7 +2656,7 @@ function PapaTestesModal({
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value as any)}
-            className="h-9 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none text-slate-700 dark:text-white"
+            className="h-9 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none text-foreground/90"
           >
             <option value="todos">Todos</option>
             <option value="trial">Só Testes</option>
@@ -2666,7 +2666,7 @@ function PapaTestesModal({
           <select
             value={filterServer}
             onChange={(e) => setFilterServer(e.target.value)}
-            className="h-9 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none text-slate-700 dark:text-white"
+            className="h-9 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none text-foreground/90"
           >
             <option value="Todos">Servidor (Todos)</option>
             {uniqueServers.map((s) => (
@@ -2680,22 +2680,22 @@ function PapaTestesModal({
         {/* Lista */}
         <div className="overflow-y-auto flex-1 px-5 py-4 space-y-3">
           {loading ? (
-            <div className="text-center text-slate-400 dark:text-muted-foreground animate-pulse py-8">
+            <div className="text-center text-muted-foreground/80 dark:text-muted-foreground animate-pulse py-8">
               Carregando...
             </div>
           ) : Object.keys(grouped).length === 0 ? (
-            <div className="text-center text-slate-400 dark:text-muted-foreground py-8 border-2 border-dashed border-slate-200 dark:border-border rounded-xl">
+            <div className="text-center text-muted-foreground/80 dark:text-muted-foreground py-8 border-2 border-dashed border-border rounded-xl">
               Nenhum registro encontrado.
             </div>
           ) : (
             Object.entries(grouped).map(([key, recs]) => (
               <div
                 key={key}
-                className="border border-slate-200 dark:border-border rounded-xl overflow-hidden"
+                className="border border-border rounded-xl overflow-hidden"
               >
-                <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-border">
+                <div className="flex items-center justify-between px-4 py-2.5 bg-muted/50 border-b border-border">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm text-slate-700 dark:text-white">
+                    <span className="font-medium text-sm text-foreground/90">
                       {recs[0]?.client_name || "—"}
                     </span>
                     {recs[0]?.whatsapp_username && (
@@ -2710,7 +2710,7 @@ function PapaTestesModal({
                     )}
                   </div>
                   {recs[0]?.phone_e164 && (
- <span className="text-xs text-slate-400 dark:text-muted-foreground ">
+ <span className="text-xs text-muted-foreground/80 dark:text-muted-foreground ">
                       {recs[0].phone_e164}
                     </span>
                   )}
@@ -2720,7 +2720,7 @@ function PapaTestesModal({
                   {recs.map((r) => (
                     <div
                       key={r.id}
-                      className="flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                      className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/50 dark:hover:bg-white/5 transition-colors"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <span
@@ -2732,16 +2732,16 @@ function PapaTestesModal({
                         >
                           {r.is_trial ? "Teste" : "Cliente"}
                         </span>
-                        <span className="text-xs text-slate-500 dark:text-white/50 shrink-0">
+                        <span className="text-xs text-muted-foreground shrink-0">
                           {new Date(r.created_at).toLocaleDateString("pt-BR")}
                         </span>
                         {r.server_name && (
-                          <span className="text-xs text-slate-600 dark:text-muted-foreground truncate">
+                          <span className="text-xs text-muted-foreground dark:text-muted-foreground truncate">
                             {r.server_name}
                           </span>
                         )}
                         {r.username && (
- <span className="text-xs text-slate-500 dark:text-white/50 truncate">
+ <span className="text-xs text-muted-foreground truncate">
                             {r.username}
                           </span>
                         )}
@@ -2757,7 +2757,7 @@ function PapaTestesModal({
                       <button
                         onClick={() => handleDelete(r.id, r.client_name || "—")}
                         disabled={deletingId === r.id}
-                        className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-colors shrink-0 ml-2"
+                        className="p-1.5 text-muted-foreground/80 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-colors shrink-0 ml-2"
                         title="Excluir registro"
                       >
                         {deletingId === r.id ? (
@@ -2775,14 +2775,14 @@ function PapaTestesModal({
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 shrink-0 flex justify-between items-center">
-          <span className="text-xs text-slate-400 dark:text-muted-foreground">
+        <div className="px-5 py-3 border-t border-border bg-muted/50 shrink-0 flex justify-between items-center">
+          <span className="text-xs text-muted-foreground/80 dark:text-muted-foreground">
             {filtered.length} de {records.length} registro
             {records.length !== 1 ? "s" : ""}
           </span>
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-white font-medium text-xs hover:bg-slate-200 dark:hover:bg-white/20 transition-colors"
+            className="px-4 py-2 rounded-lg bg-slate-100 dark:bg-white/10 text-foreground/90 font-medium text-xs hover:bg-slate-200 dark:hover:bg-white/20 transition-colors"
           >
             Fechar
           </button>

@@ -85,7 +85,7 @@ export default function LoginPage() {
       : "Acesse o painel gerenciador.";
 
   return (
-    <div className="min-h-[100dvh] relative overflow-hidden flex items-center sm:items-center justify-center px-3 sm:px-6 pt-6 pb-6 sm:py-10 bg-slate-50 dark:bg-background">
+    <div className="min-h-[100dvh] relative overflow-hidden flex items-center sm:items-center justify-center px-3 sm:px-6 pt-6 pb-6 sm:py-10 bg-background">
       {/* Fundo com gradiente + glow */}
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-gradient-to-br from-[#0b2a4a] via-[#0f141a] to-[#0e6b5c] opacity-90 dark:opacity-100" />
@@ -139,8 +139,8 @@ export default function LoginPage() {
                 className={[
                   "rounded-lg px-3 py-2 text-sm font-medium transition",
                   mode === "login"
-                    ? "bg-white shadow text-slate-900 dark:bg-background dark:text-white"
-                    : "text-slate-600 hover:text-slate-800 dark:text-muted-foreground dark:hover:text-white",
+                    ? "bg-card shadow text-foreground dark:bg-background dark:text-white"
+                    : "text-muted-foreground hover:text-foreground dark:text-muted-foreground dark:hover:text-white",
                 ].join(" ")}
               >
                 Login
@@ -155,8 +155,8 @@ export default function LoginPage() {
                 className={[
                   "rounded-lg px-3 py-2 text-sm font-medium transition",
                   mode === "reset"
-                    ? "bg-white shadow text-slate-900 dark:bg-background dark:text-white"
-                    : "text-slate-600 hover:text-slate-800 dark:text-muted-foreground dark:hover:text-white",
+                    ? "bg-card shadow text-foreground dark:bg-background dark:text-white"
+                    : "text-muted-foreground hover:text-foreground dark:text-muted-foreground dark:hover:text-white",
                 ].join(" ")}
               >
                 Esqueci a senha
@@ -169,7 +169,7 @@ export default function LoginPage() {
             {mode === "login" ? (
               <form action={formAction} className="space-y-3 sm:space-y-3">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-white/80">
+                  <label className="block text-sm font-medium text-foreground/90/80">
                     E-mail
                   </label>
                   <input
@@ -179,12 +179,12 @@ export default function LoginPage() {
                     placeholder="voce@exemplo.com"
                     autoComplete="email"
                     inputMode="email"
-                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:ring-2 focus:ring-emerald-500/60 dark:border-border dark:bg-black/20 dark:text-white dark:placeholder:text-white/40"
+                    className="mt-1 w-full rounded-xl border border-border bg-card px-4 py-3 text-foreground outline-none transition focus:ring-2 focus:ring-emerald-500/60 dark:border-border dark:bg-black/20 dark:text-white dark:placeholder:text-white/40"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-white/80">
+                  <label className="block text-sm font-medium text-foreground/90/80">
                     Senha
                   </label>
                   <div className="relative mt-1">
@@ -196,14 +196,14 @@ export default function LoginPage() {
                       placeholder="••••••••"
                       autoComplete="current-password"
                       /* ✅ pr-12 adicionado para o texto não ficar por baixo do ícone */
-                      className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 pr-12 text-slate-900 outline-none transition focus:ring-2 focus:ring-emerald-500/60 dark:border-border dark:bg-black/20 dark:text-white dark:placeholder:text-white/40"
+                      className="w-full rounded-xl border border-border bg-card px-4 py-3 pr-12 text-foreground outline-none transition focus:ring-2 focus:ring-emerald-500/60 dark:border-border dark:bg-black/20 dark:text-white dark:placeholder:text-white/40"
                     />
 
                     {/* Botão do Olho com SVG Inline */}
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:text-muted-foreground dark:hover:text-white/80 transition-colors"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/80 hover:text-muted-foreground dark:text-muted-foreground dark:hover:text-white/80 transition-colors"
                       tabIndex={-1} // Impede que o 'Tab' pare no olho, indo direto para o Entrar
                     >
                       {showPassword ? (
@@ -282,7 +282,7 @@ export default function LoginPage() {
                 </button>
 
                 {state?.error && (
-                  <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 dark:border-border dark:bg-black/20 dark:text-white/80">
+                  <div className="mt-2 rounded-xl border border-border bg-muted/50 px-4 py-3 text-sm text-foreground dark:border-border dark:bg-black/20 dark:text-white/80">
                     {state.error}
                   </div>
                 )}
@@ -290,7 +290,7 @@ export default function LoginPage() {
             ) : (
               <form onSubmit={onReset} className="space-y-3">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-white/80">
+                  <label className="block text-sm font-medium text-foreground/90/80">
                     E-mail
                   </label>
                   <input
@@ -299,7 +299,7 @@ export default function LoginPage() {
                     placeholder="voce@exemplo.com"
                     autoComplete="email"
                     inputMode="email"
-                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:ring-2 focus:ring-emerald-500/60 dark:border-border dark:bg-black/20 dark:text-white dark:placeholder:text-white/40"
+                    className="mt-1 w-full rounded-xl border border-border bg-card px-4 py-3 text-foreground outline-none transition focus:ring-2 focus:ring-emerald-500/60 dark:border-border dark:bg-black/20 dark:text-white dark:placeholder:text-white/40"
                   />
                 </div>
 
@@ -331,7 +331,7 @@ export default function LoginPage() {
                 </button>
 
                 {msg && (
-                  <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 dark:border-border dark:bg-black/20 dark:text-white/80">
+                  <div className="mt-2 rounded-xl border border-border bg-muted/50 px-4 py-3 text-sm text-foreground dark:border-border dark:bg-black/20 dark:text-white/80">
                     {msg}
                   </div>
                 )}

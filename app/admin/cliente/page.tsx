@@ -1735,7 +1735,7 @@ function ClientePageContent() {
                 setValuesHidden((v) => !v);
               }}
               title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-border bg-white dark:bg-white/5 text-slate-400 dark:text-muted-foreground hover:text-slate-700 dark:hover:text-white hover:border-slate-400 dark:hover:border-white/30 transition-all text-xs font-medium shadow-sm select-none"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-card dark:bg-white/5 text-muted-foreground/80 dark:text-muted-foreground hover:text-foreground/90 dark:hover:text-white hover:border-slate-400 dark:hover:border-white/30 transition-all text-xs font-medium shadow-sm select-none"
             >
               {valuesHidden ? (
                 <EyeOff className="w-4 h-4" />
@@ -1760,7 +1760,7 @@ function ClientePageContent() {
             className={`hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-medium border transition-colors items-center justify-center ${
               archivedFilter === "Sim"
                 ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-                : "bg-white dark:bg-white/5 border-slate-200 dark:border-border text-slate-500 dark:text-white/60"
+                : "bg-card dark:bg-white/5 border-border text-muted-foreground dark:text-white/60"
             }`}
           >
             {archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
@@ -1782,10 +1782,10 @@ function ClientePageContent() {
 
       {/* --- BARRA DE FILTROS COMPLETA --- */}
       <div
-        className="px-3 md:p-4 bg-transparent md:bg-white md:dark:bg-card border-0 md:border md:border-slate-200 md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
+        className="px-3 md:p-4 bg-transparent md:bg-card md:dark:bg-card border-0 md:border md:border-border md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="hidden md:block text-xs font-medium uppercase text-slate-400 dark:text-muted-foreground tracking-wider mb-2">
+        <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground/80 dark:text-muted-foreground tracking-wider mb-2">
           Filtros Rápidos
         </div>
 
@@ -1796,12 +1796,12 @@ function ClientePageContent() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Pesquisar..."
-              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+              className="w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
             />
             {search && (
               <button
                 onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/80 hover:text-rose-500"
               >
                 <IconX />
               </button>
@@ -1817,7 +1817,7 @@ function ClientePageContent() {
               dueFilter !== "Todos" ||
               archivedFilter === "Sim"
                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                : "border-slate-200 dark:border-border bg-white dark:bg-white/5 text-slate-600 dark:text-muted-foreground hover:bg-slate-50 dark:hover:bg-white/10"
+                : "border-border bg-card dark:bg-white/5 text-muted-foreground dark:text-muted-foreground hover:bg-muted/50 dark:hover:bg-white/10"
             }`}
             title="Filtros"
           >
@@ -1832,12 +1832,12 @@ function ClientePageContent() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Pesquisar..."
-              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+              className="w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
             />
             {search && (
               <button
                 onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/80 hover:text-rose-500"
               >
                 <IconX />
               </button>
@@ -1969,7 +1969,7 @@ function ClientePageContent() {
 
         {/* ✅ Painel de filtros no mobile */}
         {mobileFiltersOpen && (
-          <div className="md:hidden mt-3 p-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 space-y-2">
+          <div className="md:hidden mt-3 p-3 rounded-xl border border-border bg-muted/50 space-y-2">
             {/* ✅ Filtrar Lixeira (opção dentro do painel) */}
             <button
               onClick={(e) => {
@@ -1979,7 +1979,7 @@ function ClientePageContent() {
               className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-colors flex items-center justify-between ${
                 archivedFilter === "Sim"
                   ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-                  : "bg-white dark:bg-white/5 border-slate-200 dark:border-border text-slate-600 dark:text-muted-foreground"
+                  : "bg-card dark:bg-white/5 border-border text-muted-foreground dark:text-muted-foreground"
               }`}
               title="Filtrar Lixeira"
             >
@@ -2111,31 +2111,31 @@ function ClientePageContent() {
       </div>
 
       {loading && (
-        <div className="p-12 text-center text-slate-400 dark:text-muted-foreground animate-pulse bg-white dark:bg-card rounded-none sm:rounded-xl border border-slate-200 dark:border-border">
+        <div className="p-12 text-center text-muted-foreground/80 dark:text-muted-foreground animate-pulse bg-card rounded-none sm:rounded-xl border border-border">
           Carregando dados...
         </div>
       )}
 
       {!loading && (
         <div
-          className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0"
+          className="bg-card border border-border rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
-            <div className="text-sm font-medium tracking-tight text-slate-800 dark:text-white whitespace-nowrap">
+          <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-border bg-muted/50">
+            <div className="text-sm font-medium tracking-tight text-foreground whitespace-nowrap">
               Lista de Clientes
               <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-medium">
                 {filtered.length}
               </span>
             </div>
 
-            <div className="flex items-center justify-end gap-2 text-xs text-slate-500 dark:text-white/50 shrink-0">
+            <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground shrink-0">
               {/* --- 📱 VERSÃO MOBILE: Dropdown de Páginas --- */}
               <div className="md:hidden">
                 <select
                   value={safePage}
                   onChange={(e) => setPage(Number(e.target.value))}
-                  className="h-10 pl-3 pr-10 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg font-medium text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 appearance-none"
+                  className="h-10 pl-3 pr-10 bg-muted/50 border border-border rounded-lg font-medium text-foreground/90 outline-none focus:border-emerald-500/50 appearance-none"
                 >
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map(
                     (pNum) => (
@@ -2157,7 +2157,7 @@ function ClientePageContent() {
                       setPageSize(Number(e.target.value));
                       setPage(1);
                     }}
-                    className="bg-transparent border border-slate-300 dark:border-border rounded px-1 py-0.5 outline-none text-slate-700 dark:text-white cursor-pointer hover:border-emerald-500/50 transition-colors"
+                    className="bg-transparent border border-border dark:border-border rounded px-1 py-0.5 outline-none text-foreground/90 cursor-pointer hover:border-emerald-500/50 transition-colors"
                   >
                     <option value={25}>25</option>
                     <option value={50}>50</option>
@@ -2169,7 +2169,7 @@ function ClientePageContent() {
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={safePage <= 1}
-                    className="h-8 w-8 rounded-lg border border-slate-200 dark:border-border bg-white dark:bg-white/5 text-slate-600 dark:text-muted-foreground font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-white/10 transition flex items-center justify-center"
+                    className="h-8 w-8 rounded-lg border border-border bg-card dark:bg-white/5 text-muted-foreground dark:text-muted-foreground font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted/50 dark:hover:bg-white/10 transition flex items-center justify-center"
                     title="Página anterior"
                   >
                     ←
@@ -2177,7 +2177,7 @@ function ClientePageContent() {
 
                   <span className="min-w-[90px] text-center whitespace-nowrap">
                     Página{" "}
-                    <span className="font-medium text-slate-700 dark:text-white">
+                    <span className="font-medium text-foreground/90">
                       {safePage}
                     </span>{" "}
                     / {totalPages}
@@ -2186,7 +2186,7 @@ function ClientePageContent() {
                   <button
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={safePage >= totalPages}
-                    className="h-8 w-8 rounded-lg border border-slate-200 dark:border-border bg-white dark:bg-white/5 text-slate-600 dark:text-muted-foreground font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-white/10 transition flex items-center justify-center"
+                    className="h-8 w-8 rounded-lg border border-border bg-card dark:bg-white/5 text-muted-foreground dark:text-muted-foreground font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted/50 dark:hover:bg-white/10 transition flex items-center justify-center"
                     title="Próxima página"
                   >
                     →
@@ -2199,7 +2199,7 @@ function ClientePageContent() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[250px]">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-border text-xs font-medium uppercase text-slate-500 dark:text-white/55">
+                <tr className="border-b border-border text-xs font-medium uppercase text-muted-foreground dark:text-white/55">
                   <Th width={40}>
                     <input
                       ref={selectAllRef}
@@ -2210,7 +2210,7 @@ function ClientePageContent() {
                       }
                       onClick={(e) => e.stopPropagation()}
                       onChange={(e) => setAllVisible(e.target.checked)}
-                      className="rounded border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-white/5"
+                      className="rounded border-border bg-slate-100 dark:bg-white/5"
                     />
                   </Th>
                   <ThSort
@@ -2294,7 +2294,7 @@ function ClientePageContent() {
                       className={`transition-colors group ${
                         selectedIds.has(r.id)
                           ? "bg-emerald-50/70 dark:bg-emerald-500/10"
-                          : "hover:bg-slate-50 dark:hover:bg-white/5"
+                          : "hover:bg-muted/50 dark:hover:bg-white/5"
                       }`}
                     >
                       <Td>
@@ -2305,7 +2305,7 @@ function ClientePageContent() {
                           onChange={(e) =>
                             toggleSelected(r.id, e.target.checked)
                           }
-                          className="rounded border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-white/5"
+                          className="rounded border-border bg-slate-100 dark:bg-white/5"
                         />
                       </Td>
 
@@ -2317,11 +2317,11 @@ function ClientePageContent() {
                           <div className="flex items-center gap-2 whitespace-nowrap">
                             <Link
                               href={`/admin/cliente/${r.id}`}
-                              className="font-semibold text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors hover:underline decoration-emerald-500/30 underline-offset-2 cursor-pointer truncate"
+                              className="font-semibold text-foreground/90 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors hover:underline decoration-emerald-500/30 underline-offset-2 cursor-pointer truncate"
                             >
                               {r.name.split(" ")[0]}
                               {r.secondary_display_name ? (
-                                <span className="text-slate-400 dark:text-white/30 font-medium">
+                                <span className="text-muted-foreground/80 dark:text-white/30 font-medium">
                                   {" "}
                                   / {r.secondary_display_name.split(" ")[0]}
                                 </span>
@@ -2364,7 +2364,7 @@ function ClientePageContent() {
                           </div>
                           {/* Alterado: Username agora com font-medium e cor mais forte (slate-500 ao invés de 400) */}
                           <span
-                            className={`text-xs font-medium text-slate-500 dark:text-muted-foreground truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                            className={`text-xs font-medium text-muted-foreground dark:text-muted-foreground truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
                           >
                             {r.username}
                           </span>
@@ -2377,7 +2377,7 @@ function ClientePageContent() {
                           )}
                           {r.secondary_whatsapp_username && (
                             <span
-                              className={`text-xs font-medium text-slate-400 dark:text-white/45 truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                              className={`text-xs font-medium text-muted-foreground/80 dark:text-white/45 truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
                             >
                               @{r.secondary_whatsapp_username}
                             </span>
@@ -2387,11 +2387,11 @@ function ClientePageContent() {
 
                       <Td>
                         <div className="flex flex-col">
- <span className=" font-medium text-slate-600 dark:text-white/80">
+ <span className=" font-medium text-muted-foreground dark:text-white/80">
                             {r.dueLabelDate}
                           </span>
 
-                          <span className="text-xs font-medium text-slate-500 dark:text-white/60">
+                          <span className="text-xs font-medium text-muted-foreground dark:text-white/60">
                             {r.dueTime}
                           </span>
                         </div>
@@ -2450,32 +2450,32 @@ function ClientePageContent() {
                       </Td>
 
                       <Td align="center">
-                        <span className="text-slate-600 dark:text-white/80">
+                        <span className="text-muted-foreground dark:text-white/80">
                           {r.server}
                         </span>
                       </Td>
 
                       <Td align="center">
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-500/20 bg-slate-50 dark:bg-slate-500/10 text-slate-700 dark:text-slate-400 text-[10px] font-medium tracking-tight shadow-sm uppercase">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 dark:bg-muted/500/10 text-foreground/90 dark:text-muted-foreground/80 text-[10px] font-medium tracking-tight shadow-sm uppercase">
                           {r.technology}
                         </span>
                       </Td>
 
                       <Td align="center">
-                        <span className="text-slate-600 dark:text-white/80">
+                        <span className="text-muted-foreground dark:text-white/80">
                           {r.screens}
                         </span>
                       </Td>
 
                       <Td align="center">
-                        <span className="text-slate-600 dark:text-white/85">
+                        <span className="text-muted-foreground dark:text-white/85">
                           {r.planPeriod}
                         </span>
                       </Td>
 
                       <Td align="center">
                         <span
-                          className={`font-medium text-slate-700 dark:text-white/90 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                          className={`font-medium text-foreground/90/90 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
                         >
                           {r.valueLabel}
                         </span>
@@ -2606,7 +2606,7 @@ function ClientePageContent() {
                             {msgMenuForId === r.id && (
                               <div
                                 onClick={(e) => e.stopPropagation()}
-                                className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 dark:border-border bg-white dark:bg-background z-50 shadow-2xl overflow-hidden"
+                                className="absolute right-0 mt-2 w-48 rounded-xl border border-border bg-card dark:bg-background z-50 shadow-2xl overflow-hidden"
                               >
                                 <MenuItem
                                   icon={<IconSend />}
@@ -2714,7 +2714,7 @@ function ClientePageContent() {
                   <tr>
                     <td
                       colSpan={11}
-                      className="p-8 text-center text-slate-400 dark:text-muted-foreground italic"
+                      className="p-8 text-center text-muted-foreground/80 dark:text-muted-foreground italic"
                     >
                       Nenhum cliente encontrado.
                     </td>
@@ -2754,7 +2754,7 @@ function ClientePageContent() {
             <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 p-4 rounded-lg flex gap-3">
               <span className="text-2xl">📢</span>
               <div>
-                <p className="text-slate-700 dark:text-white/90 text-sm font-medium">
+                <p className="text-foreground/90/90 text-sm font-medium">
                   O cliente{" "}
                   <strong className="text-amber-700 dark:text-amber-400">
                     {showRenewWarning.clientName}
@@ -2780,7 +2780,7 @@ function ClientePageContent() {
                   // Abre a lista de alertas para checar
                   if (clientId) handleOpenAlertList(clientId, clientName);
                 }}
-                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-border text-slate-700 dark:text-white font-medium hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase"
+                className="px-4 py-2 rounded-lg border border-border dark:border-border text-foreground/90 font-medium hover:bg-muted/50 dark:hover:bg-white/5 transition-colors text-xs uppercase"
               >
                 Ver Alertas
               </button>
@@ -2846,7 +2846,7 @@ function ClientePageContent() {
             <textarea
               value={newAlertText}
               onChange={(e) => setNewAlertText(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-xl p-4 text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors min-h-[120px] text-sm resize-none"
+              className="w-full bg-muted/50 border border-border dark:border-border rounded-xl p-4 text-foreground outline-none focus:border-purple-500 transition-colors min-h-[120px] text-sm resize-none"
               placeholder="Descreva o alerta ou pendência deste cliente..."
               autoFocus
             />
@@ -2854,7 +2854,7 @@ function ClientePageContent() {
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowNewAlert({ open: false, clientId: null })}
-                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 text-sm font-medium transition-colors"
+                className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-muted/50 dark:hover:bg-white/5 text-sm font-medium transition-colors"
               >
                 Cancelar
               </button>
@@ -2902,7 +2902,7 @@ function ClientePageContent() {
             <div className="max-h-[60vh] overflow-y-auto pr-1 space-y-3">
               {(clientAlerts as { id: string; message?: string }[]).length ===
               0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-slate-400 dark:text-white/30 border-2 border-dashed border-slate-200 dark:border-border rounded-xl">
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground/80 dark:text-white/30 border-2 border-dashed border-border rounded-xl">
                   <span className="text-2xl mb-2">✅</span>
                   <p className="text-sm">Nenhum alerta pendente.</p>
                 </div>
@@ -2911,17 +2911,17 @@ function ClientePageContent() {
                   (alert) => (
                     <div
                       key={alert.id}
-                      className="group p-4 bg-white dark:bg-white/5 border border-slate-200 dark:border-border rounded-xl shadow-sm hover:border-rose-200 dark:hover:border-rose-500/30 transition-all flex justify-between items-start gap-4"
+                      className="group p-4 bg-card dark:bg-white/5 border border-border rounded-xl shadow-sm hover:border-rose-200 dark:hover:border-rose-500/30 transition-all flex justify-between items-start gap-4"
                     >
                       <div className="flex gap-3">
                         <span className="text-rose-500 mt-0.5">⚠️</span>
-                        <p className="text-sm text-slate-700 dark:text-white/90 whitespace-pre-wrap leading-relaxed">
+                        <p className="text-sm text-foreground/90/90 whitespace-pre-wrap leading-relaxed">
                           {alert.message || ""}
                         </p>
                       </div>
                       <button
                         onClick={() => handleDeleteAlert(alert.id)}
-                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-colors"
+                        className="p-2 text-muted-foreground/80 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-colors"
                         title="Resolver / Excluir"
                       >
                         <IconTrash />
@@ -2937,7 +2937,7 @@ function ClientePageContent() {
                 onClick={() =>
                   setShowAlertList({ open: false, clientId: null })
                 }
-                className="px-6 py-2 rounded-lg bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-white font-medium hover:bg-slate-200 dark:hover:bg-white/20 transition-colors text-sm"
+                className="px-6 py-2 rounded-lg bg-slate-100 dark:bg-white/10 text-foreground/90 font-medium hover:bg-slate-200 dark:hover:bg-white/20 transition-colors text-sm"
               >
                 Fechar Lista
               </button>
@@ -2970,13 +2970,13 @@ function ClientePageContent() {
 
             {/* ✅ Select da Sessão WhatsApp */}
             <div>
-              <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Sessão de Envio
               </label>
               <select
                 value={selectedSessionNow}
                 onChange={(e) => setSelectedSessionNow(e.target.value)}
-                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-xl text-slate-800 dark:text-white outline-none focus:border-sky-500 transition-colors text-sm font-medium"
+                className="w-full h-11 px-3 bg-muted/50 border border-border dark:border-border rounded-xl text-foreground outline-none focus:border-sky-500 transition-colors text-sm font-medium"
               >
                 {sessionOptions.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -2988,7 +2988,7 @@ function ClientePageContent() {
 
             {/* ✅ Select de template (opcional) */}
             <div>
-              <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Mensagem pronta (opcional)
               </label>
 
@@ -3005,7 +3005,7 @@ function ClientePageContent() {
                     setMessageText("");
                   }
                 }}
-                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-xl text-slate-800 dark:text-white outline-none focus:border-sky-500 transition-colors text-sm"
+                className="w-full h-11 px-3 bg-muted/50 border border-border dark:border-border rounded-xl text-foreground outline-none focus:border-sky-500 transition-colors text-sm"
               >
                 <option value="">Selecionar...</option>
                 {Object.entries(
@@ -3041,10 +3041,10 @@ function ClientePageContent() {
               if (!tpl?.image_url) return null;
               return (
                 <div className="mb-2 animate-in fade-in zoom-in-95 duration-200">
-                  <span className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+                  <span className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                     Imagem Anexada
                   </span>
-                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-border shadow-sm relative bg-slate-100 dark:bg-black/40">
+                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-border shadow-sm relative bg-slate-100 dark:bg-black/40">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={tpl.image_url}
@@ -3064,7 +3064,7 @@ function ClientePageContent() {
                 if (selectedTemplateNowId) setSelectedTemplateNowId("");
                 setMessageText(e.target.value);
               }}
-              className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-xl p-4 text-slate-800 dark:text-white outline-none focus:border-sky-500 transition-colors min-h-[120px] text-sm resize-none disabled:opacity-70"
+              className="w-full bg-muted/50 border border-border dark:border-border rounded-xl p-4 text-foreground outline-none focus:border-sky-500 transition-colors min-h-[120px] text-sm resize-none disabled:opacity-70"
               placeholder="Olá, gostaria de informar que..."
               autoFocus
             />
@@ -3072,7 +3072,7 @@ function ClientePageContent() {
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowSendNow({ open: false, clientId: null })}
-                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 text-sm font-medium transition-colors"
+                className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-muted/50 dark:hover:bg-white/5 text-sm font-medium transition-colors"
               >
                 Cancelar
               </button>
@@ -3110,13 +3110,13 @@ function ClientePageContent() {
 
             {/* ✅ Select da Sessão WhatsApp */}
             <div>
-              <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Sessão de Envio
               </label>
               <select
                 value={selectedSessionSchedule}
                 onChange={(e) => setSelectedSessionSchedule(e.target.value)}
-                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-xl text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors text-sm font-medium"
+                className="w-full h-11 px-3 bg-muted/50 border border-border dark:border-border rounded-xl text-foreground outline-none focus:border-purple-500 transition-colors text-sm font-medium"
               >
                 {sessionOptions.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -3127,24 +3127,24 @@ function ClientePageContent() {
             </div>
 
             <div>
-              <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Data e Hora do Envio
               </label>
               <input
                 type="datetime-local"
                 value={scheduleDate}
                 onChange={(e) => setScheduleDate(e.target.value)}
-                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-xl text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors text-sm"
+                className="w-full h-11 px-3 bg-muted/50 border border-border dark:border-border rounded-xl text-foreground outline-none focus:border-purple-500 transition-colors text-sm"
               />
             </div>
 
             <div>
-              <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Conteúdo da Mensagem
               </label>
               {/* ✅ Select de template (opcional) */}
               <div>
-                <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+                <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                   Mensagem pronta (opcional)
                 </label>
 
@@ -3161,7 +3161,7 @@ function ClientePageContent() {
                       setScheduleText("");
                     }
                   }}
-                  className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-xl text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors text-sm mb-3"
+                  className="w-full h-11 px-3 bg-muted/50 border border-border dark:border-border rounded-xl text-foreground outline-none focus:border-purple-500 transition-colors text-sm mb-3"
                 >
                   <option value="">
                     Selecionar mensagem pronta (opcional)...
@@ -3200,10 +3200,10 @@ function ClientePageContent() {
                 if (!tpl?.image_url) return null;
                 return (
                   <div className="mb-2 animate-in fade-in zoom-in-95 duration-200">
-                    <span className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+                    <span className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                       Imagem Anexada
                     </span>
-                    <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-border shadow-sm relative bg-slate-100 dark:bg-black/40">
+                    <div className="w-24 h-24 rounded-lg overflow-hidden border border-border shadow-sm relative bg-slate-100 dark:bg-black/40">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={tpl.image_url}
@@ -3223,7 +3223,7 @@ function ClientePageContent() {
                     setSelectedTemplateScheduleId("");
                   setScheduleText(e.target.value);
                 }}
-                className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-border rounded-xl p-4 text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors min-h-[120px] text-sm resize-none disabled:opacity-70"
+                className="w-full bg-muted/50 border border-border dark:border-border rounded-xl p-4 text-foreground outline-none focus:border-purple-500 transition-colors min-h-[120px] text-sm resize-none disabled:opacity-70"
                 placeholder="Ex: Olá, seu plano vence amanhã..."
               />
             </div>
@@ -3233,7 +3233,7 @@ function ClientePageContent() {
                 onClick={() =>
                   setShowScheduleMsg({ open: false, clientId: null })
                 }
-                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 text-sm font-medium transition-colors"
+                className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-muted/50 dark:hover:bg-white/5 text-sm font-medium transition-colors"
               >
                 Cancelar
               </button>
@@ -3270,7 +3270,7 @@ export default function ClientePage() {
   return (
     <Suspense
       fallback={
-        <div className="p-12 text-center text-slate-400 animate-pulse">
+        <div className="p-12 text-center text-muted-foreground/80 animate-pulse">
           Carregando...
         </div>
       }
@@ -3295,7 +3295,7 @@ function Select({
     <select
       value={value}
       onChange={onChange}
-      className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+      className="w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
     >
       {children}
     </select>
@@ -3473,7 +3473,7 @@ function ScheduledMessagesModal({
     <>
       <Modal title={`Mensagens Programadas • ${clientName}`} onClose={onClose}>
         {items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-slate-400 dark:text-white/30 border-2 border-dashed border-slate-200 dark:border-border rounded-xl">
+          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground/80 dark:text-white/30 border-2 border-dashed border-border rounded-xl">
             <span className="text-2xl mb-2">🗓️</span>
             <p className="text-sm">Nenhum agendamento encontrado.</p>
           </div>
@@ -3482,12 +3482,12 @@ function ScheduledMessagesModal({
             {items.map((it) => (
               <div
                 key={it.id}
-                className="p-4 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 transition hover:border-purple-200 dark:hover:border-purple-500/30"
+                className="p-4 rounded-xl border border-border bg-muted/50 transition hover:border-purple-200 dark:hover:border-purple-500/30"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <div className="text-[10px] font-medium text-slate-500 dark:text-white/60 uppercase tracking-wider bg-white dark:bg-white/10 px-2 py-0.5 rounded border border-slate-100 dark:border-border">
+                      <div className="text-[10px] font-medium text-muted-foreground dark:text-white/60 uppercase tracking-wider bg-card dark:bg-white/10 px-2 py-0.5 rounded border border-slate-100 dark:border-border">
                         // ✅ PARA — extrai via formatToParts (mesma lógica)
                         {(() => {
                           const dt = new Date(it.send_at);
@@ -3513,7 +3513,7 @@ function ScheduledMessagesModal({
                       )}
                     </div>
 
-                    <div className="text-sm text-slate-700 dark:text-white/90 whitespace-pre-wrap break-words leading-relaxed border-l-2 border-slate-200 dark:border-border pl-3">
+                    <div className="text-sm text-foreground/90/90 whitespace-pre-wrap break-words leading-relaxed border-l-2 border-border pl-3">
                       {it.message}
                     </div>
                   </div>
@@ -3521,7 +3521,7 @@ function ScheduledMessagesModal({
                   <button
                     onClick={() => handleDelete(it.id)}
                     disabled={deletingId === it.id}
-                    className="shrink-0 p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
+                    className="shrink-0 p-2 rounded-lg text-muted-foreground/80 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
                     title="Excluir agendamento"
                   >
                     {deletingId === it.id ? (
@@ -3627,7 +3627,7 @@ function MenuItem({
   return (
     <button
       onClick={onClick}
-      className="group w-full px-4 py-2.5 flex items-center gap-3 text-slate-600 dark:text-white/60 hover:bg-emerald-500/10 dark:hover:bg-white/5 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all text-left text-sm font-medium tracking-tight rounded-lg"
+      className="group w-full px-4 py-2.5 flex items-center gap-3 text-muted-foreground hover:bg-emerald-500/10 dark:hover:bg-white/5 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all text-left text-sm font-medium tracking-tight rounded-lg"
     >
       <span className="opacity-70 group-hover:scale-110 transition-transform">
         {icon}
@@ -3664,15 +3664,15 @@ function Modal({
     >
       <div
         onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-lg bg-white dark:bg-background border border-slate-200 dark:border-border rounded-xl shadow-2xl overflow-hidden"
+        className="w-full max-w-lg bg-card dark:bg-background border border-border rounded-xl shadow-2xl overflow-hidden"
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
-          <div className="font-medium text-slate-800 dark:text-white">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/50">
+          <div className="font-medium text-foreground">
             {title}
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-white/60 hover:text-slate-800 dark:hover:text-white"
+            className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white"
           >
             <IconX />
           </button>

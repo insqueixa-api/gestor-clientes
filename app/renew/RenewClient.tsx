@@ -966,7 +966,7 @@ export default function RenewClient() {
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-        <div className="w-full max-w-sm bg-white dark:bg-card rounded-3xl shadow-2xl overflow-hidden">
+        <div className="w-full max-w-sm bg-card rounded-3xl shadow-2xl overflow-hidden">
           <div className="bg-gradient-to-r from-slate-800 to-slate-900 py-4 px-6 text-white text-center">
             <h2 className="text-lg font-bold">Como deseja pagar?</h2>
             <p className="text-sm text-white/70 mt-0.5">
@@ -980,14 +980,14 @@ export default function RenewClient() {
           <div className="p-4 space-y-3">
             <button
               onClick={() => handleMethodConfirmDirect("card")}
-              className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-slate-200 dark:border-border hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left"
+              className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-border hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left"
             >
               <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-xl shrink-0">
                 💳
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                  <p className="font-bold text-slate-800 dark:text-white">
+                  <p className="font-bold text-foreground">
                     Cartão de Crédito / Débito
                   </p>
                 </div>
@@ -1002,13 +1002,13 @@ export default function RenewClient() {
 
             <button
               onClick={() => handleMethodConfirmDirect("apple_google")}
-              className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-slate-200 dark:border-border hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left"
+              className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-border hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left"
             >
               <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-xl shrink-0">
                 📱
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-slate-800 dark:text-white mb-0.5">
+                <p className="font-bold text-foreground mb-0.5">
                   Apple Pay / Google Pay
                 </p>
                 <p className="text-xs text-foreground/70 dark:text-white/50 mb-1">
@@ -1022,13 +1022,13 @@ export default function RenewClient() {
 
             <button
               onClick={() => handleMethodConfirmDirect("manual")}
-              className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-slate-200 dark:border-border hover:border-amber-400 hover:bg-amber-50 transition-all text-left"
+              className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-border hover:border-amber-400 hover:bg-amber-50 transition-all text-left"
             >
               <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-xl shrink-0">
                 🏦
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-slate-800 dark:text-white mb-0.5">
+                <p className="font-bold text-foreground mb-0.5">
                   Transferência Bancária
                 </p>
                 <p className="text-xs text-foreground/70 dark:text-white/50 mb-1">
@@ -1045,7 +1045,7 @@ export default function RenewClient() {
                 setShowMethodSelector(false);
                 setPendingRenew(null);
               }}
-              className="w-full text-sm font-medium text-slate-400 hover:text-slate-600 dark:text-white/70 transition-colors pt-1"
+              className="w-full text-sm font-medium text-muted-foreground/80 hover:text-muted-foreground transition-colors pt-1"
             >
               Cancelar
             </button>
@@ -1080,7 +1080,7 @@ export default function RenewClient() {
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-        <div className="w-full max-w-md bg-white dark:bg-card rounded-3xl shadow-2xl overflow-y-auto max-h-[95vh]">
+        <div className="w-full max-w-md bg-card rounded-3xl shadow-2xl overflow-y-auto max-h-[95vh]">
           {/* Success */}
           {isApproved && (
             <div className="p-6 sm:p-8 text-center">
@@ -1104,7 +1104,7 @@ export default function RenewClient() {
                   </div>
 
                   {/* Título */}
-                  <h2 className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white mb-5 leading-tight tracking-tight">
+                  <h2 className="text-2xl sm:text-3xl font-black text-foreground mb-5 leading-tight tracking-tight">
                     Pagamento Confirmado!
                   </h2>
 
@@ -1214,11 +1214,11 @@ export default function RenewClient() {
                     </svg>
                   </div>
 
-                  <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">
+                  <h2 className="text-2xl font-bold text-foreground mb-2">
                     Renovação com sucesso ✅
                   </h2>
 
-                  <p className="text-sm text-slate-600 dark:text-white/70 mb-4 font-medium">
+                  <p className="text-sm text-muted-foreground mb-4 font-medium">
                     Pagamento confirmado e assinatura atualizada.
                   </p>
 
@@ -1231,7 +1231,7 @@ export default function RenewClient() {
                     </div>
                   )}
 
-                  <p className="text-xs text-slate-400 dark:text-white/40 mt-4">
+                  <p className="text-xs text-muted-foreground/80 mt-4">
                     Atualizando página...
                   </p>
                 </>
@@ -1257,10 +1257,10 @@ export default function RenewClient() {
                   />
                 </svg>
               </div>
-              <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">
+              <h2 className="text-2xl font-bold text-foreground mb-2">
                 Falha na Renovação
               </h2>
-              <p className="text-slate-600 dark:text-white/70 mb-6">
+              <p className="text-muted-foreground mb-6">
                 Confirme se a transferência foi realizada e entre em contato com
                 o suporte.
               </p>
@@ -1304,7 +1304,7 @@ export default function RenewClient() {
               <div className="px-5 pt-4 pb-3 space-y-3">
                 {/* QR Code */}
                 {paymentPhase !== "renewing" && (
-                  <div className="bg-white dark:bg-card p-2 sm:p-4 rounded-xl border-2 border-slate-200 dark:border-border">
+                  <div className="bg-card p-2 sm:p-4 rounded-xl border-2 border-border">
                     {paymentData.pix_qr_code_base64 ? (
                       <img
                         src={`data:image/png;base64,${paymentData.pix_qr_code_base64}`}
@@ -1313,7 +1313,7 @@ export default function RenewClient() {
                       />
                     ) : (
                       <div className="w-48 h-48 sm:w-56 sm:h-56 bg-slate-100 rounded-lg flex items-center justify-center mx-auto">
-                        <p className="text-slate-400 dark:text-white/40 text-sm text-center">
+                        <p className="text-muted-foreground/80 text-sm text-center">
                           QR Code não disponível
                         </p>
                       </div>
@@ -1324,10 +1324,10 @@ export default function RenewClient() {
                 {/* Instruções */}
                 {paymentPhase !== "renewing" && (
                   <div className="space-y-2 text-sm">
-                    <p className="font-bold text-slate-700 flex items-center gap-2">
+                    <p className="font-bold text-foreground/90 flex items-center gap-2">
                       <span>📱</span> Como pagar:
                     </p>
-                    <ol className="list-decimal list-inside space-y-1 text-slate-600 dark:text-white/70 pl-6">
+                    <ol className="list-decimal list-inside space-y-1 text-muted-foreground pl-6">
                       <li>Abra o app do seu banco</li>
                       <li>Escaneie o QR Code</li>
                       <li>Confirme o pagamento</li>
@@ -1337,7 +1337,7 @@ export default function RenewClient() {
 
                 {/* Código Copia e Cola - Visual Premium */}
                 {paymentPhase !== "renewing" && paymentData.pix_qr_code && (
-                  <div className="bg-slate-50 dark:bg-white/5 p-3 rounded-xl border border-slate-200 dark:border-border space-y-2">
+                  <div className="bg-muted/50 p-3 rounded-xl border border-border space-y-2">
                     <p className="text-xs font-bold text-foreground/70 uppercase tracking-wider text-center">
                       Ou copie o código:
                     </p>
@@ -1346,7 +1346,7 @@ export default function RenewClient() {
                         type="text"
                         value={paymentData.pix_qr_code}
                         readOnly
-                        className="w-full pr-28 pl-3 py-2.5 bg-white dark:bg-card border-2 border-slate-200 dark:border-border rounded-lg text-xs font-mono text-slate-700 dark:text-white outline-none focus:border-blue-500 transition-colors shadow-sm"
+                        className="w-full pr-28 pl-3 py-2.5 bg-card border-2 border-border rounded-lg text-xs font-mono text-foreground/90 outline-none focus:border-blue-500 transition-colors shadow-sm"
                       />
                       <button
                         onClick={() => {
@@ -1395,7 +1395,7 @@ export default function RenewClient() {
                       setPaymentStatus("pending");
                       setPaymentPhase("awaiting_payment");
                     }}
-                    className="w-full pb-1 pt-0 !mt-3 text-sm font-medium text-slate-400 hover:text-slate-600 dark:text-white/70 transition-colors"
+                    className="w-full pb-1 pt-0 !mt-3 text-sm font-medium text-muted-foreground/80 hover:text-muted-foreground transition-colors"
                   >
                     Cancelar
                   </button>
@@ -1427,10 +1427,10 @@ export default function RenewClient() {
                   <>
                     {/* Valor */}
                     <div className="text-center">
-                      <p className="text-xs font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-1">
+                      <p className="text-xs font-bold text-muted-foreground/80 uppercase tracking-wider mb-1">
                         Total a pagar
                       </p>
-                      <p className="text-3xl font-black text-slate-800 dark:text-white">
+                      <p className="text-3xl font-black text-foreground">
                         {formatMoney(
                           paymentData.price_amount ?? 0,
                           paymentData.currency ??
@@ -1452,7 +1452,7 @@ export default function RenewClient() {
                             Pagamento para
                           </p>
                           {paymentData.beneficiary_name && (
-                            <p className="text-sm font-bold text-slate-800 dark:text-white truncate">
+                            <p className="text-sm font-bold text-foreground truncate">
                               {paymentData.beneficiary_name}
                             </p>
                           )}
@@ -1477,12 +1477,12 @@ export default function RenewClient() {
                         }
                       >
                         <div>
-                          <p className="text-xs font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-2">
+                          <p className="text-xs font-bold text-muted-foreground/80 uppercase tracking-wider mb-2">
                             Número do Cartão
                           </p>
                           <div
                             ref={setCardNumberMountEl}
-                            className="w-full px-4 py-3 bg-slate-50 dark:bg-white/5 border-2 border-slate-200 dark:border-border rounded-xl focus-within:border-indigo-500 transition-colors min-h-[46px]"
+                            className="w-full px-4 py-3 bg-muted/50 border-2 border-border rounded-xl focus-within:border-indigo-500 transition-colors min-h-[46px]"
                           />
                         </div>
                         <button
@@ -1504,27 +1504,27 @@ export default function RenewClient() {
                       >
                         <button
                           onClick={() => setStripeStep(1)}
-                          className="text-sm font-medium text-slate-400 hover:text-slate-600 dark:text-white/70 transition-colors flex items-center gap-1"
+                          className="text-sm font-medium text-muted-foreground/80 hover:text-muted-foreground transition-colors flex items-center gap-1"
                         >
                           ← Voltar
                         </button>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <p className="text-xs font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-2">
+                            <p className="text-xs font-bold text-muted-foreground/80 uppercase tracking-wider mb-2">
                               Validade
                             </p>
                             <div
                               ref={setCardExpiryMountEl}
-                              className="w-full px-4 py-3 bg-slate-50 dark:bg-white/5 border-2 border-slate-200 dark:border-border rounded-xl focus-within:border-indigo-500 transition-colors min-h-[46px]"
+                              className="w-full px-4 py-3 bg-muted/50 border-2 border-border rounded-xl focus-within:border-indigo-500 transition-colors min-h-[46px]"
                             />
                           </div>
                           <div>
-                            <p className="text-xs font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-2">
+                            <p className="text-xs font-bold text-muted-foreground/80 uppercase tracking-wider mb-2">
                               CVC
                             </p>
                             <div
                               ref={setCardCvcMountEl}
-                              className="w-full px-4 py-3 bg-slate-50 dark:bg-white/5 border-2 border-slate-200 dark:border-border rounded-xl focus-within:border-indigo-500 transition-colors min-h-[46px]"
+                              className="w-full px-4 py-3 bg-muted/50 border-2 border-border rounded-xl focus-within:border-indigo-500 transition-colors min-h-[46px]"
                             />
                           </div>
                         </div>
@@ -1563,7 +1563,7 @@ export default function RenewClient() {
                       </div>
                     </div>
 
-                    <p className="text-center text-[10px] text-slate-400 dark:text-white/40">
+                    <p className="text-center text-[10px] text-muted-foreground/80">
                       Pagamento processado com segurança via Stripe
                     </p>
 
@@ -1575,7 +1575,7 @@ export default function RenewClient() {
                         setPaymentPhase("awaiting_payment");
                         setStripeStep(1);
                       }}
-                      className="w-full text-sm font-medium text-slate-400 hover:text-slate-600 dark:text-white/70 transition-colors"
+                      className="w-full text-sm font-medium text-muted-foreground/80 hover:text-muted-foreground transition-colors"
                     >
                       Cancelar
                     </button>
@@ -1584,10 +1584,10 @@ export default function RenewClient() {
 
                 {/* Renovando */}
                 {paymentPhase === "renewing" && (
-                  <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-border flex items-center gap-3">
+                  <div className="p-4 bg-muted/50 rounded-xl border border-border flex items-center gap-3">
                     <div className="w-6 h-6 border-4 border-slate-600 border-t-transparent rounded-full animate-spin shrink-0" />
                     <div>
-                      <p className="text-sm font-bold text-slate-800 dark:text-white">
+                      <p className="text-sm font-bold text-foreground">
                         Processando renovação...
                       </p>
                       <p className="text-xs text-foreground/70 dark:text-white/50">
@@ -1622,10 +1622,10 @@ export default function RenewClient() {
                   {paymentPhase !== "renewing" && (
                     <>
                       <div className="text-center">
-                        <p className="text-xs font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-1">
+                        <p className="text-xs font-bold text-muted-foreground/80 uppercase tracking-wider mb-1">
                           Total a pagar
                         </p>
-                        <p className="text-3xl font-black text-slate-800 dark:text-white">
+                        <p className="text-3xl font-black text-foreground">
                           {formatMoney(
                             paymentData.price_amount ?? 0,
                             paymentData.currency ?? "EUR",
@@ -1644,7 +1644,7 @@ export default function RenewClient() {
                               Pagamento para
                             </p>
                             {paymentData.beneficiary_name && (
-                              <p className="text-sm font-bold text-slate-800 dark:text-white truncate">
+                              <p className="text-sm font-bold text-foreground truncate">
                                 {paymentData.beneficiary_name}
                               </p>
                             )}
@@ -1664,13 +1664,13 @@ export default function RenewClient() {
                         className={`min-h-[52px] ${paymentRequest ? "" : "hidden"}`}
                       />
                       {!paymentRequest && (
-                        <div className="flex items-center justify-center py-4 gap-2 text-slate-400 dark:text-white/40 text-sm">
-                          <div className="w-5 h-5 border-2 border-slate-300 dark:border-white/20 border-t-slate-600 rounded-full animate-spin" />
+                        <div className="flex items-center justify-center py-4 gap-2 text-muted-foreground/80 text-sm">
+                          <div className="w-5 h-5 border-2 border-border border-t-slate-600 rounded-full animate-spin" />
                           Verificando disponibilidade...
                         </div>
                       )}
 
-                      <p className="text-center text-[10px] text-slate-400 dark:text-white/40">
+                      <p className="text-center text-[10px] text-muted-foreground/80">
                         Pagamento processado com segurança via Stripe
                       </p>
 
@@ -1682,7 +1682,7 @@ export default function RenewClient() {
                           setPaymentPhase("awaiting_payment");
                           setStripeStep(1);
                         }}
-                        className="w-full text-sm font-medium text-slate-400 hover:text-slate-600 dark:text-white/70 transition-colors"
+                        className="w-full text-sm font-medium text-muted-foreground/80 hover:text-muted-foreground transition-colors"
                       >
                         Cancelar
                       </button>
@@ -1733,7 +1733,7 @@ export default function RenewClient() {
                 {effectiveGatewayType === "pix_manual" && (
                   <div className="space-y-3">
                     <div>
-                      <p className="text-xs font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-1">
+                      <p className="text-xs font-bold text-muted-foreground/80 uppercase tracking-wider mb-1">
                         Chave PIX
                       </p>
                       <div className="relative group">
@@ -1741,7 +1741,7 @@ export default function RenewClient() {
                           type="text"
                           value={paymentData.pix_key || ""}
                           readOnly
-                          className="w-full pr-28 pl-3 py-2.5 bg-white dark:bg-card border-2 border-slate-200 dark:border-border rounded-lg text-sm font-mono text-slate-800 dark:text-white outline-none focus:border-violet-500 transition-colors shadow-sm"
+                          className="w-full pr-28 pl-3 py-2.5 bg-card border-2 border-border rounded-lg text-sm font-mono text-foreground outline-none focus:border-violet-500 transition-colors shadow-sm"
                         />
                         <button
                           onClick={() => {
@@ -1767,11 +1767,11 @@ export default function RenewClient() {
                     </div>
 
                     <div>
-                      <p className="text-xs font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-1">
+                      <p className="text-xs font-bold text-muted-foreground/80 uppercase tracking-wider mb-1">
                         Titular (Favorecido)
                       </p>
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-medium text-slate-700 dark:text-white/80">
+                        <p className="text-sm font-medium text-foreground/90/80">
                           {paymentData.beneficiary_name ||
                             paymentData.holder_name}
                         </p>
@@ -1783,7 +1783,7 @@ export default function RenewClient() {
                                 paymentData.holder_name,
                             )
                           }
-                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "pix_name" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-300"}`}
+                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "pix_name" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-card/10 text-muted-foreground hover:bg-slate-300"}`}
                         >
                           {copiedField === "pix_name"
                             ? "✅ Copiado"
@@ -1794,18 +1794,18 @@ export default function RenewClient() {
 
                     {paymentData.institution && (
                       <div>
-                        <p className="text-xs font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-1">
+                        <p className="text-xs font-bold text-muted-foreground/80 uppercase tracking-wider mb-1">
                           Instituição Bancária
                         </p>
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm font-medium text-slate-700 dark:text-white/80">
+                          <p className="text-sm font-medium text-foreground/90/80">
                             {paymentData.institution}
                           </p>
                           <button
                             onClick={() =>
                               copyField("pix_inst", paymentData.institution)
                             }
-                            className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "pix_inst" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-300"}`}
+                            className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "pix_inst" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-card/10 text-muted-foreground hover:bg-slate-300"}`}
                           >
                             {copiedField === "pix_inst"
                               ? "✅ Copiado"
@@ -1819,20 +1819,20 @@ export default function RenewClient() {
 
                 {/* 2. DADOS PARA TRANSFERÊNCIA EUR */}
                 {effectiveGatewayType === "transfer_manual_eur" && (
-                  <div className="space-y-3 bg-slate-50 dark:bg-black/20 p-4 rounded-xl border border-slate-200 dark:border-border">
+                  <div className="space-y-3 bg-muted/50 dark:bg-black/20 p-4 rounded-xl border border-border">
                     <div>
-                      <p className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-0.5">
+                      <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider mb-0.5">
                         Nome do Favorecido
                       </p>
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-medium text-slate-800 dark:text-white">
+                        <p className="text-sm font-medium text-foreground">
                           {paymentData.beneficiary_name}
                         </p>
                         <button
                           onClick={() =>
                             copyField("eur_name", paymentData.beneficiary_name)
                           }
-                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_name" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-300"}`}
+                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_name" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-card/10 text-muted-foreground hover:bg-slate-300"}`}
                         >
                           {copiedField === "eur_name"
                             ? "✅ Copiado"
@@ -1842,18 +1842,18 @@ export default function RenewClient() {
                     </div>
                     {paymentData.bank_name && (
                       <div>
-                        <p className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-0.5">
+                        <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider mb-0.5">
                           Nome do Banco
                         </p>
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm font-medium text-slate-800 dark:text-white">
+                          <p className="text-sm font-medium text-foreground">
                             {paymentData.bank_name}
                           </p>
                           <button
                             onClick={() =>
                               copyField("eur_bank", paymentData.bank_name)
                             }
-                            className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_bank" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-300"}`}
+                            className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_bank" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-card/10 text-muted-foreground hover:bg-slate-300"}`}
                           >
                             {copiedField === "eur_bank"
                               ? "✅ Copiado"
@@ -1863,18 +1863,18 @@ export default function RenewClient() {
                       </div>
                     )}
                     <div>
-                      <p className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-0.5">
+                      <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider mb-0.5">
                         IBAN
                       </p>
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-mono font-medium text-slate-800 dark:text-white break-all">
+                        <p className="text-sm font-mono font-medium text-foreground break-all">
                           {paymentData.iban}
                         </p>
                         <button
                           onClick={() =>
                             copyField("eur_iban", paymentData.iban)
                           }
-                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_iban" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-300"}`}
+                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_iban" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-card/10 text-muted-foreground hover:bg-slate-300"}`}
                         >
                           {copiedField === "eur_iban"
                             ? "✅ Copiado"
@@ -1883,18 +1883,18 @@ export default function RenewClient() {
                       </div>
                     </div>
                     <div>
-                      <p className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-0.5">
+                      <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider mb-0.5">
                         Swift/BIC
                       </p>
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-mono font-medium text-slate-800 dark:text-white">
+                        <p className="text-sm font-mono font-medium text-foreground">
                           {paymentData.swift_bic}
                         </p>
                         <button
                           onClick={() =>
                             copyField("eur_swift", paymentData.swift_bic)
                           }
-                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_swift" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-300"}`}
+                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_swift" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-card/10 text-muted-foreground hover:bg-slate-300"}`}
                         >
                           {copiedField === "eur_swift"
                             ? "✅ Copiado"
@@ -1904,18 +1904,18 @@ export default function RenewClient() {
                     </div>
                     {paymentData.bank_address && (
                       <div>
-                        <p className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-0.5">
+                        <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider mb-0.5">
                           Endereço do Banco
                         </p>
                         <div className="flex items-start justify-between gap-2">
-                          <p className="text-xs text-slate-600 dark:text-muted-foreground leading-snug">
+                          <p className="text-xs text-muted-foreground dark:text-muted-foreground leading-snug">
                             {paymentData.bank_address}
                           </p>
                           <button
                             onClick={() =>
                               copyField("eur_addr", paymentData.bank_address)
                             }
-                            className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_addr" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-300"}`}
+                            className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_addr" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-card/10 text-muted-foreground hover:bg-slate-300"}`}
                           >
                             {copiedField === "eur_addr"
                               ? "✅ Copiado"
@@ -1929,20 +1929,20 @@ export default function RenewClient() {
 
                 {/* 3. DADOS PARA TRANSFERÊNCIA USD */}
                 {effectiveGatewayType === "transfer_manual_usd" && (
-                  <div className="space-y-3 bg-slate-50 dark:bg-black/20 p-4 rounded-xl border border-slate-200 dark:border-border">
+                  <div className="space-y-3 bg-muted/50 dark:bg-black/20 p-4 rounded-xl border border-border">
                     <div>
-                      <p className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-0.5">
+                      <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider mb-0.5">
                         Nome do Favorecido
                       </p>
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-medium text-slate-800 dark:text-white">
+                        <p className="text-sm font-medium text-foreground">
                           {paymentData.beneficiary_name}
                         </p>
                         <button
                           onClick={() =>
                             copyField("usd_name", paymentData.beneficiary_name)
                           }
-                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_name" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-300"}`}
+                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_name" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-card/10 text-muted-foreground hover:bg-slate-300"}`}
                         >
                           {copiedField === "usd_name"
                             ? "✅ Copiado"
@@ -1952,18 +1952,18 @@ export default function RenewClient() {
                     </div>
                     {paymentData.bank_name && (
                       <div>
-                        <p className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-0.5">
+                        <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider mb-0.5">
                           Nome do Banco
                         </p>
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm font-medium text-slate-800 dark:text-white">
+                          <p className="text-sm font-medium text-foreground">
                             {paymentData.bank_name}
                           </p>
                           <button
                             onClick={() =>
                               copyField("usd_bank", paymentData.bank_name)
                             }
-                            className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_bank" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-300"}`}
+                            className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_bank" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-card/10 text-muted-foreground hover:bg-slate-300"}`}
                           >
                             {copiedField === "usd_bank"
                               ? "✅ Copiado"
@@ -1973,18 +1973,18 @@ export default function RenewClient() {
                       </div>
                     )}
                     <div>
-                      <p className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-0.5">
+                      <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider mb-0.5">
                         Número da conta
                       </p>
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-mono font-medium text-slate-800 dark:text-white">
+                        <p className="text-sm font-mono font-medium text-foreground">
                           {paymentData.account_number}
                         </p>
                         <button
                           onClick={() =>
                             copyField("usd_acc", paymentData.account_number)
                           }
-                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_acc" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-300"}`}
+                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_acc" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-card/10 text-muted-foreground hover:bg-slate-300"}`}
                         >
                           {copiedField === "usd_acc"
                             ? "✅ Copiado"
@@ -1994,27 +1994,27 @@ export default function RenewClient() {
                     </div>
                     {paymentData.account_type && (
                       <div>
-                        <p className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-0.5">
+                        <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider mb-0.5">
                           Tipo da conta
                         </p>
-                        <p className="text-sm font-medium text-slate-800 dark:text-white">
+                        <p className="text-sm font-medium text-foreground">
                           {paymentData.account_type}
                         </p>
                       </div>
                     )}
                     <div>
-                      <p className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-0.5">
+                      <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider mb-0.5">
                         Routing number
                       </p>
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-mono font-medium text-slate-800 dark:text-white">
+                        <p className="text-sm font-mono font-medium text-foreground">
                           {paymentData.routing_number}
                         </p>
                         <button
                           onClick={() =>
                             copyField("usd_routing", paymentData.routing_number)
                           }
-                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_routing" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-300"}`}
+                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_routing" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-card/10 text-muted-foreground hover:bg-slate-300"}`}
                         >
                           {copiedField === "usd_routing"
                             ? "✅ Copiado"
@@ -2023,18 +2023,18 @@ export default function RenewClient() {
                       </div>
                     </div>
                     <div>
-                      <p className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-0.5">
+                      <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider mb-0.5">
                         Swift/BIC
                       </p>
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-mono font-medium text-slate-800 dark:text-white">
+                        <p className="text-sm font-mono font-medium text-foreground">
                           {paymentData.swift_bic}
                         </p>
                         <button
                           onClick={() =>
                             copyField("usd_swift", paymentData.swift_bic)
                           }
-                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_swift" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-300"}`}
+                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_swift" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-card/10 text-muted-foreground hover:bg-slate-300"}`}
                         >
                           {copiedField === "usd_swift"
                             ? "✅ Copiado"
@@ -2044,18 +2044,18 @@ export default function RenewClient() {
                     </div>
                     {paymentData.bank_address && (
                       <div>
-                        <p className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-0.5">
+                        <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider mb-0.5">
                           Endereço do Banco
                         </p>
                         <div className="flex items-start justify-between gap-2">
-                          <p className="text-xs text-slate-600 dark:text-muted-foreground leading-snug">
+                          <p className="text-xs text-muted-foreground dark:text-muted-foreground leading-snug">
                             {paymentData.bank_address}
                           </p>
                           <button
                             onClick={() =>
                               copyField("usd_addr", paymentData.bank_address)
                             }
-                            className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_addr" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-300"}`}
+                            className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_addr" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-card/10 text-muted-foreground hover:bg-slate-300"}`}
                           >
                             {copiedField === "usd_addr"
                               ? "✅ Copiado"
@@ -2077,10 +2077,10 @@ export default function RenewClient() {
 
                 {/* VALOR A TRANSFERIR (GLOBAL PARA TODOS OS MANUAIS) */}
                 <div className="pt-2">
-                  <p className="text-xs font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-1">
+                  <p className="text-xs font-bold text-muted-foreground/80 uppercase tracking-wider mb-1">
                     Valor a Transferir
                   </p>
-                  <p className="text-2xl font-bold text-slate-800 dark:text-white">
+                  <p className="text-2xl font-bold text-foreground">
                     {formatMoney(
                       paymentData.price_amount,
                       paymentData.currency,
@@ -2121,7 +2121,7 @@ export default function RenewClient() {
                     setPaymentModal(false);
                     setPaymentData(null);
                   }}
-                  className="w-full pb-1 pt-0 !mt-3 text-sm font-medium text-slate-400 hover:text-slate-600 dark:text-white/70 transition-colors"
+                  className="w-full pb-1 pt-0 !mt-3 text-sm font-medium text-muted-foreground/80 hover:text-muted-foreground transition-colors"
                 >
                   Fechar
                 </button>
@@ -2142,7 +2142,7 @@ export default function RenewClient() {
       <div className="min-h-screen bg-background p-4 py-8">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-600 dark:text-white/60 dark:text-white/60">Carregando...</p>
+          <p className="text-muted-foreground dark:text-white/60">Carregando...</p>
         </div>
       </div>
     );
@@ -2152,7 +2152,7 @@ export default function RenewClient() {
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <div className="max-w-md w-full bg-white dark:bg-card rounded-2xl shadow-2xl p-8 text-center border border-red-200 dark:border-red-500/20">
+        <div className="max-w-md w-full bg-card rounded-2xl shadow-2xl p-8 text-center border border-red-200 dark:border-red-500/20">
           <div className="w-16 h-16 bg-red-100 dark:bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg
               className="w-8 h-8 text-red-500"
@@ -2287,7 +2287,7 @@ export default function RenewClient() {
           {/* Busca (Opcional) */}
           {accounts.length > 3 && (
             <div className="mb-4 sm:mb-6 relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/40 text-lg">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/80 text-lg">
                 🔍
               </span>
               <input
@@ -2295,7 +2295,7 @@ export default function RenewClient() {
                 placeholder="Buscar conta..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-12 pl-12 pr-4 bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-blue-500 transition-colors shadow-sm"
+                className="w-full h-12 pl-12 pr-4 bg-card border border-border rounded-xl text-sm text-foreground outline-none focus:border-blue-500 transition-colors shadow-sm"
               />
             </div>
           )}
@@ -2303,7 +2303,7 @@ export default function RenewClient() {
           {/* --- CARDS DE CONTAS (Layout 3 Linhas) --- */}
           <div className="space-y-4">
             {filteredAccounts.length === 0 ? (
-              <div className="text-center py-8 text-slate-400 dark:text-white/40 bg-white/50 dark:bg-white/5 rounded-xl border border-dashed border-slate-300 dark:border-border">
+              <div className="text-center py-8 text-muted-foreground/80 bg-card/50 dark:bg-card/5 rounded-xl border border-dashed border-border dark:border-border">
                 Nenhuma conta encontrada.
               </div>
             ) : (
@@ -2313,11 +2313,11 @@ export default function RenewClient() {
                   <button
                     key={account.id}
                     onClick={() => handleSelectAccount(account.id)}
-                    className="w-full text-left bg-white dark:bg-card rounded-xl p-4 border border-slate-200 hover:border-blue-500 dark:border-border dark:hover:border-blue-500 transition-all shadow-sm hover:shadow-md group relative overflow-hidden"
+                    className="w-full text-left bg-card rounded-xl p-4 border border-border hover:border-blue-500 dark:border-border dark:hover:border-blue-500 transition-all shadow-sm hover:shadow-md group relative overflow-hidden"
                   >
                     {/* Linha 1: Nome (Esq) | Username (Dir, preservando maiúsculas/minúsculas) */}
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-base font-bold text-slate-800 dark:text-white truncate pr-2 flex items-center gap-2">
+                      <h3 className="text-base font-bold text-foreground truncate pr-2 flex items-center gap-2">
                         {account.display_name}
                         {account.is_trial && (
                           <span className="px-1.5 py-0.5 bg-sky-100 dark:bg-sky-500/20 text-sky-700 dark:text-sky-300 text-[9px] font-bold rounded uppercase tracking-wider">
@@ -2325,7 +2325,7 @@ export default function RenewClient() {
                           </span>
                         )}
                       </h3>
-                      <span className="text-xs font-mono font-medium text-slate-600 dark:text-muted-foreground shrink-0 bg-slate-50 dark:bg-black/20 px-2 py-1 rounded border border-slate-200 dark:border-border">
+                      <span className="text-xs font-mono font-medium text-muted-foreground dark:text-muted-foreground shrink-0 bg-muted/50 dark:bg-black/20 px-2 py-1 rounded border border-border">
                         {account.server_username}
                       </span>
                     </div>
@@ -2367,7 +2367,7 @@ export default function RenewClient() {
   if (accounts.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <div className="max-w-md w-full bg-white dark:bg-card rounded-2xl shadow-2xl p-8 text-center">
+        <div className="max-w-md w-full bg-card rounded-2xl shadow-2xl p-8 text-center">
           <p className="text-foreground/70">
             Nenhuma conta encontrada
           </p>
@@ -2388,7 +2388,7 @@ export default function RenewClient() {
             {/* Botão de Voltar para a Tela 1 */}
             <button
               onClick={() => setSelectedAccountId(null)}
-              className="w-8 h-8 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-lg text-white transition-colors shrink-0"
+              className="w-8 h-8 flex items-center justify-center bg-card/10 hover:bg-card/20 rounded-lg text-white transition-colors shrink-0"
               title="Voltar"
             >
               <span className="text-lg leading-none mt-[-2px]">←</span>
@@ -2483,7 +2483,7 @@ export default function RenewClient() {
                 : "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/30"
           }`}
         >
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-600 dark:text-white/50 mb-1">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground dark:text-white/50 mb-1">
             Status da Assinatura
           </p>
           <div className="flex items-center justify-center gap-2">
@@ -2512,45 +2512,45 @@ export default function RenewClient() {
         </div>
 
         {/* Card de Dados de Acesso */}
-        <div className="bg-white dark:bg-card rounded-xl shadow-sm border border-slate-200 dark:border-border overflow-hidden">
-          <div className="bg-slate-50 dark:bg-white/5 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-slate-200 dark:border-border">
-            <h2 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
+        <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
+          <div className="bg-muted/50 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-border">
+            <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
               📺 Dados de Acesso
             </h2>
           </div>
           <div className="p-3 sm:p-4 space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider block mb-1">
+                <label className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider block mb-1">
                   Usuário
                 </label>
-                <div className="text-sm font-mono text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-border truncate">
+                <div className="text-sm font-mono text-foreground bg-muted/50 dark:bg-black/20 px-3 py-2 rounded-lg border border-border truncate">
                   {selectedAccount.server_username}
                 </div>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider block mb-1">
+                <label className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider block mb-1">
                   Servidor
                 </label>
-                <div className="text-sm font-medium text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-border truncate">
+                <div className="text-sm font-medium text-foreground bg-muted/50 dark:bg-black/20 px-3 py-2 rounded-lg border border-border truncate">
                   {selectedAccount.server_name}
                 </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider block mb-1">
+                <label className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider block mb-1">
                   Vencimento em
                 </label>
-                <div className="text-sm font-medium text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-border">
+                <div className="text-sm font-medium text-foreground bg-muted/50 dark:bg-black/20 px-3 py-2 rounded-lg border border-border">
                   {formatDateTime(selectedAccount.vencimento)}
                 </div>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider block mb-1">
+                <label className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider block mb-1">
                   Telas
                 </label>
-                <div className="text-sm font-bold text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-border">
+                <div className="text-sm font-bold text-foreground bg-muted/50 dark:bg-black/20 px-3 py-2 rounded-lg border border-border">
                   {selectedAccount.screens}{" "}
                   {selectedAccount.screens > 1 ? "telas" : "tela"}
                 </div>
@@ -2560,9 +2560,9 @@ export default function RenewClient() {
         </div>
 
         {/* Seção de Planos */}
-        <div className="bg-white dark:bg-card rounded-xl shadow-sm border border-slate-200 dark:border-border overflow-hidden">
-          <div className="bg-slate-50 dark:bg-white/5 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-slate-200 dark:border-border">
-            <h2 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
+        <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
+          <div className="bg-muted/50 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-border">
+            <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
               💰 Escolha o Plano
             </h2>
           </div>
@@ -2583,14 +2583,14 @@ export default function RenewClient() {
                   className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
                     isSelected
                       ? "border-blue-500 bg-blue-50 dark:bg-blue-500/10"
-                      : "border-slate-200 dark:border-border hover:border-blue-300 dark:hover:border-blue-500/50"
+                      : "border-border hover:border-blue-300 dark:hover:border-blue-500/50"
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <div
-                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? "border-blue-500 bg-blue-50 dark:bg-blue-500/100" : "border-slate-300 dark:border-white/30"}`}
+                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? "border-blue-500 bg-blue-50 dark:bg-blue-500/100" : "border-border dark:border-white/30"}`}
                         >
                           {isSelected && (
                             <svg
@@ -2606,7 +2606,7 @@ export default function RenewClient() {
                             </svg>
                           )}
                         </div>
-                        <span className="font-bold text-slate-800 dark:text-white">
+                        <span className="font-bold text-foreground">
                           {selectedAccount.plan_label}{" "}
                           <span className="text-xs font-normal text-blue-600 dark:text-blue-400 uppercase tracking-wider ml-1">
                             (Atual)
@@ -2616,7 +2616,7 @@ export default function RenewClient() {
                     </div>
                     <div className="text-right ml-2">
                       <div
-                        className={`text-lg font-bold ${isSelected ? "text-blue-600 dark:text-blue-400" : "text-slate-500 dark:text-white/60"}`}
+                        className={`text-lg font-bold ${isSelected ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground dark:text-white/60"}`}
                       >
                         {currentPrice.price_amount > 0
                           ? formatMoney(
@@ -2661,7 +2661,7 @@ export default function RenewClient() {
                               />
                             </svg>
                           </div>
-                          <span className="font-bold text-slate-800 dark:text-white">
+                          <span className="font-bold text-foreground">
                             {PERIOD_LABELS[selectedPrice.period]}{" "}
                             <span className="text-xs font-normal text-emerald-600 dark:text-emerald-400 tracking-wider ml-1">
                               (Selecionado)
@@ -2692,7 +2692,7 @@ export default function RenewClient() {
             ).length > 0 && (
               <button
                 onClick={() => setShowOtherPlans(!showOtherPlans)}
-                className="w-full py-3 px-4 rounded-xl border-2 border-dashed border-slate-300 dark:border-white/20 text-slate-600 dark:text-muted-foreground font-bold flex items-center justify-center gap-2 hover:bg-slate-50 dark:bg-white/5 dark:hover:bg-white/5 transition-all"
+                className="w-full py-3 px-4 rounded-xl border-2 border-dashed border-border text-muted-foreground dark:text-muted-foreground font-bold flex items-center justify-center gap-2 hover:bg-muted/50 dark:hover:bg-card/5 transition-all"
               >
                 🏷️ {showOtherPlans ? "Ocultar Ofertas" : "Ver Mais Ofertas"}
                 <svg
@@ -2714,7 +2714,7 @@ export default function RenewClient() {
             {/* Expansível de Ofertas */}
             {showOtherPlans && (
               <div className="space-y-2 animate-in slide-in-from-top-2 duration-200 mt-2">
-                <p className="text-[10px] font-bold text-slate-400 dark:text-muted-foreground uppercase tracking-wider px-1">
+                <p className="text-[10px] font-bold text-muted-foreground/80 dark:text-muted-foreground uppercase tracking-wider px-1">
                   Todas as Opções
                 </p>
                 {availablePrices
@@ -2767,14 +2767,14 @@ export default function RenewClient() {
                         className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
                           isSelected
                             ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10"
-                            : "border-slate-200 dark:border-border hover:border-emerald-300 dark:hover:border-emerald-500/50"
+                            : "border-border hover:border-emerald-300 dark:hover:border-emerald-500/50"
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
                               <div
-                                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? "border-emerald-500 bg-emerald-500" : "border-slate-300 dark:border-white/30"}`}
+                                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? "border-emerald-500 bg-emerald-500" : "border-border dark:border-white/30"}`}
                               >
                                 {isSelected && (
                                   <svg
@@ -2790,7 +2790,7 @@ export default function RenewClient() {
                                   </svg>
                                 )}
                               </div>
-                              <span className="font-bold text-slate-800 dark:text-white">
+                              <span className="font-bold text-foreground">
                                 {PERIOD_LABELS[price.period]}
                               </span>
                               {diffPercent !== 0 && price.price_amount > 0 && (
@@ -2810,7 +2810,7 @@ export default function RenewClient() {
                             </p>
                           </div>
                           <div className="text-right ml-2">
-                            <div className="text-lg font-bold text-slate-800 dark:text-white">
+                            <div className="text-lg font-bold text-foreground">
                               {price.price_amount > 0
                                 ? formatMoney(
                                     price.price_amount,

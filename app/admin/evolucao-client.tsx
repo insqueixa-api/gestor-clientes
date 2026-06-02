@@ -202,7 +202,7 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
   return (
     <div
       ref={containerRef}
-      className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden"
+      className="bg-card dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden"
     >
       {/* Header */}
       <div className="px-4 sm:px-5 pt-4 pb-3 border-b border-zinc-100 dark:border-zinc-800">

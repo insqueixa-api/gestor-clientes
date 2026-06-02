@@ -413,7 +413,7 @@ function GlobalQueueMonitor({
       {showModal &&
         createPortal(
           <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="w-full max-w-6xl bg-white dark:bg-card rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+            <div className="w-full max-w-6xl bg-card rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-100 dark:border-border flex justify-between items-center bg-gray-50 dark:bg-white/5">
                 <h3 className="font-medium text-lg dark:text-white">
                   Gerenciador de Fila
@@ -452,23 +452,23 @@ function GlobalQueueMonitor({
                         </td>
 
                         {/* ORIGEM */}
-                        <td className="p-4 font-medium text-slate-800 dark:text-white whitespace-nowrap">
+                        <td className="p-4 font-medium text-foreground whitespace-nowrap">
                           {job.origem === "AUTOMACAO"
                             ? "Automação"
                             : "Envio Manual"}
                         </td>
 
                         {/* CLIENTE */}
-                        <td className="p-4 font-medium text-slate-800 dark:text-white">
+                        <td className="p-4 font-medium text-foreground">
                           {job.client_name || (
-                            <span className="text-slate-400 font-medium">
+                            <span className="text-muted-foreground/80 font-medium">
                               (cliente não encontrado)
                             </span>
                           )}
                         </td>
 
                         {/* WHATSAPP */}
- <td className="p-4 text-xs text-slate-600 dark:text-muted-foreground whitespace-nowrap">
+ <td className="p-4 text-xs text-muted-foreground dark:text-muted-foreground whitespace-nowrap">
                           {job.whatsapp_username || "--"}
                         </td>
 
@@ -476,19 +476,19 @@ function GlobalQueueMonitor({
                         <td className="p-4">
                           {job.template_name ? (
                             <div className="flex flex-col">
-                              <span className="font-medium text-slate-800 dark:text-white">
+                              <span className="font-medium text-foreground">
                                 {job.template_name}
                               </span>
-                              <span className="text-[10px] text-slate-400">
+                              <span className="text-[10px] text-muted-foreground/80">
                                 Template
                               </span>
                             </div>
                           ) : (
                             <div className="flex flex-col">
-                              <span className="font-medium text-slate-800 dark:text-white">
+                              <span className="font-medium text-foreground">
                                 Personalizada
                               </span>
-                              <span className="text-[11px] text-slate-500 dark:text-white/60 line-clamp-2">
+                              <span className="text-[11px] text-muted-foreground dark:text-white/60 line-clamp-2">
                                 {job.message_preview || "--"}
                               </span>
                             </div>
@@ -1122,8 +1122,8 @@ export default function BillingPage() {
       </div>
       {/* Barra de busca (padrão admin: sticky no desktop) */}
       <div className="p-0 px-3 sm:px-0 md:px-4">
-        <div className="p-0 md:p-4 bg-transparent md:bg-white md:dark:bg-card border-0 md:border md:border-slate-200 md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm md:sticky md:top-4 z-20">
-          <div className="hidden md:block text-xs font-medium uppercase text-slate-400 dark:text-muted-foreground tracking-wider mb-3">
+        <div className="p-0 md:p-4 bg-transparent md:bg-card md:dark:bg-card border-0 md:border md:border-border md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm md:sticky md:top-4 z-20">
+          <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground/80 dark:text-muted-foreground tracking-wider mb-3">
             Busca
           </div>
 
@@ -1133,9 +1133,9 @@ export default function BillingPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar regra..."
-                className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+                className="w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors"
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/80 text-xs">
                 🔍
               </span>
             </div>
@@ -1153,15 +1153,15 @@ export default function BillingPage() {
       </div>
       {/* LISTA (GRID 3 COLUNAS) */}
       {loading ? (
-        <div className="text-center py-10 text-slate-400 animate-pulse">
+        <div className="text-center py-10 text-muted-foreground/80 animate-pulse">
           Carregando automações...
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-card border border-dashed border-slate-300 dark:border-border rounded-2xl">
+        <div className="flex flex-col items-center justify-center py-20 bg-card border border-dashed border-border dark:border-border rounded-2xl">
           <div className="w-16 h-16 bg-slate-100 dark:bg-white/5 rounded-full flex items-center justify-center mb-4 text-3xl">
             🤖
           </div>
-          <h3 className="text-lg font-medium text-slate-700 dark:text-white">
+          <h3 className="text-lg font-medium text-foreground/90">
             Nenhuma regra ativa
           </h3>
           <p className="text-sm text-foreground/70 dark:text-white/50 mt-1">
@@ -1273,19 +1273,19 @@ function AutomationCard({
 
   return (
     <div
-      className={`bg-white dark:bg-card border rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-lg transition-all flex flex-col justify-between h-full relative overflow-hidden group ${data.is_active ? "border-t-4 border-t-emerald-500 border-x-slate-200 border-b-slate-200 dark:border-border" : "border-slate-200 dark:border-border opacity-75 grayscale-[0.8] hover:grayscale-0"}`}
+      className={`bg-card border rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-lg transition-all flex flex-col justify-between h-full relative overflow-hidden group ${data.is_active ? "border-t-4 border-t-emerald-500 border-x-slate-200 border-b-slate-200 dark:border-border" : "border-border opacity-75 grayscale-[0.8] hover:grayscale-0"}`}
     >
       {/* Header: Nome e Toggle */}
       <div className="flex justify-between items-start mb-3">
         <div className="flex-1 pr-2">
           <h3
-            className="font-medium text-slate-800 dark:text-white text-base line-clamp-1"
+            className="font-medium text-foreground text-base line-clamp-1"
             title={data.name}
           >
             {data.name}
           </h3>
           <div className="flex items-center gap-2 mt-1">
-            <span className="gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-slate-100 dark:bg-white/5 text-slate-500 uppercase border border-slate-200 dark:border-border tracking-wider">
+            <span className="gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-slate-100 dark:bg-white/5 text-muted-foreground uppercase border border-border tracking-wider">
               {data.type}
             </span>
             <span
@@ -1312,18 +1312,18 @@ function AutomationCard({
           className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${data.is_active ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}
         >
           <span
-            className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition ${data.is_active ? "translate-x-4.5" : "translate-x-1"}`}
+            className={`inline-block h-3.5 w-3.5 transform rounded-full bg-card transition ${data.is_active ? "translate-x-4.5" : "translate-x-1"}`}
           />
         </button>
       </div>
 
       {/* Info do Disparo */}
-      <div className="space-y-2 mb-4 bg-slate-50 dark:bg-black/20 p-3 rounded-lg border border-slate-100 dark:border-border">
-        <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-muted-foreground">
+      <div className="space-y-2 mb-4 bg-muted/50 p-3 rounded-lg border border-slate-100 dark:border-border">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground dark:text-muted-foreground">
           <span className="text-base">📅</span>
           <span className="font-medium">{getRuleText()}</span>
         </div>
-        <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-muted-foreground">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground dark:text-muted-foreground">
           <span className="text-base">
             <MessageCircle className="w-4 h-4" />
           </span>
@@ -1335,7 +1335,7 @@ function AutomationCard({
           </span>
         </div>
         {data.is_automatic && (
-          <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground dark:text-muted-foreground">
             <span className="text-base">⏰</span>
             <span>
               Envio às <strong>{data.schedule_time?.slice(0, 5)}</strong>
@@ -1343,11 +1343,11 @@ function AutomationCard({
           </div>
         )}
         {/* ✅ SESSÃO DO WHATSAPP COM STATUS E NÚMERO REAIS */}
-        <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-muted-foreground pt-2 mt-1 border-t border-slate-200 dark:border-border">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground dark:text-muted-foreground pt-2 mt-1 border-t border-border">
           <span className="text-base">📱</span>
           <span className="truncate" title={sessionLabel}>
             Sessão:{" "}
-            <strong className="text-slate-700 dark:text-white/90">
+            <strong className="text-foreground/90/90">
               {sessionLabel || "Carregando..."}
             </strong>
           </span>
@@ -1363,19 +1363,19 @@ function AutomationCard({
             className="cursor-pointer group/impact"
             title="Clique para ver os clientes"
           >
-            <div className="text-[10px] text-slate-400 uppercase font-medium tracking-wider mb-0.5">
+            <div className="text-[10px] text-muted-foreground/80 uppercase font-medium tracking-wider mb-0.5">
               Afetados Hoje
             </div>
-            <div className="text-xl font-medium text-slate-800 dark:text-white group-hover/impact:text-emerald-500 transition-colors flex items-center gap-1">
+            <div className="text-xl font-medium text-foreground group-hover/impact:text-emerald-500 transition-colors flex items-center gap-1">
               {impactCount}
-              <span className="text-xs text-slate-400 font-medium group-hover/impact:text-emerald-400">
+              <span className="text-xs text-muted-foreground/80 font-medium group-hover/impact:text-emerald-400">
                 clientes
               </span>
             </div>
           </div>
 
           <div className="text-right">
-            <div className="text-[10px] text-slate-400 uppercase font-medium tracking-wider mb-1">
+            <div className="text-[10px] text-muted-foreground/80 uppercase font-medium tracking-wider mb-1">
               Ações
             </div>
 
@@ -1393,7 +1393,7 @@ function AutomationCard({
                                 ${
                                   data.is_active
                                     ? "bg-emerald-600 text-white hover:bg-emerald-500"
-                                    : "bg-slate-200 text-slate-400 cursor-not-allowed dark:bg-white/10 dark:text-white/30"
+                                    : "bg-slate-200 text-muted-foreground/80 cursor-not-allowed dark:bg-white/10 dark:text-white/30"
                                 }`}
                       title="Ativa a execução automática (dias/horário configurados)"
                     >
@@ -1407,7 +1407,7 @@ function AutomationCard({
                                 ${
                                   data.is_active
                                     ? "bg-rose-600 text-white hover:bg-rose-500"
-                                    : "bg-slate-200 text-slate-400 cursor-not-allowed dark:bg-white/10 dark:text-white/30"
+                                    : "bg-slate-200 text-muted-foreground/80 cursor-not-allowed dark:bg-white/10 dark:text-white/30"
                                 }`}
                       title="Cancela a execução automática (mantém a regra ativa no toggle)"
                     >
@@ -1428,7 +1428,7 @@ function AutomationCard({
                         ${
                           data.is_active
                             ? "bg-sky-600 text-white hover:bg-sky-500"
-                            : "bg-slate-200 text-slate-400 cursor-not-allowed dark:bg-white/10 dark:text-white/30"
+                            : "bg-slate-200 text-muted-foreground/80 cursor-not-allowed dark:bg-white/10 dark:text-white/30"
                         }`}
                 title="Dispara agora (enfileira imediatamente)"
               >
@@ -1467,7 +1467,7 @@ function AutomationCard({
                             ${
                               data.is_active
                                 ? "bg-emerald-600 text-white hover:bg-emerald-500"
-                                : "bg-slate-200 text-slate-400 cursor-not-allowed dark:bg-white/10 dark:text-white/30"
+                                : "bg-slate-200 text-muted-foreground/80 cursor-not-allowed dark:bg-white/10 dark:text-white/30"
                             }`}
                     title="Retomar envios"
                   >
@@ -1495,7 +1495,7 @@ function AutomationCard({
 
               <button
                 onClick={onShowLogs}
-                className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 text-xs font-medium hover:bg-slate-200 dark:bg-white/10 dark:text-muted-foreground transition"
+                className="px-3 py-1.5 rounded-lg bg-slate-100 text-foreground/90 text-xs font-medium hover:bg-slate-200 dark:bg-white/10 dark:text-muted-foreground transition"
                 title="Logs"
               >
                 Logs
@@ -1513,7 +1513,7 @@ function AutomationCard({
         </div>
 
         {/* Data Ultimo Envio */}
-        <div className="mt-2 text-[9px] text-center text-slate-400">
+        <div className="mt-2 text-[9px] text-center text-muted-foreground/80">
           Último envio: {formatDateTimeSP(data.last_run_at)}
         </div>
       </div>
@@ -1539,10 +1539,10 @@ function ImpactListModal({
 
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-4xl bg-white dark:bg-card border border-slate-200 dark:border-border rounded-2xl shadow-2xl flex flex-col max-h-[80vh]">
-        <div className="px-6 py-4 border-b border-slate-100 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5">
+      <div className="w-full max-w-4xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[80vh]">
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-border flex justify-between items-center bg-muted/50">
           <div>
-            <h3 className="text-lg font-medium text-slate-800 dark:text-white">
+            <h3 className="text-lg font-medium text-foreground">
               Clientes Afetados Hoje
             </h3>
             <p className="text-xs text-foreground/70">
@@ -1552,7 +1552,7 @@ function ImpactListModal({
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-800 dark:hover:text-white text-xl leading-none"
+            className="text-muted-foreground/80 hover:text-foreground dark:hover:text-white text-xl leading-none"
           >
             ✕
           </button>
@@ -1560,12 +1560,12 @@ function ImpactListModal({
 
         <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
           {data.clients.length === 0 ? (
-            <div className="p-10 text-center text-slate-400 italic">
+            <div className="p-10 text-center text-muted-foreground/80 italic">
               Nenhum cliente atende a esta regra hoje.
             </div>
           ) : (
             <table className="w-full text-left border-collapse min-w-[700px]">
-              <thead className="bg-slate-50 dark:bg-white/5 sticky top-0 z-10 text-xs uppercase text-slate-500 dark:text-muted-foreground font-medium">
+              <thead className="bg-muted/50 sticky top-0 z-10 text-xs uppercase text-muted-foreground dark:text-muted-foreground font-medium">
                 <tr>
                   <th className="p-3">Cliente / Contato</th>
                   <th className="p-3">Acesso / Servidor</th>
@@ -1575,23 +1575,23 @@ function ImpactListModal({
                   <th className="p-3">Plano</th>
                 </tr>
               </thead>
-              <tbody className="text-sm text-slate-700 dark:text-white/80 divide-y divide-slate-100 dark:divide-white/5">
+              <tbody className="text-sm text-foreground/90/80 divide-y divide-slate-100 dark:divide-white/5">
                 {data.clients.map((c) => (
                   <tr
                     key={c.id}
-                    className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors align-top"
+                    className="hover:bg-muted/50 dark:hover:bg-white/5 transition-colors align-top"
                   >
                     {/* COLUNA 1: CLIENTES E WHATSAPP */}
                     <td className="p-3">
                       {/* Principal */}
                       <div className="flex flex-col">
-                        <span className="font-medium text-slate-800 dark:text-white flex items-center gap-1.5">
+                        <span className="font-medium text-foreground flex items-center gap-1.5">
                           {c.display_name}
-                          <span className="text-[10px] bg-slate-100 dark:bg-white/10 text-slate-500 px-1.5 py-0.5 rounded font-medium uppercase">
+                          <span className="text-[10px] bg-slate-100 dark:bg-white/10 text-muted-foreground px-1.5 py-0.5 rounded font-medium uppercase">
                             Titular
                           </span>
                         </span>
- <span className="text-xs text-slate-500">
+ <span className="text-xs text-muted-foreground">
                           📞 {c.whatsapp_username || "--"}
                         </span>
                       </div>
@@ -1599,13 +1599,13 @@ function ImpactListModal({
                       {/* Secundário (só aparece se tiver) */}
                       {c.secondary_display_name && (
                         <div className="flex flex-col mt-2.5 pt-2 border-t border-slate-100 dark:border-border">
-                          <span className="font-medium text-slate-700 dark:text-slate-300 text-xs flex items-center gap-1.5">
+                          <span className="font-medium text-foreground/90 dark:text-slate-300 text-xs flex items-center gap-1.5">
                             {c.secondary_display_name}
                             <span className="text-[9px] bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 px-1.5 py-0.5 rounded font-medium uppercase">
                               Secundário
                             </span>
                           </span>
- <span className="text-xs text-slate-500">
+ <span className="text-xs text-muted-foreground">
                             📞 {c.secondary_whatsapp_username || "--"}
                           </span>
                         </div>
@@ -1615,14 +1615,14 @@ function ImpactListModal({
                     {/* COLUNA 2: SERVIDOR E LOGIN */}
                     <td className="p-3">
                       <div className="flex flex-col">
-                        <span className="font-medium text-slate-800 dark:text-white text-sm">
+                        <span className="font-medium text-foreground text-sm">
                           {c.username || (
-                            <span className="text-slate-400 italic font-medium">
+                            <span className="text-muted-foreground/80 italic font-medium">
                               Sem usuário
                             </span>
                           )}
                         </span>
-                        <span className="text-xs text-slate-500 mt-0.5">
+                        <span className="text-xs text-muted-foreground mt-0.5">
                           {c.server_name || "--"}
                         </span>
                       </div>
@@ -1635,7 +1635,7 @@ function ImpactListModal({
                           {isCadastro ? "📝" : "📅"}
                         </span>
                         <div className="flex flex-col">
-                          <span className="font-medium text-slate-800 dark:text-white leading-tight">
+                          <span className="font-medium text-foreground leading-tight">
                             {formatDateSP(
                               isCadastro ? c.created_at : c.vencimento,
                             )}
@@ -1643,7 +1643,7 @@ function ImpactListModal({
                           {formatTimeSP(
                             isCadastro ? c.created_at : c.vencimento,
                           ) && (
- <span className="text-xs text-slate-500 mt-0.5">
+ <span className="text-xs text-muted-foreground mt-0.5">
                               ⏰{" "}
                               {formatTimeSP(
                                 isCadastro ? c.created_at : c.vencimento,
@@ -1657,7 +1657,7 @@ function ImpactListModal({
                     {/* COLUNA 4: PLANO E VALOR */}
                     <td className="p-3">
                       <div className="flex flex-col items-start gap-1">
-                        <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-xs font-medium text-slate-700 dark:text-slate-300">
+                        <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-xs font-medium text-foreground/90 dark:text-slate-300">
                           {c.plan_label || "Sem plano"}
                         </span>
                         {c.price_amount > 0 && (
@@ -1855,10 +1855,10 @@ function AutomationWizard({
 
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-2xl bg-white dark:bg-card border border-slate-200 dark:border-border rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
-        <div className="px-6 py-5 border-b border-slate-100 dark:border-border bg-slate-50 dark:bg-white/5">
+      <div className="w-full max-w-2xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
+        <div className="px-6 py-5 border-b border-slate-100 dark:border-border bg-muted/50">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-medium text-slate-800 dark:text-white">
+            <h2 className="text-xl font-medium text-foreground">
               {editingRule
                 ? `Editar: ${editingRule.name}`
                 : step === 1
@@ -1869,7 +1869,7 @@ function AutomationWizard({
             </h2>
             <button
               onClick={onClose}
-              className="text-slate-400 hover:text-slate-800 transition-colors"
+              className="text-muted-foreground/80 hover:text-foreground transition-colors"
             >
               ✕
             </button>
@@ -1949,33 +1949,33 @@ function AutomationWizard({
 
               <div>
                 <Label>Segurança (Intervalo entre envios)</Label>
-                <div className="flex items-center gap-3 bg-slate-50 dark:bg-white/5 p-3 rounded-lg border border-slate-100 dark:border-border mt-1">
-                  <span className="text-xs text-slate-500">Entre</span>
+                <div className="flex items-center gap-3 bg-muted/50 p-3 rounded-lg border border-slate-100 dark:border-border mt-1">
+                  <span className="text-xs text-muted-foreground">Entre</span>
                   <input
                     type="number"
-                    className="w-16 h-8 text-center rounded border border-slate-200 dark:border-border bg-white dark:bg-black/20 text-sm"
+                    className="w-16 h-8 text-center rounded border border-border bg-card dark:bg-black/20 text-sm"
                     value={form.delay_min}
                     onChange={(e) =>
                       setForm({ ...form, delay_min: Number(e.target.value) })
                     }
                   />
-                  <span className="text-xs text-slate-500">e</span>
+                  <span className="text-xs text-muted-foreground">e</span>
                   <input
                     type="number"
-                    className="w-16 h-8 text-center rounded border border-slate-200 dark:border-border bg-white dark:bg-black/20 text-sm"
+                    className="w-16 h-8 text-center rounded border border-border bg-card dark:bg-black/20 text-sm"
                     value={form.delay_max}
                     onChange={(e) =>
                       setForm({ ...form, delay_max: Number(e.target.value) })
                     }
                   />
-                  <span className="text-xs text-slate-500">segundos</span>
+                  <span className="text-xs text-muted-foreground">segundos</span>
                 </div>
               </div>
 
               <div className="pt-2 border-t border-slate-100 dark:border-border">
                 <Label>Regra de Disparo</Label>
                 <div className="flex items-center gap-2 mt-2 bg-emerald-50/50 dark:bg-emerald-500/5 p-3 rounded-lg border border-emerald-100 dark:border-emerald-500/20">
-                  <span className="text-sm text-slate-600 dark:text-white">
+                  <span className="text-sm text-muted-foreground dark:text-white">
                     Enviar
                   </span>
                   <div className="flex items-center">
@@ -1986,13 +1986,13 @@ function AutomationWizard({
                           rule_days_diff: -Math.abs(form.rule_days_diff || 1),
                         })
                       }
-                      className={`px-2 py-1 rounded-l border text-xs font-medium ${form.rule_days_diff < 0 ? "bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400 border-rose-500" : "bg-white dark:bg-black/20 border-slate-200 dark:border-border text-slate-500"}`}
+                      className={`px-2 py-1 rounded-l border text-xs font-medium ${form.rule_days_diff < 0 ? "bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400 border-rose-500" : "bg-card dark:bg-black/20 border-border text-muted-foreground"}`}
                     >
                       Antes
                     </button>
                     <button
                       onClick={() => setForm({ ...form, rule_days_diff: 0 })}
-                      className={`px-2 py-1 border-t border-b text-xs font-medium ${form.rule_days_diff === 0 ? "bg-sky-500 text-white border-sky-500" : "bg-white dark:bg-black/20 border-slate-200 dark:border-border text-slate-500"}`}
+                      className={`px-2 py-1 border-t border-b text-xs font-medium ${form.rule_days_diff === 0 ? "bg-sky-500 text-white border-sky-500" : "bg-card dark:bg-black/20 border-border text-muted-foreground"}`}
                     >
                       No Dia
                     </button>
@@ -2003,7 +2003,7 @@ function AutomationWizard({
                           rule_days_diff: Math.abs(form.rule_days_diff || 1),
                         })
                       }
-                      className={`px-2 py-1 rounded-r border text-xs font-medium ${form.rule_days_diff > 0 ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400 border-emerald-500" : "bg-white dark:bg-black/20 border-slate-200 dark:border-border text-slate-500"}`}
+                      className={`px-2 py-1 rounded-r border text-xs font-medium ${form.rule_days_diff > 0 ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400 border-emerald-500" : "bg-card dark:bg-black/20 border-border text-muted-foreground"}`}
                     >
                       Depois
                     </button>
@@ -2011,7 +2011,7 @@ function AutomationWizard({
                   {form.rule_days_diff !== 0 && (
                     <input
                       type="number"
-                      className="w-14 h-8 text-center rounded border border-slate-200 dark:border-border bg-white dark:bg-black/20 text-sm font-medium"
+                      className="w-14 h-8 text-center rounded border border-border bg-card dark:bg-black/20 text-sm font-medium"
                       value={Math.abs(form.rule_days_diff)}
                       onChange={(e) =>
                         setForm({
@@ -2023,11 +2023,11 @@ function AutomationWizard({
                       }
                     />
                   )}
-                  <span className="text-sm text-slate-600 dark:text-white">
+                  <span className="text-sm text-muted-foreground dark:text-white">
                     {form.rule_days_diff !== 0 ? "dias do" : "do"}
                   </span>
                   <select
-                    className="h-8 rounded border border-slate-200 dark:border-border bg-white dark:bg-black/20 text-sm px-2 outline-none"
+                    className="h-8 rounded border border-border bg-card dark:bg-black/20 text-sm px-2 outline-none"
                     value={form.rule_date_field}
                     onChange={(e) =>
                       setForm({ ...form, rule_date_field: e.target.value })
@@ -2082,26 +2082,26 @@ function AutomationWizard({
           {step === 3 && (
             <div className="space-y-8 py-4">
               <div className="flex flex-col items-center gap-4">
-                <span className="text-sm font-medium text-slate-500 dark:text-white/60 uppercase tracking-widest">
+                <span className="text-sm font-medium text-muted-foreground dark:text-white/60 uppercase tracking-widest">
                   Modo de Operação
                 </span>
                 <div className="flex items-center gap-4 bg-slate-100 dark:bg-white/5 p-1 rounded-xl">
                   <button
                     onClick={() => setForm({ ...form, is_automatic: false })}
-                    className={`px-6 py-3 rounded-lg text-sm font-medium transition-all ${!form.is_automatic ? "bg-white dark:bg-slate-700 shadow-md text-slate-800 dark:text-white" : "text-slate-400 hover:text-slate-600"}`}
+                    className={`px-6 py-3 rounded-lg text-sm font-medium transition-all ${!form.is_automatic ? "bg-card dark:bg-slate-700 shadow-md text-foreground" : "text-muted-foreground/80 hover:text-muted-foreground"}`}
                   >
                     Manual
                   </button>
                   <button
                     onClick={() => setForm({ ...form, is_automatic: true })}
-                    className={`px-6 py-3 rounded-lg text-sm font-medium transition-all ${form.is_automatic ? "bg-white dark:bg-slate-700 shadow-md text-emerald-600 dark:text-emerald-400" : "text-slate-400 hover:text-slate-600"}`}
+                    className={`px-6 py-3 rounded-lg text-sm font-medium transition-all ${form.is_automatic ? "bg-card dark:bg-slate-700 shadow-md text-emerald-600 dark:text-emerald-400" : "text-muted-foreground/80 hover:text-muted-foreground"}`}
                   >
                     Automático
                   </button>
                 </div>
               </div>
               {form.is_automatic && (
-                <div className="bg-slate-50 dark:bg-white/5 p-6 rounded-2xl border border-slate-100 dark:border-border space-y-6 animate-in fade-in slide-in-from-bottom-4">
+                <div className="bg-muted/50 p-6 rounded-2xl border border-slate-100 dark:border-border space-y-6 animate-in fade-in slide-in-from-bottom-4">
                   <div>
                     <Label>Horário do Disparo (Brasília)</Label>
                     <div className="flex justify-center mt-2">
@@ -2111,7 +2111,7 @@ function AutomationWizard({
                         onChange={(e) =>
                           setForm({ ...form, schedule_time: e.target.value })
                         }
-                        className="text-3xl font-medium bg-transparent border-b-2 border-emerald-500 text-center w-32 outline-none text-slate-800 dark:text-white"
+                        className="text-3xl font-medium bg-transparent border-b-2 border-emerald-500 text-center w-32 outline-none text-foreground"
                       />
                     </div>
                   </div>
@@ -2132,7 +2132,7 @@ function AutomationWizard({
                                   : [...current, d.id],
                               });
                             }}
-                            className={`w-10 h-10 rounded-full font-medium text-xs transition-all border ${selected ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/30" : "bg-white dark:bg-white/5 border-slate-200 dark:border-border text-slate-400"}`}
+                            className={`w-10 h-10 rounded-full font-medium text-xs transition-all border ${selected ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/30" : "bg-card dark:bg-white/5 border-border text-muted-foreground/80"}`}
                           >
                             {d.label}
                           </button>
@@ -2151,13 +2151,13 @@ function AutomationWizard({
             <>
               <button
                 onClick={onClose}
-                className="text-slate-500 font-medium text-xs uppercase hover:text-slate-800 dark:hover:text-white"
+                className="text-muted-foreground font-medium text-xs uppercase hover:text-foreground dark:hover:text-white"
               >
                 Cancelar
               </button>
               <button
                 onClick={() => setStep(2)}
-                className="px-6 py-2.5 bg-slate-800 dark:bg-white dark:text-slate-900 text-white font-medium rounded-xl shadow-lg hover:brightness-110 transition-all text-xs uppercase"
+                className="px-6 py-2.5 bg-slate-800 dark:bg-card dark:text-foreground text-white font-medium rounded-xl shadow-lg hover:brightness-110 transition-all text-xs uppercase"
               >
                 Próximo: Filtros →
               </button>
@@ -2167,13 +2167,13 @@ function AutomationWizard({
             <>
               <button
                 onClick={() => setStep(1)}
-                className="text-slate-500 font-medium text-xs uppercase hover:text-slate-800 dark:hover:text-white"
+                className="text-muted-foreground font-medium text-xs uppercase hover:text-foreground dark:hover:text-white"
               >
                 ← Voltar
               </button>
               <button
                 onClick={() => setStep(3)}
-                className="px-6 py-2.5 bg-slate-800 dark:bg-white dark:text-slate-900 text-white font-medium rounded-xl shadow-lg hover:brightness-110 transition-all text-xs uppercase"
+                className="px-6 py-2.5 bg-slate-800 dark:bg-card dark:text-foreground text-white font-medium rounded-xl shadow-lg hover:brightness-110 transition-all text-xs uppercase"
               >
                 Próximo: Automação →
               </button>
@@ -2183,7 +2183,7 @@ function AutomationWizard({
             <>
               <button
                 onClick={() => setStep(2)}
-                className="text-slate-500 font-medium text-xs uppercase hover:text-slate-800 dark:hover:text-white"
+                className="text-muted-foreground font-medium text-xs uppercase hover:text-foreground dark:hover:text-white"
               >
                 ← Voltar
               </button>
@@ -2205,7 +2205,7 @@ function AutomationWizard({
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-[10px] font-medium text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+    <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
       {children}
     </label>
   );
@@ -2217,7 +2217,7 @@ function Input({
   return (
     <input
       {...props}
-      className={`h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500 transition-colors ${className}`}
+      className={`h-10 px-3 bg-card dark:bg-black/20 border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500 transition-colors ${className}`}
     />
   );
 }
@@ -2229,7 +2229,7 @@ function Select({
   return (
     <select
       {...props}
-      className={`h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500 transition-colors ${className}`}
+      className={`h-10 px-3 bg-card dark:bg-black/20 border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500 transition-colors ${className}`}
     >
       {children}
     </select>
@@ -2276,42 +2276,42 @@ function MultiSelectDropdown({ label, options, selected, onChange }: any) {
       <Label>{label}</Label>
       <button
         onClick={() => setOpen(!open)}
-        className={`w-full h-10 px-3 text-left rounded-lg border text-sm flex justify-between items-center transition-all ${open ? "border-emerald-500 ring-1 ring-emerald-500/20" : "border-slate-200 dark:border-border bg-white dark:bg-black/20 text-slate-700 dark:text-white"}`}
+        className={`w-full h-10 px-3 text-left rounded-lg border text-sm flex justify-between items-center transition-all ${open ? "border-emerald-500 ring-1 ring-emerald-500/20" : "border-border bg-card dark:bg-black/20 text-foreground/90"}`}
       >
         <span
           className={
-            selected.length === 0 ? "text-slate-400 italic" : "font-medium"
+            selected.length === 0 ? "text-muted-foreground/80 italic" : "font-medium"
           }
         >
           {getLabel()}
         </span>
-        <span className="text-xs text-slate-400">▼</span>
+        <span className="text-xs text-muted-foreground/80">▼</span>
       </button>
 
       {open && (
-        <div className="absolute z-50 bottom-full mb-1 w-full bg-white dark:bg-[#1c2128] border border-slate-200 dark:border-border rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 flex flex-col">
+        <div className="absolute z-50 bottom-full mb-1 w-full bg-card dark:bg-[#1c2128] border border-border rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 flex flex-col">
           <div className="max-h-48 overflow-y-auto custom-scrollbar p-1">
             {options.map((opt: any) => (
               <div
                 key={opt.id}
                 onClick={() => toggleOption(opt.id)}
-                className="px-3 py-2 hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer flex items-center gap-3 transition-colors rounded-lg"
+                className="px-3 py-2 hover:bg-muted/50 dark:hover:bg-white/5 cursor-pointer flex items-center gap-3 transition-colors rounded-lg"
               >
                 <div
-                  className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${selected.includes(opt.id) ? "bg-emerald-500 border-emerald-500" : "border-slate-300 dark:border-white/20"}`}
+                  className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${selected.includes(opt.id) ? "bg-emerald-500 border-emerald-500" : "border-border"}`}
                 >
                   {selected.includes(opt.id) && (
                     <span className="text-[10px] text-white">✓</span>
                   )}
                 </div>
-                <span className="text-sm text-slate-700 dark:text-white">
+                <span className="text-sm text-foreground/90">
                   {opt.label}
                 </span>
               </div>
             ))}
           </div>
           {/* ✅ BOTÃO CONCLUIR */}
-          <div className="p-2 border-t border-slate-100 dark:border-border bg-slate-50 dark:bg-white/5">
+          <div className="p-2 border-t border-slate-100 dark:border-border bg-muted/50">
             <button
               onClick={() => setOpen(false)}
               className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400 font-medium text-xs uppercase transition-colors"
@@ -2329,12 +2329,12 @@ function MultiSelectDropdown({ label, options, selected, onChange }: any) {
             return (
               <span
                 key={id}
-                className="inline-flex items-center px-2 py-1 rounded bg-slate-100 dark:bg-white/10 text-xs font-medium text-slate-600 dark:text-white border border-slate-200 dark:border-border"
+                className="inline-flex items-center px-2 py-1 rounded bg-slate-100 dark:bg-white/10 text-xs font-medium text-muted-foreground dark:text-white border border-border"
               >
                 {label}
                 <button
                   onClick={() => toggleOption(id)}
-                  className="ml-1.5 text-slate-400 hover:text-rose-500 text-[10px]"
+                  className="ml-1.5 text-muted-foreground/80 hover:text-rose-500 text-[10px]"
                 >
                   ✕
                 </button>
@@ -2398,10 +2398,10 @@ function LogsModal({
 
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-3xl bg-white dark:bg-card border border-slate-200 dark:border-border rounded-2xl shadow-2xl flex flex-col max-h-[80vh]">
-        <div className="px-6 py-4 border-b border-slate-100 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5">
+      <div className="w-full max-w-3xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[80vh]">
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-border flex justify-between items-center bg-muted/50">
           <div>
-            <h3 className="text-lg font-medium text-slate-800 dark:text-white">
+            <h3 className="text-lg font-medium text-foreground">
               Logs de Envio
             </h3>
             <p className="text-xs text-foreground/70">
@@ -2410,23 +2410,23 @@ function LogsModal({
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-800 dark:hover:text-white"
+            className="text-muted-foreground/80 hover:text-foreground dark:hover:text-white"
           >
             ✕
           </button>
         </div>
         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
           {loading ? (
-            <div className="text-center py-10 text-slate-400">
+            <div className="text-center py-10 text-muted-foreground/80">
               Carregando...
             </div>
           ) : logs.length === 0 ? (
-            <div className="text-center py-10 text-slate-400">
+            <div className="text-center py-10 text-muted-foreground/80">
               Nenhum registro encontrado.
             </div>
           ) : (
             <table className="w-full text-left text-sm">
-              <thead className="text-xs uppercase text-slate-500 border-b border-slate-100 dark:border-border">
+              <thead className="text-xs uppercase text-muted-foreground border-b border-slate-100 dark:border-border">
                 <tr>
                   <th className="p-2">Data/Hora</th>
                   <th className="p-2">Cliente</th>
@@ -2438,21 +2438,21 @@ function LogsModal({
                 {logs.map((log) => (
                   <tr
                     key={log.id}
-                    className="border-b border-slate-50 dark:border-border last:border-0 hover:bg-slate-50 dark:hover:bg-white/5"
+                    className="border-b border-slate-50 dark:border-border last:border-0 hover:bg-muted/50 dark:hover:bg-white/5"
                   >
- <td className="p-2 text-slate-500 text-xs">
+ <td className="p-2 text-muted-foreground text-xs">
                       {formatDateTimeSP(log.sent_at)}
                     </td>
 
-                    <td className="p-2 font-medium text-slate-700 dark:text-white">
+                    <td className="p-2 font-medium text-foreground/90">
                       {log.client_name}
                     </td>
-                    <td className="p-2 text-slate-500">
+                    <td className="p-2 text-muted-foreground">
                       {log.client_whatsapp}
                     </td>
                     <td className="p-2">
                       <span
-                        className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm uppercase ${log.status === "SENT" ? "bg-emerald-100 text-emerald-700" : log.status === "FAILED" ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-600"}`}
+                        className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm uppercase ${log.status === "SENT" ? "bg-emerald-100 text-emerald-700" : log.status === "FAILED" ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-muted-foreground"}`}
                       >
                         {log.status}
                       </span>

@@ -489,9 +489,9 @@ export default function AdminServersPage() {
       details: validDns.map((dns, idx) => (
         <div
           key={idx}
-          className="flex items-center justify-between bg-white dark:bg-black/20 p-2.5 rounded-lg border border-slate-200 dark:border-border mb-1.5 shadow-sm"
+          className="flex items-center justify-between bg-card dark:bg-black/20 p-2.5 rounded-lg border border-border mb-1.5 shadow-sm"
         >
-          <span className="font-mono text-xs text-slate-600 dark:text-muted-foreground truncate mr-2 select-all">
+          <span className="font-mono text-xs text-muted-foreground dark:text-muted-foreground truncate mr-2 select-all">
             {dns}
           </span>
           <button
@@ -501,7 +501,7 @@ export default function AdminServersPage() {
               navigator.clipboard.writeText(dns);
               addToast("success", "Copiado", "DNS copiada com sucesso!");
             }}
-            className="p-1.5 text-slate-400 dark:text-muted-foreground hover:text-sky-600 dark:hover:text-sky-400 hover:bg-slate-100 dark:hover:bg-white/10 rounded transition-colors shrink-0"
+            className="p-1.5 text-muted-foreground/80 dark:text-muted-foreground hover:text-sky-600 dark:hover:text-sky-400 hover:bg-slate-100 dark:hover:bg-white/10 rounded transition-colors shrink-0"
             title="Copiar"
           >
             <svg
@@ -631,7 +631,7 @@ export default function AdminServersPage() {
             className={`h-10 px-3 rounded-lg text-xs font-medium border transition-colors items-center justify-center ${
               showArchived
                 ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-                : "bg-white dark:bg-white/5 border-slate-200 dark:border-border text-slate-500 dark:text-white/60"
+                : "bg-card dark:bg-white/5 border-border text-muted-foreground dark:text-white/60"
             }`}
           >
             {showArchived ? "Ocultar Lixeira" : "Ver Lixeira"}
@@ -648,13 +648,13 @@ export default function AdminServersPage() {
 
       <div className="space-y-6 pt-0 px-0">
         {loading && (
-          <div className="mx-3 sm:mx-0 p-12 text-center text-slate-400 dark:text-muted-foreground animate-pulse bg-white dark:bg-card rounded-xl border border-slate-200 dark:border-border">
+          <div className="mx-3 sm:mx-0 p-12 text-center text-muted-foreground/80 dark:text-muted-foreground animate-pulse bg-card rounded-xl border border-border">
             Carregando servidores...
           </div>
         )}
 
         {!loading && servers.length === 0 && (
-          <div className="mx-3 sm:mx-0 p-12 text-center text-slate-400 dark:text-white/30 bg-white dark:bg-card rounded-xl border border-dashed border-slate-200 dark:border-border">
+          <div className="mx-3 sm:mx-0 p-12 text-center text-muted-foreground/80 dark:text-white/30 bg-card rounded-xl border border-dashed border-border">
             Nenhum servidor encontrado {showArchived ? "na lixeira" : ""}.
           </div>
         )}
@@ -665,25 +665,25 @@ export default function AdminServersPage() {
               <div
                 key={server.id}
                 // ✅ PADRÃO CONTRATO: Fundo white/dark[#161b22], borda slate-200/white-10
-                className={`rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-white dark:bg-card
+                className={`rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-card
         ${
           server.is_archived
             ? "border-amber-500/30 opacity-75 grayscale-[0.5]"
-            : "border-slate-200 dark:border-border hover:border-emerald-500/30"
+            : "border-border hover:border-emerald-500/30"
         }`}
               >
                 {/* ✅ HEADER DO CARD: Fundo slate-50/white-5, igual ao header da tabela de clientes */}
-                <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
+                <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-border bg-muted/50">
                   <Link
                     href={`/admin/gerenciador/servidor/${server.id}`}
                     className="flex items-center gap-3 min-w-0 pr-3 group cursor-pointer"
                   >
-                    {/* ✅ TÍTULO: Ajustado para text-slate-700 (era 800) para igualar ao título da lista de clientes */}
+                    {/* ✅ TÍTULO: Ajustado para text-foreground/90 (era 800) para igualar ao título da lista de clientes */}
                     {server.logo_url ? (
                       <img
                         src={server.logo_url}
                         alt={server.name}
-                        className="w-8 h-8 rounded-lg object-cover border border-slate-200 dark:border-border shrink-0"
+                        className="w-8 h-8 rounded-lg object-cover border border-border shrink-0"
                       />
                     ) : (
                       <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-base">
@@ -691,7 +691,7 @@ export default function AdminServersPage() {
                       </div>
                     )}
                     <h2
-                      className="text-base font-medium truncate text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors tracking-tight flex items-center gap-2"
+                      className="text-base font-medium truncate text-foreground/90 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors tracking-tight flex items-center gap-2"
                       title={server.name}
                     >
                       {server.name}
@@ -798,7 +798,7 @@ export default function AdminServersPage() {
                 <div className="p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-2 gap-5 text-sm">
                   <div className="space-y-4">
                     <div className="flex justify-between items-center text-sm">
-                      <div className="flex items-center gap-2.5 text-slate-500 dark:text-white/50">
+                      <div className="flex items-center gap-2.5 text-muted-foreground">
                         <svg
                           width="16"
                           height="16"
@@ -816,7 +816,7 @@ export default function AdminServersPage() {
                         </svg>
                         <span>Total de clientes</span>
                       </div>
-                      <span className="font-normal text-slate-700 dark:text-white/80">
+                      <span className="font-normal text-foreground/90/80">
   {formatNumber(server.stats?.total)}
 </span>
                     </div>
@@ -839,7 +839,7 @@ export default function AdminServersPage() {
                       </div>
                       <Link
   href={`/admin/cliente?server_id=${server.id}&status=active`}
-  className="font-normal text-slate-600 dark:text-white/60 hover:text-emerald-500 hover:underline cursor-pointer transition-colors"
+  className="font-normal text-muted-foreground hover:text-emerald-500 hover:underline cursor-pointer transition-colors"
 >
                         {formatNumber(server.stats?.active)}
                       </Link>
@@ -864,7 +864,7 @@ export default function AdminServersPage() {
                       </div>
                       <Link
   href={`/admin/cliente?server_id=${server.id}&status=inactive`}
-  className="font-normal text-slate-600 dark:text-white/60 hover:text-rose-500 hover:underline cursor-pointer transition-colors"
+  className="font-normal text-muted-foreground hover:text-rose-500 hover:underline cursor-pointer transition-colors"
 >
                         {formatNumber(server.stats?.inactive)}
                       </Link>
@@ -892,7 +892,7 @@ export default function AdminServersPage() {
                       </div>
                       <Link
   href={`/admin/cliente?server_id=${server.id}&status=trial`}
-  className="font-normal text-slate-600 dark:text-white/60 hover:text-sky-500 hover:underline cursor-pointer transition-colors"
+  className="font-normal text-muted-foreground hover:text-sky-500 hover:underline cursor-pointer transition-colors"
 >
                         {formatNumber(server.stats?.trial)}
                       </Link>
@@ -905,7 +905,7 @@ export default function AdminServersPage() {
                       </div>
                       <Link
   href={`/admin/revendedor?server_id=${server.id}`}
-  className="font-normal text-slate-600 dark:text-white/60 hover:text-amber-500 hover:underline cursor-pointer transition-colors"
+  className="font-normal text-muted-foreground hover:text-amber-500 hover:underline cursor-pointer transition-colors"
 >
                         {formatNumber(server.stats?.resellers)}
                       </Link>
@@ -914,10 +914,10 @@ export default function AdminServersPage() {
 
                   <div className="space-y-2 pl-0 sm:pl-4 sm:border-l border-slate-100 dark:border-border">
                     <div className="flex justify-between items-center">
-                      <span className="flex items-center gap-2 text-slate-500 dark:text-white/50">
+                      <span className="flex items-center gap-2 text-muted-foreground">
                         <IconCardCusto /> Custo crédito
                       </span>
-<span className="font-normal text-slate-700 dark:text-white bg-slate-100 dark:bg-white/10 px-2 py-0.5 rounded-lg text-xs">
+<span className="font-normal text-foreground/90 bg-slate-100 dark:bg-white/10 px-2 py-0.5 rounded-lg text-xs">
                         {formatMoney(
                           server.credit_unit_cost_brl ??
                             server.default_credit_unit_price,
@@ -927,7 +927,7 @@ export default function AdminServersPage() {
                     </div>
 
                     <div className="flex justify-between items-center">
-                      <span className="flex items-center gap-2 text-slate-500 dark:text-white/50">
+                      <span className="flex items-center gap-2 text-muted-foreground">
                         <IconCardSaldo /> Saldo atual
                       </span>
                       <span
@@ -942,7 +942,7 @@ export default function AdminServersPage() {
                     </div>
 
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-500 dark:text-white/50 flex items-center gap-2">
+                      <span className="text-muted-foreground flex items-center gap-2">
                         {server.panel_integration ? (
                           <span
                             className="text-sky-600 dark:text-sky-400"
@@ -952,7 +952,7 @@ export default function AdminServersPage() {
                           </span>
                         ) : (
                           <span
-                            className="text-slate-400 dark:text-white/30"
+                            className="text-muted-foreground/80 dark:text-white/30"
                             title="Sem integração"
                           >
                             <IconPlugOff />
@@ -961,7 +961,7 @@ export default function AdminServersPage() {
                         Integração
                       </span>
 
-                      <span className="font-normal text-slate-700 dark:text-white truncate max-w-[210px] text-right">
+                      <span className="font-normal text-foreground/90 truncate max-w-[210px] text-right">
                         {server.panel_integration
                           ? `${server.panel_integration_name || "Sem nome"} — ${providerLabel(server.panel_integration_provider)}`
                           : "--"}
@@ -970,13 +970,13 @@ export default function AdminServersPage() {
 
                     {/* ✅ INÍCIO DO NOVO BLOCO: PORTAL (SESSÃO WHATSAPP) */}
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-500 dark:text-white/50 flex items-center gap-2">
+                      <span className="text-muted-foreground flex items-center gap-2">
                         <span title="WhatsApp do Portal">
                           <IconChat />
                         </span>
                         WhatsApp Portal
                       </span>
-                      <span className="font-medium text-slate-700 dark:text-white truncate max-w-[210px] text-right">
+                      <span className="font-medium text-foreground/90 truncate max-w-[210px] text-right">
                         {server.whatsapp_session === "session2"
                           ? waLabel2
                           : waLabel1}
@@ -985,10 +985,10 @@ export default function AdminServersPage() {
                     {/* ✅ FIM DO NOVO BLOCO */}
 
                     <div className="flex justify-between items-center">
-                      <span className="flex items-center gap-2 text-slate-500 dark:text-white/50">
+                      <span className="flex items-center gap-2 text-muted-foreground">
                         <IconCardPainel /> Painel
                       </span>
-                      <span className="font-normal text-slate-700 dark:text-white">
+                      <span className="font-normal text-foreground/90">
                         {server.panel_type === "WEB"
                           ? "Web"
                           : server.panel_type === "TELEGRAM"
@@ -998,7 +998,7 @@ export default function AdminServersPage() {
                     </div>
 
                     <div className="flex justify-between items-center">
-                      <span className="flex items-center gap-2 text-slate-500 dark:text-white/50">
+                      <span className="flex items-center gap-2 text-muted-foreground">
                         <IconCardDns /> DNS config.
                       </span>
                       {(server.dns?.filter((d) => d.trim()).length || 0) > 0 ? (
@@ -1028,7 +1028,7 @@ export default function AdminServersPage() {
                           </svg>
                         </button>
                       ) : (
-                        <span className="font-medium text-slate-700 dark:text-white">
+                        <span className="font-medium text-foreground/90">
                           0
                         </span>
                       )}
@@ -1039,10 +1039,10 @@ export default function AdminServersPage() {
                 {(server.panel_web_url ||
                   server.panel_telegram_group ||
                   server.notes) && (
-                  <div className="bg-slate-50 dark:bg-black/20 p-3 border-t border-slate-200 dark:border-border text-[11px] space-y-2">
+                  <div className="bg-muted/50 p-3 border-t border-border text-[11px] space-y-2">
                     {server.panel_web_url && (
                       <div className="flex gap-2">
-                        <span className="font-medium text-slate-400 dark:text-white/30 uppercase tracking-tighter">
+                        <span className="font-medium text-muted-foreground/80 dark:text-white/30 uppercase tracking-tighter">
                           Url:
                         </span>
                         <a
@@ -1056,7 +1056,7 @@ export default function AdminServersPage() {
                     )}
                     {server.panel_telegram_group && (
                       <div className="flex gap-2">
-                        <span className="font-medium text-slate-400 dark:text-white/30 uppercase tracking-tighter">
+                        <span className="font-medium text-muted-foreground/80 dark:text-white/30 uppercase tracking-tighter">
                           Telegram:
                         </span>
                         <a
@@ -1075,7 +1075,7 @@ export default function AdminServersPage() {
                       </div>
                     )}
                     {server.notes && (
-                      <div className="italic text-slate-400 dark:text-white/30 pt-1 border-t border-dashed border-slate-200 dark:border-border mt-2 line-clamp-1">
+                      <div className="italic text-muted-foreground/80 dark:text-white/30 pt-1 border-t border-dashed border-border mt-2 line-clamp-1">
                         obs: {server.notes}
                       </div>
                     )}

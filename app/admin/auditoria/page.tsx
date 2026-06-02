@@ -475,7 +475,7 @@ function AuditoriaPageContent() {
         </span>
       );
     return (
-      <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 text-[10px] font-medium uppercase border border-slate-200 dark:border-white/20">
+      <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-slate-100 dark:bg-white/10 text-foreground/90 dark:text-slate-300 text-[10px] font-medium uppercase border border-border dark:border-white/20">
         {status}
       </span>
     );
@@ -485,7 +485,7 @@ function AuditoriaPageContent() {
     // 1. Prioridade Máxima: Status de cancelamento manual (Padronizado)
     if (status === "manual_cancelled" || status === "cancelled") {
       return (
-        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-muted-foreground text-[10px] font-medium uppercase border border-slate-200 dark:border-white/20">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-slate-100 dark:bg-white/10 text-muted-foreground dark:text-muted-foreground text-[10px] font-medium uppercase border border-border dark:border-white/20">
           {status === "manual_cancelled"
             ? "Cancelada Manualmente"
             : "Cancelada"}
@@ -496,7 +496,7 @@ function AuditoriaPageContent() {
     // 2. Se o pagamento foi recusado/cancelado no gateway
     if (paymentStatus === "rejected" || paymentStatus === "cancelled") {
       return (
-        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-muted-foreground text-[10px] font-medium uppercase border border-slate-200 dark:border-white/20">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-slate-100 dark:bg-white/10 text-muted-foreground dark:text-muted-foreground text-[10px] font-medium uppercase border border-border dark:border-white/20">
           Cancelada
         </span>
       );
@@ -536,7 +536,7 @@ function AuditoriaPageContent() {
       );
 
     return (
-      <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 text-[10px] font-medium uppercase border border-slate-200 dark:border-white/20">
+      <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-slate-100 dark:bg-white/10 text-foreground/90 dark:text-slate-300 text-[10px] font-medium uppercase border border-border dark:border-white/20">
         Processando
       </span>
     );
@@ -585,7 +585,7 @@ function AuditoriaPageContent() {
         </span>
       );
     return (
-      <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-slate-100 dark:bg-white/10 text-slate-400 text-[10px] font-medium uppercase border border-slate-200 dark:border-border">
+      <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-slate-100 dark:bg-white/10 text-muted-foreground/80 text-[10px] font-medium uppercase border border-border">
         Aguardando
       </span>
     );
@@ -616,7 +616,7 @@ function AuditoriaPageContent() {
       </div>
 
       {/* FILTROS */}
-      <div className="px-3 md:p-4 bg-transparent md:bg-white md:dark:bg-card border-0 md:border md:border-slate-200 md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20">
+      <div className="px-3 md:p-4 bg-transparent md:bg-card md:dark:bg-card border-0 md:border md:border-border md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20">
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex-1 min-w-[200px] flex gap-2">
             <div className="relative flex-1">
@@ -625,7 +625,7 @@ function AuditoriaPageContent() {
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Buscar (Pressione Enter)"
-                className="w-full h-10 px-3 pr-10 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+                className="w-full h-10 px-3 pr-10 bg-muted/50 border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
               />
               {search && (
                 <button
@@ -633,7 +633,7 @@ function AuditoriaPageContent() {
                     setSearch("");
                     loadData("");
                   }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/80 hover:text-rose-500"
                   title="Limpar busca"
                 >
                   <IconX />
@@ -642,7 +642,7 @@ function AuditoriaPageContent() {
             </div>
             <button
               onClick={() => loadData(search)}
-              className="h-10 px-4 bg-slate-200 dark:bg-white/10 hover:bg-slate-300 dark:hover:bg-white/20 text-slate-700 dark:text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+              className="h-10 px-4 bg-slate-200 dark:bg-white/10 hover:bg-slate-300 dark:hover:bg-white/20 text-foreground/90 rounded-lg text-sm font-medium transition-colors shadow-sm"
             >
               Buscar
             </button>
@@ -651,7 +651,7 @@ function AuditoriaPageContent() {
           <select
             value={filterFulfillment}
             onChange={(e) => setFilterFulfillment(e.target.value)}
-            className="w-[180px] h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+            className="w-[180px] h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
           >
             <option value="Todos">Processamento (Todos)</option>           {" "}
             <option value="done">Concluídos (Auto)</option>
@@ -665,15 +665,15 @@ function AuditoriaPageContent() {
 
       {/* TABELA */}
       {loading ? (
-        <div className="p-12 text-center text-slate-400 dark:text-muted-foreground animate-pulse bg-white dark:bg-card rounded-none sm:rounded-xl border border-slate-200 dark:border-border">
+        <div className="p-12 text-center text-muted-foreground/80 dark:text-muted-foreground animate-pulse bg-card rounded-none sm:rounded-xl border border-border">
           Carregando logs de auditoria...
         </div>
       ) : (
-        <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0">
+        <div className="bg-card border border-border rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[800px]">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-border text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:text-white/50 bg-slate-50 dark:bg-white/5">
+                <tr className="border-b border-border text-[11px] font-medium uppercase tracking-wider text-muted-foreground bg-muted/50">
                   <th className="px-4 py-3">Data / Hora</th>
                   <th className="px-4 py-3">Cliente / Login / Servidor</th>
                   <th className="px-4 py-3 text-center">Plano / Telas</th>
@@ -690,7 +690,7 @@ function AuditoriaPageContent() {
                   <tr>
                     <td
                       colSpan={9}
-                      className="p-8 text-center text-slate-400 dark:text-muted-foreground italic"
+                      className="p-8 text-center text-muted-foreground/80 dark:text-muted-foreground italic"
                     >
                       Nenhum registro encontrado.
                     </td>
@@ -712,17 +712,17 @@ function AuditoriaPageContent() {
                     return (
                       <tr
                         key={r.id}
-                        className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group"
+                        className="hover:bg-muted/50 dark:hover:bg-white/5 transition-colors group"
                       >
                         {/* Data e Hora */}
                         <td className="px-4 py-3">
                           <div className="flex flex-col">
- <span className=" text-slate-700 dark:text-white/90">
+ <span className=" text-foreground/90/90">
                               {dateObj.toLocaleDateString("pt-BR", {
                                 timeZone: "America/Sao_Paulo",
                               })}
                             </span>
-                            <span className="text-xs text-slate-500 dark:text-white/50">
+                            <span className="text-xs text-muted-foreground">
                               {dateObj.toLocaleTimeString("pt-BR", {
                                 timeZone: "America/Sao_Paulo",
                                 hour: "2-digit",
@@ -735,17 +735,17 @@ function AuditoriaPageContent() {
                         {/* Cliente / Login / Servidor */}
                         <td className="px-4 py-3">
                           <div className="flex flex-col">
-                            <span className="font-medium text-slate-800 dark:text-white truncate max-w-[200px]">
+                            <span className="font-medium text-foreground truncate max-w-[200px]">
                               {r.client_name}
                             </span>
                             <div className="flex items-center gap-1.5 mt-0.5">
- <span className="text-xs text-slate-500 dark:text-white/60">
+ <span className="text-xs text-muted-foreground dark:text-white/60">
                                 {r.server_username}
                               </span>
                               <span className="text-slate-300 dark:text-white/20">
                                 •
                               </span>
-                              <span className="text-[11px] text-slate-400">
+                              <span className="text-[11px] text-muted-foreground/80">
                                 {r.server_name}
                               </span>
                             </div>
@@ -755,12 +755,12 @@ function AuditoriaPageContent() {
                         {/* Plano / Telas */}
                         <td className="px-4 py-3 text-center">
                           <div className="flex flex-col gap-0.5 items-center">
-                            <span className="text-xs font-medium text-slate-600 dark:text-white/80">
+                            <span className="text-xs font-medium text-muted-foreground dark:text-white/80">
                               {r.plan_label ||
                                 PERIOD_LABELS[r.period] ||
                                 r.period}
                             </span>
-                            <span className="text-[10px] text-slate-400">
+                            <span className="text-[10px] text-muted-foreground/80">
                               {r.screens} {r.screens === 1 ? "tela" : "telas"}
                             </span>
                           </div>
@@ -768,7 +768,7 @@ function AuditoriaPageContent() {
 
                         {/* Banco */}
                         <td className="px-4 py-3 text-center">
-                          <span className="text-[10px] font-medium text-slate-500 dark:text-muted-foreground uppercase tracking-wider">
+                          <span className="text-[10px] font-medium text-muted-foreground dark:text-muted-foreground uppercase tracking-wider">
                             {r.gateway_name || r.payment_method}
                           </span>
                         </td>
@@ -790,7 +790,7 @@ function AuditoriaPageContent() {
                                     "Código da transação copiado!",
                                   );
                                 }}
- className="text-[9px] text-slate-400 dark:text-muted-foreground bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 rounded border border-slate-200 dark:border-border hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+ className="text-[9px] text-muted-foreground/80 dark:text-muted-foreground bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 rounded border border-border hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
                                 title="Clique para copiar a referência"
                               >
                                 Ref: {String(r.mp_payment_id).slice(-8)}
@@ -811,7 +811,7 @@ function AuditoriaPageContent() {
                             r.fulfillment_status === "manual_done" ||
                             r.fulfillment_status === "manual_cancelled" ? (
                               <span
-                                className="text-[10px] text-slate-500 dark:text-white/50 leading-tight max-w-[200px] truncate font-medium"
+                                className="text-[10px] text-muted-foreground leading-tight max-w-[200px] truncate font-medium"
                                 title={
                                   r.fulfillment_error || "Renovação Manual"
                                 }
@@ -845,7 +845,7 @@ function AuditoriaPageContent() {
 
                         {/* Valor */}
                         <td className="px-4 py-3 text-right">
-                          <span className="font-medium text-slate-700 dark:text-white">
+                          <span className="font-medium text-foreground/90">
                             {new Intl.NumberFormat("pt-BR", {
                               style: "currency",
                               currency: r.price_currency || "BRL",
@@ -910,22 +910,22 @@ function AuditoriaPageContent() {
             </table>
           </div>
 
-          <div className="border-t border-slate-200 dark:border-border px-4 py-3 flex items-center justify-between bg-slate-50 dark:bg-white/5">
-            <span className="text-xs text-slate-500 dark:text-white/50">
+          <div className="border-t border-border px-4 py-3 flex items-center justify-between bg-muted/50">
+            <span className="text-xs text-muted-foreground">
               Mostrando página {safePage} de {totalPages}
             </span>
             <div className="flex gap-2">
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={safePage <= 1}
-                className="px-3 py-1 rounded border border-slate-200 dark:border-border text-xs font-medium disabled:opacity-40 bg-white dark:bg-black/20 text-slate-600 dark:text-muted-foreground"
+                className="px-3 py-1 rounded border border-border text-xs font-medium disabled:opacity-40 bg-card dark:bg-black/20 text-muted-foreground dark:text-muted-foreground"
               >
                 Anterior
               </button>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={safePage >= totalPages}
-                className="px-3 py-1 rounded border border-slate-200 dark:border-border text-xs font-medium disabled:opacity-40 bg-white dark:bg-black/20 text-slate-600 dark:text-muted-foreground"
+                className="px-3 py-1 rounded border border-border text-xs font-medium disabled:opacity-40 bg-card dark:bg-black/20 text-muted-foreground dark:text-muted-foreground"
               >
                 Próxima
               </button>
@@ -983,7 +983,7 @@ export default function AuditoriaPage() {
   return (
     <Suspense
       fallback={
-        <div className="p-12 text-center text-slate-400 animate-pulse">
+        <div className="p-12 text-center text-muted-foreground/80 animate-pulse">
           Carregando Auditoria...
         </div>
       }

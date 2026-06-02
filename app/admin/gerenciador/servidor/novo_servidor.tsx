@@ -72,7 +72,7 @@ function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
 // --- COMPONENTES VISUAIS INTERNOS ---
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-xs font-medium text-slate-500 dark:text-muted-foreground mb-1.5 tracking-tight">
+    <label className="block text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1.5 tracking-tight">
       {children}
     </label>
   );
@@ -85,7 +85,7 @@ function Input({
   return (
     <input
       {...props}
-      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground/90 placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     />
   );
 }
@@ -98,7 +98,7 @@ function Select({
   return (
     <select
       {...props}
-      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     >
       {children}
     </select>
@@ -726,27 +726,27 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-5xl max-h-[90vh] bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
+      <div className="w-full max-w-5xl max-h-[90vh] bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
         {/* HEADER */}
-        <div className="px-6 py-4 border-b border-slate-200 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5">
+        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-muted/50">
           <div>
-            <h2 className="text-lg font-medium text-slate-800 dark:text-white tracking-tight">
+            <h2 className="text-lg font-medium text-foreground tracking-tight">
               {isEditing ? `Editar: ${server?.name}` : "Novo servidor"}
             </h2>
-            <div className="text-xs text-slate-500 dark:text-muted-foreground mt-0.5 font-medium">
+            <div className="text-xs text-muted-foreground dark:text-muted-foreground mt-0.5 font-medium">
               Configurações de conexão, custos e saldo.
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-white/60 hover:text-slate-800 dark:hover:text-white transition-colors"
+            className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white transition-colors"
           >
             ✕
           </button>
         </div>
 
         {/* CORPO */}
-        <div className="p-6 space-y-6 overflow-y-auto bg-white dark:bg-card">
+        <div className="p-6 space-y-6 overflow-y-auto bg-card">
           <div className="grid grid-cols-12 gap-4">
             <div
               className={`${
@@ -804,7 +804,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
                       }
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-center h-10 w-10 shrink-0 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-slate-500 dark:text-white/60 hover:text-emerald-600 hover:border-emerald-500/50 dark:hover:text-emerald-400 transition-colors"
+                      className="flex items-center justify-center h-10 w-10 shrink-0 bg-muted/50 border border-border rounded-lg text-muted-foreground dark:text-white/60 hover:text-emerald-600 hover:border-emerald-500/50 dark:hover:text-emerald-400 transition-colors"
                       title="Acessar link"
                     >
                       <svg
@@ -845,14 +845,14 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
                 );
                 if (file) handleIconUpload(file);
               }}
-              className="flex items-center gap-4 p-3 border-2 border-dashed border-slate-200 dark:border-border rounded-xl hover:border-emerald-500/50 transition-colors"
+              className="flex items-center gap-4 p-3 border-2 border-dashed border-border rounded-xl hover:border-emerald-500/50 transition-colors"
               tabIndex={0}
             >
               {formIconUrl ? (
                 <img
                   src={formIconUrl}
                   alt="Logo"
-                  className="w-12 h-12 rounded-lg object-cover border border-slate-200 dark:border-border shrink-0"
+                  className="w-12 h-12 rounded-lg object-cover border border-border shrink-0"
                 />
               ) : (
                 <div className="w-12 h-12 rounded-lg bg-slate-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-2xl">
@@ -860,12 +860,12 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-slate-600 dark:text-muted-foreground">
+                <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
                   {uploadingIcon
                     ? "Enviando..."
                     : "Arraste, cole (Ctrl+V) ou clique para selecionar"}
                 </p>
-                <p className="text-[10px] text-slate-400 mt-0.5">
+                <p className="text-[10px] text-muted-foreground/80 mt-0.5">
                   PNG, JPG, WebP
                 </p>
               </div>
@@ -898,10 +898,10 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
             </div>
           </div>
 
-          <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-border grid grid-cols-1 md:grid-cols-3 gap-5 animate-in slide-in-from-bottom-3 duration-400">
+          <div className="p-4 bg-muted/50 rounded-xl border border-border grid grid-cols-1 md:grid-cols-3 gap-5 animate-in slide-in-from-bottom-3 duration-400">
             <div className="space-y-1">
               <Label>Moeda padrão</Label>
-              <div className="flex bg-slate-200/50 dark:bg-black/20 rounded-lg p-1 border border-slate-200 dark:border-border h-10">
+              <div className="flex bg-slate-200/50 dark:bg-black/20 rounded-lg p-1 border border-border h-10">
                 {(["BRL", "USD", "EUR"] as const).map((c) => (
                   <button
                     key={c}
@@ -910,7 +910,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
                     className={`flex-1 h-full rounded-md text-xs font-medium transition-all ${
                       currency === c
                         ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-sm"
-                        : "text-slate-500 dark:text-muted-foreground hover:text-slate-700 dark:hover:text-white"
+                        : "text-muted-foreground dark:text-muted-foreground hover:text-foreground/90 dark:hover:text-white"
                     }`}
                   >
                     {c}
@@ -986,7 +986,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
                   </option>
                 ))}
               </Select>
-              <p className="text-[9px] text-slate-400 dark:text-white/30 mt-1 italic">
+              <p className="text-[9px] text-muted-foreground/80 dark:text-white/30 mt-1 italic">
                 Define de qual WhatsApp o portal do cliente enviará as
                 confirmações e PIX.
               </p>
@@ -1022,7 +1022,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {dnsList.map((dns, idx) => (
                 <div key={idx} className="relative group">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/20 text-[10px] font-mono font-medium">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/80 dark:text-white/20 text-[10px] font-mono font-medium">
                     {idx + 1}.
                   </span>
                   <Input
@@ -1035,7 +1035,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
                     <button
                       type="button"
                       onClick={() => handleCopyDns(dns, idx)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 dark:text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-200 dark:hover:bg-white/10 rounded transition-colors"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground/80 dark:text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-200 dark:hover:bg-white/10 rounded transition-colors"
                       title="Copiar DNS"
                     >
                       {copiedDnsIndex === idx ? (
@@ -1088,17 +1088,17 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg px-3 py-2 text-sm text-slate-700 dark:text-white outline-none h-20 resize-none focus:border-emerald-500/50 transition-colors"
+              className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm text-foreground/90 outline-none h-20 resize-none focus:border-emerald-500/50 transition-colors"
               placeholder="Anotações visíveis apenas para admins..."
             />
           </div>
         </div>
 
         {/* FOOTER */}
-        <div className="px-6 py-4 border-t border-slate-200 dark:border-border flex justify-end gap-3 bg-slate-50 dark:bg-white/5 transition-colors">
+        <div className="px-6 py-4 border-t border-border flex justify-end gap-3 bg-muted/50 transition-colors">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/5 transition-colors text-sm font-semibold"
+            className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/5 transition-colors text-sm font-semibold"
           >
             Cancelar
           </button>

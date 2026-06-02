@@ -82,8 +82,8 @@ export default function ResetPasswordPage() {
   // Tela de carregamento enquanto valida o token
   if (isValidating) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-slate-50 dark:bg-background">
-        <div className="text-slate-500 dark:text-white/60 animate-pulse">
+      <div className="min-h-[100dvh] flex items-center justify-center bg-background">
+        <div className="text-muted-foreground dark:text-white/60 animate-pulse">
           Validando link de segurança...
         </div>
       </div>
@@ -91,7 +91,7 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-[100dvh] relative overflow-hidden flex items-center sm:items-center justify-center px-3 sm:px-6 pt-6 pb-6 sm:py-10 bg-slate-50 dark:bg-background">
+    <div className="min-h-[100dvh] relative overflow-hidden flex items-center sm:items-center justify-center px-3 sm:px-6 pt-6 pb-6 sm:py-10 bg-background">
       {/* Fundo com gradiente + glow */}
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-gradient-to-br from-[#0b2a4a] via-[#0f141a] to-[#0e6b5c] opacity-90 dark:opacity-100" />
@@ -145,7 +145,7 @@ export default function ResetPasswordPage() {
             {hasValidSession ? (
               <form onSubmit={handleUpdatePassword} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-white/80">
+                  <label className="block text-sm font-medium text-foreground/90/80">
                     Nova Senha
                   </label>
                   <input
@@ -155,7 +155,7 @@ export default function ResetPasswordPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Mínimo de 6 caracteres"
                     autoComplete="new-password"
-                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:ring-2 focus:ring-emerald-500/60 dark:border-border dark:bg-black/20 dark:text-white dark:placeholder:text-white/40"
+                    className="mt-1 w-full rounded-xl border border-border bg-card px-4 py-3 text-foreground outline-none transition focus:ring-2 focus:ring-emerald-500/60 dark:border-border dark:bg-black/20 dark:text-white dark:placeholder:text-white/40"
                   />
                 </div>
 

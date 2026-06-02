@@ -136,7 +136,7 @@ export function RankingCard({
   const max = Math.max(...currentItems.map((i) => i.value), 1);
 
   return (
-    <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+    <div className="bg-card dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
       {/* Header */}
       <div className="px-5 pt-5 pb-4 flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800">
         <div>
@@ -157,7 +157,7 @@ export function RankingCard({
               onClick={() => setView("previsto")}
               className={`px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider rounded-md transition-all ${
                 view === "previsto"
-                  ? "bg-white dark:bg-zinc-800 text-zinc-800 dark:text-white shadow-sm"
+                  ? "bg-card dark:bg-zinc-800 text-zinc-800 dark:text-white shadow-sm"
                   : "text-zinc-500 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
               }`}
             >
@@ -167,7 +167,7 @@ export function RankingCard({
               onClick={() => setView("executado")}
               className={`px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider rounded-md transition-all ${
                 view === "executado"
-                  ? "bg-white dark:bg-zinc-800 text-zinc-800 dark:text-white shadow-sm"
+                  ? "bg-card dark:bg-zinc-800 text-zinc-800 dark:text-white shadow-sm"
                   : "text-zinc-500 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
               }`}
             >

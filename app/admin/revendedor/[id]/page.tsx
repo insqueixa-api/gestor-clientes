@@ -467,7 +467,7 @@ export default function ResellerDetailPage() {
 
   if (loading)
     return (
-      <div className="p-10 text-center text-slate-400 dark:text-white/20 animate-pulse font-medium">
+      <div className="p-10 text-center text-muted-foreground/80 dark:text-white/20 animate-pulse font-medium">
         Carregando revenda...
       </div>
     );
@@ -493,7 +493,7 @@ export default function ResellerDetailPage() {
             <span
               className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase ${
                 reseller.is_archived
-                  ? "bg-slate-500/10 text-slate-500 dark:text-muted-foreground border-slate-500/20"
+                  ? "bg-muted/500/10 text-muted-foreground dark:text-muted-foreground border-slate-500/20"
                   : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
               }`}
             >
@@ -501,7 +501,7 @@ export default function ResellerDetailPage() {
             </span>
           </div>
           {/* Subtítulo opcional (email ou telefone) */}
-          <span className="text-xs text-slate-500 dark:text-white/50 font-medium truncate">
+          <span className="text-xs text-muted-foreground font-medium truncate">
             {reseller.email || "Sem email"}
           </span>
         </div>
@@ -511,7 +511,7 @@ export default function ResellerDetailPage() {
           {/* Voltar (Só Desktop) */}
           <Link
             href="/admin/revendedor"
-            className="hidden sm:inline-flex h-9 px-3 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 font-medium text-xs hover:bg-slate-200 dark:hover:bg-white/5 transition-all items-center justify-center"
+            className="hidden sm:inline-flex h-9 px-3 rounded-lg border border-border text-muted-foreground dark:text-white/60 font-medium text-xs hover:bg-slate-200 dark:hover:bg-white/5 transition-all items-center justify-center"
           >
             Voltar
           </Link>
@@ -534,31 +534,31 @@ export default function ResellerDetailPage() {
         {/* COLUNA ESQUERDA */}
         <div className="space-y-4">
           {/* 1. CARD RESUMO */}
-          <div className="bg-white dark:bg-card border-y sm:border border-slate-200 dark:border-border sm:rounded-xl p-4 shadow-sm transition-colors">
-            <h3 className="text-[11px] font-medium text-slate-400 dark:text-white/20 uppercase mb-4 tracking-widest">
+          <div className="bg-card border-y sm:border border-border sm:rounded-xl p-4 shadow-sm transition-colors">
+            <h3 className="text-[11px] font-medium text-muted-foreground/80 dark:text-white/20 uppercase mb-4 tracking-widest">
               Resumo da Conta
             </h3>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-border">
-                <span className="text-slate-500 dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
                   Desde
                 </span>
-                <span className="font-medium text-slate-700 dark:text-white/90 text-right">
+                <span className="font-medium text-foreground/90/90 text-right">
                   {fmtDate(reseller.created_at)}
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-slate-500 dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
                   Servidores
                 </span>
-                <span className="font-medium text-slate-800 dark:text-white">
+                <span className="font-medium text-foreground">
                   {servers.length}
                 </span>
               </div>
 
               {/* TOTAL INVESTIDO */}
-              <div className="pt-4 mt-2 border-t border-slate-100 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5 p-3 rounded-lg">
-                <span className="text-slate-500 dark:text-muted-foreground font-medium text-[11px] uppercase tracking-tight">
+              <div className="pt-4 mt-2 border-t border-slate-100 dark:border-border flex justify-between items-center bg-muted/50 p-3 rounded-lg">
+                <span className="text-muted-foreground dark:text-muted-foreground font-medium text-[11px] uppercase tracking-tight">
                   Total Investido
                 </span>
  <div className="text-right font-medium text-base text-emerald-600 dark:text-emerald-400">
@@ -569,18 +569,18 @@ export default function ResellerDetailPage() {
           </div>
 
           {/* 2. CARD CONTATOS */}
-          <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl p-5 shadow-sm transition-colors">
-            <h3 className="text-[11px] font-medium text-slate-400 dark:text-white/20 uppercase mb-4 tracking-widest">
+          <div className="bg-card border border-border rounded-xl p-5 shadow-sm transition-colors">
+            <h3 className="text-[11px] font-medium text-muted-foreground/80 dark:text-white/20 uppercase mb-4 tracking-widest">
               Contatos e Observações
             </h3>
             <div className="space-y-3 text-sm">
               {/* Email */}
               <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-border">
-                <span className="text-slate-500 dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
                   Email
                 </span>
                 <span
-                  className="font-medium text-slate-800 dark:text-white text-right truncate max-w-[150px]"
+                  className="font-medium text-foreground text-right truncate max-w-[150px]"
                   title={reseller.email ?? ""}
                 >
                   {reseller.email || "—"}
@@ -589,17 +589,17 @@ export default function ResellerDetailPage() {
 
               {/* WhatsApp Display */}
               <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-border">
-                <span className="text-slate-500 dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
                   Telefone
                 </span>
- <span className=" font-medium text-slate-800 dark:text-white text-right">
+ <span className=" font-medium text-foreground text-right">
                   {formatPhoneDisplay(reseller.whatsapp_e164)}
                 </span>
               </div>
 
               {/* WhatsApp Link */}
               <div className="flex justify-between items-center">
-                <span className="text-slate-500 dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
                   WhatsApp
                 </span>
                 {reseller.whatsapp_username ? (
@@ -622,13 +622,13 @@ export default function ResellerDetailPage() {
                     {formatPhoneDisplay(reseller.whatsapp_e164)}
                   </a>
                 ) : (
-                  <span className="text-slate-400 italic text-sm">—</span>
+                  <span className="text-muted-foreground/80 italic text-sm">—</span>
                 )}
               </div>
 
               {/* Opt-in */}
               <div className="py-2 border-t border-b border-slate-100 dark:border-border">
-                <div className="text-[10px] font-medium text-slate-400 dark:text-white/30 uppercase mb-1">
+                <div className="text-[10px] font-medium text-muted-foreground/80 dark:text-white/30 uppercase mb-1">
                   Receber mensagem?
                 </div>
                 {reseller.whatsapp_opt_in ? (
@@ -646,10 +646,10 @@ export default function ResellerDetailPage() {
 
               {/* Notas */}
               <div>
-                <div className="text-[11px] font-medium text-slate-500 dark:text-white/30 mb-1.5">
+                <div className="text-[11px] font-medium text-muted-foreground dark:text-white/30 mb-1.5">
                   Observações
                 </div>
-                <div className="text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-black/20 p-3 rounded-xl text-xs leading-relaxed border border-slate-200 dark:border-border min-h-[80px] whitespace-pre-wrap">
+                <div className="text-foreground/90 dark:text-slate-300 bg-muted/50 p-3 rounded-xl text-xs leading-relaxed border border-border min-h-[80px] whitespace-pre-wrap">
                   {reseller.notes || "Sem observações registradas."}
                 </div>
               </div>
@@ -660,14 +660,14 @@ export default function ResellerDetailPage() {
         {/* ================= COLUNA DIREITA (2 SPANS: SERVIDORES + TIMELINE) ================= */}
         <div className="lg:col-span-2 space-y-6">
           {/* BLOCO 1: SERVIDORES VINCULADOS */}
-          <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl p-5 shadow-sm transition-colors">
-            <h3 className="text-[11px] font-medium text-slate-400 dark:text-white/20 uppercase mb-4 tracking-widest flex items-center gap-2">
+          <div className="bg-card border border-border rounded-xl p-5 shadow-sm transition-colors">
+            <h3 className="text-[11px] font-medium text-muted-foreground/80 dark:text-white/20 uppercase mb-4 tracking-widest flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
               Servidores Vinculados
             </h3>
 
             {servers.length === 0 ? (
-              <div className="p-8 text-center bg-slate-50 dark:bg-white/5 border border-dashed border-slate-200 dark:border-border rounded-xl text-slate-400 dark:text-white/30 italic">
+              <div className="p-8 text-center bg-muted/50 border border-dashed border-border rounded-xl text-muted-foreground/80 dark:text-white/30 italic">
                 Nenhum servidor vinculado.
               </div>
             ) : (
@@ -675,18 +675,18 @@ export default function ResellerDetailPage() {
                 {servers.map((s) => (
                   <div
                     key={s.reseller_server_id}
-                    className="group relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-border rounded-xl hover:border-emerald-500/30 transition-all"
+                    className="group relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-muted/50 border border-border rounded-xl hover:border-emerald-500/30 transition-all"
                   >
                     {/* Info do Servidor */}
                     <div className="flex items-center gap-4 mb-3 sm:mb-0">
-                      <div className="w-10 h-10 rounded-lg bg-white dark:bg-black/20 border border-slate-200 dark:border-border flex items-center justify-center font-medium text-slate-600 dark:text-white">
+                      <div className="w-10 h-10 rounded-lg bg-card dark:bg-black/20 border border-border flex items-center justify-center font-medium text-muted-foreground dark:text-white">
                         {String(s.server_name || "?").charAt(0)}
                       </div>
                       <div>
-                        <div className="font-medium text-slate-800 dark:text-white text-sm">
+                        <div className="font-medium text-foreground text-sm">
                           {s.server_name}
                         </div>
-                        <div className="text-xs text-slate-500 dark:text-white/50 flex items-center gap-2">
+                        <div className="text-xs text-muted-foreground flex items-center gap-2">
                           <span>User: {s.server_username || "—"}</span>
                           {s.server_password && (
                             <span className="text-[10px] px-1.5 rounded bg-slate-200 dark:bg-white/10 opacity-70">
@@ -745,15 +745,15 @@ export default function ResellerDetailPage() {
           </div>
 
           {/* BLOCO 2: HISTÓRICO */}
-          <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl p-5 shadow-sm h-fit transition-colors">
-            <h3 className="text-[11px] font-medium text-slate-400 dark:text-white/20 uppercase mb-6 tracking-widest flex items-center gap-2">
+          <div className="bg-card border border-border rounded-xl p-5 shadow-sm h-fit transition-colors">
+            <h3 className="text-[11px] font-medium text-muted-foreground/80 dark:text-white/20 uppercase mb-6 tracking-widest flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
               Histórico de Compras
             </h3>
 
             <div className="space-y-0 px-2">
               {history.length === 0 ? (
-                <div className="py-12 text-center text-slate-400 dark:text-white/20 text-sm italic border-2 border-dashed border-slate-100 dark:border-border rounded-xl">
+                <div className="py-12 text-center text-muted-foreground/80 dark:text-white/20 text-sm italic border-2 border-dashed border-slate-100 dark:border-border rounded-xl">
                   Nenhuma movimentação registrada.
                 </div>
               ) : (
@@ -776,14 +776,14 @@ export default function ResellerDetailPage() {
                     >
                       <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 border-white dark:border-[#161b22] bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.4)] transition-transform group-hover:scale-125" />
 
-                      <div className="flex justify-between items-start gap-2 bg-slate-50/50 dark:bg-white/5 p-2 rounded-xl border border-transparent hover:border-slate-200 dark:hover:border-white/10 transition-all">
+                      <div className="flex justify-between items-start gap-2 bg-muted/50/50 dark:bg-white/5 p-2 rounded-xl border border-transparent hover:border-border dark:hover:border-white/10 transition-all">
                         <div className="min-w-0">
                           {/* LINHA 1 — TÍTULO */}
-                          <div className="text-sm font-medium text-slate-800 dark:text-white tracking-tight">
+                          <div className="text-sm font-medium text-foreground tracking-tight">
                             💳 Compra de Créditos
                           </div>
 
-                          <div className="mt-1 text-xs font-medium text-slate-500 dark:text-white/60 tracking-tight">
+                          <div className="mt-1 text-xs font-medium text-muted-foreground dark:text-white/60 tracking-tight">
                             {h.notes
                               ? h.notes
                               : `${serverName} · ${num(h.qty_credits)} créditos · Unit: ${fmtMoney(String(h.currency || "BRL"), Number(h.unit_price || 0))} · Total: ${fmtBRL(total)}`}
@@ -791,13 +791,13 @@ export default function ResellerDetailPage() {
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
- <div className="text-[10px] font-medium text-slate-400 dark:text-white/20 bg-white dark:bg-black/20 px-2 py-1 rounded-md shadow-sm whitespace-nowrap">
+ <div className="text-[10px] font-medium text-muted-foreground/80 dark:text-white/20 bg-card dark:bg-black/20 px-2 py-1 rounded-md shadow-sm whitespace-nowrap">
                             {fmtDate(h.created_at ?? null)}
                           </div>
                           <button
                             onClick={() => handleDeleteHistory(h)}
                             disabled={deletingHistoryId === h.id}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 disabled:opacity-30"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-rose-500/10 text-muted-foreground/80 hover:text-rose-500 disabled:opacity-30"
                             title="Apagar registro"
                           >
                             {deletingHistoryId === h.id ? (

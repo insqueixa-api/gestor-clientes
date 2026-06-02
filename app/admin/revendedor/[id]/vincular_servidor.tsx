@@ -51,7 +51,7 @@ function fromMoneyInput(s: string) {
 // Componentes
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-xs font-medium text-slate-500 dark:text-muted-foreground mb-1.5 tracking-tight">
+    <label className="block text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1.5 tracking-tight">
       {children}
     </label>
   );
@@ -64,7 +64,7 @@ function Input({
   return (
     <input
       {...props}
-      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground/90 placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     />
   );
 }
@@ -77,7 +77,7 @@ function Select({
   return (
     <select
       {...props}
-      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     >
       {children}
     </select>
@@ -223,22 +223,22 @@ export default function VincularServidor({
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-lg bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
+      <div className="w-full max-w-lg bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
         {/* HEADER */}
-        <div className="px-6 py-4 border-b border-slate-200 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5">
-          <h2 className="text-lg font-medium text-slate-800 dark:text-white tracking-tight">
+        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-muted/50">
+          <h2 className="text-lg font-medium text-foreground tracking-tight">
             {isEdit ? "Editar Vínculo" : "Vincular Servidor"}
           </h2>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-white/60 hover:text-slate-800 dark:hover:text-white transition-colors"
+            className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white transition-colors"
           >
             ✕
           </button>
         </div>
 
         {/* BODY */}
-        <div className="p-6 space-y-6 overflow-y-auto bg-white dark:bg-card">
+        <div className="p-6 space-y-6 overflow-y-auto bg-card">
           {loadErr && (
             <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-600 dark:text-rose-400 text-sm font-medium animate-in slide-in-from-top-2">
               <span className="font-medium">Erro:</span> {loadErr}
@@ -246,7 +246,7 @@ export default function VincularServidor({
           )}
 
           {loadingServers ? (
-            <div className="py-12 text-center text-slate-400 dark:text-white/20 animate-pulse font-medium">
+            <div className="py-12 text-center text-muted-foreground/80 dark:text-white/20 animate-pulse font-medium">
               Carregando servidores...
             </div>
           ) : (
@@ -297,10 +297,10 @@ export default function VincularServidor({
         </div>
 
         {/* FOOTER */}
-        <div className="px-6 py-4 border-t border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 flex items-center justify-end gap-3 transition-colors">
+        <div className="px-6 py-4 border-t border-border bg-muted/50 flex items-center justify-end gap-3 transition-colors">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/10 text-sm font-semibold transition-colors"
+            className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/10 text-sm font-semibold transition-colors"
           >
             Cancelar
           </button>
