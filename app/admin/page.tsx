@@ -644,7 +644,7 @@ const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
             <EyeToggle />
           </div>
           <div className="flex items-center gap-3 mt-1">
-            <p className="text-sm font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">
+            <p className="text-sm font-medium text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-md">
               {monthLabelPtBr()}
             </p>
           </div>
@@ -821,7 +821,7 @@ const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
                     </span>
                   </div>
                   <div
-                    className={`${clientsMonthVal + resellerMonthVal - expensesMonthVal < 0 ? "text-rose-400" : "text-emerald-400"}`}
+                    className={`${clientsMonthVal + resellerMonthVal - expensesMonthVal < 0 ? "text-rose-500" : "text-emerald-500"}`}
                   >
                     <span className="sm:hidden">
                       Lucro:{" "}
@@ -897,7 +897,7 @@ const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
                     </span>
                   </div>
                   <div
-                    className={`${clientsPrevMonthVal + resellerPrevMonthVal - expensesPrevMonthVal < 0 ? "text-rose-400" : "text-emerald-400"}`}
+                    className={`${clientsPrevMonthVal + resellerPrevMonthVal - expensesPrevMonthVal < 0 ? "text-rose-500" : "text-emerald-500"}`}
                   >
                     <span className="sm:hidden">
                       Lucro:{" "}
