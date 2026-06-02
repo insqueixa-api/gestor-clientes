@@ -1095,7 +1095,7 @@ export default function BillingPage() {
   );
 
   return (
-    <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors">
+    <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-background transition-colors">
       {/* Monitor da fila (com padding padrão e SEM z alto) */}
       <div className="px-3 sm:px-0 md:px-4">
         <GlobalQueueMonitor addToast={addToast} />

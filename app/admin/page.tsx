@@ -634,7 +634,7 @@ const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
   return (
     <div
       id="dashboard-values"
-      className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors text-zinc-800 dark:text-zinc-200"
+      className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-background transition-colors text-zinc-800 dark:text-zinc-200"
     >
       {/* Header */}
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">

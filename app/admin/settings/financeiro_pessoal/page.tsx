@@ -1153,7 +1153,7 @@ function FinanceiroPageContent() {
 
   return (
     <div
-      className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors"
+      className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-background transition-colors"
       id="dashboard-values"
     >
       {/* CSS PARA OCULTAR VALORES COM O EYE-TOGGLE */}
@@ -1197,7 +1197,7 @@ function FinanceiroPageContent() {
 
       {/* 2. HEADER STICKY: Botões no Mobile / Título + Botões no Desktop */}
       {/* top-14 crava nos exatos 56px da TopBar, fechando qualquer buraco visual */}
-      <div className="sticky top-14 md:top-0 z-[40] bg-slate-50 dark:bg-background px-3 pb-3 pt-0 md:pt-0 sm:mx-0 sm:px-0 border-b border-slate-200/50 dark:border-border sm:border-none flex items-center justify-end md:justify-between shadow-sm sm:shadow-none transition-colors">
+      <div className="sticky top-14 md:top-0 z-[40] bg-background px-3 pb-3 pt-0 md:pt-0 sm:mx-0 sm:px-0 border-b border-slate-200/50 dark:border-border sm:border-none flex items-center justify-end md:justify-between shadow-sm sm:shadow-none transition-colors">
         {/* Título Desktop (Só aparece em telas grandes) */}
         <div className="min-w-0 text-left hidden md:block">
           <div className="flex items-center gap-3">

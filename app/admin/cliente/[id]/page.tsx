@@ -694,7 +694,7 @@ export default function ClientDetailsPage() {
 
   return (
     // ✅ Ajuste: pt-0 px-0 no mobile (full width), sm:px-6 no desktop
-    <div className="space-y-4 sm:space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors">
+    <div className="space-y-4 sm:space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-background transition-colors">
       {/* HEADER */}
       <div className="flex items-center justify-between gap-3 pb-0 mb-4 px-4 sm:px-0 pt-4 sm:pt-0">
         {/* Título (Nome + Badge) */}

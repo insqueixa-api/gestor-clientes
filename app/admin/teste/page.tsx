@@ -1106,7 +1106,7 @@ export default function TrialsPage() {
 
   return (
     <div
-      className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors"
+      className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-background transition-colors"
       onClick={closeAllPopups}
     >
       {/* Topo (Padronizado) */}
