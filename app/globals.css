@@ -2,15 +2,15 @@
 
 @variant dark (&:where(.dark, .dark *));
 
-/* === MODO "CLARO" (DIM / TWILIGHT) === */
+/* === MODO "CLARO" (HÍBRIDO: fundo escuro + cards brancos) === */
 :root {
-  --background: #1e293b;   /* slate-800 – fundo principal */
-  --foreground: #e2e8f0;   /* slate-200 – texto principal */
-  --card: #273548;         /* slate-700/800 mix – cards levemente + claros */
-  --card-foreground: #f1f5f9;
-  --border: #3b4f6b;       /* borda suave azulada */
-  --muted: #1a2332;        /* fundo secundário */
-  --muted-foreground: #94a3b8; /* slate-400 */
+  --background: #1f2937;   /* gray-800 – fundo escuro cinza */
+  --foreground: #f3f4f6;   /* gray-100 – texto claro no fundo */
+  --card: #ffffff;         /* BRANCO – cards se destacam */
+  --card-foreground: #111827; /* gray-900 – texto escuro nos cards */
+  --border: #4b5563;       /* gray-600 – bordas no fundo escuro */
+  --muted: #374151;        /* gray-700 – fundo secundário */
+  --muted-foreground: #9ca3af; /* gray-400 */
   
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
