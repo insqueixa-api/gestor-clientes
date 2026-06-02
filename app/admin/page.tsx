@@ -1099,11 +1099,11 @@ const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
 function SectionTitle({ title }: { title: string }) {
   return (
     <div className="flex items-center gap-4 py-2">
-      <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+      <div className="h-px flex-1 bg-border" />
       <span className="text-xs font-medium dark:font-semibold text-muted-foreground tracking-widest uppercase">
         {title}
       </span>
-      <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+      <div className="h-px flex-1 bg-border" />
     </div>
   );
 }
@@ -1171,7 +1171,7 @@ function MetricCardView({
 
   const content = (
     <>
-      <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-zinc-100 dark:border-zinc-800 font-semibold dark:font-medium text-foreground text-[13px] sm:text-sm flex justify-between items-center">
+      <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-border font-semibold dark:font-medium text-foreground text-[13px] sm:text-sm flex justify-between items-center">
         {title}
         {href && <span className="opacity-40 text-xs">↗</span>}
       </div>

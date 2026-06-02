@@ -138,7 +138,7 @@ export function RankingCard({
   return (
     <div className="bg-card dark:bg-zinc-900 rounded-xl border border-border shadow-sm overflow-hidden">
       {/* Header */}
-      <div className="px-5 pt-5 pb-4 flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800">
+      <div className="px-5 pt-5 pb-4 flex items-center justify-between border-b border-border">
         <div>
           <h3 className="text-sm font-medium dark:font-medium text-foreground tracking-tight">
             {title}
