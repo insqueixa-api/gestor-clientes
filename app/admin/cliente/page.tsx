@@ -1961,7 +1961,7 @@ function ClientePageContent() {
               setSortDir("asc");
               setIsDefaultSort(true);
             }}
-            className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+            className="h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
           >
             <IconX /> Limpar
           </button>
@@ -2102,7 +2102,7 @@ function ClientePageContent() {
 
                 setMobileFiltersOpen(false);
               }}
-              className="w-full h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+              className="w-full h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
             >
               <IconX /> Limpar
             </button>
@@ -2285,7 +2285,7 @@ function ClientePageContent() {
                 </tr>
               </thead>
 
-              <tbody className="text-sm divide-y divide-slate-200 dark:divide-white/5">
+              <tbody className="text-sm divide-y divide-border">
                 {visible.map((r) => {
                   const isExpired = r.status === "Vencido";
                   return (
@@ -2336,7 +2336,7 @@ function ClientePageContent() {
                                     e.stopPropagation();
                                     handleOpenAlertList(r.id, r.name);
                                   }}
-                                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-600 border border-amber-200 text-[10px] font-medium hover:bg-amber-200 transition-colors animate-pulse"
+                                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-600 border border-amber-500/20 text-[10px] font-medium hover:bg-amber-200 transition-colors animate-pulse"
                                   title="Ver alertas pendentes"
                                 >
                                   🔔 {r.alertsCount}
@@ -2517,7 +2517,7 @@ function ClientePageContent() {
                                     e.stopPropagation();
                                     openEditById(r.id, "apps");
                                   }}
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-[10px] font-medium tracking-tight shadow-sm hover:bg-emerald-500/20 dark:hover:bg-emerald-500/20 active:scale-95 transition-all max-w-[170px] truncate"
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-[10px] font-medium tracking-tight shadow-sm hover:bg-emerald-500/20 dark:hover:bg-emerald-500/20 active:scale-95 transition-all max-w-[170px] truncate"
                                   title={`Configurar aplicativo: ${app}`}
                                 >
                                   <span className="truncate flex-1 min-w-0 text-left">
@@ -2566,7 +2566,7 @@ function ClientePageContent() {
                                   {/* ✅ Ícone de Vencimento do App (Rose) */}
                                   {appIsExpiring && (
                                     <span
-                                      className="shrink-0 inline-flex items-center justify-center w-4 h-4 rounded bg-rose-500/20 border border-rose-200 dark:border-rose-500/30 text-rose-400 animate-pulse"
+                                      className="shrink-0 inline-flex items-center justify-center w-4 h-4 rounded bg-rose-500/20 border border-rose-500/20 text-rose-400 animate-pulse"
                                       title={
                                         appDiffDays! < 0
                                           ? "Vencido no painel"
@@ -2751,12 +2751,12 @@ function ClientePageContent() {
           }
         >
           <div className="space-y-6">
-            <div className="bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 p-4 rounded-lg flex gap-3">
+            <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-lg flex gap-3">
               <span className="text-2xl">📢</span>
               <div>
                 <p className="text-foreground/90/90 text-sm font-medium">
                   O cliente{" "}
-                  <strong className="text-amber-700 dark:text-amber-400">
+                  <strong className="text-amber-400">
                     {showRenewWarning.clientName}
                   </strong>{" "}
                   possui pendências/alertas em aberto.
@@ -2911,7 +2911,7 @@ function ClientePageContent() {
                   (alert) => (
                     <div
                       key={alert.id}
-                      className="group p-4 bg-card dark:bg-card/5 border border-border rounded-xl shadow-sm hover:border-rose-200 dark:hover:border-rose-500/30 transition-all flex justify-between items-start gap-4"
+                      className="group p-4 bg-card dark:bg-card/5 border border-border rounded-xl shadow-sm hover:border-rose-500/20 dark:hover:border-rose-500/30 transition-all flex justify-between items-start gap-4"
                     >
                       <div className="flex gap-3">
                         <span className="text-rose-500 mt-0.5">⚠️</span>

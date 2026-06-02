@@ -1643,7 +1643,7 @@ export default function ProfileSettingsPage() {
                         return (
                           <div
                             key={record.id}
-                            className={`items-center gap-3 p-3 rounded-xl border transition-colors group ${isNewest ? "border-emerald-200 dark:border-emerald-500/20 bg-emerald-500/10/50 dark:bg-emerald-500/5" : "border-border bg-muted/50/50 dark:bg-black/10"} ${hideOnMobile ? "hidden xl:flex" : "flex"}`}
+                            className={`items-center gap-3 p-3 rounded-xl border transition-colors group ${isNewest ? "border-emerald-500/20 bg-emerald-500/10/50 dark:bg-emerald-500/5" : "border-border bg-muted/50/50 dark:bg-black/10"} ${hideOnMobile ? "hidden xl:flex" : "flex"}`}
                           >
                             {/* Data em bloco */}
                             <div className="shrink-0 text-center w-10">
@@ -1681,7 +1681,7 @@ export default function ProfileSettingsPage() {
                                 </span>
                               )}
                               {isNewest && (
-                                <span className="text-[10px] font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full">
+                                <span className="text-[10px] font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
                                   Mais recente
                                 </span>
                               )}
@@ -1853,7 +1853,7 @@ export default function ProfileSettingsPage() {
                         </div>
                       </div>
                       {hasRef && idealWMin && (
-                        <span className="text-[10px] font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full shrink-0">
+                        <span className="text-[10px] font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full shrink-0">
                           <Target className="w-4 h-4 inline-block mr-1.5 text-emerald-500" />{" "}
                           Peso ideal: {idealWMin}–{idealWMax} kg · IMC 18,5–24,9
                         </span>
@@ -2207,7 +2207,7 @@ export default function ProfileSettingsPage() {
             </div>
 
             {!canPairWhatsApp ? (
-              <div className="p-3 rounded-lg bg-amber-500/10 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 text-xs text-center font-medium">
+              <div className="p-3 rounded-lg bg-amber-500/10 text-amber-600 border border-amber-500/20 dark:bg-amber-500/10 dark:border-amber-500/20 text-xs text-center font-medium">
                 Aguardando login estrutural.
               </div>
             ) : (
@@ -2314,7 +2314,7 @@ export default function ProfileSettingsPage() {
                             Status:
                           </span>
                           <span
-                            className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm border ${waConnected ? "bg-emerald-500/10 text-emerald-400 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400" : "bg-rose-500/10 text-rose-400 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400"}`}
+                            className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm border ${waConnected ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400" : "bg-rose-500/10 text-rose-400 border-rose-500/20 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400"}`}
                           >
                             {waConnected ? "On-line" : "Off-line"}
                           </span>
@@ -2324,7 +2324,7 @@ export default function ProfileSettingsPage() {
 
                     {/* ✅ QR Code grande — aparece abaixo do card quando offline */}
                     {waQrDataUrl && !waConnected && (
-                      <div className="flex flex-col items-center gap-2 p-3 rounded-xl border border-emerald-200 dark:border-emerald-500/20 bg-emerald-500/10">
+                      <div className="flex flex-col items-center gap-2 p-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10">
                         <img
                           src={waQrDataUrl}
                           alt="QR Code WhatsApp"
@@ -2341,7 +2341,7 @@ export default function ProfileSettingsPage() {
                         type="button"
                         onClick={() => void handleReconnectWhatsApp()}
                         disabled={waReconnecting}
-                        className="flex-1 py-2 rounded-xl bg-amber-500/10 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400 font-medium text-xs hover:bg-amber-500/20 transition-colors shadow-sm"
+                        className="flex-1 py-2 rounded-xl bg-amber-500/10 text-amber-600 border border-amber-500/20 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400 font-medium text-xs hover:bg-amber-500/20 transition-colors shadow-sm"
                       >
                         <RefreshCcw className="w-4 h-4 mr-1.5 inline-block" />{" "}
                         Reiniciar
@@ -2350,7 +2350,7 @@ export default function ProfileSettingsPage() {
                         <button
                           type="button"
                           onClick={() => void handleDisconnectWhatsApp()}
-                          className="flex-1 py-2 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400 font-medium text-xs hover:bg-rose-500/20 transition-colors shadow-sm"
+                          className="flex-1 py-2 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400 font-medium text-xs hover:bg-rose-500/20 transition-colors shadow-sm"
                         >
                           <Plug className="w-4 h-4 mr-1.5 inline-block" />{" "}
                           Desconectar
@@ -3181,7 +3181,7 @@ function WhatsAppSession2Panel({
                     Status:
                   </span>
                   <span
-                    className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm border ${waConnected ? "bg-emerald-500/10 text-emerald-400 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400" : "bg-rose-500/10 text-rose-400 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400"}`}
+                    className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm border ${waConnected ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400" : "bg-rose-500/10 text-rose-400 border-rose-500/20 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400"}`}
                   >
                     {waConnected ? "On-line" : "Off-line"}
                   </span>
@@ -3194,7 +3194,7 @@ function WhatsAppSession2Panel({
                 type="button"
                 onClick={() => void handleReconnect()}
                 disabled={isReconnecting}
-                className="flex-1 py-2 rounded-xl bg-amber-500/10 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400 font-medium text-xs hover:bg-amber-500/20 transition-colors shadow-sm"
+                className="flex-1 py-2 rounded-xl bg-amber-500/10 text-amber-600 border border-amber-500/20 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400 font-medium text-xs hover:bg-amber-500/20 transition-colors shadow-sm"
               >
                 <RefreshCcw className="w-4 h-4 mr-1.5 inline-block" /> Reiniciar
               </button>
@@ -3202,7 +3202,7 @@ function WhatsAppSession2Panel({
                 <button
                   type="button"
                   onClick={() => void handleDisconnect()}
-                  className="flex-1 py-2 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400 font-medium text-xs hover:bg-rose-500/20 transition-colors shadow-sm"
+                  className="flex-1 py-2 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400 font-medium text-xs hover:bg-rose-500/20 transition-colors shadow-sm"
                 >
                   <Plug className="w-4 h-4 mr-1.5 inline-block" /> Desligar
                 </button>

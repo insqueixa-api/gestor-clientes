@@ -1355,7 +1355,7 @@ function AgendaPageContent() {
                   setPhotoFilter("Todos");
                   setPage(1);
                 }} // <--- ATUALIZADO
-                className="h-10 px-3 rounded-lg text-xs font-medium text-rose-500 border border-rose-200 dark:border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors whitespace-nowrap"
+                className="h-10 px-3 rounded-lg text-xs font-medium text-rose-500 border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors whitespace-nowrap"
               >
                 ✕ Limpar
               </button>
@@ -1461,7 +1461,7 @@ function AgendaPageContent() {
                   setPhotoFilter("Todos");
                   setPage(1);
                 }} // <--- ATUALIZADO
-                className="h-10 px-3 rounded-lg text-sm font-medium text-rose-500 border border-rose-200 dark:border-rose-500/30 bg-rose-500/10"
+                className="h-10 px-3 rounded-lg text-sm font-medium text-rose-500 border border-rose-500/20 bg-rose-500/10"
               >
                 ✕ Limpar filtros
               </button>
@@ -1474,9 +1474,9 @@ function AgendaPageContent() {
       {selectedIds.size > 0 && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="flex items-center justify-between p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-500/30 rounded-xl mb-4 animate-in slide-in-from-top-2 mx-3 sm:mx-0"
+          className="flex items-center justify-between p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-500/20 rounded-xl mb-4 animate-in slide-in-from-top-2 mx-3 sm:mx-0"
         >
-          <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">
+          <span className="text-xs font-medium text-indigo-400">
             {selectedIds.size} contato(s) selecionado(s)
           </span>
           <div className="flex items-center gap-2">
@@ -1662,7 +1662,7 @@ function AgendaPageContent() {
                   </Th>
                 </tr>
               </thead>
-              <tbody className="text-sm divide-y divide-slate-200 dark:divide-white/5">
+              <tbody className="text-sm divide-y divide-border">
                 {visible.map((r) => {
                   const rPhones = getPhonesArray(r);
                   const rEmails = getEmailsArray(r);
@@ -2085,7 +2085,7 @@ function AgendaPageContent() {
                       ],
                     }))
                   }
-                  className="text-xs text-amber-600 hover:text-amber-700 dark:text-amber-400 font-medium flex items-center gap-1"
+                  className="text-xs text-amber-600 hover:text-amber-400 font-medium flex items-center gap-1"
                 >
                   + Add Telefone
                 </button>
@@ -2197,9 +2197,9 @@ function AgendaPageContent() {
                             wa?.loading
                               ? "bg-black/20 text-muted-foreground border-border"
                               : wa?.exists
-                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-200 dark:border-emerald-500/30"
+                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                                 : wa?.exists === false
-                                  ? "bg-rose-500/10 text-rose-400 border-rose-200 dark:border-rose-500/30"
+                                  ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
                                   : "bg-black/20 text-muted-foreground border-border hover:bg-black/30 dark:hover:bg-card/10"
                           }`}
                         >
@@ -2252,9 +2252,9 @@ function AgendaPageContent() {
                             wa?.photoStatus === "loading"
                               ? "bg-black/20 text-muted-foreground border-border"
                               : wa?.photoStatus === "synced"
-                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-200 dark:border-emerald-500/30"
+                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                                 : wa?.photoStatus === "protected"
-                                  ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/30"
+                                  ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
                                   : "bg-black/20 text-muted-foreground border-border hover:bg-black/30 dark:hover:bg-card/10"
                           }`}
                         >
@@ -2279,9 +2279,9 @@ function AgendaPageContent() {
                               wa?.opLoading
                                 ? "bg-black/20 text-muted-foreground border-border"
                                 : wa?.opName
-                                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-200 dark:border-emerald-500/30"
+                                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                                   : wa?.opError
-                                    ? "bg-rose-500/10 text-rose-400 border-rose-200 dark:border-rose-500/30"
+                                    ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
                                     : "bg-black/20 text-muted-foreground border-border hover:bg-black/30 dark:hover:bg-card/10"
                             }`}
                           >
@@ -2294,7 +2294,7 @@ function AgendaPageContent() {
                                   : "Sincronizar Operadora"}
                           </button>
                         ) : (
-                          <div className="px-3 py-1.5 rounded-lg text-[11px] font-medium border border-emerald-200 dark:border-emerald-500/30 bg-emerald-500/10 text-emerald-400 flex items-center gap-1 cursor-default">
+                          <div className="px-3 py-1.5 rounded-lg text-[11px] font-medium border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 flex items-center gap-1 cursor-default">
                             🌍{" "}
                             {DDI_OPTIONS.find((o) => o.code === p.ddi)?.label ||
                               "Internacional"}
@@ -2334,7 +2334,7 @@ function AgendaPageContent() {
                       ],
                     }))
                   }
-                  className="text-xs text-amber-600 hover:text-amber-700 dark:text-amber-400 font-medium"
+                  className="text-xs text-amber-600 hover:text-amber-400 font-medium"
                 >
                   + Add E-mail
                 </button>
@@ -2471,7 +2471,7 @@ function AgendaPageContent() {
               Você está prestes a excluir o contato{" "}
               <strong>{deleteModal.contact.display_name}</strong>.
             </p>
-            <label className="flex items-center gap-3 p-3 bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-lg cursor-pointer">
+            <label className="flex items-center gap-3 p-3 bg-rose-500/10 border border-rose-500/20 rounded-lg cursor-pointer">
               <input
                 type="checkbox"
                 checked={deleteFromGoogle}
@@ -2631,12 +2631,12 @@ function IconActionBtn({
   const colors = {
     blue: "text-sky-500 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20 dark:border-sky-500/20",
     green:
-      "text-emerald-400 bg-emerald-500/10 border-emerald-200 hover:bg-emerald-500/20 dark:border-emerald-500/20",
+      "text-emerald-400 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20 dark:border-emerald-500/20",
     amber:
-      "text-amber-600 bg-amber-500/10 border-amber-200 hover:bg-amber-500/20 dark:border-amber-500/20",
+      "text-amber-600 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20 dark:border-amber-500/20",
     purple:
       "text-purple-400 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20",
-    red: "text-rose-400 bg-rose-500/10 border-rose-200 hover:bg-rose-500/20 dark:border-rose-500/20",
+    red: "text-rose-400 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20 dark:border-rose-500/20",
   };
   return (
     <button

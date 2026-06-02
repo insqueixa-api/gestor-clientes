@@ -1316,7 +1316,7 @@ export default function RevendaPage() {
               setServerFilter("Todos");
               setArchivedFilter("Não");
             }}
-            className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+            className="h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
           >
             <IconX /> Limpar
           </button>
@@ -1372,7 +1372,7 @@ export default function RevendaPage() {
                 setArchivedFilter("Não");
                 setMobileFiltersOpen(false);
               }}
-              className="w-full h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+              className="w-full h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
             >
               <IconX /> Limpar
             </button>
@@ -1462,7 +1462,7 @@ export default function RevendaPage() {
                 </tr>
               </thead>
 
-              <tbody className="text-sm divide-y divide-slate-100 dark:divide-white/5">
+              <tbody className="text-sm divide-y divide-border">
                 {visible.map((r) => (
                   <tr
                     key={r.id}
@@ -1498,7 +1498,7 @@ export default function RevendaPage() {
                                   );
                                 }}
                                 title={`${r.alertsCount} alerta(s)`}
-                                className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-600 border border-amber-200 text-[10px] font-medium hover:bg-amber-200 transition-colors animate-pulse"
+                                className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-600 border border-amber-500/20 text-[10px] font-medium hover:bg-amber-200 transition-colors animate-pulse"
                               >
                                 🔔 {r.alertsCount}
                               </button>

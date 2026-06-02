@@ -1817,7 +1817,7 @@ export default function RecargaCliente({
                   </div>
                   <div>
                     <Label>Total BRL</Label>
-                    <div className="w-full h-9 flex items-center justify-center bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/20 rounded text-emerald-400 font-medium">
+                    <div className="w-full h-9 flex items-center justify-center bg-emerald-500/20 border border-emerald-500/20 rounded text-emerald-400 font-medium">
                       {fmtMoney("BRL", totalBrl)}
                     </div>
                   </div>
@@ -1828,7 +1828,7 @@ export default function RecargaCliente({
               {Boolean(allowConvertWithoutPayment) && (
                 <div
                   onClick={() => setRegisterPayment(!registerPayment)}
-                  className={`cursor-pointer p-2.5 rounded-lg border transition-all flex items-center justify-between ${registerPayment ? "bg-emerald-500/10 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20" : "bg-muted/50 border-border dark:bg-card/5 dark:border-border"}`}
+                  className={`cursor-pointer p-2.5 rounded-lg border transition-all flex items-center justify-between ${registerPayment ? "bg-emerald-500/10 border-emerald-500/20 dark:bg-emerald-500/10 dark:border-emerald-500/20" : "bg-muted/50 border-border dark:bg-card/5 dark:border-border"}`}
                 >
                   <span
                     className={`text-xs font-medium ${registerPayment ? "text-emerald-400" : "text-muted-foreground"}`}
@@ -1881,7 +1881,7 @@ export default function RecargaCliente({
                 }
                 className={`p-3 rounded-xl border transition-all cursor-pointer ${
                   renewAutomatic
-                    ? "bg-emerald-500/10 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20"
+                    ? "bg-emerald-500/10 border-emerald-500/20 dark:bg-emerald-500/10 dark:border-emerald-500/20"
                     : "bg-muted/50 border-border dark:bg-card/5 dark:border-border"
                 } ${!hasIntegration ? "opacity-50 cursor-not-allowed" : ""}`}
               >

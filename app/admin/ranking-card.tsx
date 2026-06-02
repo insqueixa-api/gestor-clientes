@@ -87,7 +87,7 @@ const accents: Record<
     rankBg: "bg-amber-500/10",
     dot: "bg-amber-400",
     label: "text-foreground/90",
-    value: "text-amber-700 dark:text-amber-300",
+    value: "text-amber-400",
     topBar: "linear-gradient(to right,#92400e,#d97706,#fcd34d)",
   },
   indigo: {
@@ -97,7 +97,7 @@ const accents: Record<
     rankBg: "bg-indigo-50 dark:bg-indigo-900/40",
     dot: "bg-indigo-400",
     label: "text-foreground/90",
-    value: "text-indigo-700 dark:text-indigo-300",
+    value: "text-indigo-400",
     topBar: "linear-gradient(to right,#1e1b4b,#4338ca,#a5b4fc)",
   },
 };

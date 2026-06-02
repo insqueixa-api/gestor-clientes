@@ -454,7 +454,7 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
               {help.warnings.map((w, i) => (
                 <p
                   key={i}
-                  className="text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-lg px-3 py-2"
+                  className="text-xs font-medium text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2"
                 >
                   {w}
                 </p>

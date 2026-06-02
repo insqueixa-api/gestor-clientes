@@ -1199,7 +1199,7 @@ export default function ClientDetailsPage() {
       {showRenewWarning && client && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-md bg-card border border-border rounded-xl shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-200">
-            <div className="bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 p-4 rounded-lg flex gap-3">
+            <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-lg flex gap-3">
               <span className="text-2xl">📢</span>
               <div>
                 <h3 className="text-sm font-medium text-foreground mb-1">
@@ -1207,7 +1207,7 @@ export default function ClientDetailsPage() {
                 </h3>
                 <p className="text-sm text-foreground/90/90">
                   O cliente{" "}
-                  <strong className="text-amber-700 dark:text-amber-400">
+                  <strong className="text-amber-400">
                     {client.client_name}
                   </strong>{" "}
                   possui pendências em aberto.

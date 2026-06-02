@@ -945,7 +945,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
                 }
               />
               {isEditing && (
-                <div className="mt-1 p-2 bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded text-[10px] text-amber-700 dark:text-amber-400 flex items-start gap-2">
+                <div className="mt-1 p-2 bg-amber-500/10 border border-amber-500/20 rounded text-[10px] text-amber-400 flex items-start gap-2">
                   <span className="font-medium shrink-0">⚠️ Atenção:</span>
                   <span>
                     Ajuste manual de balanço (não gera registro financeiro).

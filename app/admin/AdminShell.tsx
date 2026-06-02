@@ -967,7 +967,7 @@ export default function AdminShell({
               {notifications.length > 0 && (
                 <button
                   onClick={clearAllNotifications}
-                  className="px-3 py-1.5 rounded-lg border border-border dark:border-border text-foreground/90 font-medium hover:bg-rose-500/10 hover:text-rose-400 hover:border-rose-200 dark:hover:bg-rose-500/10 dark:hover:text-rose-400 transition-colors text-xs uppercase"
+                  className="px-3 py-1.5 rounded-lg border border-border dark:border-border text-foreground/90 font-medium hover:bg-rose-500/10 hover:text-rose-400 hover:border-rose-500/20 dark:hover:bg-rose-500/10 dark:hover:text-rose-400 transition-colors text-xs uppercase"
                 >
                   Limpar todas
                 </button>
@@ -988,7 +988,7 @@ export default function AdminShell({
                       "p-3 rounded-lg border cursor-pointer transition-colors flex items-start gap-3",
                       n.is_read
                         ? "bg-muted/50 border-border"
-                        : "bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 hover:border-emerald-300 dark:hover:border-emerald-500/30",
+                        : "bg-emerald-500/10 border-emerald-500/20 hover:border-emerald-300 dark:hover:border-emerald-500/30",
                     ].join(" ")}
                   >
                     <div className="text-xl flex-shrink-0 mt-0.5">
@@ -1083,7 +1083,7 @@ export default function AdminShell({
           onClose={() => setShowWaModal(false)}
         >
           <div className="space-y-6">
-            <div className="bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 p-4 rounded-lg flex gap-3">
+            <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-lg flex gap-3">
               <span className="text-2xl mt-0.5">📲</span>
               <div>
                 <p className="text-foreground/90/90 text-sm font-medium">

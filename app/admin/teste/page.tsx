@@ -1297,7 +1297,7 @@ export default function TrialsPage() {
               setAppFilter("Todos"); // ✅ Resetando o novo filtro
               setArchivedFilter("Não");
             }}
-            className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+            className="h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
           >
             <IconX /> Limpar
           </button>
@@ -1400,7 +1400,7 @@ export default function TrialsPage() {
                 setArchivedFilter("Não");
                 setMobileFiltersOpen(false);
               }}
-              className="w-full h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+              className="w-full h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
             >
               <IconX /> Limpar
             </button>
@@ -1480,7 +1480,7 @@ export default function TrialsPage() {
                 </tr>
               </thead>
 
-              <tbody className="text-sm divide-y divide-slate-200 dark:divide-white/5">
+              <tbody className="text-sm divide-y divide-border">
                 {visible.map((r) => {
                   const isExpired = r.status === "Vencido";
 
@@ -1590,10 +1590,10 @@ export default function TrialsPage() {
 
                           const colors = {
                             green:
-                              "bg-emerald-500/20 text-emerald-400 border-emerald-200 dark:border-emerald-500/20",
-                            red: "bg-rose-500/20 text-rose-400 border-rose-200 dark:border-rose-500/20",
+                              "bg-emerald-500/20 text-emerald-400 border-emerald-500/20",
+                            red: "bg-rose-500/20 text-rose-400 border-rose-500/20",
                             amber:
-                              "bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/20",
+                              "bg-amber-500/20 text-amber-400 border-amber-500/20",
                             blue: "bg-sky-500/20 text-sky-400 border-sky-500/30",
                           };
 
@@ -1611,7 +1611,7 @@ export default function TrialsPage() {
                         <span
                           className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase ${
                             r.converted
-                              ? "bg-emerald-500/20 text-emerald-400 border-emerald-200 dark:border-emerald-500/20"
+                              ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/20"
                               : "bg-black/20 text-muted-foreground dark:text-white/50 border-border"
                           }`}
                           title={
@@ -1650,7 +1650,7 @@ export default function TrialsPage() {
                                     e.stopPropagation();
                                     openEditById(r.id, "apps");
                                   }}
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-[10px] font-medium tracking-tight shadow-sm hover:bg-emerald-500/20 dark:hover:bg-emerald-500/20 active:scale-95 transition-all"
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-[10px] font-medium tracking-tight shadow-sm hover:bg-emerald-500/20 dark:hover:bg-emerald-500/20 active:scale-95 transition-all"
                                   title="Configurar aplicativo"
                                 >
                                   {name || "App"}
@@ -2340,13 +2340,13 @@ function StatusBadge({ status }: { status: TrialStatus }) {
       ? {
           bg: "bg-emerald-500/20",
           text: "text-emerald-400",
-          border: "border-emerald-200 dark:border-emerald-500/20",
+          border: "border-emerald-500/20",
         }
       : status === "Vencido"
         ? {
             bg: "bg-rose-500/20",
             text: "text-rose-400",
-            border: "border-rose-200 dark:border-rose-500/20",
+            border: "border-rose-500/20",
           }
         : {
             bg: "bg-black/20",
@@ -2381,12 +2381,12 @@ function IconActionBtn({
   const colors = {
     blue: "text-sky-400 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20 dark:hover:bg-sky-500/20",
     green:
-      "text-emerald-400/70 dark:text-emerald-500/70 bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-500/20 dark:hover:bg-emerald-500/20",
+      "text-emerald-400/70 dark:text-emerald-500/70 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20 dark:hover:bg-emerald-500/20",
     amber:
-      "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-200 dark:border-amber-500/20 hover:bg-amber-500/20 dark:hover:bg-amber-500/20",
+      "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20 dark:hover:bg-amber-500/20",
     purple:
       "text-purple-400 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20 dark:hover:bg-purple-500/20",
-    red: "text-rose-400 bg-rose-500/10 border-rose-200 dark:border-rose-500/20 hover:bg-rose-500/20 dark:hover:bg-rose-500/20",
+    red: "text-rose-400 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20 dark:hover:bg-rose-500/20",
   };
 
   return (
@@ -2704,7 +2704,7 @@ function PapaTestesModal({
                       </span>
                     )}
                     {recs.length > 1 && (
-                      <span className="gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30">
+                      <span className="gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-amber-500/20 text-amber-400 border border-amber-500/20">
                         {recs.length}x
                       </span>
                     )}
@@ -2716,7 +2716,7 @@ function PapaTestesModal({
                   )}
                 </div>
 
-                <div className="divide-y divide-slate-100 dark:divide-white/5">
+                <div className="divide-y divide-border">
                   {recs.map((r) => (
                     <div
                       key={r.id}
@@ -2727,7 +2727,7 @@ function PapaTestesModal({
                           className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm border shrink-0 ${
                             r.is_trial
                               ? "bg-sky-500/20 text-sky-400 border-sky-500/30"
-                              : "bg-emerald-500/20 text-emerald-400 border-emerald-200 dark:border-emerald-500/30"
+                              : "bg-emerald-500/20 text-emerald-400 border-emerald-500/20"
                           }`}
                         >
                           {r.is_trial ? "Teste" : "Cliente"}

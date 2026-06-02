@@ -827,7 +827,7 @@ export default function ServerDetailsPage() {
                   <th className="px-5 py-3 w-10" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+              <tbody className="divide-y divide-border">
                 {filteredMovements.length === 0 ? (
                   <tr>
                     <td

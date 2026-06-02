@@ -311,7 +311,7 @@ export default function PlanosPage() {
 
           <button
             onClick={() => setSearch("")}
-            className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors items-center justify-center gap-2"
+            className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors items-center justify-center gap-2"
           >
             <IconX /> Limpar
           </button>

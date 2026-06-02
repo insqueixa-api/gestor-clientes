@@ -458,19 +458,19 @@ function AuditoriaPageContent() {
   function getPaymentBadge(status: string) {
     if (status === "approved" || status === "PAGO")
       return (
-        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-emerald-500/20 text-emerald-400 text-[10px] font-medium uppercase border border-emerald-200 dark:border-emerald-500/30">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-emerald-500/20 text-emerald-400 text-[10px] font-medium uppercase border border-emerald-500/20">
           Aprovado
         </span>
       );
     if (status === "pending")
       return (
-        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[10px] font-medium uppercase border border-amber-200 dark:border-amber-500/30">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-amber-500/20 text-amber-400 text-[10px] font-medium uppercase border border-amber-500/20">
           Pendente
         </span>
       );
     if (status === "rejected" || status === "cancelled")
       return (
-        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-rose-500/20 text-rose-400 text-[10px] font-medium uppercase border border-rose-200 dark:border-rose-500/30">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-rose-500/20 text-rose-400 text-[10px] font-medium uppercase border border-rose-500/20">
           Recusado
         </span>
       );
@@ -512,13 +512,13 @@ function AuditoriaPageContent() {
     // 4. Fluxo normal pós-pagamento aprovado
     if (status === "done")
       return (
-        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-blue-500/20 text-blue-400 text-[10px] font-medium uppercase border border-blue-200 dark:border-blue-500/30">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-blue-500/20 text-blue-400 text-[10px] font-medium uppercase border border-blue-500/20">
           Concluído
         </span>
       );
     if (status === "manual_done")
       return (
-        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 text-[10px] font-medium uppercase border border-indigo-200 dark:border-indigo-500/30">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-indigo-500/20 text-indigo-400 text-[10px] font-medium uppercase border border-indigo-500/20">
           Concluído Manualmente
         </span>
       );
@@ -530,7 +530,7 @@ function AuditoriaPageContent() {
       );
     if (status === "error")
       return (
-        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-rose-500/20 text-rose-400 text-[10px] font-medium uppercase border border-rose-200 dark:border-rose-500/30">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-rose-500/20 text-rose-400 text-[10px] font-medium uppercase border border-rose-500/20">
           Erro API
         </span>
       );
@@ -574,13 +574,13 @@ function AuditoriaPageContent() {
     // 4. Se a renovação deu certo, mostramos o status real vindo do campo whatsapp_status
     if (status === "sent")
       return (
-        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-emerald-500/20 text-emerald-400 text-[10px] font-medium uppercase border border-emerald-200 dark:border-emerald-500/30">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-emerald-500/20 text-emerald-400 text-[10px] font-medium uppercase border border-emerald-500/20">
           Enviado
         </span>
       );
     if (status === "error")
       return (
-        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-rose-500/20 text-rose-400 text-[10px] font-medium uppercase border border-rose-200 dark:border-rose-500/30">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-rose-500/20 text-rose-400 text-[10px] font-medium uppercase border border-rose-500/20">
           Erro
         </span>
       );
@@ -685,7 +685,7 @@ function AuditoriaPageContent() {
                   <th className="px-4 py-3 text-center">Ações</th>
                 </tr>
               </thead>
-              <tbody className="text-sm divide-y divide-slate-200 dark:divide-white/5">
+              <tbody className="text-sm divide-y divide-border">
                 {visible.length === 0 ? (
                   <tr>
                     <td
@@ -876,7 +876,7 @@ function AuditoriaPageContent() {
                                 {/* ✅ Botão Cancelar (Vermelho suave) */}
                                 <button
                                   onClick={() => handleCancelarAcao(r)}
-                                  className="gap-1 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 dark:text-rose-400 text-[10px] font-medium uppercase rounded-lg transition-colors border border-rose-200 dark:border-rose-500/20 shadow-sm flex items-center justify-center gap-1"
+                                  className="gap-1 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 dark:text-rose-400 text-[10px] font-medium uppercase rounded-lg transition-colors border border-rose-500/20 shadow-sm flex items-center justify-center gap-1"
                                   title="Encerrar esta pendência sem renovar"
                                 >
                                   <IconX />

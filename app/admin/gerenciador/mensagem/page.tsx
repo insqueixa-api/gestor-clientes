@@ -377,7 +377,7 @@ export default function MessagesPage() {
 
           <button
             onClick={() => setSearch("")}
-            className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors items-center justify-center gap-2"
+            className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors items-center justify-center gap-2"
           >
             <IconX /> Limpar
           </button>
@@ -492,7 +492,7 @@ export default function MessagesPage() {
                                 setSelectedTemplate(msg);
                                 setShowEditor(true);
                               }}
-                              className="flex items-center justify-center w-8 h-8 rounded-lg border border-amber-200 dark:border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 dark:hover:bg-amber-500/20 transition-all"
+                              className="flex items-center justify-center w-8 h-8 rounded-lg border border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 dark:hover:bg-amber-500/20 transition-all"
                               title="Editar"
                             >
                               <IconEdit />
@@ -503,7 +503,7 @@ export default function MessagesPage() {
                                   e.stopPropagation();
                                   handleDelete(msg.id);
                                 }}
-                                className="flex items-center justify-center w-8 h-8 rounded-lg border border-rose-200 dark:border-rose-500/20 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-all"
+                                className="flex items-center justify-center w-8 h-8 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-all"
                                 title="Excluir"
                               >
                                 <IconTrash />

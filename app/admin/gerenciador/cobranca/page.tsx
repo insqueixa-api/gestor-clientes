@@ -378,7 +378,7 @@ function GlobalQueueMonitor({
       <div
         onClick={() => setShowModal(true)}
         className={`mb-4 border rounded-xl p-3 flex items-center justify-between cursor-pointer hover:shadow-md transition-all
-    ${isGlobalPaused ? "bg-amber-500/20 border-amber-300" : "bg-emerald-500/10 border-emerald-200"}`}
+    ${isGlobalPaused ? "bg-amber-500/20 border-amber-300" : "bg-emerald-500/10 border-emerald-500/20"}`}
       >
         <div className="flex items-center gap-3">
           <div className="relative flex items-center justify-center w-5 h-5">
@@ -398,7 +398,7 @@ function GlobalQueueMonitor({
               {isGlobalPaused ? "⏸️ PAUSADA" : "🚀 ENVIANDO"}
             </h3>
             <p
-              className={`text-[10px] mt-0.5 ${isGlobalPaused ? "text-amber-700" : "text-emerald-400"}`}
+              className={`text-[10px] mt-0.5 ${isGlobalPaused ? "text-amber-400" : "text-emerald-400"}`}
             >
               {queueData.length} na fila
             </p>
@@ -440,7 +440,7 @@ function GlobalQueueMonitor({
                     </tr>
                   </thead>
 
-                  <tbody className="divide-y divide-gray-100 dark:divide-white/5">
+                  <tbody className="divide-y divide-border">
                     {queueData.map((job) => (
                       <tr
                         key={job.id}
@@ -1143,7 +1143,7 @@ export default function BillingPage() {
             {search.trim() && (
               <button
                 onClick={() => setSearch("")}
-                className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors"
+                className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors"
               >
                 Limpar
               </button>
@@ -1487,7 +1487,7 @@ function AutomationCard({
               {/* Secundários */}
               <button
                 onClick={onEdit}
-                className="px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-700 text-xs font-medium hover:bg-amber-500/20 dark:text-amber-300 transition"
+                className="px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 text-xs font-medium hover:bg-amber-500/20 dark:text-amber-300 transition"
                 title="Editar"
               >
                 Editar
@@ -1575,7 +1575,7 @@ function ImpactListModal({
                   <th className="p-3">Plano</th>
                 </tr>
               </thead>
-              <tbody className="text-sm text-foreground/90/80 divide-y divide-slate-100 dark:divide-white/5">
+              <tbody className="text-sm text-foreground/90/80 divide-y divide-border">
                 {data.clients.map((c) => (
                   <tr
                     key={c.id}

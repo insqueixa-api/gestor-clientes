@@ -221,10 +221,10 @@ function ActionBtn({
   const colors = {
     blue: "text-sky-500 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20 dark:border-sky-500/20 dark:hover:bg-sky-500/20",
     green:
-      "text-emerald-500 bg-emerald-500/10 border-emerald-200 hover:bg-emerald-500/20 dark:border-emerald-500/20 dark:hover:bg-emerald-500/20",
+      "text-emerald-500 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20 dark:border-emerald-500/20 dark:hover:bg-emerald-500/20",
     amber:
-      "text-amber-500 bg-amber-500/10 border-amber-200 hover:bg-amber-500/20 dark:border-amber-500/20 dark:hover:bg-amber-500/20",
-    red: "text-rose-500 bg-rose-500/10 border-rose-200 hover:bg-rose-500/20 dark:border-rose-500/20 dark:hover:bg-rose-500/20",
+      "text-amber-500 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20 dark:border-amber-500/20 dark:hover:bg-amber-500/20",
+    red: "text-rose-500 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20 dark:border-rose-500/20 dark:hover:bg-rose-500/20",
   };
   return (
     <button
@@ -1344,7 +1344,7 @@ function FinanceiroPageContent() {
                     : "QUICK_PENDENTE",
                 )
               }
-              className={`h-9 px-3 rounded-lg border text-xs font-medium transition-colors whitespace-nowrap flex-1 sm:flex-none ${statusFilter === "QUICK_PENDENTE" ? "border-amber-400 bg-amber-500/10 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400" : "border-border bg-card text-muted-foreground dark:bg-card dark:border-border dark:text-muted-foreground"}`}
+              className={`h-9 px-3 rounded-lg border text-xs font-medium transition-colors whitespace-nowrap flex-1 sm:flex-none ${statusFilter === "QUICK_PENDENTE" ? "border-amber-400 bg-amber-500/10 text-amber-400 dark:bg-amber-500/20 dark:text-amber-400" : "border-border bg-card text-muted-foreground dark:bg-card dark:border-border dark:text-muted-foreground"}`}
             >
               ⏳ Pendente
             </button>
@@ -1376,7 +1376,7 @@ function FinanceiroPageContent() {
                 setRecorrenciaFilter("Todos");
                 setMobileFiltersOpen(false);
               }}
-              className="h-9 px-2 shrink-0 rounded-lg border border-rose-200 bg-rose-500/10 text-rose-400 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400 text-[11px] font-medium flex items-center justify-center gap-1 transition-colors hover:bg-rose-500/20 uppercase tracking-wide"
+              className="h-9 px-2 shrink-0 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400 text-[11px] font-medium flex items-center justify-center gap-1 transition-colors hover:bg-rose-500/20 uppercase tracking-wide"
             >
               <IconTrash /> <span className="hidden sm:inline">Limpar</span>
             </button>
@@ -1503,7 +1503,7 @@ function FinanceiroPageContent() {
               setCategoriaFilter("Todos");
               setRecorrenciaFilter("Todos");
             }}
-            className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors flex items-center gap-2"
+            className="h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors flex items-center gap-2"
           >
             <IconX /> Limpar
           </button>
@@ -1605,7 +1605,7 @@ function FinanceiroPageContent() {
               <th className="px-4 py-3 text-right whitespace-nowrap">Ações</th>
             </tr>
           </thead>
-          <tbody className="text-sm divide-y divide-slate-200 dark:divide-white/5">
+          <tbody className="text-sm divide-y divide-border">
             {normais.length === 0 && antecipadas.length === 0 && !loading && (
               <tr>
                 <td
@@ -1671,7 +1671,7 @@ function FinanceiroPageContent() {
                   showDateDivider && (
                     <tr
                       key={`div-${t.id}`}
-                      className="bg-black/20/80 dark:bg-card/5 border-y border-border"
+                      className="bg-black/20 dark:bg-card/5 border-y border-border"
                     >
                       <td
                         colSpan={9}
@@ -1694,11 +1694,11 @@ function FinanceiroPageContent() {
 
                     <td className="px-4 py-3 text-center">
                       {t.tipo === "RECEITA" ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-normal tracking-tight shadow-sm uppercase text-emerald-400 bg-emerald-500/10 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-200 dark:border-emerald-400/30">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-normal tracking-tight shadow-sm uppercase text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-200 dark:border-emerald-400/30">
                           <IconTrendingUp /> Receita
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-normal tracking-tight shadow-sm uppercase text-rose-400 bg-rose-500/10 border border-rose-200 dark:bg-rose-500/20 dark:text-rose-200 dark:border-rose-400/30">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-normal tracking-tight shadow-sm uppercase text-rose-400 bg-rose-500/10 border border-rose-500/20 dark:bg-rose-500/20 dark:text-rose-200 dark:border-rose-400/30">
                           <IconTrendingDown /> Despesa
                         </span>
                       )}
@@ -1713,16 +1713,16 @@ function FinanceiroPageContent() {
                     <td className="px-4 py-3 text-center">
                       {(() => {
                         let cor =
-                          "bg-amber-500/20 text-amber-700 border-amber-200 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-400/30";
+                          "bg-amber-500/20 text-amber-400 border-amber-500/20 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-400/30";
                         let label = cStatus;
 
                         if (cStatus === "PAGO") {
                           cor =
-                            "bg-emerald-500/20 text-emerald-400 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-200 dark:border-emerald-400/30";
+                            "bg-emerald-500/20 text-emerald-400 border-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-200 dark:border-emerald-400/30";
                           label = t.tipo === "RECEITA" ? "RECEBIDO" : "PAGO";
                         } else if (cStatus === "VENCIDO") {
                           cor =
-                            "bg-rose-500/20 text-rose-400 border-rose-200 dark:bg-rose-500/20 dark:text-rose-200 dark:border-rose-400/30";
+                            "bg-rose-500/20 text-rose-400 border-rose-500/20 dark:bg-rose-500/20 dark:text-rose-200 dark:border-rose-400/30";
                         }
 
                         return (
@@ -1920,7 +1920,7 @@ function FinanceiroPageContent() {
           onClose={() => setDeleteData({ open: false, transacao: null })}
         >
           <div className="space-y-4">
-            <div className="p-3 bg-amber-500/10 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 rounded-xl text-sm text-amber-800 dark:text-amber-300 flex gap-3">
+            <div className="p-3 bg-amber-500/10 border border-amber-500/20 dark:bg-amber-500/10 dark:border-amber-500/20 rounded-xl text-sm text-amber-800 dark:text-amber-300 flex gap-3">
               <span className="text-xl">⚠️</span>
               <p>
                 A transação <b>{deleteData.transacao.descricao}</b> faz parte de
@@ -1940,7 +1940,7 @@ function FinanceiroPageContent() {
                 onClick={() =>
                   handleExclusaoAprovada(deleteData.transacao!, "TODAS")
                 }
-                className="px-4 py-3 rounded-lg border border-rose-200 bg-rose-500/10 text-sm font-medium text-rose-400 hover:bg-rose-500/20 transition-colors"
+                className="px-4 py-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-sm font-medium text-rose-400 hover:bg-rose-500/20 transition-colors"
               >
                 🗑️ Excluir esta e as futuras
               </button>
@@ -3531,7 +3531,7 @@ function ModalTransacao({
               <div className="flex bg-muted/50 rounded-lg border border-border p-1 h-10">
                 <button
                   onClick={() => setStatus("PENDENTE")}
-                  className={`flex-1 rounded-md text-xs font-medium transition-colors ${status === "PENDENTE" ? "bg-amber-500/20 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400" : "text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80"}`}
+                  className={`flex-1 rounded-md text-xs font-medium transition-colors ${status === "PENDENTE" ? "bg-amber-500/20 text-amber-400 dark:bg-amber-500/20 dark:text-amber-400" : "text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80"}`}
                 >
                   ⏳ Pendente
                 </button>
@@ -3615,7 +3615,7 @@ function ModalTransacao({
               <button
                 type="button"
                 onClick={() => setShowPagamentoPicker(true)}
- className={`w-full h-10 px-3 flex justify-center items-center bg-card dark:bg-black/20 border rounded-lg transition-colors text-sm font-medium ${status === "PAGO" ? "border-emerald-200 dark:border-emerald-500/30 text-emerald-400 hover:border-emerald-500" : "border-border text-muted-foreground/80 dark:text-white/50 hover:border-slate-400"}`}
+ className={`w-full h-10 px-3 flex justify-center items-center bg-card dark:bg-black/20 border rounded-lg transition-colors text-sm font-medium ${status === "PAGO" ? "border-emerald-500/20 text-emerald-400 hover:border-emerald-500" : "border-border text-muted-foreground/80 dark:text-white/50 hover:border-slate-400"}`}
               >
                 {pagamentoDisplay}
               </button>
@@ -3649,7 +3649,7 @@ function ModalTransacao({
                     <button
                       type="button"
                       onClick={() => setEscopoEdicao("UNICA")}
-                      className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopoEdicao === "UNICA" ? "bg-amber-500/20 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400 shadow-sm" : "text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80"}`}
+                      className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopoEdicao === "UNICA" ? "bg-amber-500/20 text-amber-400 dark:bg-amber-500/20 dark:text-amber-400 shadow-sm" : "text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80"}`}
                     >
                       📅 Apenas nesta
                     </button>
@@ -4017,8 +4017,8 @@ function ModalBaixa({
               onFocus={(e) => e.target.select()}
               className={`w-28 h-9 px-2 text-right font-medium rounded-lg border bg-card dark:bg-black/20 outline-none focus:border-emerald-500/50 text-sm ${
                 isReceita
-                  ? "text-emerald-400 border-emerald-200 dark:border-emerald-500/30"
-                  : "text-rose-400 border-rose-200 dark:border-rose-500/30"
+                  ? "text-emerald-400 border-emerald-500/20"
+                  : "text-rose-400 border-rose-500/20"
               }`}
             />
             {valorAlterado && (
@@ -4041,7 +4041,7 @@ function ModalBaixa({
                 onClick={() => setEscopo("UNICA")}
                 className={`flex-1 rounded-md text-xs font-medium transition-colors ${
                   escopo === "UNICA"
-                    ? "bg-amber-500/20 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400 shadow-sm"
+                    ? "bg-amber-500/20 text-amber-400 dark:bg-amber-500/20 dark:text-amber-400 shadow-sm"
                     : "text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80"
                 }`}
               >

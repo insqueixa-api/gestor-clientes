@@ -381,7 +381,7 @@ export default function AppIntegracaoModal({
                     placeholder="Ex: 123456"
                     type="text"
                     maxLength={6}
-                    className="w-full h-11 rounded-xl border border-emerald-200 dark:border-emerald-500/30 bg-emerald-500/10/50 dark:bg-emerald-500/5 px-10 text-sm text-foreground outline-none focus:border-emerald-500 focus:bg-card dark:focus:bg-black/40 transition-colors font-mono tracking-widest"
+                    className="w-full h-11 rounded-xl border border-emerald-500/20 bg-emerald-500/10/50 dark:bg-emerald-500/5 px-10 text-sm text-foreground outline-none focus:border-emerald-500 focus:bg-card dark:focus:bg-black/40 transition-colors font-mono tracking-widest"
                   />
                 </div>
                 <p className="text-[10px] text-foreground/70 mt-1.5 ml-1">

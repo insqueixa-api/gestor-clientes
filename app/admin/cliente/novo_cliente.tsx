@@ -4244,7 +4244,7 @@ export default function NovoCliente({
                                 )),
                               });
                             }}
-                            className="gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 dark:hover:bg-amber-500/20 transition-colors flex items-center gap-1"
+                            className="gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 dark:hover:bg-amber-500/20 transition-colors flex items-center gap-1"
                           >
                             ⚠️ {papaTesteInfo.count} registro
                             {papaTesteInfo.count > 1 ? "s" : ""} anteriore
@@ -4915,7 +4915,7 @@ export default function NovoCliente({
                       <div>
                         <Label>Total BRL</Label>
 
-                        <div className="w-full h-9 flex items-center justify-center bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/20 rounded text-emerald-400 font-medium">
+                        <div className="w-full h-9 flex items-center justify-center bg-emerald-500/20 border border-emerald-500/20 rounded text-emerald-400 font-medium">
                           {fmtMoney("BRL", totalBrl)}
                         </div>
                       </div>
@@ -5196,7 +5196,7 @@ export default function NovoCliente({
                               }}
                               className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
                                 registerRenewal
-                                  ? "bg-emerald-500/10 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20"
+                                  ? "bg-emerald-500/10 border-emerald-500/20 dark:bg-emerald-500/10 dark:border-emerald-500/20"
                                   : "bg-muted/50 border-border dark:bg-card/5 dark:border-border"
                               }`}
                             >
@@ -5426,7 +5426,7 @@ export default function NovoCliente({
                                     ? "Vencido no Painel"
                                     : `Vence em ${diffDays} dias`
                                 }
-                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-500/20 border border-rose-200 dark:border-rose-500/30 text-rose-400 animate-pulse shadow-sm ml-1"
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-500/20 border border-rose-500/20 text-rose-400 animate-pulse shadow-sm ml-1"
                               >
                                 <svg
                                   width="10"
@@ -5577,7 +5577,7 @@ export default function NovoCliente({
                                         if (ok)
                                           await handleDeleteApp(app.instanceId);
                                       }}
-                                      className="h-10 rounded-lg bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-400 hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-1.5"
+                                      className="h-10 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-1.5"
                                       title="Remover do painel oficial"
                                     >
                                       <svg
