@@ -1127,7 +1127,7 @@ export default function RenewClient() {
                         </svg>
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-bold text-emerald-800 mb-0.5">
+                        <p className="text-sm font-bold text-emerald-300 mb-0.5">
                           Pagamento recebido
                         </p>
                         <p className="text-xs text-emerald-300 leading-relaxed">
@@ -1144,7 +1144,7 @@ export default function RenewClient() {
                         <span className="text-base">🔔</span>
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-bold text-blue-800 mb-0.5">
+                        <p className="text-sm font-bold text-blue-300 mb-0.5">
                           Suporte já foi notificado
                         </p>
                         <p className="text-xs text-blue-300 leading-relaxed">
@@ -1372,7 +1372,7 @@ export default function RenewClient() {
                 <div className="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20 flex items-center gap-3">
                   <div className="w-6 h-6 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
                   <div className="flex-1">
-                    <p className="text-sm font-bold text-blue-800">
+                    <p className="text-sm font-bold text-blue-300">
                       {paymentPhase === "renewing"
                         ? "Processando renovação..."
                         : "Aguardando pagamento..."}
