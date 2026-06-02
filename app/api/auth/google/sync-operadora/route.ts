@@ -220,8 +220,8 @@ export async function POST(req: Request) {
               const operadoraName = await consultarOperadoraExterna(fullDigits);
               
               if (operadoraName) {
-                if (phone.label !== `${operadoraName}:`) {
-                  updatedPhones[i].label = `${operadoraName}:`;
+                if (phone.label !== operadoraName) {
+                  updatedPhones[i].label = operadoraName;
                   hasChanges = true;
                 }
               } else {
@@ -232,8 +232,8 @@ export async function POST(req: Request) {
           } else {
             // Internacional
             const countryLabel = DDI_OPTIONS.find(o => o.code === ddi)?.label || "Internacional";
-            if (phone.label !== `${countryLabel}:`) {
-              updatedPhones[i].label = `${countryLabel}:`;
+            if (phone.label !== countryLabel) {
+              updatedPhones[i].label = countryLabel;
               hasChanges = true;
             }
           }

@@ -292,7 +292,7 @@ function AgendaPageContent() {
   const [emailLabelFilter, setEmailLabelFilter] = useState("Todos");
   const [phoneLabelFilter, setPhoneLabelFilter] = useState("Todos");
   const [photoFilter, setPhotoFilter] = useState("Todos"); // <--- NOVO: Filtro de foto
-  const [pageSize, setPageSize] = useState(100);
+  const [pageSize, setPageSize] = useState(30);
   const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -505,6 +505,52 @@ function AgendaPageContent() {
     }
   }
 
+  const [isPushingGoogle, setIsPushingGoogle] = useState(false);
+
+  // Reenvia o que JÁ ESTÁ no Supabase pro Google (nome, telefones+operadora,
+  // emails, labels/grupos). NÃO consulta a Telein — zero gasto de crédito.
+  // Processa em chunks pra caber no teto de 10s da Vercel grátis.
+  async function handleMassPushGoogle() {
+    if (selectedIds.size === 0) return;
+    setIsPushingGoogle(true);
+    const ids = Array.from(selectedIds);
+    const CHUNK = 10;
+    let totalUpdated = 0;
+    const allErrors: string[] = [];
+
+    try {
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const slice = ids.slice(i, i + CHUNK);
+        const res = await fetch("/api/auth/google/push-to-google", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contact_ids: slice }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          totalUpdated += data.updated || 0;
+          if (data.errors?.length) allErrors.push(...data.errors);
+        } else {
+          allErrors.push(data.error || "Erro no lote.");
+        }
+      }
+
+      addToast(
+        "success",
+        "Reenvio concluído",
+        `${totalUpdated} contato(s) reenviado(s) ao Google.`,
+      );
+      if (allErrors.length)
+        addToast("warning", "Alguns erros", allErrors.slice(0, 3).join(" | "));
+      loadData();
+      setSelectedIds(new Set());
+    } catch (err: any) {
+      addToast("error", "Erro", err.message);
+    } finally {
+      setIsPushingGoogle(false);
+    }
+  }
+
   async function handleMassAssignGroup(label: string) {
     if (!label.trim() || selectedIds.size === 0) return;
     setIsAssigningGroup(true);
@@ -593,9 +639,11 @@ function AgendaPageContent() {
   }
 
   // ─── FILTROS & ORDENAÇÃO ───────────────────────────────────────────────────
+  // Reseta a seleção ao trocar de página OU mudar qualquer filtro,
+  // pra cada página ser um lote independente (sem seleção "fantasma").
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [search, labelFilter, emailLabelFilter, phoneLabelFilter, photoFilter]); // <--- ATUALIZADO
+  }, [search, labelFilter, emailLabelFilter, phoneLabelFilter, photoFilter, page, pageSize]);
 
   const filtered = useMemo(() => {
     const q = search
@@ -1433,6 +1481,20 @@ function AgendaPageContent() {
           </span>
           <div className="flex items-center gap-2">
             <button
+              onClick={handleMassPushGoogle}
+              disabled={isPushingGoogle}
+              className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {isPushingGoogle ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Reenviando ao Google...
+                </>
+              ) : (
+                <>📤 Reenviar Google ({selectedIds.size})</>
+              )}
+            </button>
+            <button
               onClick={handleMassSyncOperadora}
               disabled={isSyncingOperadora}
               className="text-xs px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-colors disabled:opacity-50 flex items-center gap-1.5"
@@ -1807,6 +1869,7 @@ function AgendaPageContent() {
                     }}
                     className="h-7 px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded text-xs text-slate-600 dark:text-white"
                   >
+                    <option value={30}>30 por página</option>
                     <option value={50}>50 por página</option>
                     <option value={100}>100 por página</option>
                     <option value={200}>200 por página</option>

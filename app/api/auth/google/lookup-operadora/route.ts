@@ -119,13 +119,13 @@ export async function POST(req: Request) {
     if (phone.startsWith("55")) {
       const operadora = await consultarOperadoraExterna(phone);
       if (operadora) {
-        return NextResponse.json({ operadora: `${operadora}:` });
+        return NextResponse.json({ operadora: operadora });
       } else {
         // AGORA ELE AVISA O FRONT QUE DEU ERRO! (Botão vai ficar vermelho)
         return NextResponse.json({ error: "Falha ao consultar operadora na Telein (Verifique a chave ou limite)." }, { status: 400 });
       }
     } else {
-      return NextResponse.json({ operadora: `${inferCountryLabel(phone)}:` });
+      return NextResponse.json({ operadora: inferCountryLabel(phone) });
     }
     
   } catch (error: any) {

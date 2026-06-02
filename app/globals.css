@@ -4,13 +4,13 @@
 
 /* === MODO CLARO === */
 :root {
-  --background: #fafafa;   /* zinc-50 */
-  --foreground: #09090b;   /* zinc-950 */
-  --card: #ffffff;         /* white */
-  --card-foreground: #09090b;
-  --border: #e4e4e7;       /* zinc-200 */
-  --muted: #f4f4f5;        /* zinc-100 */
-  --muted-foreground: #71717a; /* zinc-500 */
+  --background: #f8fafc;   /* slate-50 (fundo levemente azulado) */
+  --foreground: #0f172a;   /* slate-900 */
+  --card: #ffffff;         /* branco para os cards */
+  --card-foreground: #0f172a;
+  --border: #e2e8f0;       /* slate-200 */
+  --muted: #f1f5f9;        /* slate-100 */
+  --muted-foreground: #64748b; /* slate-500 */
   
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
