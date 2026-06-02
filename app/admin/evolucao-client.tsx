@@ -139,8 +139,8 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
   const TICK = isDark ? "rgba(148,163,184,0.65)" : "rgba(71,85,105,0.65)";
   const BAR1 = "rgba(16,185,129,0.2)";
   const BAR2 = "rgba(244,63,94,0.2)";
-  const L1 = "#059669";
-  const L2 = "#e11d48";
+  const L1 = isDark ? "#10b981" : "#10b981";
+  const L2 = isDark ? "#f43f5e" : "#e11d48";
   const BAR_W = Math.min(COL_W * 0.27, 20);
 
   const makePath = (key: "line1" | "line2") =>
@@ -422,25 +422,15 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
                   <div
                     key={`div-${ri}`}
                     style={{ height: 1, background: DIVIDER }}
-                  />
                 );
               }
 
-              const labelColor = row.bold
-                ? isDark
-                  ? row.darkColor
-                  : row.lightColor
-                : TICK;
-              const valColor = (val: number) =>
-                val === 0
-                  ? isDark
-                    ? "rgba(255,255,255,0.15)"
-                    : "rgba(0,0,0,0.15)"
-                  : row.colorValues
-                    ? isDark
-                      ? row.darkColor
-                      : row.lightColor
-                    : TICK;
+              const labelColor = row.bold ? (isDark ? "#f8fafc" : "#0f172a") : TICK;
+              const valColor = (val: number) => {
+                if (val === 0) return isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)";
+                // Using a clear, readable color for all numbers instead of applying red/green to text!
+                return isDark ? "#e2e8f0" : "#334155";
+              };
 
               return (
                 <div
