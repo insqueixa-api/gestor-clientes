@@ -2,21 +2,21 @@
 
 @variant dark (&:where(.dark, .dark *));
 
-/* === MODO CLARO === */
+/* === MODO "CLARO" (DIM / TWILIGHT) === */
 :root {
-  --background: #f8fafc;   /* slate-50 (fundo levemente azulado) */
-  --foreground: #0f172a;   /* slate-900 */
-  --card: #ffffff;         /* branco para os cards */
-  --card-foreground: #0f172a;
-  --border: #e2e8f0;       /* slate-200 */
-  --muted: #f1f5f9;        /* slate-100 */
-  --muted-foreground: #64748b; /* slate-500 */
+  --background: #1e293b;   /* slate-800 – fundo principal */
+  --foreground: #e2e8f0;   /* slate-200 – texto principal */
+  --card: #273548;         /* slate-700/800 mix – cards levemente + claros */
+  --card-foreground: #f1f5f9;
+  --border: #3b4f6b;       /* borda suave azulada */
+  --muted: #1a2332;        /* fundo secundário */
+  --muted-foreground: #94a3b8; /* slate-400 */
   
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-/* === MODO ESCURO === */
+/* === MODO ESCURO (PURO) === */
 :root.dark {
   --background: #09090b;   /* zinc-950 puro */
   --foreground: #fafafa;   /* zinc-50 */
@@ -61,29 +61,33 @@ body {
   pointer-events: none;
 }
 
-/* ── Select / Option: fundo correto no dark mode ── */
+/* ── Select / Option: fundo escuro em AMBOS os temas ── */
+select,
+select option {
+  background-color: #1a2332;
+  color: #e2e8f0;
+}
+
+select option:checked {
+  background-color: #2d3f55;
+  color: #f1f5f9;
+}
+
+select option:hover {
+  background-color: #3b4f6b;
+}
+
 :root.dark select,
 :root.dark select option {
-  background-color: #18181b; /* zinc-900 */
-  color: #fafafa;            /* zinc-50 */
+  background-color: #18181b;
+  color: #fafafa;
 }
 
 :root.dark select option:checked {
-  background-color: #27272a; /* zinc-800 - item selecionado */
+  background-color: #27272a;
   color: #fafafa;
 }
 
 :root.dark select option:hover {
-  background-color: #3f3f46; /* zinc-700 */
-}
-
-/* ── Tema claro: garantir legibilidade ── */
-select option {
-  background-color: #ffffff;
-  color: #18181b;
-}
-
-select option:checked {
-  background-color: #f4f4f5; /* zinc-100 */
-  color: #09090b;
+  background-color: #3f3f46;
 }
