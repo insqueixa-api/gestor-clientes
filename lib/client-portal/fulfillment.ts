@@ -150,6 +150,42 @@ export async function runFulfillment(params: FulfillmentParams) {
 
   if (sErr || !srv) throw new Error("Servidor não encontrado para renovação.");
 
+  // ============================================================
+  // ✅ CHECAGEM DE SALDO BAIXO (≤15) — NÃO BLOQUEANTE
+  // Roda assim que o servidor é carregado, independente de integração.
+  // Sem await: dispara em background e NUNCA interfere na renovação.
+  // Esta é a ÚNICA checagem de saldo do fluxo (a da seção 6 foi removida).
+  // ============================================================
+  try {
+    const creditsNow = Number((srv as any).credits_available);
+    if (Number.isFinite(creditsNow) && creditsNow <= 15) {
+      prodLog("fulfillment.low_credits", {
+        tenant: tenantId.slice(-6),
+        server: srv.name,
+        credits: creditsNow,
+      });
+
+      const lowCreditsSecret = String(process.env.INTERNAL_API_SECRET || "").trim();
+      fetch(`${origin}/api/notifications/low-credits`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-internal-secret": lowCreditsSecret,
+        },
+        body: JSON.stringify({
+          serverName: srv.name,
+          credits: creditsNow,
+          tenantId: tenantId,
+          reason: "Saldo de créditos atingiu o limite crítico de 15 ou menos.",
+        }),
+      }).catch((e) =>
+        safeServerLog("Erro ao enviar e-mail de saldo baixo", e)
+      );
+    }
+  } catch (e) {
+    safeServerLog("fulfillment: failed low credits check", (e as any)?.message);
+  }
+
   // ✅ HELPER: Atualiza o banco e dispara o email de alerta simultaneamente
   const notifyManual = async (reason: string) => {
     await supabaseAdmin.from("client_portal_payments").update({ fulfillment_status: "manual_pending", fulfillment_error: reason }).eq("id", payment.id);
@@ -406,37 +442,8 @@ credits_used: months * qtyScreens,
       });
     }
 
-    // ✅ Verifica se o saldo atualizado pós-recarga caiu para 10 ou menos
-    const { data: srvUpdated } = await supabaseAdmin
-      .from("servers")
-      .select("name, credits_available")
-      .eq("id", client.server_id)
-      .eq("tenant_id", tenantId)
-      .single();
-
-    if (srvUpdated && srvUpdated.credits_available <= 10) {
-      prodLog("fulfillment.low_credits", {
-        tenant: tenantId.slice(-6),
-        server: srvUpdated.name,
-        credits: srvUpdated.credits_available
-      });
-
-      // ✅ Dispara o e-mail usando exatamente a mesma estrutura e segurança do notifyManual
-      // Deixamos sem o 'await' para rodar solto em background e não atrasar o fluxo principal
-      fetch(`${origin}/api/notifications/low-credits`, {
-        method: "POST",
-        headers, // Reutiliza os headers que já possuem o "x-internal-secret" configurado acima
-        body: JSON.stringify({
-          serverName: srvUpdated.name,
-          credits: srvUpdated.credits_available,
-          tenantId: tenantId,
-          reason: "Saldo de créditos atingiu o limite crítico de 10 ou menos."
-        })
-      }).catch(e => safeServerLog("Erro ao enviar e-mail de saldo baixo via Gmail API", e));
-    }
-
   } catch (e) {
-    safeServerLog("fulfillment: failed sync or low credits check", (e as any)?.message);
+    safeServerLog("fulfillment: failed sync", (e as any)?.message);
   }
 
   // 7) WhatsApp

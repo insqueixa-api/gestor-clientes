@@ -435,11 +435,13 @@ function AuditoriaPageContent() {
         throw new Error("A API recusou o envio ou a VM está offline.");
       }
 
-      // 3. Atualiza o status do banco para sucesso
-      await supabaseBrowser
-        .from("client_portal_payments")
-        .update({ whatsapp_status: "sent" })
-        .eq("id", log.id);
+      // 3. Atualiza o status do banco para sucesso (via RPC SECURITY DEFINER — RLS bloqueia UPDATE direto)
+      const { error: rpcErr } = await supabaseBrowser.rpc("update_whatsapp_status", {
+        p_log_id: log.id,
+        p_tenant_id: tenantId,
+        p_status: "sent",
+      });
+      if (rpcErr) throw rpcErr;
 
       addToast(
         "success",
