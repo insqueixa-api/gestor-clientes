@@ -343,11 +343,15 @@ export default function AdminShell({
               autoIds.forEach((autoId) => {
                 const info = autoMap[autoId] || { name: "Automação", time: "" };
                 const qtd = countByAuto[autoId];
-                const horaTxt = info.time ? ` (envio das ${info.time})` : "";
+                const horaTxt = info.time ? ` às ${info.time}hs` : "";
+                const clienteTxt =
+                  qtd > 1
+                    ? `${qtd} clientes não foram notificados`
+                    : `${qtd} cliente não foi notificado`;
                 list.push({
                   id: `auto_fail_${autoId}_${dataAtualSP}`,
-                  title: "🤖 Falha na Automação",
-                  message: `A automação "${info.name}"${horaTxt} falhou hoje. ${qtd} cliente(s) não foram notificados pelo WhatsApp. Reenvie pelos Logs da regra.`,
+                  title: "🤖 Falha na automação de cobrança",
+                  message: `A regra "${info.name}" não foi enviada${horaTxt}. ${clienteTxt} via WhatsApp.`,
                   link: "/admin/gerenciador/cobranca",
                   type: "error",
                   is_read: false,
