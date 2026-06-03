@@ -143,7 +143,7 @@ export async function runFulfillment(params: FulfillmentParams) {
   // 2) Servidor
   const { data: srv, error: sErr } = await supabaseAdmin
     .from("servers")
-    .select("id,name,panel_integration,whatsapp_session") // ✅ ADICIONADO: whatsapp_session
+    .select("id,name,panel_integration,whatsapp_session,credits_available") // ✅ ADICIONADO: whatsapp_session + credits_available (necessário p/ alerta de saldo baixo)
     .eq("tenant_id", tenantId)
     .eq("id", client.server_id)
     .single();
