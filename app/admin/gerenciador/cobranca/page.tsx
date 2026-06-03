@@ -59,15 +59,6 @@ type ClientLight = {
   price_amount?: number;
 };
 
-// ✅ NOVO TIPO: Log de Envio
-type LogEntry = {
-  id: string;
-  client_name: string;
-  client_whatsapp: string;
-  status: string;
-  sent_at: string | null;
-  error_message?: string;
-};
 
 type SelectOption = { id: string; label: string };
 
@@ -2353,8 +2344,22 @@ function MultiSelectDropdown({ label, options, selected, onChange }: any) {
   );
 }
 // ============================================================================
-// MODAL DE LOGS (HISTÓRICO)
+// MODAL DE LOGS (HISTÓRICO) — lê de vw_client_message_jobs_queue_details
+// com reenvio e cancelamento de falhas
 // ============================================================================
+
+type JobLogRow = {
+  id: string;
+  status: string;
+  when_sp: string | null;
+  client_id: string | null;
+  client_name: string | null;
+  whatsapp_username: string | null;
+  template_name: string | null;
+  message_preview: string | null;
+  error_message: string | null;
+  whatsapp_session: string | null;
+};
 
 function LogsModal({
   ruleId,
@@ -2367,45 +2372,171 @@ function LogsModal({
 }) {
   if (typeof document === "undefined") return null;
 
-  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [logs, setLogs] = useState<JobLogRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [working, setWorking] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const fetchLogs = async () => {
+    setLoading(true);
+    const tid = await getCurrentTenantId();
+    if (!tid) {
+      setLoading(false);
+      return;
+    }
+
+    const { data, error } = await supabaseBrowser
+      .from("vw_client_message_jobs_queue_details")
+      .select(
+        "id, status, when_sp, when_ts_utc, client_id, client_name, whatsapp_username, template_name, message_preview, error_message, whatsapp_session",
+      )
+      .eq("tenant_id", tid)
+      .eq("automation_id", ruleId)
+      .in("status", ["FAILED", "SENT", "CANCELLED"])
+      .order("when_ts_utc", { ascending: false })
+      .limit(100);
+
+    if (error) {
+      setLogs([]);
+    } else {
+      setLogs((data as JobLogRow[]) || []);
+    }
+    setSelected(new Set());
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const fetchLogs = async () => {
-      const tid = await getCurrentTenantId();
-      if (!tid) return;
+    fetchLogs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ruleId]);
 
-      const { data, error } = await supabaseBrowser
-        .from("billing_logs")
+  const failedRows = logs.filter((l) => l.status === "FAILED");
+
+  const toggleOne = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAllFailed = () => {
+    if (selected.size === failedRows.length && failedRows.length > 0) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(failedRows.map((r) => r.id)));
+    }
+  };
+
+  // Reenfileira: cria NOVOS jobs SCHEDULED (escadinha) e marca os antigos como CANCELLED
+  const requeueIds = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    setWorking(true);
+    try {
+      const tid = await getCurrentTenantId();
+      if (!tid) throw new Error("Sessão inválida.");
+
+      // Puxa os dados originais EXATOS dos jobs (a view não traz image_url/template_id)
+      const { data: originals, error: origErr } = await supabaseBrowser
+        .from("client_message_jobs")
         .select(
-          "id, client_name, client_whatsapp, status, sent_at, error_message",
+          "id, client_id, reseller_id, message, image_url, message_template_id, whatsapp_session, automation_id",
         )
         .eq("tenant_id", tid)
-        .eq("automation_id", ruleId)
-        .order("sent_at", { ascending: false })
-        .limit(50);
+        .in("id", ids);
 
-      if (error) {
-        setLogs([]);
-      } else {
-        setLogs((data as LogEntry[]) || []);
-      }
+      if (origErr) throw origErr;
+      if (!originals || originals.length === 0)
+        throw new Error("Jobs originais não encontrados.");
 
-      setLoading(false);
-    };
-    fetchLogs();
-  }, [ruleId]);
+      // Monta novos jobs em escadinha (T+10s, T+20s...) pra não floodar a VM
+      let currentSendAt = new Date();
+      const inserts = originals.map((o: any) => {
+        const delaySecs = Math.floor(Math.random() * 20) + 10; // 10–30s
+        currentSendAt = new Date(currentSendAt.getTime() + delaySecs * 1000);
+        const base: any = {
+          tenant_id: tid,
+          message: o.message,
+          image_url: o.image_url || null,
+          message_template_id: o.message_template_id || null,
+          automation_id: o.automation_id || null,
+          whatsapp_session: o.whatsapp_session || "default",
+          status: "SCHEDULED",
+          send_at: currentSendAt.toISOString(),
+        };
+        if (o.reseller_id) base.reseller_id = o.reseller_id;
+        else base.client_id = o.client_id;
+        return base;
+      });
+
+      const { error: insErr } = await supabaseBrowser
+        .from("client_message_jobs")
+        .insert(inserts);
+      if (insErr) throw insErr;
+
+      // Marca os antigos como CANCELLED pra saírem do alerta de falhas
+      const { error: updErr } = await supabaseBrowser
+        .from("client_message_jobs")
+        .update({
+          status: "CANCELLED",
+          error_message: "Reenfileirado manualmente via Logs",
+        })
+        .eq("tenant_id", tid)
+        .in("id", ids);
+      if (updErr) throw updErr;
+
+      await fetchLogs();
+    } catch (e: any) {
+      if (process.env.NODE_ENV !== "production")
+        console.error("requeue falhou:", e?.message);
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  // Marca como recebido (cliente já recebeu apesar do erro): vira CANCELLED, sem reenviar
+  const cancelIds = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    setWorking(true);
+    try {
+      const tid = await getCurrentTenantId();
+      if (!tid) throw new Error("Sessão inválida.");
+
+      const { error } = await supabaseBrowser
+        .from("client_message_jobs")
+        .update({
+          status: "CANCELLED",
+          error_message: "Marcado como recebido manualmente",
+        })
+        .eq("tenant_id", tid)
+        .in("id", ids);
+      if (error) throw error;
+
+      await fetchLogs();
+    } catch (e: any) {
+      if (process.env.NODE_ENV !== "production")
+        console.error("cancel falhou:", e?.message);
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const selectedArr = Array.from(selected);
 
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="w-full max-w-3xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[80vh]">
         <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-muted/50">
           <div>
-            <h3 className="text-lg font-medium text-foreground">
-              Logs de Envio
-            </h3>
+            <h3 className="text-lg font-medium text-foreground">Logs de Envio</h3>
             <p className="text-xs text-foreground/70">
               Regra: <strong>{ruleName}</strong>
+              {failedRows.length > 0 && (
+                <span className="ml-2 text-rose-400 font-medium">
+                  • {failedRows.length} falha(s)
+                </span>
+              )}
             </p>
           </div>
           <button
@@ -2415,11 +2546,10 @@ function LogsModal({
             ✕
           </button>
         </div>
+
         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
           {loading ? (
-            <div className="text-center py-10 text-muted-foreground/80">
-              Carregando...
-            </div>
+            <div className="text-center py-10 text-muted-foreground/80">Carregando...</div>
           ) : logs.length === 0 ? (
             <div className="text-center py-10 text-muted-foreground/80">
               Nenhum registro encontrado.
@@ -2428,6 +2558,19 @@ function LogsModal({
             <table className="w-full text-left text-sm">
               <thead className="text-xs uppercase text-muted-foreground border-b border-border">
                 <tr>
+                  <th className="p-2 w-8">
+                    {failedRows.length > 0 && (
+                      <input
+                        type="checkbox"
+                        checked={
+                          selected.size === failedRows.length &&
+                          failedRows.length > 0
+                        }
+                        onChange={toggleAllFailed}
+                        title="Selecionar todas as falhas"
+                      />
+                    )}
+                  </th>
                   <th className="p-2">Data/Hora</th>
                   <th className="p-2">Cliente</th>
                   <th className="p-2">WhatsApp</th>
@@ -2435,40 +2578,86 @@ function LogsModal({
                 </tr>
               </thead>
               <tbody>
-                {logs.map((log) => (
-                  <tr
-                    key={log.id}
-                    className="border-b border-slate-50 dark:border-border last:border-0 hover:bg-muted/50 dark:hover:bg-card/5"
-                  >
- <td className="p-2 text-muted-foreground text-xs">
-                      {formatDateTimeSP(log.sent_at)}
-                    </td>
-
-                    <td className="p-2 font-medium text-foreground/90">
-                      {log.client_name}
-                    </td>
-                    <td className="p-2 text-muted-foreground">
-                      {log.client_whatsapp}
-                    </td>
-                    <td className="p-2">
-                      <span
-                        className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm uppercase ${log.status === "SENT" ? "bg-emerald-500/20 text-emerald-400" : log.status === "FAILED" ? "bg-rose-500/20 text-rose-400" : "bg-black/20 text-muted-foreground"}`}
-                      >
-                        {log.status}
-                      </span>
-                      {log.error_message && (
-                        <div className="text-[10px] text-rose-500 mt-1">
-                          {log.error_message}
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {logs.map((log) => {
+                  const isFailed = log.status === "FAILED";
+                  return (
+                    <tr
+                      key={log.id}
+                      className="border-b border-slate-50 dark:border-border last:border-0 hover:bg-muted/50 dark:hover:bg-card/5"
+                    >
+                      <td className="p-2">
+                        {isFailed && (
+                          <input
+                            type="checkbox"
+                            checked={selected.has(log.id)}
+                            onChange={() => toggleOne(log.id)}
+                          />
+                        )}
+                      </td>
+                      <td className="p-2 text-muted-foreground text-xs whitespace-nowrap">
+                        {log.when_sp || "--"}
+                      </td>
+                      <td className="p-2 font-medium text-foreground/90">
+                        {log.client_name || (
+                          <span className="text-muted-foreground/80 italic">
+                            (sem nome)
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-2 text-muted-foreground">
+                        {log.whatsapp_username || "--"}
+                      </td>
+                      <td className="p-2">
+                        <span
+                          className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm uppercase ${
+                            log.status === "SENT"
+                              ? "bg-emerald-500/20 text-emerald-400"
+                              : log.status === "FAILED"
+                                ? "bg-rose-500/20 text-rose-400"
+                                : "bg-black/20 text-muted-foreground"
+                          }`}
+                        >
+                          {log.status}
+                        </span>
+                        {log.error_message && isFailed && (
+                          <div className="text-[10px] text-rose-500 mt-1 max-w-[220px] truncate" title={log.error_message}>
+                            {log.error_message}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
         </div>
-        <div className="px-6 py-4 border-t border-border flex justify-end">
+
+        <div className="px-6 py-4 border-t border-border flex justify-between items-center gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={() => requeueIds(selectedArr)}
+              disabled={working || selectedArr.length === 0}
+              className="px-4 py-2 rounded-lg bg-sky-600 text-white font-medium text-xs uppercase hover:bg-sky-500 transition disabled:opacity-40"
+            >
+              Reenviar selecionados ({selectedArr.length})
+            </button>
+            <button
+              onClick={() => requeueIds(failedRows.map((r) => r.id))}
+              disabled={working || failedRows.length === 0}
+              className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium text-xs uppercase hover:bg-emerald-500 transition disabled:opacity-40"
+            >
+              Reenviar todas as falhas ({failedRows.length})
+            </button>
+            <button
+              onClick={() => cancelIds(selectedArr)}
+              disabled={working || selectedArr.length === 0}
+              className="px-4 py-2 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 font-medium text-xs uppercase hover:bg-rose-500/20 transition disabled:opacity-40"
+              title="Cliente já recebeu — remove da lista de falhas sem reenviar"
+            >
+              Cancelar selecionados
+            </button>
+          </div>
           <button
             onClick={onClose}
             className="px-5 py-2 rounded-lg bg-slate-800 text-white font-medium text-xs uppercase"

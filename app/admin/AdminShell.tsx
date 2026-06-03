@@ -298,6 +298,67 @@ export default function AdminShell({
         } catch (e) {}
       }
 
+      // ✅ NOVO: Falhas das automações de cobrança (somente HOJE, fuso SP)
+      if (tenantId) {
+        try {
+          // Início do dia de hoje em São Paulo, convertido para um instante UTC
+          const startOfTodaySP = new Date(`${dataAtualSP}T00:00:00-03:00`).toISOString();
+
+          // 1) Jobs de automação que falharam hoje (status FAILED, com automation_id)
+          const { data: failedJobs, error: jobsErr } = await supabaseBrowser
+            .from("client_message_jobs")
+            .select("id, automation_id, send_at")
+            .eq("tenant_id", tenantId)
+            .eq("status", "FAILED")
+            .not("automation_id", "is", null)
+            .gte("send_at", startOfTodaySP);
+
+          if (!jobsErr && failedJobs && failedJobs.length > 0) {
+            // 2) Agrupa por automação e conta clientes afetados
+            const countByAuto: Record<string, number> = {};
+            failedJobs.forEach((j: any) => {
+              if (!j.automation_id) return;
+              countByAuto[j.automation_id] =
+                (countByAuto[j.automation_id] || 0) + 1;
+            });
+
+            const autoIds = Object.keys(countByAuto);
+            if (autoIds.length > 0) {
+              // 3) Busca nome e horário das regras envolvidas
+              const { data: autos } = await supabaseBrowser
+                .from("billing_automations")
+                .select("id, name, schedule_time")
+                .eq("tenant_id", tenantId)
+                .in("id", autoIds);
+
+              const autoMap: Record<string, { name: string; time: string }> = {};
+              (autos || []).forEach((a: any) => {
+                autoMap[a.id] = {
+                  name: a.name || "Automação",
+                  time: a.schedule_time ? String(a.schedule_time).slice(0, 5) : "",
+                };
+              });
+
+              // 4) Um alerta por automação
+              autoIds.forEach((autoId) => {
+                const info = autoMap[autoId] || { name: "Automação", time: "" };
+                const qtd = countByAuto[autoId];
+                const horaTxt = info.time ? ` (envio das ${info.time})` : "";
+                list.push({
+                  id: `auto_fail_${autoId}_${dataAtualSP}`,
+                  title: "🤖 Falha na Automação",
+                  message: `A automação "${info.name}"${horaTxt} falhou hoje. ${qtd} cliente(s) não foram notificados pelo WhatsApp. Reenvie pelos Logs da regra.`,
+                  link: "/admin/gerenciador/cobranca",
+                  type: "error",
+                  is_read: false,
+                  created_at: nowIso,
+                });
+              });
+            }
+          }
+        } catch (e) {}
+      }
+
       // ✅ NOVO: Notificação de Saldo Baixo nos Servidores (<= 15)
       if (tenantId) {
         try {
