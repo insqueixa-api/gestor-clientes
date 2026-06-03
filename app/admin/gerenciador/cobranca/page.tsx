@@ -2359,6 +2359,8 @@ type JobLogRow = {
   message_preview: string | null;
   error_message: string | null;
   whatsapp_session: string | null;
+  server_username?: string | null; // ✅ Login no painel (preenchido após enriquecimento)
+  server_name?: string | null; // ✅ Nome do servidor (preenchido após enriquecimento)
 };
 
 function LogsModal({
@@ -2398,9 +2400,53 @@ function LogsModal({
 
     if (error) {
       setLogs([]);
-    } else {
-      setLogs((data as JobLogRow[]) || []);
+      setSelected(new Set());
+      setLoading(false);
+      return;
     }
+
+    const rows = (data as JobLogRow[]) || [];
+
+    // ✅ Enriquece com login (server_username) e nome do servidor, igual à Auditoria
+    try {
+      const clientIds = [
+        ...new Set(rows.map((r) => r.client_id).filter(Boolean)),
+      ] as string[];
+
+      if (clientIds.length > 0) {
+        const { data: clientsData } = await supabaseBrowser
+          .from("clients")
+          .select("id, server_username, server_id")
+          .eq("tenant_id", tid)
+          .in("id", clientIds);
+
+        const clientsMap: Record<string, any> = {};
+        (clientsData || []).forEach((c: any) => {
+          clientsMap[c.id] = c;
+        });
+
+        // Mapa server_id -> name
+        const { data: serversData } = await supabaseBrowser
+          .from("servers")
+          .select("id, name")
+          .eq("tenant_id", tid);
+
+        const serversMap: Record<string, string> = {};
+        (serversData || []).forEach((s: any) => {
+          serversMap[s.id] = s.name;
+        });
+
+        rows.forEach((r) => {
+          const c = r.client_id ? clientsMap[r.client_id] : null;
+          r.server_username = c?.server_username || null;
+          r.server_name = c?.server_id ? serversMap[c.server_id] || null : null;
+        });
+      }
+    } catch {
+      // se o enriquecimento falhar, segue sem login/servidor
+    }
+
+    setLogs(rows);
     setSelected(new Set());
     setLoading(false);
   };
@@ -2573,6 +2619,7 @@ function LogsModal({
                   </th>
                   <th className="p-2">Data/Hora</th>
                   <th className="p-2">Cliente</th>
+                  <th className="p-2">Login / Servidor</th>
                   <th className="p-2">WhatsApp</th>
                   <th className="p-2">Status</th>
                 </tr>
@@ -2597,12 +2644,22 @@ function LogsModal({
                       <td className="p-2 text-muted-foreground text-xs whitespace-nowrap">
                         {log.when_sp || "--"}
                       </td>
-                      <td className="p-2 font-medium text-foreground/90">
+<td className="p-2 font-medium text-foreground/90">
                         {log.client_name || (
                           <span className="text-muted-foreground/80 italic">
                             (sem nome)
                           </span>
                         )}
+                      </td>
+                      <td className="p-2">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-foreground/90 text-xs">
+                            {log.server_username || "--"}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground/80">
+                            {log.server_name || "--"}
+                          </span>
+                        </div>
                       </td>
                       <td className="p-2 text-muted-foreground">
                         {log.whatsapp_username || "--"}
