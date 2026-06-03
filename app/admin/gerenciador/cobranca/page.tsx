@@ -281,7 +281,7 @@ function GlobalQueueMonitor({
     };
 
     fetchQueue();
-    const interval = setInterval(fetchQueue, 3000);
+    const interval = setInterval(fetchQueue, 30000); // 30s (cron roda a cada 1 min)
     return () => clearInterval(interval);
   }, []);
 
