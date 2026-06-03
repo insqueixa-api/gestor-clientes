@@ -119,6 +119,21 @@ type Notification = {
   created_at: string;
 };
 
+// Renderiza **negrito** dentro de um texto, sem HTML inseguro
+function renderBold(text: string): React.ReactNode {
+  if (!text || !text.includes("**")) return text;
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return (
+        <strong key={i} className="font-bold text-foreground">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    return <React.Fragment key={i}>{part}</React.Fragment>;
+  });
+}
 export default function AdminShell({
   children,
   userLabel,
@@ -350,8 +365,8 @@ export default function AdminShell({
                     : `${qtd} cliente não foi notificado`;
                 list.push({
                   id: `auto_fail_${autoId}_${dataAtualSP}`,
-                  title: "🤖 Falha na automação de cobrança",
-                  message: `A regra "${info.name}" não foi enviada${horaTxt}. ${clienteTxt} via WhatsApp.`,
+                  title: `🤖 Falha na automação: **${info.name}**`,
+                  message: `A regra não foi enviada${horaTxt}. ${clienteTxt} via WhatsApp.`,
                   link: "/admin/gerenciador/cobranca",
                   type: "error",
                   is_read: false,
@@ -1072,7 +1087,7 @@ export default function AdminShell({
                           <div className="h-2 w-2 rounded-full bg-emerald-500 flex-shrink-0 shadow-sm" />
                         )}
                         <p className="text-foreground text-sm font-medium truncate">
-                          {n.title}
+                          {renderBold(n.title)}
                         </p>
                       </div>
                       <p className="text-muted-foreground dark:text-muted-foreground text-xs mt-1 leading-relaxed line-clamp-2">
