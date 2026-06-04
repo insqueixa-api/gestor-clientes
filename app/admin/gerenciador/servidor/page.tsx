@@ -976,7 +976,7 @@ export default function AdminServersPage() {
                         </span>
                         WhatsApp Portal
                       </span>
-                      <span className="font-medium text-foreground/90 truncate max-w-[210px] text-right">
+                      <span className="font-normal text-foreground/90 truncate max-w-[210px] text-right">
                         {server.whatsapp_session === "session2"
                           ? waLabel2
                           : waLabel1}

@@ -477,7 +477,7 @@ function AuditoriaPageContent() {
         </span>
       );
     return (
-      <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-black/20 text-foreground/90 dark:text-slate-300 text-[10px] font-medium uppercase border border-border dark:border-white/20">
+      <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-black/5 dark:bg-black/20 text-foreground/90 dark:text-slate-300 text-[10px] font-medium uppercase border border-border dark:border-white/20">
         {status}
       </span>
     );
@@ -487,7 +487,7 @@ function AuditoriaPageContent() {
     // 1. Prioridade Máxima: Status de cancelamento manual (Padronizado)
     if (status === "manual_cancelled" || status === "cancelled") {
       return (
-        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-black/20 text-muted-foreground text-[10px] font-medium uppercase border border-border dark:border-white/20">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-black/5 dark:bg-black/20 text-muted-foreground text-[10px] font-medium uppercase border border-border dark:border-white/20">
           {status === "manual_cancelled"
             ? "Cancelada Manualmente"
             : "Cancelada"}
@@ -498,7 +498,7 @@ function AuditoriaPageContent() {
     // 2. Se o pagamento foi recusado/cancelado no gateway
     if (paymentStatus === "rejected" || paymentStatus === "cancelled") {
       return (
-        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-black/20 text-muted-foreground text-[10px] font-medium uppercase border border-border dark:border-white/20">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-black/5 dark:bg-black/20 text-muted-foreground text-[10px] font-medium uppercase border border-border dark:border-white/20">
           Cancelada
         </span>
       );
@@ -538,7 +538,7 @@ function AuditoriaPageContent() {
       );
 
     return (
-      <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-black/20 text-foreground/90 dark:text-slate-300 text-[10px] font-medium uppercase border border-border dark:border-white/20">
+      <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-black/5 dark:bg-black/20 text-foreground/90 dark:text-slate-300 text-[10px] font-medium uppercase border border-border dark:border-white/20">
         Processando
       </span>
     );
@@ -587,7 +587,7 @@ function AuditoriaPageContent() {
         </span>
       );
     return (
-      <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-black/20 text-muted-foreground/80 text-[10px] font-medium uppercase border border-border">
+      <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-black/5 dark:bg-black/20 text-muted-foreground/80 text-[10px] font-medium uppercase border border-border">
         Aguardando
       </span>
     );
@@ -792,7 +792,7 @@ function AuditoriaPageContent() {
                                     "Código da transação copiado!",
                                   );
                                 }}
- className="text-[9px] text-muted-foreground/80 dark:text-muted-foreground bg-black/20 px-1.5 py-0.5 rounded border border-border hover:border-emerald-500 hover:text-emerald-400 dark:hover:text-emerald-400 transition-colors"
+ className="text-[9px] text-muted-foreground/80 dark:text-muted-foreground bg-black/5 dark:bg-black/20 px-1.5 py-0.5 rounded border border-border hover:border-emerald-500 hover:text-emerald-400 dark:hover:text-emerald-400 transition-colors"
                                 title="Clique para copiar a referência"
                               >
                                 Ref: {String(r.mp_payment_id).slice(-8)}
@@ -920,14 +920,14 @@ function AuditoriaPageContent() {
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={safePage <= 1}
-                className="px-3 py-1 rounded border border-border text-xs font-medium disabled:opacity-40 bg-card dark:bg-black/20 text-muted-foreground"
+                className="px-3 py-1 rounded border border-border text-xs font-medium disabled:opacity-40 bg-card dark:bg-black/5 dark:bg-black/20 text-muted-foreground"
               >
                 Anterior
               </button>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={safePage >= totalPages}
-                className="px-3 py-1 rounded border border-border text-xs font-medium disabled:opacity-40 bg-card dark:bg-black/20 text-muted-foreground"
+                className="px-3 py-1 rounded border border-border text-xs font-medium disabled:opacity-40 bg-card dark:bg-black/5 dark:bg-black/20 text-muted-foreground"
               >
                 Próxima
               </button>

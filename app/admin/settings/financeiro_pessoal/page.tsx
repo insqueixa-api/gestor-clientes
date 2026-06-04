@@ -1641,7 +1641,7 @@ function FinanceiroPageContent() {
                   showDateDivider && (
                     <tr
                       key={`div-${t.id}`}
-                      className="bg-black/20 dark:bg-card/5 border-y border-border"
+                      className="bg-black/5 dark:bg-card/5 border-y border-border"
                     >
                       <td
                         colSpan={9}

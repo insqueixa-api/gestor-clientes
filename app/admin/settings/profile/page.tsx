@@ -1404,7 +1404,7 @@ export default function ProfileSettingsPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
               <div>
                 <Label>País</Label>
-                <div className="h-11 px-3 bg-black/20 border border-border rounded-xl flex items-center text-xs font-medium text-foreground/90 truncate">
+                <div className="h-11 px-3 bg-black/5 dark:bg-black/20 border border-border rounded-xl flex items-center text-xs font-medium text-foreground/90 truncate">
                   {phonePrettyPrefix || "—"}
                 </div>
               </div>

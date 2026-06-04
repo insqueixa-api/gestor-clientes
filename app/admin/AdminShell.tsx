@@ -560,12 +560,12 @@ export default function AdminShell({
 
   return (
     <div className="min-h-screen bg-background text-foreground transition-colors duration-200">
-      <div className="sticky top-0 z-50 bg-[#050505] text-foreground dark:text-white border-b border-white/10 shadow-lg">
+      <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
         <div className="mx-auto flex w-full items-center gap-2 px-3 sm:px-4 py-2">
           <div className="flex items-center gap-4">
             <Link
               href="/admin"
-              className="flex items-center gap-3 font-semibold min-w-0 hover:opacity-90 transition-opacity no-underline"
+              className="flex items-center gap-3 font-semibold min-w-0 hover:opacity-90 transition-opacity no-underline text-white"
             >
               <BrandUser
                 userLabel={userLabel}
@@ -581,7 +581,7 @@ export default function AdminShell({
                   "flex items-center justify-center w-8 h-8 rounded-full border border-white/10 shadow-sm transition-colors",
                   unreadCount > 0
                     ? "bg-rose-500 hover:bg-rose-600 text-white"
-                    : "bg-card/5 hover:bg-card/10 text-white/90",
+                    : "bg-white/5 hover:bg-white/10 text-white/90",
                 ].join(" ")}
                 title="Notificações"
               >
@@ -614,8 +614,8 @@ export default function AdminShell({
                   className={[
                     "rounded-lg px-3 py-2 text-sm transition-all duration-200 font-medium flex items-center gap-2 tracking-tight",
                     openMenu === "mobile"
-                      ? "bg-card/15 text-emerald-400"
-                      : "text-white/70 hover:text-foreground dark:text-white hover:bg-card/5",
+                      ? "bg-white/10 text-emerald-400"
+                      : "text-white/80 hover:text-white hover:bg-white/5",
                   ].join(" ")}
                 >
                   <span className="text-base leading-none">☰</span> Menu{" "}
@@ -675,7 +675,7 @@ export default function AdminShell({
                 }
               />
 
-              <div className="w-px h-6 bg-card/10 mx-2" />
+              <div className="w-px h-6 bg-white/10 mx-2" />
 
               <div ref={managerRef} className="relative">
                 <button
@@ -683,12 +683,12 @@ export default function AdminShell({
                   className={[
                     "rounded-lg px-3 py-2 text-sm transition-all duration-200 font-medium flex items-center gap-2 tracking-tight",
                     managerActive
-                      ? "bg-card/15 text-emerald-400"
-                      : "text-white/70 hover:text-foreground dark:text-white hover:bg-card/5",
+                      ? "bg-white/10 text-emerald-400"
+                      : "text-white/80 hover:text-white hover:bg-white/5",
                   ].join(" ")}
                 >
                   <span className="flex items-center gap-1.5">
-                    <Settings2 className="w-4 h-4 text-muted-foreground/80" /> Gerenciador
+                    <Settings2 className="w-4 h-4 text-white/70" /> Gerenciador
                   </span>{" "}
                   <span
                     className={[
@@ -707,8 +707,8 @@ export default function AdminShell({
                   className={[
                     "rounded-lg px-3 py-2 text-sm transition-all duration-200 font-medium flex items-center gap-2 tracking-tight",
                     settingsActive
-                      ? "bg-card/15 text-emerald-400"
-                      : "text-white/70 hover:text-foreground dark:text-white hover:bg-card/5",
+                      ? "bg-white/10 text-emerald-400"
+                      : "text-white/80 hover:text-white hover:bg-white/5",
                   ].join(" ")}
                 >
                   <span className="flex items-center gap-1.5">
@@ -1325,8 +1325,8 @@ function NavLink({ href, label }: { href: string; label: React.ReactNode }) {
       className={[
         "rounded-lg px-3 py-2 text-sm transition-all duration-200 inline-flex items-center font-medium tracking-tight",
         active
-          ? "bg-card/15 text-emerald-400 shadow-sm"
-          : "text-white/70 hover:text-foreground dark:text-white hover:bg-card/5",
+          ? "bg-white/10 text-emerald-400 shadow-sm"
+          : "text-white/80 hover:text-white hover:bg-white/5",
       ].join(" ")}
     >
       {label}
