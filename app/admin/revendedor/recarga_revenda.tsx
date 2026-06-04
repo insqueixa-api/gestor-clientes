@@ -937,7 +937,7 @@ export default function QuickRechargeModal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-black/20 dark:hover:bg-card/5 transition-colors"
+                  className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-black/5 dark:hover:bg-card/5 dark:hover:bg-card/5 transition-colors"
                 >
                   Cancelar
                 </button>

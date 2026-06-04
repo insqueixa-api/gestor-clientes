@@ -1422,7 +1422,7 @@ export default function TrialsPage() {
           <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/50">
             <div className="text-sm font-medium text-foreground/90 whitespace-nowrap">
               Lista de Testes{" "}
-              <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400/70 dark:text-emerald-500/70 text-xs">
+              <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-xs">
                 {filtered.length}
               </span>
             </div>
@@ -1530,7 +1530,7 @@ export default function TrialsPage() {
                             {r.username}
                           </span>
                           {r.whatsapp_username && (
-                            <span className="text-xs font-medium text-emerald-400/70 dark:text-emerald-500/70 truncate">
+                            <span className="text-xs font-medium text-emerald-400 truncate">
                               @{r.whatsapp_username}
                             </span>
                           )}
@@ -2381,9 +2381,9 @@ function IconActionBtn({
   const colors = {
     blue: "text-sky-400 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20 dark:hover:bg-sky-500/20",
     green:
-      "text-emerald-400/70 dark:text-emerald-500/70 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20 dark:hover:bg-emerald-500/20",
+      "text-emerald-400 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20 dark:hover:bg-emerald-500/20",
     amber:
-      "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20 dark:hover:bg-amber-500/20",
+      "text-amber-400 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20 dark:hover:bg-amber-500/20",
     purple:
       "text-purple-400 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20 dark:hover:bg-purple-500/20",
     red: "text-rose-400 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20 dark:hover:bg-rose-500/20",
@@ -2699,7 +2699,7 @@ function PapaTestesModal({
                       {recs[0]?.client_name || "—"}
                     </span>
                     {recs[0]?.whatsapp_username && (
- <span className="text-xs text-emerald-400/70 dark:text-emerald-500/70 ">
+ <span className="text-xs text-emerald-400 ">
                         @{recs[0].whatsapp_username}
                       </span>
                     )}
@@ -2746,7 +2746,7 @@ function PapaTestesModal({
                           </span>
                         )}
                         {r.plan_price && (
-                          <span className="text-xs font-medium text-emerald-400/70 dark:text-emerald-500/70 shrink-0">
+                          <span className="text-xs font-medium text-emerald-400 shrink-0">
                             {new Intl.NumberFormat("pt-BR", {
                               style: "currency",
                               currency: r.plan_currency || "BRL",

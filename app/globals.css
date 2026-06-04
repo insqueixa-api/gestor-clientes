@@ -123,3 +123,8 @@ select option:hover {
 :root.dark select option:hover {
   background-color: #3f3f46;
 }
+
+/* Global icon brightness per user request */
+svg.lucide {
+  filter: saturate(1.2) brightness(1.1);
+}

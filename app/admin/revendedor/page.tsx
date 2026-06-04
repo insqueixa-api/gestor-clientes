@@ -1533,24 +1533,11 @@ export default function RevendaPage() {
                     </Td>
 
                     <Td>
-                      <div className="flex flex-wrap items-center justify-center gap-1">
-                        {((serversByReseller[r.id] || []) as string[])
-                          .length === 0 ? (
-                          <span className="inline-flex items-center justify-center min-w-[28px] px-2 py-0.5 rounded-lg bg-black/20 border border-border text-xs font-medium text-muted-foreground shadow-sm">
-                            0
-                          </span>
-                        ) : (
-                          (serversByReseller[r.id] || []).map((name, i) => (
-                            <span
-                              key={`${r.id}-srv-${i}`}
-                              className="inline-flex items-center justify-center h-6 px-2 rounded-lg bg-black/20 border border-border text-[11px] font-extrabold text-muted-foreground shadow-sm"
-                              title={name}
-                            >
-                              {name}
-                            </span>
-                          ))
-                        )}
-                      </div>
+                      <span className="text-muted-foreground dark:text-white/80">
+                        {((serversByReseller[r.id] || []) as string[]).length === 0
+                          ? "-"
+                          : ((serversByReseller[r.id] || []) as string[]).join(", ")}
+                      </span>
                     </Td>
 
                     <Td>
@@ -2433,7 +2420,7 @@ function StatusBadge({ status }: { status: ResellerStatus }) {
     status === "Ativo"
       ? {
           bg: "bg-emerald-500/10",
-          text: "text-emerald-400/70 dark:text-emerald-500/70",
+          text: "text-emerald-400",
           border: "border-emerald-500/20",
         }
       : status === "Arquivado"
@@ -2444,14 +2431,13 @@ function StatusBadge({ status }: { status: ResellerStatus }) {
           }
         : {
             bg: "bg-amber-500/10",
-            text: "text-amber-600 dark:text-amber-400",
+            text: "text-amber-400",
             border: "border-amber-500/20",
           };
 
-  // Alterado: rounded-lg -> rounded-full (Padrão Pílula)
   return (
     <span
-      className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase shadow-sm ${tone.bg} ${tone.text} ${tone.border}`}
+      className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase whitespace-nowrap ${tone.bg} ${tone.text} ${tone.border}`}
     >
       {status}
     </span>

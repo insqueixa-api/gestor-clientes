@@ -173,7 +173,7 @@ function ToggleLine({
     <button
       type="button"
       onClick={() => onChange(!value)}
-      className="w-full h-10 px-3 py-2 rounded-lg border border-border bg-muted/50 hover:bg-black/20 dark:hover:bg-card/5 transition flex items-center justify-between"
+      className="w-full h-10 px-3 py-2 rounded-lg border border-border bg-muted/50 hover:bg-black/5 dark:bg-black/20 dark:hover:bg-card/5 transition flex items-center justify-between"
     >
       <span className="text-foreground font-semibold text-sm">
         {label}
@@ -645,7 +645,7 @@ export default function ResellerFormModal({
             <div>
               <Label>Telefone principal</Label>
               <div className="flex gap-2">
-                <div className="h-10 px-3 bg-black/20 border border-border rounded-lg flex items-center text-xs text-muted-foreground/80 whitespace-nowrap font-medium min-w-[120px]">
+                <div className="h-10 px-3 bg-black/5 dark:bg-black/20 border border-border rounded-lg flex items-center text-xs text-muted-foreground/80 whitespace-nowrap font-medium min-w-[120px]">
                   {primaryCountryLabel}
                 </div>
 
@@ -764,7 +764,7 @@ export default function ResellerFormModal({
         <div className="px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t bg-muted/50 shrink-0 rounded-b-xl flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-4 h-10 rounded-lg border border-border text-foreground/90 text-sm font-semibold hover:bg-black/20 dark:hover:bg-card/5 transition"
+            className="px-4 h-10 rounded-lg border border-border text-foreground/90 text-sm font-semibold hover:bg-black/5 dark:bg-black/20 dark:hover:bg-card/5 transition"
           >
             Cancelar
           </button>

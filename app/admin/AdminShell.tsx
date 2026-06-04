@@ -66,7 +66,7 @@ function BrandUser({
   logoUrl?: string | null;
 }) {
   return (
-    <div className="flex items-center gap-3 min-w-0 text-foreground dark:text-white cursor-pointer group">
+    <div className="flex items-center gap-3 min-w-0 text-white cursor-pointer group">
       {logoUrl ? (
         <img
           src={logoUrl}
@@ -100,7 +100,7 @@ function BrandUser({
         <div className="text-[10px] uppercase tracking-wider text-white/40 font-medium leading-none mb-0.5 group-hover:text-white/60 transition-colors">
           Logado como
         </div>
-        <div className="text-xs font-medium text-foreground dark:text-white truncate max-w-50 sm:max-w-66 tracking-tight group-hover:text-emerald-400 transition-colors uppercase">
+        <div className="text-xs font-medium text-white truncate max-w-50 sm:max-w-66 tracking-tight group-hover:text-emerald-400 transition-colors uppercase">
           {userLabel}
         </div>
       </div>

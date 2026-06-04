@@ -1784,7 +1784,7 @@ export default function RecargaCliente({
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <Label>Moeda</Label>
-                  <div className="h-10 w-full bg-black/20 border border-border rounded-lg flex items-center justify-center text-sm font-medium text-foreground/90">
+                  <div className="h-10 w-full bg-black/5 dark:bg-black/20 border border-border rounded-lg flex items-center justify-center text-sm font-medium text-foreground/90">
                     {currency}
                   </div>
                 </div>
