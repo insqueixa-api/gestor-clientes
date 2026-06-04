@@ -1969,7 +1969,7 @@ function ClientePageContent() {
 
         {/* ✅ Painel de filtros no mobile */}
         {mobileFiltersOpen && (
-          <div className="md:hidden mt-3 p-3 rounded-xl border border-border bg-muted/50 space-y-2">
+          <div className="md:hidden mt-3 p-3 rounded-xl border border-border bg-transparent space-y-2">
             {/* ✅ Filtrar Lixeira (opção dentro do painel) */}
             <button
               onClick={(e) => {
@@ -2121,7 +2121,7 @@ function ClientePageContent() {
           className="bg-card border border-border rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-border bg-muted/50">
+          <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-border bg-transparent">
             <div className="text-sm font-medium tracking-tight text-foreground whitespace-nowrap">
               Lista de Clientes
               <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-xs font-medium">
@@ -2210,7 +2210,7 @@ function ClientePageContent() {
                       }
                       onClick={(e) => e.stopPropagation()}
                       onChange={(e) => setAllVisible(e.target.checked)}
-                      className="rounded border-border bg-black/20"
+                      className="rounded border-border bg-transparent"
                     />
                   </Th>
                   <ThSort
@@ -2305,7 +2305,7 @@ function ClientePageContent() {
                           onChange={(e) =>
                             toggleSelected(r.id, e.target.checked)
                           }
-                          className="rounded border-border bg-black/20"
+                          className="rounded border-border bg-transparent"
                         />
                       </Td>
 
@@ -2456,7 +2456,7 @@ function ClientePageContent() {
                       </Td>
 
                       <Td align="center">
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 dark:bg-muted/500/10 text-foreground/90 dark:text-muted-foreground/80 text-[10px] font-medium tracking-tight shadow-sm uppercase">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-transparent dark:bg-muted/500/10 text-foreground/90 dark:text-muted-foreground/80 text-[10px] font-medium tracking-tight shadow-sm uppercase">
                           {r.technology}
                         </span>
                       </Td>
@@ -2937,7 +2937,7 @@ function ClientePageContent() {
                 onClick={() =>
                   setShowAlertList({ open: false, clientId: null })
                 }
-                className="px-6 py-2 rounded-lg bg-black/20 text-foreground/90 font-medium hover:bg-black/30 dark:hover:bg-card/20 transition-colors text-sm"
+                className="px-6 py-2 rounded-lg bg-transparent text-foreground/90 font-medium hover:bg-black/30 dark:hover:bg-card/20 transition-colors text-sm"
               >
                 Fechar Lista
               </button>
@@ -3044,7 +3044,7 @@ function ClientePageContent() {
                   <span className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                     Imagem Anexada
                   </span>
-                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-border shadow-sm relative bg-black/20">
+                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-border shadow-sm relative bg-transparent">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={tpl.image_url}
@@ -3203,7 +3203,7 @@ function ClientePageContent() {
                     <span className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                       Imagem Anexada
                     </span>
-                    <div className="w-24 h-24 rounded-lg overflow-hidden border border-border shadow-sm relative bg-black/20">
+                    <div className="w-24 h-24 rounded-lg overflow-hidden border border-border shadow-sm relative bg-transparent">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={tpl.image_url}
@@ -3482,7 +3482,7 @@ function ScheduledMessagesModal({
             {items.map((it) => (
               <div
                 key={it.id}
-                className="p-4 rounded-xl border border-border bg-muted/50 transition hover:border-purple-500/30 dark:hover:border-purple-500/30"
+                className="p-4 rounded-xl border border-border bg-transparent transition hover:border-purple-500/30 dark:hover:border-purple-500/30"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
@@ -3666,7 +3666,7 @@ function Modal({
         onMouseDown={(e) => e.stopPropagation()}
         className="w-full max-w-lg bg-card dark:bg-background border border-border rounded-xl shadow-2xl overflow-hidden"
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/50">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent">
           <div className="font-medium text-foreground">
             {title}
           </div>

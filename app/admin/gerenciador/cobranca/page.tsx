@@ -403,7 +403,7 @@ function GlobalQueueMonitor({
       {/* 🔴 MODAL RAIO-X */}
       {showModal &&
         createPortal(
-          <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-transparent0 backdrop-blur-sm p-4 animate-in fade-in">
             <div className="w-full max-w-6xl bg-card rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-100 dark:border-border flex justify-between items-center bg-gray-50 dark:bg-card/5">
                 <h3 className="font-medium text-lg dark:text-white">
@@ -1529,7 +1529,7 @@ function ImpactListModal({
     data.ruleDateField === "cadastro" || data.ruleDateField === "created_at";
 
   return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-transparent0 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="w-full max-w-4xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[80vh]">
         <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent">
           <div>
@@ -1845,7 +1845,7 @@ function AutomationWizard({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-transparent0 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="w-full max-w-2xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
         <div className="px-6 py-5 border-b border-border bg-transparent">
           <div className="flex justify-between items-center mb-4">
@@ -2571,7 +2571,7 @@ function LogsModal({
   const selectedArr = Array.from(selected);
 
   return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-transparent0 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="w-full max-w-3xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[80vh]">
         <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent">
           <div>

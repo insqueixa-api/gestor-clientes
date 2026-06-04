@@ -323,6 +323,6 @@ function MixedChartBase({
 export const MixedChart = dynamic(() => Promise.resolve(MixedChartBase), {
   ssr: false,
   loading: () => (
-    <div className="h-64 w-full animate-pulse bg-black/20 rounded-xl" />
+    <div className="h-64 w-full animate-pulse bg-transparent rounded-xl" />
   ),
 });

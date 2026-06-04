@@ -181,7 +181,7 @@ export default function AppIntegracaoModal({
   const modal = (
     <div className="fixed inset-0 z-[999999] flex items-center justify-center px-3">
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
+        className="absolute inset-0 bg-transparent0 backdrop-blur-sm transition-opacity"
         onClick={onCloseAction}
       />
       <div className="relative w-full max-w-lg rounded-2xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[90vh]">
@@ -255,7 +255,7 @@ export default function AppIntegracaoModal({
                   setPin("");
                   setApiUrl("");
                 }}
-                className="w-full h-11 rounded-xl border border-border bg-muted/50 px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card dark:focus:bg-black/40 transition-colors cursor-pointer"
+                className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card dark:focus:bg-black/40 transition-colors cursor-pointer"
               >
                 <option value="GERENCIAAPP">
                   GerenciaApp (IBO Revenda, etc)
@@ -298,7 +298,7 @@ export default function AppIntegracaoModal({
                                   ? 'Ex: "FocoX Play"'
                                   : 'Ex: "Nome do aplicativo"'
                 }
-                className="w-full h-11 rounded-xl border border-border bg-muted/50 px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card dark:focus:bg-black/40 transition-colors"
+                className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card dark:focus:bg-black/40 transition-colors"
               />
             </div>
 
@@ -326,7 +326,7 @@ export default function AppIntegracaoModal({
                               : "Ex: https://gerenciaapp.top"
                 }
                 type="url"
-                className="w-full h-11 rounded-xl border border-border bg-muted/50 px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card dark:focus:bg-black/40 transition-colors font-mono text-xs"
+                className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card dark:focus:bg-black/40 transition-colors font-mono text-xs"
               />
             </div>
 
@@ -344,7 +344,7 @@ export default function AppIntegracaoModal({
                   }
                   type="text"
                   autoCapitalize="none"
-                  className="w-full h-11 rounded-xl border border-border bg-muted/50 px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card dark:focus:bg-black/40 transition-colors"
+                  className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card dark:focus:bg-black/40 transition-colors"
                 />
               </div>
             )}
@@ -360,7 +360,7 @@ export default function AppIntegracaoModal({
                   onChange={(e) => setLoginPassword(e.target.value)}
                   placeholder="Senha de acesso"
                   type="text"
-                  className="w-full h-11 rounded-xl border border-border bg-muted/50 px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card dark:focus:bg-black/40 transition-colors"
+                  className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card dark:focus:bg-black/40 transition-colors"
                 />
               </div>
             )}
@@ -392,7 +392,7 @@ export default function AppIntegracaoModal({
 
             {/* Status */}
             <div className="sm:col-span-2 mt-2">
-              <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-muted/50">
+              <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-transparent">
                 <div>
                   <div className="text-sm font-medium text-foreground/90">
                     Integração Ativa
@@ -420,7 +420,7 @@ export default function AppIntegracaoModal({
         </div>
 
         {/* Footer Elegante */}
-        <div className="px-6 py-4 border-t border-border bg-muted/50 flex items-center justify-end gap-3 shrink-0">
+        <div className="px-6 py-4 border-t border-border bg-transparent flex items-center justify-end gap-3 shrink-0">
           <button
             onClick={onCloseAction}
             className="h-10 px-5 rounded-xl text-muted-foreground text-sm font-medium hover:bg-black/30 dark:hover:bg-card/10 transition-colors"

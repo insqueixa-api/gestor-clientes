@@ -85,7 +85,7 @@ function Input({
   return (
     <input
       {...props}
-      className={`w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground/90 placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     />
   );
 }
@@ -98,7 +98,7 @@ function Select({
   return (
     <select
       {...props}
-      className={`w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     >
       {children}
     </select>
@@ -728,7 +728,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="w-full max-w-5xl max-h-[90vh] bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
         {/* HEADER */}
-        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-muted/50">
+        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent">
           <div>
             <h2 className="text-lg font-medium text-foreground tracking-tight">
               {isEditing ? `Editar: ${server?.name}` : "Novo servidor"}
@@ -804,7 +804,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
                       }
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-center h-10 w-10 shrink-0 bg-muted/50 border border-border rounded-lg text-muted-foreground dark:text-white/60 hover:text-emerald-400 hover:border-emerald-500/50 dark:hover:text-emerald-400 transition-colors"
+                      className="flex items-center justify-center h-10 w-10 shrink-0 bg-transparent border border-border rounded-lg text-muted-foreground dark:text-white/60 hover:text-emerald-400 hover:border-emerald-500/50 dark:hover:text-emerald-400 transition-colors"
                       title="Acessar link"
                     >
                       <svg
@@ -855,7 +855,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
                   className="w-12 h-12 rounded-lg object-cover border border-border shrink-0"
                 />
               ) : (
-                <div className="w-12 h-12 rounded-lg bg-black/20 flex items-center justify-center shrink-0 text-2xl">
+                <div className="w-12 h-12 rounded-lg bg-transparent flex items-center justify-center shrink-0 text-2xl">
                   📡
                 </div>
               )}
@@ -898,7 +898,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
             </div>
           </div>
 
-          <div className="p-4 bg-muted/50 rounded-xl border border-border grid grid-cols-1 md:grid-cols-3 gap-5 animate-in slide-in-from-bottom-3 duration-400">
+          <div className="p-4 bg-transparent rounded-xl border border-border grid grid-cols-1 md:grid-cols-3 gap-5 animate-in slide-in-from-bottom-3 duration-400">
             <div className="space-y-1">
               <Label>Moeda padrão</Label>
               <div className="flex bg-black/30/50 dark:bg-black/20 rounded-lg p-1 border border-border h-10">
@@ -1088,14 +1088,14 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm text-foreground/90 outline-none h-20 resize-none focus:border-emerald-500/50 transition-colors"
+              className="w-full bg-transparent border border-border rounded-lg px-3 py-2 text-sm text-foreground/90 outline-none h-20 resize-none focus:border-emerald-500/50 transition-colors"
               placeholder="Anotações visíveis apenas para admins..."
             />
           </div>
         </div>
 
         {/* FOOTER */}
-        <div className="px-6 py-4 border-t border-border flex justify-end gap-3 bg-muted/50 transition-colors">
+        <div className="px-6 py-4 border-t border-border flex justify-end gap-3 bg-transparent transition-colors">
           <button
             onClick={onClose}
             className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-black/30 dark:hover:bg-card/5 transition-colors text-sm font-semibold"

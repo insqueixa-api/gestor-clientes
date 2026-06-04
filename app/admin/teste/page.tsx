@@ -1304,7 +1304,7 @@ export default function TrialsPage() {
         </div>
 
         {mobileFiltersOpen && (
-          <div className="md:hidden mt-3 p-3 rounded-xl border border-border bg-muted/50 space-y-2">
+          <div className="md:hidden mt-3 p-3 rounded-xl border border-border bg-transparent space-y-2">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -1419,7 +1419,7 @@ export default function TrialsPage() {
           className="bg-card border border-border rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/50">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent">
             <div className="text-sm font-medium text-foreground/90 whitespace-nowrap">
               Lista de Testes{" "}
               <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-xs">
@@ -1612,7 +1612,7 @@ export default function TrialsPage() {
                           className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase ${
                             r.converted
                               ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/20"
-                              : "bg-black/20 text-muted-foreground dark:text-white/50 border-border"
+                              : "bg-transparent text-muted-foreground dark:text-white/50 border-border"
                           }`}
                           title={
                             r.converted
@@ -1631,7 +1631,7 @@ export default function TrialsPage() {
                       </Td>
 
                       <Td>
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-card/5 text-muted-foreground border border-border uppercase">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-transparent text-[10px] font-medium tracking-tight shadow-sm dark:bg-card/5 text-muted-foreground border border-border uppercase">
                           {r.technology || "—"}
                         </span>
                       </Td>
@@ -1904,7 +1904,7 @@ export default function TrialsPage() {
                 {(scheduledMap[showScheduledModal.trialId] || []).map((s) => (
                   <div
                     key={s.id}
-                    className="p-3 rounded-xl border border-border bg-muted/50"
+                    className="p-3 rounded-xl border border-border bg-transparent"
                   >
                     <div className="flex items-center justify-between gap-2 mb-2">
                       <div className="text-xs font-extrabold text-muted-foreground flex items-center gap-2">
@@ -2058,7 +2058,7 @@ export default function TrialsPage() {
                   <span className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                     Imagem Anexada
                   </span>
-                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-border shadow-sm relative bg-black/20">
+                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-border shadow-sm relative bg-transparent">
                     <img
                       src={tpl.image_url}
                       alt="Anexo do template"
@@ -2192,7 +2192,7 @@ export default function TrialsPage() {
                   <span className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                     Imagem Anexada
                   </span>
-                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-border shadow-sm relative bg-black/20">
+                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-border shadow-sm relative bg-transparent">
                     <img
                       src={tpl.image_url}
                       alt="Anexo do template"
@@ -2349,7 +2349,7 @@ function StatusBadge({ status }: { status: TrialStatus }) {
             border: "border-rose-500/20",
           }
         : {
-            bg: "bg-black/20",
+            bg: "bg-transparent",
             text: "text-muted-foreground dark:text-white/50",
             border: "border-border",
           };
@@ -2461,7 +2461,7 @@ function Modal({
         onMouseDown={(e) => e.stopPropagation()}
         className="w-full max-w-lg bg-card dark:bg-background border border-border rounded-xl shadow-2xl overflow-hidden"
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/50">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent">
           <div className="font-medium text-foreground">
             {title}
           </div>
@@ -2615,7 +2615,7 @@ function PapaTestesModal({
         className="w-full max-w-3xl bg-card dark:bg-background border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90dvh]"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/50 shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-transparent shrink-0">
           <div>
             <h2 className="font-medium text-foreground text-base flex items-center gap-2">
               🕵️ Papa Testes
@@ -2775,14 +2775,14 @@ function PapaTestesModal({
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-border bg-muted/50 shrink-0 flex justify-between items-center">
+        <div className="px-5 py-3 border-t border-border bg-transparent shrink-0 flex justify-between items-center">
           <span className="text-xs text-muted-foreground/80 dark:text-muted-foreground">
             {filtered.length} de {records.length} registro
             {records.length !== 1 ? "s" : ""}
           </span>
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-black/20 text-foreground/90 font-medium text-xs hover:bg-black/30 dark:hover:bg-card/20 transition-colors"
+            className="px-4 py-2 rounded-lg bg-transparent text-foreground/90 font-medium text-xs hover:bg-black/30 dark:hover:bg-card/20 transition-colors"
           >
             Fechar
           </button>

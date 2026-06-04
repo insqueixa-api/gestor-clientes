@@ -195,7 +195,7 @@ export default function NovaIntegracaoModal({
         onClick={onClose}
       />
       <div className="relative w-full max-w-lg rounded-2xl border border-border bg-card shadow-xl overflow-hidden">
-        <div className="p-5 border-b border-border bg-muted/50">
+        <div className="p-5 border-b border-border bg-transparent">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h2 className="text-base sm:text-lg font-medium text-foreground tracking-tight truncate">
@@ -235,7 +235,7 @@ export default function NovaIntegracaoModal({
                 // então só limpa quando virar NATV
                 if (next === "NATV") setApiSecret("");
               }}
-              className="w-full h-10 rounded-xl border border-border bg-muted/50 px-3 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30"
+              className="w-full h-10 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30"
             >
               <option value="NATV">NaTV</option>
               <option value="FAST">Fast</option>
@@ -251,7 +251,7 @@ export default function NovaIntegracaoModal({
               value={integrationName}
               onChange={(e) => setIntegrationName(e.target.value)}
               placeholder='Ex: "Revenda Principal"'
-              className="w-full h-10 rounded-xl border border-border bg-muted/50 px-3 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30"
+              className="w-full h-10 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30"
             />
             <p className="text-[11px] text-foreground/70 mt-1">
               Esse nome é só para você identificar na lista.
@@ -259,7 +259,7 @@ export default function NovaIntegracaoModal({
           </div>
 
           {/* ✅ Status (ativa/inativa) */}
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/50 px-3 py-2">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-transparent px-3 py-2">
             <div className="min-w-0">
               <div className="text-xs font-medium text-foreground/90">
                 Integração ativa
@@ -293,7 +293,7 @@ export default function NovaIntegracaoModal({
                     value={apiBaseUrl}
                     onChange={(e) => setApiBaseUrl(e.target.value)}
                     placeholder="Ex: https://painel.com"
-                    className="w-full h-10 rounded-xl border border-border bg-muted/50 px-3 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30"
+                    className="w-full h-10 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30"
                     disabled={loadingEdit}
                   />
                   <p className="text-[11px] text-foreground/70 mt-1">
@@ -317,7 +317,7 @@ export default function NovaIntegracaoModal({
                       ? "Token do Fast"
                       : "Usuário do painel (login)"
                 }
-                className="w-full h-10 rounded-xl border border-border bg-muted/50 px-3 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30"
+                className="w-full h-10 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30"
                 disabled={loadingEdit}
               />
             </div>
@@ -336,7 +336,7 @@ export default function NovaIntegracaoModal({
                         ? "Senha do painel"
                         : "Secret Key do Fast"
                     }
-                    className="w-full h-10 rounded-xl border border-border bg-muted/50 px-3 pr-10 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30"
+                    className="w-full h-10 rounded-xl border border-border bg-transparent px-3 pr-10 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30"
                     disabled={loadingEdit}
                     type={showSecret ? "text" : "password"}
                   />
@@ -395,7 +395,7 @@ export default function NovaIntegracaoModal({
           </div>
         </div>
 
-        <div className="p-5 border-t border-border bg-muted/50 flex items-center justify-end gap-2">
+        <div className="p-5 border-t border-border bg-transparent flex items-center justify-end gap-2">
           <button
             onClick={onClose}
             className="h-10 px-4 rounded-xl border border-border bg-card/5 text-muted-foreground text-xs font-medium hover:bg-muted/50 dark:hover:bg-card/10 transition-colors"

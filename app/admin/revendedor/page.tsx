@@ -1324,7 +1324,7 @@ export default function RevendaPage() {
 
         {/* PAINEL MOBILE INLINE */}
         {mobileFiltersOpen && (
-          <div className="md:hidden mt-3 p-3 rounded-xl border border-border bg-muted/50 space-y-2">
+          <div className="md:hidden mt-3 p-3 rounded-xl border border-border bg-transparent space-y-2">
             <button
               onClick={() =>
                 setArchivedFilter((cur) => (cur === "Não" ? "Sim" : "Não"))
@@ -1385,7 +1385,7 @@ export default function RevendaPage() {
           className="bg-card border border-border rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-muted/50">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-transparent">
             <div className="text-sm font-medium text-foreground/90 whitespace-nowrap">
               Lista de Revendas{" "}
               <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400/70 dark:text-emerald-500/70 text-xs">
@@ -1417,7 +1417,7 @@ export default function RevendaPage() {
                   <Th width={40}>
                     <input
                       type="checkbox"
-                      className="rounded border-border bg-black/20"
+                      className="rounded border-border bg-transparent"
                     />
                   </Th>
                   <ThSort
@@ -1692,7 +1692,7 @@ export default function RevendaPage() {
                   <tr>
                     <td
                       colSpan={8}
-                      className="p-12 text-center text-muted-foreground/80 dark:text-white/30 italic font-medium bg-muted/50/30 dark:bg-card/5"
+                      className="p-12 text-center text-muted-foreground/80 dark:text-white/30 italic font-medium bg-transparent/30 dark:bg-card/5"
                     >
                       Nenhuma revenda encontrada com os filtros atuais.
                     </td>
@@ -1872,7 +1872,7 @@ export default function RevendaPage() {
                   <span className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                     Imagem Anexada
                   </span>
-                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-border shadow-sm relative bg-black/20">
+                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-border shadow-sm relative bg-transparent">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={tpl.image_url}
@@ -2004,7 +2004,7 @@ export default function RevendaPage() {
                   <span className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
                     Imagem Anexada
                   </span>
-                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-border shadow-sm relative bg-black/20">
+                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-border shadow-sm relative bg-transparent">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={tpl.image_url}
@@ -2074,7 +2074,7 @@ export default function RevendaPage() {
                   (s) => (
                     <div
                       key={s.id}
-                      className="p-3 rounded-xl border border-border bg-muted/50"
+                      className="p-3 rounded-xl border border-border bg-transparent"
                     >
                       {/* Alterado para flex justify-between para acomodar o botão Excluir */}
                       <div className="px-3 sm:px-0 flex items-center justify-between gap-2 mb-2">
@@ -2204,7 +2204,7 @@ export default function RevendaPage() {
                 {(resellerAlerts as any[]).map((a) => (
                   <div
                     key={String(a.id)}
-                    className="p-3 rounded-xl border border-border bg-muted/50"
+                    className="p-3 rounded-xl border border-border bg-transparent"
                   >
                     <div className="flex items-start gap-2">
                       <div className="mt-0.5 text-amber-600 dark:text-amber-500">
@@ -2516,13 +2516,13 @@ function Modal({
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm grid place-items-center z-[99999] p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 bg-transparent0 backdrop-blur-sm grid place-items-center z-[99999] p-4 animate-in fade-in duration-200"
     >
       <div
         onMouseDown={(e) => e.stopPropagation()}
         className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300"
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-transparent">
           <div className="font-medium text-foreground tracking-tight">
             {title}
           </div>

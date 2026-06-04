@@ -22,7 +22,7 @@ export function DashboardFilter({
   }
 
   return (
-    <div className="flex bg-black/20 p-1 rounded-xl border border-border">
+    <div className="flex bg-transparent p-1 rounded-xl border border-border">
       {availableModules.map((key) => {
         const active = currentViews.length === 1 && currentViews[0] === key;
         const meta = MODULES_META[key] ?? { label: key, icon: "❓" };

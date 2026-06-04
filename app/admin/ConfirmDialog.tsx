@@ -31,7 +31,7 @@ function toneClasses(tone: Tone) {
     case "slate":
       return {
         ring: "shadow-slate-500/20",
-        iconBg: "bg-black/20",
+        iconBg: "bg-transparent",
         dot: "text-muted-foreground",
         confirm: "bg-slate-800 hover:bg-slate-700",
       };
@@ -91,7 +91,7 @@ export default function ConfirmDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-[100000] flex items-center justify-center bg-transparent0 backdrop-blur-sm p-4 animate-in fade-in duration-200"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onCancel();
       }}
@@ -117,7 +117,7 @@ export default function ConfirmDialog({
         </div>
 
         {details.length > 0 && (
-          <div className="bg-muted/50 rounded-xl p-4 border border-border">
+          <div className="bg-transparent rounded-xl p-4 border border-border">
             <ul className="space-y-2">
               {details.map((line, i) => {
                 // Divisor

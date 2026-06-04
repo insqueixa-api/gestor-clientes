@@ -64,7 +64,7 @@ function Input({
   return (
     <input
       {...props}
-      className={`w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground/90 placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     />
   );
 }
@@ -77,7 +77,7 @@ function Select({
   return (
     <select
       {...props}
-      className={`w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     >
       {children}
     </select>
@@ -225,7 +225,7 @@ export default function VincularServidor({
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="w-full max-w-lg bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
         {/* HEADER */}
-        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-muted/50">
+        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent">
           <h2 className="text-lg font-medium text-foreground tracking-tight">
             {isEdit ? "Editar Vínculo" : "Vincular Servidor"}
           </h2>
@@ -297,7 +297,7 @@ export default function VincularServidor({
         </div>
 
         {/* FOOTER */}
-        <div className="px-6 py-4 border-t border-border bg-muted/50 flex items-center justify-end gap-3 transition-colors">
+        <div className="px-6 py-4 border-t border-border bg-transparent flex items-center justify-end gap-3 transition-colors">
           <button
             onClick={onClose}
             className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-black/30 dark:hover:bg-card/10 text-sm font-semibold transition-colors"

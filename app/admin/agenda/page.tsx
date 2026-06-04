@@ -1571,7 +1571,7 @@ function AgendaPageContent() {
                         <button
                           key={lbl}
                           onClick={() => handleMassAssignGroup(lbl)}
-                          className="text-[11px] px-2 py-0.5 rounded font-medium bg-black/20 text-muted-foreground border border-border hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-colors"
+                          className="text-[11px] px-2 py-0.5 rounded font-medium bg-transparent text-muted-foreground border border-border hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-colors"
                         >
                           {lbl}
                         </button>
@@ -1590,7 +1590,7 @@ function AgendaPageContent() {
                             handleMassAssignGroup(newGroupInput);
                         }}
                         placeholder="Nome do grupo..."
-                        className="flex-1 h-8 px-2 text-xs border border-border rounded-lg bg-muted/50 text-foreground outline-none focus:border-amber-500"
+                        className="flex-1 h-8 px-2 text-xs border border-border rounded-lg bg-transparent text-foreground outline-none focus:border-amber-500"
                         autoFocus
                       />
                       <button
@@ -1615,7 +1615,7 @@ function AgendaPageContent() {
       {/* TABELA */}
       {!loading && (
         <div className="bg-card border border-border rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0">
-          <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-border bg-muted/50">
+          <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-border bg-transparent">
             <div className="text-sm font-medium tracking-tight text-foreground whitespace-nowrap">
               Lista de Contatos{" "}
               <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-xs font-medium">
@@ -1637,7 +1637,7 @@ function AgendaPageContent() {
                         visible.every((r) => selectedIds.has(r.id))
                       }
                       onChange={(e) => setAllVisible(e.target.checked)}
-                      className="rounded border-border bg-black/20 cursor-pointer"
+                      className="rounded border-border bg-transparent cursor-pointer"
                     />
                   </Th>
                   <ThSort
@@ -1682,7 +1682,7 @@ function AgendaPageContent() {
                             toggleSelected(r.id, e.target.checked)
                           }
                           onClick={(e) => e.stopPropagation()}
-                          className="rounded border-border bg-black/20"
+                          className="rounded border-border bg-transparent"
                         />
                       </Td>
 
@@ -1767,7 +1767,7 @@ function AgendaPageContent() {
                               .map((l) => (
                                 <span
                                   key={l}
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-card/[0.08] text-muted-foreground dark:text-white/75 border border-border dark:border-white/15"
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-transparent text-[10px] font-medium tracking-tight shadow-sm dark:bg-card/[0.08] text-muted-foreground dark:text-white/75 border border-border dark:border-white/15"
                                 >
                                   {l}
                                 </span>
@@ -2057,7 +2057,7 @@ function AgendaPageContent() {
                 onChange={(e) =>
                   setEditForm({ ...editForm, display_name: e.target.value })
                 }
-                className="w-full p-2.5 border border-border rounded-lg bg-muted/50 text-foreground outline-none focus:border-amber-500 text-sm font-medium"
+                className="w-full p-2.5 border border-border rounded-lg bg-transparent text-foreground outline-none focus:border-amber-500 text-sm font-medium"
               />
             </div>
 
@@ -2102,7 +2102,7 @@ function AgendaPageContent() {
                   return (
                     <div
                       key={p.id}
-                      className="space-y-2 p-3 rounded-lg border border-border bg-muted/50/50 dark:bg-black/10"
+                      className="space-y-2 p-3 rounded-lg border border-border bg-transparent/50 dark:bg-black/10"
                     >
                       {/* Linha 1: rótulo + DDI + número + confirmar + remover */}
                       <div className="flex gap-2 items-center">
@@ -2195,12 +2195,12 @@ function AgendaPageContent() {
                           }}
                           className={`px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-colors ${
                             wa?.loading
-                              ? "bg-black/20 text-muted-foreground border-border"
+                              ? "bg-transparent text-muted-foreground border-border"
                               : wa?.exists
                                 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                                 : wa?.exists === false
                                   ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
-                                  : "bg-black/20 text-muted-foreground border-border hover:bg-black/30 dark:hover:bg-card/10"
+                                  : "bg-transparent text-muted-foreground border-border hover:bg-black/30 dark:hover:bg-card/10"
                           }`}
                         >
                           {wa?.loading
@@ -2250,12 +2250,12 @@ function AgendaPageContent() {
                           }}
                           className={`px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-colors ${
                             wa?.photoStatus === "loading"
-                              ? "bg-black/20 text-muted-foreground border-border"
+                              ? "bg-transparent text-muted-foreground border-border"
                               : wa?.photoStatus === "synced"
                                 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                                 : wa?.photoStatus === "protected"
                                   ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
-                                  : "bg-black/20 text-muted-foreground border-border hover:bg-black/30 dark:hover:bg-card/10"
+                                  : "bg-transparent text-muted-foreground border-border hover:bg-black/30 dark:hover:bg-card/10"
                           }`}
                         >
                           {wa?.photoStatus === "loading"
@@ -2277,12 +2277,12 @@ function AgendaPageContent() {
                             }}
                             className={`px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-colors ${
                               wa?.opLoading
-                                ? "bg-black/20 text-muted-foreground border-border"
+                                ? "bg-transparent text-muted-foreground border-border"
                                 : wa?.opName
                                   ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                                   : wa?.opError
                                     ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
-                                    : "bg-black/20 text-muted-foreground border-border hover:bg-black/30 dark:hover:bg-card/10"
+                                    : "bg-transparent text-muted-foreground border-border hover:bg-black/30 dark:hover:bg-card/10"
                             }`}
                           >
                             {wa?.opLoading
@@ -2370,7 +2370,7 @@ function AgendaPageContent() {
                           return { ...prev, emails };
                         })
                       }
-                      className="flex-1 p-2 border border-border rounded-lg bg-muted/50 text-foreground text-sm"
+                      className="flex-1 p-2 border border-border rounded-lg bg-transparent text-foreground text-sm"
                     />
                     <button
                       onClick={() =>
@@ -2411,7 +2411,7 @@ function AgendaPageContent() {
                       .filter((s) => s),
                   })
                 }
-                className="w-full p-2.5 border border-border rounded-lg bg-muted/50 text-foreground outline-none focus:border-amber-500 text-sm"
+                className="w-full p-2.5 border border-border rounded-lg bg-transparent text-foreground outline-none focus:border-amber-500 text-sm"
                 placeholder="Ex: VIP, Família, Empresa"
               />
               {/* Tags clicáveis dos grupos existentes */}
@@ -2430,7 +2430,7 @@ function AgendaPageContent() {
                               : [...prev.labels, lbl],
                           }))
                         }
-                        className={`text-[10px] px-2 py-0.5 rounded font-medium border transition-colors ${active ? "bg-amber-500 text-white border-amber-500" : "bg-black/20 text-muted-foreground border-border hover:bg-black/30 dark:hover:bg-card/10"}`}
+                        className={`text-[10px] px-2 py-0.5 rounded font-medium border transition-colors ${active ? "bg-amber-500 text-white border-amber-500" : "bg-transparent text-muted-foreground border-border hover:bg-black/30 dark:hover:bg-card/10"}`}
                       >
                         {lbl}
                       </button>
@@ -2704,7 +2704,7 @@ function Modal({
         onMouseDown={(e) => e.stopPropagation()}
         className="w-full max-w-lg bg-card border border-border rounded-xl shadow-2xl overflow-hidden"
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/50 dark:bg-muted">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent dark:bg-muted">
           <div className="font-medium text-foreground">
             {title}
           </div>

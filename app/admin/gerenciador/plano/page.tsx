@@ -357,7 +357,7 @@ export default function PlanosPage() {
                   className="bg-card border border-border rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors"
                 >
                   {/* Cabeçalho do grupo */}
-                  <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-muted/50">
+                  <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-transparent">
                     <span className={`${group.color}`}>{group.icon}</span>
                     <span className="text-sm font-medium text-foreground/90 whitespace-nowrap">
                       {group.label}
@@ -378,7 +378,7 @@ export default function PlanosPage() {
                             className="bg-card rounded-xl overflow-hidden shadow-sm border border-border transition-colors"
                           >
                             {/* CABEÇALHO DO CARD */}
-                            <div className="px-5 py-3 flex justify-between items-center border-b border-border bg-muted/50">
+                            <div className="px-5 py-3 flex justify-between items-center border-b border-border bg-transparent">
                               <div className="flex items-center gap-3">
                                 <h2 className="text-lg font-medium text-foreground tracking-tight">
                                   {plan.is_system_default &&
@@ -403,7 +403,7 @@ export default function PlanosPage() {
                                     ${
                                       plan.is_active
                                         ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                                        : "bg-black/20 text-muted-foreground/80 border-border dark:bg-card/5 dark:border-border dark:text-white/20"
+                                        : "bg-transparent text-muted-foreground/80 border-border dark:bg-card/5 dark:border-border dark:text-white/20"
                                     }`}
                                     >
                                       {plan.is_active ? "Ativa" : "Inativa"}
@@ -421,7 +421,7 @@ export default function PlanosPage() {
                                       [plan.id]: !prev[plan.id],
                                     }))
                                   }
-                                  className="p-1.5 rounded-lg bg-muted/500/10 border border-slate-500/20 text-muted-foreground hover:bg-muted/500/20 transition-all shadow-sm"
+                                  className="p-1.5 rounded-lg bg-transparent0/10 border border-slate-500/20 text-muted-foreground hover:bg-muted/500/20 transition-all shadow-sm"
                                   title={
                                     isExpanded
                                       ? "Minimizar tabela"

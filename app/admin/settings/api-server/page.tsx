@@ -409,7 +409,7 @@ export default function ApiServerPage() {
                   key={row.id}
                   className="rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-card border-border hover:border-emerald-500/30"
                 >
-                  <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-border bg-muted/50">
+                  <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-border bg-transparent">
                     <div className="min-w-0 pr-3">
                       <div className="flex items-center gap-2 min-w-0">
                         <h2
@@ -564,7 +564,7 @@ export default function ApiServerPage() {
                   key={row.id}
                   className="rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-card border-border hover:border-emerald-500/30"
                 >
-                  <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-border bg-muted/50">
+                  <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-border bg-transparent">
                     <div className="flex items-center gap-2 min-w-0 pr-3">
                       <h2 className="text-base font-medium truncate text-foreground/90 tracking-tight">
                         {row.label}

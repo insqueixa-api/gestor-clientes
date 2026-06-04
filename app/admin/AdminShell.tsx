@@ -1067,7 +1067,7 @@ export default function AdminShell({
                     className={[
                       "p-3 rounded-lg border cursor-pointer transition-colors flex items-start gap-3",
                       n.is_read
-                        ? "bg-muted/50 border-border"
+                        ? "bg-transparent border-border"
                         : "bg-emerald-500/10 border-emerald-500/20 hover:border-emerald-300 dark:hover:border-emerald-500/30",
                     ].join(" ")}
                   >
@@ -1127,7 +1127,7 @@ export default function AdminShell({
           onClose={() => setSelectedNotification(null)}
         >
           <div className="space-y-6">
-            <div className="bg-muted/50 border border-border p-4 rounded-lg flex gap-3">
+            <div className="bg-transparent border border-border p-4 rounded-lg flex gap-3">
               <span className="text-2xl mt-0.5">📢</span>
               <div>
                 <p className="text-foreground/90/90 text-sm font-medium">
@@ -1226,7 +1226,7 @@ function Modal({
         onMouseDown={(e) => e.stopPropagation()}
         className="w-full max-w-lg bg-card dark:bg-background border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/50">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent">
           <div className="font-medium text-foreground">
             {title}
           </div>

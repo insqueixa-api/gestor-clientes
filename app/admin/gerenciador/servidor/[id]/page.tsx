@@ -555,7 +555,7 @@ export default function ServerDetailsPage() {
                 className="w-10 h-10 rounded-xl object-cover border border-border shrink-0"
               />
             ) : (
-              <div className="w-10 h-10 rounded-xl bg-black/20 flex items-center justify-center shrink-0 text-xl">
+              <div className="w-10 h-10 rounded-xl bg-transparent flex items-center justify-center shrink-0 text-xl">
                 📡
               </div>
             )}
@@ -590,7 +590,7 @@ export default function ServerDetailsPage() {
 
         {/* SELETOR DE MÊS */}
         <div className="w-full md:w-auto flex justify-end">
-          <div className="flex items-center bg-black/20 rounded-lg p-1 border border-border shadow-sm w-full md:w-auto"></div>
+          <div className="flex items-center bg-transparent rounded-lg p-1 border border-border shadow-sm w-full md:w-auto"></div>
           <button
             onClick={handlePrevMonth}
             className="p-2 hover:bg-card dark:hover:bg-card/10 rounded-md text-muted-foreground transition-all active:scale-95"
@@ -653,7 +653,7 @@ export default function ServerDetailsPage() {
       <div className="space-y-6">
         {/* BLOCO 1: RESUMO FINANCEIRO */}
         <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm transition-colors">
-          <div className="px-5 py-3 border-b border-border flex justify-between items-center bg-muted/50">
+          <div className="px-5 py-3 border-b border-border flex justify-between items-center bg-transparent">
             <span className="text-sm font-medium text-foreground tracking-tight">
               Resumo financeiro ({formatMonth(selectedDate)})
             </span>
@@ -687,7 +687,7 @@ export default function ServerDetailsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Clientes */}
           <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm flex flex-col transition-colors">
-            <div className="px-5 py-3 border-b border-border flex items-center gap-2 bg-muted/50 font-medium text-sm text-foreground tracking-tight">
+            <div className="px-5 py-3 border-b border-border flex items-center gap-2 bg-transparent font-medium text-sm text-foreground tracking-tight">
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               Métricas de clientes
             </div>
@@ -728,7 +728,7 @@ export default function ServerDetailsPage() {
 
           {/* Revendas */}
           <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm flex flex-col transition-colors">
-            <div className="px-5 py-3 border-b border-border flex items-center gap-2 bg-muted/50 font-medium text-sm text-foreground tracking-tight">
+            <div className="px-5 py-3 border-b border-border flex items-center gap-2 bg-transparent font-medium text-sm text-foreground tracking-tight">
               <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
               Métricas de revendas
             </div>
@@ -766,7 +766,7 @@ export default function ServerDetailsPage() {
         {/* BLOCO 4: MOVIMENTAÇÕES (TABELA) */}
         <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm transition-colors">
           {/* HEADER DA TABELA COM FILTROS */}
-          <div className="px-5 py-4 border-b border-border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-muted/50">
+          <div className="px-5 py-4 border-b border-border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-transparent">
             <span className="text-sm font-medium text-foreground tracking-tight shrink-0">
               Movimentações de {formatMonth(selectedDate)}
             </span>
@@ -807,7 +807,7 @@ export default function ServerDetailsPage() {
 
           <div className="overflow-x-auto max-h-[400px]">
             <table className="w-full text-sm text-left relative border-collapse">
-              <thead className="bg-muted/50 text-muted-foreground border-b border-border sticky top-0 z-10 backdrop-blur-md">
+              <thead className="bg-transparent text-muted-foreground border-b border-border sticky top-0 z-10 backdrop-blur-md">
                 <tr>
                   <th className="px-5 py-3 font-medium text-[11px] uppercase tracking-wider">
                     Data
@@ -952,7 +952,7 @@ function StatCard({
   className?: string;
 }) {
   return (
-    <div className="bg-black/20/50 dark:bg-black/20 p-4 rounded-xl border border-border flex flex-col justify-between h-24 transition-all hover:border-emerald-500/30">
+    <div className="bg-transparent/50 dark:bg-black/20 p-4 rounded-xl border border-border flex flex-col justify-between h-24 transition-all hover:border-emerald-500/30">
       <div className="text-[10px] uppercase font-medium text-muted-foreground/80 dark:text-white/20 tracking-widest">
         {title}
       </div>

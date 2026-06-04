@@ -404,7 +404,7 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-transparent0 backdrop-blur-sm p-4 animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
@@ -412,7 +412,7 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 py-4 border-b border-border bg-muted/50 rounded-t-xl flex items-center justify-between">
+        <div className="px-5 py-4 border-b border-border bg-transparent rounded-t-xl flex items-center justify-between">
           <div>
             <h2 className="text-base font-medium text-foreground">
               📖 {help.title}
@@ -463,7 +463,7 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
           )}
         </div>
 
-        <div className="px-5 py-3 border-t border-border bg-muted/50 rounded-b-xl">
+        <div className="px-5 py-3 border-t border-border bg-transparent rounded-b-xl">
           <button
             onClick={onClose}
             className="w-full h-9 rounded-lg bg-black/30 text-foreground/90 font-medium text-sm hover:bg-slate-300 dark:hover:bg-card/20 transition-colors"
@@ -630,7 +630,7 @@ function GatewayModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-transparent0 backdrop-blur-sm p-4 animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
@@ -638,7 +638,7 @@ function GatewayModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* HEADER MODAL */}
-        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-muted/50 rounded-t-xl">
+        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent rounded-t-xl">
           <div>
             <h2 className="text-lg font-medium text-foreground">
               {isEdit ? "Editar Integração" : "Nova Integração de Pagamento"}
@@ -689,7 +689,7 @@ function GatewayModal({
                         }`}
                       >
                         <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-black/20 flex items-center justify-center text-xl shrink-0">
+                          <div className="w-10 h-10 rounded-xl bg-transparent flex items-center justify-center text-xl shrink-0">
                             {m.icon}
                           </div>
                           <div className="min-w-0 pr-6">
@@ -703,7 +703,7 @@ function GatewayModal({
                               {m.currencies.map((c) => (
                                 <span
                                   key={c}
-                                  className="gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-card/5 text-muted-foreground border border-border"
+                                  className="gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-transparent text-[10px] font-medium tracking-tight shadow-sm dark:bg-card/5 text-muted-foreground border border-border"
                                 >
                                   {c}
                                 </span>
@@ -882,7 +882,7 @@ function GatewayModal({
                     className={`w-full h-10 px-3 rounded-lg border text-sm font-medium transition-colors ${
                       isActive
                         ? "border-emerald-500/30 bg-emerald-500/10/70 dark:bg-emerald-500/10 text-emerald-400"
-                        : "border-border bg-muted/50 text-muted-foreground"
+                        : "border-border bg-transparent text-muted-foreground"
                     }`}
                   >
                     {isActive ? "✅ Ativo" : "⭕ Inativo"}
@@ -934,7 +934,7 @@ function GatewayModal({
         </div>
 
         {/* FOOTER MODAL */}
-        <div className="px-6 py-4 border-t border-border bg-muted/50 flex justify-end gap-2 rounded-b-xl">
+        <div className="px-6 py-4 border-t border-border bg-transparent flex justify-end gap-2 rounded-b-xl">
           <button
             onClick={onClose}
             className="px-4 py-2 text-muted-foreground dark:text-white/60 hover:bg-black/30 dark:hover:bg-card/10 rounded-lg text-sm font-medium transition-colors"
@@ -998,7 +998,7 @@ function GatewayCard({
             </h3>
 
             <div className="flex flex-wrap gap-1.5 mt-1">
-              <span className="gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-black/20 text-muted-foreground border border-border">
+              <span className="gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-transparent text-[10px] font-medium tracking-tight shadow-sm dark:bg-black/20 text-muted-foreground border border-border">
                 {priorityLabel}
               </span>
 
@@ -1040,7 +1040,7 @@ function GatewayCard({
           {gateway.currency.map((c) => (
             <span
               key={c}
-              className="gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-card/5 text-muted-foreground border border-border"
+              className="gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-transparent text-[10px] font-medium tracking-tight shadow-sm dark:bg-card/5 text-muted-foreground border border-border"
             >
               {c}
             </span>
@@ -1079,7 +1079,7 @@ function GatewayCard({
         <div className="flex gap-2 pt-2 border-t border-border">
           <button
             onClick={onEdit}
-            className="flex-1 h-9 rounded-lg border border-border bg-muted/50 text-foreground/90 dark:text-muted-foreground text-xs font-medium hover:bg-black/20 dark:hover:bg-card/5 transition-colors flex items-center justify-center gap-2"
+            className="flex-1 h-9 rounded-lg border border-border bg-transparent text-foreground/90 dark:text-muted-foreground text-xs font-medium hover:bg-black/20 dark:hover:bg-card/5 transition-colors flex items-center justify-center gap-2"
           >
             <IconEdit />
             Editar
