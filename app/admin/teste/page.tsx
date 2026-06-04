@@ -1631,9 +1631,20 @@ export default function TrialsPage() {
                       </Td>
 
                       <Td>
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-transparent text-[10px] font-medium tracking-tight shadow-sm dark:bg-card/5 text-muted-foreground border border-border uppercase">
-                          {r.technology || "—"}
-                        </span>
+                        {(() => {
+                          const tech = r.technology || "";
+                          const t = tech.toUpperCase();
+                          const colors = t === "IPTV" 
+                            ? "bg-sky-500/10 text-sky-500 border-sky-500/20" 
+                            : t === "P2P" 
+                            ? "bg-rose-500/10 text-rose-500 border-rose-500/20" 
+                            : "bg-transparent text-muted-foreground border-border dark:border-slate-500/20 dark:bg-card/5";
+                          return (
+                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase ${colors}`}>
+                              {r.technology || "—"}
+                            </span>
+                          );
+                        })()}
                       </Td>
 
                       {/* ✅ Apps */}

@@ -512,22 +512,22 @@ export default function ProfileSettingsPage() {
   }
 
   // --- LÓGICA DE SAÚDE ---
-  function handleAddHealthEntry() {
+  async function handleAddHealthEntry() {
     const w = parseFloat(newHealthEntry.weight);
     if (!w || !newHealthEntry.date) {
       addToast("error", "Erro", "Preencha a data e o peso.");
       return;
     }
+    if (!userId) return;
     const h = parseFloat(profileHeight);
     const imc = h > 0 ? parseFloat((w / (h * h)).toFixed(1)) : 0;
 
+    let updatedHistory: HealthRecord[];
     if (editingHealthId) {
-      setHealthHistory((prev) =>
-        prev.map((r) =>
-          r.id === editingHealthId
-            ? { ...r, date: newHealthEntry.date, weight: w, imc }
-            : r,
-        ),
+      updatedHistory = healthHistory.map((r) =>
+        r.id === editingHealthId
+          ? { ...r, date: newHealthEntry.date, weight: w, imc }
+          : r,
       );
       setEditingHealthId(null);
     } else {
@@ -537,18 +537,47 @@ export default function ProfileSettingsPage() {
         weight: w,
         imc,
       };
-      setHealthHistory((prev) =>
-        [...prev, newRecord].sort(
-          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
-        ),
+      updatedHistory = [...healthHistory, newRecord].sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
       );
     }
-    setNewHealthEntry({
-      date: new Date().toISOString().split("T")[0],
-      weight: "",
-    });
+
+    setHealthHistory(updatedHistory);
+    setNewHealthEntry({ date: new Date().toISOString().split("T")[0], weight: "" });
     setShowHealthForm(false);
-    if (!isEditing) setIsEditing(true);
+
+    setSaving(true);
+    try {
+      const { error } = await supabaseBrowser
+        .from("profiles")
+        .upsert({ id: userId, health_history: updatedHistory, updated_at: new Date().toISOString() });
+      if (error) throw error;
+      addToast("success", "Avaliação salva", "Registro sincronizado com o banco.");
+    } catch (e: any) {
+      addToast("error", "Erro ao salvar", e.message);
+    } finally {
+      setSaving(false);
+    }
+  
+    try {
+      const norm = applyPhoneNormalization(phoneRaw);
+      const updatedHistory = editingHealthId
+        ? healthHistory.map((r) =>
+            r.id === editingHealthId
+              ? { ...r, date: newHealthEntry.date, weight: parseFloat(newHealthEntry.weight), imc: parseFloat(profileHeight) > 0 ? parseFloat((parseFloat(newHealthEntry.weight) / (parseFloat(profileHeight) ** 2)).toFixed(1)) : 0 }
+              : r,
+          )
+        : [...healthHistory, { id: Date.now().toString(), date: newHealthEntry.date, weight: parseFloat(newHealthEntry.weight), imc: parseFloat(profileHeight) > 0 ? parseFloat((parseFloat(newHealthEntry.weight) / (parseFloat(profileHeight) ** 2)).toFixed(1)) : 0 }].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      const { error } = await supabaseBrowser
+        .from("profiles")
+        .upsert({ id: userId!, health_history: updatedHistory, updated_at: new Date().toISOString() });
+      if (error) throw error;
+      addToast("success", "Avaliação salva", "Registro sincronizado com o banco.");
+    } catch (e: any) {
+      addToast("error", "Erro ao salvar", e.message);
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleDeleteHealthRecord(id: string) {

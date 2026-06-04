@@ -2456,9 +2456,20 @@ function ClientePageContent() {
                       </Td>
 
                       <Td align="center">
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-transparent dark:bg-muted/500/10 text-foreground/90 dark:text-muted-foreground/80 text-[10px] font-medium tracking-tight shadow-sm uppercase">
-                          {r.technology}
-                        </span>
+                        {(() => {
+                          const tech = r.technology || "";
+                          const t = tech.toUpperCase();
+                          const colors = t === "IPTV" 
+                            ? "bg-sky-500/10 text-sky-500 border-sky-500/20" 
+                            : t === "P2P" 
+                            ? "bg-rose-500/10 text-rose-500 border-rose-500/20" 
+                            : "bg-transparent text-foreground/90 border-border dark:border-slate-500/20 dark:text-muted-foreground/80";
+                          return (
+                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase ${colors}`}>
+                              {r.technology || "—"}
+                            </span>
+                          );
+                        })()}
                       </Td>
 
                       <Td align="center">
