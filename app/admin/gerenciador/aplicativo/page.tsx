@@ -706,7 +706,7 @@ export default function AppManagerPage() {
                     <h2 className="text-sm font-bold text-foreground/90 uppercase tracking-wider">
                       Família: {familyName}
                     </h2>
-                    <span className="bg-black/30 text-muted-foreground gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm">
+                    <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm">
                       {appsInFamily.length}{" "}
                       {appsInFamily.length > 1 ? "Apps" : "App"}
                     </span>

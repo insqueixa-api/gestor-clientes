@@ -1232,7 +1232,7 @@ function FinanceiroPageContent() {
             <span className="flex items-center justify-between w-full gap-2">
               <span>Previsão total: {fmtBRL(receitasTotal)}</span>
               {receitasPendentes > 0 && (
-                <span className="font-normal text-amber-600 dark:text-amber-400">
+                <span className="font-normal text-amber-400 dark:text-amber-400">
                   Pendente: {fmtBRL(receitasPendentes)}
                 </span>
               )}
@@ -1314,7 +1314,7 @@ function FinanceiroPageContent() {
                     : "QUICK_PENDENTE",
                 )
               }
-              className={`h-9 px-3 rounded-lg border text-xs font-medium transition-colors whitespace-nowrap flex-1 sm:flex-none ${statusFilter === "QUICK_PENDENTE" ? "border-amber-400 bg-amber-500/10 text-amber-400 dark:bg-amber-500/20 dark:text-amber-400" : "border-border bg-card text-muted-foreground dark:bg-card dark:border-border dark:text-muted-foreground"}`}
+              className={`h-9 px-3 rounded-lg border text-xs font-medium transition-colors whitespace-nowrap flex-1 sm:flex-none ${statusFilter === "QUICK_PENDENTE" ? "border-amber-400 bg-amber-500/10 text-amber-400  dark:text-amber-400" : "border-border bg-card text-muted-foreground dark:bg-card dark:border-border dark:text-muted-foreground"}`}
             >
               ⏳ Pendente
             </button>
@@ -1326,13 +1326,13 @@ function FinanceiroPageContent() {
                     : "QUICK_CONCLUIDO",
                 )
               }
-              className={`h-9 px-3 rounded-lg border text-xs font-medium transition-colors whitespace-nowrap flex-1 sm:flex-none ${statusFilter === "QUICK_CONCLUIDO" ? "border-emerald-400 bg-emerald-500/10 text-emerald-400 dark:bg-emerald-500/20 dark:text-emerald-400" : "border-border bg-card text-muted-foreground dark:bg-card dark:border-border dark:text-muted-foreground"}`}
+              className={`h-9 px-3 rounded-lg border text-xs font-medium transition-colors whitespace-nowrap flex-1 sm:flex-none ${statusFilter === "QUICK_CONCLUIDO" ? "border-emerald-400 bg-emerald-500/10 text-emerald-400  dark:text-emerald-400" : "border-border bg-card text-muted-foreground dark:bg-card dark:border-border dark:text-muted-foreground"}`}
             >
               ✅ Concluído
             </button>
             <button
               onClick={() => setMobileFiltersOpen((v) => !v)}
-              className={`h-9 w-9 shrink-0 flex items-center justify-center rounded-lg border transition-colors ${mobileFiltersOpen ? "border-emerald-500 bg-emerald-500/10 text-emerald-400 dark:bg-emerald-500/20 dark:text-emerald-400" : "border-border bg-card text-muted-foreground dark:bg-card dark:border-border dark:text-white/50"}`}
+              className={`h-9 w-9 shrink-0 flex items-center justify-center rounded-lg border transition-colors ${mobileFiltersOpen ? "border-emerald-500 bg-emerald-500/10 text-emerald-400  dark:text-emerald-400" : "border-border bg-card text-muted-foreground dark:bg-card dark:border-border dark:text-white/50"}`}
             >
               <IconChevronDown />
             </button>
@@ -1664,11 +1664,11 @@ function FinanceiroPageContent() {
 
                     <td className="px-4 py-3 text-center">
                       {t.tipo === "RECEITA" ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-normal tracking-tight shadow-sm uppercase text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-200 dark:border-emerald-400/30">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-normal tracking-tight shadow-sm uppercase text-emerald-400 bg-emerald-500/10 border border-emerald-500/20  dark:text-emerald-200 dark:border-emerald-400/30">
                           <IconTrendingUp /> Receita
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-normal tracking-tight shadow-sm uppercase text-rose-400 bg-rose-500/10 border border-rose-500/20 dark:bg-rose-500/20 dark:text-rose-200 dark:border-rose-400/30">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-normal tracking-tight shadow-sm uppercase text-rose-400 bg-rose-500/10 border border-rose-500/20  dark:text-rose-200 dark:border-rose-400/30">
                           <IconTrendingDown /> Despesa
                         </span>
                       )}
@@ -1683,16 +1683,16 @@ function FinanceiroPageContent() {
                     <td className="px-4 py-3 text-center">
                       {(() => {
                         let cor =
-                          "bg-amber-500/20 text-amber-400 border-amber-500/20 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-400/30";
+                          "bg-amber-500/20 text-amber-400 border-amber-500/20  dark:text-amber-200 dark:border-amber-400/30";
                         let label = cStatus;
 
                         if (cStatus === "PAGO") {
                           cor =
-                            "bg-emerald-500/20 text-emerald-400 border-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-200 dark:border-emerald-400/30";
+                            "bg-emerald-500/20 text-emerald-400 border-emerald-500/20  dark:text-emerald-200 dark:border-emerald-400/30";
                           label = t.tipo === "RECEITA" ? "RECEBIDO" : "PAGO";
                         } else if (cStatus === "VENCIDO") {
                           cor =
-                            "bg-rose-500/20 text-rose-400 border-rose-500/20 dark:bg-rose-500/20 dark:text-rose-200 dark:border-rose-400/30";
+                            "bg-rose-500/20 text-rose-400 border-rose-500/20  dark:text-rose-200 dark:border-rose-400/30";
                         }
 
                         return (
@@ -3522,13 +3522,13 @@ function ModalTransacao({
               <div className="flex bg-transparent rounded-lg border border-border p-1 h-10">
                 <button
                   onClick={() => setStatus("PENDENTE")}
-                  className={`flex-1 rounded-md text-xs font-medium transition-colors ${status === "PENDENTE" ? "bg-amber-500/20 text-amber-400 dark:bg-amber-500/20 dark:text-amber-400" : "text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80"}`}
+                  className={`flex-1 rounded-md text-xs font-medium transition-colors ${status === "PENDENTE" ? "bg-amber-500/20 text-amber-400  dark:text-amber-400" : "text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80"}`}
                 >
                   ⏳ Pendente
                 </button>
                 <button
                   onClick={() => setStatus("PAGO")}
-                  className={`flex-1 rounded-md text-xs font-medium transition-colors ${status === "PAGO" ? "bg-emerald-500/20 text-emerald-400 dark:bg-emerald-500/20 dark:text-emerald-400" : "text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80"}`}
+                  className={`flex-1 rounded-md text-xs font-medium transition-colors ${status === "PAGO" ? "bg-emerald-500/20 text-emerald-400  dark:text-emerald-400" : "text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80"}`}
                 >
                   ✅ Pago
                 </button>
@@ -3640,14 +3640,14 @@ function ModalTransacao({
                     <button
                       type="button"
                       onClick={() => setEscopoEdicao("UNICA")}
-                      className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopoEdicao === "UNICA" ? "bg-amber-500/20 text-amber-400 dark:bg-amber-500/20 dark:text-amber-400 shadow-sm" : "text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80"}`}
+                      className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopoEdicao === "UNICA" ? "bg-amber-500/20 text-amber-400  dark:text-amber-400 shadow-sm" : "text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80"}`}
                     >
                       📅 Apenas nesta
                     </button>
                     <button
                       type="button"
                       onClick={() => setEscopoEdicao("TODAS")}
-                      className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopoEdicao === "TODAS" ? "bg-sky-500/20 text-sky-400 dark:bg-sky-500/20 dark:text-sky-400 shadow-sm" : "text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80"}`}
+                      className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopoEdicao === "TODAS" ? "bg-sky-500/20 text-sky-400  dark:text-sky-400 shadow-sm" : "text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80"}`}
                     >
                       🔁 Nesta e nas futuras
                     </button>
@@ -3669,19 +3669,19 @@ function ModalTransacao({
               <div className="flex bg-card dark:bg-transparent rounded-md border border-border p-1">
                 <button
                   onClick={() => setTipoRecorrencia("UNICA")}
-                  className={`flex-1 py-1 rounded text-xs font-medium transition-all ${tipoRecorrencia === "UNICA" ? "bg-emerald-500/10 text-emerald-400 dark:bg-emerald-500/20 dark:text-emerald-400 shadow-sm" : "text-muted-foreground hover:text-foreground/90 dark:hover:text-white/80"}`}
+                  className={`flex-1 py-1 rounded text-xs font-medium transition-all ${tipoRecorrencia === "UNICA" ? "bg-emerald-500/10 text-emerald-400  dark:text-emerald-400 shadow-sm" : "text-muted-foreground hover:text-foreground/90 dark:hover:text-white/80"}`}
                 >
                   Única
                 </button>
                 <button
                   onClick={() => setTipoRecorrencia("RECORRENTE")}
-                  className={`flex-1 py-1 rounded text-xs font-medium transition-all ${tipoRecorrencia === "RECORRENTE" ? "bg-emerald-500/10 text-emerald-400 dark:bg-emerald-500/20 dark:text-emerald-400 shadow-sm" : "text-muted-foreground hover:text-foreground/90 dark:hover:text-white/80"}`}
+                  className={`flex-1 py-1 rounded text-xs font-medium transition-all ${tipoRecorrencia === "RECORRENTE" ? "bg-emerald-500/10 text-emerald-400  dark:text-emerald-400 shadow-sm" : "text-muted-foreground hover:text-foreground/90 dark:hover:text-white/80"}`}
                 >
                   Recorrente
                 </button>
                 <button
                   onClick={() => setTipoRecorrencia("PARCELADA")}
-                  className={`flex-1 py-1 rounded text-xs font-medium transition-all ${tipoRecorrencia === "PARCELADA" ? "bg-emerald-500/10 text-emerald-400 dark:bg-emerald-500/20 dark:text-emerald-400 shadow-sm" : "text-muted-foreground hover:text-foreground/90 dark:hover:text-white/80"}`}
+                  className={`flex-1 py-1 rounded text-xs font-medium transition-all ${tipoRecorrencia === "PARCELADA" ? "bg-emerald-500/10 text-emerald-400  dark:text-emerald-400 shadow-sm" : "text-muted-foreground hover:text-foreground/90 dark:hover:text-white/80"}`}
                 >
                   Parcelado
                 </button>
@@ -4032,7 +4032,7 @@ function ModalBaixa({
                 onClick={() => setEscopo("UNICA")}
                 className={`flex-1 rounded-md text-xs font-medium transition-colors ${
                   escopo === "UNICA"
-                    ? "bg-amber-500/20 text-amber-400 dark:bg-amber-500/20 dark:text-amber-400 shadow-sm"
+                    ? "bg-amber-500/20 text-amber-400  dark:text-amber-400 shadow-sm"
                     : "text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80"
                 }`}
               >
@@ -4043,7 +4043,7 @@ function ModalBaixa({
                 onClick={() => setEscopo("TODAS")}
                 className={`flex-1 rounded-md text-xs font-medium transition-colors ${
                   escopo === "TODAS"
-                    ? "bg-sky-500/20 text-sky-400 dark:bg-sky-500/20 dark:text-sky-400 shadow-sm"
+                    ? "bg-sky-500/20 text-sky-400  dark:text-sky-400 shadow-sm"
                     : "text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80"
                 }`}
               >
