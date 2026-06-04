@@ -1600,7 +1600,7 @@ export default function RecargaCliente({
       {/* --- MODAL PRINCIPAL --- */}
       <div
         // ✅ LAYOUT: Items-end no mobile (sheet), center no desktop. Sem padding no mobile.
-        className="fixed inset-0 z-[99990] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200 overflow-hidden overscroll-contain"
+        className="fixed inset-0 z-[99990] flex items-center justify-center bg-transparent0 backdrop-blur-sm p-4 animate-in fade-in duration-200 overflow-hidden overscroll-contain"
         onPointerDown={(e) => {
           // Só fecha se começar o clique exatamente no fundo escuro
           if (e.target === e.currentTarget) onClose();
@@ -1612,7 +1612,7 @@ export default function RecargaCliente({
           onPointerDown={(e) => e.stopPropagation()}
         >
           {/* HEADER (MANTÉM IGUAL) */}
-          <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-muted/50 rounded-t-xl shrink-0">
+          <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent rounded-t-xl shrink-0">
             {/* ... conteúdo do header ... */}
             <div className="flex items-center gap-3">
               <div
@@ -1660,7 +1660,7 @@ export default function RecargaCliente({
             </div>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-muted-foreground/80 hover:text-foreground hover:bg-black/20 dark:hover:bg-card/10 transition-colors"
+              className="p-1.5 rounded-lg text-muted-foreground/80 hover:text-foreground hover:bg-transparent dark:hover:bg-card/10 transition-colors"
             >
               <IconX />
             </button>
@@ -1669,7 +1669,7 @@ export default function RecargaCliente({
           {/* BODY - ✅ Espaçamento Reduzido (p-3 sm:p-4) */}
           <div className="p-3 sm:p-4 space-y-3 sm:space-y-4 overflow-y-auto overscroll-contain custom-scrollbar flex-1 min-h-0">
             {/* 1. SEÇÃO VENCIMENTO */}
-            <div className="bg-muted/50 border border-border rounded-xl p-3">
+            <div className="bg-transparent border border-border rounded-xl p-3">
               {/* ... (Conteúdo igual, inputs já estão bons) ... */}
               <div className="flex items-center gap-2 mb-3 border-b border-border pb-2">
                 <span className="text-emerald-500">📅</span>
@@ -1689,7 +1689,7 @@ export default function RecargaCliente({
                       type="time"
                       value={dueTime}
                       onChange={(e) => setDueTime(e.target.value)}
-                      className="flex-1 h-10 px-3 bg-card dark:bg-black/20 border border-border rounded-lg text-foreground outline-none focus:border-emerald-500 transition-colors text-sm font-medium dark:[color-scheme:dark]"
+                      className="flex-1 h-10 px-3 bg-card dark:bg-transparent border border-border rounded-lg text-foreground outline-none focus:border-emerald-500 transition-colors text-sm font-medium dark:[color-scheme:dark]"
                     />
                     <button
                       type="button"
@@ -1706,7 +1706,7 @@ export default function RecargaCliente({
             {/* 2. SEÇÃO PLANO & FINANCEIRO (Unificado Visualmente ou Estilo Card NovoCliente) */}
             <div className="bg-card/5 border border-border rounded-xl p-3 sm:p-4 space-y-4">
               {/* 3. SEÇÃO FINANCEIRO */}
-              <div className="bg-card dark:bg-black/20 border border-border rounded-xl p-3 sm:p-4 shadow-sm">
+              <div className="bg-card dark:bg-transparent border border-border rounded-xl p-3 sm:p-4 shadow-sm">
                 {/* HEADER FINANCEIRO - ✅ IGUAL NOVO CLIENTE */}
                 <div className="flex justify-between items-center gap-3 border-b border-border pb-3 mb-3">
                   <span className="text-xs font-medium uppercase text-emerald-400 flex items-center gap-1">
@@ -1722,7 +1722,7 @@ export default function RecargaCliente({
                         tableChangedByUserRef.current = true;
                         setSelectedTableId(e.target.value);
                       }}
-                      className="h-6 w-[160px] px-2 bg-muted/50 border border-border rounded text-xs font-medium text-foreground/90 outline-none cursor-pointer hover:border-emerald-500/50 transition-all truncate"
+                      className="h-6 w-[160px] px-2 bg-transparent border border-border rounded text-xs font-medium text-foreground/90 outline-none cursor-pointer hover:border-emerald-500/50 transition-all truncate"
                     >
                       {tables.map((t) => (
                         <option key={t.id} value={t.id}>
@@ -1784,7 +1784,7 @@ export default function RecargaCliente({
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <Label>Moeda</Label>
-                  <div className="h-10 w-full bg-black/5 dark:bg-black/20 border border-border rounded-lg flex items-center justify-center text-sm font-medium text-foreground/90">
+                  <div className="h-10 w-full bg-transparent dark:bg-transparent border border-border rounded-lg flex items-center justify-center text-sm font-medium text-foreground/90">
                     {currency}
                   </div>
                 </div>
@@ -1828,7 +1828,7 @@ export default function RecargaCliente({
               {Boolean(allowConvertWithoutPayment) && (
                 <div
                   onClick={() => setRegisterPayment(!registerPayment)}
-                  className={`cursor-pointer p-2.5 rounded-lg border transition-all flex items-center justify-between ${registerPayment ? "bg-emerald-500/10 border-emerald-500/20 dark:bg-emerald-500/10 dark:border-emerald-500/20" : "bg-muted/50 border-border dark:bg-card/5 dark:border-border"}`}
+                  className={`cursor-pointer p-2.5 rounded-lg border transition-all flex items-center justify-between ${registerPayment ? "bg-emerald-500/10 border-emerald-500/20 dark:bg-emerald-500/10 dark:border-emerald-500/20" : "bg-transparent border-border dark:bg-card/5 dark:border-border"}`}
                 >
                   <span
                     className={`text-xs font-medium ${registerPayment ? "text-emerald-400" : "text-muted-foreground"}`}
@@ -1844,7 +1844,7 @@ export default function RecargaCliente({
               )}
 
               {registerPayment && (
-                <div className="bg-muted/50 p-3 rounded-lg border border-border animate-in slide-in-from-top-2">
+                <div className="bg-transparent p-3 rounded-lg border border-border animate-in slide-in-from-top-2">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label>Método</Label>
@@ -1882,7 +1882,7 @@ export default function RecargaCliente({
                 className={`p-3 rounded-xl border transition-all cursor-pointer ${
                   renewAutomatic
                     ? "bg-emerald-500/10 border-emerald-500/20 dark:bg-emerald-500/10 dark:border-emerald-500/20"
-                    : "bg-muted/50 border-border dark:bg-card/5 dark:border-border"
+                    : "bg-transparent border-border dark:bg-card/5 dark:border-border"
                 } ${!hasIntegration ? "opacity-50 cursor-not-allowed" : ""}`}
               >
                 <div className="flex items-center justify-between gap-3">
@@ -1921,7 +1921,7 @@ export default function RecargaCliente({
                   {/* Botão de Ligar/Desligar Envio */}
                   <div
                     onClick={() => setSendWhats(!sendWhats)}
-                    className="h-10 px-3 bg-card/5 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors flex items-center justify-between"
+                    className="h-10 px-3 bg-card/5 border border-border rounded-lg cursor-pointer hover:bg-transparent transition-colors flex items-center justify-between"
                   >
                     <span className="text-[11px] font-medium text-muted-foreground tracking-tight">
                       Enviar Mensagem?
@@ -1996,7 +1996,7 @@ export default function RecargaCliente({
                 <textarea
                   value={obs}
                   onChange={(e) => setObs(e.target.value)}
-                  className="w-full h-16 px-2.5 py-2 bg-muted/50 border border-border rounded-lg text-[13px] text-foreground outline-none focus:border-emerald-500/50 resize-none transition-all"
+                  className="w-full h-16 px-2.5 py-2 bg-transparent border border-border rounded-lg text-[13px] text-foreground outline-none focus:border-emerald-500/50 resize-none transition-all"
                   placeholder="Nota interna sobre esta renovação..."
                 />
               </div>
@@ -2004,7 +2004,7 @@ export default function RecargaCliente({
           </div>
 
           {/* FOOTER */}
-          <div className="px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-border bg-muted/50 flex justify-end gap-3 rounded-b-xl shrink-0">
+          <div className="px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-border bg-transparent flex justify-end gap-3 rounded-b-xl shrink-0">
             <button
               onClick={onClose}
               className="px-5 py-2.5 rounded-xl border border-border text-muted-foreground dark:text-white/60 font-medium text-sm hover:bg-card dark:hover:bg-card/10 transition-all"
@@ -2080,7 +2080,7 @@ function Input({
   return (
     <input
       {...props}
-      className={`w-full h-9 px-2 bg-muted/50 border border-border rounded-lg text-[13px] text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors dark:[color-scheme:dark] ${className}`}
+      className={`w-full h-9 px-2 bg-transparent border border-border rounded-lg text-[13px] text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors dark:[color-scheme:dark] ${className}`}
     />
   );
 }
@@ -2129,7 +2129,7 @@ function DateInputBR({
         const iso = toISO(v);
         if (iso) onChange(iso);
       }}
-      className="w-full h-10 px-3 bg-card dark:bg-black/20 border border-border rounded-lg text-foreground outline-none focus:border-emerald-500 transition-colors text-sm font-medium"
+      className="w-full h-10 px-3 bg-card dark:bg-transparent border border-border rounded-lg text-foreground outline-none focus:border-emerald-500 transition-colors text-sm font-medium"
     />
   );
 }
@@ -2141,7 +2141,7 @@ function Select({
   return (
     <select
       {...props}
-      className={`w-full h-9 px-2 bg-muted/50 border border-border rounded-lg text-[13px] text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-9 px-2 bg-transparent border border-border rounded-lg text-[13px] text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     />
   );
 }

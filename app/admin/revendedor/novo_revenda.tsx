@@ -155,7 +155,7 @@ function Input({
   return (
     <input
       {...props}
-      className={`w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground/90 placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     />
   );
 }
@@ -173,7 +173,7 @@ function ToggleLine({
     <button
       type="button"
       onClick={() => onChange(!value)}
-      className="w-full h-10 px-3 py-2 rounded-lg border border-border bg-muted/50 hover:bg-black/5 dark:bg-black/20 dark:hover:bg-card/5 transition flex items-center justify-between"
+      className="w-full h-10 px-3 py-2 rounded-lg border border-border bg-transparent hover:bg-transparent dark:bg-transparent dark:hover:bg-card/5 transition flex items-center justify-between"
     >
       <span className="text-foreground font-semibold text-sm">
         {label}
@@ -602,7 +602,7 @@ export default function ResellerFormModal({
     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200">
       <div className="w-full max-w-2xl max-h-[90vh] bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden min-h-0 transition-colors max-h-[90dvh]">
         {/* HEADER */}
-        <div className="px-6 py-4 border-b bg-muted/50 shrink-0 rounded-t-xl">
+        <div className="px-6 py-4 border-b bg-transparent shrink-0 rounded-t-xl">
           <h2 className="text-lg font-semibold text-foreground">
             {isEditing ? "Editar Revenda" : "Nova Revenda"}
           </h2>
@@ -645,7 +645,7 @@ export default function ResellerFormModal({
             <div>
               <Label>Telefone principal</Label>
               <div className="flex gap-2">
-                <div className="h-10 px-3 bg-black/5 dark:bg-black/20 border border-border rounded-lg flex items-center text-xs text-muted-foreground/80 whitespace-nowrap font-medium min-w-[120px]">
+                <div className="h-10 px-3 bg-transparent dark:bg-transparent border border-border rounded-lg flex items-center text-xs text-muted-foreground/80 whitespace-nowrap font-medium min-w-[120px]">
                   {primaryCountryLabel}
                 </div>
 
@@ -754,17 +754,17 @@ export default function ResellerFormModal({
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full h-24 p-3 bg-muted/50 border border-border rounded-xl text-sm text-foreground/90 outline-none focus:border-emerald-500/50 resize-none transition-colors"
+              className="w-full h-24 p-3 bg-transparent border border-border rounded-xl text-sm text-foreground/90 outline-none focus:border-emerald-500/50 resize-none transition-colors"
               placeholder="Anotações sobre este revendedor..."
             />
           </div>
         </div>
 
         {/* FOOTER FIXO */}
-        <div className="px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t bg-muted/50 shrink-0 rounded-b-xl flex justify-end gap-3">
+        <div className="px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t bg-transparent shrink-0 rounded-b-xl flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-4 h-10 rounded-lg border border-border text-foreground/90 text-sm font-semibold hover:bg-black/5 dark:bg-black/20 dark:hover:bg-card/5 transition"
+            className="px-4 h-10 rounded-lg border border-border text-foreground/90 text-sm font-semibold hover:bg-transparent dark:bg-transparent dark:hover:bg-card/5 transition"
           >
             Cancelar
           </button>

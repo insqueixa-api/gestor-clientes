@@ -296,7 +296,7 @@ export default function PlanosPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Pesquisar tabela..."
-              className="w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
             />
             {search && (
               <button
@@ -535,7 +535,7 @@ export default function PlanosPage() {
                                         return (
                                           <div
                                             key={period}
-                                            className="bg-muted/50 border border-border rounded-xl px-3 py-2.5 flex flex-col justify-center h-16 relative hover:border-emerald-500/30 transition-all group"
+                                            className="bg-transparent border border-border rounded-xl px-3 py-2.5 flex flex-col justify-center h-16 relative hover:border-emerald-500/30 transition-all group"
                                           >
                                             <div className="flex justify-between items-center w-full mb-1">
                                               <span className="text-[10px] font-medium text-muted-foreground/80 dark:text-white/20">

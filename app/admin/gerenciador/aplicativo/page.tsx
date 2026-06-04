@@ -85,7 +85,7 @@ function Input({
   return (
     <input
       {...props}
-      className={`w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     />
   );
 }
@@ -97,7 +97,7 @@ function Select({
   return (
     <select
       {...props}
-      className={`w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     />
   );
 }
@@ -876,7 +876,7 @@ export default function AppManagerPage() {
                     <select
                       value={formIntegration}
                       onChange={(e) => setFormIntegration(e.target.value)}
-                      className="w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors"
+                      className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors"
                     >
                       <option value="">Sem integração</option>
                       <option value="GERENCIAAPP">
@@ -898,7 +898,7 @@ export default function AppManagerPage() {
                 )}
 
               {/* CONSTRUTOR DE CAMPOS */}
-              <div className="bg-muted/50 border border-border rounded-xl p-4 space-y-3">
+              <div className="bg-transparent border border-border rounded-xl p-4 space-y-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <h3 className="text-xs font-medium text-muted-foreground dark:text-white/60 uppercase tracking-wider">
                     Campos Personalizados

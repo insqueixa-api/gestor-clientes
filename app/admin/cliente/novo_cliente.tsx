@@ -487,7 +487,7 @@ function Input({ className = "", ...props }: InputProps) {
   return (
     <input
       {...props}
-      className={`w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors dark:[color-scheme:dark] ${className}`}
+      className={`w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors dark:[color-scheme:dark] ${className}`}
     />
   );
 }
@@ -549,7 +549,7 @@ function Select({
   return (
     <select
       {...props}
-      className={`w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     />
   );
 }
@@ -612,7 +612,7 @@ function PhoneRow({
     <div>
       <Label>{label}</Label>
       <div className="flex gap-2">
-        <div className="h-10 min-w-[160px] px-3 bg-black/20 border border-border rounded-lg flex items-center text-xs font-medium text-foreground/90">
+        <div className="h-10 min-w-[160px] px-3 bg-transparent border border-border rounded-lg flex items-center text-xs font-medium text-foreground/90">
           {countryLabel || "—"}
         </div>
 
@@ -3873,7 +3873,7 @@ export default function NovoCliente({
       details: serverDomains.map((dns, idx) => (
         <div
           key={idx}
-          className="flex items-center justify-between bg-card dark:bg-black/20 p-2.5 rounded-lg border border-border mb-1.5 shadow-sm"
+          className="flex items-center justify-between bg-card dark:bg-transparent p-2.5 rounded-lg border border-border mb-1.5 shadow-sm"
         >
  <span className=" text-xs text-muted-foreground truncate mr-2 select-all">
             {dns}
@@ -3885,7 +3885,7 @@ export default function NovoCliente({
               navigator.clipboard.writeText(dns);
               addToast("success", "Copiado", "DNS copiada com sucesso!");
             }}
-            className="p-1.5 text-muted-foreground/80 dark:text-muted-foreground hover:text-sky-400 dark:hover:text-sky-400 hover:bg-black/20 dark:hover:bg-card/10 rounded transition-colors shrink-0"
+            className="p-1.5 text-muted-foreground/80 dark:text-muted-foreground hover:text-sky-400 dark:hover:text-sky-400 hover:bg-transparent dark:hover:bg-card/10 rounded transition-colors shrink-0"
             title="Copiar"
           >
             <svg
@@ -4031,7 +4031,7 @@ export default function NovoCliente({
         </div>
       </div>
       <div
-        className="fixed inset-0 z-[99990] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200"
+        className="fixed inset-0 z-[99990] flex items-center justify-center bg-transparent0 backdrop-blur-sm p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200"
         onPointerDown={(e) => {
           // ✅ CORREÇÃO: Só fecha se clicar (começar o clique) exatamente no fundo, não se arrastar pra fora.
           if (e.target === e.currentTarget) onClose();
@@ -4043,7 +4043,7 @@ export default function NovoCliente({
         >
           {/* HEADER */}
 
-          <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-muted/50 rounded-t-xl shrink-0">
+          <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent rounded-t-xl shrink-0">
             <h2 className="text-base font-medium text-foreground truncate">
               {isEditing
                 ? isTrialMode
@@ -4057,7 +4057,7 @@ export default function NovoCliente({
             <button
               onClick={onClose}
               type="button"
-              className="p-1.5 rounded-lg hover:bg-black/20 dark:hover:bg-card/10 text-muted-foreground/80 dark:text-muted-foreground transition-colors"
+              className="p-1.5 rounded-lg hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground/80 dark:text-muted-foreground transition-colors"
             >
               <IconX />
             </button>
@@ -4065,8 +4065,8 @@ export default function NovoCliente({
 
           {/* ABAS */}
 
-          <div className="flex justify-center border-b border-border bg-muted/50/50 dark:bg-card/5 px-4 py-2">
-            <div className="flex bg-black/30/50 dark:bg-black/20 rounded-lg p-1 w-full sm:w-auto overflow-x-auto">
+          <div className="flex justify-center border-b border-border bg-transparent/50 dark:bg-card/5 px-4 py-2">
+            <div className="flex bg-black/30/50 dark:bg-transparent rounded-lg p-1 w-full sm:w-auto overflow-x-auto">
               {(
                 [
                   { key: "dados", label: "DADOS" },
@@ -4406,7 +4406,7 @@ export default function NovoCliente({
                   </div>
 
                   <div className="pt-0 sm:pt-[18px]">
-                    <div className="h-10 px-3 bg-muted/50 border border-border rounded-lg flex items-center justify-between gap-3">
+                    <div className="h-10 px-3 bg-transparent border border-border rounded-lg flex items-center justify-between gap-3">
                       <span className="text-xs text-muted-foreground whitespace-nowrap">
                         Aceita msg?
                       </span>
@@ -4457,7 +4457,7 @@ export default function NovoCliente({
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Anote detalhes importantes sobre este cliente..."
-                    className="w-full h-20 px-3 py-2 bg-muted/50 border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 resize-none transition-all"
+                    className="w-full h-20 px-3 py-2 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 resize-none transition-all"
                   />
                 </div>
               </div>
@@ -4469,7 +4469,7 @@ export default function NovoCliente({
               <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
                 {/* CARD ACESSO */}
 
-                <div className="p-3 bg-muted/50 rounded-xl border border-border space-y-3">
+                <div className="p-3 bg-transparent rounded-xl border border-border space-y-3">
                   <div className="flex justify-between items-center gap-3">
                     <span className="text-xs font-medium text-muted-foreground/80 uppercase tracking-wider">
                       Acesso
@@ -4489,7 +4489,7 @@ export default function NovoCliente({
                             onChange={(e) =>
                               setCustomTechnology(e.target.value)
                             }
-                            className="h-8 w-[140px] sm:w-[180px] pl-2 pr-8 text-xs font-medium text-foreground/90 bg-card dark:bg-black/20 border border-border rounded outline-none focus:border-emerald-500/50 transition-all"
+                            className="h-8 w-[140px] sm:w-[180px] pl-2 pr-8 text-xs font-medium text-foreground/90 bg-card dark:bg-transparent border border-border rounded outline-none focus:border-emerald-500/50 transition-all"
                             placeholder="Digite..."
                             autoFocus
                           />
@@ -4522,7 +4522,7 @@ export default function NovoCliente({
                           disabled={
                             trialProvider === "FAST" || trialProvider === "NATV"
                           }
-                          className={`h-8 w-[100px] px-2 bg-card dark:bg-black/20 border border-border rounded text-xs font-medium text-foreground/90 outline-none transition-all ${
+                          className={`h-8 w-[100px] px-2 bg-card dark:bg-transparent border border-border rounded text-xs font-medium text-foreground/90 outline-none transition-all ${
                             trialProvider === "FAST" || trialProvider === "NATV"
                               ? "opacity-60 cursor-not-allowed"
                               : "cursor-pointer hover:border-emerald-500/50"
@@ -4781,7 +4781,7 @@ export default function NovoCliente({
                   </div>
                 </div>
 
-                <div className="p-3 bg-muted/50 rounded-xl border border-border space-y-3">
+                <div className="p-3 bg-transparent rounded-xl border border-border space-y-3">
                   <div className="flex justify-between items-center gap-3">
                     <span className="text-xs font-medium text-muted-foreground/80 uppercase tracking-wider">
                       Plano
@@ -4798,7 +4798,7 @@ export default function NovoCliente({
                           setSelectedTableId(e.target.value);
                           setPriceTouched(false); // ✅ FORÇA O RECÁLCULO IMEDIATO
                         }}
-                        className="h-8 w-[120px] px-2 bg-card dark:bg-black/20 border border-border rounded text-xs font-medium text-foreground/90 outline-none cursor-pointer hover:border-emerald-500/50 transition-all truncate"
+                        className="h-8 w-[120px] px-2 bg-card dark:bg-transparent border border-border rounded text-xs font-medium text-foreground/90 outline-none cursor-pointer hover:border-emerald-500/50 transition-all truncate"
                       >
                         {tables.map((t) => (
                           <option key={t.id} value={t.id}>
@@ -4877,7 +4877,7 @@ export default function NovoCliente({
                     <div>
                       <Label>Moeda</Label>
 
-                      <div className="h-10 w-full bg-black/20 border border-border rounded-lg flex items-center justify-center text-sm font-medium text-foreground/90">
+                      <div className="h-10 w-full bg-transparent border border-border rounded-lg flex items-center justify-center text-sm font-medium text-foreground/90">
                         {currency}
                       </div>
                     </div>
@@ -4925,7 +4925,7 @@ export default function NovoCliente({
 
                 {/* VENCIMENTO */}
 
-                <div className="p-3 bg-muted/50 rounded-xl border border-border space-y-3">
+                <div className="p-3 bg-transparent rounded-xl border border-border space-y-3">
                   {/* ✅ NOVO: Header com Período ao lado direito (só para teste) */}
 
                   <div className="flex justify-between items-center gap-3">
@@ -4954,7 +4954,7 @@ export default function NovoCliente({
                                   ? "NATV: padrão 6h (editável)"
                                   : "Período do teste"
                           }
-                          className={`h-7 w-[70px] px-2 bg-card dark:bg-black/20 border border-border rounded text-xs font-medium text-foreground/90 outline-none transition-all ${
+                          className={`h-7 w-[70px] px-2 bg-card dark:bg-transparent border border-border rounded text-xs font-medium text-foreground/90 outline-none transition-all ${
                             trialHoursLocked
                               ? "opacity-70 cursor-not-allowed"
                               : "cursor-pointer hover:border-emerald-500/50"
@@ -5029,7 +5029,7 @@ export default function NovoCliente({
                             className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col justify-center gap-3 ${
                               syncWithServer
                                 ? "bg-sky-500/10 border-sky-500/30 dark:bg-sky-500/10 dark:border-sky-500/20"
-                                : "bg-muted/50 border-border dark:bg-card/5 dark:border-border"
+                                : "bg-transparent border-border dark:bg-card/5 dark:border-border"
                             } ${!hasIntegration ? "opacity-50 cursor-not-allowed" : "h-full"}`}
                           >
                             <div className="flex items-center justify-between w-full">
@@ -5066,7 +5066,7 @@ export default function NovoCliente({
                           <div className="p-3 rounded-xl border border-border bg-card/5 flex flex-col gap-3">
                             <div
                               onClick={() => setSendTrialWhats(!sendTrialWhats)}
-                              className="h-10 px-3 rounded-lg border border-border bg-muted/50 cursor-pointer hover:bg-black/20 dark:hover:bg-card/10 transition-colors flex items-center justify-between gap-3 shrink-0"
+                              className="h-10 px-3 rounded-lg border border-border bg-transparent cursor-pointer hover:bg-transparent dark:hover:bg-card/10 transition-colors flex items-center justify-between gap-3 shrink-0"
                             >
                               <span className="text-xs font-medium text-muted-foreground">
                                 Enviar msg teste?
@@ -5129,7 +5129,7 @@ export default function NovoCliente({
                                   onChange={(e) =>
                                     setMessageContent(e.target.value)
                                   }
-                                  className="w-full h-full min-h-[60px] px-3 py-2 bg-muted/50 border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 resize-none transition-all"
+                                  className="w-full h-full min-h-[60px] px-3 py-2 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 resize-none transition-all"
                                   placeholder="Digite a mensagem de teste..."
                                 />
                               </div>
@@ -5156,7 +5156,7 @@ export default function NovoCliente({
                                 className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
                                   syncWithServer
                                     ? "bg-sky-500/10 border-sky-500/30 dark:bg-sky-500/10 dark:border-sky-500/20"
-                                    : "bg-muted/50 border-border dark:bg-card/5 dark:border-border"
+                                    : "bg-transparent border-border dark:bg-card/5 dark:border-border"
                                 } ${!hasIntegration ? "opacity-50 cursor-not-allowed" : ""}`}
                               >
                                 <div className="flex items-center gap-2">
@@ -5197,7 +5197,7 @@ export default function NovoCliente({
                               className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
                                 registerRenewal
                                   ? "bg-emerald-500/10 border-emerald-500/20 dark:bg-emerald-500/10 dark:border-emerald-500/20"
-                                  : "bg-muted/50 border-border dark:bg-card/5 dark:border-border"
+                                  : "bg-transparent border-border dark:bg-card/5 dark:border-border"
                               }`}
                             >
                               <div className="flex items-center gap-2">
@@ -5238,7 +5238,7 @@ export default function NovoCliente({
                                 onClick={() =>
                                   setSendPaymentMsg(!sendPaymentMsg)
                                 }
-                                className="h-10 px-3 rounded-lg border border-border bg-muted/50 cursor-pointer hover:bg-black/20 dark:hover:bg-card/10 transition-colors flex items-center justify-between gap-3"
+                                className="h-10 px-3 rounded-lg border border-border bg-transparent cursor-pointer hover:bg-transparent dark:hover:bg-card/10 transition-colors flex items-center justify-between gap-3"
                               >
                                 <span className="text-xs font-medium text-muted-foreground">
                                   Enviar msg pagto?
@@ -5363,7 +5363,7 @@ export default function NovoCliente({
                     return (
                       <div
                         key={app.instanceId}
-                        className="px-3 pt-2 pb-3 bg-muted/50 rounded-xl border border-border relative group"
+                        className="px-3 pt-2 pb-3 bg-transparent rounded-xl border border-border relative group"
                       >
                         {/* HEADER DO CARD (Sempre visível) */}
                         <div className="flex justify-between items-center">
@@ -5544,7 +5544,7 @@ export default function NovoCliente({
                                             "Nenhum link configurado para esta integração.",
                                           );
                                       }}
-                                      className="h-10 rounded-lg bg-black/20 border border-border text-muted-foreground hover:bg-black/30 dark:hover:bg-card/20 transition-colors flex items-center justify-center gap-1.5"
+                                      className="h-10 rounded-lg bg-transparent border border-border text-muted-foreground hover:bg-black/30 dark:hover:bg-card/20 transition-colors flex items-center justify-center gap-1.5"
                                       title="Abrir painel no navegador"
                                     >
                                       <svg
@@ -5612,7 +5612,7 @@ export default function NovoCliente({
                                     className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify-between gap-3 transition-colors ${
                                       app.auto_configure !== false
                                         ? "bg-sky-500/10 border-sky-500/30 dark:bg-sky-500/10 dark:border-sky-500/20"
-                                        : "bg-muted/50 border-border dark:bg-card/5 dark:border-border"
+                                        : "bg-transparent border-border dark:bg-card/5 dark:border-border"
                                     }`}
                                   >
                                     <div className="flex items-center gap-2">
@@ -6008,7 +6008,7 @@ export default function NovoCliente({
 
           {/* FOOTER */}
 
-          <div className="px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-border bg-muted/50 flex justify-end gap-2 rounded-b-xl shrink-0">
+          <div className="px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-border bg-transparent flex justify-end gap-2 rounded-b-xl shrink-0">
             <button
               onClick={onClose}
               type="button"
@@ -6038,7 +6038,7 @@ export default function NovoCliente({
       {/* === MODAL DE CONFIRMAÇÃO (Padronizado) === */}
       {ConfirmUI} {/* ✅ Renderiza a caixa bonita sobre o modal */}
       {confirmModal && (
-        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-transparent0 backdrop-blur-sm p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200">
           <div className="w-full max-w-sm bg-card border border-border rounded-xl shadow-2xl p-6 flex flex-col gap-5 overflow-hidden min-h-0 max-h-[90vh] animate-in fade-in zoom-in-95 duration-200 max-h-[90dvh]">
             <div className="flex flex-col items-center text-center gap-3">
               <div className="w-14 h-14 rounded-full bg-emerald-500/20 flex items-center justify-center text-3xl">
@@ -6056,7 +6056,7 @@ export default function NovoCliente({
               </div>
             </div>
 
-            <div className="bg-muted/50 rounded-xl p-4 border border-border">
+            <div className="bg-transparent rounded-xl p-4 border border-border">
               <ul className="space-y-2.5">
                 {confirmModal.details.map((line, i) => (
                   <li
@@ -6074,7 +6074,7 @@ export default function NovoCliente({
             <div className="flex gap-3 pt-2">
               <button
                 onClick={() => setConfirmModal(null)}
-                className="flex-1 h-12 rounded-xl border border-border text-muted-foreground/80 font-medium text-sm hover:bg-muted/50 dark:hover:bg-card/5 transition-colors"
+                className="flex-1 h-12 rounded-xl border border-border text-muted-foreground/80 font-medium text-sm hover:bg-transparent dark:hover:bg-card/5 transition-colors"
               >
                 Voltar
               </button>

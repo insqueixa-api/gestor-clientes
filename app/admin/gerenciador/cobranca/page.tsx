@@ -1124,7 +1124,7 @@ export default function BillingPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar regra..."
-                className="w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors"
+                className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors"
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/80 text-xs">
                 🔍

@@ -1240,7 +1240,7 @@ export default function RevendaPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Pesquisar..."
-              className="w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90 transition-colors"
+              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90 transition-colors"
             />
             {search && (
               <button
@@ -1272,7 +1272,7 @@ export default function RevendaPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Pesquisar revenda..."
-              className="w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90 transition-colors"
+              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90 transition-colors"
             />
             {search && (
               <button
@@ -1287,7 +1287,7 @@ export default function RevendaPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
             >
               <option value="Todos">Status (Todos)</option>
               <option value="Ativo">Ativo</option>
@@ -1299,7 +1299,7 @@ export default function RevendaPage() {
             <select
               value={serverFilter}
               onChange={(e) => setServerFilter(e.target.value)}
-              className="w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
             >
               <option value="Todos">Servidor (Todos)</option>
               {(serversOptions || []).map((s) => (
@@ -1771,7 +1771,7 @@ export default function RevendaPage() {
           <textarea
             value={newAlertText}
             onChange={(e) => setNewAlertText(e.target.value)}
-            className="w-full bg-muted/50 border border-border dark:border-border rounded-xl p-3 text-foreground outline-none min-h-25 transition-colors focus:border-emerald-500/50"
+            className="w-full bg-transparent border border-border dark:border-border rounded-xl p-3 text-foreground outline-none min-h-25 transition-colors focus:border-emerald-500/50"
             placeholder="Digite o alerta..."
           />
           <div className="mt-4 flex justify-end gap-3">
@@ -1818,7 +1818,7 @@ export default function RevendaPage() {
                 <select
                   value={selectedSessionNow}
                   onChange={(e) => setSelectedSessionNow(e.target.value)}
-                  className="w-full h-11 px-3 bg-muted/50 border border-border dark:border-border rounded-lg text-sm font-medium text-foreground outline-none focus:border-emerald-500/50 transition-colors"
+                  className="w-full h-11 px-3 bg-transparent border border-border dark:border-border rounded-lg text-sm font-medium text-foreground outline-none focus:border-emerald-500/50 transition-colors"
                 >
                   {sessionOptions.map((s) => (
                     <option key={s.id} value={s.id}>
@@ -1842,7 +1842,7 @@ export default function RevendaPage() {
                     if (tpl) setMessageText(tpl.content);
                     else setMessageText("");
                   }}
-                  className="w-full h-11 px-3 bg-muted/50 border border-border dark:border-border rounded-lg text-foreground outline-none focus:border-emerald-500/50 transition-colors text-sm"
+                  className="w-full h-11 px-3 bg-transparent border border-border dark:border-border rounded-lg text-foreground outline-none focus:border-emerald-500/50 transition-colors text-sm"
                 >
                   <option value="">Selecionar...</option>
                   {messageTemplates
@@ -1888,7 +1888,7 @@ export default function RevendaPage() {
               value={messageText}
               disabled={!!selectedTemplateNowId}
               onChange={(e) => setMessageText(e.target.value)}
-              className="w-full bg-muted/50 border border-border dark:border-border rounded-xl p-3 text-foreground outline-none min-h-25 focus:border-emerald-500/50 transition-colors disabled:opacity-70"
+              className="w-full bg-transparent border border-border dark:border-border rounded-xl p-3 text-foreground outline-none min-h-25 focus:border-emerald-500/50 transition-colors disabled:opacity-70"
               placeholder="Digite a mensagem..."
             />
 
@@ -1935,7 +1935,7 @@ export default function RevendaPage() {
                 <select
                   value={selectedSessionSchedule}
                   onChange={(e) => setSelectedSessionSchedule(e.target.value)}
-                  className="w-full h-11 px-3 bg-muted/50 border border-border dark:border-border rounded-lg text-sm font-medium text-foreground outline-none focus:border-emerald-500/50 transition-colors"
+                  className="w-full h-11 px-3 bg-transparent border border-border dark:border-border rounded-lg text-sm font-medium text-foreground outline-none focus:border-emerald-500/50 transition-colors"
                 >
                   {sessionOptions.map((s) => (
                     <option key={s.id} value={s.id}>
@@ -1959,7 +1959,7 @@ export default function RevendaPage() {
                     if (tpl) setScheduleText(tpl.content);
                     else setScheduleText("");
                   }}
-                  className="w-full h-11 px-3 bg-muted/50 border border-border dark:border-border rounded-lg text-foreground outline-none focus:border-emerald-500/50 transition-colors text-sm"
+                  className="w-full h-11 px-3 bg-transparent border border-border dark:border-border rounded-lg text-foreground outline-none focus:border-emerald-500/50 transition-colors text-sm"
                 >
                   <option value="">
                     Selecionar mensagem pronta (opcional)...
@@ -1989,7 +1989,7 @@ export default function RevendaPage() {
                 type="datetime-local"
                 value={scheduleDate}
                 onChange={(e) => setScheduleDate(e.target.value)}
-                className="w-full h-11 px-3 bg-muted/50 border border-border dark:border-border rounded-lg text-foreground outline-none focus:border-emerald-500/50 transition-colors"
+                className="w-full h-11 px-3 bg-transparent border border-border dark:border-border rounded-lg text-foreground outline-none focus:border-emerald-500/50 transition-colors"
               />
             </div>
 
@@ -2024,7 +2024,7 @@ export default function RevendaPage() {
                 value={scheduleText}
                 disabled={!!selectedTemplateScheduleId}
                 onChange={(e) => setScheduleText(e.target.value)}
-                className="w-full bg-muted/50 border border-border dark:border-border rounded-xl p-3 text-foreground outline-none min-h-25 focus:border-emerald-500/50 transition-colors disabled:opacity-70"
+                className="w-full bg-transparent border border-border dark:border-border rounded-xl p-3 text-foreground outline-none min-h-25 focus:border-emerald-500/50 transition-colors disabled:opacity-70"
                 placeholder="Mensagem agendada..."
               />
             </div>
@@ -2270,7 +2270,7 @@ export default function RevendaPage() {
               <input
                 value={newTemplateName}
                 onChange={(e) => setNewTemplateName(e.target.value)}
-                className="w-full h-11 px-3 bg-muted/50 border border-border dark:border-border rounded-lg text-foreground outline-none focus:border-emerald-500/50 transition-colors"
+                className="w-full h-11 px-3 bg-transparent border border-border dark:border-border rounded-lg text-foreground outline-none focus:border-emerald-500/50 transition-colors"
                 placeholder="Ex: Cobrança educada"
               />
             </div>
@@ -2282,7 +2282,7 @@ export default function RevendaPage() {
               <textarea
                 value={newTemplateContent}
                 onChange={(e) => setNewTemplateContent(e.target.value)}
-                className="w-full bg-muted/50 border border-border dark:border-border rounded-xl p-3 text-foreground outline-none min-h-25 focus:border-emerald-500/50 transition-colors"
+                className="w-full bg-transparent border border-border dark:border-border rounded-xl p-3 text-foreground outline-none min-h-25 focus:border-emerald-500/50 transition-colors"
                 placeholder="Digite o conteúdo..."
               />
             </div>

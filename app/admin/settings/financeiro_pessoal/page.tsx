@@ -277,14 +277,14 @@ function ModalDatePicker({
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-[99999] bg-black/50 grid place-items-center p-4"
+      className="fixed inset-0 z-[99999] bg-transparent0 grid place-items-center p-4"
     >
       <div
         onMouseDown={(e) => e.stopPropagation()}
         className="w-full max-w-xs bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/50">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent">
           <span className="text-sm font-medium text-foreground/90">
             Selecionar Período
           </span>
@@ -302,7 +302,7 @@ function ModalDatePicker({
             <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-2">
               Ano
             </label>
-            <div className="flex items-center justify-between bg-muted/50 border border-border rounded-lg p-1">
+            <div className="flex items-center justify-between bg-transparent border border-border rounded-lg p-1">
               <button
                 onClick={() => setAno((a) => a - 1)}
                 className="p-1.5 rounded-md text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white hover:bg-card dark:hover:bg-card/10 transition-colors"
@@ -351,7 +351,7 @@ function ModalDatePicker({
                         ? "bg-emerald-600 text-white shadow-md shadow-emerald-900/20"
                         : isCurrentMonth
                           ? "border border-emerald-300 dark:border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/10"
-                          : "text-muted-foreground hover:bg-black/20 dark:hover:bg-card/5"
+                          : "text-muted-foreground hover:bg-transparent dark:hover:bg-card/5"
                     }`}
                   >
                     {mes.slice(0, 3)}
@@ -408,13 +408,13 @@ function ModalDayPicker({
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-[99999] bg-black/50 grid place-items-center p-4"
+      className="fixed inset-0 z-[99999] bg-transparent0 grid place-items-center p-4"
     >
       <div
         onMouseDown={(e) => e.stopPropagation()}
         className="w-full max-w-xs bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/50">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent">
           <span className="text-sm font-medium text-foreground/90">
             Selecionar Data
           </span>
@@ -427,7 +427,7 @@ function ModalDayPicker({
         </div>
 
         <div className="p-4 space-y-4">
-          <div className="flex items-center justify-between bg-muted/50 border border-border rounded-lg p-1">
+          <div className="flex items-center justify-between bg-transparent border border-border rounded-lg p-1">
             <button
               onClick={() => setViewDate(new Date(ano, mes - 1, 1))}
               className="p-1.5 rounded-md text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white hover:bg-card dark:hover:bg-card/10 transition-colors"
@@ -479,7 +479,7 @@ function ModalDayPicker({
                         ? "bg-emerald-600 text-white shadow-md shadow-emerald-900/20"
                         : isToday
                           ? "border border-emerald-300 dark:border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/10"
-                          : "text-muted-foreground hover:bg-black/20 dark:hover:bg-card/5"
+                          : "text-muted-foreground hover:bg-transparent dark:hover:bg-card/5"
                     }`}
                   >
                     {dia}
@@ -1173,7 +1173,7 @@ function FinanceiroPageContent() {
         <div className="flex items-center gap-2 justify-end shrink-0">
           <button
             onClick={() => setShowMobileCards(!showMobileCards)}
-            className="md:hidden text-[11px] font-medium text-muted-foreground bg-black/20 px-2 py-1 rounded-md dark:bg-card/10 dark:border dark:border-white/5 hover:text-foreground dark:text-white dark:text-muted-foreground transition-colors mr-2"
+            className="md:hidden text-[11px] font-medium text-muted-foreground bg-transparent px-2 py-1 rounded-md dark:bg-card/10 dark:border dark:border-white/5 hover:text-foreground dark:text-white dark:text-muted-foreground transition-colors mr-2"
           >
             {showMobileCards ? "Ocultar Valores" : "Exibir Valores"}
           </button>
@@ -1201,7 +1201,7 @@ function FinanceiroPageContent() {
           </div>
           <button
             onClick={handleToday}
-            className="h-10 px-4 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-muted/50 dark:hover:bg-card/10 transition-colors shrink-0"
+            className="h-10 px-4 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-transparent dark:hover:bg-card/10 transition-colors shrink-0"
           >
             Hoje
           </button>
@@ -1285,7 +1285,7 @@ function FinanceiroPageContent() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Pesquisar..."
-                className="w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+                className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
               />
               {search && (
                 <button
@@ -1358,7 +1358,7 @@ function FinanceiroPageContent() {
             <select
               value={contaFilter}
               onChange={(e) => setContaFilter(e.target.value)}
-              className="w-full h-9 px-1 bg-muted/50 border border-border rounded-lg text-[11px] font-medium outline-none text-foreground/90 truncate"
+              className="w-full h-9 px-1 bg-transparent border border-border rounded-lg text-[11px] font-medium outline-none text-foreground/90 truncate"
             >
               <option value="Todos">Conta</option>
               {contasDB.map((c) => (
@@ -1370,7 +1370,7 @@ function FinanceiroPageContent() {
             <select
               value={categoriaFilter}
               onChange={(e) => setCategoriaFilter(e.target.value)}
-              className="w-full h-9 px-1 bg-muted/50 border border-border rounded-lg text-[11px] font-medium outline-none text-foreground/90 truncate"
+              className="w-full h-9 px-1 bg-transparent border border-border rounded-lg text-[11px] font-medium outline-none text-foreground/90 truncate"
             >
               <option value="Todos">Categoria</option>
               {categoriasDB.map((c) => (
@@ -1382,7 +1382,7 @@ function FinanceiroPageContent() {
             <select
               value={recorrenciaFilter}
               onChange={(e) => setRecorrenciaFilter(e.target.value)}
-              className="w-full h-9 px-1 bg-muted/50 border border-border rounded-lg text-[11px] font-medium outline-none text-foreground/90 truncate"
+              className="w-full h-9 px-1 bg-transparent border border-border rounded-lg text-[11px] font-medium outline-none text-foreground/90 truncate"
             >
               <option value="Todos">Recorrência</option>
               <option value="UNICA">Única</option>
@@ -1399,7 +1399,7 @@ function FinanceiroPageContent() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Pesquisar por descrição..."
-              className="w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
             />
             {search && (
               <button
@@ -1413,7 +1413,7 @@ function FinanceiroPageContent() {
           <select
             value={tipoFilter}
             onChange={(e) => setTipoFilter(e.target.value)}
-            className="w-[140px] h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+            className="w-[140px] h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
           >
             <option value="Todos">Tipo</option>
             <option value="RECEITA">Receitas</option>
@@ -1422,7 +1422,7 @@ function FinanceiroPageContent() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-[140px] h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+            className="w-[140px] h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
           >
             <option value="Todos">Status</option>
             <option value="PAGO">Pagos / Recebidos</option>
@@ -1432,7 +1432,7 @@ function FinanceiroPageContent() {
           <select
             value={contaFilter}
             onChange={(e) => setContaFilter(e.target.value)}
-            className="w-[140px] h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90 truncate"
+            className="w-[140px] h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90 truncate"
           >
             <option value="Todos">Conta</option>
             {contasDB.map((c) => (
@@ -1444,7 +1444,7 @@ function FinanceiroPageContent() {
           <select
             value={categoriaFilter}
             onChange={(e) => setCategoriaFilter(e.target.value)}
-            className="w-[140px] h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90 truncate"
+            className="w-[140px] h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90 truncate"
           >
             <option value="Todos">Categoria</option>
             {categoriasDB.map((c) => (
@@ -1456,7 +1456,7 @@ function FinanceiroPageContent() {
           <select
             value={recorrenciaFilter}
             onChange={(e) => setRecorrenciaFilter(e.target.value)}
-            className="w-[140px] h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90 truncate"
+            className="w-[140px] h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90 truncate"
           >
             <option value="Todos">Recorrência</option>
             <option value="UNICA">Única</option>
@@ -1641,7 +1641,7 @@ function FinanceiroPageContent() {
                   showDateDivider && (
                     <tr
                       key={`div-${t.id}`}
-                      className="bg-black/5 dark:bg-card/5 border-y border-border"
+                      className="bg-transparent border-y border-border"
                     >
                       <td
                         colSpan={9}
@@ -1653,7 +1653,7 @@ function FinanceiroPageContent() {
                   ),
                   <tr
                     key={t.id}
-                    className={`hover:bg-muted/50 dark:hover:bg-card/5 transition-colors group cursor-pointer ${rowOpacity}`}
+                    className={`hover:bg-transparent dark:hover:bg-card/5 transition-colors group cursor-pointer ${rowOpacity}`}
                     onClick={() => setModalData({ open: true, transacao: t })}
                   >
                     <td className="px-4 py-3">
@@ -1710,7 +1710,7 @@ function FinanceiroPageContent() {
                     </td>
 
                     <td className="px-4 py-3 text-center">
-                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 text-[10px] font-normal tracking-tight shadow-sm dark:bg-card/5 text-muted-foreground border border-border">
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-transparent text-[10px] font-normal tracking-tight shadow-sm dark:bg-card/5 text-muted-foreground border border-border">
                         {t.conta_nome || "—"}
                       </span>
                     </td>
@@ -1902,7 +1902,7 @@ function FinanceiroPageContent() {
                 onClick={() =>
                   handleExclusaoAprovada(deleteData.transacao!, "UNICA")
                 }
-                className="px-4 py-3 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-muted/50 transition-colors"
+                className="px-4 py-3 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-transparent transition-colors"
               >
                 🗑️ Excluir apenas esta ({monthName})
               </button>
@@ -2027,7 +2027,7 @@ function MetricCard({
           {value}
         </div>
       </div>
-      <div className="px-3 sm:px-4 py-2 text-[11px] sm:text-xs bg-black/5 dark:bg-card/5 opacity-80 font-normal">
+      <div className="px-3 sm:px-4 py-2 text-[11px] sm:text-xs bg-transparent opacity-80 font-normal">
         {/* 👇 CLASSE finance-value NO FOOTER DA PREVISÃO */}
         <span className="finance-value">{footer}</span>
       </div>
@@ -2064,7 +2064,7 @@ function Modal({
         onMouseDown={(e) => e.stopPropagation()}
         className="w-full max-w-lg bg-card dark:bg-background border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/50">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent">
           <div className="font-medium text-foreground">
             {title}
           </div>
@@ -2171,7 +2171,7 @@ function ModalAjusteSaldo({
           <select
             value={contaId}
             onChange={(e) => setContaId(e.target.value)}
-            className="w-full h-11 px-3 bg-muted/50 border border-border rounded-lg outline-none text-sm focus:border-emerald-500 text-foreground"
+            className="w-full h-11 px-3 bg-transparent border border-border rounded-lg outline-none text-sm focus:border-emerald-500 text-foreground"
           >
             {contas.map((c) => (
               <option key={c.id} value={c.id}>
@@ -2189,7 +2189,7 @@ function ModalAjusteSaldo({
           <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-1.5">
             Qual é o saldo real hoje?
           </label>
-          <div className="flex items-center h-11 bg-card dark:bg-black/20 border border-border rounded-lg focus-within:border-emerald-500 transition-colors overflow-hidden">
+          <div className="flex items-center h-11 bg-card dark:bg-transparent border border-border rounded-lg focus-within:border-emerald-500 transition-colors overflow-hidden">
             <span className="pl-3 pr-1 text-sm font-medium text-muted-foreground/80 dark:text-muted-foreground select-none shrink-0">
               R$
             </span>
@@ -2210,7 +2210,7 @@ function ModalAjusteSaldo({
         <div className="flex justify-end gap-2 pt-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-muted/50"
+            className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-transparent"
           >
             Cancelar
           </button>
@@ -2265,7 +2265,7 @@ function ModalNovaConta({
   return (
     <div className="fixed inset-0 z-[100000] bg-black/60 grid place-items-center p-4">
       <div className="w-full max-w-sm bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="px-4 py-3 border-b border-border font-medium text-sm bg-muted/50 flex justify-between">
+        <div className="px-4 py-3 border-b border-border font-medium text-sm bg-transparent flex justify-between">
           <span>Criar Nova Conta</span>
           <button onClick={onClose}>
             <IconX />
@@ -2281,7 +2281,7 @@ function ModalNovaConta({
               value={nome}
               onChange={(e) => setNome(e.target.value)}
               placeholder="Ex: C6 Bank"
-              className="w-full h-10 px-3 bg-card dark:bg-black/20 border border-border rounded-lg outline-none text-sm focus:border-emerald-500"
+              className="w-full h-10 px-3 bg-card dark:bg-transparent border border-border rounded-lg outline-none text-sm focus:border-emerald-500"
             />
           </div>
           <div>
@@ -2293,7 +2293,7 @@ function ModalNovaConta({
                 <button
                   key={i}
                   onClick={() => setIcone(i)}
-                  className={`w-8 h-8 rounded border text-lg flex items-center justify-center transition-all ${icone === i ? "border-emerald-500 bg-emerald-500/10" : "border-border hover:bg-muted/50 dark:hover:bg-card/5"}`}
+                  className={`w-8 h-8 rounded border text-lg flex items-center justify-center transition-all ${icone === i ? "border-emerald-500 bg-emerald-500/10" : "border-border hover:bg-transparent dark:hover:bg-card/5"}`}
                 >
                   {i}
                 </button>
@@ -2438,7 +2438,7 @@ function ModalGerenciarItens({
         key={it.id}
         className="rounded-lg border border-border overflow-hidden"
       >
-        <div className="flex items-center justify-between p-3 bg-muted/50">
+        <div className="flex items-center justify-between p-3 bg-transparent">
           <span className="text-sm font-medium">
             {it.icone} {it.nome}
           </span>
@@ -2478,7 +2478,7 @@ function ModalGerenciarItens({
         </div>
 
         {editandoId === it.id && (
-          <div className="p-3 border-t border-border bg-card dark:bg-black/20 space-y-3 animate-in fade-in slide-in-from-top-1 duration-150">
+          <div className="p-3 border-t border-border bg-card dark:bg-transparent space-y-3 animate-in fade-in slide-in-from-top-1 duration-150">
             <div>
               <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-1">
                 Nome
@@ -2487,7 +2487,7 @@ function ModalGerenciarItens({
                 autoFocus
                 value={editNome}
                 onChange={(e) => setEditNome(e.target.value)}
-                className="w-full h-9 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none focus:border-emerald-500 text-foreground"
+                className="w-full h-9 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500 text-foreground"
               />
             </div>
             <div>
@@ -2499,7 +2499,7 @@ function ModalGerenciarItens({
                   <button
                     key={ic}
                     onClick={() => setEditIcone(ic)}
-                    className={`w-8 h-8 rounded border text-base flex items-center justify-center transition-all ${editIcone === ic ? "border-emerald-500 bg-emerald-500/10 scale-110" : "border-border hover:bg-muted/50 dark:hover:bg-card/5"}`}
+                    className={`w-8 h-8 rounded border text-base flex items-center justify-center transition-all ${editIcone === ic ? "border-emerald-500 bg-emerald-500/10 scale-110" : "border-border hover:bg-transparent dark:hover:bg-card/5"}`}
                   >
                     {ic}
                   </button>
@@ -2509,7 +2509,7 @@ function ModalGerenciarItens({
             <div className="flex gap-2 pt-1">
               <button
                 onClick={cancelarEdicao}
-                className="flex-1 py-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-muted/50 dark:hover:bg-card/5 transition-colors"
+                className="flex-1 py-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-transparent dark:hover:bg-card/5 transition-colors"
               >
                 Cancelar
               </button>
@@ -2530,7 +2530,7 @@ function ModalGerenciarItens({
   return (
     <div className="fixed inset-0 z-[100000] bg-black/60 grid place-items-center p-4">
       <div className="w-full max-w-sm bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
-        <div className="px-4 py-3 border-b border-border font-medium text-sm bg-muted/50 flex justify-between shrink-0">
+        <div className="px-4 py-3 border-b border-border font-medium text-sm bg-transparent flex justify-between shrink-0">
           <span>{title}</span>
           <button onClick={onClose}>
             <IconX />
@@ -2577,7 +2577,7 @@ function ModalGerenciarItens({
         <div className="px-4 py-3 border-t border-border shrink-0">
           <button
             onClick={onClose}
-            className="w-full py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-muted/50 dark:hover:bg-card/5 transition-colors"
+            className="w-full py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-transparent dark:hover:bg-card/5 transition-colors"
           >
             Cancelar
           </button>
@@ -2649,7 +2649,7 @@ function ModalNovaCategoria({
   return (
     <div className="fixed inset-0 z-[100000] bg-black/60 grid place-items-center p-4">
       <div className="w-full max-w-sm bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="px-4 py-3 border-b border-border font-medium text-sm bg-muted/50 flex justify-between">
+        <div className="px-4 py-3 border-b border-border font-medium text-sm bg-transparent flex justify-between">
           <span>
             Nova Categoria de {tipoFixo === "RECEITA" ? "Receita" : "Despesa"}
           </span>
@@ -2667,7 +2667,7 @@ function ModalNovaCategoria({
               value={nome}
               onChange={(e) => setNome(e.target.value)}
               placeholder="Ex: Roupas"
-              className="w-full h-10 px-3 bg-card dark:bg-black/20 border border-border rounded-lg outline-none text-sm focus:border-emerald-500"
+              className="w-full h-10 px-3 bg-card dark:bg-transparent border border-border rounded-lg outline-none text-sm focus:border-emerald-500"
             />
           </div>
           <div>
@@ -2679,7 +2679,7 @@ function ModalNovaCategoria({
                 <button
                   key={i}
                   onClick={() => setIcone(i)}
-                  className={`w-8 h-8 rounded border text-lg flex items-center justify-center transition-all ${icone === i ? "border-emerald-500 bg-emerald-500/10" : "border-border hover:bg-muted/50 dark:hover:bg-card/5"}`}
+                  className={`w-8 h-8 rounded border text-lg flex items-center justify-center transition-all ${icone === i ? "border-emerald-500 bg-emerald-500/10" : "border-border hover:bg-transparent dark:hover:bg-card/5"}`}
                 >
                   {i}
                 </button>
@@ -3368,7 +3368,7 @@ function ModalTransacao({
         onClose={onClose}
       >
         <div className="max-h-[75vh] overflow-y-auto pr-1 space-y-3 sm:space-y-4">
-          <div className="flex p-1 bg-black/20 rounded-lg border border-border">
+          <div className="flex p-1 bg-transparent rounded-lg border border-border">
             <button
               onClick={() => setTipo("DESPESA")}
               className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${tipo === "DESPESA" ? "bg-card text-rose-400 shadow-sm" : "text-muted-foreground hover:text-foreground/90 dark:hover:text-white/80"}`}
@@ -3399,7 +3399,7 @@ function ModalTransacao({
                   if (sugestoes.length > 0) setShowSugestoes(true);
                 }}
                 placeholder="Ex: Conta de Luz"
-                className="w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
+                className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
               />
               {showSugestoes && sugestoes.length > 0 && (
                 <div className="absolute left-0 right-0 top-full mt-1 z-[9999] bg-card border border-border rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
@@ -3416,7 +3416,7 @@ function ModalTransacao({
                         onMouseEnter={() => setSugestaoHover(s)}
                         onMouseLeave={() => setSugestaoHover(null)}
                         onClick={() => aplicarSugestao(s)}
-                        className={`flex items-center justify-between px-3 py-2.5 cursor-pointer transition-colors ${isHov ? "bg-emerald-500/10" : "hover:bg-muted/50 dark:hover:bg-card/5"}`}
+                        className={`flex items-center justify-between px-3 py-2.5 cursor-pointer transition-colors ${isHov ? "bg-emerald-500/10" : "hover:bg-transparent dark:hover:bg-card/5"}`}
                       >
                         <div className="flex flex-col min-w-0">
                           <span className="text-sm font-semibold text-foreground/90 truncate">
@@ -3468,7 +3468,7 @@ function ModalTransacao({
                 onChange={handleValorChange}
                 onFocus={(e) => e.target.select()}
                 placeholder="0,00"
-                className={`w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm font-medium outline-none focus:border-emerald-500/50 ${(sugestaoHover?.tipo ?? tipo) === "RECEITA" ? "text-emerald-400" : "text-rose-400"}`}
+                className={`w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm font-medium outline-none focus:border-emerald-500/50 ${(sugestaoHover?.tipo ?? tipo) === "RECEITA" ? "text-emerald-400" : "text-rose-400"}`}
               />
             </div>
           </div>
@@ -3487,7 +3487,7 @@ function ModalTransacao({
                   onFocus={(e) => e.target.select()}
                   placeholder="DD/MM/AAAA"
                   maxLength={10}
- className="w-full h-10 px-3 pr-10 bg-muted/50 border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 "
+ className="w-full h-10 px-3 pr-10 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 "
                 />
                 <button
                   type="button"
@@ -3519,7 +3519,7 @@ function ModalTransacao({
               <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1 uppercase tracking-wider">
                 Status
               </label>
-              <div className="flex bg-muted/50 rounded-lg border border-border p-1 h-10">
+              <div className="flex bg-transparent rounded-lg border border-border p-1 h-10">
                 <button
                   onClick={() => setStatus("PENDENTE")}
                   className={`flex-1 rounded-md text-xs font-medium transition-colors ${status === "PENDENTE" ? "bg-amber-500/20 text-amber-400 dark:bg-amber-500/20 dark:text-amber-400" : "text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80"}`}
@@ -3544,7 +3544,7 @@ function ModalTransacao({
               <select
                 value={contaSelecionada}
                 onChange={handleContaChange}
-                className="w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 font-medium"
+                className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 font-medium"
               >
                 <option value="" disabled>
                   Selecionar Conta
@@ -3573,7 +3573,7 @@ function ModalTransacao({
               <select
                 value={categoriaSelecionada}
                 onChange={handleCategoriaChange}
-                className="w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 font-medium"
+                className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 font-medium"
               >
                 <option value="" disabled>
                   Selecionar Categoria
@@ -3606,7 +3606,7 @@ function ModalTransacao({
               <button
                 type="button"
                 onClick={() => setShowPagamentoPicker(true)}
- className={`w-full h-10 px-3 flex justify-center items-center bg-card dark:bg-black/20 border rounded-lg transition-colors text-sm font-medium ${status === "PAGO" ? "border-emerald-500/20 text-emerald-400 hover:border-emerald-500" : "border-border text-muted-foreground/80 dark:text-white/50 hover:border-slate-400"}`}
+ className={`w-full h-10 px-3 flex justify-center items-center bg-card dark:bg-transparent border rounded-lg transition-colors text-sm font-medium ${status === "PAGO" ? "border-emerald-500/20 text-emerald-400 hover:border-emerald-500" : "border-border text-muted-foreground/80 dark:text-white/50 hover:border-slate-400"}`}
               >
                 {pagamentoDisplay}
               </button>
@@ -3636,7 +3636,7 @@ function ModalTransacao({
                   <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1 uppercase tracking-wider">
                     Aplicar alterações em:
                   </label>
-                  <div className="flex bg-muted/50 rounded-lg border border-border p-1 h-10">
+                  <div className="flex bg-transparent rounded-lg border border-border p-1 h-10">
                     <button
                       type="button"
                       onClick={() => setEscopoEdicao("UNICA")}
@@ -3661,12 +3661,12 @@ function ModalTransacao({
           )}
 
           {!isEdit && (
-            <div className="p-3 rounded-lg border border-border bg-muted/50 space-y-3">
+            <div className="p-3 rounded-lg border border-border bg-transparent space-y-3">
               <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground uppercase tracking-wider">
                 Recorrência e Parcelamento
               </label>
 
-              <div className="flex bg-card dark:bg-black/20 rounded-md border border-border p-1">
+              <div className="flex bg-card dark:bg-transparent rounded-md border border-border p-1">
                 <button
                   onClick={() => setTipoRecorrencia("UNICA")}
                   className={`flex-1 py-1 rounded text-xs font-medium transition-all ${tipoRecorrencia === "UNICA" ? "bg-emerald-500/10 text-emerald-400 dark:bg-emerald-500/20 dark:text-emerald-400 shadow-sm" : "text-muted-foreground hover:text-foreground/90 dark:hover:text-white/80"}`}
@@ -3733,7 +3733,7 @@ function ModalTransacao({
               onChange={(e) => setObs(e.target.value)}
               rows={2}
               placeholder="Detalhes adicionais..."
-              className="w-full p-2 bg-muted/50 border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 resize-none"
+              className="w-full p-2 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 resize-none"
             />
           </div>
         </div>
@@ -3741,7 +3741,7 @@ function ModalTransacao({
         <div className="flex justify-end gap-2 mt-3 pt-3 border-t border-border">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-muted/50 dark:hover:bg-card/5 transition-colors"
+            className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-transparent dark:hover:bg-card/5 transition-colors"
           >
             Cancelar
           </button>
@@ -3979,7 +3979,7 @@ function ModalBaixa({
     >
       <div className="space-y-4">
         {/* Descrição + Valor */}
-        <div className="p-3 rounded-xl border border-border bg-muted/50 flex items-center justify-between gap-3">
+        <div className="p-3 rounded-xl border border-border bg-transparent flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs font-medium text-muted-foreground/80 dark:text-muted-foreground uppercase tracking-wider mb-0.5">
               {isReceita ? "📈 Receita" : "📉 Despesa"}
@@ -4006,7 +4006,7 @@ function ModalBaixa({
                 setRawCents(parseInt(digits || "0", 10));
               }}
               onFocus={(e) => e.target.select()}
-              className={`w-28 h-9 px-2 text-right font-medium rounded-lg border bg-card dark:bg-black/20 outline-none focus:border-emerald-500/50 text-sm ${
+              className={`w-28 h-9 px-2 text-right font-medium rounded-lg border bg-card dark:bg-transparent outline-none focus:border-emerald-500/50 text-sm ${
                 isReceita
                   ? "text-emerald-400 border-emerald-500/20"
                   : "text-rose-400 border-rose-500/20"
@@ -4026,7 +4026,7 @@ function ModalBaixa({
             <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
               Aplicar novo valor em:
             </label>
-            <div className="flex bg-muted/50 rounded-lg border border-border p-1 h-10">
+            <div className="flex bg-transparent rounded-lg border border-border p-1 h-10">
               <button
                 type="button"
                 onClick={() => setEscopo("UNICA")}
@@ -4068,7 +4068,7 @@ function ModalBaixa({
                 onFocus={(e) => e.target.select()}
                 placeholder="DD/MM/AAAA"
                 maxLength={10}
- className="w-full h-10 px-3 pr-10 bg-muted/50 border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 "
+ className="w-full h-10 px-3 pr-10 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 "
               />
               <button
                 type="button"
@@ -4107,7 +4107,7 @@ function ModalBaixa({
           <select
             value={contaSelecionada}
             onChange={(e) => setContaSelecionada(e.target.value)}
-            className="w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
+            className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
           >
             <option value="">Sem conta</option>
             {contasDB.map((c) => (
@@ -4122,7 +4122,7 @@ function ModalBaixa({
         <div className="flex gap-2 pt-1">
           <button
             onClick={onClose}
-            className="flex-1 py-2.5 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-muted/50 dark:hover:bg-card/5 transition-colors"
+            className="flex-1 py-2.5 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-transparent dark:hover:bg-card/5 transition-colors"
           >
             Cancelar
           </button>

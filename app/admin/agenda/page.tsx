@@ -1276,7 +1276,7 @@ function AgendaPageContent() {
                 setPage(1);
               }}
               placeholder="Pesquisar por nome, telefone ou email..."
-              className="w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none text-foreground/90 placeholder-slate-400 dark:placeholder-white/20"
+              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none text-foreground/90 placeholder-slate-400 dark:placeholder-white/20"
             />
           </div>
 
@@ -1288,7 +1288,7 @@ function AgendaPageContent() {
                 setLabelFilter(e.target.value);
                 setPage(1);
               }}
-              className="h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
+              className="h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
             >
               <option value="Todos">Grupo (Todos)</option>
               <option value="__SEM_GRUPO__">Sem grupo</option>
@@ -1305,7 +1305,7 @@ function AgendaPageContent() {
                 setEmailLabelFilter(e.target.value);
                 setPage(1);
               }}
-              className="h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
+              className="h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
             >
               <option value="Todos">📧 E-mail (Todos)</option>
               {uniqueEmailLabels.map((lbl) => (
@@ -1322,7 +1322,7 @@ function AgendaPageContent() {
                 setPhoneLabelFilter(e.target.value);
                 setPage(1);
               }}
-              className="h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
+              className="h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
             >
               <option value="Todos">📱 Operadora (Todas)</option>
               {uniquePhoneLabels.map((lbl) => (
@@ -1339,7 +1339,7 @@ function AgendaPageContent() {
                 setPhotoFilter(e.target.value);
                 setPage(1);
               }}
-              className="h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
+              className="h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
             >
               <option value="Todos">📷 Foto (Todas)</option>
               <option value="ComFoto">Com foto</option>
@@ -1368,7 +1368,7 @@ function AgendaPageContent() {
             className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition-colors flex items-center gap-1.5 ${
               hasActiveFilters
                 ? "bg-amber-500 text-white border-amber-500"
-                : "bg-muted/50 border-border text-muted-foreground dark:text-white"
+                : "bg-transparent border-border text-muted-foreground dark:text-white"
             }`}
           >
             <svg
@@ -1394,7 +1394,7 @@ function AgendaPageContent() {
                 setLabelFilter(e.target.value);
                 setPage(1);
               }}
-              className="h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
+              className="h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
             >
               <option value="Todos">Grupo (Todos)</option>
               <option value="__SEM_GRUPO__">Sem grupo</option>
@@ -1411,7 +1411,7 @@ function AgendaPageContent() {
                 setEmailLabelFilter(e.target.value);
                 setPage(1);
               }}
-              className="h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
+              className="h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
             >
               <option value="Todos">📧 E-mail (Todos)</option>
               {uniqueEmailLabels.map((lbl) => (
@@ -1428,7 +1428,7 @@ function AgendaPageContent() {
                 setPhoneLabelFilter(e.target.value);
                 setPage(1);
               }}
-              className="h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
+              className="h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
             >
               <option value="Todos">📱 Operadora (Todas)</option>
               {uniquePhoneLabels.map((lbl) => (
@@ -1445,7 +1445,7 @@ function AgendaPageContent() {
                 setPhotoFilter(e.target.value);
                 setPage(1);
               }}
-              className="h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
+              className="h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
             >
               <option value="Todos">📷 Foto (Todas)</option>
               <option value="ComFoto">Com foto</option>
@@ -1867,7 +1867,7 @@ function AgendaPageContent() {
                       setPageSize(Number(e.target.value));
                       setPage(1);
                     }}
-                    className="h-7 px-2 bg-muted/50 border border-border rounded text-xs text-muted-foreground dark:text-white"
+                    className="h-7 px-2 bg-transparent border border-border rounded text-xs text-muted-foreground dark:text-white"
                   >
                     <option value={30}>30 por página</option>
                     <option value={50}>50 por página</option>
@@ -1971,7 +1971,7 @@ function AgendaPageContent() {
               <select
                 value={selectedSessionNow}
                 onChange={(e) => setSelectedSessionNow(e.target.value)}
-                className="w-full h-11 px-3 bg-muted/50 border border-border dark:border-border rounded-xl text-foreground outline-none text-sm font-medium"
+                className="w-full h-11 px-3 bg-transparent border border-border dark:border-border rounded-xl text-foreground outline-none text-sm font-medium"
               >
                 {sessionOptions.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -1983,7 +1983,7 @@ function AgendaPageContent() {
             <textarea
               value={messageText}
               onChange={(e) => setMessageText(e.target.value)}
-              className="w-full bg-muted/50 border border-border dark:border-border rounded-xl p-4 text-foreground outline-none min-h-[120px] text-sm resize-none"
+              className="w-full bg-transparent border border-border dark:border-border rounded-xl p-4 text-foreground outline-none min-h-[120px] text-sm resize-none"
               placeholder="Digite a sua mensagem..."
               autoFocus
             />

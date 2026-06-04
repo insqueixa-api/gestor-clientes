@@ -137,7 +137,7 @@ function Input({
   return (
     <input
       {...props}
-      className={`w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground/90 placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     />
   );
 }
@@ -150,7 +150,7 @@ function Select({
   return (
     <select
       {...props}
-      className={`w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     >
       {children}
     </select>
@@ -686,7 +686,7 @@ export default function QuickRechargeModal({
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="w-full max-w-2xl max-h-[90vh] bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
         {/* HEADER */}
-        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-muted/50">
+        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent">
           <div>
             <h2 className="text-lg font-medium text-foreground tracking-tight">
               Recarga rápida
@@ -843,7 +843,7 @@ export default function QuickRechargeModal({
               )}
 
               {/* Totais Finais */}
-              <div className="bg-muted/50 p-4 rounded-xl border border-border flex justify-between items-center animate-in zoom-in-95 duration-500">
+              <div className="bg-transparent p-4 rounded-xl border border-border flex justify-between items-center animate-in zoom-in-95 duration-500">
                 <div className="space-y-0.5">
                   <span className="text-[10px] font-medium text-muted-foreground/80 dark:text-white/20 uppercase tracking-widest">
                     Valor contábil final
@@ -860,7 +860,7 @@ export default function QuickRechargeModal({
               </div>
 
               {/* ✅ BLOCO DO WHATSAPP (Agora com 2 selects) */}
-              <div className="bg-muted/50 p-3 rounded-xl border border-border flex flex-col gap-3 animate-in zoom-in-95 duration-500">
+              <div className="bg-transparent p-3 rounded-xl border border-border flex flex-col gap-3 animate-in zoom-in-95 duration-500">
                 {/* Toggle */}
                 <div
                   onClick={() => setSendWhats(!sendWhats)}
@@ -927,7 +927,7 @@ export default function QuickRechargeModal({
               <div className="animate-in slide-in-from-bottom-4 duration-500">
                 <Label>Observações internas (opcional)</Label>
                 <textarea
-                  className="w-full h-24 px-3 py-2 bg-muted/50 border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 resize-none transition-colors"
+                  className="w-full h-24 px-3 py-2 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 resize-none transition-colors"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                 />
@@ -937,7 +937,7 @@ export default function QuickRechargeModal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-black/5 dark:hover:bg-card/5 dark:hover:bg-card/5 transition-colors"
+                  className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-transparent dark:hover:bg-card/5 dark:hover:bg-card/5 transition-colors"
                 >
                   Cancelar
                 </button>

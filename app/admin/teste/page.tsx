@@ -1172,7 +1172,7 @@ export default function TrialsPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Pesquisar..."
-              className="w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
             />
             {search && (
               <button
@@ -1206,7 +1206,7 @@ export default function TrialsPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Pesquisar..."
-              className="w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
             />
             {search && (
               <button
@@ -1997,7 +1997,7 @@ export default function TrialsPage() {
               <select
                 value={selectedSessionNow}
                 onChange={(e) => setSelectedSessionNow(e.target.value)}
-                className="w-full h-10 px-3 bg-muted/50 border border-border dark:border-border rounded-lg text-sm font-medium text-foreground outline-none focus:border-sky-500 transition-colors"
+                className="w-full h-10 px-3 bg-transparent border border-border dark:border-border rounded-lg text-sm font-medium text-foreground outline-none focus:border-sky-500 transition-colors"
               >
                 {sessionOptions.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -2023,7 +2023,7 @@ export default function TrialsPage() {
                     setMessageText("");
                   }
                 }}
-                className="w-full h-11 px-3 bg-muted/50 border border-border dark:border-border rounded-xl text-foreground outline-none focus:border-sky-500 transition-colors text-sm"
+                className="w-full h-11 px-3 bg-transparent border border-border dark:border-border rounded-xl text-foreground outline-none focus:border-sky-500 transition-colors text-sm"
               >
                 <option value="">Selecionar...</option>
                 {Object.entries(
@@ -2076,7 +2076,7 @@ export default function TrialsPage() {
                 if (selectedTemplateNowId) setSelectedTemplateNowId("");
                 setMessageText(e.target.value);
               }}
-              className="w-full bg-muted/50 border border-border dark:border-border rounded-lg p-3 text-foreground outline-none min-h-[120px]"
+              className="w-full bg-transparent border border-border dark:border-border rounded-lg p-3 text-foreground outline-none min-h-[120px]"
               placeholder="Digite a mensagem para enviar agora..."
             />
 
@@ -2119,7 +2119,7 @@ export default function TrialsPage() {
               <select
                 value={selectedSessionSchedule}
                 onChange={(e) => setSelectedSessionSchedule(e.target.value)}
-                className="w-full h-10 px-3 bg-muted/50 border border-border dark:border-border rounded-lg text-sm font-medium text-foreground outline-none focus:border-purple-500 transition-colors"
+                className="w-full h-10 px-3 bg-transparent border border-border dark:border-border rounded-lg text-sm font-medium text-foreground outline-none focus:border-purple-500 transition-colors"
               >
                 {sessionOptions.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -2137,7 +2137,7 @@ export default function TrialsPage() {
                 type="datetime-local"
                 value={scheduleDate}
                 onChange={(e) => setScheduleDate(e.target.value)}
-                className="w-full h-10 px-3 bg-muted/50 border border-border dark:border-border rounded-lg text-foreground outline-none"
+                className="w-full h-10 px-3 bg-transparent border border-border dark:border-border rounded-lg text-foreground outline-none"
               />
             </div>
 
@@ -2157,7 +2157,7 @@ export default function TrialsPage() {
                     setScheduleText("");
                   }
                 }}
-                className="w-full h-11 px-3 bg-muted/50 border border-border dark:border-border rounded-xl text-foreground outline-none focus:border-emerald-500/50 transition-colors"
+                className="w-full h-11 px-3 bg-transparent border border-border dark:border-border rounded-xl text-foreground outline-none focus:border-emerald-500/50 transition-colors"
               >
                 <option value="">Selecionar...</option>
                 {Object.entries(
@@ -2215,7 +2215,7 @@ export default function TrialsPage() {
                     setSelectedTemplateScheduleId("");
                   setScheduleText(e.target.value);
                 }}
-                className="w-full bg-muted/50 border border-border dark:border-border rounded-lg p-3 text-foreground outline-none min-h-[120px]"
+                className="w-full bg-transparent border border-border dark:border-border rounded-lg p-3 text-foreground outline-none min-h-[120px]"
                 placeholder="Digite a mensagem para agendar..."
               />
             </div>
@@ -2642,7 +2642,7 @@ function PapaTestesModal({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por nome, WhatsApp, usuário..."
-              className="w-full h-9 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none focus:border-violet-500/50 text-foreground/90"
+              className="w-full h-9 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-violet-500/50 text-foreground/90"
             />
             {search && (
               <button
@@ -2656,7 +2656,7 @@ function PapaTestesModal({
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value as any)}
-            className="h-9 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none text-foreground/90"
+            className="h-9 px-3 bg-transparent border border-border rounded-lg text-sm outline-none text-foreground/90"
           >
             <option value="todos">Todos</option>
             <option value="trial">Só Testes</option>
@@ -2666,7 +2666,7 @@ function PapaTestesModal({
           <select
             value={filterServer}
             onChange={(e) => setFilterServer(e.target.value)}
-            className="h-9 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none text-foreground/90"
+            className="h-9 px-3 bg-transparent border border-border rounded-lg text-sm outline-none text-foreground/90"
           >
             <option value="Todos">Servidor (Todos)</option>
             {uniqueServers.map((s) => (
@@ -2693,7 +2693,7 @@ function PapaTestesModal({
                 key={key}
                 className="border border-border rounded-xl overflow-hidden"
               >
-                <div className="flex items-center justify-between px-4 py-2.5 bg-muted/50 border-b border-border">
+                <div className="flex items-center justify-between px-4 py-2.5 bg-transparent border-b border-border">
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-sm text-foreground/90">
                       {recs[0]?.client_name || "—"}

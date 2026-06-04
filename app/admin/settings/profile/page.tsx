@@ -187,7 +187,7 @@ function Input({
   return (
     <input
       {...props}
-      className={`w-full h-11 px-3 bg-muted/50 border border-border rounded-xl text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed read-only:opacity-70 read-only:cursor-pointer ${className}`}
+      className={`w-full h-11 px-3 bg-transparent border border-border rounded-xl text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed read-only:opacity-70 read-only:cursor-pointer ${className}`}
     />
   );
 }
@@ -1203,7 +1203,7 @@ export default function ProfileSettingsPage() {
           <div className="relative">
             <button
               onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
-              className="h-9 w-9 shrink-0 rounded-xl border font-medium text-xs flex items-center justify-center bg-card border-border text-muted-foreground hover:bg-muted/50 dark:hover:bg-card/5 transition-all shadow-sm"
+              className="h-9 w-9 shrink-0 rounded-xl border font-medium text-xs flex items-center justify-center bg-card border-border text-muted-foreground hover:bg-transparent dark:hover:bg-card/5 transition-all shadow-sm"
               title="Configurações"
             >
               <Settings className="w-4 h-4" />
@@ -1227,7 +1227,7 @@ export default function ProfileSettingsPage() {
                           setTheme("light");
                           setShowSettingsDropdown(false);
                         }}
-                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${theme !== "dark" ? "bg-black/20 text-foreground" : "text-muted-foreground hover:bg-card/5"}`}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${theme !== "dark" ? "bg-transparent text-foreground" : "text-muted-foreground hover:bg-card/5"}`}
                       >
                         <svg
                           width="12"
@@ -1254,7 +1254,7 @@ export default function ProfileSettingsPage() {
                           setTheme("dark");
                           setShowSettingsDropdown(false);
                         }}
-                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${theme === "dark" ? "bg-card/10 text-foreground dark:text-white" : "text-muted-foreground hover:bg-muted/50"}`}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${theme === "dark" ? "bg-card/10 text-foreground dark:text-white" : "text-muted-foreground hover:bg-transparent"}`}
                       >
                         <svg
                           width="12"
@@ -1277,7 +1277,7 @@ export default function ProfileSettingsPage() {
                       setShowSettingsDropdown(false);
                       setIsEditing(true);
                     }}
-                    className="w-full text-left px-3 py-2.5 text-xs font-medium text-muted-foreground dark:text-white/80 hover:bg-muted/50 dark:hover:bg-card/5 flex items-center gap-2.5 transition-colors border-b border-border"
+                    className="w-full text-left px-3 py-2.5 text-xs font-medium text-muted-foreground dark:text-white/80 hover:bg-transparent dark:hover:bg-card/5 flex items-center gap-2.5 transition-colors border-b border-border"
                   >
                     <Pencil className="w-4 h-4" />
                     Editar Perfil
@@ -1291,7 +1291,7 @@ export default function ProfileSettingsPage() {
                         setIsEditing(true);
                         setShowSettingsDropdown(false);
                       }}
-                      className="w-full text-left px-3 py-2.5 text-xs font-medium text-muted-foreground dark:text-white/80 hover:bg-muted/50 dark:hover:bg-card/5 flex items-center gap-2.5 transition-colors border-b border-border"
+                      className="w-full text-left px-3 py-2.5 text-xs font-medium text-muted-foreground dark:text-white/80 hover:bg-transparent dark:hover:bg-card/5 flex items-center gap-2.5 transition-colors border-b border-border"
                     >
                       <svg
                         width="14"
@@ -1332,7 +1332,7 @@ export default function ProfileSettingsPage() {
                       setShowSettingsDropdown(false);
                       handleResetPassword();
                     }}
-                    className="w-full text-left px-3 py-2.5 text-xs font-medium text-muted-foreground dark:text-white/80 hover:bg-muted/50 dark:hover:bg-card/5 flex items-center gap-2.5 transition-colors"
+                    className="w-full text-left px-3 py-2.5 text-xs font-medium text-muted-foreground dark:text-white/80 hover:bg-transparent dark:hover:bg-card/5 flex items-center gap-2.5 transition-colors"
                   >
                     <svg
                       width="14"
@@ -1404,7 +1404,7 @@ export default function ProfileSettingsPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
               <div>
                 <Label>País</Label>
-                <div className="h-11 px-3 bg-black/5 dark:bg-black/20 border border-border rounded-xl flex items-center text-xs font-medium text-foreground/90 truncate">
+                <div className="h-11 px-3 bg-transparent dark:bg-transparent border border-border rounded-xl flex items-center text-xs font-medium text-foreground/90 truncate">
                   {phonePrettyPrefix || "—"}
                 </div>
               </div>
@@ -1425,7 +1425,7 @@ export default function ProfileSettingsPage() {
                     type="button"
                     onClick={handlePhoneDone}
                     disabled={!isEditing}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg bg-black/20 text-muted-foreground hover:text-emerald-500 transition-colors flex items-center justify-center font-medium"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg bg-transparent text-muted-foreground hover:text-emerald-500 transition-colors flex items-center justify-center font-medium"
                   >
                     ✓
                   </button>
@@ -1520,7 +1520,7 @@ export default function ProfileSettingsPage() {
                     if (!isEditing) setIsEditing(true);
                   }}
                   disabled={!isEditing}
-                  className="w-full h-11 px-2 sm:px-3 bg-muted/50 border border-border rounded-xl text-xs sm:text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full h-11 px-2 sm:px-3 bg-transparent border border-border rounded-xl text-xs sm:text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="">Não informar</option>
                   <option value="M">Masculino</option>
@@ -1557,7 +1557,7 @@ export default function ProfileSettingsPage() {
             </div>
 
             {showHealthForm && (
-              <div className="p-4 bg-muted/50 border border-border rounded-xl space-y-4">
+              <div className="p-4 bg-transparent border border-border rounded-xl space-y-4">
                 {!profileHeight && (
                   <p className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold">
                     ⚠️ Informe sua altura nos Dados Pessoais para calcular o
@@ -1606,7 +1606,7 @@ export default function ProfileSettingsPage() {
                         weight: "",
                       });
                     }}
-                    className="flex-1 h-10 border border-border text-muted-foreground font-medium rounded-xl text-xs hover:bg-muted/50 dark:hover:bg-card/5 transition-colors"
+                    className="flex-1 h-10 border border-border text-muted-foreground font-medium rounded-xl text-xs hover:bg-transparent dark:hover:bg-card/5 transition-colors"
                   >
                     Cancelar
                   </button>
@@ -1623,7 +1623,7 @@ export default function ProfileSettingsPage() {
 
             <div className="space-y-2">
               {sortedHistory.length === 0 ? (
-                <div className="text-xs text-muted-foreground/80 text-center py-6 bg-muted/50 rounded-xl border border-dashed border-border">
+                <div className="text-xs text-muted-foreground/80 text-center py-6 bg-transparent rounded-xl border border-dashed border-border">
                   Nenhuma avaliação registrada ainda.
                 </div>
               ) : (
@@ -1643,7 +1643,7 @@ export default function ProfileSettingsPage() {
                         return (
                           <div
                             key={record.id}
-                            className={`items-center gap-3 p-3 rounded-xl border transition-colors group ${isNewest ? "border-emerald-500/20 bg-emerald-500/10/50 dark:bg-emerald-500/5" : "border-border bg-muted/50/50 dark:bg-black/10"} ${hideOnMobile ? "hidden xl:flex" : "flex"}`}
+                            className={`items-center gap-3 p-3 rounded-xl border transition-colors group ${isNewest ? "border-emerald-500/20 bg-emerald-500/10/50 dark:bg-emerald-500/5" : "border-border bg-transparent/50 dark:bg-black/10"} ${hideOnMobile ? "hidden xl:flex" : "flex"}`}
                           >
                             {/* Data em bloco */}
                             <div className="shrink-0 text-center w-10">
@@ -1735,7 +1735,7 @@ export default function ProfileSettingsPage() {
                       onClick={() =>
                         setShowAllHealthRecords(!showAllHealthRecords)
                       }
-                      className="w-full py-2.5 mt-2 text-[11px] font-medium text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white transition-colors bg-muted/50 rounded-xl border border-border"
+                      className="w-full py-2.5 mt-2 text-[11px] font-medium text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white transition-colors bg-transparent rounded-xl border border-border"
                     >
                       {showAllHealthRecords ? (
                         "↑ Ocultar avaliações anteriores"
@@ -1859,7 +1859,7 @@ export default function ProfileSettingsPage() {
                         </span>
                       )}
                     </div>
-                    <div className="w-full overflow-x-auto rounded-xl border border-border bg-card dark:bg-black/20">
+                    <div className="w-full overflow-x-auto rounded-xl border border-border bg-card dark:bg-transparent">
                       <div className="relative" style={{ minWidth: `${W}px` }}>
                         {hoveredPt !== null &&
                           (() => {
@@ -2225,7 +2225,7 @@ export default function ProfileSettingsPage() {
                   </button>
                 ) : (
                   <>
-                    <div className="relative p-4 rounded-xl border border-border bg-muted/50 flex gap-5 items-center">
+                    <div className="relative p-4 rounded-xl border border-border bg-transparent flex gap-5 items-center">
                       <div className="absolute top-3 right-3 flex items-center gap-1.5">
                         <button
                           type="button"
@@ -2386,7 +2386,7 @@ export default function ProfileSettingsPage() {
                 type="button"
                 onClick={() => setActionModal("template")}
                 disabled={!tenantId}
-                className="flex items-center gap-1.5 h-8 px-2 sm:px-3 rounded-xl border border-border bg-muted/50 text-muted-foreground hover:bg-black/20 dark:hover:bg-card/10 transition-all"
+                className="flex items-center gap-1.5 h-8 px-2 sm:px-3 rounded-xl border border-border bg-transparent text-muted-foreground hover:bg-transparent dark:hover:bg-card/10 transition-all"
                 title="Baixar Templates"
               >
                 <svg
@@ -2411,7 +2411,7 @@ export default function ProfileSettingsPage() {
                 type="button"
                 onClick={() => setActionModal("export")}
                 disabled={!tenantId || exporting}
-                className="flex-1 h-11 px-3 rounded-xl border border-border bg-muted/50 font-medium text-xs text-foreground/90 hover:bg-black/20 dark:hover:bg-card/10 transition-all flex items-center justify-center gap-2"
+                className="flex-1 h-11 px-3 rounded-xl border border-border bg-transparent font-medium text-xs text-foreground/90 hover:bg-transparent dark:hover:bg-card/10 transition-all flex items-center justify-center gap-2"
               >
                 <svg
                   width="14"
@@ -2440,7 +2440,7 @@ export default function ProfileSettingsPage() {
                   importingMessage ||
                   importingServer
                 }
-                className="flex-1 h-11 px-3 rounded-xl border border-border bg-muted/50 font-medium text-xs text-foreground/90 hover:bg-black/20 dark:hover:bg-card/10 transition-all flex items-center justify-center gap-2"
+                className="flex-1 h-11 px-3 rounded-xl border border-border bg-transparent font-medium text-xs text-foreground/90 hover:bg-transparent dark:hover:bg-card/10 transition-all flex items-center justify-center gap-2"
               >
                 <svg
                   width="14"
@@ -2626,7 +2626,7 @@ export default function ProfileSettingsPage() {
                     setActionModal(null);
                     item.act();
                   }}
-                  className="w-full text-left text-xs p-3 font-semibold rounded-lg border border-border bg-muted/50 hover:bg-black/20 dark:hover:bg-card/10 text-foreground/90 transition-colors flex items-center gap-2"
+                  className="w-full text-left text-xs p-3 font-semibold rounded-lg border border-border bg-transparent hover:bg-transparent dark:hover:bg-card/10 text-foreground/90 transition-colors flex items-center gap-2"
                 >
                   <span>{item.icon}</span> {item.n}
                 </button>
@@ -2663,12 +2663,12 @@ export default function ProfileSettingsPage() {
                 <button
                   type="button"
                   onClick={() => setShowWa1Settings(false)}
-                  className="shrink-0 w-8 h-8 rounded-xl bg-black/20 flex items-center justify-center text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white text-lg leading-none transition-colors"
+                  className="shrink-0 w-8 h-8 rounded-xl bg-transparent flex items-center justify-center text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white text-lg leading-none transition-colors"
                 >
                   ×
                 </button>
               </div>
-              <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-muted/50">
+              <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-transparent">
                 <span className="text-sm font-medium text-foreground/90">
                   📵 Rejeitar Chamadas
                 </span>
@@ -2740,14 +2740,14 @@ export default function ProfileSettingsPage() {
 
                     <div className="max-h-40 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                       {waAllowedList.length === 0 ? (
-                        <div className="text-xs text-center text-muted-foreground/80 py-4 bg-muted/50 rounded-xl border border-dashed border-border">
+                        <div className="text-xs text-center text-muted-foreground/80 py-4 bg-transparent rounded-xl border border-dashed border-border">
                           Nenhum número liberado.
                         </div>
                       ) : (
                         waAllowedList.map((row) => (
                           <div
                             key={row.id}
-                            className="flex flex-col gap-1.5 p-2 rounded-xl border border-border bg-muted/50"
+                            className="flex flex-col gap-1.5 p-2 rounded-xl border border-border bg-transparent"
                           >
                             <div className="flex gap-2 items-center">
                               <input
@@ -2835,7 +2835,7 @@ export default function ProfileSettingsPage() {
                 <button
                   type="button"
                   onClick={() => setShowWa1Settings(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-border text-muted-foreground/80 font-medium text-xs hover:bg-muted/50 dark:hover:bg-card/5 transition-colors"
+                  className="flex-1 py-2.5 rounded-xl border border-border text-muted-foreground/80 font-medium text-xs hover:bg-transparent dark:hover:bg-card/5 transition-colors"
                 >
                   Cancelar
                 </button>
@@ -3087,7 +3087,7 @@ function WhatsAppSession2Panel({
           </button>
         ) : (
           <>
-            <div className="relative p-4 rounded-xl border border-border bg-muted/50 flex gap-5 items-center">
+            <div className="relative p-4 rounded-xl border border-border bg-transparent flex gap-5 items-center">
               <div className="absolute top-3 right-3 flex items-center gap-1.5">
                 <button
                   type="button"
@@ -3229,12 +3229,12 @@ function WhatsAppSession2Panel({
                 <button
                   type="button"
                   onClick={() => setShowWa2Settings(false)}
-                  className="shrink-0 w-8 h-8 rounded-xl bg-black/20 flex items-center justify-center text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white text-lg leading-none transition-colors"
+                  className="shrink-0 w-8 h-8 rounded-xl bg-transparent flex items-center justify-center text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white text-lg leading-none transition-colors"
                 >
                   ×
                 </button>
               </div>
-              <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-muted/50">
+              <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-transparent">
                 <span className="text-sm font-medium text-foreground/90">
                   📵 Rejeitar Chamadas
                 </span>
@@ -3304,14 +3304,14 @@ function WhatsAppSession2Panel({
 
                     <div className="max-h-40 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                       {waAllowedList.length === 0 ? (
-                        <div className="text-xs text-center text-muted-foreground/80 py-4 bg-muted/50 rounded-xl border border-dashed border-border">
+                        <div className="text-xs text-center text-muted-foreground/80 py-4 bg-transparent rounded-xl border border-dashed border-border">
                           Nenhum número liberado.
                         </div>
                       ) : (
                         waAllowedList.map((row) => (
                           <div
                             key={row.id}
-                            className="flex flex-col gap-1.5 p-2 rounded-xl border border-border bg-muted/50"
+                            className="flex flex-col gap-1.5 p-2 rounded-xl border border-border bg-transparent"
                           >
                             <div className="flex gap-2 items-center">
                               <input
@@ -3399,7 +3399,7 @@ function WhatsAppSession2Panel({
                 <button
                   type="button"
                   onClick={() => setShowWa2Settings(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-border text-muted-foreground/80 font-medium text-xs hover:bg-muted/50 dark:hover:bg-card/5 transition-colors"
+                  className="flex-1 py-2.5 rounded-xl border border-border text-muted-foreground/80 font-medium text-xs hover:bg-transparent dark:hover:bg-card/5 transition-colors"
                 >
                   Cancelar
                 </button>

@@ -493,7 +493,7 @@ export default function ResellerDetailPage() {
             <span
               className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase ${
                 reseller.is_archived
-                  ? "bg-muted/500/10 text-muted-foreground border-slate-500/20"
+                  ? "bg-transparent0/10 text-muted-foreground border-slate-500/20"
                   : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
               }`}
             >
@@ -557,7 +557,7 @@ export default function ResellerDetailPage() {
               </div>
 
               {/* TOTAL INVESTIDO */}
-              <div className="pt-4 mt-2 border-t border-border flex justify-between items-center bg-muted/50 p-3 rounded-lg">
+              <div className="pt-4 mt-2 border-t border-border flex justify-between items-center bg-transparent p-3 rounded-lg">
                 <span className="text-muted-foreground font-medium text-[11px] uppercase tracking-tight">
                   Total Investido
                 </span>
@@ -649,7 +649,7 @@ export default function ResellerDetailPage() {
                 <div className="text-[11px] font-medium text-muted-foreground dark:text-white/30 mb-1.5">
                   Observações
                 </div>
-                <div className="text-foreground/90 dark:text-slate-300 bg-muted/50 p-3 rounded-xl text-xs leading-relaxed border border-border min-h-[80px] whitespace-pre-wrap">
+                <div className="text-foreground/90 dark:text-slate-300 bg-transparent p-3 rounded-xl text-xs leading-relaxed border border-border min-h-[80px] whitespace-pre-wrap">
                   {reseller.notes || "Sem observações registradas."}
                 </div>
               </div>
@@ -667,7 +667,7 @@ export default function ResellerDetailPage() {
             </h3>
 
             {servers.length === 0 ? (
-              <div className="p-8 text-center bg-muted/50 border border-dashed border-border rounded-xl text-muted-foreground/80 dark:text-white/30 italic">
+              <div className="p-8 text-center bg-transparent border border-dashed border-border rounded-xl text-muted-foreground/80 dark:text-white/30 italic">
                 Nenhum servidor vinculado.
               </div>
             ) : (
@@ -675,11 +675,11 @@ export default function ResellerDetailPage() {
                 {servers.map((s) => (
                   <div
                     key={s.reseller_server_id}
-                    className="group relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-muted/50 border border-border rounded-xl hover:border-emerald-500/30 transition-all"
+                    className="group relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-transparent border border-border rounded-xl hover:border-emerald-500/30 transition-all"
                   >
                     {/* Info do Servidor */}
                     <div className="flex items-center gap-4 mb-3 sm:mb-0">
-                      <div className="w-10 h-10 rounded-lg bg-card dark:bg-black/20 border border-border flex items-center justify-center font-medium text-muted-foreground dark:text-white">
+                      <div className="w-10 h-10 rounded-lg bg-card dark:bg-transparent border border-border flex items-center justify-center font-medium text-muted-foreground dark:text-white">
                         {String(s.server_name || "?").charAt(0)}
                       </div>
                       <div>
@@ -776,7 +776,7 @@ export default function ResellerDetailPage() {
                     >
                       <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 border-white dark:border-[#161b22] bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.4)] transition-transform group-hover:scale-125" />
 
-                      <div className="flex justify-between items-start gap-2 bg-muted/50/50 dark:bg-card/5 p-2 rounded-xl border border-transparent hover:border-border dark:hover:border-white/10 transition-all">
+                      <div className="flex justify-between items-start gap-2 bg-transparent/50 dark:bg-card/5 p-2 rounded-xl border border-transparent hover:border-border dark:hover:border-white/10 transition-all">
                         <div className="min-w-0">
                           {/* LINHA 1 — TÍTULO */}
                           <div className="text-sm font-medium text-foreground tracking-tight">
@@ -791,7 +791,7 @@ export default function ResellerDetailPage() {
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
- <div className="text-[10px] font-medium text-muted-foreground/80 dark:text-white/20 bg-card dark:bg-black/20 px-2 py-1 rounded-md shadow-sm whitespace-nowrap">
+ <div className="text-[10px] font-medium text-muted-foreground/80 dark:text-white/20 bg-card dark:bg-transparent px-2 py-1 rounded-md shadow-sm whitespace-nowrap">
                             {fmtDate(h.created_at ?? null)}
                           </div>
                           <button

@@ -360,7 +360,7 @@ export default function MessagesPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar modelo (nome ou conteúdo)..."
-              className="w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors"
+              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors"
             />
 
             {search && (
@@ -1031,7 +1031,7 @@ function EditorModal({
                 className={`w-full h-12 px-4 border rounded-xl text-foreground outline-none focus:border-emerald-500 transition-colors font-medium ${
                   isProtected
                     ? "bg-black/20 border-dashed border-border text-muted-foreground cursor-not-allowed"
-                    : "bg-muted/50 border-border"
+                    : "bg-transparent border-border"
                 }`}
                 autoFocus={!isProtected}
               />
@@ -1051,7 +1051,7 @@ function EditorModal({
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full h-12 px-4 border rounded-xl text-foreground outline-none focus:border-emerald-500 transition-colors font-medium bg-muted/50 border-border"
+                className="w-full h-12 px-4 border rounded-xl text-foreground outline-none focus:border-emerald-500 transition-colors font-medium bg-transparent border-border"
               >
                 {MESSAGE_CATEGORIES.map((cat) => (
                   <option key={cat} value={cat}>
@@ -1125,7 +1125,7 @@ function EditorModal({
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   placeholder="Olá {primeiro_nome}, sua fatura..."
-                  className="w-full h-full min-h-[220px] sm:min-h-[300px] p-4 sm:p-5 bg-muted/50 border border-border rounded-xl text-foreground/90 outline-none focus:border-emerald-500 transition-colors resize-none leading-relaxed text-sm font-mono shadow-inner"
+                  className="w-full h-full min-h-[220px] sm:min-h-[300px] p-4 sm:p-5 bg-transparent border border-border rounded-xl text-foreground/90 outline-none focus:border-emerald-500 transition-colors resize-none leading-relaxed text-sm font-mono shadow-inner"
                 />
               </div>
             </div>
@@ -1153,7 +1153,7 @@ function EditorModal({
                     <button
                       type="button"
                       onClick={() => toggleDesktopGroup(idx)}
-                      className={`w-full flex items-center justify-between p-3 text-left transition-colors ${isOpen ? "bg-muted/50 border-b border-border" : "hover:bg-muted/50 dark:hover:bg-card/5"}`}
+                      className={`w-full flex items-center justify-between p-3 text-left transition-colors ${isOpen ? "bg-transparent border-b border-border" : "hover:bg-muted/50 dark:hover:bg-card/5"}`}
                     >
                       <h4 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
                         {group.title}

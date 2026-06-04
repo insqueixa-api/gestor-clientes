@@ -492,7 +492,7 @@ function Input({
   return (
     <input
       {...props}
-      className={`w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     />
   );
 }
@@ -504,7 +504,7 @@ function Select({
   return (
     <select
       {...props}
-      className={`w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     />
   );
 }
@@ -516,7 +516,7 @@ function Textarea({
   return (
     <textarea
       {...props}
-      className={`w-full px-3 py-2.5 bg-muted/50 border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors resize-none ${className}`}
+      className={`w-full px-3 py-2.5 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors resize-none ${className}`}
     />
   );
 }
@@ -746,7 +746,7 @@ function GatewayModal({
           {/* Conteúdo do tipo selecionado */}
           {meta && (
             <>
-              <div className="p-4 rounded-xl bg-muted/50 border border-border">
+              <div className="p-4 rounded-xl bg-transparent border border-border">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-card dark:bg-black/20 border border-border flex items-center justify-center text-xl">
                     {meta.icon}
@@ -986,7 +986,7 @@ function GatewayCard({
       }`}
     >
       {/* Header */}
-      <div className="px-4 py-3 bg-muted/50 border-b border-border flex items-start justify-between gap-3">
+      <div className="px-4 py-3 bg-transparent border-b border-border flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-10 h-10 rounded-xl bg-card dark:bg-black/20 border border-border flex items-center justify-center text-xl shrink-0">
             {meta.icon}
@@ -1306,7 +1306,7 @@ export default function PagamentosPage() {
             {/* BRL */}
             {brlGateways.length > 0 && (
               <div className="bg-card border-y sm:border border-border rounded-none sm:rounded-xl shadow-sm overflow-visible -mx-3 sm:mx-0">
-                <div className="px-3 sm:px-5 py-3 bg-muted/50 border-b border-border flex items-center justify-between">
+                <div className="px-3 sm:px-5 py-3 bg-transparent border-b border-border flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <h2 className="text-sm font-medium text-foreground">
                       Gateways BRL
@@ -1343,7 +1343,7 @@ export default function PagamentosPage() {
             {/* Internacionais */}
             {intlGateways.length > 0 && (
               <div className="bg-card border-y sm:border border-border rounded-none sm:rounded-xl shadow-sm overflow-visible -mx-3 sm:mx-0">
-                <div className="px-3 sm:px-5 py-3 bg-muted/50 border-b border-border flex items-center justify-between">
+                <div className="px-3 sm:px-5 py-3 bg-transparent border-b border-border flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <h2 className="text-sm font-medium text-foreground">
                       Gateways Internacionais

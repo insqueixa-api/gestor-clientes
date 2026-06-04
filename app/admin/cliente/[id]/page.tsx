@@ -57,7 +57,7 @@ function StatusBadge({ status }: { status: string }) {
       "bg-rose-500/10 text-rose-400 border-rose-500/20",
     TRIAL: "bg-sky-500/10 text-sky-400 border-sky-500/20",
     ARCHIVED:
-      "bg-muted/500/10 text-muted-foreground border-slate-500/20",
+      "bg-transparent0/10 text-muted-foreground border-slate-500/20",
   };
   const labelMap: Record<string, string> = {
     ACTIVE: "Ativo",
@@ -849,7 +849,7 @@ export default function ClientDetailsPage() {
                 <span className="text-muted-foreground font-medium">
                   Tecnologia
                 </span>
-                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-card/5 text-muted-foreground border border-border uppercase">
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-transparent text-[10px] font-medium tracking-tight shadow-sm dark:bg-card/5 text-muted-foreground border border-border uppercase">
                   {client.technology || "—"}
                 </span>
               </div>
@@ -945,14 +945,14 @@ export default function ClientDetailsPage() {
                 <span className="text-muted-foreground font-medium">
                   Valor
                 </span>
- <span className=" font-medium text-foreground bg-black/20 px-2 py-0.5 rounded-md">
+ <span className=" font-medium text-foreground bg-transparent px-2 py-0.5 rounded-md">
                   {fmtMoney(client.price_amount, client.price_currency)}
                 </span>
               </div>
 
               {/* VENCIMENTO GERAL DESTACADO */}
               <div className="pt-2">
-                <div className="flex justify-between items-center bg-muted/50 p-3 rounded-lg border border-border mt-1">
+                <div className="flex justify-between items-center bg-transparent p-3 rounded-lg border border-border mt-1">
                   <span className="text-muted-foreground font-medium text-[11px] uppercase tracking-tight">
                     Vencimento
                   </span>
@@ -1043,7 +1043,7 @@ export default function ClientDetailsPage() {
               {(client.secondary_display_name ||
                 client.secondary_phone_e164 ||
                 client.secondary_whatsapp_username) && (
-                <div className="bg-muted/50 p-3 rounded-lg border border-border mt-2 mb-2">
+                <div className="bg-transparent p-3 rounded-lg border border-border mt-2 mb-2">
                   <div className="text-[10px] font-medium text-muted-foreground/80 dark:text-white/30 uppercase mb-2 tracking-widest">
                     Contato Secundário
                   </div>
@@ -1114,7 +1114,7 @@ export default function ClientDetailsPage() {
                 <div className="text-[11px] font-medium text-muted-foreground dark:text-white/30 mb-1.5">
                   Observações
                 </div>
-                <div className="text-foreground/90 dark:text-slate-300 bg-muted/50 p-3 rounded-xl text-xs leading-relaxed border border-border min-h-[80px] whitespace-pre-wrap">
+                <div className="text-foreground/90 dark:text-slate-300 bg-transparent p-3 rounded-xl text-xs leading-relaxed border border-border min-h-[80px] whitespace-pre-wrap">
                   {client.notes ? (
                     client.notes
                   ) : (
@@ -1148,7 +1148,7 @@ export default function ClientDetailsPage() {
                 >
                   <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 border-white dark:border-[#161b22] bg-slate-300 dark:bg-card/20"></div>
 
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 bg-muted/50/50 dark:bg-card/5 p-2 rounded-xl border border-transparent hover:border-border dark:hover:border-white/10 transition-all">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 bg-transparent/50 dark:bg-card/5 p-2 rounded-xl border border-transparent hover:border-border dark:hover:border-white/10 transition-all">
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-foreground tracking-tight">
                         {EVENT_LABELS[item.event_type] ?? item.event_type}
@@ -1159,7 +1159,7 @@ export default function ClientDetailsPage() {
                       </div>
                     </div>
                     <div className="flex items-start gap-2 shrink-0">
- <div className="text-[10px] font-medium text-muted-foreground/80 dark:text-white/20 bg-card dark:bg-black/20 px-2 py-1 rounded-md shadow-sm">
+ <div className="text-[10px] font-medium text-muted-foreground/80 dark:text-white/20 bg-card dark:bg-transparent px-2 py-1 rounded-md shadow-sm">
                         {fmtDate(item.created_at)}
                       </div>
                       <button
@@ -1197,7 +1197,7 @@ export default function ClientDetailsPage() {
       {ConfirmUI} {/* ✅ AQUI ESTÁ ELE! Agora o modal vai aparecer */}
       {/* ✅ MODAL DE AVISO DE ALERTA */}
       {showRenewWarning && client && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-transparent0 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-md bg-card border border-border rounded-xl shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-200">
             <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-lg flex gap-3">
               <span className="text-2xl">📢</span>
@@ -1221,7 +1221,7 @@ export default function ClientDetailsPage() {
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowRenewWarning(false)}
-                className="px-4 py-2 rounded-lg border border-border dark:border-border text-foreground/90 font-medium hover:bg-muted/50 dark:hover:bg-card/5 transition-colors text-xs uppercase"
+                className="px-4 py-2 rounded-lg border border-border dark:border-border text-foreground/90 font-medium hover:bg-transparent dark:hover:bg-card/5 transition-colors text-xs uppercase"
               >
                 Voltar
               </button>

@@ -1796,7 +1796,7 @@ function ClientePageContent() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Pesquisar..."
-              className="w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
             />
             {search && (
               <button
@@ -1832,7 +1832,7 @@ function ClientePageContent() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Pesquisar..."
-              className="w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
             />
             {search && (
               <button
@@ -2135,7 +2135,7 @@ function ClientePageContent() {
                 <select
                   value={safePage}
                   onChange={(e) => setPage(Number(e.target.value))}
-                  className="h-10 pl-3 pr-10 bg-muted/50 border border-border rounded-lg font-medium text-foreground/90 outline-none focus:border-emerald-500/50 appearance-none"
+                  className="h-10 pl-3 pr-10 bg-transparent border border-border rounded-lg font-medium text-foreground/90 outline-none focus:border-emerald-500/50 appearance-none"
                 >
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map(
                     (pNum) => (
@@ -2846,7 +2846,7 @@ function ClientePageContent() {
             <textarea
               value={newAlertText}
               onChange={(e) => setNewAlertText(e.target.value)}
-              className="w-full bg-muted/50 border border-border dark:border-border rounded-xl p-4 text-foreground outline-none focus:border-purple-500 transition-colors min-h-[120px] text-sm resize-none"
+              className="w-full bg-transparent border border-border dark:border-border rounded-xl p-4 text-foreground outline-none focus:border-purple-500 transition-colors min-h-[120px] text-sm resize-none"
               placeholder="Descreva o alerta ou pendência deste cliente..."
               autoFocus
             />
@@ -2976,7 +2976,7 @@ function ClientePageContent() {
               <select
                 value={selectedSessionNow}
                 onChange={(e) => setSelectedSessionNow(e.target.value)}
-                className="w-full h-11 px-3 bg-muted/50 border border-border dark:border-border rounded-xl text-foreground outline-none focus:border-sky-500 transition-colors text-sm font-medium"
+                className="w-full h-11 px-3 bg-transparent border border-border dark:border-border rounded-xl text-foreground outline-none focus:border-sky-500 transition-colors text-sm font-medium"
               >
                 {sessionOptions.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -3005,7 +3005,7 @@ function ClientePageContent() {
                     setMessageText("");
                   }
                 }}
-                className="w-full h-11 px-3 bg-muted/50 border border-border dark:border-border rounded-xl text-foreground outline-none focus:border-sky-500 transition-colors text-sm"
+                className="w-full h-11 px-3 bg-transparent border border-border dark:border-border rounded-xl text-foreground outline-none focus:border-sky-500 transition-colors text-sm"
               >
                 <option value="">Selecionar...</option>
                 {Object.entries(
@@ -3064,7 +3064,7 @@ function ClientePageContent() {
                 if (selectedTemplateNowId) setSelectedTemplateNowId("");
                 setMessageText(e.target.value);
               }}
-              className="w-full bg-muted/50 border border-border dark:border-border rounded-xl p-4 text-foreground outline-none focus:border-sky-500 transition-colors min-h-[120px] text-sm resize-none disabled:opacity-70"
+              className="w-full bg-transparent border border-border dark:border-border rounded-xl p-4 text-foreground outline-none focus:border-sky-500 transition-colors min-h-[120px] text-sm resize-none disabled:opacity-70"
               placeholder="Olá, gostaria de informar que..."
               autoFocus
             />
@@ -3116,7 +3116,7 @@ function ClientePageContent() {
               <select
                 value={selectedSessionSchedule}
                 onChange={(e) => setSelectedSessionSchedule(e.target.value)}
-                className="w-full h-11 px-3 bg-muted/50 border border-border dark:border-border rounded-xl text-foreground outline-none focus:border-purple-500 transition-colors text-sm font-medium"
+                className="w-full h-11 px-3 bg-transparent border border-border dark:border-border rounded-xl text-foreground outline-none focus:border-purple-500 transition-colors text-sm font-medium"
               >
                 {sessionOptions.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -3134,7 +3134,7 @@ function ClientePageContent() {
                 type="datetime-local"
                 value={scheduleDate}
                 onChange={(e) => setScheduleDate(e.target.value)}
-                className="w-full h-11 px-3 bg-muted/50 border border-border dark:border-border rounded-xl text-foreground outline-none focus:border-purple-500 transition-colors text-sm"
+                className="w-full h-11 px-3 bg-transparent border border-border dark:border-border rounded-xl text-foreground outline-none focus:border-purple-500 transition-colors text-sm"
               />
             </div>
 
@@ -3161,7 +3161,7 @@ function ClientePageContent() {
                       setScheduleText("");
                     }
                   }}
-                  className="w-full h-11 px-3 bg-muted/50 border border-border dark:border-border rounded-xl text-foreground outline-none focus:border-purple-500 transition-colors text-sm mb-3"
+                  className="w-full h-11 px-3 bg-transparent border border-border dark:border-border rounded-xl text-foreground outline-none focus:border-purple-500 transition-colors text-sm mb-3"
                 >
                   <option value="">
                     Selecionar mensagem pronta (opcional)...
@@ -3223,7 +3223,7 @@ function ClientePageContent() {
                     setSelectedTemplateScheduleId("");
                   setScheduleText(e.target.value);
                 }}
-                className="w-full bg-muted/50 border border-border dark:border-border rounded-xl p-4 text-foreground outline-none focus:border-purple-500 transition-colors min-h-[120px] text-sm resize-none disabled:opacity-70"
+                className="w-full bg-transparent border border-border dark:border-border rounded-xl p-4 text-foreground outline-none focus:border-purple-500 transition-colors min-h-[120px] text-sm resize-none disabled:opacity-70"
                 placeholder="Ex: Olá, seu plano vence amanhã..."
               />
             </div>
@@ -3295,7 +3295,7 @@ function Select({
     <select
       value={value}
       onChange={onChange}
-      className="w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+      className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
     >
       {children}
     </select>
