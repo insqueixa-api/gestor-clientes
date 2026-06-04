@@ -22,7 +22,7 @@ function Input({
   return (
     <input
       {...props}
-      className={`w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground/90 placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     />
   );
 }
@@ -35,7 +35,7 @@ function Select({
   return (
     <select
       {...props}
-      className={`w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     >
       {children}
     </select>
@@ -379,7 +379,7 @@ export default function RecargaServidorModal({
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="w-full max-w-lg bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
         {/* HEADER */}
-        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-muted/50">
+        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent">
           <div>
             <h2 className="text-lg font-medium text-foreground tracking-tight">
               Nova Recarga
@@ -422,7 +422,7 @@ export default function RecargaServidorModal({
             </div>
           </div>
 
-          <div className="p-4 bg-muted/50 rounded-xl border border-border space-y-4">
+          <div className="p-4 bg-transparent rounded-xl border border-border space-y-4">
             <div className="grid grid-cols-12 gap-3">
               <div className="col-span-4 space-y-1">
                 <Label>Qtd. Créditos</Label>
@@ -473,7 +473,7 @@ export default function RecargaServidorModal({
           </div>
 
           {/* TOTALIZADORES */}
-          <div className="flex justify-between items-end bg-black/20 p-3 rounded-lg border border-border">
+          <div className="flex justify-between items-end bg-transparent border border-border p-3 rounded-lg border border-border">
             <div>
               <div className="text-[10px] uppercase font-medium text-muted-foreground/80">
                 Total Original
@@ -501,7 +501,7 @@ export default function RecargaServidorModal({
           <div className="space-y-1">
             <Label>Observações</Label>
             <input
-              className="w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm outline-none text-foreground/90"
+              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none text-foreground/90"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Opcional..."
@@ -510,7 +510,7 @@ export default function RecargaServidorModal({
         </div>
 
         {/* FOOTER */}
-        <div className="px-6 py-4 border-t border-border bg-muted/50 space-y-3">
+        <div className="px-6 py-4 border-t border-border bg-transparent space-y-3">
           {hasIntegration && (
             <div className="p-3 bg-sky-500/10 border border-sky-500/30 rounded-lg text-xs text-sky-400">
               ℹ️{" "}

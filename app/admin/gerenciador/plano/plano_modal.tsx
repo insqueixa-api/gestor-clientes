@@ -491,7 +491,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
           className="w-full max-w-[1200px] max-h-[90vh] bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors"
           onPointerDown={(e) => e.stopPropagation()}
         >
-          <div className="px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center bg-muted/50 border-b border-border sticky top-0 z-10">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center bg-transparent border-b border-border sticky top-0 z-10">
             <h2 className="text-base sm:text-lg font-medium text-foreground tracking-tight">
               {isEditing ? "Editar Tabela" : "Nova Tabela de Preço"}
             </h2>
@@ -523,12 +523,12 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Ex: Tabela especial revenda"
                     disabled={plan?.is_system_default}
-                    className="w-full h-10 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground/90 placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50"
+                    className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50"
                   />
                 </div>
                 <div>
                   <Label>Moeda</Label>
-                  <div className="flex bg-black/20 rounded-lg p-1 border border-border">
+                  <div className="flex bg-transparent border border-border rounded-lg p-1 border border-border">
                     {(["BRL", "USD", "EUR"] as const).map((c) => (
                       <button
                         key={c}
@@ -585,7 +585,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                         return (
                           <div
                             key={period}
-                            className="bg-muted/50 border border-border rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 flex flex-col justify-center h-16 sm:h-20 relative focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/20 transition-all group"
+                            className="bg-transparent border border-border rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 flex flex-col justify-center h-16 sm:h-20 relative focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/20 transition-all group"
                           >
                             <div className="flex justify-between items-center w-full mb-1">
                               <span className="text-[10px] sm:text-[11px] font-medium text-muted-foreground/80 dark:text-white/20">
@@ -626,7 +626,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
             </div>
           </div>
 
-          <div className="px-4 sm:px-6 py-3 sm:py-4 bg-muted/50 border-t border-border flex justify-between items-center transition-colors">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 bg-transparent border-t border-border flex justify-between items-center transition-colors">
             <span className="text-[10px] text-muted-foreground/80 italic">
               *{" "}
               {isEditing

@@ -489,7 +489,7 @@ export default function AdminServersPage() {
       details: validDns.map((dns, idx) => (
         <div
           key={idx}
-          className="flex items-center justify-between bg-card dark:bg-black/20 p-2.5 rounded-lg border border-border mb-1.5 shadow-sm"
+          className="flex items-center justify-between bg-card dark:bg-transparent border border-border p-2.5 rounded-lg border border-border mb-1.5 shadow-sm"
         >
           <span className="font-mono text-xs text-muted-foreground truncate mr-2 select-all">
             {dns}
@@ -501,7 +501,7 @@ export default function AdminServersPage() {
               navigator.clipboard.writeText(dns);
               addToast("success", "Copiado", "DNS copiada com sucesso!");
             }}
-            className="p-1.5 text-muted-foreground/80 dark:text-muted-foreground hover:text-sky-400 dark:hover:text-sky-400 hover:bg-black/20 dark:hover:bg-card/10 rounded transition-colors shrink-0"
+            className="p-1.5 text-muted-foreground/80 dark:text-muted-foreground hover:text-sky-400 dark:hover:text-sky-400 hover:bg-transparent border border-border dark:hover:bg-card/10 rounded transition-colors shrink-0"
             title="Copiar"
           >
             <svg
@@ -673,7 +673,7 @@ export default function AdminServersPage() {
         }`}
               >
                 {/* ✅ HEADER DO CARD: Fundo slate-50/white-5, igual ao header da tabela de clientes */}
-                <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-border bg-muted/50">
+                <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-border bg-transparent">
                   <Link
                     href={`/admin/gerenciador/servidor/${server.id}`}
                     className="flex items-center gap-3 min-w-0 pr-3 group cursor-pointer"
@@ -686,7 +686,7 @@ export default function AdminServersPage() {
                         className="w-8 h-8 rounded-lg object-cover border border-border shrink-0"
                       />
                     ) : (
-                      <div className="w-8 h-8 rounded-lg bg-black/20 flex items-center justify-center shrink-0 text-base">
+                      <div className="w-8 h-8 rounded-lg bg-transparent border border-border flex items-center justify-center shrink-0 text-base">
                         📡
                       </div>
                     )}
@@ -917,7 +917,7 @@ export default function AdminServersPage() {
                       <span className="flex items-center gap-2 text-muted-foreground">
                         <IconCardCusto /> Custo crédito
                       </span>
-<span className="font-normal text-foreground/90 bg-black/20 px-2 py-0.5 rounded-lg text-xs">
+<span className="font-normal text-foreground/90 bg-transparent border border-border px-2 py-0.5 rounded-lg text-xs">
                         {formatMoney(
                           server.credit_unit_cost_brl ??
                             server.default_credit_unit_price,
@@ -1039,7 +1039,7 @@ export default function AdminServersPage() {
                 {(server.panel_web_url ||
                   server.panel_telegram_group ||
                   server.notes) && (
-                  <div className="bg-muted/50 p-3 border-t border-border text-[11px] space-y-2">
+                  <div className="bg-transparent p-3 border-t border-border text-[11px] space-y-2">
                     {server.panel_web_url && (
                       <div className="flex gap-2">
                         <span className="font-medium text-muted-foreground/80 dark:text-white/30 uppercase tracking-tighter">

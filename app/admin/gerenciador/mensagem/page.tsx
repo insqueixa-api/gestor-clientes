@@ -337,7 +337,7 @@ export default function MessagesPage() {
               setSelectedTemplate(null);
               setShowEditor(true);
             }}
-            className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500/10 text-emerald-400 dark:bg-emerald-500/10 dark:text-emerald-400 font-medium text-xs md:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2 whitespace-nowrap"
+            className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 font-medium text-xs md:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2 whitespace-nowrap"
           >
             <span className="text-base md:text-lg leading-none mb-0.5">+</span>{" "}
             Nova Mensagem
@@ -391,7 +391,7 @@ export default function MessagesPage() {
         </div>
       ) : filteredMessages.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 bg-card border border-dashed border-border dark:border-border rounded-none sm:rounded-2xl">
-          <div className="w-16 h-16 bg-black/20 rounded-full flex items-center justify-center mb-4 text-3xl">
+          <div className="w-16 h-16 bg-transparent border border-border rounded-full flex items-center justify-center mb-4 text-3xl">
             <MessageCircle className="w-4 h-4" />
           </div>
           <h3 className="text-lg font-medium text-foreground/90">
@@ -413,7 +413,7 @@ export default function MessagesPage() {
               if (items.length === 0) return null;
               return (
                 <div className="bg-card border-y sm:border border-border rounded-none sm:rounded-xl shadow-sm overflow-hidden">
-                  <div className="px-3 sm:px-5 py-3 border-b border-border flex items-center justify-between bg-muted/50/60 dark:bg-card/5">
+                  <div className="px-3 sm:px-5 py-3 border-b border-border flex items-center justify-between bg-transparent">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="text-lg">{icon}</span>
                       <h2 className="text-sm font-medium text-foreground/90 truncate">
@@ -427,7 +427,7 @@ export default function MessagesPage() {
                       Selecione para destacar
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:gap-[1px] bg-black/20">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:gap-[1px] bg-transparent border border-border">
                     {items.map((msg) => {
                       const isSelected = selectedTemplate?.id === msg.id;
                       const isProtected =
@@ -446,8 +446,8 @@ export default function MessagesPage() {
                           className={[
                             "w-full flex items-center justify-between gap-2 px-3 sm:px-5 py-3 transition-colors cursor-pointer bg-card",
                             isSelected
-                              ? "bg-emerald-500/10/70 dark:bg-emerald-500/10"
-                              : "hover:bg-muted/50 dark:hover:bg-card/5",
+                              ? "bg-emerald-500/10"
+                              : "hover:bg-transparent dark:hover:bg-card/5",
                           ].join(" ")}
                         >
                           <div className="min-w-0 flex-1 pr-2">
@@ -606,7 +606,7 @@ function PreviewModal({
     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
       <div className="w-full h-full sm:h-auto max-w-lg bg-card border-0 sm:border border-border rounded-none sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[100dvh] sm:max-h-[80vh]">
         {/* Cabeçalho */}
-        <div className="px-4 py-3 sm:px-5 sm:py-4 border-b border-border flex justify-between items-center bg-muted/50 shrink-0">
+        <div className="px-4 py-3 sm:px-5 sm:py-4 border-b border-border flex justify-between items-center bg-transparent shrink-0">
           <h3 className="font-medium text-foreground truncate pr-4 text-base sm:text-lg">
             {template.name}
           </h3>
@@ -619,11 +619,11 @@ function PreviewModal({
         </div>
 
         {/* Conteúdo da Mensagem */}
-        <div className="flex-1 p-4 sm:p-6 overflow-y-auto custom-scrollbar bg-muted/50/50 dark:bg-black/20">
+        <div className="flex-1 p-4 sm:p-6 overflow-y-auto custom-scrollbar bg-transparent/50 dark:bg-transparent border border-border">
           <div className="flex flex-col gap-4 whitespace-pre-wrap text-sm text-muted-foreground dark:text-slate-300 font-mono leading-relaxed bg-card dark:bg-background p-3 sm:p-4 rounded-xl border border-border shadow-sm min-h-full">
             {/* ✅ PREVIEW DA IMAGEM SE HOUVER */}
             {template.image_url && (
-              <div className="relative w-full max-w-sm mx-auto bg-black/20 rounded-lg overflow-hidden border border-border">
+              <div className="relative w-full max-w-sm mx-auto bg-transparent border border-border rounded-lg overflow-hidden border border-border">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={template.image_url}
@@ -648,7 +648,7 @@ function PreviewModal({
             className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-lg border font-medium text-xs transition-colors uppercase flex items-center justify-center gap-1.5 ${
               copied
                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                : "border-border text-foreground/90 hover:bg-muted/50 dark:hover:bg-card/5"
+                : "border-border text-foreground/90 hover:bg-transparent dark:hover:bg-card/5"
             }`}
           >
             {copied ? (
@@ -689,7 +689,7 @@ function PreviewModal({
 
           <button
             onClick={onClose}
-            className="flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 font-medium text-xs hover:bg-muted/50 dark:hover:bg-card/5 transition-colors uppercase"
+            className="flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 font-medium text-xs hover:bg-transparent dark:hover:bg-card/5 transition-colors uppercase"
           >
             Fechar
           </button>
@@ -925,7 +925,7 @@ function EditorModal({
         className="w-full h-full sm:h-auto max-w-6xl bg-card border-0 sm:border border-border rounded-none sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[100dvh] sm:max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-border flex justify-between items-center bg-muted/50">
+        <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-border flex justify-between items-center bg-transparent">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-xl">
               <Pencil className="w-4 h-4" />
@@ -951,7 +951,7 @@ function EditorModal({
               <button
                 type="button"
                 onClick={() => setMobileTagsOpen((v) => !v)}
-                className="w-full h-11 px-4 rounded-xl border border-border bg-muted/50 text-foreground/90 font-medium text-xs flex items-center justify-between"
+                className="w-full h-11 px-4 rounded-xl border border-border bg-transparent text-foreground/90 font-medium text-xs flex items-center justify-between"
               >
                 <span className="flex items-center gap-2">
                   🏷️ Variáveis
@@ -966,7 +966,7 @@ function EditorModal({
 
               {mobileTagsOpen && (
                 <div className="mt-3 rounded-xl border border-border bg-card overflow-hidden">
-                  <div className="p-3 border-b border-border bg-muted/50/50 dark:bg-card/5">
+                  <div className="p-3 border-b border-border bg-transparent">
                     <h3 className="text-xs font-medium text-muted-foreground dark:text-white uppercase tracking-widest flex items-center gap-2">
                       🏷️ Variáveis Disponíveis
                     </h3>
@@ -978,11 +978,11 @@ function EditorModal({
                       value={mobileTagsQuery}
                       onChange={(e) => setMobileTagsQuery(e.target.value)}
                       placeholder="Filtrar (ex: vencimento, pix, primeiro_nome...)"
-                      className="mt-3 w-full h-10 px-3 rounded-lg border border-border bg-card dark:bg-black/20 text-sm text-foreground/90 outline-none focus:border-emerald-500 transition-colors"
+                      className="mt-3 w-full h-10 px-3 rounded-lg border border-border bg-card dark:bg-transparent border border-border text-sm text-foreground/90 outline-none focus:border-emerald-500 transition-colors"
                     />
                   </div>
 
-                  <div className="max-h-[38vh] overflow-y-auto p-3 space-y-2 custom-scrollbar bg-muted/50/30 dark:bg-black/10">
+                  <div className="max-h-[38vh] overflow-y-auto p-3 space-y-2 custom-scrollbar bg-transparent">
                     {filteredMobileTags.length === 0 ? (
                       <div className="text-xs text-muted-foreground/80 py-6 text-center">
                         Nenhuma variável encontrada.
@@ -1030,7 +1030,7 @@ function EditorModal({
                 readOnly={isProtected} // 🔒 Trava a edição do nome
                 className={`w-full h-12 px-4 border rounded-xl text-foreground outline-none focus:border-emerald-500 transition-colors font-medium ${
                   isProtected
-                    ? "bg-black/20 border-dashed border-border text-muted-foreground cursor-not-allowed"
+                    ? "bg-transparent border border-border border-dashed border-border text-muted-foreground cursor-not-allowed"
                     : "bg-transparent border-border"
                 }`}
                 autoFocus={!isProtected}
@@ -1133,7 +1133,7 @@ function EditorModal({
 
           {/* DESKTOP: Variáveis na lateral (sem mudar lógica) */}
           <div className="hidden lg:flex w-96 bg-card flex-col">
-            <div className="p-4 border-b border-border bg-muted/50/50 dark:bg-card/5">
+            <div className="p-4 border-b border-border bg-transparent">
               <h3 className="text-xs font-medium text-muted-foreground dark:text-white uppercase tracking-widest flex items-center gap-2">
                 🏷️ Variáveis Disponíveis
               </h3>
@@ -1142,7 +1142,7 @@ function EditorModal({
               </p>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-muted/50/30 dark:bg-black/10">
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-transparent">
               {TAG_GROUPS.map((group, idx) => {
                 const isOpen = openDesktopGroups.includes(idx);
                 return (
@@ -1153,7 +1153,7 @@ function EditorModal({
                     <button
                       type="button"
                       onClick={() => toggleDesktopGroup(idx)}
-                      className={`w-full flex items-center justify-between p-3 text-left transition-colors ${isOpen ? "bg-transparent border-b border-border" : "hover:bg-muted/50 dark:hover:bg-card/5"}`}
+                      className={`w-full flex items-center justify-between p-3 text-left transition-colors ${isOpen ? "bg-transparent border-b border-border" : "hover:bg-transparent dark:hover:bg-card/5"}`}
                     >
                       <h4 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
                         {group.title}
@@ -1164,7 +1164,7 @@ function EditorModal({
                     </button>
 
                     {isOpen && (
-                      <div className="p-3 grid grid-cols-1 gap-2 bg-muted/50/30 dark:bg-black/10">
+                      <div className="p-3 grid grid-cols-1 gap-2 bg-transparent">
                         {group.tags.map((tag) => (
                           <button
                             key={tag.label}
@@ -1188,7 +1188,7 @@ function EditorModal({
           </div>
         </div>
 
-        <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-border bg-muted/50 flex justify-between items-center">
+        <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-border bg-transparent flex justify-between items-center">
           <div className="text-xs text-muted-foreground/80 hidden sm:block">
             💡 Dica: Use <strong>{`{saudacao_tempo}`}</strong> para enviar "Bom
             dia" automático.
@@ -1203,7 +1203,7 @@ function EditorModal({
             <button
               onClick={handleSave}
               disabled={loading}
-              className="flex-1 sm:flex-none px-8 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500/10 text-emerald-400 dark:bg-emerald-500/10 dark:text-emerald-400 font-medium text-xs shadow-lg shadow-emerald-900/20 transition-transform active:scale-95 flex items-center justify-center gap-2 uppercase tracking-wider disabled:opacity-50"
+              className="flex-1 sm:flex-none px-8 py-3 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 font-medium text-xs shadow-lg shadow-emerald-900/20 transition-transform active:scale-95 flex items-center justify-center gap-2 uppercase tracking-wider disabled:opacity-50"
             >
               {loading
                 ? "Salvando..."

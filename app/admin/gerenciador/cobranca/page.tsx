@@ -1104,7 +1104,7 @@ export default function BillingPage() {
         <div className="flex items-center gap-2 justify-end shrink-0">
           <button
             onClick={() => setWizardState({ show: true, editingRule: null })}
-            className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500/10 text-emerald-400 dark:bg-emerald-500/10 dark:text-emerald-400 font-medium text-xs md:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2 whitespace-nowrap"
+            className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 font-medium text-xs md:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2 whitespace-nowrap"
           >
             <span className="text-base md:text-lg leading-none mb-0.5">+</span>
             Nova Regra
@@ -1149,7 +1149,7 @@ export default function BillingPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 bg-card border border-dashed border-border dark:border-border rounded-2xl">
-          <div className="w-16 h-16 bg-black/20 rounded-full flex items-center justify-center mb-4 text-3xl">
+          <div className="w-16 h-16 bg-transparent border border-border rounded-full flex items-center justify-center mb-4 text-3xl">
             🤖
           </div>
           <h3 className="text-lg font-medium text-foreground/90">
@@ -1276,7 +1276,7 @@ function AutomationCard({
             {data.name}
           </h3>
           <div className="flex items-center gap-2 mt-1">
-            <span className="gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-black/20 text-muted-foreground uppercase border border-border tracking-wider">
+            <span className="gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-transparent text-muted-foreground uppercase border border-border tracking-wider">
               {data.type}
             </span>
             <span
@@ -1309,7 +1309,7 @@ function AutomationCard({
       </div>
 
       {/* Info do Disparo */}
-      <div className="space-y-2 mb-4 bg-muted/50 p-3 rounded-lg border border-border">
+      <div className="space-y-2 mb-4 bg-transparent p-3 rounded-lg border border-border">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span className="text-base">📅</span>
           <span className="font-medium">{getRuleText()}</span>
@@ -1486,7 +1486,7 @@ function AutomationCard({
 
               <button
                 onClick={onShowLogs}
-                className="px-3 py-1.5 rounded-lg bg-black/20 text-foreground/90 text-xs font-medium hover:bg-black/30 dark:text-muted-foreground transition"
+                className="px-3 py-1.5 rounded-lg bg-transparent border border-border text-foreground/90 text-xs font-medium hover:bg-black/30 dark:text-muted-foreground transition"
                 title="Logs"
               >
                 Logs
@@ -1531,7 +1531,7 @@ function ImpactListModal({
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="w-full max-w-4xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[80vh]">
-        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-muted/50">
+        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent">
           <div>
             <h3 className="text-lg font-medium text-foreground">
               Clientes Afetados Hoje
@@ -1556,7 +1556,7 @@ function ImpactListModal({
             </div>
           ) : (
             <table className="w-full text-left border-collapse min-w-[700px]">
-              <thead className="bg-muted/50 sticky top-0 z-10 text-xs uppercase text-muted-foreground font-medium">
+              <thead className="bg-transparent sticky top-0 z-10 text-xs uppercase text-muted-foreground font-medium">
                 <tr>
                   <th className="p-3">Cliente / Contato</th>
                   <th className="p-3">Acesso / Servidor</th>
@@ -1570,7 +1570,7 @@ function ImpactListModal({
                 {data.clients.map((c) => (
                   <tr
                     key={c.id}
-                    className="hover:bg-muted/50 dark:hover:bg-card/5 transition-colors align-top"
+                    className="hover:bg-transparent dark:hover:bg-card/5 transition-colors align-top"
                   >
                     {/* COLUNA 1: CLIENTES E WHATSAPP */}
                     <td className="p-3">
@@ -1578,7 +1578,7 @@ function ImpactListModal({
                       <div className="flex flex-col">
                         <span className="font-medium text-foreground flex items-center gap-1.5">
                           {c.display_name}
-                          <span className="text-[10px] bg-black/20 text-muted-foreground px-1.5 py-0.5 rounded font-medium uppercase">
+                          <span className="text-[10px] bg-transparent text-muted-foreground px-1.5 py-0.5 rounded font-medium uppercase">
                             Titular
                           </span>
                         </span>
@@ -1648,7 +1648,7 @@ function ImpactListModal({
                     {/* COLUNA 4: PLANO E VALOR */}
                     <td className="p-3">
                       <div className="flex flex-col items-start gap-1">
-                        <span className="px-2 py-0.5 rounded bg-black/20 text-xs font-medium text-foreground/90 dark:text-slate-300">
+                        <span className="px-2 py-0.5 rounded bg-transparent border border-border text-xs font-medium text-foreground/90 dark:text-slate-300">
                           {c.plan_label || "Sem plano"}
                         </span>
                         {c.price_amount > 0 && (
@@ -1847,7 +1847,7 @@ function AutomationWizard({
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="w-full max-w-2xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
-        <div className="px-6 py-5 border-b border-border bg-muted/50">
+        <div className="px-6 py-5 border-b border-border bg-transparent">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-medium text-foreground">
               {editingRule
@@ -1940,11 +1940,11 @@ function AutomationWizard({
 
               <div>
                 <Label>Segurança (Intervalo entre envios)</Label>
-                <div className="flex items-center gap-3 bg-muted/50 p-3 rounded-lg border border-border mt-1">
+                <div className="flex items-center gap-3 bg-transparent p-3 rounded-lg border border-border mt-1">
                   <span className="text-xs text-muted-foreground">Entre</span>
                   <input
                     type="number"
-                    className="w-16 h-8 text-center rounded border border-border bg-card dark:bg-black/20 text-sm"
+                    className="w-16 h-8 text-center rounded border border-border bg-card dark:bg-transparent border border-border text-sm"
                     value={form.delay_min}
                     onChange={(e) =>
                       setForm({ ...form, delay_min: Number(e.target.value) })
@@ -1953,7 +1953,7 @@ function AutomationWizard({
                   <span className="text-xs text-muted-foreground">e</span>
                   <input
                     type="number"
-                    className="w-16 h-8 text-center rounded border border-border bg-card dark:bg-black/20 text-sm"
+                    className="w-16 h-8 text-center rounded border border-border bg-card dark:bg-transparent border border-border text-sm"
                     value={form.delay_max}
                     onChange={(e) =>
                       setForm({ ...form, delay_max: Number(e.target.value) })
@@ -1977,13 +1977,13 @@ function AutomationWizard({
                           rule_days_diff: -Math.abs(form.rule_days_diff || 1),
                         })
                       }
-                      className={`px-2 py-1 rounded-l border text-xs font-medium ${form.rule_days_diff < 0 ? "bg-rose-500/10 text-rose-400 dark:bg-rose-500/10 dark:text-rose-400 border-rose-500" : "bg-card dark:bg-black/20 border-border text-muted-foreground"}`}
+                      className={`px-2 py-1 rounded-l border text-xs font-medium ${form.rule_days_diff < 0 ? "bg-rose-500/10 text-rose-400 dark:bg-rose-500/10 dark:text-rose-400 border-rose-500" : "bg-card dark:bg-transparent border border-border border-border text-muted-foreground"}`}
                     >
                       Antes
                     </button>
                     <button
                       onClick={() => setForm({ ...form, rule_days_diff: 0 })}
-                      className={`px-2 py-1 border-t border-b text-xs font-medium ${form.rule_days_diff === 0 ? "bg-sky-500 text-white border-sky-500" : "bg-card dark:bg-black/20 border-border text-muted-foreground"}`}
+                      className={`px-2 py-1 border-t border-b text-xs font-medium ${form.rule_days_diff === 0 ? "bg-sky-500 text-white border-sky-500" : "bg-card dark:bg-transparent border border-border border-border text-muted-foreground"}`}
                     >
                       No Dia
                     </button>
@@ -1994,7 +1994,7 @@ function AutomationWizard({
                           rule_days_diff: Math.abs(form.rule_days_diff || 1),
                         })
                       }
-                      className={`px-2 py-1 rounded-r border text-xs font-medium ${form.rule_days_diff > 0 ? "bg-emerald-500/10 text-emerald-400 dark:bg-emerald-500/10 dark:text-emerald-400 border-emerald-500" : "bg-card dark:bg-black/20 border-border text-muted-foreground"}`}
+                      className={`px-2 py-1 rounded-r border text-xs font-medium ${form.rule_days_diff > 0 ? "bg-emerald-500/10 text-emerald-400 dark:bg-emerald-500/10 dark:text-emerald-400 border-emerald-500" : "bg-card dark:bg-transparent border border-border border-border text-muted-foreground"}`}
                     >
                       Depois
                     </button>
@@ -2002,7 +2002,7 @@ function AutomationWizard({
                   {form.rule_days_diff !== 0 && (
                     <input
                       type="number"
-                      className="w-14 h-8 text-center rounded border border-border bg-card dark:bg-black/20 text-sm font-medium"
+                      className="w-14 h-8 text-center rounded border border-border bg-card dark:bg-transparent border border-border text-sm font-medium"
                       value={Math.abs(form.rule_days_diff)}
                       onChange={(e) =>
                         setForm({
@@ -2018,7 +2018,7 @@ function AutomationWizard({
                     {form.rule_days_diff !== 0 ? "dias do" : "do"}
                   </span>
                   <select
-                    className="h-8 rounded border border-border bg-card dark:bg-black/20 text-sm px-2 outline-none"
+                    className="h-8 rounded border border-border bg-card dark:bg-transparent border border-border text-sm px-2 outline-none"
                     value={form.rule_date_field}
                     onChange={(e) =>
                       setForm({ ...form, rule_date_field: e.target.value })
@@ -2076,7 +2076,7 @@ function AutomationWizard({
                 <span className="text-sm font-medium text-muted-foreground dark:text-white/60 uppercase tracking-widest">
                   Modo de Operação
                 </span>
-                <div className="flex items-center gap-4 bg-black/20 p-1 rounded-xl">
+                <div className="flex items-center gap-4 bg-transparent border border-border p-1 rounded-xl">
                   <button
                     onClick={() => setForm({ ...form, is_automatic: false })}
                     className={`px-6 py-3 rounded-lg text-sm font-medium transition-all ${!form.is_automatic ? "bg-card dark:bg-slate-700 shadow-md text-foreground" : "text-muted-foreground/80 hover:text-muted-foreground"}`}
@@ -2092,7 +2092,7 @@ function AutomationWizard({
                 </div>
               </div>
               {form.is_automatic && (
-                <div className="bg-muted/50 p-6 rounded-2xl border border-border space-y-6 animate-in fade-in slide-in-from-bottom-4">
+                <div className="bg-transparent p-6 rounded-2xl border border-border space-y-6 animate-in fade-in slide-in-from-bottom-4">
                   <div>
                     <Label>Horário do Disparo (Brasília)</Label>
                     <div className="flex justify-center mt-2">
@@ -2148,7 +2148,7 @@ function AutomationWizard({
               </button>
               <button
                 onClick={() => setStep(2)}
-                className="px-6 py-2.5 bg-slate-800 dark:bg-card dark:text-foreground dark:text-white font-medium rounded-xl shadow-lg hover:brightness-110 transition-all text-xs uppercase"
+                className="px-6 py-2.5 bg-card border border-border text-foreground hover:bg-muted/50 font-medium rounded-xl shadow-lg hover:brightness-110 transition-all text-xs uppercase"
               >
                 Próximo: Filtros →
               </button>
@@ -2164,7 +2164,7 @@ function AutomationWizard({
               </button>
               <button
                 onClick={() => setStep(3)}
-                className="px-6 py-2.5 bg-slate-800 dark:bg-card dark:text-foreground dark:text-white font-medium rounded-xl shadow-lg hover:brightness-110 transition-all text-xs uppercase"
+                className="px-6 py-2.5 bg-card border border-border text-foreground hover:bg-muted/50 font-medium rounded-xl shadow-lg hover:brightness-110 transition-all text-xs uppercase"
               >
                 Próximo: Automação →
               </button>
@@ -2208,7 +2208,7 @@ function Input({
   return (
     <input
       {...props}
-      className={`h-10 px-3 bg-card dark:bg-black/20 border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500 transition-colors ${className}`}
+      className={`h-10 px-3 bg-card dark:bg-transparent border border-border border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500 transition-colors ${className}`}
     />
   );
 }
@@ -2220,7 +2220,7 @@ function Select({
   return (
     <select
       {...props}
-      className={`h-10 px-3 bg-card dark:bg-black/20 border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500 transition-colors ${className}`}
+      className={`h-10 px-3 bg-card dark:bg-transparent border border-border border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500 transition-colors ${className}`}
     >
       {children}
     </select>
@@ -2267,7 +2267,7 @@ function MultiSelectDropdown({ label, options, selected, onChange }: any) {
       <Label>{label}</Label>
       <button
         onClick={() => setOpen(!open)}
-        className={`w-full h-10 px-3 text-left rounded-lg border text-sm flex justify-between items-center transition-all ${open ? "border-emerald-500 ring-1 ring-emerald-500/20" : "border-border bg-card dark:bg-black/20 text-foreground/90"}`}
+        className={`w-full h-10 px-3 text-left rounded-lg border text-sm flex justify-between items-center transition-all ${open ? "border-emerald-500 ring-1 ring-emerald-500/20" : "border-border bg-card dark:bg-transparent border border-border text-foreground/90"}`}
       >
         <span
           className={
@@ -2286,7 +2286,7 @@ function MultiSelectDropdown({ label, options, selected, onChange }: any) {
               <div
                 key={opt.id}
                 onClick={() => toggleOption(opt.id)}
-                className="px-3 py-2 hover:bg-muted/50 dark:hover:bg-card/5 cursor-pointer flex items-center gap-3 transition-colors rounded-lg"
+                className="px-3 py-2 hover:bg-transparent dark:hover:bg-card/5 cursor-pointer flex items-center gap-3 transition-colors rounded-lg"
               >
                 <div
                   className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${selected.includes(opt.id) ? "bg-emerald-500 border-emerald-500" : "border-border"}`}
@@ -2302,10 +2302,10 @@ function MultiSelectDropdown({ label, options, selected, onChange }: any) {
             ))}
           </div>
           {/* ✅ BOTÃO CONCLUIR */}
-          <div className="p-2 border-t border-border bg-muted/50">
+          <div className="p-2 border-t border-border bg-transparent">
             <button
               onClick={() => setOpen(false)}
-              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500/10 text-emerald-400 dark:bg-emerald-500/10 dark:text-emerald-400 font-medium text-xs uppercase transition-colors"
+              className="w-full py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 font-medium text-xs uppercase transition-colors"
             >
               Concluir
             </button>
@@ -2320,7 +2320,7 @@ function MultiSelectDropdown({ label, options, selected, onChange }: any) {
             return (
               <span
                 key={id}
-                className="inline-flex items-center px-2 py-1 rounded bg-black/20 text-xs font-medium text-muted-foreground dark:text-white border border-border"
+                className="inline-flex items-center px-2 py-1 rounded bg-transparent border border-border text-xs font-medium text-muted-foreground dark:text-white border border-border"
               >
                 {label}
                 <button
@@ -2573,7 +2573,7 @@ function LogsModal({
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="w-full max-w-3xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[80vh]">
-        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-muted/50">
+        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent">
           <div>
             <h3 className="text-lg font-medium text-foreground">Logs de Envio</h3>
             <p className="text-xs text-foreground/70">
@@ -2630,7 +2630,7 @@ function LogsModal({
                   return (
                     <tr
                       key={log.id}
-                      className="border-b border-slate-50 dark:border-border last:border-0 hover:bg-muted/50 dark:hover:bg-card/5"
+                      className="border-b border-slate-50 dark:border-border last:border-0 hover:bg-transparent dark:hover:bg-card/5"
                     >
                       <td className="p-2">
                         {isFailed && (
@@ -2671,7 +2671,7 @@ function LogsModal({
                               ? "bg-emerald-500/20 text-emerald-400"
                               : log.status === "FAILED"
                                 ? "bg-rose-500/20 text-rose-400"
-                                : "bg-black/20 text-muted-foreground"
+                                : "bg-transparent text-muted-foreground"
                           }`}
                         >
                           {log.status}
