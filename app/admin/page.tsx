@@ -1030,7 +1030,7 @@ const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
                 heightClass="h-40 sm:h-56"
               />
               {chartRegsData.length === 0 && (
-                <div className="text-zinc-400 text-sm mt-3">
+                <div className="text-muted-foreground text-sm mt-3">
                   Sem dados no mês atual.
                 </div>
               )}
@@ -1053,7 +1053,7 @@ const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
                 heightClass="h-40 sm:h-56"
               />
               {chartPaymentsData.length === 0 && (
-                <div className="text-zinc-400 text-sm mt-3">
+                <div className="text-muted-foreground text-sm mt-3">
                   Sem dados no mês atual.
                 </div>
               )}
@@ -1198,7 +1198,7 @@ function MetricCardView({
       </div>
 
       {footer && (
-        <div className="sv px-3 sm:px-4 py-2 text-[11px] sm:text-xs bg-black/10 text-muted-foreground">
+        <div className="sv px-3 sm:px-4 py-2 text-[11px] sm:text-xs bg-muted/50 dark:bg-black/10 text-muted-foreground">
           {footer}
         </div>
       )}

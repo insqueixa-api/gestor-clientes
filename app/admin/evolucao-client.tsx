@@ -135,8 +135,8 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
 
   // ── Colors ───────────────────────────────────────────────────────
   const BG = "transparent";
-  const GRID = "rgba(255,255,255,0.06)";
-  const TICK = "rgba(255,255,255,0.5)";
+  const GRID = isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.08)";
+  const TICK = isDark ? "rgba(255,255,255,0.5)" : "rgba(15,23,42,0.6)";
   const BAR1 = "rgba(16,185,129,0.2)";
   const BAR2 = "rgba(244,63,94,0.2)";
   const L1 = isDark ? "#10b981" : "#10b981";
@@ -426,12 +426,21 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
                 );
               }
 
-              const labelColor = row.bold ? "#f8fafc" : "rgba(255,255,255,0.7)";
-  const valColor = (val: number) => {
-    if (val === 0) return "rgba(255,255,255,0.15)";
-    // Since both light and dark themes are now dark backgrounds, we MUST use light text
-    return "#e2e8f0";
-  };
+              const labelColor = row.bold
+                ? isDark
+                  ? "#f8fafc"
+                  : "#0f172a"
+                : isDark
+                  ? "rgba(255,255,255,0.7)"
+                  : "rgba(15,23,42,0.7)";
+
+              const valColor = (val: number) => {
+                if (val === 0)
+                  return isDark
+                    ? "rgba(255,255,255,0.2)"
+                    : "rgba(15,23,42,0.3)";
+                return isDark ? "#e2e8f0" : "#1e293b";
+              };
 
               return (
                 <div

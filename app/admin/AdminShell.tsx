@@ -1232,7 +1232,7 @@ function Modal({
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-black/30 dark:hover:bg-card/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white"
+            className="p-1 rounded-lg hover:bg-muted dark:hover:bg-card/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white"
           >
             <X className="w-4 h-4" />
           </button>
@@ -1362,7 +1362,7 @@ function MenuLink({
 }
 
 function Divider() {
-  return <div className="my-1.5 h-px bg-black/20 mx-2" />;
+  return <div className="my-1.5 h-px bg-border mx-2" />;
 }
 
 function IconDashboard() {

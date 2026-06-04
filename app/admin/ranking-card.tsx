@@ -144,7 +144,7 @@ export function RankingCard({
             {title}
           </h3>
           {subtitle && (
-            <p className="text-xs text-zinc-400 dark:text-muted-foreground mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5">
               {subtitle}
             </p>
           )}
@@ -152,7 +152,7 @@ export function RankingCard({
 
         {/* ✅ SELETOR (Só aparece se você passar os itemsPrevisto/itemsExecutado lá no page.tsx) */}
         {hasToggle && (
-          <div className="flex bg-black/20 p-1 rounded-lg border border-border shrink-0">
+          <div className="flex bg-muted dark:bg-black/20 p-1 rounded-lg border border-border shrink-0">
             <button
               onClick={() => setView("previsto")}
               className={`px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider rounded-md transition-all ${
@@ -180,7 +180,7 @@ export function RankingCard({
       {/* Items */}
       <div className="px-5 py-4 space-y-3">
         {currentItems.length === 0 && (
-          <p className="text-zinc-400 dark:text-muted-foreground text-sm py-2">
+          <p className="text-muted-foreground text-sm py-2">
             Sem dados {view === "previsto" ? "previstos" : "executados"}.
           </p>
         )}
