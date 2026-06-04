@@ -9,7 +9,7 @@ import type { ServerRow } from "./page"; // Importamos o tipo do servidor
 // --- COMPONENTES VISUAIS (Mesmo padrão do novo_servidor) ---
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1.5 tracking-tight">
+    <label className="block text-xs font-medium text-muted-foreground mb-1.5 tracking-tight">
       {children}
     </label>
   );

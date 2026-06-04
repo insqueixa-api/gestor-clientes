@@ -1206,7 +1206,7 @@ export default function RevendaPage() {
             className={`hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-medium border transition-colors items-center justify-center ${
               archivedFilter === "Sim"
                 ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-                : "bg-card dark:bg-card/5 border-border text-muted-foreground dark:text-white/60"
+                : "bg-card/5 border-border text-muted-foreground dark:text-white/60"
             }`}
           >
             {archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
@@ -1258,7 +1258,7 @@ export default function RevendaPage() {
               serverFilter !== "Todos" ||
               archivedFilter === "Sim"
                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                : "border-border bg-card dark:bg-card/5 text-muted-foreground dark:text-muted-foreground hover:bg-muted/50 dark:hover:bg-card/10"
+                : "border-border bg-card/5 text-muted-foreground hover:bg-muted/50 dark:hover:bg-card/10"
             }`}
           >
             Filtros
@@ -1332,7 +1332,7 @@ export default function RevendaPage() {
               className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-colors flex items-center justify-between ${
                 archivedFilter === "Sim"
                   ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-                  : "bg-card dark:bg-card/5 border-border text-muted-foreground dark:text-muted-foreground"
+                  : "bg-card/5 border-border text-muted-foreground"
               }`}
             >
               <span className="flex items-center gap-2">
@@ -1413,7 +1413,7 @@ export default function RevendaPage() {
             <table className="w-full text-left border-collapse min-w-[900px]">
               <thead>
                 {/* Ajustado: text-xs, text-white/40 e removido bg e tracking-widest */}
-                <tr className="border-b border-border text-xs font-medium uppercase text-muted-foreground dark:text-muted-foreground">
+                <tr className="border-b border-border text-xs font-medium uppercase text-muted-foreground">
                   <Th width={40}>
                     <input
                       type="checkbox"
@@ -1536,14 +1536,14 @@ export default function RevendaPage() {
                       <div className="flex flex-wrap items-center justify-center gap-1">
                         {((serversByReseller[r.id] || []) as string[])
                           .length === 0 ? (
-                          <span className="inline-flex items-center justify-center min-w-[28px] px-2 py-0.5 rounded-lg bg-black/20 border border-border text-xs font-medium text-muted-foreground dark:text-muted-foreground shadow-sm">
+                          <span className="inline-flex items-center justify-center min-w-[28px] px-2 py-0.5 rounded-lg bg-black/20 border border-border text-xs font-medium text-muted-foreground shadow-sm">
                             0
                           </span>
                         ) : (
                           (serversByReseller[r.id] || []).map((name, i) => (
                             <span
                               key={`${r.id}-srv-${i}`}
-                              className="inline-flex items-center justify-center h-6 px-2 rounded-lg bg-black/20 border border-border text-[11px] font-extrabold text-muted-foreground dark:text-muted-foreground shadow-sm"
+                              className="inline-flex items-center justify-center h-6 px-2 rounded-lg bg-black/20 border border-border text-[11px] font-extrabold text-muted-foreground shadow-sm"
                               title={name}
                             >
                               {name}
@@ -1559,7 +1559,7 @@ export default function RevendaPage() {
                       </span>
                     </Td>
                     <Td>
- <span className=" font-medium text-muted-foreground dark:text-muted-foreground">
+ <span className=" font-medium text-muted-foreground">
                         {r.costLabel}
                       </span>
                     </Td>
@@ -2030,7 +2030,7 @@ export default function RevendaPage() {
             })()}
 
             <div>
-              <label className="block text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Mensagem
               </label>
               <textarea
@@ -2091,7 +2091,7 @@ export default function RevendaPage() {
                     >
                       {/* Alterado para flex justify-between para acomodar o botão Excluir */}
                       <div className="px-3 sm:px-0 flex items-center justify-between gap-2 mb-2">
-                        <div className="text-xs font-extrabold text-muted-foreground dark:text-muted-foreground flex items-center gap-2">
+                        <div className="text-xs font-extrabold text-muted-foreground flex items-center gap-2">
                           <IconClock />
                           <span>
                             {new Date(s.send_at).toLocaleString("pt-BR")}
@@ -2187,7 +2187,7 @@ export default function RevendaPage() {
                     resellerName: undefined,
                   })
                 }
-                className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-muted-foreground hover:bg-black/30 dark:hover:bg-card/5 font-semibold text-sm transition-colors"
+                className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-black/30 dark:hover:bg-card/5 font-semibold text-sm transition-colors"
               >
                 Fechar
               </button>
@@ -2231,7 +2231,7 @@ export default function RevendaPage() {
                           )}
                         </div>
                         {a.created_at ? (
-                          <div className="mt-1 text-[11px] text-muted-foreground dark:text-muted-foreground">
+                          <div className="mt-1 text-[11px] text-muted-foreground">
                             {new Date(String(a.created_at)).toLocaleString(
                               "pt-BR",
                             )}
@@ -2261,7 +2261,7 @@ export default function RevendaPage() {
                     targetName: undefined,
                   })
                 }
-                className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-muted-foreground hover:bg-black/30 dark:hover:bg-card/5 font-semibold text-sm transition-colors"
+                className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-black/30 dark:hover:bg-card/5 font-semibold text-sm transition-colors"
               >
                 Fechar
               </button>
@@ -2277,7 +2277,7 @@ export default function RevendaPage() {
         >
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Nome do template
               </label>
               <input
@@ -2289,7 +2289,7 @@ export default function RevendaPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Conteúdo
               </label>
               <textarea

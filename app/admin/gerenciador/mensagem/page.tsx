@@ -612,7 +612,7 @@ function PreviewModal({
           </h3>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:bg-black/30 dark:hover:bg-card/10 hover:text-foreground dark:hover:text-white transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:bg-black/30 dark:hover:bg-card/10 hover:text-foreground dark:hover:text-foreground dark:text-white transition-colors"
           >
             ✕
           </button>
@@ -1155,7 +1155,7 @@ function EditorModal({
                       onClick={() => toggleDesktopGroup(idx)}
                       className={`w-full flex items-center justify-between p-3 text-left transition-colors ${isOpen ? "bg-muted/50 border-b border-border" : "hover:bg-muted/50 dark:hover:bg-card/5"}`}
                     >
-                      <h4 className="text-[10px] font-medium text-muted-foreground dark:text-muted-foreground uppercase tracking-wider">
+                      <h4 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
                         {group.title}
                       </h4>
                       <span className="text-muted-foreground/80 text-xs">

@@ -1735,7 +1735,7 @@ function ClientePageContent() {
                 setValuesHidden((v) => !v);
               }}
               title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-card dark:bg-card/5 text-muted-foreground/80 dark:text-muted-foreground hover:text-foreground/90 dark:hover:text-white hover:border-slate-400 dark:hover:border-white/30 transition-all text-xs font-medium shadow-sm select-none"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-card/5 text-muted-foreground/80 dark:text-muted-foreground hover:text-foreground/90 dark:hover:text-foreground dark:text-white hover:border-slate-400 dark:hover:border-white/30 transition-all text-xs font-medium shadow-sm select-none"
             >
               {valuesHidden ? (
                 <EyeOff className="w-4 h-4" />
@@ -1760,7 +1760,7 @@ function ClientePageContent() {
             className={`hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-medium border transition-colors items-center justify-center ${
               archivedFilter === "Sim"
                 ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-                : "bg-card dark:bg-card/5 border-border text-muted-foreground dark:text-white/60"
+                : "bg-card/5 border-border text-muted-foreground dark:text-white/60"
             }`}
           >
             {archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
@@ -1817,7 +1817,7 @@ function ClientePageContent() {
               dueFilter !== "Todos" ||
               archivedFilter === "Sim"
                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                : "border-border bg-card dark:bg-card/5 text-muted-foreground dark:text-muted-foreground hover:bg-muted/50 dark:hover:bg-card/10"
+                : "border-border bg-card/5 text-muted-foreground hover:bg-muted/50 dark:hover:bg-card/10"
             }`}
             title="Filtros"
           >
@@ -1979,7 +1979,7 @@ function ClientePageContent() {
               className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-colors flex items-center justify-between ${
                 archivedFilter === "Sim"
                   ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-                  : "bg-card dark:bg-card/5 border-border text-muted-foreground dark:text-muted-foreground"
+                  : "bg-card/5 border-border text-muted-foreground"
               }`}
               title="Filtrar Lixeira"
             >
@@ -2169,7 +2169,7 @@ function ClientePageContent() {
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={safePage <= 1}
-                    className="h-8 w-8 rounded-lg border border-border bg-card dark:bg-card/5 text-muted-foreground dark:text-muted-foreground font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted/50 dark:hover:bg-card/10 transition flex items-center justify-center"
+                    className="h-8 w-8 rounded-lg border border-border bg-card/5 text-muted-foreground font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted/50 dark:hover:bg-card/10 transition flex items-center justify-center"
                     title="Página anterior"
                   >
                     ←
@@ -2186,7 +2186,7 @@ function ClientePageContent() {
                   <button
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={safePage >= totalPages}
-                    className="h-8 w-8 rounded-lg border border-border bg-card dark:bg-card/5 text-muted-foreground dark:text-muted-foreground font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted/50 dark:hover:bg-card/10 transition flex items-center justify-center"
+                    className="h-8 w-8 rounded-lg border border-border bg-card/5 text-muted-foreground font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted/50 dark:hover:bg-card/10 transition flex items-center justify-center"
                     title="Próxima página"
                   >
                     →
@@ -2364,7 +2364,7 @@ function ClientePageContent() {
                           </div>
                           {/* Alterado: Username agora com font-medium e cor mais forte (slate-500 ao invés de 400) */}
                           <span
-                            className={`text-xs font-medium text-muted-foreground dark:text-muted-foreground truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                            className={`text-xs font-medium text-muted-foreground truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
                           >
                             {r.username}
                           </span>
@@ -2911,7 +2911,7 @@ function ClientePageContent() {
                   (alert) => (
                     <div
                       key={alert.id}
-                      className="group p-4 bg-card dark:bg-card/5 border border-border rounded-xl shadow-sm hover:border-rose-500/20 dark:hover:border-rose-500/30 transition-all flex justify-between items-start gap-4"
+                      className="group p-4 bg-card/5 border border-border rounded-xl shadow-sm hover:border-rose-500/20 dark:hover:border-rose-500/30 transition-all flex justify-between items-start gap-4"
                     >
                       <div className="flex gap-3">
                         <span className="text-rose-500 mt-0.5">⚠️</span>
@@ -3487,7 +3487,7 @@ function ScheduledMessagesModal({
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <div className="text-[10px] font-medium text-muted-foreground dark:text-white/60 uppercase tracking-wider bg-card dark:bg-card/10 px-2 py-0.5 rounded border border-border">
+                      <div className="text-[10px] font-medium text-muted-foreground dark:text-white/60 uppercase tracking-wider bg-card/10 px-2 py-0.5 rounded border border-border">
                         // ✅ PARA — extrai via formatToParts (mesma lógica)
                         {(() => {
                           const dt = new Date(it.send_at);

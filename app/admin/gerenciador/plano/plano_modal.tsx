@@ -64,7 +64,7 @@ const PERIOD_LABELS: Record<string, string> = {
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1.5 tracking-tight">
+    <label className="block text-xs font-medium text-muted-foreground mb-1.5 tracking-tight">
       {children}
     </label>
   );
@@ -538,7 +538,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                           ${
                             currency === c
                               ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-sm"
-                              : "text-muted-foreground dark:text-muted-foreground hover:text-foreground dark:hover:text-white"
+                              : "text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white"
                           }`}
                       >
                         {c}
@@ -565,7 +565,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                     key={screenCount}
                     className="animate-in slide-in-from-left-2 duration-300"
                   >
-                    <h3 className="text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-3 ml-1 tracking-tight">
+                    <h3 className="text-xs font-medium text-muted-foreground mb-3 ml-1 tracking-tight">
                       Preços para {screenCount}{" "}
                       {screenCount === 1 ? "Tela" : "Telas"}
                     </h3>

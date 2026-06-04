@@ -1694,7 +1694,7 @@ export default function RecargaCliente({
                     <button
                       type="button"
                       onClick={() => setDueTime("23:59")}
-                      className="px-3 h-10 rounded-lg bg-card dark:bg-card/5 border border-border text-xs font-medium text-muted-foreground hover:text-emerald-400 hover:border-emerald-500/50 transition-all"
+                      className="px-3 h-10 rounded-lg bg-card/5 border border-border text-xs font-medium text-muted-foreground hover:text-emerald-400 hover:border-emerald-500/50 transition-all"
                     >
                       23:59
                     </button>
@@ -1704,7 +1704,7 @@ export default function RecargaCliente({
             </div>
 
             {/* 2. SEÇÃO PLANO & FINANCEIRO (Unificado Visualmente ou Estilo Card NovoCliente) */}
-            <div className="bg-card dark:bg-card/5 border border-border rounded-xl p-3 sm:p-4 space-y-4">
+            <div className="bg-card/5 border border-border rounded-xl p-3 sm:p-4 space-y-4">
               {/* 3. SEÇÃO FINANCEIRO */}
               <div className="bg-card dark:bg-black/20 border border-border rounded-xl p-3 sm:p-4 shadow-sm">
                 {/* HEADER FINANCEIRO - ✅ IGUAL NOVO CLIENTE */}
@@ -1921,9 +1921,9 @@ export default function RecargaCliente({
                   {/* Botão de Ligar/Desligar Envio */}
                   <div
                     onClick={() => setSendWhats(!sendWhats)}
-                    className="h-10 px-3 bg-card dark:bg-card/5 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors flex items-center justify-between"
+                    className="h-10 px-3 bg-card/5 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors flex items-center justify-between"
                   >
-                    <span className="text-[11px] font-medium text-muted-foreground dark:text-muted-foreground tracking-tight">
+                    <span className="text-[11px] font-medium text-muted-foreground tracking-tight">
                       Enviar Mensagem?
                     </span>
                     <Switch

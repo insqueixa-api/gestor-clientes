@@ -529,7 +529,7 @@ export default function AppManagerPage() {
             </div>
             <div className="flex flex-wrap gap-1 pt-0.5">
               {app.tenant_id !== myTenantId && (
-                <span className="inline-flex items-center text-[10px] font-medium bg-black/20 text-muted-foreground dark:text-muted-foreground border border-border px-2 py-0.5 rounded-full">
+                <span className="inline-flex items-center text-[10px] font-medium bg-black/20 text-muted-foreground border border-border px-2 py-0.5 rounded-full">
                   🔒
                 </span>
               )}
@@ -650,7 +650,7 @@ export default function AppManagerPage() {
             {search.trim() ? (
               <button
                 onClick={() => setSearch("")}
-                className="h-10 px-3 rounded-lg border border-border bg-card dark:bg-black/20 text-xs font-medium text-muted-foreground dark:text-muted-foreground hover:bg-muted/50 dark:hover:bg-card/5 transition-colors"
+                className="h-10 px-3 rounded-lg border border-border bg-card dark:bg-black/20 text-xs font-medium text-muted-foreground hover:bg-muted/50 dark:hover:bg-card/5 transition-colors"
                 title="Limpar busca"
               >
                 Limpar
@@ -760,7 +760,7 @@ export default function AppManagerPage() {
               </h2>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-muted-foreground/80 hover:text-foreground dark:hover:text-white transition-colors"
+                className="text-muted-foreground/80 hover:text-foreground dark:hover:text-foreground dark:text-white transition-colors"
               >
                 ✕
               </button>
@@ -828,7 +828,7 @@ export default function AppManagerPage() {
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                    <p className="text-xs font-medium text-muted-foreground">
                       {uploadingIcon
                         ? "Enviando..."
                         : "Arraste, cole (Ctrl+V) ou clique para selecionar"}

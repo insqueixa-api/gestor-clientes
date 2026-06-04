@@ -421,7 +421,7 @@ export default function PlanosPage() {
                                       [plan.id]: !prev[plan.id],
                                     }))
                                   }
-                                  className="p-1.5 rounded-lg bg-muted/500/10 border border-slate-500/20 text-muted-foreground dark:text-muted-foreground hover:bg-muted/500/20 transition-all shadow-sm"
+                                  className="p-1.5 rounded-lg bg-muted/500/10 border border-slate-500/20 text-muted-foreground hover:bg-muted/500/20 transition-all shadow-sm"
                                   title={
                                     isExpanded
                                       ? "Minimizar tabela"
@@ -519,7 +519,7 @@ export default function PlanosPage() {
                                     key={screenCount}
                                     className="animate-in slide-in-from-left-2 duration-300"
                                   >
-                                    <h3 className="text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-3 ml-1 tracking-tight">
+                                    <h3 className="text-xs font-medium text-muted-foreground mb-3 ml-1 tracking-tight">
                                       Preços para {screenCount}{" "}
                                       {screenCount === 1 ? "Tela" : "Telas"}
                                     </h3>

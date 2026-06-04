@@ -1203,7 +1203,7 @@ export default function ProfileSettingsPage() {
           <div className="relative">
             <button
               onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
-              className="h-9 w-9 shrink-0 rounded-xl border font-medium text-xs flex items-center justify-center bg-card border-border text-muted-foreground dark:text-muted-foreground hover:bg-muted/50 dark:hover:bg-card/5 transition-all shadow-sm"
+              className="h-9 w-9 shrink-0 rounded-xl border font-medium text-xs flex items-center justify-center bg-card border-border text-muted-foreground hover:bg-muted/50 dark:hover:bg-card/5 transition-all shadow-sm"
               title="Configurações"
             >
               <Settings className="w-4 h-4" />
@@ -1227,7 +1227,7 @@ export default function ProfileSettingsPage() {
                           setTheme("light");
                           setShowSettingsDropdown(false);
                         }}
-                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${theme !== "dark" ? "bg-black/20 text-foreground" : "text-muted-foreground dark:text-muted-foreground hover:bg-card/5"}`}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${theme !== "dark" ? "bg-black/20 text-foreground" : "text-muted-foreground hover:bg-card/5"}`}
                       >
                         <svg
                           width="12"
@@ -1254,7 +1254,7 @@ export default function ProfileSettingsPage() {
                           setTheme("dark");
                           setShowSettingsDropdown(false);
                         }}
-                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${theme === "dark" ? "bg-card/10 text-white" : "text-muted-foreground hover:bg-muted/50"}`}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${theme === "dark" ? "bg-card/10 text-foreground dark:text-white" : "text-muted-foreground hover:bg-muted/50"}`}
                       >
                         <svg
                           width="12"
@@ -1699,7 +1699,7 @@ export default function ProfileSettingsPage() {
                                   });
                                   setShowHealthForm(true);
                                 }}
-                                className="w-7 h-7 rounded-lg bg-card dark:bg-card/5 border border-border flex items-center justify-center text-muted-foreground/80 hover:text-amber-500 transition-colors"
+                                className="w-7 h-7 rounded-lg bg-card/5 border border-border flex items-center justify-center text-muted-foreground/80 hover:text-amber-500 transition-colors"
                               >
                                 <Pencil className="w-4 h-4" />
                               </button>
@@ -1708,7 +1708,7 @@ export default function ProfileSettingsPage() {
                                 onClick={() =>
                                   void handleDeleteHealthRecord(record.id)
                                 }
-                                className="w-7 h-7 rounded-lg bg-card dark:bg-card/5 border border-border flex items-center justify-center text-muted-foreground/80 hover:text-rose-500 transition-colors"
+                                className="w-7 h-7 rounded-lg bg-card/5 border border-border flex items-center justify-center text-muted-foreground/80 hover:text-rose-500 transition-colors"
                               >
                                 <svg
                                   width="11"
@@ -1735,7 +1735,7 @@ export default function ProfileSettingsPage() {
                       onClick={() =>
                         setShowAllHealthRecords(!showAllHealthRecords)
                       }
-                      className="w-full py-2.5 mt-2 text-[11px] font-medium text-muted-foreground hover:text-foreground dark:hover:text-white transition-colors bg-muted/50 rounded-xl border border-border"
+                      className="w-full py-2.5 mt-2 text-[11px] font-medium text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white transition-colors bg-muted/50 rounded-xl border border-border"
                     >
                       {showAllHealthRecords ? (
                         "↑ Ocultar avaliações anteriores"
@@ -2231,7 +2231,7 @@ export default function ProfileSettingsPage() {
                           type="button"
                           onClick={() => void refreshWhatsAppPanel()}
                           disabled={waLoading}
-                          className="w-8 h-8 rounded-lg bg-card dark:bg-card/5 border border-border flex items-center justify-center text-muted-foreground hover:text-emerald-400 transition-colors shadow-sm disabled:opacity-50"
+                          className="w-8 h-8 rounded-lg bg-card/5 border border-border flex items-center justify-center text-muted-foreground hover:text-emerald-400 transition-colors shadow-sm disabled:opacity-50"
                           title="Sincronizar"
                         >
                           {waLoading ? (
@@ -2253,7 +2253,7 @@ export default function ProfileSettingsPage() {
                           <button
                             type="button"
                             onClick={() => setShowWa1Settings(true)}
-                            className="w-8 h-8 rounded-lg bg-card dark:bg-card/5 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground dark:hover:text-white transition-colors shadow-sm"
+                            className="w-8 h-8 rounded-lg bg-card/5 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white transition-colors shadow-sm"
                             title="Configurações de Chamada"
                           >
                             <svg
@@ -2386,7 +2386,7 @@ export default function ProfileSettingsPage() {
                 type="button"
                 onClick={() => setActionModal("template")}
                 disabled={!tenantId}
-                className="flex items-center gap-1.5 h-8 px-2 sm:px-3 rounded-xl border border-border bg-muted/50 text-muted-foreground dark:text-muted-foreground hover:bg-black/20 dark:hover:bg-card/10 transition-all"
+                className="flex items-center gap-1.5 h-8 px-2 sm:px-3 rounded-xl border border-border bg-muted/50 text-muted-foreground hover:bg-black/20 dark:hover:bg-card/10 transition-all"
                 title="Baixar Templates"
               >
                 <svg
@@ -2663,7 +2663,7 @@ export default function ProfileSettingsPage() {
                 <button
                   type="button"
                   onClick={() => setShowWa1Settings(false)}
-                  className="shrink-0 w-8 h-8 rounded-xl bg-black/20 flex items-center justify-center text-muted-foreground hover:text-foreground dark:hover:text-white text-lg leading-none transition-colors"
+                  className="shrink-0 w-8 h-8 rounded-xl bg-black/20 flex items-center justify-center text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white text-lg leading-none transition-colors"
                 >
                   ×
                 </button>
@@ -2696,7 +2696,7 @@ export default function ProfileSettingsPage() {
                           key={tag}
                           type="button"
                           onClick={() => setWaRejectMessage((v) => v + tag)}
- className="text-[10px] px-2 py-0.5 rounded border border-border bg-card dark:bg-card/5 hover:bg-emerald-500/10 dark:hover:bg-emerald-900/20 text-muted-foreground dark:text-white transition-colors"
+ className="text-[10px] px-2 py-0.5 rounded border border-border bg-card/5 hover:bg-emerald-500/10 dark:hover:bg-emerald-900/20 text-muted-foreground dark:text-white transition-colors"
                         >
                           {tag}
                         </button>
@@ -2835,7 +2835,7 @@ export default function ProfileSettingsPage() {
                 <button
                   type="button"
                   onClick={() => setShowWa1Settings(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-border text-muted-foreground dark:text-muted-foreground/80 font-medium text-xs hover:bg-muted/50 dark:hover:bg-card/5 transition-colors"
+                  className="flex-1 py-2.5 rounded-xl border border-border text-muted-foreground/80 font-medium text-xs hover:bg-muted/50 dark:hover:bg-card/5 transition-colors"
                 >
                   Cancelar
                 </button>
@@ -3093,7 +3093,7 @@ function WhatsAppSession2Panel({
                   type="button"
                   onClick={() => void refreshPanel()}
                   disabled={waLoading}
-                  className="w-8 h-8 rounded-lg bg-card dark:bg-card/5 border border-border flex items-center justify-center text-muted-foreground hover:text-emerald-400 transition-colors shadow-sm disabled:opacity-50"
+                  className="w-8 h-8 rounded-lg bg-card/5 border border-border flex items-center justify-center text-muted-foreground hover:text-emerald-400 transition-colors shadow-sm disabled:opacity-50"
                   title="Sincronizar"
                 >
                   {waLoading ? (
@@ -3115,7 +3115,7 @@ function WhatsAppSession2Panel({
                   <button
                     type="button"
                     onClick={() => setShowWa2Settings(true)}
-                    className="w-8 h-8 rounded-lg bg-card dark:bg-card/5 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground dark:hover:text-white transition-colors shadow-sm"
+                    className="w-8 h-8 rounded-lg bg-card/5 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white transition-colors shadow-sm"
                     title="Configurações"
                   >
                     <svg
@@ -3229,7 +3229,7 @@ function WhatsAppSession2Panel({
                 <button
                   type="button"
                   onClick={() => setShowWa2Settings(false)}
-                  className="shrink-0 w-8 h-8 rounded-xl bg-black/20 flex items-center justify-center text-muted-foreground hover:text-foreground dark:hover:text-white text-lg leading-none transition-colors"
+                  className="shrink-0 w-8 h-8 rounded-xl bg-black/20 flex items-center justify-center text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white text-lg leading-none transition-colors"
                 >
                   ×
                 </button>
@@ -3261,7 +3261,7 @@ function WhatsAppSession2Panel({
                           key={tag}
                           type="button"
                           onClick={() => setWaRejectMessage((v) => v + tag)}
- className="text-[10px] px-2 py-0.5 rounded border border-border bg-card dark:bg-card/5 hover:bg-emerald-500/10 dark:hover:bg-emerald-900/20 text-muted-foreground dark:text-white transition-colors"
+ className="text-[10px] px-2 py-0.5 rounded border border-border bg-card/5 hover:bg-emerald-500/10 dark:hover:bg-emerald-900/20 text-muted-foreground dark:text-white transition-colors"
                         >
                           {tag}
                         </button>
@@ -3399,7 +3399,7 @@ function WhatsAppSession2Panel({
                 <button
                   type="button"
                   onClick={() => setShowWa2Settings(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-border text-muted-foreground dark:text-muted-foreground/80 font-medium text-xs hover:bg-muted/50 dark:hover:bg-card/5 transition-colors"
+                  className="flex-1 py-2.5 rounded-xl border border-border text-muted-foreground/80 font-medium text-xs hover:bg-muted/50 dark:hover:bg-card/5 transition-colors"
                 >
                   Cancelar
                 </button>

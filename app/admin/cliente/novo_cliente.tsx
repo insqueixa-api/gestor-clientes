@@ -3875,7 +3875,7 @@ export default function NovoCliente({
           key={idx}
           className="flex items-center justify-between bg-card dark:bg-black/20 p-2.5 rounded-lg border border-border mb-1.5 shadow-sm"
         >
- <span className=" text-xs text-muted-foreground dark:text-muted-foreground truncate mr-2 select-all">
+ <span className=" text-xs text-muted-foreground truncate mr-2 select-all">
             {dns}
           </span>
           <button
@@ -4084,8 +4084,8 @@ export default function NovoCliente({
                   onClick={() => setActiveTab(tab.key)}
                   className={`flex-1 sm:flex-none px-6 py-2 text-xs font-medium rounded-md transition-all uppercase tracking-wider whitespace-nowrap ${
                     activeTab === tab.key
-                      ? "bg-card dark:bg-card/10 text-emerald-400 shadow-sm"
-                      : "text-muted-foreground dark:text-muted-foreground hover:text-foreground dark:hover:text-white"
+                      ? "bg-card/10 text-emerald-400 shadow-sm"
+                      : "text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white"
                   }`}
                 >
                   {tab.label}
@@ -4407,7 +4407,7 @@ export default function NovoCliente({
 
                   <div className="pt-0 sm:pt-[18px]">
                     <div className="h-10 px-3 bg-muted/50 border border-border rounded-lg flex items-center justify-between gap-3">
-                      <span className="text-xs text-muted-foreground dark:text-muted-foreground whitespace-nowrap">
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
                         Aceita msg?
                       </span>
                       <Switch
@@ -5000,7 +5000,7 @@ export default function NovoCliente({
                         <button
                           type="button"
                           onClick={() => setDueTime("23:59")}
-                          className="px-2 rounded-lg bg-black/30 text-[10px] font-medium text-muted-foreground dark:text-muted-foreground hover:bg-slate-300 dark:hover:bg-card/20 border border-border whitespace-nowrap"
+                          className="px-2 rounded-lg bg-black/30 text-[10px] font-medium text-muted-foreground hover:bg-slate-300 dark:hover:bg-card/20 border border-border whitespace-nowrap"
                           title="Fim do dia"
                         >
                           23:59
@@ -5063,12 +5063,12 @@ export default function NovoCliente({
 
                           {/* COLUNA DIREITA: WhatsApp Empilhado */}
 
-                          <div className="p-3 rounded-xl border border-border bg-card dark:bg-card/5 flex flex-col gap-3">
+                          <div className="p-3 rounded-xl border border-border bg-card/5 flex flex-col gap-3">
                             <div
                               onClick={() => setSendTrialWhats(!sendTrialWhats)}
                               className="h-10 px-3 rounded-lg border border-border bg-muted/50 cursor-pointer hover:bg-black/20 dark:hover:bg-card/10 transition-colors flex items-center justify-between gap-3 shrink-0"
                             >
-                              <span className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                              <span className="text-xs font-medium text-muted-foreground">
                                 Enviar msg teste?
                               </span>
 
@@ -5230,7 +5230,7 @@ export default function NovoCliente({
 
                           {/* LINHA 2: WhatsApp */}
 
-                          <div className="p-3 rounded-xl border border-border bg-card dark:bg-card/5">
+                          <div className="p-3 rounded-xl border border-border bg-card/5">
                             <div
                               className={`grid grid-cols-1 ${sendPaymentMsg ? "sm:grid-cols-2" : ""} gap-3 items-center`}
                             >
@@ -5240,7 +5240,7 @@ export default function NovoCliente({
                                 }
                                 className="h-10 px-3 rounded-lg border border-border bg-muted/50 cursor-pointer hover:bg-black/20 dark:hover:bg-card/10 transition-colors flex items-center justify-between gap-3"
                               >
-                                <span className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                                <span className="text-xs font-medium text-muted-foreground">
                                   Enviar msg pagto?
                                 </span>
 
@@ -5544,7 +5544,7 @@ export default function NovoCliente({
                                             "Nenhum link configurado para esta integração.",
                                           );
                                       }}
-                                      className="h-10 rounded-lg bg-black/20 border border-border text-muted-foreground dark:text-muted-foreground hover:bg-black/30 dark:hover:bg-card/20 transition-colors flex items-center justify-center gap-1.5"
+                                      className="h-10 rounded-lg bg-black/20 border border-border text-muted-foreground hover:bg-black/30 dark:hover:bg-card/20 transition-colors flex items-center justify-center gap-1.5"
                                       title="Abrir painel no navegador"
                                     >
                                       <svg
@@ -5795,7 +5795,7 @@ export default function NovoCliente({
                                                   }),
                                                 );
                                               }}
-                                              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/80 hover:text-muted-foreground dark:text-muted-foreground dark:hover:text-white/80 transition-colors"
+                                              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80 transition-colors"
                                               tabIndex={-1}
                                             >
                                               {isVisible ? (
@@ -6074,7 +6074,7 @@ export default function NovoCliente({
             <div className="flex gap-3 pt-2">
               <button
                 onClick={() => setConfirmModal(null)}
-                className="flex-1 h-12 rounded-xl border border-border text-muted-foreground dark:text-muted-foreground/80 font-medium text-sm hover:bg-muted/50 dark:hover:bg-card/5 transition-colors"
+                className="flex-1 h-12 rounded-xl border border-border text-muted-foreground/80 font-medium text-sm hover:bg-muted/50 dark:hover:bg-card/5 transition-colors"
               >
                 Voltar
               </button>

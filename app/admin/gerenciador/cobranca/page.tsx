@@ -395,7 +395,7 @@ function GlobalQueueMonitor({
             </p>
           </div>
         </div>
-        <button className="px-3 py-1.5 bg-slate-800 text-white border border-slate-700 rounded-lg text-xs font-medium uppercase hover:bg-slate-700 transition-colors">
+        <button className="px-3 py-1.5 bg-slate-800 text-foreground dark:text-white border border-slate-700 rounded-lg text-xs font-medium uppercase hover:bg-slate-700 transition-colors">
           Abrir
         </button>
       </div>
@@ -411,7 +411,7 @@ function GlobalQueueMonitor({
                 </h3>
                 <button
                   onClick={() => setShowModal(false)}
-                  className="text-gray-400 hover:text-muted-foreground"
+                  className="text-muted-foreground dark:text-gray-400 hover:text-muted-foreground"
                 >
                   ✕
                 </button>
@@ -459,7 +459,7 @@ function GlobalQueueMonitor({
                         </td>
 
                         {/* WHATSAPP */}
- <td className="p-4 text-xs text-muted-foreground dark:text-muted-foreground whitespace-nowrap">
+ <td className="p-4 text-xs text-muted-foreground whitespace-nowrap">
                           {job.whatsapp_username || "--"}
                         </td>
 
@@ -496,7 +496,7 @@ function GlobalQueueMonitor({
                         </td>
 
                         {/* ID */}
- <td className="p-4 text-right text-xs text-gray-400 whitespace-nowrap">
+ <td className="p-4 text-right text-xs text-muted-foreground dark:text-gray-400 whitespace-nowrap">
                           {job.id.slice(0, 8)}
                         </td>
                       </tr>
@@ -1310,11 +1310,11 @@ function AutomationCard({
 
       {/* Info do Disparo */}
       <div className="space-y-2 mb-4 bg-muted/50 p-3 rounded-lg border border-border">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground dark:text-muted-foreground">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span className="text-base">📅</span>
           <span className="font-medium">{getRuleText()}</span>
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground dark:text-muted-foreground">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span className="text-base">
             <MessageCircle className="w-4 h-4" />
           </span>
@@ -1326,7 +1326,7 @@ function AutomationCard({
           </span>
         </div>
         {data.is_automatic && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground dark:text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="text-base">⏰</span>
             <span>
               Envio às <strong>{data.schedule_time?.slice(0, 5)}</strong>
@@ -1334,7 +1334,7 @@ function AutomationCard({
           </div>
         )}
         {/* ✅ SESSÃO DO WHATSAPP COM STATUS E NÚMERO REAIS */}
-        <div className="flex items-center gap-2 text-xs text-muted-foreground dark:text-muted-foreground pt-2 mt-1 border-t border-border">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2 mt-1 border-t border-border">
           <span className="text-base">📱</span>
           <span className="truncate" title={sessionLabel}>
             Sessão:{" "}
@@ -1543,7 +1543,7 @@ function ImpactListModal({
           </div>
           <button
             onClick={onClose}
-            className="text-muted-foreground/80 hover:text-foreground dark:hover:text-white text-xl leading-none"
+            className="text-muted-foreground/80 hover:text-foreground dark:hover:text-foreground dark:text-white text-xl leading-none"
           >
             ✕
           </button>
@@ -1556,7 +1556,7 @@ function ImpactListModal({
             </div>
           ) : (
             <table className="w-full text-left border-collapse min-w-[700px]">
-              <thead className="bg-muted/50 sticky top-0 z-10 text-xs uppercase text-muted-foreground dark:text-muted-foreground font-medium">
+              <thead className="bg-muted/50 sticky top-0 z-10 text-xs uppercase text-muted-foreground font-medium">
                 <tr>
                   <th className="p-3">Cliente / Contato</th>
                   <th className="p-3">Acesso / Servidor</th>
@@ -1671,7 +1671,7 @@ function ImpactListModal({
         <div className="px-6 py-4 border-t border-border flex justify-end">
           <button
             onClick={onClose}
-            className="px-5 py-2.5 rounded-lg bg-slate-800 text-white font-medium text-xs uppercase hover:bg-slate-700 transition-colors shadow-md"
+            className="px-5 py-2.5 rounded-lg bg-slate-800 text-foreground dark:text-white font-medium text-xs uppercase hover:bg-slate-700 transition-colors shadow-md"
           >
             Fechar
           </button>
@@ -2123,7 +2123,7 @@ function AutomationWizard({
                                   : [...current, d.id],
                               });
                             }}
-                            className={`w-10 h-10 rounded-full font-medium text-xs transition-all border ${selected ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/30" : "bg-card dark:bg-card/5 border-border text-muted-foreground/80"}`}
+                            className={`w-10 h-10 rounded-full font-medium text-xs transition-all border ${selected ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/30" : "bg-card/5 border-border text-muted-foreground/80"}`}
                           >
                             {d.label}
                           </button>
@@ -2142,13 +2142,13 @@ function AutomationWizard({
             <>
               <button
                 onClick={onClose}
-                className="text-muted-foreground font-medium text-xs uppercase hover:text-foreground dark:hover:text-white"
+                className="text-muted-foreground font-medium text-xs uppercase hover:text-foreground dark:hover:text-foreground dark:text-white"
               >
                 Cancelar
               </button>
               <button
                 onClick={() => setStep(2)}
-                className="px-6 py-2.5 bg-slate-800 dark:bg-card dark:text-foreground text-white font-medium rounded-xl shadow-lg hover:brightness-110 transition-all text-xs uppercase"
+                className="px-6 py-2.5 bg-slate-800 dark:bg-card dark:text-foreground dark:text-white font-medium rounded-xl shadow-lg hover:brightness-110 transition-all text-xs uppercase"
               >
                 Próximo: Filtros →
               </button>
@@ -2158,13 +2158,13 @@ function AutomationWizard({
             <>
               <button
                 onClick={() => setStep(1)}
-                className="text-muted-foreground font-medium text-xs uppercase hover:text-foreground dark:hover:text-white"
+                className="text-muted-foreground font-medium text-xs uppercase hover:text-foreground dark:hover:text-foreground dark:text-white"
               >
                 ← Voltar
               </button>
               <button
                 onClick={() => setStep(3)}
-                className="px-6 py-2.5 bg-slate-800 dark:bg-card dark:text-foreground text-white font-medium rounded-xl shadow-lg hover:brightness-110 transition-all text-xs uppercase"
+                className="px-6 py-2.5 bg-slate-800 dark:bg-card dark:text-foreground dark:text-white font-medium rounded-xl shadow-lg hover:brightness-110 transition-all text-xs uppercase"
               >
                 Próximo: Automação →
               </button>
@@ -2174,7 +2174,7 @@ function AutomationWizard({
             <>
               <button
                 onClick={() => setStep(2)}
-                className="text-muted-foreground font-medium text-xs uppercase hover:text-foreground dark:hover:text-white"
+                className="text-muted-foreground font-medium text-xs uppercase hover:text-foreground dark:hover:text-foreground dark:text-white"
               >
                 ← Voltar
               </button>
@@ -2292,7 +2292,7 @@ function MultiSelectDropdown({ label, options, selected, onChange }: any) {
                   className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${selected.includes(opt.id) ? "bg-emerald-500 border-emerald-500" : "border-border"}`}
                 >
                   {selected.includes(opt.id) && (
-                    <span className="text-[10px] text-white">✓</span>
+                    <span className="text-[10px] text-foreground dark:text-white">✓</span>
                   )}
                 </div>
                 <span className="text-sm text-foreground/90">
@@ -2587,7 +2587,7 @@ function LogsModal({
           </div>
           <button
             onClick={onClose}
-            className="text-muted-foreground/80 hover:text-foreground dark:hover:text-white"
+            className="text-muted-foreground/80 hover:text-foreground dark:hover:text-foreground dark:text-white"
           >
             ✕
           </button>
@@ -2717,7 +2717,7 @@ function LogsModal({
           </div>
           <button
             onClick={onClose}
-            className="px-5 py-2 rounded-lg bg-slate-800 text-white font-medium text-xs uppercase"
+            className="px-5 py-2 rounded-lg bg-slate-800 text-foreground dark:text-white font-medium text-xs uppercase"
           >
             Fechar
           </button>

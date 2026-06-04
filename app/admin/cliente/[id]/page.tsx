@@ -57,7 +57,7 @@ function StatusBadge({ status }: { status: string }) {
       "bg-rose-500/10 text-rose-400 border-rose-500/20",
     TRIAL: "bg-sky-500/10 text-sky-400 border-sky-500/20",
     ARCHIVED:
-      "bg-muted/500/10 text-muted-foreground dark:text-muted-foreground border-slate-500/20",
+      "bg-muted/500/10 text-muted-foreground border-slate-500/20",
   };
   const labelMap: Record<string, string> = {
     ACTIVE: "Ativo",
@@ -837,7 +837,7 @@ export default function ClientDetailsPage() {
             <div className="space-y-3 text-sm">
               {/* BLOCO DE ACESSO (Sem bordas internas) */}
               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground font-medium">
                   Servidor
                 </span>
                 <span className="font-medium text-foreground text-right">
@@ -846,7 +846,7 @@ export default function ClientDetailsPage() {
               </div>
 
               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground font-medium">
                   Tecnologia
                 </span>
                 <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-card/5 text-muted-foreground border border-border uppercase">
@@ -878,7 +878,7 @@ export default function ClientDetailsPage() {
                           className="flex justify-between items-center"
                         >
                           <span
-                            className="text-muted-foreground dark:text-muted-foreground font-medium flex items-center gap-1.5"
+                            className="text-muted-foreground font-medium flex items-center gap-1.5"
                             title={label}
                           >
                             {app.icon_url ? (
@@ -893,7 +893,7 @@ export default function ClientDetailsPage() {
                             {label}
                           </span>
                           <span
-                            className={`text-xs text-right ${app.expiration ? (isExpiringSoon ? "text-rose-500 font-medium" : "text-muted-foreground dark:text-muted-foreground font-medium") : "text-muted-foreground/80 dark:text-white/30 italic"}`}
+                            className={`text-xs text-right ${app.expiration ? (isExpiringSoon ? "text-rose-500 font-medium" : "text-muted-foreground font-medium") : "text-muted-foreground/80 dark:text-white/30 italic"}`}
                           >
                             {app.expiration
                               ? `Vence: ${new Date(`${app.expiration}T12:00:00`).toLocaleDateString("pt-BR")}`
@@ -915,7 +915,7 @@ export default function ClientDetailsPage() {
 
               {/* BLOCO FINANCEIRO (Sem bordas internas) */}
               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground font-medium">
                   Tabela
                 </span>
                 <span className="font-medium text-foreground/90/90 tracking-tight text-right">
@@ -924,7 +924,7 @@ export default function ClientDetailsPage() {
               </div>
 
               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground font-medium">
                   Plano
                 </span>
                 <span className="font-medium text-emerald-400 tracking-tight">
@@ -933,7 +933,7 @@ export default function ClientDetailsPage() {
               </div>
 
               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground font-medium">
                   Telas
                 </span>
                 <span className="font-medium text-foreground">
@@ -942,7 +942,7 @@ export default function ClientDetailsPage() {
               </div>
 
               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground font-medium">
                   Valor
                 </span>
  <span className=" font-medium text-foreground bg-black/20 px-2 py-0.5 rounded-md">
@@ -953,7 +953,7 @@ export default function ClientDetailsPage() {
               {/* VENCIMENTO GERAL DESTACADO */}
               <div className="pt-2">
                 <div className="flex justify-between items-center bg-muted/50 p-3 rounded-lg border border-border mt-1">
-                  <span className="text-muted-foreground dark:text-muted-foreground font-medium text-[11px] uppercase tracking-tight">
+                  <span className="text-muted-foreground font-medium text-[11px] uppercase tracking-tight">
                     Vencimento
                   </span>
                   <div
@@ -980,7 +980,7 @@ export default function ClientDetailsPage() {
 
             <div className="space-y-3 text-sm">
               <div className="flex justify-between items-center pb-2 border-b border-border">
-                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground font-medium">
                   Data do Cadastro
                 </span>
  <span className=" text-foreground text-right">
@@ -991,7 +991,7 @@ export default function ClientDetailsPage() {
               </div>
 
               <div className="flex justify-between items-center pb-2 border-b border-border">
-                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground font-medium">
                   Nome do Cliente
                 </span>
                 <span className="font-medium text-foreground text-right">
@@ -1000,7 +1000,7 @@ export default function ClientDetailsPage() {
               </div>
 
               <div className="flex justify-between items-center pb-2 border-b border-border">
-                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground font-medium">
                   Telefone Principal
                 </span>
  <span className=" font-medium text-foreground text-right">
@@ -1010,7 +1010,7 @@ export default function ClientDetailsPage() {
 
               {/* WhatsApp Principal com Link */}
               <div className="flex justify-between items-center pb-2 border-b border-border">
-                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground font-medium">
                   WhatsApp Principal
                 </span>
                 {client.whatsapp_username ? (
@@ -1050,7 +1050,7 @@ export default function ClientDetailsPage() {
 
                   {client.secondary_display_name && (
                     <div className="flex justify-between items-center mb-1">
-                      <span className="text-xs text-muted-foreground dark:text-muted-foreground">
+                      <span className="text-xs text-muted-foreground">
                         Nome Secundário
                       </span>
                       <span className="text-xs font-medium text-foreground/90/90 text-right">
@@ -1061,7 +1061,7 @@ export default function ClientDetailsPage() {
 
                   {client.secondary_phone_e164 && (
                     <div className="flex justify-between items-center mb-1">
-                      <span className="text-xs text-muted-foreground dark:text-muted-foreground">
+                      <span className="text-xs text-muted-foreground">
                         WhatsApp Secundário
                       </span>
                       <a
@@ -1082,7 +1082,7 @@ export default function ClientDetailsPage() {
 
               {/* ✅ AJUSTE: Receber Msg? na mesma linha */}
               <div className="flex justify-between items-center py-1">
-                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground font-medium">
                   Receber Msg?
                 </span>
                 {client.whatsapp_opt_in ? (
@@ -1101,7 +1101,7 @@ export default function ClientDetailsPage() {
               {/* ✅ AJUSTE: Bloqueado Até na mesma linha */}
               {isMessageBlocked && (
                 <div className="flex justify-between items-center py-1">
-                  <span className="text-muted-foreground dark:text-muted-foreground font-medium">
+                  <span className="text-muted-foreground font-medium">
                     Bloqueado até
                   </span>
                   <span className="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-500/20 px-2 py-0.5 rounded text-right">

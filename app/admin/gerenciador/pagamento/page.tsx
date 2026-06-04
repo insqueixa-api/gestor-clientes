@@ -428,7 +428,7 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:text-foreground dark:hover:text-white hover:bg-black/30 dark:hover:bg-card/10 transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:text-foreground dark:hover:text-foreground dark:text-white hover:bg-black/30 dark:hover:bg-card/10 transition-colors"
           >
             <IconX />
           </button>
@@ -651,7 +651,7 @@ function GatewayModal({
           </div>
           <button
             onClick={onClose}
-            className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:text-foreground dark:hover:text-white hover:bg-black/30 dark:hover:bg-card/10 transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:text-foreground dark:hover:text-foreground dark:text-white hover:bg-black/30 dark:hover:bg-card/10 transition-colors"
           >
             <IconX />
           </button>
@@ -703,7 +703,7 @@ function GatewayModal({
                               {m.currencies.map((c) => (
                                 <span
                                   key={c}
-                                  className="gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-card/5 text-muted-foreground dark:text-muted-foreground border border-border"
+                                  className="gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-card/5 text-muted-foreground border border-border"
                                 >
                                   {c}
                                 </span>
@@ -841,7 +841,7 @@ function GatewayModal({
                                 [field.key]: !prev[field.key],
                               }))
                             }
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/80 hover:text-foreground/90 dark:hover:text-white text-xs"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/80 hover:text-foreground/90 dark:hover:text-foreground dark:text-white text-xs"
                             title={
                               showSecrets[field.key] ? "Ocultar" : "Mostrar"
                             }
@@ -998,7 +998,7 @@ function GatewayCard({
             </h3>
 
             <div className="flex flex-wrap gap-1.5 mt-1">
-              <span className="gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-black/20 text-muted-foreground dark:text-muted-foreground border border-border">
+              <span className="gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-black/20 text-muted-foreground border border-border">
                 {priorityLabel}
               </span>
 
@@ -1040,7 +1040,7 @@ function GatewayCard({
           {gateway.currency.map((c) => (
             <span
               key={c}
-              className="gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-card/5 text-muted-foreground dark:text-muted-foreground border border-border"
+              className="gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-muted/50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-card/5 text-muted-foreground border border-border"
             >
               {c}
             </span>
@@ -1067,7 +1067,7 @@ function GatewayCard({
                 <span className="text-muted-foreground/80 dark:text-muted-foreground font-medium truncate">
                   {field.label}:
                 </span>
- <span className="text-muted-foreground dark:text-muted-foreground truncate max-w-[55%]">
+ <span className="text-muted-foreground truncate max-w-[55%]">
                   {masked}
                 </span>
               </div>

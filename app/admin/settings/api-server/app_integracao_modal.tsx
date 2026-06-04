@@ -243,7 +243,7 @@ export default function AppIntegracaoModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Aplicativo */}
             <div className="sm:col-span-2">
-              <label className="block text-[10px] font-medium text-muted-foreground dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Aplicativo
               </label>
               <select
@@ -273,7 +273,7 @@ export default function AppIntegracaoModal({
 
             {/* Nome da Integração */}
             <div className="sm:col-span-2">
-              <label className="block text-[10px] font-medium text-muted-foreground dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Nome de identificação
               </label>
               <input
@@ -304,7 +304,7 @@ export default function AppIntegracaoModal({
 
             {/* URL da API */}
             <div className="sm:col-span-2">
-              <label className="block text-[10px] font-medium text-muted-foreground dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Link do Painel
               </label>
               <input
@@ -333,7 +333,7 @@ export default function AppIntegracaoModal({
             {/* Email de Login */}
             {!noCredentials && (
               <div className={needsPin ? "sm:col-span-1" : "sm:col-span-2"}>
-                <label className="block text-[10px] font-medium text-muted-foreground dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+                <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                   E-mail / Usuário
                 </label>
                 <input
@@ -352,7 +352,7 @@ export default function AppIntegracaoModal({
             {/* Senha */}
             {!noCredentials && (
               <div className={needsPin ? "sm:col-span-1" : "sm:col-span-2"}>
-                <label className="block text-[10px] font-medium text-muted-foreground dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+                <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                   Senha
                 </label>
                 <input
@@ -397,7 +397,7 @@ export default function AppIntegracaoModal({
                   <div className="text-sm font-medium text-foreground/90">
                     Integração Ativa
                   </div>
-                  <div className="text-[10px] text-muted-foreground dark:text-muted-foreground mt-0.5">
+                  <div className="text-[10px] text-muted-foreground mt-0.5">
                     Se desativar, não será acionada nos clientes.
                   </div>
                 </div>
@@ -423,7 +423,7 @@ export default function AppIntegracaoModal({
         <div className="px-6 py-4 border-t border-border bg-muted/50 flex items-center justify-end gap-3 shrink-0">
           <button
             onClick={onCloseAction}
-            className="h-10 px-5 rounded-xl text-muted-foreground dark:text-muted-foreground text-sm font-medium hover:bg-black/30 dark:hover:bg-card/10 transition-colors"
+            className="h-10 px-5 rounded-xl text-muted-foreground text-sm font-medium hover:bg-black/30 dark:hover:bg-card/10 transition-colors"
             type="button"
             disabled={saving}
           >
@@ -431,7 +431,7 @@ export default function AppIntegracaoModal({
           </button>
           <button
             onClick={handleSave}
-            className={`h-10 px-6 rounded-xl text-sm font-medium text-white transition-all transform active:scale-95 flex items-center gap-2 ${
+            className={`h-10 px-6 rounded-xl text-sm font-medium text-foreground dark:text-white transition-all transform active:scale-95 flex items-center gap-2 ${
               canSave
                 ? "bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-600/20"
                 : "bg-slate-300 dark:bg-card/10 cursor-not-allowed opacity-70"

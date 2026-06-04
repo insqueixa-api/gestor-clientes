@@ -158,7 +158,7 @@ export function RankingCard({
               className={`px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider rounded-md transition-all ${
                 view === "previsto"
                   ? "bg-card dark:bg-zinc-800 text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground/90 dark:hover:text-zinc-300"
+                  : "text-muted-foreground hover:text-foreground/90 dark:hover:text-muted-foreground dark:text-zinc-300"
               }`}
             >
               Previsto
@@ -168,7 +168,7 @@ export function RankingCard({
               className={`px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider rounded-md transition-all ${
                 view === "executado"
                   ? "bg-card dark:bg-zinc-800 text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground/90 dark:hover:text-zinc-300"
+                  : "text-muted-foreground hover:text-foreground/90 dark:hover:text-muted-foreground dark:text-zinc-300"
               }`}
             >
               Executado

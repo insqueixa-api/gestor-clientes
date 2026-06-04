@@ -66,7 +66,7 @@ function BrandUser({
   logoUrl?: string | null;
 }) {
   return (
-    <div className="flex items-center gap-3 min-w-0 text-white cursor-pointer group">
+    <div className="flex items-center gap-3 min-w-0 text-foreground dark:text-white cursor-pointer group">
       {logoUrl ? (
         <img
           src={logoUrl}
@@ -100,7 +100,7 @@ function BrandUser({
         <div className="text-[10px] uppercase tracking-wider text-white/40 font-medium leading-none mb-0.5 group-hover:text-white/60 transition-colors">
           Logado como
         </div>
-        <div className="text-xs font-medium text-white truncate max-w-50 sm:max-w-66 tracking-tight group-hover:text-emerald-400 transition-colors uppercase">
+        <div className="text-xs font-medium text-foreground dark:text-white truncate max-w-50 sm:max-w-66 tracking-tight group-hover:text-emerald-400 transition-colors uppercase">
           {userLabel}
         </div>
       </div>
@@ -560,7 +560,7 @@ export default function AdminShell({
 
   return (
     <div className="min-h-screen bg-background text-foreground transition-colors duration-200">
-      <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
+      <div className="sticky top-0 z-50 bg-[#050505] text-foreground dark:text-white border-b border-white/10 shadow-lg">
         <div className="mx-auto flex w-full items-center gap-2 px-3 sm:px-4 py-2">
           <div className="flex items-center gap-4">
             <Link
@@ -615,7 +615,7 @@ export default function AdminShell({
                     "rounded-lg px-3 py-2 text-sm transition-all duration-200 font-medium flex items-center gap-2 tracking-tight",
                     openMenu === "mobile"
                       ? "bg-card/15 text-emerald-400"
-                      : "text-white/70 hover:text-white hover:bg-card/5",
+                      : "text-white/70 hover:text-foreground dark:text-white hover:bg-card/5",
                   ].join(" ")}
                 >
                   <span className="text-base leading-none">☰</span> Menu{" "}
@@ -684,7 +684,7 @@ export default function AdminShell({
                     "rounded-lg px-3 py-2 text-sm transition-all duration-200 font-medium flex items-center gap-2 tracking-tight",
                     managerActive
                       ? "bg-card/15 text-emerald-400"
-                      : "text-white/70 hover:text-white hover:bg-card/5",
+                      : "text-white/70 hover:text-foreground dark:text-white hover:bg-card/5",
                   ].join(" ")}
                 >
                   <span className="flex items-center gap-1.5">
@@ -708,7 +708,7 @@ export default function AdminShell({
                     "rounded-lg px-3 py-2 text-sm transition-all duration-200 font-medium flex items-center gap-2 tracking-tight",
                     settingsActive
                       ? "bg-card/15 text-emerald-400"
-                      : "text-white/70 hover:text-white hover:bg-card/5",
+                      : "text-white/70 hover:text-foreground dark:text-white hover:bg-card/5",
                   ].join(" ")}
                 >
                   <span className="flex items-center gap-1.5">
@@ -1090,7 +1090,7 @@ export default function AdminShell({
                           {renderBold(n.title)}
                         </p>
                       </div>
-                      <p className="text-muted-foreground dark:text-muted-foreground text-xs mt-1 leading-relaxed line-clamp-2">
+                      <p className="text-muted-foreground text-xs mt-1 leading-relaxed line-clamp-2">
                         {n.message}
                       </p>
                     </div>
@@ -1326,7 +1326,7 @@ function NavLink({ href, label }: { href: string; label: React.ReactNode }) {
         "rounded-lg px-3 py-2 text-sm transition-all duration-200 inline-flex items-center font-medium tracking-tight",
         active
           ? "bg-card/15 text-emerald-400 shadow-sm"
-          : "text-white/70 hover:text-white hover:bg-card/5",
+          : "text-white/70 hover:text-foreground dark:text-white hover:bg-card/5",
       ].join(" ")}
     >
       {label}
@@ -1353,7 +1353,7 @@ function MenuLink({
         "block rounded-lg px-3 py-2.5 text-sm transition-all font-medium tracking-tight",
         isActive
           ? "bg-emerald-500/10 text-emerald-400"
-          : "text-muted-foreground dark:text-muted-foreground/80 hover:text-foreground dark:hover:text-white hover:bg-muted/50 dark:hover:bg-card/5",
+          : "text-muted-foreground/80 hover:text-foreground dark:hover:text-foreground dark:text-white hover:bg-muted/50 dark:hover:bg-card/5",
       ].join(" ")}
     >
       {label}

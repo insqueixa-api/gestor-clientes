@@ -574,7 +574,7 @@ export default function ServerDetailsPage() {
             </span>
           </div>
 
-          <div className="text-muted-foreground dark:text-muted-foreground mt-1 text-xs flex items-center justify-start gap-2 font-medium">
+          <div className="text-muted-foreground mt-1 text-xs flex items-center justify-start gap-2 font-medium">
             <Link
               href="/admin/gerenciador/servidor"
               className="hover:text-emerald-500 transition-colors"
@@ -593,7 +593,7 @@ export default function ServerDetailsPage() {
           <div className="flex items-center bg-black/20 rounded-lg p-1 border border-border shadow-sm w-full md:w-auto"></div>
           <button
             onClick={handlePrevMonth}
-            className="p-2 hover:bg-card dark:hover:bg-card/10 rounded-md text-muted-foreground dark:text-muted-foreground transition-all active:scale-95"
+            className="p-2 hover:bg-card dark:hover:bg-card/10 rounded-md text-muted-foreground transition-all active:scale-95"
           >
             <svg
               className="w-4 h-4"
@@ -614,7 +614,7 @@ export default function ServerDetailsPage() {
           </span>
           <button
             onClick={handleNextMonth}
-            className="p-2 hover:bg-card dark:hover:bg-card/10 rounded-md text-muted-foreground dark:text-muted-foreground transition-all active:scale-95"
+            className="p-2 hover:bg-card dark:hover:bg-card/10 rounded-md text-muted-foreground transition-all active:scale-95"
           >
             <svg
               className="w-4 h-4"
@@ -635,7 +635,7 @@ export default function ServerDetailsPage() {
         <div className="flex gap-3 w-full md:w-auto justify-end">
           <Link
             href="/admin/gerenciador/servidor"
-            className="h-10 px-4 rounded-lg border border-border text-muted-foreground dark:text-muted-foreground hover:bg-muted/50 dark:hover:bg-card/10 text-sm font-medium transition-all shadow-sm inline-flex items-center justify-center"
+            className="h-10 px-4 rounded-lg border border-border text-muted-foreground hover:bg-muted/50 dark:hover:bg-card/10 text-sm font-medium transition-all shadow-sm inline-flex items-center justify-center"
           >
             Voltar
           </Link>
@@ -807,7 +807,7 @@ export default function ServerDetailsPage() {
 
           <div className="overflow-x-auto max-h-[400px]">
             <table className="w-full text-sm text-left relative border-collapse">
-              <thead className="bg-muted/50 text-muted-foreground dark:text-muted-foreground border-b border-border sticky top-0 z-10 backdrop-blur-md">
+              <thead className="bg-muted/50 text-muted-foreground border-b border-border sticky top-0 z-10 backdrop-blur-md">
                 <tr>
                   <th className="px-5 py-3 font-medium text-[11px] uppercase tracking-wider">
                     Data

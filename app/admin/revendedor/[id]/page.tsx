@@ -493,7 +493,7 @@ export default function ResellerDetailPage() {
             <span
               className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase ${
                 reseller.is_archived
-                  ? "bg-muted/500/10 text-muted-foreground dark:text-muted-foreground border-slate-500/20"
+                  ? "bg-muted/500/10 text-muted-foreground border-slate-500/20"
                   : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
               }`}
             >
@@ -540,7 +540,7 @@ export default function ResellerDetailPage() {
             </h3>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between items-center pb-2 border-b border-border">
-                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground font-medium">
                   Desde
                 </span>
                 <span className="font-medium text-foreground/90/90 text-right">
@@ -548,7 +548,7 @@ export default function ResellerDetailPage() {
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground font-medium">
                   Servidores
                 </span>
                 <span className="font-medium text-foreground">
@@ -558,7 +558,7 @@ export default function ResellerDetailPage() {
 
               {/* TOTAL INVESTIDO */}
               <div className="pt-4 mt-2 border-t border-border flex justify-between items-center bg-muted/50 p-3 rounded-lg">
-                <span className="text-muted-foreground dark:text-muted-foreground font-medium text-[11px] uppercase tracking-tight">
+                <span className="text-muted-foreground font-medium text-[11px] uppercase tracking-tight">
                   Total Investido
                 </span>
  <div className="text-right font-medium text-base text-emerald-400">
@@ -576,7 +576,7 @@ export default function ResellerDetailPage() {
             <div className="space-y-3 text-sm">
               {/* Email */}
               <div className="flex justify-between items-center pb-2 border-b border-border">
-                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground font-medium">
                   Email
                 </span>
                 <span
@@ -589,7 +589,7 @@ export default function ResellerDetailPage() {
 
               {/* WhatsApp Display */}
               <div className="flex justify-between items-center pb-2 border-b border-border">
-                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground font-medium">
                   Telefone
                 </span>
  <span className=" font-medium text-foreground text-right">
@@ -599,7 +599,7 @@ export default function ResellerDetailPage() {
 
               {/* WhatsApp Link */}
               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground dark:text-muted-foreground font-medium">
+                <span className="text-muted-foreground font-medium">
                   WhatsApp
                 </span>
                 {reseller.whatsapp_username ? (

@@ -379,7 +379,7 @@ export default function ApiServerPage() {
             className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wider transition-all ${
               activeTab === tab
                 ? "bg-emerald-600 text-white shadow"
-                : "text-muted-foreground dark:text-muted-foreground hover:text-foreground/90 dark:hover:text-white"
+                : "text-muted-foreground hover:text-foreground/90 dark:hover:text-foreground dark:text-white"
             }`}
           >
             {tab === "servidores"

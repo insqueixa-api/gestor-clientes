@@ -1125,7 +1125,7 @@ export default function TrialsPage() {
               e.stopPropagation();
               setShowPapaTestes(true);
             }}
-            className="hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-medium border transition-colors items-center justify-center gap-1.5 bg-card dark:bg-card/5 border-border text-muted-foreground dark:text-white/60 hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-400 hover:border-violet-200 dark:hover:border-violet-500/30"
+            className="hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-medium border transition-colors items-center justify-center gap-1.5 bg-card/5 border-border text-muted-foreground dark:text-white/60 hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-400 hover:border-violet-200 dark:hover:border-violet-500/30"
           >
             🕵️ Papa Testes
           </button>
@@ -1138,7 +1138,7 @@ export default function TrialsPage() {
             className={`hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-medium border transition-colors items-center justify-center ${
               archivedFilter === "Sim"
                 ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-                : "bg-card dark:bg-card/5 border-border text-muted-foreground dark:text-white/60"
+                : "bg-card/5 border-border text-muted-foreground dark:text-white/60"
             }`}
           >
             {archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
@@ -1192,7 +1192,7 @@ export default function TrialsPage() {
               serverFilter !== "Todos" ||
               archivedFilter === "Sim"
                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                : "border-border bg-card dark:bg-card/5 text-muted-foreground dark:text-muted-foreground hover:bg-muted/50 dark:hover:bg-card/10"
+                : "border-border bg-card/5 text-muted-foreground hover:bg-muted/50 dark:hover:bg-card/10"
             }`}
             title="Filtros"
           >
@@ -1314,7 +1314,7 @@ export default function TrialsPage() {
               className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-colors flex items-center justify-between ${
                 archivedFilter === "Sim"
                   ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-                  : "bg-card dark:bg-card/5 border-border text-muted-foreground dark:text-muted-foreground"
+                  : "bg-card/5 border-border text-muted-foreground"
               }`}
               title="Filtrar Lixeira"
             >
@@ -1446,7 +1446,7 @@ export default function TrialsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[980px]">
               <thead>
-                <tr className="border-b border-border text-xs font-medium uppercase text-muted-foreground dark:text-muted-foreground">
+                <tr className="border-b border-border text-xs font-medium uppercase text-muted-foreground">
                   <ThSort
                     label="Teste"
                     active={sortKey === "name"}
@@ -1625,7 +1625,7 @@ export default function TrialsPage() {
                       </Td>
 
                       <Td>
-                        <span className="text-muted-foreground dark:text-muted-foreground">
+                        <span className="text-muted-foreground">
                           {r.server}
                         </span>
                       </Td>
@@ -1907,7 +1907,7 @@ export default function TrialsPage() {
                     className="p-3 rounded-xl border border-border bg-muted/50"
                   >
                     <div className="flex items-center justify-between gap-2 mb-2">
-                      <div className="text-xs font-extrabold text-muted-foreground dark:text-muted-foreground flex items-center gap-2">
+                      <div className="text-xs font-extrabold text-muted-foreground flex items-center gap-2">
                         <IconClock />
                         <span>
                           {new Date(s.send_at).toLocaleString("pt-BR")}
@@ -1968,7 +1968,7 @@ export default function TrialsPage() {
                     trialName: undefined,
                   })
                 }
-                className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-muted-foreground hover:bg-black/30 dark:hover:bg-card/5 font-semibold text-sm transition-colors"
+                className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-black/30 dark:hover:bg-card/5 font-semibold text-sm transition-colors"
               >
                 Fechar
               </button>
@@ -2423,7 +2423,7 @@ function MenuItem({
   return (
     <button
       onClick={onClick}
-      className="w-full px-4 py-2 flex items-center gap-3 text-foreground/90/80 hover:bg-black/20 dark:hover:bg-card/5 hover:text-emerald-400 dark:hover:text-white transition-colors text-left text-sm font-medium"
+      className="w-full px-4 py-2 flex items-center gap-3 text-foreground/90/80 hover:bg-black/20 dark:hover:bg-card/5 hover:text-emerald-400 dark:hover:text-foreground dark:text-white transition-colors text-left text-sm font-medium"
     >
       <span className="opacity-70">{icon}</span>
       {label}
@@ -2736,7 +2736,7 @@ function PapaTestesModal({
                           {new Date(r.created_at).toLocaleDateString("pt-BR")}
                         </span>
                         {r.server_name && (
-                          <span className="text-xs text-muted-foreground dark:text-muted-foreground truncate">
+                          <span className="text-xs text-muted-foreground truncate">
                             {r.server_name}
                           </span>
                         )}

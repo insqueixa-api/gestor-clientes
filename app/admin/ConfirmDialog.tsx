@@ -160,7 +160,7 @@ export default function ConfirmDialog({
             <button
               onClick={onCancel}
               disabled={loading}
-              className="flex-1 py-3 rounded-xl border border-border text-muted-foreground dark:text-muted-foreground/80 font-medium text-sm hover:bg-muted/50 dark:hover:bg-card/5 transition-colors disabled:opacity-60"
+              className="flex-1 py-3 rounded-xl border border-border text-muted-foreground/80 font-medium text-sm hover:bg-muted/50 dark:hover:bg-card/5 transition-colors disabled:opacity-60"
             >
               {cancelText}
             </button>
@@ -168,7 +168,7 @@ export default function ConfirmDialog({
           <button
             onClick={onConfirm}
             disabled={loading}
-            className={`flex-1 py-3 rounded-xl ${t.confirm} text-white font-medium text-sm shadow-lg ${t.ring} transition-all transform active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed`}
+            className={`flex-1 py-3 rounded-xl ${t.confirm} text-foreground dark:text-white font-medium text-sm shadow-lg ${t.ring} transition-all transform active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed`}
           >
             {loading ? "Confirmando..." : confirmText}
           </button>

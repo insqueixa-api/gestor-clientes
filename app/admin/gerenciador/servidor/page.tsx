@@ -491,7 +491,7 @@ export default function AdminServersPage() {
           key={idx}
           className="flex items-center justify-between bg-card dark:bg-black/20 p-2.5 rounded-lg border border-border mb-1.5 shadow-sm"
         >
-          <span className="font-mono text-xs text-muted-foreground dark:text-muted-foreground truncate mr-2 select-all">
+          <span className="font-mono text-xs text-muted-foreground truncate mr-2 select-all">
             {dns}
           </span>
           <button
@@ -631,7 +631,7 @@ export default function AdminServersPage() {
             className={`h-10 px-3 rounded-lg text-xs font-medium border transition-colors items-center justify-center ${
               showArchived
                 ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-                : "bg-card dark:bg-card/5 border-border text-muted-foreground dark:text-white/60"
+                : "bg-card/5 border-border text-muted-foreground dark:text-white/60"
             }`}
           >
             {showArchived ? "Ocultar Lixeira" : "Ver Lixeira"}

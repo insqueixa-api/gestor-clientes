@@ -1571,7 +1571,7 @@ function AgendaPageContent() {
                         <button
                           key={lbl}
                           onClick={() => handleMassAssignGroup(lbl)}
-                          className="text-[11px] px-2 py-0.5 rounded font-medium bg-black/20 text-muted-foreground dark:text-muted-foreground border border-border hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-colors"
+                          className="text-[11px] px-2 py-0.5 rounded font-medium bg-black/20 text-muted-foreground border border-border hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-colors"
                         >
                           {lbl}
                         </button>
@@ -1856,7 +1856,7 @@ function AgendaPageContent() {
             {totalPages > 1 && (
               <div className="flex items-center justify-between px-4 py-3 border-t border-border">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground dark:text-muted-foreground">
+                  <span className="text-xs text-muted-foreground">
                     {(safePage - 1) * pageSize + 1}–
                     {Math.min(safePage * pageSize, sorted.length)} de{" "}
                     {sorted.length}
@@ -1992,7 +1992,7 @@ function AgendaPageContent() {
                 onClick={() =>
                   setShowSendNow({ open: false, contactId: null, phone: null })
                 }
-                className="px-4 py-2 rounded-lg text-muted-foreground dark:text-muted-foreground text-sm font-medium"
+                className="px-4 py-2 rounded-lg text-muted-foreground text-sm font-medium"
               >
                 Cancelar
               </button>
@@ -2038,18 +2038,18 @@ function AgendaPageContent() {
                   className="w-24 h-24 rounded-full object-cover border-2 border-border dark:border-white/20 group-hover:opacity-50 transition-opacity"
                 />
               ) : (
-                <div className="w-24 h-24 rounded-full bg-black/30 flex items-center justify-center font-medium text-muted-foreground dark:text-muted-foreground text-2xl group-hover:opacity-50 transition-opacity">
+                <div className="w-24 h-24 rounded-full bg-black/30 flex items-center justify-center font-medium text-muted-foreground text-2xl group-hover:opacity-50 transition-opacity">
                   {editForm.display_name?.charAt(0) || "?"}
                 </div>
               )}
-              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white drop-shadow-md text-sm font-medium">
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-foreground dark:text-white drop-shadow-md text-sm font-medium">
                 📸 Alterar
               </div>
             </div>
 
             {/* Nome */}
             <div>
-              <label className="block text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1">
+              <label className="block text-xs font-medium text-muted-foreground mb-1">
                 Nome Completo
               </label>
               <input
@@ -2066,7 +2066,7 @@ function AgendaPageContent() {
             {/* ── TELEFONES ── */}
             <div>
               <div className="flex items-center justify-between mb-3">
-                <label className="block text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                <label className="block text-xs font-medium text-muted-foreground">
                   Telefones
                 </label>
                 <button
@@ -2317,7 +2317,7 @@ function AgendaPageContent() {
             {/* ── EMAILS ── */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                <label className="block text-xs font-medium text-muted-foreground">
                   E-mails
                 </label>
                 <button
@@ -2397,7 +2397,7 @@ function AgendaPageContent() {
 
             {/* ── GRUPOS ── */}
             <div>
-              <label className="block text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1.5">
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                 Grupos / Marcadores (Google)
               </label>
               <input
@@ -2444,7 +2444,7 @@ function AgendaPageContent() {
             <div className="flex justify-end gap-3 pt-4 border-t border-border">
               <button
                 onClick={() => setEditModal({ open: false, contact: null })}
-                className="px-4 py-2 rounded-lg text-muted-foreground dark:text-muted-foreground text-sm font-medium"
+                className="px-4 py-2 rounded-lg text-muted-foreground text-sm font-medium"
               >
                 Cancelar
               </button>
@@ -2467,7 +2467,7 @@ function AgendaPageContent() {
           onClose={() => setDeleteModal({ open: false, contact: null })}
         >
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground dark:text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               Você está prestes a excluir o contato{" "}
               <strong>{deleteModal.contact.display_name}</strong>.
             </p>
@@ -2485,7 +2485,7 @@ function AgendaPageContent() {
             <div className="flex justify-end gap-3 pt-4">
               <button
                 onClick={() => setDeleteModal({ open: false, contact: null })}
-                className="px-4 py-2 rounded-lg text-muted-foreground dark:text-muted-foreground text-sm font-medium"
+                className="px-4 py-2 rounded-lg text-muted-foreground text-sm font-medium"
               >
                 Cancelar
               </button>

@@ -124,7 +124,7 @@ function toBRMoneyInput(n: number) {
 // --- COMPONENTES VISUAIS PADRONIZADOS ---
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1.5 tracking-tight">
+    <label className="block text-xs font-medium text-muted-foreground mb-1.5 tracking-tight">
       {children}
     </label>
   );
@@ -691,7 +691,7 @@ export default function QuickRechargeModal({
             <h2 className="text-lg font-medium text-foreground tracking-tight">
               Recarga rápida
             </h2>
-            <div className="text-xs text-muted-foreground dark:text-muted-foreground mt-0.5 font-medium">
+            <div className="text-xs text-muted-foreground mt-0.5 font-medium">
               {resellerName}
             </div>
           </div>
@@ -871,7 +871,7 @@ export default function QuickRechargeModal({
                     onChange={setSendWhats}
                     label=""
                   />
-                  <span className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                  <span className="text-xs font-medium text-muted-foreground">
                     Enviar comprovante?
                   </span>
                 </div>
@@ -884,7 +884,7 @@ export default function QuickRechargeModal({
                       <Select
                         value={selectedSession}
                         onChange={(e) => setSelectedSession(e.target.value)}
-                        className="h-9 w-full text-xs font-semibold text-muted-foreground dark:text-muted-foreground"
+                        className="h-9 w-full text-xs font-semibold text-muted-foreground"
                       >
                         {sessionOptions.map((s) => (
                           <option key={s.id} value={s.id}>
@@ -904,7 +904,7 @@ export default function QuickRechargeModal({
                           const tpl = templates.find((t) => t.id === id);
                           if (tpl) setMessageContent(tpl.content);
                         }}
-                        className="h-9 w-full text-xs font-semibold text-muted-foreground dark:text-muted-foreground"
+                        className="h-9 w-full text-xs font-semibold text-muted-foreground"
                       >
                         <option value="">-- Personalizado --</option>
                         {templates
@@ -937,7 +937,7 @@ export default function QuickRechargeModal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-muted-foreground hover:bg-black/20 dark:hover:bg-card/5 transition-colors"
+                  className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-black/20 dark:hover:bg-card/5 transition-colors"
                 >
                   Cancelar
                 </button>

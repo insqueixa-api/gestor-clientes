@@ -142,7 +142,7 @@ function IconWa() {
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1.5 tracking-tight">
+    <label className="block text-xs font-medium text-muted-foreground mb-1.5 tracking-tight">
       {children}
     </label>
   );
@@ -645,7 +645,7 @@ export default function ResellerFormModal({
             <div>
               <Label>Telefone principal</Label>
               <div className="flex gap-2">
-                <div className="h-10 px-3 bg-black/20 border border-border rounded-lg flex items-center text-xs text-muted-foreground dark:text-muted-foreground/80 whitespace-nowrap font-medium min-w-[120px]">
+                <div className="h-10 px-3 bg-black/20 border border-border rounded-lg flex items-center text-xs text-muted-foreground/80 whitespace-nowrap font-medium min-w-[120px]">
                   {primaryCountryLabel}
                 </div>
 

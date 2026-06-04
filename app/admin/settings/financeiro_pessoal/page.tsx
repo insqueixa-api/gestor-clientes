@@ -305,7 +305,7 @@ function ModalDatePicker({
             <div className="flex items-center justify-between bg-muted/50 border border-border rounded-lg p-1">
               <button
                 onClick={() => setAno((a) => a - 1)}
-                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground dark:hover:text-white hover:bg-card dark:hover:bg-card/10 transition-colors"
+                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white hover:bg-card dark:hover:bg-card/10 transition-colors"
               >
                 <IconChevronLeft />
               </button>
@@ -314,7 +314,7 @@ function ModalDatePicker({
               </span>
               <button
                 onClick={() => setAno((a) => a + 1)}
-                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground dark:hover:text-white hover:bg-card dark:hover:bg-card/10 transition-colors"
+                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white hover:bg-card dark:hover:bg-card/10 transition-colors"
               >
                 <IconChevronRight />
               </button>
@@ -351,7 +351,7 @@ function ModalDatePicker({
                         ? "bg-emerald-600 text-white shadow-md shadow-emerald-900/20"
                         : isCurrentMonth
                           ? "border border-emerald-300 dark:border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/10"
-                          : "text-muted-foreground dark:text-muted-foreground hover:bg-black/20 dark:hover:bg-card/5"
+                          : "text-muted-foreground hover:bg-black/20 dark:hover:bg-card/5"
                     }`}
                   >
                     {mes.slice(0, 3)}
@@ -430,7 +430,7 @@ function ModalDayPicker({
           <div className="flex items-center justify-between bg-muted/50 border border-border rounded-lg p-1">
             <button
               onClick={() => setViewDate(new Date(ano, mes - 1, 1))}
-              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground dark:hover:text-white hover:bg-card dark:hover:bg-card/10 transition-colors"
+              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white hover:bg-card dark:hover:bg-card/10 transition-colors"
             >
               <IconChevronLeft />
             </button>
@@ -442,7 +442,7 @@ function ModalDayPicker({
             </button>
             <button
               onClick={() => setViewDate(new Date(ano, mes + 1, 1))}
-              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground dark:hover:text-white hover:bg-card dark:hover:bg-card/10 transition-colors"
+              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white hover:bg-card dark:hover:bg-card/10 transition-colors"
             >
               <IconChevronRight />
             </button>
@@ -479,7 +479,7 @@ function ModalDayPicker({
                         ? "bg-emerald-600 text-white shadow-md shadow-emerald-900/20"
                         : isToday
                           ? "border border-emerald-300 dark:border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/10"
-                          : "text-muted-foreground dark:text-muted-foreground hover:bg-black/20 dark:hover:bg-card/5"
+                          : "text-muted-foreground hover:bg-black/20 dark:hover:bg-card/5"
                     }`}
                   >
                     {dia}
@@ -1173,16 +1173,16 @@ function FinanceiroPageContent() {
         <div className="flex items-center gap-2 justify-end shrink-0">
           <button
             onClick={() => setShowMobileCards(!showMobileCards)}
-            className="md:hidden text-[11px] font-medium text-muted-foreground bg-black/20 px-2 py-1 rounded-md dark:bg-card/10 dark:border dark:border-white/5 hover:text-white dark:text-muted-foreground transition-colors mr-2"
+            className="md:hidden text-[11px] font-medium text-muted-foreground bg-black/20 px-2 py-1 rounded-md dark:bg-card/10 dark:border dark:border-white/5 hover:text-foreground dark:text-white dark:text-muted-foreground transition-colors mr-2"
           >
             {showMobileCards ? "Ocultar Valores" : "Exibir Valores"}
           </button>
           {/* Botões do Calendário */}
         <div className="flex items-center w-full md:w-auto gap-2">
-          <div className="flex items-center flex-1 md:flex-none justify-between bg-card dark:bg-card/5 border border-border rounded-lg shadow-sm">
+          <div className="flex items-center flex-1 md:flex-none justify-between bg-card/5 border border-border rounded-lg shadow-sm">
             <button
               onClick={handlePrevMonth}
-              className="p-2 text-muted-foreground hover:text-foreground dark:hover:text-white transition-colors"
+              className="p-2 text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white transition-colors"
             >
               <IconChevronLeft />
             </button>
@@ -1194,14 +1194,14 @@ function FinanceiroPageContent() {
             </button>
             <button
               onClick={handleNextMonth}
-              className="p-2 text-muted-foreground hover:text-foreground dark:hover:text-white transition-colors"
+              className="p-2 text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white transition-colors"
             >
               <IconChevronRight />
             </button>
           </div>
           <button
             onClick={handleToday}
-            className="h-10 px-4 rounded-lg border border-border text-xs font-medium text-muted-foreground dark:text-muted-foreground hover:bg-muted/50 dark:hover:bg-card/10 transition-colors shrink-0"
+            className="h-10 px-4 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-muted/50 dark:hover:bg-card/10 transition-colors shrink-0"
           >
             Hoje
           </button>
@@ -1483,7 +1483,7 @@ function FinanceiroPageContent() {
       <div className="bg-card border-y sm:border border-border rounded-none sm:rounded-xl shadow-sm overflow-x-auto">
         <table className="w-full text-left border-collapse min-w-[1000px]">
           <thead>
-            <tr className="border-b border-border text-xs font-medium uppercase text-muted-foreground dark:text-muted-foreground select-none">
+            <tr className="border-b border-border text-xs font-medium uppercase text-muted-foreground select-none">
               <th
                 className="px-4 py-3 whitespace-nowrap cursor-pointer hover:text-emerald-400 dark:hover:text-emerald-400 transition-colors"
                 onClick={() => requestSort("descricao")}
@@ -3371,13 +3371,13 @@ function ModalTransacao({
           <div className="flex p-1 bg-black/20 rounded-lg border border-border">
             <button
               onClick={() => setTipo("DESPESA")}
-              className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${tipo === "DESPESA" ? "bg-card text-rose-400 shadow-sm" : "text-muted-foreground dark:text-muted-foreground hover:text-foreground/90 dark:hover:text-white/80"}`}
+              className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${tipo === "DESPESA" ? "bg-card text-rose-400 shadow-sm" : "text-muted-foreground hover:text-foreground/90 dark:hover:text-white/80"}`}
             >
               📉 Despesa
             </button>
             <button
               onClick={() => setTipo("RECEITA")}
-              className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${tipo === "RECEITA" ? "bg-card text-emerald-400 shadow-sm" : "text-muted-foreground dark:text-muted-foreground hover:text-foreground/90 dark:hover:text-white/80"}`}
+              className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${tipo === "RECEITA" ? "bg-card text-emerald-400 shadow-sm" : "text-muted-foreground hover:text-foreground/90 dark:hover:text-white/80"}`}
             >
               📈 Receita
             </button>
@@ -3689,7 +3689,7 @@ function ModalTransacao({
 
               {tipoRecorrencia === "PARCELADA" && (
                 <div className="flex items-center gap-3 animate-in fade-in zoom-in-95">
-                  <span className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                  <span className="text-xs font-medium text-muted-foreground">
                     Qtd de Parcelas:
                   </span>
                   <input
@@ -3705,7 +3705,7 @@ function ModalTransacao({
 
               {tipoRecorrencia === "RECORRENTE" && (
                 <div className="flex items-center gap-3 animate-in fade-in zoom-in-95">
-                  <span className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                  <span className="text-xs font-medium text-muted-foreground">
                     Repetir a cada:
                   </span>
                   <select
@@ -4129,7 +4129,7 @@ function ModalBaixa({
           <button
             onClick={handleSave}
             disabled={salvando}
-            className={`flex-1 py-2.5 rounded-lg text-white text-sm font-medium shadow-lg transition-all disabled:opacity-50 ${btnColor}`}
+            className={`flex-1 py-2.5 rounded-lg text-foreground dark:text-white text-sm font-medium shadow-lg transition-all disabled:opacity-50 ${btnColor}`}
           >
             {salvando ? "Salvando..." : btnLabel}
           </button>

@@ -72,7 +72,7 @@ function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
 // --- COMPONENTES VISUAIS INTERNOS ---
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1.5 tracking-tight">
+    <label className="block text-xs font-medium text-muted-foreground mb-1.5 tracking-tight">
       {children}
     </label>
   );
@@ -733,7 +733,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
             <h2 className="text-lg font-medium text-foreground tracking-tight">
               {isEditing ? `Editar: ${server?.name}` : "Novo servidor"}
             </h2>
-            <div className="text-xs text-muted-foreground dark:text-muted-foreground mt-0.5 font-medium">
+            <div className="text-xs text-muted-foreground mt-0.5 font-medium">
               Configurações de conexão, custos e saldo.
             </div>
           </div>
@@ -860,7 +860,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                <p className="text-xs font-medium text-muted-foreground">
                   {uploadingIcon
                     ? "Enviando..."
                     : "Arraste, cole (Ctrl+V) ou clique para selecionar"}
@@ -910,7 +910,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
                     className={`flex-1 h-full rounded-md text-xs font-medium transition-all ${
                       currency === c
                         ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-sm"
-                        : "text-muted-foreground dark:text-muted-foreground hover:text-foreground/90 dark:hover:text-white"
+                        : "text-muted-foreground hover:text-foreground/90 dark:hover:text-foreground dark:text-white"
                     }`}
                   >
                     {c}

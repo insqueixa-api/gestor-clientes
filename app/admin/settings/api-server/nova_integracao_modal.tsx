@@ -209,7 +209,7 @@ export default function NovaIntegracaoModal({
             </div>
             <button
               onClick={onClose}
-              className="h-9 px-3 rounded-lg border border-border bg-card dark:bg-card/5 text-muted-foreground dark:text-muted-foreground text-xs font-medium hover:bg-muted/50 dark:hover:bg-card/10 transition-colors"
+              className="h-9 px-3 rounded-lg border border-border bg-card/5 text-muted-foreground text-xs font-medium hover:bg-muted/50 dark:hover:bg-card/10 transition-colors"
               type="button"
             >
               Fechar
@@ -264,7 +264,7 @@ export default function NovaIntegracaoModal({
               <div className="text-xs font-medium text-foreground/90">
                 Integração ativa
               </div>
-              <div className="text-[11px] text-muted-foreground dark:text-muted-foreground">
+              <div className="text-[11px] text-muted-foreground">
                 Se desativar, ela não deve ser usada pelo servidor.
               </div>
             </div>
@@ -398,7 +398,7 @@ export default function NovaIntegracaoModal({
         <div className="p-5 border-t border-border bg-muted/50 flex items-center justify-end gap-2">
           <button
             onClick={onClose}
-            className="h-10 px-4 rounded-xl border border-border bg-card dark:bg-card/5 text-muted-foreground dark:text-muted-foreground text-xs font-medium hover:bg-muted/50 dark:hover:bg-card/10 transition-colors"
+            className="h-10 px-4 rounded-xl border border-border bg-card/5 text-muted-foreground text-xs font-medium hover:bg-muted/50 dark:hover:bg-card/10 transition-colors"
             type="button"
             disabled={saving}
           >
@@ -407,7 +407,7 @@ export default function NovaIntegracaoModal({
 
           <button
             onClick={handleSave}
-            className={`h-10 px-4 rounded-xl text-xs font-medium text-white transition-colors ${
+            className={`h-10 px-4 rounded-xl text-xs font-medium text-foreground dark:text-white transition-colors ${
               canSave
                 ? "bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-900/20"
                 : "bg-slate-300 dark:bg-card/10 cursor-not-allowed"

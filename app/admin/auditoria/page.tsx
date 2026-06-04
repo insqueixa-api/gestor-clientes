@@ -487,7 +487,7 @@ function AuditoriaPageContent() {
     // 1. Prioridade Máxima: Status de cancelamento manual (Padronizado)
     if (status === "manual_cancelled" || status === "cancelled") {
       return (
-        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-black/20 text-muted-foreground dark:text-muted-foreground text-[10px] font-medium uppercase border border-border dark:border-white/20">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-black/20 text-muted-foreground text-[10px] font-medium uppercase border border-border dark:border-white/20">
           {status === "manual_cancelled"
             ? "Cancelada Manualmente"
             : "Cancelada"}
@@ -498,7 +498,7 @@ function AuditoriaPageContent() {
     // 2. Se o pagamento foi recusado/cancelado no gateway
     if (paymentStatus === "rejected" || paymentStatus === "cancelled") {
       return (
-        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-black/20 text-muted-foreground dark:text-muted-foreground text-[10px] font-medium uppercase border border-border dark:border-white/20">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-black/20 text-muted-foreground text-[10px] font-medium uppercase border border-border dark:border-white/20">
           Cancelada
         </span>
       );
@@ -770,7 +770,7 @@ function AuditoriaPageContent() {
 
                         {/* Banco */}
                         <td className="px-4 py-3 text-center">
-                          <span className="text-[10px] font-medium text-muted-foreground dark:text-muted-foreground uppercase tracking-wider">
+                          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
                             {r.gateway_name || r.payment_method}
                           </span>
                         </td>
@@ -920,14 +920,14 @@ function AuditoriaPageContent() {
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={safePage <= 1}
-                className="px-3 py-1 rounded border border-border text-xs font-medium disabled:opacity-40 bg-card dark:bg-black/20 text-muted-foreground dark:text-muted-foreground"
+                className="px-3 py-1 rounded border border-border text-xs font-medium disabled:opacity-40 bg-card dark:bg-black/20 text-muted-foreground"
               >
                 Anterior
               </button>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={safePage >= totalPages}
-                className="px-3 py-1 rounded border border-border text-xs font-medium disabled:opacity-40 bg-card dark:bg-black/20 text-muted-foreground dark:text-muted-foreground"
+                className="px-3 py-1 rounded border border-border text-xs font-medium disabled:opacity-40 bg-card dark:bg-black/20 text-muted-foreground"
               >
                 Próxima
               </button>

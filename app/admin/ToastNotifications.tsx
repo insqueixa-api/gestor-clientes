@@ -61,10 +61,10 @@ export default function ToastNotifications({ toasts, removeToast }: Props) {
             key={t.id}
             className={`pointer-events-auto relative overflow-hidden flex items-start gap-3 p-4 rounded-xl shadow-2xl border-2 transition-all animate-in fade-in slide-in-from-top-5 duration-300  ${
               t.type === "success"
-                ? "bg-card dark:bg-card border-emerald-300 dark:border-emerald-500/20 text-emerald-400 shadow-emerald-500/20 ring-1 ring-emerald-200/50 dark:ring-emerald-500/10"
+                ? "bg-card border-emerald-300 dark:border-emerald-500/20 text-emerald-400 shadow-emerald-500/20 ring-1 ring-emerald-200/50 dark:ring-emerald-500/10"
                 : t.type === "warning"
-                  ? "bg-card dark:bg-card border-amber-300 dark:border-amber-500/40 text-amber-800 dark:text-amber-100 shadow-amber-500/20 ring-1 ring-amber-200/50 dark:ring-amber-500/20"
-                  : "bg-card dark:bg-card border-rose-300 dark:border-rose-500/20 text-rose-400 shadow-rose-500/20 ring-1 ring-rose-200/50 dark:ring-rose-500/10"
+                  ? "bg-card border-amber-300 dark:border-amber-500/40 text-amber-800 dark:text-amber-100 shadow-amber-500/20 ring-1 ring-amber-200/50 dark:ring-amber-500/20"
+                  : "bg-card border-rose-300 dark:border-rose-500/20 text-rose-400 shadow-rose-500/20 ring-1 ring-rose-200/50 dark:ring-rose-500/10"
             }`}
           >
             {/* Ícone */}
@@ -141,7 +141,7 @@ export default function ToastNotifications({ toasts, removeToast }: Props) {
                 }
                 removeToast(t.id);
               }}
-              className="text-zinc-400 hover:text-muted-foreground dark:hover:text-zinc-300 transition-colors"
+              className="text-muted-foreground dark:text-zinc-400 hover:text-muted-foreground dark:hover:text-muted-foreground dark:text-zinc-300 transition-colors"
               aria-label="Fechar toast"
             >
               <svg
