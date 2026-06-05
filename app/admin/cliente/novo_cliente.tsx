@@ -2586,6 +2586,11 @@ const phoneDigits = rawDigits.startsWith("55") && rawDigits.length >= 12
       labels: updatedLabels,
     }),
   });
+  queueListToast(isTrialMode ? "trial" : "client", {
+    type: "success",
+    title: "Agenda Atualizada",
+    message: `Contato existente atualizado com grupo ${selectedServerName}.`,
+  });
   return;
 }
 
@@ -2639,11 +2644,13 @@ const phoneDigits = rawDigits.startsWith("55") && rawDigits.length >= 12
 
       // Foto do WhatsApp
       try {
-        const vRes = await fetch("/api/whatsapp/validate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phone: phoneDigits }),
-        });
+        // Para validar no WhatsApp, precisa do número com DDI completo (sem o zero inicial)
+const waPhone = rawDigits; // rawDigits já tem o 55 na frente: "5521979163313"
+const vRes = await fetch("/api/whatsapp/validate", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ phone: waPhone }),
+});
         const vData = await vRes.json().catch(() => ({}));
         if (vData.exists && vData.jid) {
           await fetch("/api/whatsapp/contact-photo", {
