@@ -2620,7 +2620,7 @@ const phoneDigits = rawDigits.startsWith("55") && rawDigits.length >= 12
       if (phoneDigits.length < 8) return;
 
       // Aguarda a trigger/banco finalizar a inserção
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
       const { data: newContactData } = await supabaseBrowser
         .from("google_contacts")
@@ -3710,11 +3710,10 @@ if (papaErr) {
           }
         }
 
-        // 🌟 NOVO: SALVAR NA AGENDA GOOGLE 🌟
-        // Como estamos DENTRO do bloco de criação, a variável apiUsername existe!
+        // Agenda Google (só na criação, onde apiUsername existe)
         if (finalPrimaryE164 && clientId) {
-          // Sem await para rodar solto no background
-          syncToGoogleAgenda(
+          setLoadingStep("Agenda Google...");
+          await syncToGoogleAgenda(
             clientId,
             finalPrimaryE164,
             displayName,
@@ -3843,9 +3842,9 @@ if (papaErr) {
       }
 
       setTimeout(() => {
-        onSuccess();
-        onClose();
-      }, 900);
+  onSuccess();
+  onClose();
+}, 900);
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : "Erro desconhecido";
 
@@ -4210,34 +4209,28 @@ if (papaErr) {
                         </a>
                       )}
                     </div>
-                    {waValidation && (
-                      <div
-                        className={`mt-1 flex items-center gap-1.5 text-[11px] font-medium ${waValidation.loading ? "text-muted-foreground/80" : waValidation.exists ? "text-emerald-400" : "text-rose-500"}`}
-                      >
-                        {waValidation.loading ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />{" "}
-                            Validando...
-                          </>
-                        ) : waValidation.exists ? (
-                          <>✅ WhatsApp ativo</>
-                        ) : (
-                          <>❌ Não encontrado no WhatsApp</>
-                        )}
-                      </div>
-                    )}
-
-                    {(papaTesteLoading || papaTesteInfo) && (
-                      <div className="mt-1 flex items-center gap-1.5">
-                        {papaTesteLoading ? (
-                          <span className="text-[10px] text-muted-foreground/80 flex items-center gap-1">
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            Verificando histórico...
-                          </span>
-                        ) : papaTesteInfo ? (
-                          <button
-                            type="button"
-                            onClick={async () => {
+                    {(waValidation || papaTesteLoading || papaTesteInfo) && (
+  <div className="mt-1 flex items-center gap-2 flex-wrap">
+    {waValidation && (
+      <div className={`flex items-center gap-1.5 text-[11px] font-medium ${waValidation.loading ? "text-muted-foreground/80" : waValidation.exists ? "text-emerald-400" : "text-rose-500"}`}>
+        {waValidation.loading ? (
+          <><Loader2 className="w-4 h-4 animate-spin" /> Validando...</>
+        ) : waValidation.exists ? (
+          <>✅ WhatsApp ativo</>
+        ) : (
+          <>❌ Não encontrado no WhatsApp</>
+        )}
+      </div>
+    )}
+    {papaTesteLoading ? (
+      <span className="text-[10px] text-muted-foreground/80 flex items-center gap-1">
+        <Loader2 className="w-3 h-3 animate-spin" />
+        Verificando...
+      </span>
+    ) : papaTesteInfo ? (
+      <button
+        type="button"
+        onClick={async () => {
                               const lines = papaTesteInfo.records.map((r) => {
                                 const dt = new Date(
                                   r.created_at,
