@@ -751,6 +751,9 @@ export default function NovoCliente({
   const [servers, setServers] = useState<SelectOption[]>([]);
   const [allApps, setAllApps] = useState<SelectOption[]>([]);
 
+  const [syncAgenda, setSyncAgenda] = useState(true);
+  const [syncOperadora, setSyncOperadora] = useState(false);
+
   // plan tables
   const [tables, setTables] = useState<PlanTable[]>([]);
   const [selectedTableId, setSelectedTableId] = useState<string>("");
@@ -2878,6 +2881,38 @@ const vRes = await fetch("/api/whatsapp/validate", {
           await supabaseBrowser.from("client_apps").insert(toInsert);
         }
 
+        // Sincroniza agenda e/ou operadora na edição se marcado
+if (syncAgenda && finalPrimaryE164) {
+  setLoadingStep("Agenda Google...");
+  await syncToGoogleAgenda(
+    clientId,
+    finalPrimaryE164,
+    displayName,
+    username,
+  );
+}
+if (syncOperadora) {
+  setLoadingStep("Operadora...");
+  try {
+    const { data: contact } = await supabaseBrowser
+      .from("google_contacts")
+      .select("id")
+      .eq("tenant_id", tid)
+      .eq("phone_e164", (() => {
+        const rd = onlyDigits(finalPrimaryE164);
+        return rd.startsWith("55") && rd.length >= 12 ? "0" + rd.slice(2) : rd;
+      })())
+      .maybeSingle();
+    if (contact?.id) {
+      await fetch("/api/auth/google/sync-operadora", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contact_ids: [contact.id] }),
+      });
+    }
+  } catch {}
+}
+
         queueListToast(isTrialMode ? "trial" : "client", {
           type: "success",
           title: "Atualizado",
@@ -4464,24 +4499,63 @@ if (papaErr) {
                   </div>
                 </div>
 
-                {/* ✅ SELEÇÃO DA SESSÃO DE WHATSAPP */}
-                <div>
-                  <Label>Sessão de Disparo (WhatsApp)</Label>
-                  <Select
-                    value={selectedSession}
-                    onChange={(e) => setSelectedSession(e.target.value)}
-                  >
-                    {sessionOptions.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.label}
-                      </option>
-                    ))}
-                  </Select>
-                  <p className="text-[9px] text-muted-foreground/80 dark:text-white/30 mt-1 italic">
-                    Sessão usada para enviar a mensagem de Boas Vindas, Teste ou
-                    Pagamento.
-                  </p>
-                </div>
+                {/* ✅ SELEÇÃO DA SESSÃO DE WHATSAPP + AGENDA */}
+<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+  {/* Coluna 1: Sessão */}
+  <div>
+    <Label>Sessão de Disparo (WhatsApp)</Label>
+    <Select
+      value={selectedSession}
+      onChange={(e) => setSelectedSession(e.target.value)}
+    >
+      {sessionOptions.map((s) => (
+        <option key={s.id} value={s.id}>
+          {s.label}
+        </option>
+      ))}
+    </Select>
+    <p className="text-[9px] text-muted-foreground/80 dark:text-white/30 mt-1 italic">
+      Sessão usada para enviar a mensagem de Boas Vindas, Teste ou Pagamento.
+    </p>
+  </div>
+
+  {/* Coluna 2: Atualizar Agenda (só na edição) */}
+  {isEditing && (
+    <div className="p-3 rounded-xl border border-border bg-transparent space-y-2">
+      <p className="text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider">
+        Atualizar Agenda
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        <div
+          onClick={() => setSyncAgenda(!syncAgenda)}
+          className={`p-2.5 rounded-lg border cursor-pointer flex items-center justify-between gap-2 transition-colors ${
+            syncAgenda
+              ? "bg-emerald-500/10 border-emerald-500/20"
+              : "bg-transparent border-border"
+          }`}
+        >
+          <span className={`text-[11px] font-medium ${syncAgenda ? "text-emerald-400" : "text-muted-foreground"}`}>
+            Cadastro
+          </span>
+          <Switch checked={syncAgenda} onChange={setSyncAgenda} label="" />
+        </div>
+        <div
+          onClick={() => setSyncOperadora(!syncOperadora)}
+          className={`p-2.5 rounded-lg border cursor-pointer flex items-center justify-between gap-2 transition-colors ${
+            syncOperadora
+              ? "bg-sky-500/10 border-sky-500/20"
+              : "bg-transparent border-border"
+          }`}
+        >
+          <span className={`text-[11px] font-medium ${syncOperadora ? "text-sky-400" : "text-muted-foreground"}`}>
+            Operadora
+          </span>
+          <Switch checked={syncOperadora} onChange={setSyncOperadora} label="" />
+        </div>
+      </div>
+    </div>
+  )}
+</div>
 
                 {/* ✅ CAMPO DE OBSERVAÇÕES (Adicionado aqui conforme pedido) */}
 
