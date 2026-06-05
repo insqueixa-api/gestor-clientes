@@ -349,8 +349,8 @@ export default function AdminShell({
                 statusByAutoAndClient[j.automation_id][j.client_id] = false;
               }
 
-              // Se teve um status SENT, marca como verdadeiro (sucesso real, anula falhas anteriores)
-              if (j.status === "SENT") {
+              // Se teve um status SENT ou CANCELLED (resolvido na tela), marca como verdadeiro (anula falhas anteriores)
+              if (j.status === "SENT" || j.status === "CANCELLED") {
                 statusByAutoAndClient[j.automation_id][j.client_id] = true;
               }
             });
