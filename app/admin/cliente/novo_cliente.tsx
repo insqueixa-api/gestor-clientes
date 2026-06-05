@@ -4513,47 +4513,46 @@ if (papaErr) {
         </option>
       ))}
     </Select>
-    <p className="text-[9px] text-muted-foreground/80 dark:text-white/30 mt-1 italic">
-      Sessão usada para enviar a mensagem de Boas Vindas, Teste ou Pagamento.
-    </p>
+    
   </div>
 
   {/* Coluna 2: Atualizar Agenda (só na edição) */}
-  {isEditing && (
-    <div className="p-3 rounded-xl border border-border bg-transparent space-y-2">
-      <p className="text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider">
-        Atualizar Agenda
-      </p>
-      <div className="grid grid-cols-2 gap-2">
-        <div
-          onClick={() => setSyncAgenda(!syncAgenda)}
-          className={`p-2.5 rounded-lg border cursor-pointer flex items-center justify-between gap-2 transition-colors ${
-            syncAgenda
-              ? "bg-emerald-500/10 border-emerald-500/20"
-              : "bg-transparent border-border"
-          }`}
-        >
-          <span className={`text-[11px] font-medium ${syncAgenda ? "text-emerald-400" : "text-muted-foreground"}`}>
-            Cadastro
-          </span>
-          <Switch checked={syncAgenda} onChange={setSyncAgenda} label="" />
-        </div>
-        <div
-          onClick={() => setSyncOperadora(!syncOperadora)}
-          className={`p-2.5 rounded-lg border cursor-pointer flex items-center justify-between gap-2 transition-colors ${
-            syncOperadora
-              ? "bg-sky-500/10 border-sky-500/20"
-              : "bg-transparent border-border"
-          }`}
-        >
-          <span className={`text-[11px] font-medium ${syncOperadora ? "text-sky-400" : "text-muted-foreground"}`}>
-            Operadora
-          </span>
-          <Switch checked={syncOperadora} onChange={setSyncOperadora} label="" />
-        </div>
+{isEditing && (
+  <div>
+    <Label>Atualizar Agenda</Label>
+    <div className="grid grid-cols-2 gap-2">
+      <div
+        onClick={() => setSyncAgenda(!syncAgenda)}
+        className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify-between gap-2 transition-colors ${
+          syncAgenda
+            ? "bg-emerald-500/10 border-emerald-500/20"
+            : "bg-transparent border-border"
+        }`}
+      >
+        <span className={`text-xs font-medium ${syncAgenda ? "text-emerald-400" : "text-muted-foreground"}`}>
+          Cadastro
+        </span>
+        <Switch checked={syncAgenda} onChange={setSyncAgenda} label="" />
+      </div>
+      <div
+        onClick={() => setSyncOperadora(!syncOperadora)}
+        className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify-between gap-2 transition-colors ${
+          syncOperadora
+            ? "bg-sky-500/10 border-sky-500/20"
+            : "bg-transparent border-border"
+        }`}
+      >
+        <span className={`text-xs font-medium ${syncOperadora ? "text-sky-400" : "text-muted-foreground"}`}>
+          Operadora
+        </span>
+        <Switch checked={syncOperadora} onChange={setSyncOperadora} label="" />
       </div>
     </div>
-  )}
+    <p className="text-[9px] text-muted-foreground/80 dark:text-white/30 mt-1 italic">
+      Atualiza nome, grupo e foto na agenda do Google.
+    </p>
+  </div>
+)}
 </div>
 
                 {/* ✅ CAMPO DE OBSERVAÇÕES (Adicionado aqui conforme pedido) */}
