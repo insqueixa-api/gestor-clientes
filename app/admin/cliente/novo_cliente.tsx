@@ -2591,6 +2591,27 @@ const phoneDigits = rawDigits.startsWith("55") && rawDigits.length >= 12
     title: "Agenda Atualizada",
     message: `Contato existente atualizado com grupo ${selectedServerName}.`,
   });
+
+  // Sincroniza foto do contato existente também
+  try {
+    const vRes = await fetch("/api/whatsapp/validate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone: rawDigits }),
+    });
+    const vData = await vRes.json().catch(() => ({}));
+    if (vData.exists && vData.jid) {
+      await fetch("/api/whatsapp/contact-photo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contact_id: existingContact.id,
+          jid: vData.jid,
+        }),
+      });
+    }
+  } catch {}
+
   return;
 }
 
