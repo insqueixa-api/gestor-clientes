@@ -327,11 +327,14 @@ export default function AdminShell({
             .not("automation_id", "is", null)
             .gte("send_at", startOfTodaySP);
 
-          if (!jobsErr && todayJobs && todayJobs.length > 0) {
+          // Blindagem: Garante que só vai tentar rodar o loop se for DE FATO uma lista válida
+          const validJobs = Array.isArray(todayJobs) ? todayJobs : [];
+
+          if (!jobsErr && validJobs.length > 0) {
             // 2) Agrupa para saber se o cliente teve sucesso na mesma automação hoje
             const statusByAutoAndClient: Record<string, Record<string, boolean>> = {};
 
-            todayJobs.forEach((j: any) => {
+            validJobs.forEach((j: any) => {
               if (!j.automation_id || !j.client_id) return;
               
               if (!statusByAutoAndClient[j.automation_id]) {
