@@ -1775,66 +1775,58 @@ function FinanceiroPageContent() {
              </div>
              <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
                 {calendarBlanks.map((_, i) => (
-                  <div key={`empty-${i}`} className="bg-transparent border border-border/30 rounded-lg p-2 opacity-50 min-h-[100px] sm:min-h-[120px]" />
+                  <div key={`empty-${i}`} className="bg-transparent rounded-lg p-2 min-h-[100px] sm:min-h-[120px]" />
                 ))}
                 {calendarDays.map((dia) => {
                   const dateStr = `${refYear}-${refMonth}-${String(dia).padStart(2, "0")}`;
                   const isHoje = new Date().toISOString().split("T")[0] === dateStr;
                   const dayTxs = filteredTransacoes.filter(t => t.data_vencimento === dateStr);
-                  
-                  // Organiza o dia: Pendentes acima, Pagos abaixo. Despesas acima de Receitas.
-                  dayTxs.sort((a,b) => {
-                      if (a.status !== b.status) return a.status === 'PENDENTE' ? -1 : 1;
-                      if (a.tipo !== b.tipo) return a.tipo === 'DESPESA' ? -1 : 1;
-                      return b.valor - a.valor;
-                  });
 
-                  const pendenteDespesa = dayTxs.filter(t => t.tipo === 'DESPESA' && t.status !== 'PAGO').reduce((a,b) => a + b.valor, 0);
+                  const totalDespesas = dayTxs.filter(t => t.tipo === 'DESPESA').reduce((a, b) => a + b.valor, 0);
+                  const totalReceitas = dayTxs.filter(t => t.tipo === 'RECEITA').reduce((a, b) => a + b.valor, 0);
+                  const hasLancamento = dayTxs.length > 0;
+
+                  // Cores baseadas na referência visual: fundo neutro azul claro, dias com contas salmão
+                  let bgClass = "bg-[#eaf4fc] dark:bg-sky-900/10 border-transparent text-slate-500 dark:text-slate-400"; 
+                  
+                  if (hasLancamento) {
+                      if (totalDespesas > 0) {
+                          bgClass = "bg-[#fbceb1] dark:bg-orange-900/30 border-orange-200 dark:border-orange-500/20 text-slate-800 dark:text-slate-200";
+                      } else if (totalReceitas > 0) {
+                          // Se tiver só receita no dia, fica verdinho claro
+                          bgClass = "bg-[#d1fae5] dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-500/20 text-slate-800 dark:text-slate-200"; 
+                      }
+                  }
 
                   return (
-                    <div key={dia} className={`min-h-[100px] sm:min-h-[120px] border rounded-lg p-1 sm:p-1.5 bg-card flex flex-col relative transition-colors ${isHoje ? "border-emerald-500/50 shadow-sm shadow-emerald-500/10" : "border-border"}`}>
-                       <div className="flex items-center justify-between mb-1.5 px-0.5">
-                         <span className={`text-xs sm:text-sm font-bold ${isHoje ? "text-emerald-500" : "text-muted-foreground"}`}>{dia}</span>
+                    <div 
+                      key={dia} 
+                      onClick={() => {
+                        if (hasLancamento) {
+                          setViewMode("LISTA");
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }
+                      }}
+                      className={`min-h-[100px] sm:min-h-[120px] border rounded-md p-2 sm:p-2.5 flex flex-col transition-all duration-200 ${bgClass} ${isHoje ? "ring-2 ring-foreground/50 shadow-md" : "shadow-sm hover:brightness-95 dark:hover:brightness-110"} ${hasLancamento ? "cursor-pointer" : "cursor-default"}`}
+                    >
+                       <div className="font-bold text-sm sm:text-base leading-none">
+                         {String(dia).padStart(2, '0')}
                        </div>
                        
-                       <div className="flex-1 overflow-y-auto space-y-1 pr-1 scrollbar-thin">
-                          {dayTxs.map(t => {
-                              const cStatus = getComputedStatus(t.status, t.data_vencimento);
-                              let baseStyle = "border-l-2 pl-1.5 py-0.5 rounded-r ";
-                              
-                              if (cStatus === "PAGO") {
-                                  // Esmaecido conforme regra
-                                  baseStyle += t.tipo === "RECEITA" 
-                                    ? "border-emerald-500/30 text-emerald-600/60 dark:text-emerald-500/60 bg-emerald-500/5 line-through" 
-                                    : "border-rose-500/30 text-rose-600/60 dark:text-rose-500/60 bg-rose-500/5 line-through";
-                              } else if (cStatus === "VENCIDO") {
-                                  // Alerta máximo
-                                  baseStyle += "border-rose-600 text-rose-600 bg-rose-500/10 font-bold animate-pulse";
-                              } else {
-                                  // PENDENTE: cor forte no tom atual
-                                  baseStyle += t.tipo === "RECEITA" 
-                                    ? "border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 font-medium" 
-                                    : "border-rose-500 text-rose-600 dark:text-rose-400 bg-rose-500/10 font-medium";
-                              }
-
-                              return (
-                                  <div 
-                                    key={t.id} 
-                                    onClick={() => setModalData({open: true, transacao: t})} 
-                                    className={`text-[10px] sm:text-[11px] leading-tight truncate cursor-pointer hover:brightness-110 transition-all finance-value ${baseStyle}`} 
-                                    title={`${t.descricao} - ${fmtBRL(t.valor)}`}
-                                  >
-                                     {cStatus === "VENCIDO" && "⚠️ "}
-                                     {fmtBRL(t.valor)} {t.descricao}
-                                  </div>
-                              )
-                          })}
+                       <div className="flex-1 flex flex-col justify-end gap-1.5 pb-0.5 select-none">
+                          {totalDespesas > 0 && (
+                              <div className="text-[11px] sm:text-[13px] leading-tight">
+                                <div className="opacity-80">Valor a pagar:</div>
+                                <div className="font-medium finance-value">{fmtBRL(totalDespesas)}</div>
+                              </div>
+                          )}
+                          {totalReceitas > 0 && totalDespesas === 0 && (
+                              <div className="text-[11px] sm:text-[13px] leading-tight">
+                                <div className="opacity-80">Valor a receber:</div>
+                                <div className="font-medium finance-value">{fmtBRL(totalReceitas)}</div>
+                              </div>
+                          )}
                        </div>
-                       {pendenteDespesa > 0 && (
-                          <div className="mt-1 pt-1 border-t border-border/50 text-[9px] sm:text-[10px] font-semibold text-rose-500 text-right finance-value">
-                            Pagar: {fmtBRL(pendenteDespesa)}
-                          </div>
-                       )}
                     </div>
                   );
                 })}
