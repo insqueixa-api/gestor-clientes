@@ -82,13 +82,6 @@ function IconTrendingDown() {
     </svg>
   );
 }
-function IconCheck() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <polyline points="20 6 9 17 4 12"></polyline>
-    </svg>
-  );
-}
 function IconThumb({ className = "" }) {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform duration-300 ${className}`}>
@@ -115,18 +108,6 @@ function IconCalendar() {
       <line x1="16" y1="2" x2="16" y2="6"></line>
       <line x1="8" y1="2" x2="8" y2="6"></line>
       <line x1="3" y1="10" x2="21" y2="10"></line>
-    </svg>
-  );
-}
-function IconList() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <line x1="8" y1="6" x2="21" y2="6"></line>
-      <line x1="8" y1="12" x2="21" y2="12"></line>
-      <line x1="8" y1="18" x2="21" y2="18"></line>
-      <line x1="3" y1="6" x2="3.01" y2="6"></line>
-      <line x1="3" y1="12" x2="3.01" y2="12"></line>
-      <line x1="3" y1="18" x2="3.01" y2="18"></line>
     </svg>
   );
 }
@@ -163,18 +144,8 @@ function ActionBtn({
 }
 
 const MESES = [
-  "Janeiro",
-  "Fevereiro",
-  "Março",
-  "Abril",
-  "Maio",
-  "Junho",
-  "Julho",
-  "Agosto",
-  "Setembro",
-  "Outubro",
-  "Novembro",
-  "Dezembro",
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
 
 function ModalDatePicker({
@@ -388,6 +359,152 @@ function ModalDayPicker({
   );
 }
 
+// NOVO COMPONENTE: MODAL DE DETALHES DO DIA
+function ModalDiaDetalhes({
+  dateStr,
+  transacoes,
+  onClose,
+  onEdit,
+  onBaixa,
+  onDelete,
+}: {
+  dateStr: string;
+  transacoes: Transacao[];
+  onClose: () => void;
+  onEdit: (t: Transacao) => void;
+  onBaixa: (t: Transacao) => void;
+  onDelete: (t: Transacao) => void;
+}) {
+  const formatRecorrencia = (t: Transacao) => {
+    if (t.observacoes === "Ajuste automático de saldo") return "Ajuste Automático";
+    if (t.parcela_total) return `Parcela ${t.parcela_atual}/${t.parcela_total}`;
+    if (t.is_recorrente && t.frequencia) return t.frequencia.charAt(0) + t.frequencia.slice(1).toLowerCase();
+    return "Único";
+  };
+
+  const fmtBRL = (v: number) =>
+    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+
+  const [y, m, d] = dateStr.split("-");
+  const dateObj = new Date(Number(y), Number(m) - 1, Number(d));
+  const dateLabel = dateObj.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
+
+  return (
+    <div
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-[99999] bg-black/60 grid place-items-center p-4 backdrop-blur-sm"
+    >
+      <div
+        onMouseDown={(e) => e.stopPropagation()}
+        className="w-full max-w-2xl bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]"
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-transparent shrink-0">
+          <div className="flex flex-col">
+            <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+              Agenda do Dia
+            </span>
+            <span className="text-lg font-bold text-foreground capitalize">
+              {dateLabel}
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground/80 hover:text-foreground transition-colors"
+          >
+            <IconX />
+          </button>
+        </div>
+
+        <div className="p-4 overflow-y-auto flex-1 space-y-3">
+          {transacoes.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground/80 text-sm italic">
+              Nenhum lançamento programado para este dia.
+            </div>
+          ) : (
+            transacoes.map((t) => {
+              const isPago = t.status === "PAGO";
+              const isReceita = t.tipo === "RECEITA";
+              
+              let statusClass = "";
+              if (isPago) {
+                statusClass = "opacity-60 border-transparent bg-slate-50 dark:bg-white/5";
+              } else if (isReceita) {
+                statusClass = "border-emerald-500/30 bg-emerald-500/5";
+              } else {
+                statusClass = "border-rose-500/30 bg-rose-500/5";
+              }
+
+              return (
+                <div
+                  key={t.id}
+                  className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 rounded-lg border transition-all hover:opacity-100 ${statusClass}`}
+                >
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span
+                        className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                          isPago
+                            ? "bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                            : isReceita
+                              ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                              : "bg-rose-500/20 text-rose-600 dark:text-rose-400"
+                        }`}
+                      >
+                        {isPago ? (isReceita ? "Recebido" : "Pago") : (isReceita ? "A Receber" : "A Pagar")}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground font-medium truncate">
+                         {t.categoria_nome || "Sem categoria"} • {t.conta_nome || "Sem conta"}
+                      </span>
+                    </div>
+                    <span className={`text-sm font-semibold truncate ${isPago ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                      {t.descricao}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground mt-0.5">
+                      {formatRecorrencia(t)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0">
+                    <span
+                      className={`text-base font-bold whitespace-nowrap finance-value ${
+                        isPago
+                          ? "text-muted-foreground line-through"
+                          : isReceita
+                            ? "text-emerald-500"
+                            : "text-rose-500"
+                      }`}
+                    >
+                      {isReceita ? "+" : "-"} {fmtBRL(t.valor)}
+                    </span>
+
+                    <div className="flex items-center gap-1.5">
+                      <ActionBtn
+                        tone={isPago ? "green" : "blue"}
+                        title={isPago ? "Desfazer" : (isReceita ? "Confirmar Recebimento" : "Confirmar Pagamento")}
+                        onClick={() => onBaixa(t)}
+                      >
+                        <IconThumb className={isPago ? "scale-y-100" : "-scale-y-100"} />
+                      </ActionBtn>
+                      <ActionBtn tone="amber" title="Editar" onClick={() => onEdit(t)}>
+                        <IconEdit />
+                      </ActionBtn>
+                      <ActionBtn tone="red" title="Excluir" onClick={() => onDelete(t)}>
+                        <IconTrash />
+                      </ActionBtn>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FinanceiroPageContent() {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -401,9 +518,6 @@ function FinanceiroPageContent() {
   const [contasDB, setContasDB] = useState<any[]>([]);
   const [categoriasDB, setCategoriasDB] = useState<any[]>([]);
   const [saldosContas, setSaldosContas] = useState<Record<string, number>>({});
-
-  // View Mode: Calendário ou Lista
-  const [viewMode, setViewMode] = useState<"LISTA" | "CALENDARIO">("CALENDARIO");
 
   // Filtros
   const [search, setSearch] = useState("");
@@ -429,6 +543,10 @@ function FinanceiroPageContent() {
   const [pendentesMap, setPendentesMap] = useState<Record<string, number>>({});
   const [showAjusteSaldo, setShowAjusteSaldo] = useState(false);
   const [showAntecipadas, setShowAntecipadas] = useState(false);
+  
+  // Controle de Dia Selecionado para Modal Detalhe
+  const [diaSelecionado, setDiaSelecionado] = useState<string | null>(null);
+  
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -442,6 +560,7 @@ function FinanceiroPageContent() {
       router.replace("/admin/settings/financeiro_pessoal", { scroll: false });
     }
   }, [searchParams, loading, contasDB]);
+  
   const [deleteData, setDeleteData] = useState<{
     open: boolean;
     transacao: Transacao | null;
@@ -755,6 +874,10 @@ function FinanceiroPageContent() {
         "Transação(ões) removida(s) com sucesso.",
       );
       setDeleteData({ open: false, transacao: null });
+      if (diaSelecionado) {
+          // Se fechar ou excluir, talvez queiramos fechar o modal ou recarregar
+          setDiaSelecionado(null);
+      }
       carregarDados(tenantId, currentDate);
     } catch (e) {
       addToast("error", "Erro ao excluir", "Tente novamente.");
@@ -790,15 +913,6 @@ function FinanceiroPageContent() {
     return venc < hoje ? "VENCIDO" : "PENDENTE";
   };
 
-  const formatRecorrencia = (t: Transacao) => {
-    if (t.observacoes === "Ajuste automático de saldo")
-      return "Ajuste Automático";
-    if (t.parcela_total) return `Parcela ${t.parcela_atual}/${t.parcela_total}`;
-    if (t.is_recorrente && t.frequencia)
-      return t.frequencia.charAt(0) + t.frequencia.slice(1).toLowerCase();
-    return "Lançamento Único";
-  };
-
   const fmtBRL = (v: number) =>
     new Intl.NumberFormat("pt-BR", {
       style: "currency",
@@ -813,11 +927,9 @@ function FinanceiroPageContent() {
       .replace(/[\u0300-\u036f]/g, "");
     return transacoes.filter((t) => {
       const cStatus = getComputedStatus(t.status, t.data_vencimento);
-      const recText = formatRecorrencia(t);
 
       if (statusFilter === "QUICK_PENDENTE" && cStatus === "PAGO") return false;
-      if (statusFilter === "QUICK_CONCLUIDO" && cStatus !== "PAGO")
-        return false;
+      if (statusFilter === "QUICK_CONCLUIDO" && cStatus !== "PAGO") return false;
       if (
         statusFilter !== "Todos" &&
         statusFilter !== "QUICK_PENDENTE" &&
@@ -828,8 +940,7 @@ function FinanceiroPageContent() {
 
       if (tipoFilter !== "Todos" && t.tipo !== tipoFilter) return false;
       if (contaFilter !== "Todos" && t.conta_id !== contaFilter) return false;
-      if (categoriaFilter !== "Todos" && t.categoria_id !== categoriaFilter)
-        return false;
+      if (categoriaFilter !== "Todos" && t.categoria_id !== categoriaFilter) return false;
       if (recorrenciaFilter !== "Todos") {
         const isAjuste = t.observacoes === "Ajuste automático de saldo";
         if (recorrenciaFilter === "AJUSTE" && !isAjuste) return false;
@@ -847,7 +958,7 @@ function FinanceiroPageContent() {
       }
 
       if (q) {
-        const hay = [t.descricao, t.categoria_nome, t.conta_nome, recText]
+        const hay = [t.descricao, t.categoria_nome, t.conta_nome]
           .join(" ")
           .toLowerCase()
           .normalize("NFD")
@@ -883,79 +994,6 @@ function FinanceiroPageContent() {
     const isoDate = dateString.split("T")[0];
     return isoDate >= viewStartOfMonth && isoDate <= viewEndOfMonth;
   };
-
-  const [sortConfig, setSortConfig] = useState<{
-    key: string;
-    direction: "asc" | "desc";
-  } | null>(null);
-
-  const requestSort = (key: string) => {
-    let direction: "asc" | "desc" = "asc";
-    if (
-      sortConfig &&
-      sortConfig.key === key &&
-      sortConfig.direction === "asc"
-    ) {
-      direction = "desc";
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const { normais, antecipadas } = useMemo(() => {
-    let n: typeof filteredTransacoes = [];
-    let a: typeof filteredTransacoes = [];
-
-    filteredTransacoes.forEach((t) => {
-      if (t.data_vencimento > viewEndOfMonth) {
-        a.push(t);
-      } else {
-        n.push(t);
-      }
-    });
-
-    n.sort((tA: any, tB: any) => {
-      if (sortConfig !== null) {
-        let aValue = tA[sortConfig.key];
-        let bValue = tB[sortConfig.key];
-
-        if (sortConfig.key === "status_computed") {
-          aValue = getComputedStatus(tA.status, tA.data_vencimento);
-          bValue = getComputedStatus(tB.status, tB.data_vencimento);
-        } else if (sortConfig.key === "recorrencia_formatada") {
-          aValue = formatRecorrencia(tA);
-          bValue = formatRecorrencia(tB);
-        } else if (sortConfig.key === "descricao") {
-          aValue = (aValue || "").toLowerCase();
-          bValue = (bValue || "").toLowerCase();
-        }
-
-        if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
-        if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
-      }
-
-      if (tA.data_vencimento < tB.data_vencimento) return -1;
-      if (tA.data_vencimento > tB.data_vencimento) return 1;
-      if (tA.tipo === "RECEITA" && tB.tipo === "DESPESA") return -1;
-      if (tA.tipo === "DESPESA" && tB.tipo === "RECEITA") return 1;
-      const descA = (tA.descricao || "").toLowerCase();
-      const descB = (tB.descricao || "").toLowerCase();
-      if (descA < descB) return -1;
-      if (descA > descB) return 1;
-      return 0;
-    });
-
-    a.sort((tA: any, tB: any) => {
-      const descA = (tA.descricao || "").toLowerCase();
-      const descB = (tB.descricao || "").toLowerCase();
-      if (descA < descB) return -1;
-      if (descA > descB) return 1;
-      if (tA.data_vencimento < tB.data_vencimento) return -1;
-      if (tA.data_vencimento > tB.data_vencimento) return 1;
-      return 0;
-    });
-
-    return { normais: n, antecipadas: a };
-  }, [filteredTransacoes, sortConfig, viewEndOfMonth]);
 
   const receitasPagas = transacoesCards
     .filter(
@@ -1004,16 +1042,14 @@ function FinanceiroPageContent() {
   if (contaFilter !== "Todos") saldoAtualReal = saldosContas[contaFilter] || 0;
   else saldoAtualReal = Object.values(saldosContas).reduce((a, b) => a + b, 0);
 
-  const saldoPrevisao =
-    saldoAtualReal +
-    (receitasTotal - receitasPagas) -
-    (despesasTotal - despesasPagas);
-
   // --- LÓGICA DO CALENDÁRIO ---
   const firstDayOfMonth = new Date(refYear, currentDate.getMonth(), 1).getDay();
   const daysInMonth = new Date(refYear, currentDate.getMonth() + 1, 0).getDate();
   const calendarBlanks = Array.from({ length: firstDayOfMonth }, (_, i) => null);
   const calendarDays = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+  // Separar transações antecipadas (vencem depois desse mês, mas foram pagas neste mês)
+  const antecipadas = filteredTransacoes.filter(t => t.data_vencimento > viewEndOfMonth);
 
   if (loading && contasDB.length === 0) {
     return (
@@ -1028,8 +1064,6 @@ function FinanceiroPageContent() {
       className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-background transition-colors"
       id="dashboard-values"
     >
-      
-
       {/* Topo */}
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
         <div className="min-w-0 text-left">
@@ -1048,45 +1082,45 @@ function FinanceiroPageContent() {
           >
             {showMobileCards ? "Ocultar Valores" : "Exibir Valores"}
           </button>
-        <div className="flex items-center w-full md:w-auto gap-2">
-          <div className="flex items-center flex-1 md:flex-none justify-between bg-card/5 border border-border rounded-lg shadow-sm">
+          <div className="flex items-center w-full md:w-auto gap-2">
+            <div className="flex items-center flex-1 md:flex-none justify-between bg-card/5 border border-border rounded-lg shadow-sm">
+              <button
+                onClick={handlePrevMonth}
+                className="p-2 text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white transition-colors"
+              >
+                <IconChevronLeft />
+              </button>
+              <button
+                onClick={() => setShowDatePicker(true)}
+                className="px-2 sm:px-4 text-sm font-medium capitalize w-full md:w-40 text-center text-foreground/90 hover:text-emerald-500 dark:hover:text-emerald-500 transition-colors truncate"
+              >
+                {monthName}
+              </button>
+              <button
+                onClick={handleNextMonth}
+                className="p-2 text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white transition-colors"
+              >
+                <IconChevronRight />
+              </button>
+            </div>
             <button
-              onClick={handlePrevMonth}
-              className="p-2 text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white transition-colors"
+              onClick={handleToday}
+              className="h-10 px-4 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-transparent dark:hover:bg-card/10 transition-colors shrink-0"
             >
-              <IconChevronLeft />
-            </button>
-            <button
-              onClick={() => setShowDatePicker(true)}
-              className="px-2 sm:px-4 text-sm font-medium capitalize w-full md:w-40 text-center text-foreground/90 hover:text-emerald-500 dark:hover:text-emerald-500 transition-colors truncate"
-            >
-              {monthName}
-            </button>
-            <button
-              onClick={handleNextMonth}
-              className="p-2 text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white transition-colors"
-            >
-              <IconChevronRight />
+              Hoje
             </button>
           </div>
-          <button
-            onClick={handleToday}
-            className="h-10 px-4 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-transparent dark:hover:bg-card/10 transition-colors shrink-0"
-          >
-            Hoje
-          </button>
-        </div>
 
-        {showDatePicker && (
-          <ModalDatePicker
-            currentDate={currentDate}
-            onSelect={(date) => {
-              setCurrentDate(date);
-              setShowDatePicker(false);
-            }}
-            onClose={() => setShowDatePicker(false)}
-          />
-        )}
+          {showDatePicker && (
+            <ModalDatePicker
+              currentDate={currentDate}
+              onSelect={(date) => {
+                setCurrentDate(date);
+                setShowDatePicker(false);
+              }}
+              onClose={() => setShowDatePicker(false)}
+            />
+          )}
         </div>
       </div>
 
@@ -1137,25 +1171,8 @@ function FinanceiroPageContent() {
 
       <div className="px-3 md:p-4 bg-transparent md:bg-card md:dark:bg-card border-0 md:border md:border-border md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 z-20">
         <div className="flex items-center justify-between">
-          <div className="hidden md:flex items-center gap-4">
-             <div className="text-xs font-medium uppercase text-muted-foreground/80 dark:text-muted-foreground tracking-wider">
-               Lançamentos
-             </div>
-             {/* TOGGLE VISÃO DESKTOP */}
-             <div className="flex bg-transparent rounded-lg border border-border p-0.5 h-9">
-               <button
-                 onClick={() => setViewMode("LISTA")}
-                 className={`flex items-center gap-2 px-3 text-xs font-medium rounded-md transition-colors ${viewMode === "LISTA" ? "bg-card shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-               >
-                 <IconList /> Lista
-               </button>
-               <button
-                 onClick={() => setViewMode("CALENDARIO")}
-                 className={`flex items-center gap-2 px-3 text-xs font-medium rounded-md transition-colors ${viewMode === "CALENDARIO" ? "bg-card shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-               >
-                 <IconCalendar /> Calendário
-               </button>
-             </div>
+          <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground/80 dark:text-muted-foreground tracking-wider">
+            Agenda Financeira
           </div>
 
           <div className="hidden md:flex items-center gap-2">
@@ -1169,22 +1186,6 @@ function FinanceiroPageContent() {
         </div>
 
         <div className="md:hidden flex flex-col gap-2">
-          {/* TOGGLE VISÃO MOBILE */}
-          <div className="flex bg-transparent rounded-lg border border-border p-0.5 h-9 w-full">
-            <button
-              onClick={() => setViewMode("LISTA")}
-              className={`flex-1 flex justify-center items-center gap-2 text-xs font-medium rounded-md transition-colors ${viewMode === "LISTA" ? "bg-card shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              <IconList /> Lista
-            </button>
-            <button
-              onClick={() => setViewMode("CALENDARIO")}
-              className={`flex-1 flex justify-center items-center gap-2 text-xs font-medium rounded-md transition-colors ${viewMode === "CALENDARIO" ? "bg-card shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              <IconCalendar /> Calendário
-            </button>
-          </div>
-
           <div className="flex items-center gap-2">
             <div className="flex-1 relative">
               <input
@@ -1387,454 +1388,134 @@ function FinanceiroPageContent() {
       </div>
 
       <div className="bg-card border-y sm:border border-border rounded-none sm:rounded-xl shadow-sm overflow-x-auto">
-        {viewMode === "LISTA" ? (
-        <table className="w-full text-left border-collapse min-w-[1000px] animate-in fade-in duration-300">
-          <thead>
-            <tr className="border-b border-border text-xs font-medium uppercase text-muted-foreground select-none">
-              <th
-                className="px-4 py-3 whitespace-nowrap cursor-pointer hover:text-emerald-500 dark:hover:text-emerald-500 transition-colors"
-                onClick={() => requestSort("descricao")}
-              >
-                Descrição{" "}
-                {sortConfig?.key === "descricao"
-                  ? sortConfig.direction === "asc"
-                    ? "↑"
-                    : "↓"
-                  : "↕"}
-              </th>
-              <th
-                className="px-4 py-3 w-28 text-center whitespace-nowrap cursor-pointer hover:text-emerald-500 dark:hover:text-emerald-500 transition-colors"
-                onClick={() => requestSort("tipo")}
-              >
-                Tipo{" "}
-                {sortConfig?.key === "tipo"
-                  ? sortConfig.direction === "asc"
-                    ? "↑"
-                    : "↓"
-                  : "↕"}
-              </th>
-              <th
-                className="px-4 py-3 text-center whitespace-nowrap cursor-pointer hover:text-emerald-500 dark:hover:text-emerald-500 transition-colors"
-                onClick={() => requestSort("data_vencimento")}
-              >
-                Vencimento{" "}
-                {sortConfig?.key === "data_vencimento"
-                  ? sortConfig.direction === "asc"
-                    ? "↑"
-                    : "↓"
-                  : "↕"}
-              </th>
-              <th
-                className="px-4 py-3 text-center whitespace-nowrap cursor-pointer hover:text-emerald-500 dark:hover:text-emerald-500 transition-colors"
-                onClick={() => requestSort("status_computed")}
-              >
-                Status{" "}
-                {sortConfig?.key === "status_computed"
-                  ? sortConfig.direction === "asc"
-                    ? "↑"
-                    : "↓"
-                  : "↕"}
-              </th>
-              <th
-                className="px-4 py-3 text-center whitespace-nowrap cursor-pointer hover:text-emerald-500 dark:hover:text-emerald-500 transition-colors"
-                onClick={() => requestSort("categoria_nome")}
-              >
-                Categoria{" "}
-                {sortConfig?.key === "categoria_nome"
-                  ? sortConfig.direction === "asc"
-                    ? "↑"
-                    : "↓"
-                  : "↕"}
-              </th>
-              <th
-                className="px-4 py-3 text-center whitespace-nowrap cursor-pointer hover:text-emerald-500 dark:hover:text-emerald-500 transition-colors"
-                onClick={() => requestSort("conta_nome")}
-              >
-                Conta{" "}
-                {sortConfig?.key === "conta_nome"
-                  ? sortConfig.direction === "asc"
-                    ? "↑"
-                    : "↓"
-                  : "↕"}
-              </th>
-              <th
-                className="px-4 py-3 text-center whitespace-nowrap cursor-pointer hover:text-emerald-500 dark:hover:text-emerald-500 transition-colors"
-                onClick={() => requestSort("recorrencia_formatada")}
-              >
-                Recorrência{" "}
-                {sortConfig?.key === "recorrencia_formatada"
-                  ? sortConfig.direction === "asc"
-                    ? "↑"
-                    : "↓"
-                  : "↕"}
-              </th>
-              <th
-                className="px-4 py-3 text-right whitespace-nowrap cursor-pointer hover:text-emerald-500 dark:hover:text-emerald-500 transition-colors"
-                onClick={() => requestSort("valor")}
-              >
-                Valor{" "}
-                {sortConfig?.key === "valor"
-                  ? sortConfig.direction === "asc"
-                    ? "↑"
-                    : "↓"
-                  : "↕"}
-              </th>
-              <th className="px-4 py-3 text-right whitespace-nowrap">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="text-sm divide-y divide-border">
-            {normais.length === 0 && antecipadas.length === 0 && !loading && (
-              <tr>
-                <td
-                  colSpan={9}
-                  className="p-8 text-center text-muted-foreground/80 italic"
-                >
-                  Nenhum lançamento encontrado.
-                </td>
-              </tr>
-            )}
-            {loading && (
-              <tr>
-                <td
-                  colSpan={9}
-                  className="p-8 text-center text-emerald-500 animate-pulse font-medium"
-                >
-                  Carregando dados...
-                </td>
-              </tr>
-            )}
+        <div className="p-3 sm:p-4 min-w-[700px] animate-in fade-in duration-300">
+           <div className="grid grid-cols-7 gap-2 mb-2">
+              {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map(d => (
+                <div key={d} className="text-center text-xs font-bold text-muted-foreground uppercase tracking-wider">{d}</div>
+              ))}
+           </div>
+           <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+              {calendarBlanks.map((_, i) => (
+                <div key={`empty-${i}`} className="bg-transparent rounded-lg p-2 min-h-[100px] sm:min-h-[120px]" />
+              ))}
+              {calendarDays.map((dia) => {
+                const dateStr = `${refYear}-${refMonth}-${String(dia).padStart(2, "0")}`;
+                const isHoje = new Date().toISOString().split("T")[0] === dateStr;
+                const dayTxs = filteredTransacoes.filter(t => t.data_vencimento === dateStr);
 
-            {(() => {
-              const renderTableRow = (
-                t: Transacao,
-                index: number | null,
-                isAntecipada: boolean,
-              ) => {
-                const cStatus = getComputedStatus(t.status, t.data_vencimento);
-                const recText = formatRecorrencia(t);
+                const tDespesasPendentes = dayTxs.filter(t => t.tipo === 'DESPESA' && t.status !== 'PAGO').reduce((a, b) => a + b.valor, 0);
+                const tDespesasPagas = dayTxs.filter(t => t.tipo === 'DESPESA' && t.status === 'PAGO').reduce((a, b) => a + b.valor, 0);
+                const tReceitasPendentes = dayTxs.filter(t => t.tipo === 'RECEITA' && t.status !== 'PAGO').reduce((a, b) => a + b.valor, 0);
+                const tReceitasPagas = dayTxs.filter(t => t.tipo === 'RECEITA' && t.status === 'PAGO').reduce((a, b) => a + b.valor, 0);
 
-                let showDateDivider = false;
-                let dateLabel = "";
+                const hasLancamento = dayTxs.length > 0;
+                const isAllPaid = hasLancamento && tDespesasPendentes === 0 && tReceitasPendentes === 0;
 
-                if (!isAntecipada && index !== null) {
-                  const isSortedByDate =
-                    !sortConfig || sortConfig.key === "data_vencimento";
-                  showDateDivider =
-                    isSortedByDate &&
-                    (index === 0 ||
-                      normais[index - 1].data_vencimento !== t.data_vencimento);
-
-                  if (showDateDivider) {
-                    const [y, m, d] = t.data_vencimento.split("-");
-                    const dateObj = new Date(
-                      Number(y),
-                      Number(m) - 1,
-                      Number(d),
-                    );
-                    const diaSemana = dateObj.toLocaleDateString("pt-BR", {
-                      weekday: "long",
-                    });
-                    dateLabel = `${d}/${m}/${y} - ${diaSemana}`;
-                  }
+                let bgClass = "bg-[#eaf4fc] dark:bg-sky-900/10 border-transparent text-slate-500 dark:text-slate-400"; 
+                
+                if (hasLancamento) {
+                    if (isAllPaid) {
+                        bgClass = "bg-slate-100 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300";
+                    } else if (tDespesasPendentes > 0) {
+                        bgClass = "bg-[#fbceb1] dark:bg-orange-900/30 border-orange-200 dark:border-orange-500/20 text-slate-800 dark:text-slate-200";
+                    } else if (tReceitasPendentes > 0) {
+                        bgClass = "bg-[#d1fae5] dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-500/20 text-slate-800 dark:text-slate-200"; 
+                    }
                 }
 
-                const isPago = cStatus === "PAGO";
-                const rowOpacity = isPago ? "opacity-60 hover:opacity-100" : "";
-
-                return [
-                  showDateDivider && (
-                    <tr
-                      key={`div-${t.id}`}
-                      className="bg-slate-50/50 dark:bg-white/[0.02] border-y border-border"
-                    >
-                      <td
-                        colSpan={9}
-                        className="px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                      >
-                        🗓️ {dateLabel}
-                      </td>
-                    </tr>
-                  ),
-                  <tr
-                    key={t.id}
-                    className={`hover:bg-transparent dark:hover:bg-card/5 transition-colors group cursor-pointer ${rowOpacity}`}
-                    onClick={() => setModalData({ open: true, transacao: t })}
-                  >
-                    <td className="px-4 py-3">
-                      <div className="font-normal text-foreground/90 truncate max-w-[220px] group-hover:text-emerald-500 transition-colors">
-                        {t.descricao}
-                      </div>
-                    </td>
-
-                    <td className="px-4 py-3 text-center">
-                      {t.tipo === "RECEITA" ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-normal tracking-tight shadow-sm uppercase text-emerald-500 bg-emerald-500/10 border border-emerald-500/20  dark:text-emerald-200 dark:border-emerald-400/30">
-                          <IconTrendingUp /> Receita
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-normal tracking-tight shadow-sm uppercase text-rose-500 bg-rose-500/10 border border-rose-500/20  dark:text-rose-200 dark:border-rose-400/30">
-                          <IconTrendingDown /> Despesa
-                        </span>
-                      )}
-                    </td>
-
-                    <td className="px-4 py-3 text-center">
- <span className=" text-muted-foreground dark:text-white/80">
-                        {t.data_vencimento.split("-").reverse().join("/")}
-                      </span>
-                    </td>
-
-                    <td className="px-4 py-3 text-center">
-                      {(() => {
-                        let cor =
-                          "bg-amber-500/20 text-amber-500 border-amber-500/20  dark:text-amber-200 dark:border-amber-400/30";
-                        let label = cStatus;
-
-                        if (cStatus === "PAGO") {
-                          cor =
-                            "bg-emerald-500/20 text-emerald-500 border-emerald-500/20  dark:text-emerald-200 dark:border-emerald-400/30";
-                          label = t.tipo === "RECEITA" ? "RECEBIDO" : "PAGO";
-                        } else if (cStatus === "VENCIDO") {
-                          cor =
-                            "bg-rose-500/20 text-rose-500 border-rose-500/20  dark:text-rose-200 dark:border-rose-400/30";
-                        }
-
-                        return (
-                          <span className={`inline-flex gap-1 px-2 py-1 rounded-lg text-[10px] font-normal tracking-tight shadow-sm uppercase border whitespace-nowrap ${cor}`}>
-                            {label}
-                          </span>
-                        );
-                      })()}
-                    </td>
-
-                    <td className="px-4 py-3 text-center">
-                     <div className="text-xs text-muted-foreground dark:text-white/80 font-normal">
-                        {t.categoria_nome || "—"}
-                      </div>
-                    </td>
-
-                    <td className="px-4 py-3 text-center">
-                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-transparent text-[10px] font-normal tracking-tight shadow-sm dark:bg-card/5 text-muted-foreground border border-border">
-                        {t.conta_nome || "—"}
-                      </span>
-                    </td>
-
-                    <td className="px-4 py-3 text-center">
-                      {(() => {
-                        if (
-                          t.parcela_total &&
-                          t.recorrencia_id &&
-                          pendentesMap[t.recorrencia_id] !== undefined
-                        ) {
-                          const pendentes = pendentesMap[t.recorrencia_id];
-                          const isQuitado = pendentes === 0;
-
-                          let corTexto = "";
-                          if (isQuitado || t.tipo === "RECEITA") {
-                            corTexto = "text-emerald-500";
-                          } else {
-                            corTexto = "text-rose-500";
-                          }
-
-                          return (
-                            <div className={`flex items-center justify-center gap-1 text-[11px] font-normal whitespace-nowrap ${corTexto}`}>
-                              <span>{recText}</span>
-                              <span>
-                                {isQuitado
-                                  ? " (Quitado)"
-                                  : `(${pendentes} Pendente)`}
-                              </span>
-                            </div>
-                          );
-                        }
-
-                        return (
-                          <span className="text-[11px] font-normal text-muted-foreground whitespace-nowrap">
-                            {recText}
-                          </span>
-                        );
-                      })()}
-                    </td>
-
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <span className={`font-normal transition-all duration-300 finance-value ${t.tipo === "RECEITA" ? "text-emerald-500" : "text-rose-500"}`}>
-                        {t.tipo === "RECEITA" ? "+" : "-"} {fmtBRL(t.valor)}
-                      </span>
-                    </td>
-
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100">
-                        {(() => {
-                          let btnTone: "green" | "amber" | "red" | "blue" =
-                            "blue";
-                          let isUp = false;
-
-                          if (cStatus === "PAGO") {
-                            btnTone = "green";
-                            isUp = true;
-                          } else {
-                            btnTone = "blue";
-                            isUp = false;
-                          }
-
-                          return (
-                            <ActionBtn
-                              tone={btnTone}
-                              title={
-                                t.status === "PAGO"
-                                  ? t.tipo === "RECEITA"
-                                    ? "Desfazer Recebimento"
-                                    : "Desfazer Pagamento"
-                                  : t.tipo === "RECEITA"
-                                    ? "Confirmar Recebimento"
-                                    : "Confirmar Pagamento"
-                              }
-                              onClick={() =>
-                                setBaixaModal({ open: true, transacao: t })
-                              }
-                            >
-                              <IconThumb
-                                className={
-                                  !isUp ? "-scale-y-100" : "scale-y-100"
-                                }
-                              />
-                            </ActionBtn>
-                          );
-                        })()}
-
-                        <ActionBtn
-                          tone="amber"
-                          title="Editar"
-                          onClick={() =>
-                            setModalData({ open: true, transacao: t })
-                          }
-                        >
-                          <IconEdit />
-                        </ActionBtn>
-
-                        <ActionBtn
-                          tone="red"
-                          title="Excluir"
-                          onClick={() => handleDeleteClick(t)}
-                        >
-                          <IconTrash />
-                        </ActionBtn>
-                      </div>
-                    </td>
-                  </tr>,
-                ];
-              };
-
-              const components: any[] = [];
-
-              normais.forEach((t, i) => {
-                components.push(renderTableRow(t, i, false));
-              });
-
-              if (antecipadas.length > 0) {
-                components.push(
-                  <tr
-                    key="div-antecipadas"
-                    onClick={() => setShowAntecipadas(!showAntecipadas)}
-                    className="bg-sky-500/10 border-y border-sky-500/30 cursor-pointer hover:bg-sky-500/20 dark:hover:bg-sky-900/40 transition-colors"
-                  >
-                    <td colSpan={9} className="px-4 py-3">
-                      <div className="flex items-center justify-between text-xs font-medium text-sky-500 uppercase tracking-wider select-none">
-                        <span>
-                          ⭐ Pagamentos Antecipados ({antecipadas.length})
-                        </span>
-                        <span className="text-sky-500 dark:text-sky-500 transition-transform duration-200">
-                          {showAntecipadas ? (
-                            <IconChevronDown />
-                          ) : (
-                            <IconChevronRight />
-                          )}
-                        </span>
-                      </div>
-                    </td>
-                  </tr>,
-                );
-
-                if (showAntecipadas) {
-                  antecipadas.forEach((t) => {
-                    components.push(renderTableRow(t, null, true));
-                  });
-                }
-              }
-
-              return components;
-            })()}
-          </tbody>
-        </table>
-        ) : (
-          <div className="p-3 sm:p-4 min-w-[700px] animate-in fade-in duration-300">
-             <div className="grid grid-cols-7 gap-2 mb-2">
-                {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map(d => (
-                  <div key={d} className="text-center text-xs font-bold text-muted-foreground uppercase tracking-wider">{d}</div>
-                ))}
-             </div>
-             <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
-                {calendarBlanks.map((_, i) => (
-                  <div key={`empty-${i}`} className="bg-transparent rounded-lg p-2 min-h-[100px] sm:min-h-[120px]" />
-                ))}
-                {calendarDays.map((dia) => {
-                  const dateStr = `${refYear}-${refMonth}-${String(dia).padStart(2, "0")}`;
-                  const isHoje = new Date().toISOString().split("T")[0] === dateStr;
-                  const dayTxs = filteredTransacoes.filter(t => t.data_vencimento === dateStr);
-
-                  const totalDespesas = dayTxs.filter(t => t.tipo === 'DESPESA').reduce((a, b) => a + b.valor, 0);
-                  const totalReceitas = dayTxs.filter(t => t.tipo === 'RECEITA').reduce((a, b) => a + b.valor, 0);
-                  const hasLancamento = dayTxs.length > 0;
-
-                  // Cores baseadas na referência visual: fundo neutro azul claro, dias com contas salmão
-                  let bgClass = "bg-[#eaf4fc] dark:bg-sky-900/10 border-transparent text-slate-500 dark:text-slate-400"; 
-                  
-                  if (hasLancamento) {
-                      if (totalDespesas > 0) {
-                          bgClass = "bg-[#fbceb1] dark:bg-orange-900/30 border-orange-200 dark:border-orange-500/20 text-slate-800 dark:text-slate-200";
-                      } else if (totalReceitas > 0) {
-                          // Se tiver só receita no dia, fica verdinho claro
-                          bgClass = "bg-[#d1fae5] dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-500/20 text-slate-800 dark:text-slate-200"; 
+                return (
+                  <div 
+                    key={dia} 
+                    onClick={() => {
+                      if (hasLancamento) {
+                         setDiaSelecionado(dateStr);
                       }
-                  }
+                    }}
+                    className={`min-h-[100px] sm:min-h-[120px] border rounded-md p-2 sm:p-2.5 flex flex-col transition-all duration-200 ${bgClass} ${isHoje ? "ring-2 ring-foreground/50 shadow-md" : "shadow-sm hover:brightness-95 dark:hover:brightness-110"} ${hasLancamento ? "cursor-pointer hover:-translate-y-0.5" : "cursor-default"}`}
+                  >
+                     <div className="font-bold text-sm sm:text-base leading-none">
+                       {String(dia).padStart(2, '0')}
+                     </div>
+                     
+                     <div className="flex-1 flex flex-col justify-end gap-1.5 pb-0.5 select-none pt-2">
+                        {tDespesasPendentes > 0 && (
+                            <div className="text-[11px] sm:text-[12px] leading-tight">
+                              <div className="opacity-80">A pagar:</div>
+                              <div className="font-semibold text-rose-600 dark:text-rose-400 finance-value">{fmtBRL(tDespesasPendentes)}</div>
+                            </div>
+                        )}
+                        {tReceitasPendentes > 0 && (
+                            <div className="text-[11px] sm:text-[12px] leading-tight">
+                              <div className="opacity-80">A receber:</div>
+                              <div className="font-semibold text-emerald-600 dark:text-emerald-400 finance-value">{fmtBRL(tReceitasPendentes)}</div>
+                            </div>
+                        )}
+                        {tDespesasPagas > 0 && (
+                            <div className="text-[10px] sm:text-[11px] leading-tight opacity-60">
+                              <div>Pago: <span className="line-through finance-value">{fmtBRL(tDespesasPagas)}</span></div>
+                            </div>
+                        )}
+                        {tReceitasPagas > 0 && (
+                            <div className="text-[10px] sm:text-[11px] leading-tight opacity-60">
+                              <div>Recebido: <span className="line-through finance-value">{fmtBRL(tReceitasPagas)}</span></div>
+                            </div>
+                        )}
+                     </div>
+                  </div>
+                );
+              })}
+           </div>
 
-                  return (
-                    <div 
-                      key={dia} 
-                      onClick={() => {
-                        if (hasLancamento) {
-                          setViewMode("LISTA");
-                          window.scrollTo({ top: 0, behavior: 'smooth' });
-                        }
-                      }}
-                      className={`min-h-[100px] sm:min-h-[120px] border rounded-md p-2 sm:p-2.5 flex flex-col transition-all duration-200 ${bgClass} ${isHoje ? "ring-2 ring-foreground/50 shadow-md" : "shadow-sm hover:brightness-95 dark:hover:brightness-110"} ${hasLancamento ? "cursor-pointer" : "cursor-default"}`}
-                    >
-                       <div className="font-bold text-sm sm:text-base leading-none">
-                         {String(dia).padStart(2, '0')}
-                       </div>
-                       
-                       <div className="flex-1 flex flex-col justify-end gap-1.5 pb-0.5 select-none">
-                          {totalDespesas > 0 && (
-                              <div className="text-[11px] sm:text-[13px] leading-tight">
-                                <div className="opacity-80">Valor a pagar:</div>
-                                <div className="font-medium finance-value">{fmtBRL(totalDespesas)}</div>
-                              </div>
-                          )}
-                          {totalReceitas > 0 && totalDespesas === 0 && (
-                              <div className="text-[11px] sm:text-[13px] leading-tight">
-                                <div className="opacity-80">Valor a receber:</div>
-                                <div className="font-medium finance-value">{fmtBRL(totalReceitas)}</div>
-                              </div>
-                          )}
-                       </div>
-                    </div>
-                  );
-                })}
+           {antecipadas.length > 0 && (
+             <div className="mt-4">
+               <button
+                  onClick={() => setShowAntecipadas(!showAntecipadas)}
+                  className="w-full bg-sky-500/10 border border-sky-500/30 rounded-lg p-3 flex items-center justify-between text-xs font-medium text-sky-500 uppercase tracking-wider hover:bg-sky-500/20 transition-colors"
+                >
+                  <span>⭐ Pagamentos Antecipados ({antecipadas.length})</span>
+                  <span className="transition-transform duration-200">
+                    {showAntecipadas ? <IconChevronDown /> : <IconChevronRight />}
+                  </span>
+                </button>
+                {showAntecipadas && (
+                  <div className="mt-2 space-y-2">
+                    {antecipadas.map(t => (
+                      <div key={t.id} onClick={() => setModalData({open: true, transacao: t})} className="cursor-pointer bg-card border border-border p-3 rounded-lg flex items-center justify-between hover:bg-card/80 transition-colors">
+                        <div>
+                          <p className="text-sm font-semibold">{t.descricao}</p>
+                          <p className="text-xs text-muted-foreground">Vencimento: {t.data_vencimento.split('-').reverse().join('/')}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-bold text-muted-foreground line-through finance-value">{fmtBRL(t.valor)}</p>
+                          <p className="text-xs text-emerald-500 font-medium uppercase">Pago</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
              </div>
-          </div>
-        )}
-        <div className="h-10" />
+           )}
+        </div>
+        <div className="h-4" />
       </div>
+
+      {diaSelecionado && (
+        <ModalDiaDetalhes
+          dateStr={diaSelecionado}
+          transacoes={filteredTransacoes.filter(t => t.data_vencimento === diaSelecionado)}
+          onClose={() => setDiaSelecionado(null)}
+          onEdit={(t) => {
+            setDiaSelecionado(null);
+            setModalData({ open: true, transacao: t });
+          }}
+          onBaixa={(t) => {
+            setBaixaModal({ open: true, transacao: t });
+          }}
+          onDelete={(t) => {
+            handleDeleteClick(t);
+          }}
+        />
+      )}
 
       {baixaModal.open && baixaModal.transacao && tenantId && (
         <ModalBaixa
