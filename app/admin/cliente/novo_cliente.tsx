@@ -4548,9 +4548,7 @@ if (papaErr) {
         <Switch checked={syncOperadora} onChange={setSyncOperadora} label="" />
       </div>
     </div>
-    <p className="text-[9px] text-muted-foreground/80 dark:text-white/30 mt-1 italic">
-      Atualiza nome, grupo e foto na agenda do Google.
-    </p>
+    
   </div>
 )}
 </div>

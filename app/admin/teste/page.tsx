@@ -13,7 +13,6 @@ import {
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import Link from "next/link";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { getIntegrationHandler } from "@/lib/integrations";
@@ -1492,19 +1491,20 @@ export default function TrialsPage() {
                       <Td>
                         <div className="flex flex-col max-w-[180px] sm:max-w-none">
                           <div className="flex items-center gap-2 whitespace-nowrap">
-                            <Link
-                              href={`/admin/teste/${r.id}`}
-                              className="font-semibold text-foreground/90 group-hover:text-emerald-400 dark:group-hover:text-emerald-400 transition-colors hover:underline decoration-emerald-500/30 underline-offset-2 truncate"
-                              title={r.name}
-                            >
-                              {r.name.split(" ")[0]}
-                              {r.secondary_display_name && (
-                                <span className="text-muted-foreground/80 dark:text-white/30 font-medium">
-                                  {" / "}
-                                  {r.secondary_display_name.split(" ")[0]}
-                                </span>
-                              )}
-                            </Link>
+                            <button
+  type="button"
+  onClick={(e) => { e.stopPropagation(); handleOpenEdit(r); }}
+  className="font-semibold text-foreground/90 group-hover:text-emerald-400 dark:group-hover:text-emerald-400 transition-colors hover:underline decoration-emerald-500/30 underline-offset-2 truncate text-left"
+  title={r.name}
+>
+  {r.name.split(" ")[0]}
+  {r.secondary_display_name && (
+    <span className="text-muted-foreground/80 dark:text-white/30 font-medium">
+      {" / "}
+      {r.secondary_display_name.split(" ")[0]}
+    </span>
+  )}
+</button>
 
                             <div className="flex items-center gap-1 shrink-0">
                               {(scheduledMap[r.id]?.length || 0) > 0 && (
