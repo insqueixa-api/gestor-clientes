@@ -1491,10 +1491,8 @@ export default function TrialsPage() {
                       <Td>
                         <div className="flex flex-col max-w-[180px] sm:max-w-none">
                           <div className="flex items-center gap-2 whitespace-nowrap">
-                            <button
-  type="button"
-  onClick={(e) => { e.stopPropagation(); handleOpenEdit(r); }}
-  className="font-semibold text-foreground/90 group-hover:text-emerald-400 dark:group-hover:text-emerald-400 transition-colors hover:underline decoration-emerald-500/30 underline-offset-2 truncate text-left"
+                            <span
+  className="font-semibold text-foreground/90 truncate"
   title={r.name}
 >
   {r.name.split(" ")[0]}
@@ -1504,7 +1502,7 @@ export default function TrialsPage() {
       {r.secondary_display_name.split(" ")[0]}
     </span>
   )}
-</button>
+</span>
 
                             <div className="flex items-center gap-1 shrink-0">
                               {(scheduledMap[r.id]?.length || 0) > 0 && (
