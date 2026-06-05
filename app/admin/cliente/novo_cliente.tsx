@@ -499,8 +499,31 @@ function FormattedDateInput({
   className = "",
   ...props
 }: any) {
-  const [isFocused, setIsFocused] = useState(false);
+  const [displayValue, setDisplayValue] = useState("");
 
+  // Sincroniza do estado do pai (YYYY-MM-DD) para a máscara (DD/MM/YYYY)
+  useEffect(() => {
+    if (type !== "date" && type !== "datetime-local") return;
+
+    if (!value) {
+      setDisplayValue("");
+      return;
+    }
+    try {
+      if (type === "date") {
+        const [y, m, d] = value.split("-");
+        if (y && m && d) setDisplayValue(`${d}/${m}/${y}`);
+      } else if (type === "datetime-local") {
+        const [datePart, timePart] = value.split("T");
+        if (datePart && timePart) {
+          const [y, m, d] = datePart.split("-");
+          if (y && m && d) setDisplayValue(`${d}/${m}/${y} ${timePart}`);
+        }
+      }
+    } catch (e) {}
+  }, [value, type]);
+
+  // Se não for data, renderiza o input normal igual fazia antes
   if (type !== "date" && type !== "datetime-local") {
     return (
       <Input
@@ -513,30 +536,92 @@ function FormattedDateInput({
     );
   }
 
-  let displayValue = value;
-  if (!isFocused && value) {
-    try {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let raw = e.target.value.replace(/\D/g, "");
+    let formatted = "";
+
+    if (type === "date") {
+      raw = raw.slice(0, 8);
+      if (raw.length > 4) {
+        formatted = `${raw.slice(0, 2)}/${raw.slice(2, 4)}/${raw.slice(4)}`;
+      } else if (raw.length > 2) {
+        formatted = `${raw.slice(0, 2)}/${raw.slice(2)}`;
+      } else {
+        formatted = raw;
+      }
+
+      setDisplayValue(formatted);
+
+      if (raw.length === 8) {
+        const d = raw.slice(0, 2);
+        const m = raw.slice(2, 4);
+        const y = raw.slice(4);
+        if (Number(d) > 0 && Number(d) <= 31 && Number(m) > 0 && Number(m) <= 12) {
+          onChange({ target: { value: `${y}-${m}-${d}` } });
+        }
+      } else if (raw.length === 0) {
+        onChange({ target: { value: "" } });
+      }
+
+    } else if (type === "datetime-local") {
+      raw = raw.slice(0, 12);
+      if (raw.length > 10) {
+        formatted = `${raw.slice(0, 2)}/${raw.slice(2, 4)}/${raw.slice(4, 8)} ${raw.slice(8, 10)}:${raw.slice(10)}`;
+      } else if (raw.length > 8) {
+        formatted = `${raw.slice(0, 2)}/${raw.slice(2, 4)}/${raw.slice(4, 8)} ${raw.slice(8)}`;
+      } else if (raw.length > 4) {
+        formatted = `${raw.slice(0, 2)}/${raw.slice(2, 4)}/${raw.slice(4)}`;
+      } else if (raw.length > 2) {
+        formatted = `${raw.slice(0, 2)}/${raw.slice(2)}`;
+      } else {
+        formatted = raw;
+      }
+
+      setDisplayValue(formatted);
+
+      if (raw.length === 12) {
+        const d = raw.slice(0, 2);
+        const m = raw.slice(2, 4);
+        const y = raw.slice(4, 8);
+        const hh = raw.slice(8, 10);
+        const mm = raw.slice(10, 12);
+        if (Number(d) <= 31 && Number(m) <= 12 && Number(hh) <= 23 && Number(mm) <= 59) {
+          onChange({ target: { value: `${y}-${m}-${d}T${hh}:${mm}` } });
+        }
+      } else if (raw.length === 0) {
+        onChange({ target: { value: "" } });
+      }
+    }
+  };
+
+  // 🔥 ATALHO DE PODER: Seta pra Cima (+1 Ano), Seta pra Baixo (-1 Ano)
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!value) return;
+    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+      e.preventDefault();
       if (type === "date") {
         const [y, m, d] = value.split("-");
-        if (y && m && d) displayValue = `${d}/${m}/${y}`;
+        const newY = parseInt(y, 10) + (e.key === "ArrowUp" ? 1 : -1);
+        onChange({ target: { value: `${newY}-${m}-${d}` } });
       } else if (type === "datetime-local") {
         const [datePart, timePart] = value.split("T");
-        if (datePart && timePart) {
-          const [y, m, d] = datePart.split("-");
-          if (y && m && d) displayValue = `${d}/${m}/${y} ${timePart}`;
-        }
+        const [y, m, d] = datePart.split("-");
+        const newY = parseInt(y, 10) + (e.key === "ArrowUp" ? 1 : -1);
+        onChange({ target: { value: `${newY}-${m}-${d}T${timePart}` } });
       }
-    } catch (e) {}
-  }
+    }
+  };
 
   return (
     <Input
-      type={isFocused ? type : "text"}
-      value={isFocused ? value : displayValue}
-      onFocus={() => setIsFocused(true)}
-      onBlur={() => setIsFocused(false)}
-      onChange={onChange}
+      type="text"
+      value={displayValue}
+      onChange={handleChange}
+      onKeyDown={handleKeyDown}
+      placeholder={type === "date" ? "DD/MM/AAAA" : "DD/MM/AAAA HH:MM"}
       className={className}
+      maxLength={type === "date" ? 10 : 16}
+      title="Dica: Pressione Seta para Cima para adicionar +1 Ano rapidamente"
       {...props}
     />
   );
