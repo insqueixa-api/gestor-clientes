@@ -739,7 +739,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-black/30 dark:hover:bg-card/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white transition-colors"
+            className="p-1 rounded-lg hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white transition-colors"
           >
             ✕
           </button>
@@ -901,7 +901,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
           <div className="p-4 bg-transparent rounded-xl border border-border grid grid-cols-1 md:grid-cols-3 gap-5 animate-in slide-in-from-bottom-3 duration-400">
             <div className="space-y-1">
               <Label>Moeda padrão</Label>
-              <div className="flex bg-black/30/50 dark:bg-black/20 rounded-lg p-1 border border-border h-10">
+              <div className="flex bg-transparent/50 dark:bg-transparent rounded-lg p-1 border border-border h-10">
                 {(["BRL", "USD", "EUR"] as const).map((c) => (
                   <button
                     key={c}
@@ -1035,7 +1035,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
                     <button
                       type="button"
                       onClick={() => handleCopyDns(dns, idx)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground/80 dark:text-muted-foreground hover:text-emerald-400 dark:hover:text-emerald-400 hover:bg-black/30 dark:hover:bg-card/10 rounded transition-colors"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground/80 dark:text-muted-foreground hover:text-emerald-400 dark:hover:text-emerald-400 hover:bg-transparent dark:hover:bg-card/10 rounded transition-colors"
                       title="Copiar DNS"
                     >
                       {copiedDnsIndex === idx ? (
@@ -1098,7 +1098,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
         <div className="px-6 py-4 border-t border-border flex justify-end gap-3 bg-transparent transition-colors">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-black/30 dark:hover:bg-card/5 transition-colors text-sm font-semibold"
+            className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-transparent dark:hover:bg-card/5 transition-colors text-sm font-semibold"
           >
             Cancelar
           </button>

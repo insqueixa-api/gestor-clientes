@@ -665,7 +665,7 @@ export default function ResellerFormModal({
                     className={`absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded flex items-center justify-center transition-colors ${
                       primaryConfirmed
                         ? "text-emerald-400 bg-emerald-500/10"
-                        : "text-muted-foreground/80 hover:bg-black/30"
+                        : "text-muted-foreground/80 hover:bg-transparent"
                     }`}
                   >
                     ✓

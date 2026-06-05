@@ -519,7 +519,7 @@ export default function AppManagerPage() {
                   className="w-8 h-8 rounded-lg object-cover border border-border shrink-0"
                 />
               ) : (
-                <div className="w-8 h-8 rounded-lg bg-transparent dark:bg-black/20 flex items-center justify-center text-base shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-transparent dark:bg-transparent flex items-center justify-center text-base shrink-0">
                   📱
                 </div>
               )}
@@ -529,7 +529,7 @@ export default function AppManagerPage() {
             </div>
             <div className="flex flex-wrap gap-1 pt-0.5">
               {app.tenant_id !== myTenantId && (
-                <span className="inline-flex items-center text-[10px] font-medium bg-transparent dark:bg-black/20 text-muted-foreground border border-border px-2 py-0.5 rounded-full">
+                <span className="inline-flex items-center text-[10px] font-medium bg-transparent dark:bg-transparent text-muted-foreground border border-border px-2 py-0.5 rounded-full">
                   🔒
                 </span>
               )}
@@ -591,7 +591,7 @@ export default function AppManagerPage() {
               app.fields_config.map((field, idx) => (
                 <span
                   key={idx}
-                  className="px-2 py-1 bg-transparent dark:bg-black/20 border border-border rounded text-[10px] text-muted-foreground dark:text-slate-300 font-medium flex items-center gap-1"
+                  className="px-2 py-1 bg-transparent dark:bg-transparent border border-border rounded text-[10px] text-muted-foreground dark:text-slate-300 font-medium flex items-center gap-1"
                 >
                   {FIELD_ICONS[field.type]} {FIELD_LABELS[field.type]}
                 </span>
@@ -650,7 +650,7 @@ export default function AppManagerPage() {
             {search.trim() ? (
               <button
                 onClick={() => setSearch("")}
-                className="h-10 px-3 rounded-lg border border-border bg-card dark:bg-black/5 dark:bg-black/20 text-xs font-medium text-muted-foreground hover:bg-muted/50 dark:hover:bg-card/5 transition-colors"
+                className="h-10 px-3 rounded-lg border border-border bg-card dark:bg-black/5 dark:bg-transparent text-xs font-medium text-muted-foreground hover:bg-transparent/50 dark:hover:bg-card/5 transition-colors"
                 title="Limpar busca"
               >
                 Limpar
@@ -823,7 +823,7 @@ export default function AppManagerPage() {
                       className="w-12 h-12 rounded-lg object-cover border border-border shrink-0"
                     />
                   ) : (
-                    <div className="w-12 h-12 rounded-lg bg-transparent dark:bg-black/20 flex items-center justify-center shrink-0 text-2xl">
+                    <div className="w-12 h-12 rounded-lg bg-transparent dark:bg-transparent flex items-center justify-center shrink-0 text-2xl">
                       📱
                     </div>
                   )}
@@ -916,7 +916,7 @@ export default function AppManagerPage() {
                           className={`text-xs px-2 py-1 border rounded font-medium transition-colors flex items-center gap-1
                             ${
                               alreadyAdded
-                                ? "opacity-30 cursor-not-allowed bg-transparent dark:bg-black/20 border-border text-muted-foreground/80"
+                                ? "opacity-30 cursor-not-allowed bg-transparent dark:bg-transparent border-border text-muted-foreground/80"
                                 : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
                             }`}
                         >
@@ -957,7 +957,7 @@ export default function AppManagerPage() {
                       onDragEnd={() => {
                         dragIndexRef.current = null;
                       }}
-                      className="flex items-center gap-3 px-3 py-2 bg-card dark:bg-black/5 dark:bg-black/20 border border-border rounded-lg cursor-default select-none"
+                      className="flex items-center gap-3 px-3 py-2 bg-card dark:bg-black/5 dark:bg-transparent border border-border rounded-lg cursor-default select-none"
                     >
                       <span
                         className="text-slate-300 dark:text-white/20 hover:text-muted-foreground dark:hover:text-white/50 cursor-grab active:cursor-grabbing transition-colors text-sm px-0.5"
@@ -971,7 +971,7 @@ export default function AppManagerPage() {
                       <span className="flex-1 text-sm font-medium text-foreground/90/80">
                         {FIELD_LABELS[field.type]}
                       </span>
- <span className="text-[10px] text-muted-foreground/80 bg-transparent dark:bg-black/20 px-1.5 py-0.5 rounded">
+ <span className="text-[10px] text-muted-foreground/80 bg-transparent dark:bg-transparent px-1.5 py-0.5 rounded">
                         #{index + 1}
                       </span>
                       <button
@@ -990,7 +990,7 @@ export default function AppManagerPage() {
             <div className="px-6 py-4 border-t border-border bg-transparent flex justify-end gap-2 rounded-b-xl">
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 text-muted-foreground dark:text-white/60 hover:bg-black/30 dark:hover:bg-card/10 rounded-lg text-sm font-medium transition-colors"
+                className="px-4 py-2 text-muted-foreground dark:text-white/60 hover:bg-transparent dark:hover:bg-card/10 rounded-lg text-sm font-medium transition-colors"
               >
                 Cancelar
               </button>

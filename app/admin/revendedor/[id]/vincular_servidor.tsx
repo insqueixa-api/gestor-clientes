@@ -231,7 +231,7 @@ export default function VincularServidor({
           </h2>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-black/30 dark:hover:bg-card/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white transition-colors"
+            className="p-1 rounded-lg hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white transition-colors"
           >
             ✕
           </button>
@@ -300,7 +300,7 @@ export default function VincularServidor({
         <div className="px-6 py-4 border-t border-border bg-transparent flex items-center justify-end gap-3 transition-colors">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-black/30 dark:hover:bg-card/10 text-sm font-semibold transition-colors"
+            className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-transparent dark:hover:bg-card/10 text-sm font-semibold transition-colors"
           >
             Cancelar
           </button>

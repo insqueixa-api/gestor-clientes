@@ -1669,7 +1669,7 @@ function AgendaPageContent() {
                   return (
                     <tr
                       key={r.id}
-                      className={`transition-colors group cursor-pointer ${selectedIds.has(r.id) ? "bg-indigo-50/50 dark:bg-indigo-500/10" : "hover:bg-muted/50 dark:hover:bg-card/5"}`}
+                      className={`transition-colors group cursor-pointer ${selectedIds.has(r.id) ? "bg-indigo-50/50 dark:bg-indigo-500/10" : "hover:bg-transparent/50 dark:hover:bg-card/5"}`}
                       onClick={() =>
                         toggleSelected(r.id, !selectedIds.has(r.id))
                       }
@@ -1696,7 +1696,7 @@ function AgendaPageContent() {
                               className="w-[40px] h-[40px] rounded-full object-cover border border-border shadow-sm shrink-0"
                             />
                           ) : (
-                            <div className="w-[40px] h-[40px] rounded-full bg-black/30 flex items-center justify-center font-medium text-muted-foreground text-xl shrink-0">
+                            <div className="w-[40px] h-[40px] rounded-full bg-transparent flex items-center justify-center font-medium text-muted-foreground text-xl shrink-0">
                               {r.display_name?.charAt(0) || "?"}
                             </div>
                           )}
@@ -1880,14 +1880,14 @@ function AgendaPageContent() {
                   <button
                     onClick={() => setPage(1)}
                     disabled={safePage === 1}
-                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-black/20 dark:hover:bg-card/10 disabled:opacity-30 transition-colors text-xs font-medium"
+                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-transparent dark:hover:bg-card/10 disabled:opacity-30 transition-colors text-xs font-medium"
                   >
                     «
                   </button>
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={safePage === 1}
-                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-black/20 dark:hover:bg-card/10 disabled:opacity-30 transition-colors text-xs font-medium"
+                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-transparent dark:hover:bg-card/10 disabled:opacity-30 transition-colors text-xs font-medium"
                   >
                     ‹
                   </button>
@@ -1916,7 +1916,7 @@ function AgendaPageContent() {
                         <button
                           key={p}
                           onClick={() => setPage(p as number)}
-                          className={`h-7 w-7 rounded flex items-center justify-center text-xs font-bold transition-colors ${safePage === p ? "bg-emerald-600 text-white" : "text-muted-foreground hover:bg-black/20 dark:hover:bg-card/10"}`}
+                          className={`h-7 w-7 rounded flex items-center justify-center text-xs font-bold transition-colors ${safePage === p ? "bg-emerald-600 text-white" : "text-muted-foreground hover:bg-transparent dark:hover:bg-card/10"}`}
                         >
                           {p}
                         </button>
@@ -1925,14 +1925,14 @@ function AgendaPageContent() {
                   <button
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={safePage === totalPages}
-                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-black/20 dark:hover:bg-card/10 disabled:opacity-30 transition-colors text-xs font-medium"
+                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-transparent dark:hover:bg-card/10 disabled:opacity-30 transition-colors text-xs font-medium"
                   >
                     ›
                   </button>
                   <button
                     onClick={() => setPage(totalPages)}
                     disabled={safePage === totalPages}
-                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-black/20 dark:hover:bg-card/10 disabled:opacity-30 transition-colors text-xs font-medium"
+                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-transparent dark:hover:bg-card/10 disabled:opacity-30 transition-colors text-xs font-medium"
                   >
                     »
                   </button>
@@ -2038,7 +2038,7 @@ function AgendaPageContent() {
                   className="w-24 h-24 rounded-full object-cover border-2 border-border dark:border-white/20 group-hover:opacity-50 transition-opacity"
                 />
               ) : (
-                <div className="w-24 h-24 rounded-full bg-black/30 flex items-center justify-center font-medium text-muted-foreground text-2xl group-hover:opacity-50 transition-opacity">
+                <div className="w-24 h-24 rounded-full bg-transparent flex items-center justify-center font-medium text-muted-foreground text-2xl group-hover:opacity-50 transition-opacity">
                   {editForm.display_name?.charAt(0) || "?"}
                 </div>
               )}
@@ -2102,7 +2102,7 @@ function AgendaPageContent() {
                   return (
                     <div
                       key={p.id}
-                      className="space-y-2 p-3 rounded-lg border border-border bg-transparent/50 dark:bg-black/10"
+                      className="space-y-2 p-3 rounded-lg border border-border bg-transparent/50 dark:bg-transparent"
                     >
                       {/* Linha 1: rótulo + DDI + número + confirmar + remover */}
                       <div className="flex gap-2 items-center">
@@ -2120,7 +2120,7 @@ function AgendaPageContent() {
                               return { ...prev, phones };
                             })
                           }
-                          className="w-20 p-2 border border-border rounded-lg bg-card dark:bg-black/30 text-foreground text-xs font-medium"
+                          className="w-20 p-2 border border-border rounded-lg bg-card dark:bg-transparent text-foreground text-xs font-medium"
                         />
                         {/* DDI */}
                         <select
@@ -2136,7 +2136,7 @@ function AgendaPageContent() {
                               return { ...prev, phones };
                             })
                           }
-                          className="h-9 px-2 bg-card dark:bg-black/30 border border-border rounded-lg text-xs text-foreground/90"
+                          className="h-9 px-2 bg-card dark:bg-transparent border border-border rounded-lg text-xs text-foreground/90"
                         >
                           {DDI_OPTIONS.map((o) => (
                             <option key={o.code} value={o.code}>
@@ -2162,7 +2162,7 @@ function AgendaPageContent() {
                             })
                           }
                           onBlur={() => confirmPhone(idx)}
- className="flex-1 p-2 border border-border rounded-lg bg-card dark:bg-black/20 text-foreground text-sm min-w-0"
+ className="flex-1 p-2 border border-border rounded-lg bg-card dark:bg-transparent text-foreground text-sm min-w-0"
                         />
 
                         {/* Remover */}
@@ -2200,7 +2200,7 @@ function AgendaPageContent() {
                                 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                                 : wa?.exists === false
                                   ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
-                                  : "bg-transparent text-muted-foreground border-border hover:bg-black/30 dark:hover:bg-card/10"
+                                  : "bg-transparent text-muted-foreground border-border hover:bg-transparent dark:hover:bg-card/10"
                           }`}
                         >
                           {wa?.loading
@@ -2255,7 +2255,7 @@ function AgendaPageContent() {
                                 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                                 : wa?.photoStatus === "protected"
                                   ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
-                                  : "bg-transparent text-muted-foreground border-border hover:bg-black/30 dark:hover:bg-card/10"
+                                  : "bg-transparent text-muted-foreground border-border hover:bg-transparent dark:hover:bg-card/10"
                           }`}
                         >
                           {wa?.photoStatus === "loading"
@@ -2282,7 +2282,7 @@ function AgendaPageContent() {
                                   ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                                   : wa?.opError
                                     ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
-                                    : "bg-transparent text-muted-foreground border-border hover:bg-black/30 dark:hover:bg-card/10"
+                                    : "bg-transparent text-muted-foreground border-border hover:bg-transparent dark:hover:bg-card/10"
                             }`}
                           >
                             {wa?.opLoading
@@ -2355,7 +2355,7 @@ function AgendaPageContent() {
                           return { ...prev, emails };
                         })
                       }
-                      className="w-20 p-2 border border-border rounded-lg bg-card dark:bg-black/30 text-foreground text-xs font-medium"
+                      className="w-20 p-2 border border-border rounded-lg bg-card dark:bg-transparent text-foreground text-xs font-medium"
                     />
                     <input
                       placeholder="email@exemplo.com"
@@ -2430,7 +2430,7 @@ function AgendaPageContent() {
                               : [...prev.labels, lbl],
                           }))
                         }
-                        className={`text-[10px] px-2 py-0.5 rounded font-medium border transition-colors ${active ? "bg-amber-500 text-white border-amber-500" : "bg-transparent text-muted-foreground border-border hover:bg-black/30 dark:hover:bg-card/10"}`}
+                        className={`text-[10px] px-2 py-0.5 rounded font-medium border transition-colors ${active ? "bg-amber-500 text-white border-amber-500" : "bg-transparent text-muted-foreground border-border hover:bg-transparent dark:hover:bg-card/10"}`}
                       >
                         {lbl}
                       </button>
@@ -2704,13 +2704,13 @@ function Modal({
         onMouseDown={(e) => e.stopPropagation()}
         className="w-full max-w-lg bg-card border border-border rounded-xl shadow-2xl overflow-hidden"
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent dark:bg-muted">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent dark:bg-transparent">
           <div className="font-medium text-foreground">
             {title}
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-black/30 dark:hover:bg-card/10 text-muted-foreground"
+            className="p-1 rounded-lg hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground"
           >
             <IconX />
           </button>

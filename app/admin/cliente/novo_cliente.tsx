@@ -577,7 +577,7 @@ function Switch({
         className={`relative w-12 h-7 rounded-full transition-colors border ${
           checked
             ? "bg-emerald-600 border-emerald-600"
-            : "bg-black/30 border-border dark:border-border"
+            : "bg-transparent border-border dark:border-border"
         } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`} // ✅ NOVO
         aria-pressed={checked}
       >
@@ -4066,7 +4066,7 @@ export default function NovoCliente({
           {/* ABAS */}
 
           <div className="flex justify-center border-b border-border bg-transparent/50 dark:bg-card/5 px-4 py-2">
-            <div className="flex bg-black/30/50 dark:bg-transparent rounded-lg p-1 w-full sm:w-auto overflow-x-auto">
+            <div className="flex bg-transparent/50 dark:bg-transparent rounded-lg p-1 w-full sm:w-auto overflow-x-auto">
               {(
                 [
                   { key: "dados", label: "DADOS" },
@@ -4615,7 +4615,7 @@ export default function NovoCliente({
                                 "Usuário copiado para a área de transferência.",
                               );
                             }}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground/80 dark:text-muted-foreground hover:text-emerald-400 dark:hover:text-emerald-400 hover:bg-black/30 dark:hover:bg-card/10 rounded transition-colors"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground/80 dark:text-muted-foreground hover:text-emerald-400 dark:hover:text-emerald-400 hover:bg-transparent dark:hover:bg-card/10 rounded transition-colors"
                             title="Copiar usuário"
                           >
                             <svg
@@ -4663,7 +4663,7 @@ export default function NovoCliente({
                                 "Senha copiada para a área de transferência.",
                               );
                             }}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground/80 dark:text-muted-foreground hover:text-emerald-400 dark:hover:text-emerald-400 hover:bg-black/30 dark:hover:bg-card/10 rounded transition-colors"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground/80 dark:text-muted-foreground hover:text-emerald-400 dark:hover:text-emerald-400 hover:bg-transparent dark:hover:bg-card/10 rounded transition-colors"
                             title="Copiar senha"
                           >
                             <svg
@@ -4708,7 +4708,7 @@ export default function NovoCliente({
                           type="button"
                           onClick={generateM3uUrl}
                           disabled={!serverId || !username.trim()}
-                          className="h-10 px-3 rounded-lg bg-sky-500 hover:bg-sky-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5"
+                          className="h-10 px-3 rounded-lg bg-sky-500 hover:bg-sky-600 disabled:bg-transparent disabled:cursor-not-allowed text-white text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5"
                           title="Gerar link automaticamente"
                         >
                           <svg
@@ -4752,7 +4752,7 @@ export default function NovoCliente({
                             );
                           }}
                           disabled={!m3uUrl.trim()}
-                          className="h-10 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5"
+                          className="h-10 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-600 disabled:bg-transparent disabled:cursor-not-allowed text-white text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5"
                           title="Copiar link M3U"
                         >
                           <svg
@@ -4908,7 +4908,7 @@ export default function NovoCliente({
                           step="0.0001"
                           value={Number(fxRate || 0).toFixed(4)}
                           onChange={(e) => setFxRate(Number(e.target.value))}
-                          className="w-full h-9 px-3 bg-card dark:bg-black/30 border border-sky-500/30 rounded text-sm outline-none dark:text-white"
+                          className="w-full h-9 px-3 bg-card dark:bg-transparent border border-sky-500/30 rounded text-sm outline-none dark:text-white"
                         />
                       </div>
 
@@ -5000,7 +5000,7 @@ export default function NovoCliente({
                         <button
                           type="button"
                           onClick={() => setDueTime("23:59")}
-                          className="px-2 rounded-lg bg-black/30 text-[10px] font-medium text-muted-foreground hover:bg-slate-300 dark:hover:bg-card/20 border border-border whitespace-nowrap"
+                          className="px-2 rounded-lg bg-transparent text-[10px] font-medium text-muted-foreground hover:bg-transparent dark:hover:bg-card/20 border border-border whitespace-nowrap"
                           title="Fim do dia"
                         >
                           23:59
@@ -5544,7 +5544,7 @@ export default function NovoCliente({
                                             "Nenhum link configurado para esta integração.",
                                           );
                                       }}
-                                      className="h-10 rounded-lg bg-transparent border border-border text-muted-foreground hover:bg-black/30 dark:hover:bg-card/20 transition-colors flex items-center justify-center gap-1.5"
+                                      className="h-10 rounded-lg bg-transparent border border-border text-muted-foreground hover:bg-transparent dark:hover:bg-card/20 transition-colors flex items-center justify-center gap-1.5"
                                       title="Abrir painel no navegador"
                                     >
                                       <svg
@@ -6012,7 +6012,7 @@ export default function NovoCliente({
             <button
               onClick={onClose}
               type="button"
-              className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-black/30 dark:hover:bg-card/10 text-xs font-medium transition-colors"
+              className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-transparent dark:hover:bg-card/10 text-xs font-medium transition-colors"
             >
               Cancelar
             </button>

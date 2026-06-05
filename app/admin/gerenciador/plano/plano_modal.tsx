@@ -499,7 +499,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
             <div className="flex gap-2 sm:gap-3">
               <button
                 onClick={onClose}
-                className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-muted-foreground dark:text-white/60 hover:bg-black/30 dark:hover:bg-card/10 text-xs sm:text-sm font-semibold transition-colors"
+                className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-muted-foreground dark:text-white/60 hover:bg-transparent dark:hover:bg-card/10 text-xs sm:text-sm font-semibold transition-colors"
               >
                 Cancelar
               </button>

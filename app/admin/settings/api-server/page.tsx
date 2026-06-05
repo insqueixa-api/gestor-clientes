@@ -351,7 +351,7 @@ export default function ApiServerPage() {
                     setEditingIntegration(null);
                     setIsModalOpen(true);
                   }}
-                  className="w-full px-4 py-3 text-left text-sm font-medium text-foreground/90 hover:bg-muted/50 dark:hover:bg-card/5 flex items-center gap-2 border-b border-border"
+                  className="w-full px-4 py-3 text-left text-sm font-medium text-foreground/90 hover:bg-transparent/50 dark:hover:bg-card/5 flex items-center gap-2 border-b border-border"
                 >
                   🖥️ Servidor
                 </button>
@@ -361,7 +361,7 @@ export default function ApiServerPage() {
                     setEditingApp(null);
                     setIsModalAppOpen(true);
                   }}
-                  className="w-full px-4 py-3 text-left text-sm font-medium text-foreground/90 hover:bg-muted/50 dark:hover:bg-card/5 flex items-center gap-2"
+                  className="w-full px-4 py-3 text-left text-sm font-medium text-foreground/90 hover:bg-transparent/50 dark:hover:bg-card/5 flex items-center gap-2"
                 >
                   📱 Aplicativo
                 </button>
@@ -633,7 +633,7 @@ export default function ApiServerPage() {
                             onClick={() =>
                               navigator.clipboard.writeText(row.api_url!)
                             }
-                            className="shrink-0 p-1 rounded hover:bg-black/20 dark:hover:bg-card/10 text-muted-foreground/80 hover:text-sky-500 transition-colors"
+                            className="shrink-0 p-1 rounded hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground/80 hover:text-sky-500 transition-colors"
                             title="Copiar URL"
                           >
                             <svg

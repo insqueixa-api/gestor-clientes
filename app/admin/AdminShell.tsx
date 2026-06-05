@@ -1039,7 +1039,7 @@ export default function AdminShell({
             <div className="flex justify-end gap-2">
               <button
                 onClick={handleSync}
-                className="px-3 py-1.5 rounded-lg border border-border dark:border-border text-foreground/90 font-medium hover:bg-muted/50 dark:hover:bg-card/5 transition-colors text-xs uppercase flex items-center gap-1.5"
+                className="px-3 py-1.5 rounded-lg border border-border dark:border-border text-foreground/90 font-medium hover:bg-transparent/50 dark:hover:bg-card/5 transition-colors text-xs uppercase flex items-center gap-1.5"
                 title="Recupera as notificações apagadas do navegador"
               >
                 <RefreshCcw className="w-3.5 h-3.5" /> Sincronizar
@@ -1141,7 +1141,7 @@ export default function AdminShell({
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setSelectedNotification(null)}
-                className="px-4 py-2 rounded-lg border border-border dark:border-border text-foreground/90 font-medium hover:bg-muted/50 dark:hover:bg-card/5 transition-colors text-xs uppercase"
+                className="px-4 py-2 rounded-lg border border-border dark:border-border text-foreground/90 font-medium hover:bg-transparent/50 dark:hover:bg-card/5 transition-colors text-xs uppercase"
               >
                 Fechar
               </button>
@@ -1178,7 +1178,7 @@ export default function AdminShell({
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowWaModal(false)}
-                className="px-4 py-2 rounded-lg border border-border dark:border-border text-foreground/90 font-medium hover:bg-muted/50 dark:hover:bg-card/5 transition-colors text-xs uppercase"
+                className="px-4 py-2 rounded-lg border border-border dark:border-border text-foreground/90 font-medium hover:bg-transparent/50 dark:hover:bg-card/5 transition-colors text-xs uppercase"
               >
                 Fechar
               </button>
@@ -1232,7 +1232,7 @@ function Modal({
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-muted dark:hover:bg-card/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white"
+            className="p-1 rounded-lg hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white"
           >
             <X className="w-4 h-4" />
           </button>
@@ -1353,7 +1353,7 @@ function MenuLink({
         "block rounded-lg px-3 py-2.5 text-sm transition-all font-medium tracking-tight",
         isActive
           ? "bg-emerald-500/10 text-emerald-400"
-          : "text-muted-foreground/80 hover:text-foreground dark:hover:text-foreground dark:text-white hover:bg-muted/50 dark:hover:bg-card/5",
+          : "text-muted-foreground/80 hover:text-foreground dark:hover:text-foreground dark:text-white hover:bg-transparent/50 dark:hover:bg-card/5",
       ].join(" ")}
     >
       {label}

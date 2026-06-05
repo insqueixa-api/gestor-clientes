@@ -457,7 +457,7 @@ export default function MessagesPage() {
                                   "inline-flex w-2 h-2 rounded-full shrink-0",
                                   isSelected
                                     ? "bg-emerald-500"
-                                    : "bg-slate-300 dark:bg-card/20",
+                                    : "bg-transparent dark:bg-card/20",
                                 ].join(" ")}
                               />
                               <h3
@@ -612,7 +612,7 @@ function PreviewModal({
           </h3>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:bg-black/30 dark:hover:bg-card/10 hover:text-foreground dark:hover:text-foreground dark:text-white transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:bg-transparent dark:hover:bg-card/10 hover:text-foreground dark:hover:text-foreground dark:text-white transition-colors"
           >
             ✕
           </button>
@@ -938,7 +938,7 @@ function EditorModal({
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:text-foreground hover:bg-black/30 dark:hover:bg-card/10 transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:text-foreground hover:bg-transparent dark:hover:bg-card/10 transition-colors"
           >
             ✕
           </button>

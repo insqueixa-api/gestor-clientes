@@ -124,7 +124,7 @@ export default function ConfirmDialog({
                 if (line === "---") {
                   return (
                     <li key={i} className="py-1">
-                      <div className="w-full h-px bg-black/30" />
+                      <div className="w-full h-px bg-transparent" />
                     </li>
                   );
                 }
@@ -160,7 +160,7 @@ export default function ConfirmDialog({
             <button
               onClick={onCancel}
               disabled={loading}
-              className="flex-1 py-3 rounded-xl border border-border text-muted-foreground/80 font-medium text-sm hover:bg-muted/50 dark:hover:bg-card/5 transition-colors disabled:opacity-60"
+              className="flex-1 py-3 rounded-xl border border-border text-muted-foreground/80 font-medium text-sm hover:bg-transparent/50 dark:hover:bg-card/5 transition-colors disabled:opacity-60"
             >
               {cancelText}
             </button>

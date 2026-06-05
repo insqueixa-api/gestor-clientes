@@ -698,7 +698,7 @@ export default function QuickRechargeModal({
 
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-black/30 dark:hover:bg-card/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white transition-colors"
+            className="p-1 rounded-lg hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white transition-colors"
             aria-label="Fechar"
             type="button"
           >
@@ -810,9 +810,9 @@ export default function QuickRechargeModal({
                             : ""
                         }
                         onChange={(e) => setFxRate(Number(e.target.value))}
- className="col-span-2 h-10 px-3 bg-card dark:bg-black/30 border border-sky-500/30 rounded-lg text-foreground/90 font-medium outline-none"
+ className="col-span-2 h-10 px-3 bg-card dark:bg-transparent border border-sky-500/30 rounded-lg text-foreground/90 font-medium outline-none"
                       />
-                      <div className="h-10 flex items-center justify-center px-2 bg-card dark:bg-black/30 border border-sky-500/30 rounded-lg text-[10px] text-muted-foreground font-semibold">
+                      <div className="h-10 flex items-center justify-center px-2 bg-card dark:bg-transparent border border-sky-500/30 rounded-lg text-[10px] text-muted-foreground font-semibold">
                         {fxError ? "Erro" : fxAsOf ? "AUTO" : "—"}
                       </div>
                     </div>
@@ -833,7 +833,7 @@ export default function QuickRechargeModal({
 
                   <div className="space-y-1">
                     <Label>Subtotal ({currency})</Label>
- <div className="h-10 flex items-center px-3 bg-card dark:bg-black/30 border border-sky-500/30 rounded-lg text-foreground/90 font-medium ">
+ <div className="h-10 flex items-center px-3 bg-card dark:bg-transparent border border-sky-500/30 rounded-lg text-foreground/90 font-medium ">
                       {Number.isFinite(totalCurrency)
                         ? fmtMoney(currency, totalCurrency)
                         : "—"}
@@ -989,7 +989,7 @@ function Switch({
           e.stopPropagation();
           onChange(!checked);
         }}
-        className={`relative w-12 h-7 rounded-full transition-colors border ${checked ? "bg-emerald-600 border-emerald-600" : "bg-black/30 border-border dark:border-border"}`}
+        className={`relative w-12 h-7 rounded-full transition-colors border ${checked ? "bg-emerald-600 border-emerald-600" : "bg-transparent border-border dark:border-border"}`}
         aria-pressed={checked}
       >
         <span

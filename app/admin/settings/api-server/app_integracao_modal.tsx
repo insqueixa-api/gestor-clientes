@@ -197,7 +197,7 @@ export default function AppIntegracaoModal({
           </div>
           <button
             onClick={onCloseAction}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/20 dark:hover:bg-card/10 text-muted-foreground/80 transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground/80 transition-colors"
             type="button"
           >
             <svg
@@ -407,7 +407,7 @@ export default function AppIntegracaoModal({
                   className={`relative w-12 h-6 rounded-full transition-colors border ${
                     isActive
                       ? "bg-emerald-500 border-emerald-500"
-                      : "bg-slate-300 dark:bg-card/10 border-transparent"
+                      : "bg-transparent dark:bg-card/10 border-transparent"
                   }`}
                 >
                   <span
@@ -423,7 +423,7 @@ export default function AppIntegracaoModal({
         <div className="px-6 py-4 border-t border-border bg-transparent flex items-center justify-end gap-3 shrink-0">
           <button
             onClick={onCloseAction}
-            className="h-10 px-5 rounded-xl text-muted-foreground text-sm font-medium hover:bg-black/30 dark:hover:bg-card/10 transition-colors"
+            className="h-10 px-5 rounded-xl text-muted-foreground text-sm font-medium hover:bg-transparent dark:hover:bg-card/10 transition-colors"
             type="button"
             disabled={saving}
           >
@@ -434,7 +434,7 @@ export default function AppIntegracaoModal({
             className={`h-10 px-6 rounded-xl text-sm font-medium text-foreground dark:text-white transition-all transform active:scale-95 flex items-center gap-2 ${
               canSave
                 ? "bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-600/20"
-                : "bg-slate-300 dark:bg-card/10 cursor-not-allowed opacity-70"
+                : "bg-transparent dark:bg-card/10 cursor-not-allowed opacity-70"
             }`}
             type="button"
             disabled={!canSave || saving}

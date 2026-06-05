@@ -635,7 +635,7 @@ export default function ServerDetailsPage() {
         <div className="flex gap-3 w-full md:w-auto justify-end">
           <Link
             href="/admin/gerenciador/servidor"
-            className="h-10 px-4 rounded-lg border border-border text-muted-foreground hover:bg-muted/50 dark:hover:bg-card/10 text-sm font-medium transition-all shadow-sm inline-flex items-center justify-center"
+            className="h-10 px-4 rounded-lg border border-border text-muted-foreground hover:bg-transparent/50 dark:hover:bg-card/10 text-sm font-medium transition-all shadow-sm inline-flex items-center justify-center"
           >
             Voltar
           </Link>
@@ -782,13 +782,13 @@ export default function ServerDetailsPage() {
                   placeholder="Buscar cliente, obs, data..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full h-9 pl-8 pr-3 bg-card dark:bg-black/20 border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500 transition-colors"
+                  className="w-full h-9 pl-8 pr-3 bg-card dark:bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
               <select
                 value={filterKind}
                 onChange={(e) => setFilterKind(e.target.value)}
-                className="h-9 px-2 bg-card dark:bg-black/20 border border-border rounded-lg text-xs font-medium text-foreground/90 outline-none focus:border-emerald-500 transition-colors cursor-pointer"
+                className="h-9 px-2 bg-card dark:bg-transparent border border-border rounded-lg text-xs font-medium text-foreground/90 outline-none focus:border-emerald-500 transition-colors cursor-pointer"
               >
                 <option value="ALL">Todos os Tipos</option>
                 <optgroup label="Clientes">
@@ -841,7 +841,7 @@ export default function ServerDetailsPage() {
                   filteredMovements.map((m) => (
                     <tr
                       key={m.id}
-                      className="hover:bg-muted/50 dark:hover:bg-card/5 transition-all text-foreground/90/80 group"
+                      className="hover:bg-transparent/50 dark:hover:bg-card/5 transition-all text-foreground/90/80 group"
                     >
                       <td className="px-5 py-3 whitespace-nowrap font-mono text-[11px] opacity-60">
                         {fmtDate(m.happened_at)}
@@ -952,7 +952,7 @@ function StatCard({
   className?: string;
 }) {
   return (
-    <div className="bg-transparent/50 dark:bg-black/20 p-4 rounded-xl border border-border flex flex-col justify-between h-24 transition-all hover:border-emerald-500/30">
+    <div className="bg-transparent/50 dark:bg-transparent p-4 rounded-xl border border-border flex flex-col justify-between h-24 transition-all hover:border-emerald-500/30">
       <div className="text-[10px] uppercase font-medium text-muted-foreground/80 dark:text-white/20 tracking-widest">
         {title}
       </div>

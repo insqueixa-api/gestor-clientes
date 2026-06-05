@@ -1198,7 +1198,7 @@ function MetricCardView({
       </div>
 
       {footer && (
-        <div className="sv px-3 sm:px-4 py-2 text-[11px] sm:text-xs bg-transparent dark:bg-black/10 text-muted-foreground">
+        <div className="sv px-3 sm:px-4 py-2 text-[11px] sm:text-xs bg-transparent dark:bg-transparent text-muted-foreground">
           {footer}
         </div>
       )}

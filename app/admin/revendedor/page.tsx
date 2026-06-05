@@ -1258,7 +1258,7 @@ export default function RevendaPage() {
               serverFilter !== "Todos" ||
               archivedFilter === "Sim"
                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                : "border-border bg-card/5 text-muted-foreground hover:bg-muted/50 dark:hover:bg-card/10"
+                : "border-border bg-card/5 text-muted-foreground hover:bg-transparent/50 dark:hover:bg-card/10"
             }`}
           >
             Filtros
@@ -1345,7 +1345,7 @@ export default function RevendaPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="w-full h-10 px-3 bg-card dark:bg-black/20 border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+              className="w-full h-10 px-3 bg-card dark:bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
             >
               <option value="Todos">Status (Todos)</option>
               <option value="Ativo">Ativo</option>
@@ -1355,7 +1355,7 @@ export default function RevendaPage() {
             <select
               value={serverFilter}
               onChange={(e) => setServerFilter(e.target.value)}
-              className="w-full h-10 px-3 bg-card dark:bg-black/20 border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+              className="w-full h-10 px-3 bg-card dark:bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
             >
               <option value="Todos">Servidor (Todos)</option>
               {(serversOptions || []).map((s) => (
@@ -1466,12 +1466,12 @@ export default function RevendaPage() {
                 {visible.map((r) => (
                   <tr
                     key={r.id}
-                    className="hover:bg-muted/50 dark:hover:bg-card/5 transition-all group"
+                    className="hover:bg-transparent/50 dark:hover:bg-card/5 transition-all group"
                   >
                     <Td>
                       <input
                         type="checkbox"
-                        className="rounded border-border bg-card dark:bg-black/20 text-emerald-500 focus:ring-emerald-500/30"
+                        className="rounded border-border bg-card dark:bg-transparent text-emerald-500 focus:ring-emerald-500/30"
                       />
                     </Td>
 
@@ -1783,7 +1783,7 @@ export default function RevendaPage() {
                   targetName: undefined,
                 })
               }
-              className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-black/30 dark:hover:bg-card/5 font-semibold text-sm transition-colors"
+              className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-transparent dark:hover:bg-card/5 font-semibold text-sm transition-colors"
             >
               Cancelar
             </button>
@@ -2174,7 +2174,7 @@ export default function RevendaPage() {
                     resellerName: undefined,
                   })
                 }
-                className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-black/30 dark:hover:bg-card/5 font-semibold text-sm transition-colors"
+                className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-transparent dark:hover:bg-card/5 font-semibold text-sm transition-colors"
               >
                 Fechar
               </button>
@@ -2248,7 +2248,7 @@ export default function RevendaPage() {
                     targetName: undefined,
                   })
                 }
-                className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-black/30 dark:hover:bg-card/5 font-semibold text-sm transition-colors"
+                className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-transparent dark:hover:bg-card/5 font-semibold text-sm transition-colors"
               >
                 Fechar
               </button>
@@ -2528,7 +2528,7 @@ function Modal({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-black/30 dark:hover:bg-card/10 text-muted-foreground/80 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground/80 transition-colors"
           >
             <IconX />
           </button>

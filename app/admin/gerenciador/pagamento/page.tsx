@@ -428,7 +428,7 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:text-foreground dark:hover:text-foreground dark:text-white hover:bg-black/30 dark:hover:bg-card/10 transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:text-foreground dark:hover:text-foreground dark:text-white hover:bg-transparent dark:hover:bg-card/10 transition-colors"
           >
             <IconX />
           </button>
@@ -466,7 +466,7 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
         <div className="px-5 py-3 border-t border-border bg-transparent rounded-b-xl">
           <button
             onClick={onClose}
-            className="w-full h-9 rounded-lg bg-black/30 text-foreground/90 font-medium text-sm hover:bg-slate-300 dark:hover:bg-card/20 transition-colors"
+            className="w-full h-9 rounded-lg bg-transparent text-foreground/90 font-medium text-sm hover:bg-transparent dark:hover:bg-card/20 transition-colors"
           >
             Fechar
           </button>
@@ -651,7 +651,7 @@ function GatewayModal({
           </div>
           <button
             onClick={onClose}
-            className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:text-foreground dark:hover:text-foreground dark:text-white hover:bg-black/30 dark:hover:bg-card/10 transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:text-foreground dark:hover:text-foreground dark:text-white hover:bg-transparent dark:hover:bg-card/10 transition-colors"
           >
             <IconX />
           </button>
@@ -685,7 +685,7 @@ function GatewayModal({
                         className={`w-full p-4 rounded-xl border text-left transition-all ${
                           selected
                             ? "border-emerald-500/40 bg-emerald-500/10/70 dark:bg-emerald-500/10"
-                            : "border-border bg-card hover:bg-muted/50 dark:hover:bg-card/5"
+                            : "border-border bg-card hover:bg-transparent/50 dark:hover:bg-card/5"
                         }`}
                       >
                         <div className="flex items-start gap-3">
@@ -730,7 +730,7 @@ function GatewayModal({
                             e.stopPropagation();
                             setHelpType(m.type);
                           }}
-                          className="absolute top-3 right-3 w-6 h-6 rounded-full bg-black/30 text-muted-foreground hover:bg-blue-500/20 dark:hover:bg-blue-500/20 hover:text-blue-400 dark:hover:text-blue-400 transition-colors flex items-center justify-center text-xs font-medium"
+                          className="absolute top-3 right-3 w-6 h-6 rounded-full bg-transparent text-muted-foreground hover:bg-blue-500/20 dark:hover:bg-blue-500/20 hover:text-blue-400 dark:hover:text-blue-400 transition-colors flex items-center justify-center text-xs font-medium"
                           title="Como obter as credenciais"
                         >
                           ?
@@ -748,7 +748,7 @@ function GatewayModal({
             <>
               <div className="p-4 rounded-xl bg-transparent border border-border">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-card dark:bg-black/20 border border-border flex items-center justify-center text-xl">
+                  <div className="w-10 h-10 rounded-xl bg-card dark:bg-transparent border border-border flex items-center justify-center text-xl">
                     {meta.icon}
                   </div>
                   <div className="min-w-0">
@@ -911,7 +911,7 @@ function GatewayModal({
                       className={`relative w-12 h-6 rounded-full transition-colors ${
                         isManualFallback
                           ? "bg-violet-600"
-                          : "bg-slate-300 dark:bg-card/20"
+                          : "bg-transparent dark:bg-card/20"
                       }`}
                     >
                       <span
@@ -937,7 +937,7 @@ function GatewayModal({
         <div className="px-6 py-4 border-t border-border bg-transparent flex justify-end gap-2 rounded-b-xl">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-muted-foreground dark:text-white/60 hover:bg-black/30 dark:hover:bg-card/10 rounded-lg text-sm font-medium transition-colors"
+            className="px-4 py-2 text-muted-foreground dark:text-white/60 hover:bg-transparent dark:hover:bg-card/10 rounded-lg text-sm font-medium transition-colors"
           >
             Cancelar
           </button>
@@ -988,7 +988,7 @@ function GatewayCard({
       {/* Header */}
       <div className="px-4 py-3 bg-transparent border-b border-border flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-card dark:bg-black/20 border border-border flex items-center justify-center text-xl shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-card dark:bg-transparent border border-border flex items-center justify-center text-xl shrink-0">
             {meta.icon}
           </div>
 
@@ -998,7 +998,7 @@ function GatewayCard({
             </h3>
 
             <div className="flex flex-wrap gap-1.5 mt-1">
-              <span className="gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-transparent text-[10px] font-medium tracking-tight shadow-sm dark:bg-black/20 text-muted-foreground border border-border">
+              <span className="gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-transparent text-[10px] font-medium tracking-tight shadow-sm dark:bg-transparent text-muted-foreground border border-border">
                 {priorityLabel}
               </span>
 
@@ -1021,7 +1021,7 @@ function GatewayCard({
           className={`relative w-11 h-6 rounded-full transition-colors ${
             gateway.is_active
               ? "bg-emerald-600"
-              : "bg-slate-300 dark:bg-card/20"
+              : "bg-transparent dark:bg-card/20"
           }`}
           title={gateway.is_active ? "Desativar" : "Ativar"}
         >
@@ -1079,7 +1079,7 @@ function GatewayCard({
         <div className="flex gap-2 pt-2 border-t border-border">
           <button
             onClick={onEdit}
-            className="flex-1 h-9 rounded-lg border border-border bg-transparent text-foreground/90 dark:text-muted-foreground text-xs font-medium hover:bg-black/20 dark:hover:bg-card/5 transition-colors flex items-center justify-center gap-2"
+            className="flex-1 h-9 rounded-lg border border-border bg-transparent text-foreground/90 dark:text-muted-foreground text-xs font-medium hover:bg-transparent dark:hover:bg-card/5 transition-colors flex items-center justify-center gap-2"
           >
             <IconEdit />
             Editar

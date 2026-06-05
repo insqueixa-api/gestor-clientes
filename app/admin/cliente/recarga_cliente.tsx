@@ -1812,7 +1812,7 @@ export default function RecargaCliente({
                       step="0.0001"
                       value={Number(fxRate || 0).toFixed(4)}
                       onChange={(e) => setFxRate(Number(e.target.value))}
-                      className="w-full h-9 px-3 bg-card dark:bg-black/30 border border-sky-500/30 rounded text-sm outline-none dark:text-white"
+                      className="w-full h-9 px-3 bg-card dark:bg-transparent border border-sky-500/30 rounded text-sm outline-none dark:text-white"
                     />
                   </div>
                   <div>
@@ -2173,7 +2173,7 @@ function Switch({
         className={`relative w-12 h-7 rounded-full transition-colors border ${
           checked
             ? "bg-emerald-600 border-emerald-600"
-            : "bg-black/30 border-border dark:border-border"
+            : "bg-transparent border-border dark:border-border"
         }`}
         aria-pressed={checked}
       >

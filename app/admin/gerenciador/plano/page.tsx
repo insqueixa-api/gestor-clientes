@@ -388,7 +388,7 @@ export default function PlanosPage() {
                                 </h2>
 
                                 <div className="flex items-center gap-2">
-                                  <span className="text-xs font-medium text-muted-foreground/80 dark:text-white/30 uppercase tracking-widest bg-black/30/50 dark:bg-card/5 px-2 py-0.5 rounded">
+                                  <span className="text-xs font-medium text-muted-foreground/80 dark:text-white/30 uppercase tracking-widest bg-transparent/50 dark:bg-card/5 px-2 py-0.5 rounded">
                                     {plan.currency}
                                   </span>
 
@@ -421,7 +421,7 @@ export default function PlanosPage() {
                                       [plan.id]: !prev[plan.id],
                                     }))
                                   }
-                                  className="p-1.5 rounded-lg bg-transparent0/10 border border-slate-500/20 text-muted-foreground hover:bg-muted/500/20 transition-all shadow-sm"
+                                  className="p-1.5 rounded-lg bg-transparent0/10 border border-slate-500/20 text-muted-foreground hover:bg-transparent/500/20 transition-all shadow-sm"
                                   title={
                                     isExpanded
                                       ? "Minimizar tabela"

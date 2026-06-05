@@ -152,7 +152,7 @@ export function RankingCard({
 
         {/* ✅ SELETOR (Só aparece se você passar os itemsPrevisto/itemsExecutado lá no page.tsx) */}
         {hasToggle && (
-          <div className="flex bg-muted dark:bg-black/20 p-1 rounded-lg border border-border shrink-0">
+          <div className="flex bg-transparent dark:bg-transparent p-1 rounded-lg border border-border shrink-0">
             <button
               onClick={() => setView("previsto")}
               className={`px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider rounded-md transition-all ${

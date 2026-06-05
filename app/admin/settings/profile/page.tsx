@@ -478,37 +478,7 @@ export default function ProfileSettingsPage() {
   async function handleSave() {
     if (!userId) return;
     setSaving(true);
-    try {
-      const norm = applyPhoneNormalization(phoneRaw);
-      const { error: profileError } = await supabaseBrowser
-        .from("profiles")
-        .upsert({
-          id: userId,
-          display_name: name,
-          phone: norm.e164,
-          whatsapp_username: whatsappUsername,
-          whatsapp_sessions: whatsappSessions,
-          birth_date: birthDate,
-          gender: gender,
-          height: profileHeight ? parseFloat(profileHeight) : null,
-          health_history: healthHistory,
-          updated_at: new Date().toISOString(),
-        });
-
-      if (profileError) throw profileError;
-      await supabaseBrowser.auth.updateUser({ data: { full_name: name } });
-
-      addToast(
-        "success",
-        "Perfil atualizado",
-        "Suas informações foram sincronizadas com o banco.",
-      );
-      setIsEditing(false);
-    } catch (e: any) {
-      addToast("error", "Erro ao salvar", e.message);
-    } finally {
-      setSaving(false);
-    }
+    
   }
 
   // --- LÓGICA DE SAÚDE ---
@@ -1673,7 +1643,7 @@ export default function ProfileSettingsPage() {
                         return (
                           <div
                             key={record.id}
-                            className={`items-center gap-3 p-3 rounded-xl border transition-colors group ${isNewest ? "border-emerald-500/30 bg-emerald-500/5 shadow-[0_0_0_1px_rgba(16,185,129,0.15),0_2px_8px_rgba(16,185,129,0.08)]" : "border-border bg-transparent/50 dark:bg-black/10"} ${hideOnMobile ? "hidden xl:flex" : "flex"}`}
+                            className={`items-center gap-3 p-3 rounded-xl border transition-colors group ${isNewest ? "border-emerald-500/30 bg-emerald-500/5 shadow-[0_0_0_1px_rgba(16,185,129,0.15),0_2px_8px_rgba(16,185,129,0.08)]" : "border-border bg-transparent/50 dark:bg-transparent"} ${hideOnMobile ? "hidden xl:flex" : "flex"}`}
                           >
                             {/* Data em bloco */}
                             <div className="shrink-0 text-center w-10">
@@ -1696,7 +1666,7 @@ export default function ProfileSettingsPage() {
                                 ).getFullYear()}
                               </p>
                             </div>
-                            <div className="w-px h-9 bg-black/30 shrink-0" />
+                            <div className="w-px h-9 bg-transparent shrink-0" />
 
                             {/* Métricas */}
                             <div className="flex-1 min-w-0 flex flex-wrap items-center gap-2">
@@ -2705,7 +2675,7 @@ export default function ProfileSettingsPage() {
                 <button
                   type="button"
                   onClick={() => setWaRejectCalls((v) => !v)}
-                  className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 overflow-hidden ${waRejectCalls ? "bg-emerald-500" : "bg-slate-300 dark:bg-card/20"}`}
+                  className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 overflow-hidden ${waRejectCalls ? "bg-emerald-500" : "bg-transparent dark:bg-card/20"}`}
                 >
                   <span
                     className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-card shadow-sm transition-transform duration-200 ${waRejectCalls ? "translate-x-5" : "translate-x-0"}`}
@@ -3271,7 +3241,7 @@ function WhatsAppSession2Panel({
                 <button
                   type="button"
                   onClick={() => setWaRejectCalls((v) => !v)}
-                  className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${waRejectCalls ? "bg-emerald-500" : "bg-slate-300 dark:bg-card/20"}`}
+                  className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${waRejectCalls ? "bg-emerald-500" : "bg-transparent dark:bg-card/20"}`}
                 >
                   <span
                     className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-card shadow transition-transform ${waRejectCalls ? "translate-x-5" : "translate-x-0"}`}

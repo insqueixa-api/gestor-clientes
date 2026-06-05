@@ -644,7 +644,7 @@ function AuditoriaPageContent() {
             </div>
             <button
               onClick={() => loadData(search)}
-              className="h-10 px-4 bg-card border border-border hover:bg-muted/50 text-foreground/90 rounded-lg text-sm font-medium transition-colors shadow-sm"
+              className="h-10 px-4 bg-card border border-border hover:bg-transparent/50 text-foreground/90 rounded-lg text-sm font-medium transition-colors shadow-sm"
             >
               Buscar
             </button>
@@ -714,7 +714,7 @@ function AuditoriaPageContent() {
                     return (
                       <tr
                         key={r.id}
-                        className="hover:bg-muted/50 dark:hover:bg-card/5 transition-colors group"
+                        className="hover:bg-transparent/50 dark:hover:bg-card/5 transition-colors group"
                       >
                         {/* Data e Hora */}
                         <td className="px-4 py-3">

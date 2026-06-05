@@ -290,7 +290,7 @@ function ModalDatePicker({
           </span>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-black/30 dark:hover:bg-card/10 text-muted-foreground/80 transition-colors"
+            className="p-1 rounded-lg hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground/80 transition-colors"
           >
             <IconX />
           </button>
@@ -420,7 +420,7 @@ function ModalDayPicker({
           </span>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-black/30 dark:hover:bg-card/10 text-muted-foreground/80 transition-colors"
+            className="p-1 rounded-lg hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground/80 transition-colors"
           >
             <IconX />
           </button>
@@ -436,7 +436,7 @@ function ModalDayPicker({
             </button>
             <button
               onClick={() => setShowMonthPicker(true)}
-              className="px-3 py-1 text-sm font-medium text-foreground/90 text-center capitalize hover:text-emerald-500 dark:hover:text-emerald-500 hover:bg-black/30 dark:hover:bg-card/10 rounded-md transition-colors"
+              className="px-3 py-1 text-sm font-medium text-foreground/90 text-center capitalize hover:text-emerald-500 dark:hover:text-emerald-500 hover:bg-transparent dark:hover:bg-card/10 rounded-md transition-colors"
             >
               {meses[mes]} {ano}
             </button>
@@ -2014,7 +2014,7 @@ function MetricCard({
               e.stopPropagation();
               onEdit();
             }}
-            className="p-1 rounded-md bg-card/50 hover:bg-card/80 dark:bg-black/10 dark:hover:bg-black/30 transition-colors"
+            className="p-1 rounded-md bg-card/50 hover:bg-card/80 dark:bg-transparent dark:hover:bg-transparent transition-colors"
             title="Ajustar Saldo"
           >
             <IconEdit />
@@ -2070,7 +2070,7 @@ function Modal({
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-black/30 dark:hover:bg-card/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white transition-colors"
+            className="p-1 rounded-lg hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white transition-colors"
           >
             <IconX />
           </button>

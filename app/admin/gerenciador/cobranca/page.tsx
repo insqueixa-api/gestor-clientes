@@ -1300,7 +1300,7 @@ function AutomationCard({
         </div>
         <button
           onClick={onToggle}
-          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${data.is_active ? "bg-emerald-500" : "bg-slate-300 dark:bg-card/20"}`}
+          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${data.is_active ? "bg-emerald-500" : "bg-transparent dark:bg-card/20"}`}
         >
           <span
             className={`inline-block h-3.5 w-3.5 transform rounded-full bg-card transition ${data.is_active ? "translate-x-4.5" : "translate-x-1"}`}
@@ -1384,7 +1384,7 @@ function AutomationCard({
                                 ${
                                   data.is_active
                                     ? "bg-emerald-600 text-white hover:bg-emerald-500"
-                                    : "bg-black/30 text-muted-foreground/80 cursor-not-allowed dark:bg-card/10 dark:text-white/30"
+                                    : "bg-transparent text-muted-foreground/80 cursor-not-allowed dark:bg-card/10 dark:text-white/30"
                                 }`}
                       title="Ativa a execução automática (dias/horário configurados)"
                     >
@@ -1398,7 +1398,7 @@ function AutomationCard({
                                 ${
                                   data.is_active
                                     ? "bg-rose-600 text-white hover:bg-rose-500"
-                                    : "bg-black/30 text-muted-foreground/80 cursor-not-allowed dark:bg-card/10 dark:text-white/30"
+                                    : "bg-transparent text-muted-foreground/80 cursor-not-allowed dark:bg-card/10 dark:text-white/30"
                                 }`}
                       title="Cancela a execução automática (mantém a regra ativa no toggle)"
                     >
@@ -1419,7 +1419,7 @@ function AutomationCard({
                         ${
                           data.is_active
                             ? "bg-sky-600 text-white hover:bg-sky-500"
-                            : "bg-black/30 text-muted-foreground/80 cursor-not-allowed dark:bg-card/10 dark:text-white/30"
+                            : "bg-transparent text-muted-foreground/80 cursor-not-allowed dark:bg-card/10 dark:text-white/30"
                         }`}
                 title="Dispara agora (enfileira imediatamente)"
               >
@@ -1458,7 +1458,7 @@ function AutomationCard({
                             ${
                               data.is_active
                                 ? "bg-emerald-600 text-white hover:bg-emerald-500"
-                                : "bg-black/30 text-muted-foreground/80 cursor-not-allowed dark:bg-card/10 dark:text-white/30"
+                                : "bg-transparent text-muted-foreground/80 cursor-not-allowed dark:bg-card/10 dark:text-white/30"
                             }`}
                     title="Retomar envios"
                   >
@@ -1486,7 +1486,7 @@ function AutomationCard({
 
               <button
                 onClick={onShowLogs}
-                className="px-3 py-1.5 rounded-lg bg-transparent border border-border text-foreground/90 text-xs font-medium hover:bg-black/30 dark:text-muted-foreground transition"
+                className="px-3 py-1.5 rounded-lg bg-transparent border border-border text-foreground/90 text-xs font-medium hover:bg-transparent dark:text-muted-foreground transition"
                 title="Logs"
               >
                 Logs
@@ -1865,7 +1865,7 @@ function AutomationWizard({
               ✕
             </button>
           </div>
-          <div className="h-1.5 w-full bg-black/30 rounded-full overflow-hidden flex">
+          <div className="h-1.5 w-full bg-transparent rounded-full overflow-hidden flex">
             <div
               className={`h-full bg-emerald-500 transition-all duration-300 ${step === 1 ? "w-1/3" : step === 2 ? "w-2/3" : "w-full"}`}
             />
@@ -2148,7 +2148,7 @@ function AutomationWizard({
               </button>
               <button
                 onClick={() => setStep(2)}
-                className="px-6 py-2.5 bg-card border border-border text-foreground hover:bg-muted/50 font-medium rounded-xl shadow-lg hover:brightness-110 transition-all text-xs uppercase"
+                className="px-6 py-2.5 bg-card border border-border text-foreground hover:bg-transparent/50 font-medium rounded-xl shadow-lg hover:brightness-110 transition-all text-xs uppercase"
               >
                 Próximo: Filtros →
               </button>
@@ -2164,7 +2164,7 @@ function AutomationWizard({
               </button>
               <button
                 onClick={() => setStep(3)}
-                className="px-6 py-2.5 bg-card border border-border text-foreground hover:bg-muted/50 font-medium rounded-xl shadow-lg hover:brightness-110 transition-all text-xs uppercase"
+                className="px-6 py-2.5 bg-card border border-border text-foreground hover:bg-transparent/50 font-medium rounded-xl shadow-lg hover:brightness-110 transition-all text-xs uppercase"
               >
                 Próximo: Automação →
               </button>

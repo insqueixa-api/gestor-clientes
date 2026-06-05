@@ -1192,7 +1192,7 @@ export default function TrialsPage() {
               serverFilter !== "Todos" ||
               archivedFilter === "Sim"
                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                : "border-border bg-card/5 text-muted-foreground hover:bg-muted/50 dark:hover:bg-card/10"
+                : "border-border bg-card/5 text-muted-foreground hover:bg-transparent/50 dark:hover:bg-card/10"
             }`}
             title="Filtros"
           >
@@ -1487,7 +1487,7 @@ export default function TrialsPage() {
                   return (
                     <tr
                       key={r.id}
-                      className="hover:bg-muted/50 dark:hover:bg-card/5 transition-colors group"
+                      className="hover:bg-transparent/50 dark:hover:bg-card/5 transition-colors group"
                     >
                       <Td>
                         <div className="flex flex-col max-w-[180px] sm:max-w-none">
@@ -1979,7 +1979,7 @@ export default function TrialsPage() {
                     trialName: undefined,
                   })
                 }
-                className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-black/30 dark:hover:bg-card/5 font-semibold text-sm transition-colors"
+                className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-transparent dark:hover:bg-card/5 font-semibold text-sm transition-colors"
               >
                 Fechar
               </button>
@@ -2340,7 +2340,7 @@ function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...rest}
-      className={`w-full h-10 px-3 bg-card dark:bg-black/20 border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90 ${className}`}
+      className={`w-full h-10 px-3 bg-card dark:bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90 ${className}`}
     />
   );
 }
@@ -2434,7 +2434,7 @@ function MenuItem({
   return (
     <button
       onClick={onClick}
-      className="w-full px-4 py-2 flex items-center gap-3 text-foreground/90/80 hover:bg-black/20 dark:hover:bg-card/5 hover:text-emerald-400 dark:hover:text-foreground dark:text-white transition-colors text-left text-sm font-medium"
+      className="w-full px-4 py-2 flex items-center gap-3 text-foreground/90/80 hover:bg-transparent dark:hover:bg-card/5 hover:text-emerald-400 dark:hover:text-foreground dark:text-white transition-colors text-left text-sm font-medium"
     >
       <span className="opacity-70">{icon}</span>
       {label}
@@ -2478,7 +2478,7 @@ function Modal({
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-black/30 dark:hover:bg-card/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white"
+            className="p-1 rounded-lg hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white"
           >
             <IconX />
           </button>
@@ -2640,7 +2640,7 @@ function PapaTestesModal({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-black/30 dark:hover:bg-card/10 text-muted-foreground dark:text-white/60"
+            className="p-1.5 rounded-lg hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground dark:text-white/60"
           >
             <IconX />
           </button>
@@ -2731,7 +2731,7 @@ function PapaTestesModal({
                   {recs.map((r) => (
                     <div
                       key={r.id}
-                      className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/50 dark:hover:bg-card/5 transition-colors"
+                      className="flex items-center justify-between px-4 py-2.5 hover:bg-transparent/50 dark:hover:bg-card/5 transition-colors"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <span
@@ -2793,7 +2793,7 @@ function PapaTestesModal({
           </span>
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-transparent text-foreground/90 font-medium text-xs hover:bg-black/30 dark:hover:bg-card/20 transition-colors"
+            className="px-4 py-2 rounded-lg bg-transparent text-foreground/90 font-medium text-xs hover:bg-transparent dark:hover:bg-card/20 transition-colors"
           >
             Fechar
           </button>

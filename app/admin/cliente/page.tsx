@@ -1817,7 +1817,7 @@ function ClientePageContent() {
               dueFilter !== "Todos" ||
               archivedFilter === "Sim"
                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                : "border-border bg-card/5 text-muted-foreground hover:bg-muted/50 dark:hover:bg-card/10"
+                : "border-border bg-card/5 text-muted-foreground hover:bg-transparent/50 dark:hover:bg-card/10"
             }`}
             title="Filtros"
           >
@@ -2169,7 +2169,7 @@ function ClientePageContent() {
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={safePage <= 1}
-                    className="h-8 w-8 rounded-lg border border-border bg-card/5 text-muted-foreground font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted/50 dark:hover:bg-card/10 transition flex items-center justify-center"
+                    className="h-8 w-8 rounded-lg border border-border bg-card/5 text-muted-foreground font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-transparent/50 dark:hover:bg-card/10 transition flex items-center justify-center"
                     title="Página anterior"
                   >
                     ←
@@ -2186,7 +2186,7 @@ function ClientePageContent() {
                   <button
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={safePage >= totalPages}
-                    className="h-8 w-8 rounded-lg border border-border bg-card/5 text-muted-foreground font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted/50 dark:hover:bg-card/10 transition flex items-center justify-center"
+                    className="h-8 w-8 rounded-lg border border-border bg-card/5 text-muted-foreground font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-transparent/50 dark:hover:bg-card/10 transition flex items-center justify-center"
                     title="Próxima página"
                   >
                     →
@@ -2294,7 +2294,7 @@ function ClientePageContent() {
                       className={`transition-colors group ${
                         selectedIds.has(r.id)
                           ? "bg-emerald-500/10/70 dark:bg-emerald-500/10"
-                          : "hover:bg-muted/50 dark:hover:bg-card/5"
+                          : "hover:bg-transparent/50 dark:hover:bg-card/5"
                       }`}
                     >
                       <Td>
@@ -2791,7 +2791,7 @@ function ClientePageContent() {
                   // Abre a lista de alertas para checar
                   if (clientId) handleOpenAlertList(clientId, clientName);
                 }}
-                className="px-4 py-2 rounded-lg border border-border dark:border-border text-foreground/90 font-medium hover:bg-muted/50 dark:hover:bg-card/5 transition-colors text-xs uppercase"
+                className="px-4 py-2 rounded-lg border border-border dark:border-border text-foreground/90 font-medium hover:bg-transparent/50 dark:hover:bg-card/5 transition-colors text-xs uppercase"
               >
                 Ver Alertas
               </button>
@@ -2865,7 +2865,7 @@ function ClientePageContent() {
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowNewAlert({ open: false, clientId: null })}
-                className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-muted/50 dark:hover:bg-card/5 text-sm font-medium transition-colors"
+                className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-transparent/50 dark:hover:bg-card/5 text-sm font-medium transition-colors"
               >
                 Cancelar
               </button>
@@ -2948,7 +2948,7 @@ function ClientePageContent() {
                 onClick={() =>
                   setShowAlertList({ open: false, clientId: null })
                 }
-                className="px-6 py-2 rounded-lg bg-transparent text-foreground/90 font-medium hover:bg-black/30 dark:hover:bg-card/20 transition-colors text-sm"
+                className="px-6 py-2 rounded-lg bg-transparent text-foreground/90 font-medium hover:bg-transparent dark:hover:bg-card/20 transition-colors text-sm"
               >
                 Fechar Lista
               </button>
@@ -3083,7 +3083,7 @@ function ClientePageContent() {
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowSendNow({ open: false, clientId: null })}
-                className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-muted/50 dark:hover:bg-card/5 text-sm font-medium transition-colors"
+                className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-transparent/50 dark:hover:bg-card/5 text-sm font-medium transition-colors"
               >
                 Cancelar
               </button>
@@ -3244,7 +3244,7 @@ function ClientePageContent() {
                 onClick={() =>
                   setShowScheduleMsg({ open: false, clientId: null })
                 }
-                className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-muted/50 dark:hover:bg-card/5 text-sm font-medium transition-colors"
+                className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-transparent/50 dark:hover:bg-card/5 text-sm font-medium transition-colors"
               >
                 Cancelar
               </button>
@@ -3683,7 +3683,7 @@ function Modal({
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-black/30 dark:hover:bg-card/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white"
+            className="p-1 rounded-lg hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white"
           >
             <IconX />
           </button>

@@ -511,7 +511,7 @@ export default function ResellerDetailPage() {
           {/* Voltar (Só Desktop) */}
           <Link
             href="/admin/revendedor"
-            className="hidden sm:inline-flex h-9 px-3 rounded-lg border border-border text-muted-foreground dark:text-white/60 font-medium text-xs hover:bg-black/30 dark:hover:bg-card/5 transition-all items-center justify-center"
+            className="hidden sm:inline-flex h-9 px-3 rounded-lg border border-border text-muted-foreground dark:text-white/60 font-medium text-xs hover:bg-transparent dark:hover:bg-card/5 transition-all items-center justify-center"
           >
             Voltar
           </Link>
@@ -689,7 +689,7 @@ export default function ResellerDetailPage() {
                         <div className="text-xs text-muted-foreground flex items-center gap-2">
                           <span>User: {s.server_username || "—"}</span>
                           {s.server_password && (
-                            <span className="text-[10px] px-1.5 rounded bg-black/30 opacity-70">
+                            <span className="text-[10px] px-1.5 rounded bg-transparent opacity-70">
                               Senha salva
                             </span>
                           )}

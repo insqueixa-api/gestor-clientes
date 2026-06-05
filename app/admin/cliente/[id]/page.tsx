@@ -715,7 +715,7 @@ export default function ClientDetailsPage() {
           {/* Voltar (Só no Desktop) */}
           <Link
             href="/admin/cliente"
-            className="hidden sm:inline-flex h-9 px-3 rounded-lg border border-border text-muted-foreground dark:text-white/60 font-medium text-xs hover:bg-black/30 dark:hover:bg-card/5 transition-all items-center justify-center"
+            className="hidden sm:inline-flex h-9 px-3 rounded-lg border border-border text-muted-foreground dark:text-white/60 font-medium text-xs hover:bg-transparent dark:hover:bg-card/5 transition-all items-center justify-center"
           >
             Voltar
           </Link>
@@ -1157,7 +1157,7 @@ export default function ClientDetailsPage() {
                   key={idx}
                   className="relative pl-8 pb-1.5 last:pb-0 border-l-2 border-border last:border-0 group"
                 >
-                  <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 border-white dark:border-[#161b22] bg-slate-300 dark:bg-card/20"></div>
+                  <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 border-white dark:border-[#161b22] bg-transparent dark:bg-card/20"></div>
 
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 bg-transparent/50 dark:bg-card/5 p-2 rounded-xl border border-transparent hover:border-border dark:hover:border-white/10 transition-all">
                     <div className="flex-1 min-w-0">
