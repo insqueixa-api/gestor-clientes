@@ -2535,99 +2535,126 @@ export default function NovoCliente({
 
     try {
       const tid = await getCurrentTenantId();
-      const phoneDigits = onlyDigits(finalE164); // O banco salva sem o '+'
+      // Normaliza igual à rota /create: strip +55, remove formatação, vira "02197022713"
+const rawDigits = onlyDigits(finalE164);
+const phoneDigits = rawDigits.startsWith("55") && rawDigits.length >= 12
+  ? "0" + rawDigits.slice(2)
+  : rawDigits.startsWith("0")
+    ? rawDigits
+    : rawDigits;
+// A rota /create salva sem o 55 e sem formatação, então fica "2197022713X"
+      const selectedServerName =
+        servers.find((s) => s.id === serverId)?.name || "";
 
-      // 1. Verifica se esse telefone já existe na agenda local do banco
+      // --- Monta o nome correto ---
+      // Se o username começa com o mesmo texto do primeiro nome do cliente,
+      // remove o prefixo comum e junta: "Cibelly" + "Elite" → "Cibelly Elite"
+      const firstName = displayName.trim().split(/\s+/)[0] || displayName;
+      let suffix = serverUsername.trim();
+      if (
+        suffix.toLowerCase().startsWith(firstName.toLowerCase()) &&
+        suffix.length > firstName.length
+      ) {
+        suffix = suffix.slice(firstName.length).trim();
+      }
+      const formattedName = suffix ? `${firstName} ${suffix}` : displayName;
+
+      // --- Checa se o contato já existe ---
       const { data: existingContact } = await supabaseBrowser
-        .from("google_contacts")
-        .select("id")
-        .eq("tenant_id", tid)
-        .eq("phone_e164", phoneDigits)
-        .maybeSingle();
+  .from("google_contacts")
+  .select("id, phones, google_resource_name, display_name, emails, labels")
+  .eq("tenant_id", tid)
+  .eq("phone_e164", phoneDigits)
+  .maybeSingle();
 
       if (existingContact) {
-        return;
-      }
+  const updatedPhones = ((existingContact.phones as any[]) || []).map(
+    (p: any, i: number) => (i === 0 ? { ...p, label: selectedServerName } : p),
+  );
+  await fetch("/api/auth/google/update", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      id: existingContact.id,
+      google_resource_name: existingContact.google_resource_name,
+      display_name: existingContact.display_name,
+      phones: updatedPhones,
+      emails: existingContact.emails || [],
+      labels: existingContact.labels || [],
+    }),
+  });
+  return;
+}
 
-      // 2. Monta o nome formatado: "Marcio NaTV3215"
-      const cleanName = displayName.split(" ")[0]; // Pega só o primeiro nome
-      const formattedName = serverUsername
-        ? `${cleanName} ${serverUsername}`
-        : displayName;
-
-      // 3. Monta o Payload no formato que sua API de agenda aceita
-      const selectedServerName =
-        servers.find((s) => s.id === serverId)?.name || "Cliente";
-
+      // --- Contato novo: cria com label do servidor no telefone e grupo correto ---
       const payload = {
         display_name: formattedName,
         phones: [{ label: selectedServerName, value: finalE164 }],
         emails: [],
-        labels: ["Clientes IPTV"],
+        labels: [selectedServerName], // grupo = nome do servidor
         photo_base64: undefined,
       };
 
-      // 4. Dispara para a sua API existente
       const res = await fetch("/api/auth/google/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-      if (res.ok) {
-        queueListToast(isTrialMode ? "trial" : "client", {
-          type: "success",
-          title: "Agenda Atualizada",
-          message: `Contato ${formattedName} salvo no Google.`,
+      if (!res.ok) return;
+
+      queueListToast(isTrialMode ? "trial" : "client", {
+        type: "success",
+        title: "Agenda Atualizada",
+        message: `Contato ${formattedName} salvo no Google.`,
+      });
+
+      if (phoneDigits.length < 8) return;
+
+      // Aguarda a trigger/banco finalizar a inserção
+      await new Promise((resolve) => setTimeout(resolve, 800));
+
+      const { data: newContactData } = await supabaseBrowser
+        .from("google_contacts")
+        .select("id")
+        .eq("tenant_id", tid)
+        .eq("phone_e164", phoneDigits)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!newContactData) return;
+
+      // Operadora (só Brasil)
+      try {
+        await fetch("/api/auth/google/sync-operadora", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contact_ids: [newContactData.id] }),
         });
+      } catch {}
 
-        // 5. Pós-Processamento: Buscar o ID recém-criado para rodar os syncs secundários
-        if (phoneDigits.length >= 8) {
-          // Pequeno delay para garantir que a trigger/banco finalizou a inserção da API create
-          await new Promise((resolve) => setTimeout(resolve, 500));
-
-          const { data: newContactData } = await supabaseBrowser
-            .from("google_contacts")
-            .select("id")
-            .eq("tenant_id", tid)
-            .eq("phone_e164", phoneDigits)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .single();
-
-          if (newContactData) {
-            // 🚀 5.1 Sincroniza a Operadora silenciosamente
-            try {
-              await fetch("/api/auth/google/sync-operadora", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ contact_ids: [newContactData.id] }),
-              });
-            } catch (err) {}
-
-            // 📸 5.2 Sincroniza a Foto do WhatsApp
-            const vRes = await fetch("/api/whatsapp/validate", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ phone: phoneDigits }),
-            });
-            const vData = await vRes.json().catch(() => ({}));
-
-            if (vData.exists && vData.jid) {
-              await fetch("/api/whatsapp/contact-photo", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  contact_id: newContactData.id,
-                  jid: vData.jid,
-                }),
-              });
-            }
-          }
+      // Foto do WhatsApp
+      try {
+        const vRes = await fetch("/api/whatsapp/validate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: phoneDigits }),
+        });
+        const vData = await vRes.json().catch(() => ({}));
+        if (vData.exists && vData.jid) {
+          await fetch("/api/whatsapp/contact-photo", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contact_id: newContactData.id,
+              jid: vData.jid,
+            }),
+          });
         }
-      }
-    } catch (error) {}
-  } // 1. EXECUTA A GRAVAÇÃO REAL (Chamada direta ou pelo botão do Popup)
+      } catch {}
+    } catch {}
+  }
 
   async function executeSave() {
     setConfirmModal(null); // Fecha o popup se estiver aberto
@@ -3133,12 +3160,7 @@ export default function NovoCliente({
                   setExternalUserId(nextExternalUserId); // ✅ reflete na UI/estado
                 }
 
-                // ✅ Log higienizado: removemos o "password" para não vazar no console (F12)
-                console.log("🔵 Dados recebidos da API:", {
-                  username: apiUsername,
-                  m3u_url: apiM3uUrl,
-                  exp_date: apiData?.exp_date,
-                });
+                
 
                 // ✅ Reflete na UI imediatamente (Exceto o Username, para mantermos o original na tela para o Sync!)
                 if (apiPassword) setPassword(apiPassword);
@@ -3299,17 +3321,7 @@ export default function NovoCliente({
           });
         }
 
-        // ✅ ATUALIZAR M3U_URL (API ou manual)
-
-        console.log("🔵 DEBUG M3U antes de salvar:", {
-          clientId,
-
-          apiM3uUrl,
-
-          m3uUrl,
-
-          finalValue: apiM3uUrl || m3uUrl,
-        });
+        
 
         // ✅ UPDATE ÚNICO (evita writes extras): m3u_url + external_user_id + created_at + tipo_cadastro
 
@@ -3351,17 +3363,7 @@ export default function NovoCliente({
 
             .select();
 
-          if (patchErr) {
-          } else {
-          }
-        } else {
-          console.warn("⚠️ PATCH NÃO salvo. Motivo:", {
-            temClientId: !!clientId,
-
-            temM3uFinal: !!finalM3u,
-
-            temExternalUserId: !!finalExternalUserId,
-          });
+        
         }
 
         if (selectedApps.length > 0 && clientId) {
@@ -3611,19 +3613,27 @@ export default function NovoCliente({
             const tid2 = await getCurrentTenantId();
             const selectedServerName2 =
               servers.find((s) => s.id === serverId)?.name || null;
-            await supabaseBrowser.from("papa_testes").insert({
-              tenant_id: tid2,
-              whatsapp_username: onlyDigits(whatsappUsername),
-              client_name: displayName,
-              phone_e164: finalPrimaryE164 || null,
-              server_name: selectedServerName2,
-              username: apiUsername || username,
-              plan_price: rpcPriceAmount || null,
-              plan_currency: rpcCurrency || "BRL",
-              is_trial: isTrialMode,
-              created_at: new Date().toISOString(),
-            });
-          } catch (e) {}
+            const papaWaUsername = onlyDigits(whatsappUsername) || onlyDigits(finalPrimaryE164) || "desconhecido";
+
+const { error: papaErr } = await supabaseBrowser.from("papa_testes").insert({
+  tenant_id: tid2,
+  whatsapp_username: papaWaUsername,
+  client_name: displayName,
+  phone_e164: finalPrimaryE164 || null,
+  server_name: selectedServerName2,
+  username: apiUsername || username,
+  plan_price: rpcPriceAmount || null,
+  plan_currency: rpcCurrency || "BRL",
+  is_trial: isTrialMode,
+  created_at: new Date().toISOString(),
+});
+
+if (papaErr) {
+  addToast("error", "Erro no histórico", papaErr.message);
+}
+          } catch (e: any) {
+  addToast("error", "Erro no histórico", e?.message || "Falha ao salvar papa teste.");
+}
         }
 
         // ✅ TRIAL: enviar mensagem de teste imediatamente + toast na tela de testes
