@@ -2568,9 +2568,12 @@ const phoneDigits = rawDigits.startsWith("55") && rawDigits.length >= 12
   .maybeSingle();
 
       if (existingContact) {
-  const updatedPhones = ((existingContact.phones as any[]) || []).map(
-    (p: any, i: number) => (i === 0 ? { ...p, label: selectedServerName } : p),
-  );
+  // Contato existente: só adiciona o servidor ao grupo, não mexe nos telefones
+  const existingLabels = (existingContact.labels as string[]) || [];
+  const updatedLabels = existingLabels.includes(selectedServerName)
+    ? existingLabels
+    : [...existingLabels, selectedServerName];
+
   await fetch("/api/auth/google/update", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -2578,9 +2581,9 @@ const phoneDigits = rawDigits.startsWith("55") && rawDigits.length >= 12
       id: existingContact.id,
       google_resource_name: existingContact.google_resource_name,
       display_name: existingContact.display_name,
-      phones: updatedPhones,
+      phones: existingContact.phones || [],
       emails: existingContact.emails || [],
-      labels: existingContact.labels || [],
+      labels: updatedLabels,
     }),
   });
   return;
