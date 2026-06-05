@@ -2611,27 +2611,33 @@ const phoneDigits = rawDigits.startsWith("55") && rawDigits.length >= 12
 
       if (!res.ok) return;
 
-      queueListToast(isTrialMode ? "trial" : "client", {
-        type: "success",
-        title: "Agenda Atualizada",
-        message: `Contato ${formattedName} salvo no Google.`,
-      });
+// Pega o id do contato recém-criado direto da resposta
+const resData = await res.json().catch(() => ({}));
 
-      if (phoneDigits.length < 8) return;
+queueListToast(isTrialMode ? "trial" : "client", {
+  type: "success",
+  title: "Agenda Atualizada",
+  message: `Contato ${formattedName} salvo no Google.`,
+});
 
-      // Aguarda a trigger/banco finalizar a inserção
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+if (phoneDigits.length < 8) return;
 
-      const { data: newContactData } = await supabaseBrowser
-        .from("google_contacts")
-        .select("id")
-        .eq("tenant_id", tid)
-        .eq("phone_e164", phoneDigits)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
+// Busca pelo phone_e164 com retry — mais confiável que depender do timing
+let newContactData: { id: string } | null = null;
+for (let attempt = 0; attempt < 3; attempt++) {
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+  const { data } = await supabaseBrowser
+    .from("google_contacts")
+    .select("id")
+    .eq("tenant_id", tid)
+    .eq("phone_e164", phoneDigits)
+    .order("synced_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (data) { newContactData = data; break; }
+}
 
-      if (!newContactData) return;
+if (!newContactData) return;
 
       // Operadora (só Brasil)
       try {
@@ -4158,16 +4164,57 @@ if (papaErr) {
                 {/* Telefone + WhatsUser */}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <PhoneRow
-                    label="Telefone principal"
-                    countryLabel={primaryCountryLabel}
-                    rawValue={primaryPhoneRaw}
-                    onRawChange={setPrimaryPhoneRaw}
-                    onDone={handleDonePrimary}
-                  />
+  <div>
+    <PhoneRow
+      label="Telefone principal"
+      countryLabel={primaryCountryLabel}
+      rawValue={primaryPhoneRaw}
+      onRawChange={setPrimaryPhoneRaw}
+      onDone={handleDonePrimary}
+    />
+    {(papaTesteLoading || papaTesteInfo) && (
+      <div className="mt-1 flex items-center gap-1.5">
+        {papaTesteLoading ? (
+          <span className="text-[10px] text-muted-foreground/80 flex items-center gap-1">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Verificando...
+          </span>
+        ) : papaTesteInfo ? (
+          <button
+            type="button"
+            onClick={async () => {
+              const lines = papaTesteInfo.records.map((r) => {
+                const dt = new Date(r.created_at).toLocaleDateString("pt-BR");
+                const tipo = r.is_trial ? "Teste" : "Cliente";
+                const val = r.plan_price
+                  ? `${r.plan_currency || "BRL"} ${Number(r.plan_price).toFixed(2).replace(".", ",")}`
+                  : "—";
+                return `${tipo} · ${dt} · ${r.server_name || "—"} · ${r.username || "—"} · ${val}`;
+              });
+              await confirm({
+                title: `📋 Histórico — ${papaTesteInfo.records[0]?.client_name || whatsappUsername}`,
+                subtitle: `${papaTesteInfo.count} registro(s) encontrado(s) para este WhatsApp.`,
+                tone: "sky",
+                confirmText: "Fechar",
+                cancelText: "",
+                details: lines.map((line, i) => (
+                  <div key={i} className="text-xs text-foreground/90/80 py-1 border-b border-border last:border-0">
+                    {line}
+                  </div>
+                )),
+              });
+            }}
+            className="text-[11px] font-medium text-amber-500 hover:text-amber-400 flex items-center gap-1 transition-colors"
+          >
+            ⚠️ {papaTesteInfo.count} {papaTesteInfo.count > 1 ? "registros" : "registro"} no Papa Teste
+          </button>
+        ) : null}
+      </div>
+    )}
+  </div>
 
-                  <div>
-                    <Label>WhatsApp username</Label>
+  <div>
+    <Label>WhatsApp username</Label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/80">
                         @
@@ -4209,63 +4256,17 @@ if (papaErr) {
                         </a>
                       )}
                     </div>
-                    {(waValidation || papaTesteLoading || papaTesteInfo) && (
-  <div className="mt-1 flex items-center gap-2 flex-wrap">
-    {waValidation && (
-      <div className={`flex items-center gap-1.5 text-[11px] font-medium ${waValidation.loading ? "text-muted-foreground/80" : waValidation.exists ? "text-emerald-400" : "text-rose-500"}`}>
-        {waValidation.loading ? (
-          <><Loader2 className="w-4 h-4 animate-spin" /> Validando...</>
-        ) : waValidation.exists ? (
-          <>✅ WhatsApp ativo</>
-        ) : (
-          <>❌ Não encontrado no WhatsApp</>
-        )}
-      </div>
+                    {waValidation && (
+  <div className={`mt-1 flex items-center gap-1.5 text-[11px] font-medium ${waValidation.loading ? "text-muted-foreground/80" : waValidation.exists ? "text-emerald-400" : "text-rose-500"}`}>
+    {waValidation.loading ? (
+      <><Loader2 className="w-4 h-4 animate-spin" /> Validando...</>
+    ) : waValidation.exists ? (
+      <>✅ WhatsApp ativo</>
+    ) : (
+      <>❌ Não encontrado no WhatsApp</>
     )}
-    {papaTesteLoading ? (
-      <span className="text-[10px] text-muted-foreground/80 flex items-center gap-1">
-        <Loader2 className="w-3 h-3 animate-spin" />
-        Verificando...
-      </span>
-    ) : papaTesteInfo ? (
-      <button
-        type="button"
-        onClick={async () => {
-                              const lines = papaTesteInfo.records.map((r) => {
-                                const dt = new Date(
-                                  r.created_at,
-                                ).toLocaleDateString("pt-BR");
-                                const tipo = r.is_trial ? "Teste" : "Cliente";
-                                const val = r.plan_price
-                                  ? `${r.plan_currency || "BRL"} ${Number(r.plan_price).toFixed(2).replace(".", ",")}`
-                                  : "—";
-                                return `${tipo} · ${dt} · ${r.server_name || "—"} · ${r.username || "—"} · ${val}`;
-                              });
-                              await confirm({
-                                title: `📋 Histórico — ${papaTesteInfo.records[0]?.client_name || whatsappUsername}`,
-                                subtitle: `${papaTesteInfo.count} registro(s) encontrado(s) para este WhatsApp.`,
-                                tone: "sky",
-                                confirmText: "Fechar",
-                                cancelText: "",
-                                details: lines.map((line, i) => (
-                                  <div
-                                    key={i}
-                                    className="text-xs text-foreground/90/80 py-1 border-b border-border last:border-0"
-                                  >
-                                    {line}
-                                  </div>
-                                )),
-                              });
-                            }}
-                            className="gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 dark:hover:bg-amber-500/20 transition-colors flex items-center gap-1"
-                          >
-                            ⚠️ {papaTesteInfo.count} registro
-                            {papaTesteInfo.count > 1 ? "s" : ""} anteriore
-                            {papaTesteInfo.count > 1 ? "s" : ""}
-                          </button>
-                        ) : null}
-                      </div>
-                    )}
+  </div>
+)}
                   </div>
                 </div>
 
