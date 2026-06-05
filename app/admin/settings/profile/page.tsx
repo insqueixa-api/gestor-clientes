@@ -1640,12 +1640,13 @@ export default function ProfileSettingsPage() {
                     Cancelar
                   </button>
                   <button
-                    type="button"
-                    onClick={handleAddHealthEntry}
-                    className="flex-1 h-10 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition-colors"
-                  >
-                    {editingHealthId ? "Atualizar" : "Registrar"}
-                  </button>
+  type="button"
+  onClick={handleAddHealthEntry}
+  disabled={saving}
+  className="flex-1 h-10 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+>
+  {saving ? "Salvando..." : editingHealthId ? "Atualizar" : "Registrar"}
+</button>
                 </div>
               </div>
             )}
@@ -1672,7 +1673,7 @@ export default function ProfileSettingsPage() {
                         return (
                           <div
                             key={record.id}
-                            className={`items-center gap-3 p-3 rounded-xl border transition-colors group ${isNewest ? "border-emerald-500/20 bg-emerald-500/10/50 dark:bg-emerald-500/5" : "border-border bg-transparent/50 dark:bg-black/10"} ${hideOnMobile ? "hidden xl:flex" : "flex"}`}
+                            className={`items-center gap-3 p-3 rounded-xl border transition-colors group ${isNewest ? "border-emerald-500/30 bg-emerald-500/5 shadow-[0_0_0_1px_rgba(16,185,129,0.15),0_2px_8px_rgba(16,185,129,0.08)]" : "border-border bg-transparent/50 dark:bg-black/10"} ${hideOnMobile ? "hidden xl:flex" : "flex"}`}
                           >
                             {/* Data em bloco */}
                             <div className="shrink-0 text-center w-10">
