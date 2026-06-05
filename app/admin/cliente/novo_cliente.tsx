@@ -7,6 +7,7 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "../ToastNotifications";
 import { useConfirm } from "@/app/admin/HookuseConfirm"; // ✅ Trazendo a caixa de confirmação bonita
 import { getIntegrationHandler } from "@/lib/integrations"; // ✅ O Roteador Inteligente
+import { createPortal } from "react-dom";
 
 // --- TIPOS ---
 type SelectOption = {
@@ -492,6 +493,178 @@ function Input({ className = "", ...props }: InputProps) {
   );
 }
 
+const MESES_NOME = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
+
+function ModalDatePicker({
+  currentDate,
+  onSelect,
+  onClose,
+}: {
+  currentDate: Date;
+  onSelect: (date: Date) => void;
+  onClose: () => void;
+}) {
+  const [ano, setAno] = useState(currentDate.getFullYear());
+  const mesSelecionado = currentDate.getMonth();
+
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-[999999] bg-black/60 grid place-items-center p-4"
+    >
+      <div
+        onMouseDown={(e) => e.stopPropagation()}
+        className="w-full max-w-xs bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent">
+          <span className="text-sm font-medium text-foreground/90">Selecionar Período</span>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground/80 transition-colors">
+            <IconX />
+          </button>
+        </div>
+        <div className="p-4 space-y-4">
+          <div>
+            <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-2">Ano</label>
+            <div className="flex items-center justify-between bg-transparent border border-border rounded-lg p-1">
+              <button onClick={() => setAno((a) => a - 1)} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground dark:hover:text-white hover:bg-card dark:hover:bg-card/10 transition-colors">
+                <IconChevronLeft />
+              </button>
+              <span className="text-sm font-medium text-foreground/90 w-16 text-center">{ano}</span>
+              <button onClick={() => setAno((a) => a + 1)} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground dark:hover:text-white hover:bg-card dark:hover:bg-card/10 transition-colors">
+                <IconChevronRight />
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-2">Mês</label>
+            <div className="grid grid-cols-3 gap-1.5">
+              {MESES_NOME.map((mes, idx) => {
+                const isSelected = idx === mesSelecionado && ano === currentDate.getFullYear();
+                const isCurrentMonth = idx === new Date().getMonth() && ano === new Date().getFullYear();
+                return (
+                  <button
+                    key={mes}
+                    onClick={() => {
+                      const hoje = new Date().getDate();
+                      const ultimoDia = new Date(ano, idx + 1, 0).getDate();
+                      onSelect(new Date(ano, idx, Math.min(hoje, ultimoDia)));
+                    }}
+                    className={`py-2 rounded-lg text-xs font-medium transition-all ${
+                      isSelected ? "bg-emerald-600 text-white shadow-md shadow-emerald-900/20" : isCurrentMonth ? "border border-emerald-300 dark:border-emerald-500/40 text-emerald-500 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/10" : "text-muted-foreground hover:bg-transparent dark:hover:bg-card/5"
+                    }`}
+                  >
+                    {mes.slice(0, 3)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+function ModalDayPicker({
+  currentDate,
+  onSelect,
+  onClose,
+}: {
+  currentDate: Date;
+  onSelect: (date: Date) => void;
+  onClose: () => void;
+}) {
+  const [viewDate, setViewDate] = useState(currentDate);
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
+
+  const ano = viewDate.getFullYear();
+  const mes = viewDate.getMonth();
+  const diasNoMes = new Date(ano, mes + 1, 0).getDate();
+  const primeiroDia = new Date(ano, mes, 1).getDay();
+
+  const dias = Array(primeiroDia).fill(null).concat(Array.from({ length: diasNoMes }, (_, i) => i + 1));
+
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-[999998] bg-black/60 grid place-items-center p-4"
+    >
+      <div onMouseDown={(e) => e.stopPropagation()} className="w-full max-w-xs bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent">
+          <span className="text-sm font-medium text-foreground/90">Selecionar Data</span>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground/80 transition-colors">
+            <IconX />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-4">
+          <div className="flex items-center justify-between bg-transparent border border-border rounded-lg p-1">
+            <button onClick={() => setViewDate(new Date(ano, mes - 1, 1))} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground dark:hover:text-white hover:bg-card dark:hover:bg-card/10 transition-colors">
+              <IconChevronLeft />
+            </button>
+            <button onClick={() => setShowMonthPicker(true)} className="px-3 py-1 text-sm font-medium text-foreground/90 text-center capitalize hover:text-emerald-500 dark:hover:text-emerald-500 hover:bg-transparent dark:hover:bg-card/10 rounded-md transition-colors">
+              {MESES_NOME[mes]} {ano}
+            </button>
+            <button onClick={() => setViewDate(new Date(ano, mes + 1, 1))} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground dark:hover:text-white hover:bg-card dark:hover:bg-card/10 transition-colors">
+              <IconChevronRight />
+            </button>
+          </div>
+
+          <div>
+            <div className="grid grid-cols-7 gap-1 mb-1">
+              {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => (
+                <div key={i} className="text-center text-[10px] font-medium text-muted-foreground/80 py-1">{d}</div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-1">
+              {dias.map((dia, idx) => {
+                if (!dia) return <div key={`empty-${idx}`} />;
+                const isSelected = dia === currentDate.getDate() && mes === currentDate.getMonth() && ano === currentDate.getFullYear();
+                const isToday = dia === new Date().getDate() && mes === new Date().getMonth() && ano === new Date().getFullYear();
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => onSelect(new Date(ano, mes, dia))}
+                    className={`h-8 rounded-lg text-xs font-medium transition-all ${
+                      isSelected ? "bg-emerald-600 text-white shadow-md shadow-emerald-900/20" : isToday ? "border border-emerald-300 dark:border-emerald-500/40 text-emerald-500 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/10" : "text-muted-foreground hover:bg-transparent dark:hover:bg-card/5"
+                    }`}
+                  >
+                    {dia}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {showMonthPicker && (
+        <ModalDatePicker
+          currentDate={viewDate}
+          onSelect={(date) => {
+            setViewDate(date);
+            setShowMonthPicker(false);
+          }}
+          onClose={() => setShowMonthPicker(false)}
+        />
+      )}
+    </div>,
+    document.body
+  );
+}
+
 function FormattedDateInput({
   type,
   value,
@@ -500,8 +673,8 @@ function FormattedDateInput({
   ...props
 }: any) {
   const [displayValue, setDisplayValue] = useState("");
+  const [showCalendar, setShowCalendar] = useState(false);
 
-  // Sincroniza do estado do pai (YYYY-MM-DD) para a máscara (DD/MM/YYYY)
   useEffect(() => {
     if (type !== "date" && type !== "datetime-local") return;
 
@@ -523,17 +696,8 @@ function FormattedDateInput({
     } catch (e) {}
   }, [value, type]);
 
-  // Se não for data, renderiza o input normal
   if (type !== "date" && type !== "datetime-local") {
-    return (
-      <Input
-        type={type}
-        value={value}
-        onChange={onChange}
-        className={className}
-        {...props}
-      />
-    );
+    return <Input type={type} value={value} onChange={onChange} className={className} {...props} />;
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -611,6 +775,31 @@ function FormattedDateInput({
     }
   };
 
+  const getCurrentDateForPicker = () => {
+    if (!value) return new Date();
+    try {
+      const datePart = type === "datetime-local" ? value.split("T")[0] : value;
+      const [y, m, d] = datePart.split("-");
+      return new Date(Number(y), Number(m) - 1, Number(d));
+    } catch {
+      return new Date();
+    }
+  };
+
+  const handleDateSelect = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+
+    if (type === "date") {
+      onChange({ target: { value: `${y}-${m}-${d}` } });
+    } else if (type === "datetime-local") {
+      const timePart = value && value.includes("T") ? value.split("T")[1] : "00:00";
+      onChange({ target: { value: `${y}-${m}-${d}T${timePart}` } });
+    }
+    setShowCalendar(false);
+  };
+
   return (
     <div className="relative w-full flex items-center">
       <Input
@@ -619,46 +808,37 @@ function FormattedDateInput({
         onChange={handleChange}
         onKeyDown={handleKeyDown}
         placeholder={type === "date" ? "DD/MM/AAAA" : "DD/MM/AAAA HH:MM"}
-        className={`${className} pr-10`} // Espaço para o ícone
+        className={`${className} pr-10`}
         maxLength={type === "date" ? 10 : 16}
         title="Dica: Pressione Seta para Cima para adicionar +1 Ano rapidamente"
         {...props}
       />
 
-      {/* Ícone e Calendário Nativo Sobreposto (Invisível) */}
-      <div className="absolute right-0 top-0 h-full w-10 flex items-center justify-center text-muted-foreground/60 hover:text-emerald-500 transition-colors">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setShowCalendar(true);
+        }}
+        className="absolute right-0 top-0 h-full w-10 flex items-center justify-center text-muted-foreground/60 hover:text-emerald-500 transition-colors"
+        tabIndex={-1}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
           <line x1="16" y1="2" x2="16" y2="6" />
           <line x1="8" y1="2" x2="8" y2="6" />
           <line x1="3" y1="10" x2="21" y2="10" />
         </svg>
-        
-        <input
-          type={type}
-          value={value || ""}
-          onChange={(e) => {
-            // Quando seleciona no calendário, joga direto pro onChange do pai
-            if (e.target.value) {
-              onChange({ target: { value: e.target.value } });
-            }
-          }}
-          // Opacidade 0 faz o input sumir, mas mantemos ele clicável.
-          // As classes webkit forçam a área clicável do calendário a ocupar os 40px do container.
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-          title="Abrir calendário"
+      </button>
+
+      {showCalendar && (
+        <ModalDayPicker
+          currentDate={getCurrentDateForPicker()}
+          onSelect={handleDateSelect}
+          onClose={() => setShowCalendar(false)}
         />
-      </div>
+      )}
     </div>
   );
 }
@@ -6327,6 +6507,22 @@ function IconChat() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
       <path d="M12 0C5.373 0 0 4.98 0 11.111c0 3.508 1.777 6.64 4.622 8.67L3.333 24l4.444-2.222c1.333.37 2.592.556 4.223.556 6.627 0 12-4.98 12-11.111S18.627 0 12 0zm0 20c-1.37 0-2.703-.247-3.963-.733l-.283-.111-2.592 1.296.852-2.37-.37-.259C3.852 16.37 2.667 13.852 2.667 11.11 2.667 6.148 6.963 2.222 12 2.222c5.037 0 9.333 3.926 9.333 8.889S17.037 20 12 20zm5.037-6.63c-.278-.139-1.63-.815-1.889-.907-.259-.093-.445-.139-.63.139-.185.278-.722.907-.889 1.093-.167.185-.333.208-.611.069-.278-.139-1.167-.43-2.222-1.37-.822-.733-1.37-1.63-1.528-1.907-.157-.278-.017-.43.122-.569.126-.126.278-.333.417-.5.139-.167.185-.278.278-.463.093-.185.046-.347-.023-.486-.069-.139-.63-1.519-.863-2.083-.227-.546-.458-.472-.63-.48l-.54-.01c-.185 0-.486.069-.74.347-.254.278-.972.95-.972 2.315 0 1.365.996 2.685 1.135 2.87.139.185 1.96 2.997 4.87 4.207.681.294 1.213.47 1.628.602.684.217 1.306.187 1.797.113.548-.082 1.63-.667 1.86-1.31.23-.643.23-1.193.162-1.31-.069-.116-.254-.185-.532-.324z" />
+    </svg>
+  );
+}
+
+function IconChevronLeft() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polyline points="15 18 9 12 15 6"></polyline>
+    </svg>
+  );
+}
+
+function IconChevronRight() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polyline points="9 18 15 12 9 6"></polyline>
     </svg>
   );
 }
