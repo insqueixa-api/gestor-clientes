@@ -319,22 +319,49 @@ export default function AdminShell({
           // Início do dia de hoje em São Paulo, convertido para um instante UTC
           const startOfTodaySP = new Date(`${dataAtualSP}T00:00:00-03:00`).toISOString();
 
-          // 1) Jobs de automação que falharam hoje (status FAILED, com automation_id)
-          const { data: failedJobs, error: jobsErr } = await supabaseBrowser
+          // 1) Busca TODOS os disparos de automação de hoje para cruzar falhas vs sucessos
+          const { data: todayJobs, error: jobsErr } = await supabaseBrowser
             .from("client_message_jobs")
-            .select("id, automation_id, send_at")
+            .select("id, client_id, automation_id, status, send_at")
             .eq("tenant_id", tenantId)
-            .eq("status", "FAILED")
             .not("automation_id", "is", null)
             .gte("send_at", startOfTodaySP);
 
-          if (!jobsErr && failedJobs && failedJobs.length > 0) {
-            // 2) Agrupa por automação e conta clientes afetados
+          if (!jobsErr && todayJobs && todayJobs.length > 0) {
+            // 2) Agrupa para saber se o cliente teve sucesso na mesma automação hoje
+            const statusByAutoAndClient: Record<string, Record<string, boolean>> = {};
+
+            todayJobs.forEach((j: any) => {
+              if (!j.automation_id || !j.client_id) return;
+              
+              if (!statusByAutoAndClient[j.automation_id]) {
+                statusByAutoAndClient[j.automation_id] = {};
+              }
+              
+              // Se ainda não registramos o cliente, o padrão é falso (falhou/pendente)
+              if (statusByAutoAndClient[j.automation_id][j.client_id] === undefined) {
+                statusByAutoAndClient[j.automation_id][j.client_id] = false;
+              }
+
+              // Se teve um status SENT, marca como verdadeiro (sucesso real, anula falhas anteriores)
+              if (j.status === "SENT") {
+                statusByAutoAndClient[j.automation_id][j.client_id] = true;
+              }
+            });
+
             const countByAuto: Record<string, number> = {};
-            failedJobs.forEach((j: any) => {
-              if (!j.automation_id) return;
-              countByAuto[j.automation_id] =
-                (countByAuto[j.automation_id] || 0) + 1;
+            
+            // Conta APENAS clientes que ficaram com 'false' (ou seja, falharam e NUNCA tiveram SENT hoje)
+            Object.keys(statusByAutoAndClient).forEach(autoId => {
+              const clients = statusByAutoAndClient[autoId];
+              let realFails = 0;
+              Object.values(clients).forEach(hasSent => {
+                if (!hasSent) realFails++;
+              });
+              
+              if (realFails > 0) {
+                countByAuto[autoId] = realFails;
+              }
             });
 
             const autoIds = Object.keys(countByAuto);
@@ -365,7 +392,7 @@ export default function AdminShell({
                     : `${qtd} cliente não foi notificado`;
                 list.push({
                   id: `auto_fail_${autoId}_${dataAtualSP}`,
-                  title: `🤖 Falha na automação: **${info.name}**`,
+                  title: `🤖 Falha: **${info.name}**`,
                   message: `A regra não foi enviada${horaTxt}. ${clienteTxt} via WhatsApp.`,
                   link: "/admin/gerenciador/cobranca",
                   type: "error",
