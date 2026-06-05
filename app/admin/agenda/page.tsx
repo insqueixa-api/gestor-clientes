@@ -773,16 +773,26 @@ function AgendaPageContent() {
     if (!msg) return addToast("error", "Mensagem vazia", "Digite algo.");
     setSendingNow(true);
     try {
-      const res = await fetch("/api/whatsapp/envio_avulso", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tenant_id: tenantId,
-          phone_e164: showSendNow.phone,
-          message: msg,
-          whatsapp_session: selectedSessionNow,
-        }),
-      });
+      const { data: session } = await supabaseBrowser.auth.getSession();
+const token = session.session?.access_token;
+
+const res = await fetch("/api/whatsapp/envio_avulso", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  },
+  body: JSON.stringify({
+    tenant_id: tenantId,
+    phone: showSendNow.phone,
+    message: msg,
+    whatsapp_session: selectedSessionNow,
+  }),
+});
+if (!res.ok) {
+  const d = await res.json().catch(() => ({}));
+  throw new Error(d.error || "Falha ao enviar");
+}
       if (!res.ok) throw new Error("Falha ao enviar");
       addToast("success", "Enviado", "Mensagem enviada com sucesso.");
       setShowSendNow({ open: false, contactId: null, phone: null });
@@ -1804,13 +1814,13 @@ function AgendaPageContent() {
                             {msgMenuForId === r.id && (
                               <div
                                 onClick={(e) => e.stopPropagation()}
-                                className="absolute right-0 mt-2 w-48 rounded-xl border border-border bg-card dark:bg-background z-50 shadow-2xl overflow-hidden"
+                                className="absolute right-0 mt-2 w-64 rounded-xl border border-border bg-card dark:bg-background z-50 shadow-2xl overflow-hidden"
                               >
                                 {rPhones.map((p) => (
                                   <MenuItem
                                     key={p.id}
                                     icon={<IconSend />}
-                                    label={`Para: ${p.label}`}
+                                    label={`Para: ${p.label} (${displayPhone(p.value).replace(/^[^ ]+ \+/, '+')})`}
                                     onClick={() => {
                                       setMsgMenuForId(null);
                                       setMessageText("");
