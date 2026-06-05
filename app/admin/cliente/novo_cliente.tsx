@@ -523,7 +523,7 @@ function FormattedDateInput({
     } catch (e) {}
   }, [value, type]);
 
-  // Se não for data, renderiza o input normal igual fazia antes
+  // Se não for data, renderiza o input normal
   if (type !== "date" && type !== "datetime-local") {
     return (
       <Input
@@ -594,7 +594,6 @@ function FormattedDateInput({
     }
   };
 
-  // 🔥 ATALHO DE PODER: Seta pra Cima (+1 Ano), Seta pra Baixo (-1 Ano)
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!value) return;
     if (e.key === "ArrowUp" || e.key === "ArrowDown") {
@@ -613,17 +612,54 @@ function FormattedDateInput({
   };
 
   return (
-    <Input
-      type="text"
-      value={displayValue}
-      onChange={handleChange}
-      onKeyDown={handleKeyDown}
-      placeholder={type === "date" ? "DD/MM/AAAA" : "DD/MM/AAAA HH:MM"}
-      className={className}
-      maxLength={type === "date" ? 10 : 16}
-      title="Dica: Pressione Seta para Cima para adicionar +1 Ano rapidamente"
-      {...props}
-    />
+    <div className="relative w-full flex items-center">
+      <Input
+        type="text"
+        value={displayValue}
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
+        placeholder={type === "date" ? "DD/MM/AAAA" : "DD/MM/AAAA HH:MM"}
+        className={`${className} pr-10`} // Espaço para o ícone
+        maxLength={type === "date" ? 10 : 16}
+        title="Dica: Pressione Seta para Cima para adicionar +1 Ano rapidamente"
+        {...props}
+      />
+
+      {/* Ícone e Calendário Nativo Sobreposto (Invisível) */}
+      <div className="absolute right-0 top-0 h-full w-10 flex items-center justify-center text-muted-foreground/60 hover:text-emerald-500 transition-colors">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+          <line x1="16" y1="2" x2="16" y2="6" />
+          <line x1="8" y1="2" x2="8" y2="6" />
+          <line x1="3" y1="10" x2="21" y2="10" />
+        </svg>
+        
+        <input
+          type={type}
+          value={value || ""}
+          onChange={(e) => {
+            // Quando seleciona no calendário, joga direto pro onChange do pai
+            if (e.target.value) {
+              onChange({ target: { value: e.target.value } });
+            }
+          }}
+          // Opacidade 0 faz o input sumir, mas mantemos ele clicável.
+          // As classes webkit forçam a área clicável do calendário a ocupar os 40px do container.
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+          title="Abrir calendário"
+        />
+      </div>
+    </div>
   );
 }
 
