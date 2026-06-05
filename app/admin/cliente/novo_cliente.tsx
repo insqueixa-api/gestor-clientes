@@ -6303,35 +6303,7 @@ if (papaErr) {
                           const filtered = catalog
                             .filter((app) => {
                               const q = appSearch.toLowerCase();
-                              const matchName = app.name
-                                .toLowerCase()
-                                .includes(q);
-
-                              const intType = String(app.integration_type || "")
-                                .trim()
-                                .toUpperCase();
-                              const intLabel =
-                                intType === "GERENCIAAPP"
-                                  ? "GerenciaApp"
-                                  : intType === "DUPLECAST"
-                                    ? "DupleCast"
-                                    : intType === "IBOSOL"
-                                      ? "IBO Sol"
-                                      : intType === "IBOPRO"
-                                        ? "IBO Pro Player"
-                                        : intType === "QUICKPLAYER"
-                                          ? "Quick Player"
-                                          : intType === "DUPLEXPLAY"
-                                            ? "DuplexPlay"
-                                            : intType === "LAZERPLAY"
-                                              ? "Lazer Play"
-                                              : intType;
-
-                              const matchIntegration = intLabel
-                                .toLowerCase()
-                                .includes(q);
-
-                              return matchName || matchIntegration;
+                              return app.name.toLowerCase().includes(q);
                             })
                             .sort((a, b) => a.name.localeCompare(b.name));
 

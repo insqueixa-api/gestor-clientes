@@ -292,15 +292,7 @@ export default function AppManagerPage() {
 
     return apps.filter((a) => {
       const name = String(a.name ?? "").toLowerCase();
-      const url = String(a.info_url ?? "").toLowerCase();
-
-      const fields = Array.isArray(a.fields_config) ? a.fields_config : [];
-      const fieldsText = fields
-        .map((f) => `${FIELD_LABELS[f.type] ?? ""} ${f.type ?? ""}`)
-        .join(" ")
-        .toLowerCase();
-
-      return name.includes(q) || url.includes(q) || fieldsText.includes(q);
+      return name.includes(q);
     });
   }, [search, apps]);
 
@@ -642,7 +634,7 @@ export default function AppManagerPage() {
         <div className="md:p-4 md:bg-card dark:md:bg-card md:border md:border-border dark:md:border-white/10 md:rounded-xl md:sticky md:top-4 z-20">
           <div className="flex items-center gap-2">
             <Input
-              placeholder="Buscar aplicativo (nome, url, campos, servidor...)"
+              placeholder="Buscar aplicativo por nome..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
