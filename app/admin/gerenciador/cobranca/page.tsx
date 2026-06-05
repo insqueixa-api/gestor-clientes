@@ -2668,13 +2668,15 @@ function LogsModal({
                         <span
                           className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm uppercase ${
                             log.status === "SENT"
-                              ? "bg-emerald-500/20 text-emerald-400"
+                              ? "bg-emerald-500/20 text-emerald-500 dark:text-emerald-400"
                               : log.status === "FAILED"
-                                ? "bg-rose-500/20 text-rose-400"
-                                : "bg-transparent text-muted-foreground"
+                                ? "bg-rose-500/20 text-rose-500 dark:text-rose-400"
+                                : log.status === "CANCELLED"
+                                  ? "bg-slate-500/20 text-slate-500 dark:text-slate-400"
+                                  : "bg-transparent text-muted-foreground"
                           }`}
                         >
-                          {log.status}
+                          {log.status === "CANCELLED" ? "RESOLVIDO" : log.status}
                         </span>
                         {log.error_message && isFailed && (
                           <div className="text-[10px] text-rose-500 mt-1 max-w-[220px] truncate" title={log.error_message}>
@@ -2695,29 +2697,29 @@ function LogsModal({
             <button
               onClick={() => requeueIds(selectedArr)}
               disabled={working || selectedArr.length === 0}
-              className="px-4 py-2 rounded-lg bg-sky-600 text-white font-medium text-xs uppercase hover:bg-sky-500 transition disabled:opacity-40"
+              className="px-4 py-2 rounded-lg bg-sky-600 text-white font-medium text-xs uppercase hover:bg-sky-500 transition disabled:opacity-40 shadow-sm"
             >
               Reenviar selecionados ({selectedArr.length})
             </button>
             <button
               onClick={() => requeueIds(failedRows.map((r) => r.id))}
               disabled={working || failedRows.length === 0}
-              className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium text-xs uppercase hover:bg-emerald-500 transition disabled:opacity-40"
+              className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium text-xs uppercase hover:bg-emerald-500 transition disabled:opacity-40 shadow-sm"
             >
               Reenviar todas as falhas ({failedRows.length})
             </button>
             <button
               onClick={() => cancelIds(selectedArr)}
               disabled={working || selectedArr.length === 0}
-              className="px-4 py-2 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 font-medium text-xs uppercase hover:bg-rose-500/20 transition disabled:opacity-40"
+              className="px-4 py-2 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 font-medium text-xs uppercase hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20 dark:hover:bg-rose-500/20 transition disabled:opacity-40 shadow-sm"
               title="Cliente já recebeu — remove da lista de falhas sem reenviar"
             >
-              Cancelar selecionados
+              Limpar selecionados
             </button>
           </div>
           <button
             onClick={onClose}
-            className="px-5 py-2 rounded-lg bg-slate-800 text-foreground dark:text-white font-medium text-xs uppercase"
+            className="px-5 py-2 rounded-lg bg-slate-800 text-white font-medium text-xs uppercase hover:bg-slate-700 shadow-sm"
           >
             Fechar
           </button>

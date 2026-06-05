@@ -120,8 +120,11 @@ type Notification = {
 };
 
 // Renderiza **negrito** dentro de um texto, sem HTML inseguro
-function renderBold(text: string): React.ReactNode {
-  if (!text || !text.includes("**")) return text;
+function renderBold(text: any): React.ReactNode {
+  // Blindagem contra cache velho
+  if (typeof text !== "string") return text;
+  if (!text.includes("**")) return text;
+  
   const parts = text.split(/(\*\*[^*]+\*\*)/g);
   return parts.map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**")) {
