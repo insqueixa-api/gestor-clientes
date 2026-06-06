@@ -116,17 +116,17 @@ function inferDDI(digits: string): string {
 // Formata o número nacional por DDI
 function formatNational(ddi: string, nat: string): string {
   let d = onlyDigits(nat);
-  // Usuário digitou "021..." em vez de "21..." — strip o zero inicial
+  // Strip zero inicial apenas para processar, mas não para exibir
   if (ddi === "55" && d.startsWith("0")) d = d.slice(1);
   if (ddi === "55") {
     const area = d.slice(0, 2);
     const rest = d.slice(2);
     if (!area) return d;
     if (rest.length === 9)
-      return `${area} ${rest.slice(0, 5)}-${rest.slice(5)}`;
-    if (rest.length === 8)
-      return `${area} ${rest.slice(0, 4)}-${rest.slice(4)}`;
-    return `${area} ${rest}`.trim();
+  return `(0${area}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
+if (rest.length === 8)
+  return `(0${area}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
+return `(0${area}) ${rest}`.trim();
   }
   // Genérico: agrupa em blocos
   const groups: string[] = [];
