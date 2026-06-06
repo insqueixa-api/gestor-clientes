@@ -1,10 +1,13 @@
 "use client";
 import { X, Pencil } from "lucide-react";
-import { useEffect, useState, useMemo, useRef, Suspense, useCallback } from "react";
+
+import { useEffect, useState, useMemo, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { EyeToggle } from "@/app/admin/eye-toggle";
-import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
+import ToastNotifications, {
+  ToastMessage,
+} from "@/app/admin/ToastNotifications";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/app/admin/HookuseConfirm";
@@ -30,64 +33,151 @@ type Transacao = {
   data_pagamento?: string | null;
 };
 
+// --- TIPO VIEW MODE ---
 type ViewMode = "ano" | "mes" | "semana" | "dia";
 
-// --- ÍCONES ---
+// --- HELPERS DE DATA ---
+function toIso(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function startOfWeek(date: Date): Date {
+  const d = new Date(date);
+  d.setDate(d.getDate() - d.getDay());
+  return d;
+}
+
+function addDays(date: Date, n: number): Date {
+  const d = new Date(date);
+  d.setDate(d.getDate() + n);
+  return d;
+}
+
+// --- ICONES ---
 function IconPlus() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <line x1="12" y1="5" x2="12" y2="19"></line>
+      <line x1="5" y1="12" x2="19" y2="12"></line>
     </svg>
   );
 }
-function IconX() { return <X className="w-4 h-4" />; }
+function IconX() {
+  return <X className="w-4 h-4" />;
+}
 function IconChevronLeft() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <polyline points="15 18 9 12 15 6" />
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <polyline points="15 18 9 12 15 6"></polyline>
     </svg>
   );
 }
 function IconChevronRight() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <polyline points="9 18 15 12 9 6" />
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <polyline points="9 18 15 12 9 6"></polyline>
     </svg>
   );
 }
 function IconChevronDown() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <polyline points="6 9 12 15 18 9" />
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <polyline points="6 9 12 15 18 9"></polyline>
     </svg>
   );
 }
 function IconTrendingUp() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-      <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" />
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+    >
+      <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+      <polyline points="17 6 23 6 23 12"></polyline>
     </svg>
   );
 }
 function IconTrendingDown() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-      <polyline points="23 18 13.5 8.5 8.5 13.5 1 6" /><polyline points="17 18 23 18 23 12" />
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+    >
+      <polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline>
+      <polyline points="17 18 23 18 23 12"></polyline>
     </svg>
   );
 }
 function IconThumb({ className = "" }) {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform duration-300 ${className}`}>
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      stroke="currentColor"
+      strokeWidth="1"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={`transition-transform duration-300 ${className}`}
+    >
       <path d="M7 10v12" />
       <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3.13 3.13 0 0 1 3 3.88Z" />
     </svg>
   );
 }
-function IconEdit() { return <Pencil className="w-4 h-4" />; }
+function IconEdit() {
+  return <Pencil className="w-4 h-4" />;
+}
 function IconTrash() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
       <polyline points="3 6 5 6 21 6" />
       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
     </svg>
@@ -95,89 +185,172 @@ function IconTrash() {
 }
 function IconCalendar() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-      <line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+      <line x1="16" y1="2" x2="16" y2="6"></line>
+      <line x1="8" y1="2" x2="8" y2="6"></line>
+      <line x1="3" y1="10" x2="21" y2="10"></line>
     </svg>
   );
 }
 
-function ActionBtn({ tone, onClick, title, children }: {
+function ActionBtn({
+  tone,
+  onClick,
+  title,
+  children,
+}: {
   tone: "green" | "amber" | "red" | "blue";
   onClick: () => void;
   title: string;
   children: React.ReactNode;
 }) {
   const colors = {
-    blue: "text-sky-500 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20",
-    green: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20",
-    amber: "text-amber-500 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20",
-    red: "text-rose-500 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20",
+    blue: "text-sky-500 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20 dark:border-sky-500/20 dark:hover:bg-sky-500/20",
+    green:
+      "text-emerald-500 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20 dark:border-emerald-500/20 dark:hover:bg-emerald-500/20",
+    amber:
+      "text-amber-500 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20 dark:border-amber-500/20 dark:hover:bg-amber-500/20",
+    red: "text-rose-500 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20 dark:border-rose-500/20 dark:hover:bg-rose-500/20",
   };
   return (
-    <button onClick={(e) => { e.stopPropagation(); onClick(); }} title={title}
-      className={`p-1.5 rounded-lg border transition-colors ${colors[tone]}`}>
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      title={title}
+      className={`p-1.5 rounded-lg border transition-colors ${colors[tone]}`}
+    >
       {children}
     </button>
   );
 }
 
-const MESES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
-const DIAS_SEMANA_CURTO = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+const MESES = [
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
+];
 
-// --- HELPERS DE DATA ---
-function toIso(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
-}
-function startOfWeek(date: Date): Date {
-  const d = new Date(date);
-  d.setDate(d.getDate() - d.getDay());
-  return d;
-}
-function addDays(date: Date, n: number): Date {
-  const d = new Date(date);
-  d.setDate(d.getDate() + n);
-  return d;
-}
+const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
-// --- PICKERS ---
-function ModalDatePicker({ currentDate, onSelect, onClose }: {
-  currentDate: Date; onSelect: (date: Date) => void; onClose: () => void;
+function ModalDatePicker({
+  currentDate,
+  onSelect,
+  onClose,
+}: {
+  currentDate: Date;
+  onSelect: (date: Date) => void;
+  onClose: () => void;
 }) {
   const [ano, setAno] = useState(currentDate.getFullYear());
   const mesSelecionado = currentDate.getMonth();
+
+  const anos = Array.from(
+    { length: 10 },
+    (_, i) => new Date().getFullYear() - 7 + i,
+  );
+
   return (
-    <div onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      className="fixed inset-0 z-[99999] bg-transparent grid place-items-center p-4">
-      <div onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-xs bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <span className="text-sm font-medium text-foreground/90">Selecionar Período</span>
-          <button onClick={onClose} className="p-1 rounded-lg text-muted-foreground/80"><IconX /></button>
+    <div
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-[99999] bg-transparent0 grid place-items-center p-4"
+    >
+      <div
+        onMouseDown={(e) => e.stopPropagation()}
+        className="w-full max-w-xs bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent">
+          <span className="text-sm font-medium text-foreground/90">
+            Selecionar Período
+          </span>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-lg hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground/80 transition-colors"
+          >
+            <IconX />
+          </button>
         </div>
+
         <div className="p-4 space-y-4">
+          {/* Seletor de Ano */}
           <div>
-            <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-2">Ano</label>
-            <div className="flex items-center justify-between border border-border rounded-lg p-1">
-              <button onClick={() => setAno(a => a-1)} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground"><IconChevronLeft /></button>
-              <span className="text-sm font-medium text-foreground/90 w-16 text-center">{ano}</span>
-              <button onClick={() => setAno(a => a+1)} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground"><IconChevronRight /></button>
+            <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-2">
+              Ano
+            </label>
+            <div className="flex items-center justify-between bg-transparent border border-border rounded-lg p-1">
+              <button
+                onClick={() => setAno((a) => a - 1)}
+                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white hover:bg-card dark:hover:bg-card/10 transition-colors"
+              >
+                <IconChevronLeft />
+              </button>
+              <span className="text-sm font-medium text-foreground/90 w-16 text-center">
+                {ano}
+              </span>
+              <button
+                onClick={() => setAno((a) => a + 1)}
+                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white hover:bg-card dark:hover:bg-card/10 transition-colors"
+              >
+                <IconChevronRight />
+              </button>
             </div>
           </div>
+
+          {/* Grid de Meses */}
           <div>
-            <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-2">Mês</label>
+            <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-2">
+              Mês
+            </label>
             <div className="grid grid-cols-3 gap-1.5">
               {MESES.map((mes, idx) => {
-                const isSelected = idx === mesSelecionado && ano === currentDate.getFullYear();
-                const isCurrentMonth = idx === new Date().getMonth() && ano === new Date().getFullYear();
+                const isSelected =
+                  idx === mesSelecionado && ano === currentDate.getFullYear();
+                const isCurrentMonth =
+                  idx === new Date().getMonth() &&
+                  ano === new Date().getFullYear();
                 return (
-                  <button key={mes} onClick={() => {
-                    const ultimoDiaDoMes = new Date(ano, idx+1, 0).getDate();
-                    const diaCerto = Math.min(new Date().getDate(), ultimoDiaDoMes);
-                    onSelect(new Date(ano, idx, diaCerto));
-                  }}
-                    className={`py-2 rounded-lg text-xs font-medium transition-all ${isSelected ? "bg-emerald-600 text-white" : isCurrentMonth ? "border border-emerald-500/40 text-emerald-500 hover:bg-emerald-500/10" : "text-muted-foreground hover:bg-card/5"}`}>
-                    {mes.slice(0,3)}
+                  <button
+                    key={mes}
+                    onClick={() => {
+                      const hoje = new Date().getDate();
+                      const ultimoDiaDoMes = new Date(
+                        ano,
+                        idx + 1,
+                        0,
+                      ).getDate();
+                      const diaCerto = Math.min(hoje, ultimoDiaDoMes);
+                      onSelect(new Date(ano, idx, diaCerto));
+                    }}
+                    className={`py-2 rounded-lg text-xs font-medium transition-all ${
+                      isSelected
+                        ? "bg-emerald-600 text-white shadow-md shadow-emerald-900/20"
+                        : isCurrentMonth
+                          ? "border border-emerald-300 dark:border-emerald-500/40 text-emerald-500 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/10"
+                          : "text-muted-foreground hover:bg-transparent dark:hover:bg-card/5"
+                    }`}
+                  >
+                    {mes.slice(0, 3)}
                   </button>
                 );
               })}
@@ -189,49 +362,117 @@ function ModalDatePicker({ currentDate, onSelect, onClose }: {
   );
 }
 
-function ModalDayPicker({ currentDate, onSelect, onClose }: {
-  currentDate: Date; onSelect: (date: Date) => void; onClose: () => void;
+function ModalDayPicker({
+  currentDate,
+  onSelect,
+  onClose,
+}: {
+  currentDate: Date;
+  onSelect: (date: Date) => void;
+  onClose: () => void;
 }) {
   const [viewDate, setViewDate] = useState(currentDate);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
+
   const ano = viewDate.getFullYear();
   const mes = viewDate.getMonth();
-  const diasNoMes = new Date(ano, mes+1, 0).getDate();
-  const primeiroDia = new Date(ano, mes, 1).getDay();
-  const dias: (number|null)[] = [];
-  for (let i = 0; i < primeiroDia; i++) dias.push(null);
+
+  const diasNoMes = new Date(ano, mes + 1, 0).getDate();
+  const primeiroDiaDaSemana = new Date(ano, mes, 1).getDay();
+
+  const dias = [];
+  for (let i = 0; i < primeiroDiaDaSemana; i++) dias.push(null);
   for (let i = 1; i <= diasNoMes; i++) dias.push(i);
+
+  const meses = [
+    "Janeiro",
+    "Fevereiro",
+    "Março",
+    "Abril",
+    "Maio",
+    "Junho",
+    "Julho",
+    "Agosto",
+    "Setembro",
+    "Outubro",
+    "Novembro",
+    "Dezembro",
+  ];
+
   return (
-    <div onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      className="fixed inset-0 z-[99999] bg-transparent grid place-items-center p-4">
-      <div onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-xs bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+    <div
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-[99999] bg-transparent grid place-items-center p-4"
+    >
+      <div
+        onMouseDown={(e) => e.stopPropagation()}
+        className="w-full max-w-xs bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent">
           <span className="text-sm font-medium text-foreground/90">Selecionar Data</span>
-          <button onClick={onClose} className="p-1 rounded-lg text-muted-foreground/80"><IconX /></button>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground/80 transition-colors">
+            <IconX />
+          </button>
         </div>
+
         <div className="p-4 space-y-4">
-          <div className="flex items-center justify-between border border-border rounded-lg p-1">
-            <button onClick={() => setViewDate(new Date(ano, mes-1, 1))} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground"><IconChevronLeft /></button>
-            <button onClick={() => setShowMonthPicker(true)} className="px-3 py-1 text-sm font-medium text-foreground/90 capitalize hover:text-emerald-500 rounded-md">
-              {MESES[mes]} {ano}
+          <div className="flex items-center justify-between bg-transparent border border-border rounded-lg p-1">
+            <button
+              onClick={() => setViewDate(new Date(ano, mes - 1, 1))}
+              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white hover:bg-card dark:hover:bg-card/10 transition-colors"
+            >
+              <IconChevronLeft />
             </button>
-            <button onClick={() => setViewDate(new Date(ano, mes+1, 1))} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground"><IconChevronRight /></button>
+            <button
+              onClick={() => setShowMonthPicker(true)}
+              className="px-3 py-1 text-sm font-medium text-foreground/90 text-center capitalize hover:text-emerald-500 dark:hover:text-emerald-500 hover:bg-transparent dark:hover:bg-card/10 rounded-md transition-colors"
+            >
+              {meses[mes]} {ano}
+            </button>
+            <button
+              onClick={() => setViewDate(new Date(ano, mes + 1, 1))}
+              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white hover:bg-card dark:hover:bg-card/10 transition-colors"
+            >
+              <IconChevronRight />
+            </button>
           </div>
+
           <div>
             <div className="grid grid-cols-7 gap-1 mb-1">
-              {["D","S","T","Q","Q","S","S"].map((d,i) => (
-                <div key={i} className="text-center text-[10px] font-medium text-muted-foreground/80 py-1">{d}</div>
+              {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => (
+                <div
+                  key={i}
+                  className="text-center text-[10px] font-medium text-muted-foreground/80 py-1"
+                >
+                  {d}
+                </div>
               ))}
             </div>
             <div className="grid grid-cols-7 gap-1">
               {dias.map((dia, idx) => {
-                if (!dia) return <div key={`e-${idx}`} />;
-                const isSelected = dia === currentDate.getDate() && mes === currentDate.getMonth() && ano === currentDate.getFullYear();
-                const isToday = dia === new Date().getDate() && mes === new Date().getMonth() && ano === new Date().getFullYear();
+                if (!dia) return <div key={`empty-${idx}`} />;
+                const isSelected =
+                  dia === currentDate.getDate() &&
+                  mes === currentDate.getMonth() &&
+                  ano === currentDate.getFullYear();
+                const isToday =
+                  dia === new Date().getDate() &&
+                  mes === new Date().getMonth() &&
+                  ano === new Date().getFullYear();
                 return (
-                  <button key={idx} onClick={() => onSelect(new Date(ano, mes, dia))}
-                    className={`h-8 rounded-lg text-xs font-medium transition-all ${isSelected ? "bg-emerald-600 text-white" : isToday ? "border border-emerald-500/40 text-emerald-500 hover:bg-emerald-500/10" : "text-muted-foreground hover:bg-card/5"}`}>
+                  <button
+                    key={idx}
+                    onClick={() => onSelect(new Date(ano, mes, dia))}
+                    className={`h-8 rounded-lg text-xs font-medium transition-all ${
+                      isSelected
+                        ? "bg-emerald-600 text-white shadow-md shadow-emerald-900/20"
+                        : isToday
+                          ? "border border-emerald-300 dark:border-emerald-500/40 text-emerald-500 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/10"
+                          : "text-muted-foreground hover:bg-transparent dark:hover:bg-card/5"
+                    }`}
+                  >
                     {dia}
                   </button>
                 );
@@ -240,55 +481,90 @@ function ModalDayPicker({ currentDate, onSelect, onClose }: {
           </div>
         </div>
       </div>
+
       {showMonthPicker && (
-        <ModalDatePicker currentDate={viewDate}
-          onSelect={(date) => { setViewDate(date); setShowMonthPicker(false); }}
-          onClose={() => setShowMonthPicker(false)} />
+        <ModalDatePicker
+          currentDate={viewDate}
+          onSelect={(date) => {
+            setViewDate(date);
+            setShowMonthPicker(false);
+          }}
+          onClose={() => setShowMonthPicker(false)}
+        />
       )}
     </div>
   );
 }
 
-// --- CARD DE LANÇAMENTO (reutilizado em semana e dia) ---
-function LancamentoCard({ t, onEdit, onBaixa, onDelete, compact = false }: {
+// ============================================================
+// NOVO: CARD DE LANÇAMENTO REUTILIZÁVEL (views Semana e Dia)
+// ============================================================
+function LancamentoCard({
+  t,
+  fmtBRL,
+  formatRecorrencia,
+  onEdit,
+  onBaixa,
+  onDelete,
+}: {
   t: Transacao;
+  fmtBRL: (v: number) => string;
+  formatRecorrencia: (t: Transacao) => string;
   onEdit: (t: Transacao) => void;
   onBaixa: (t: Transacao) => void;
   onDelete: (t: Transacao) => void;
-  compact?: boolean;
 }) {
   const isPago = t.status === "PAGO";
   const isReceita = t.tipo === "RECEITA";
-  const fmtBRL = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
-
-  const formatRecorrencia = (t: Transacao) => {
-    if (t.observacoes === "Ajuste automático de saldo") return "Ajuste";
-    if (t.parcela_total) return `${t.parcela_atual}/${t.parcela_total}`;
-    if (t.is_recorrente && t.frequencia) return t.frequencia.charAt(0) + t.frequencia.slice(1).toLowerCase();
-    return "Único";
-  };
 
   let borderColor = "border-l-slate-300 dark:border-l-slate-600";
   if (!isPago && isReceita) borderColor = "border-l-emerald-400";
   else if (!isPago && !isReceita) borderColor = "border-l-rose-400";
-  else if (isPago) borderColor = "border-l-slate-300 dark:border-l-slate-600";
+  else if (!isPago) {
+    // vencido
+    borderColor = "border-l-red-500";
+  }
 
   return (
-    <div className={`border-l-2 ${borderColor} bg-card rounded-r-lg px-2 py-1.5 ${isPago ? "opacity-60" : ""} hover:opacity-100 transition-all group`}>
+    <div
+      className={`border-l-2 ${borderColor} bg-card rounded-r-lg px-2 py-1.5 ${
+        isPago ? "opacity-60" : ""
+      } hover:opacity-100 transition-all group`}
+    >
       <div className="flex items-start justify-between gap-1">
         <div className="min-w-0 flex-1">
-          <p className={`text-xs font-semibold truncate leading-tight ${isPago ? "line-through text-muted-foreground" : isReceita ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
+          <p
+            className={`text-xs font-semibold truncate leading-tight ${
+              isPago
+                ? "line-through text-muted-foreground"
+                : isReceita
+                  ? "text-emerald-700 dark:text-emerald-400"
+                  : "text-rose-700 dark:text-rose-400"
+            }`}
+          >
             {t.descricao}
           </p>
-          {!compact && (
-            <p className="text-[10px] text-muted-foreground truncate">{t.categoria_nome || "—"}</p>
-          )}
-          <p className={`text-xs font-bold mt-0.5 finance-value ${isPago ? "text-muted-foreground line-through" : isReceita ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+          <p className="text-[10px] text-muted-foreground truncate">
+            {t.categoria_nome || "—"}
+          </p>
+          <p
+            className={`text-xs font-bold mt-0.5 finance-value ${
+              isPago
+                ? "text-muted-foreground line-through"
+                : isReceita
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : "text-rose-600 dark:text-rose-400"
+            }`}
+          >
             {isReceita ? "+" : "-"}{fmtBRL(t.valor)}
           </p>
         </div>
         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-          <ActionBtn tone={isPago ? "green" : "blue"} title={isPago ? "Desfazer" : "Confirmar"} onClick={() => onBaixa(t)}>
+          <ActionBtn
+            tone={isPago ? "green" : "blue"}
+            title={isPago ? "Desfazer" : isReceita ? "Confirmar Recebimento" : "Confirmar Pagamento"}
+            onClick={() => onBaixa(t)}
+          >
             <IconThumb className={isPago ? "scale-y-100" : "-scale-y-100"} />
           </ActionBtn>
           <ActionBtn tone="amber" title="Editar" onClick={() => onEdit(t)}>
@@ -304,74 +580,212 @@ function LancamentoCard({ t, onEdit, onBaixa, onDelete, compact = false }: {
 }
 
 // ============================================================
-// VIEW ANO
+// NOVO: VIEW ANO — busca os 12 meses igual ao gráfico EvolucaoFinanceira
 // ============================================================
-function ViewAno({ ano, transacoes, fmtBRL, onMesClick }: {
+function ViewAno({
+  ano,
+  tenantId,
+  fmtBRL,
+  onMesClick,
+}: {
   ano: number;
-  transacoes: Transacao[];
+  tenantId: string;
   fmtBRL: (v: number) => string;
   onMesClick: (mes: number) => void;
 }) {
-  const hoje = new Date();
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 p-3 sm:p-4">
-      {MESES.map((nomeMes, idx) => {
-        const mesStr = String(idx+1).padStart(2,"0");
-        const inicioMes = `${ano}-${mesStr}-01`;
-        const fimMes = new Date(ano, idx+1, 0).toISOString().split("T")[0];
-        const isFuturo = (ano > hoje.getFullYear()) || (ano === hoje.getFullYear() && idx > hoje.getMonth());
-        const isAtual = ano === hoje.getFullYear() && idx === hoje.getMonth();
+  const [transacoesAno, setTransacoesAno] = useState<Transacao[]>([]);
+  const [loading, setLoading] = useState(true);
 
-        const txsMes = transacoes.filter(t => {
-          const dataPag = t.data_pagamento?.split("T")[0];
-          const dataVenc = t.data_vencimento;
-          if (t.status === "PAGO" && dataPag) return dataPag >= inicioMes && dataPag <= fimMes;
-          return dataVenc >= inicioMes && dataVenc <= fimMes;
+  useEffect(() => {
+    async function carregarAno() {
+      setLoading(true);
+      try {
+        const startOfYear = `${ano}-01-01`;
+        const endOfYear = `${ano}-12-31`;
+        const startTimestamp = `${startOfYear}T00:00:00.000Z`;
+        const endTimestamp = `${endOfYear}T23:59:59.999Z`;
+
+        const { data, error } = await supabaseBrowser
+          .from("fin_transacoes")
+          .select(`*, fin_contas_bancarias(nome, icone), fin_categorias(nome, icone)`)
+          .eq("tenant_id", tenantId)
+          .or(
+            `and(data_vencimento.gte.${startOfYear},data_vencimento.lte.${endOfYear}),and(data_pagamento.gte.${startTimestamp},data_pagamento.lte.${endTimestamp})`,
+          )
+          .order("data_vencimento", { ascending: true });
+
+        if (error) throw error;
+
+        const formatadas: Transacao[] = (data || []).map((t: any) => ({
+          id: t.id,
+          tipo: t.tipo,
+          descricao: t.descricao,
+          valor: t.valor,
+          data_vencimento: t.data_vencimento,
+          status: t.status,
+          categoria_nome: t.fin_categorias
+            ? `${t.fin_categorias.icone} ${t.fin_categorias.nome}`
+            : "",
+          conta_nome: t.fin_contas_bancarias
+            ? `${t.fin_contas_bancarias.icone} ${t.fin_contas_bancarias.nome}`
+            : "",
+          conta_id: t.conta_id,
+          categoria_id: t.categoria_id,
+          parcela_atual: t.parcela_atual,
+          parcela_total: t.parcela_total,
+          is_recorrente: t.is_recorrente,
+          recorrencia_id: t.recorrencia_id,
+          frequencia: t.frequencia,
+          observacoes: t.observacoes,
+          data_pagamento: t.data_pagamento,
+        }));
+
+        setTransacoesAno(formatadas);
+      } catch (e) {
+        // silently fail
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (tenantId) carregarAno();
+  }, [ano, tenantId]);
+
+  const hoje = new Date();
+  const todayIso = toIso(hoje);
+
+  if (loading) {
+    return (
+      <div className="p-12 text-center text-emerald-500 animate-pulse font-medium">
+        Carregando ano...
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 p-3 sm:p-4 animate-in fade-in duration-300">
+      {MESES.map((nomeMes, idx) => {
+        const mesStr = String(idx + 1).padStart(2, "0");
+        const inicioMes = `${ano}-${mesStr}-01`;
+        const ultimoDia = new Date(ano, idx + 1, 0).getDate();
+        const fimMes = `${ano}-${mesStr}-${String(ultimoDia).padStart(2, "0")}`;
+        const inicioMesTimestamp = `${inicioMes}T00:00:00.000Z`;
+        const fimMesTimestamp = `${fimMes}T23:59:59.999Z`;
+
+        const isAtual =
+          ano === hoje.getFullYear() && idx === hoje.getMonth();
+        const isFuturo =
+          ano > hoje.getFullYear() ||
+          (ano === hoje.getFullYear() && idx > hoje.getMonth());
+        const isPassado =
+          ano < hoje.getFullYear() ||
+          (ano === hoje.getFullYear() && idx < hoje.getMonth());
+
+        // Mesma lógica do gráfico: pega por data_pagamento se PAGO, senão data_vencimento
+        const txsMes = transacoesAno.filter((t) => {
+          if (t.status === "PAGO" && t.data_pagamento) {
+            const dp = t.data_pagamento.split("T")[0];
+            return dp >= inicioMes && dp <= fimMes;
+          }
+          return t.data_vencimento >= inicioMes && t.data_vencimento <= fimMes;
         });
 
-        const receitas = txsMes.filter(t => t.tipo === "RECEITA" && t.status === "PAGO").reduce((a,b) => a+b.valor, 0);
-        const despesas = txsMes.filter(t => t.tipo === "DESPESA" && t.status === "PAGO").reduce((a,b) => a+b.valor, 0);
-        const receitasPrev = txsMes.filter(t => t.tipo === "RECEITA" && t.status !== "PAGO").reduce((a,b) => a+b.valor, 0);
-        const despesasPrev = txsMes.filter(t => t.tipo === "DESPESA" && t.status !== "PAGO").reduce((a,b) => a+b.valor, 0);
-        const saldo = receitas - despesas;
+        const receitasPagas = txsMes
+          .filter((t) => t.tipo === "RECEITA" && t.status === "PAGO")
+          .reduce((a, b) => a + b.valor, 0);
+
+        const despesasPagas = txsMes
+          .filter((t) => t.tipo === "DESPESA" && t.status === "PAGO")
+          .reduce((a, b) => a + b.valor, 0);
+
+        const receitasPendentes = txsMes
+          .filter((t) => t.tipo === "RECEITA" && t.status !== "PAGO")
+          .reduce((a, b) => a + b.valor, 0);
+
+        const despesasPendentes = txsMes
+          .filter((t) => t.tipo === "DESPESA" && t.status !== "PAGO")
+          .reduce((a, b) => a + b.valor, 0);
+
+        const saldo = receitasPagas - despesasPagas;
         const temDados = txsMes.length > 0;
 
+        // Para mês atual e futuro, mostra previsão (pago + pendente)
+        const receitasExibir = isAtual
+          ? receitasPagas + receitasPendentes
+          : isFuturo
+            ? receitasPendentes
+            : receitasPagas;
+        const despesasExibir = isAtual
+          ? despesasPagas + despesasPendentes
+          : isFuturo
+            ? despesasPendentes
+            : despesasPagas;
+
         return (
-          <div key={idx} onClick={() => onMesClick(idx)}
-            className={`rounded-xl border cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md ${isAtual ? "border-emerald-500/50 ring-1 ring-emerald-500/30" : "border-border"} bg-card`}>
-            <div className={`px-3 py-2 border-b border-border rounded-t-xl flex items-center justify-between ${isAtual ? "bg-emerald-500/10" : "bg-transparent"}`}>
-              <span className={`text-xs font-bold uppercase tracking-wider ${isAtual ? "text-emerald-500" : "text-muted-foreground"}`}>{nomeMes}</span>
-              {isAtual && <span className="text-[10px] font-medium text-emerald-500 bg-emerald-500/20 px-1.5 py-0.5 rounded-full">Atual</span>}
+          <div
+            key={idx}
+            onClick={() => onMesClick(idx)}
+            className={`rounded-xl border cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md ${
+              isAtual
+                ? "border-emerald-500/50 ring-1 ring-emerald-500/30"
+                : "border-border"
+            } bg-card`}
+          >
+            <div
+              className={`px-3 py-2 border-b border-border rounded-t-xl flex items-center justify-between ${
+                isAtual ? "bg-emerald-500/10" : "bg-transparent"
+              }`}
+            >
+              <span
+                className={`text-xs font-bold uppercase tracking-wider ${
+                  isAtual ? "text-emerald-500" : "text-muted-foreground"
+                }`}
+              >
+                {nomeMes}
+              </span>
+              {isAtual && (
+                <span className="text-[10px] font-medium text-emerald-500 bg-emerald-500/20 px-1.5 py-0.5 rounded-full">
+                  Atual
+                </span>
+              )}
             </div>
             <div className="p-3 space-y-1.5">
               {!temDados ? (
-                <p className="text-[11px] text-muted-foreground/60 italic text-center py-2">{isFuturo ? "Sem lançamentos" : "Sem dados"}</p>
+                <p className="text-[11px] text-muted-foreground/60 italic text-center py-2">
+                  {isFuturo ? "Sem lançamentos" : "Sem dados"}
+                </p>
               ) : (
                 <>
-                  {(receitas > 0 || receitasPrev > 0) && (
+                  {receitasExibir > 0 && (
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] text-muted-foreground">
-                        {isFuturo || isAtual ? "Prev. Receitas" : "Receitas"}
+                        {isFuturo ? "Prev. Receitas" : isAtual ? "Prev. Receitas" : "Receitas"}
                       </span>
                       <span className="text-[11px] font-semibold text-emerald-500 finance-value">
-                        {fmtBRL(isFuturo || isAtual ? receitas + receitasPrev : receitas)}
+                        {fmtBRL(receitasExibir)}
                       </span>
                     </div>
                   )}
-                  {(despesas > 0 || despesasPrev > 0) && (
+                  {despesasExibir > 0 && (
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] text-muted-foreground">
-                        {isFuturo || isAtual ? "Prev. Despesas" : "Despesas"}
+                        {isFuturo ? "Prev. Despesas" : isAtual ? "Prev. Despesas" : "Despesas"}
                       </span>
                       <span className="text-[11px] font-semibold text-rose-500 finance-value">
-                        {fmtBRL(isFuturo || isAtual ? despesas + despesasPrev : despesas)}
+                        {fmtBRL(despesasExibir)}
                       </span>
                     </div>
                   )}
-                  {!isFuturo && (
-                    <div className={`flex items-center justify-between pt-1 border-t border-border`}>
-                      <span className="text-[10px] text-muted-foreground font-medium">Saldo</span>
-                      <span className={`text-[11px] font-bold finance-value ${saldo >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
+                  {isPassado && (
+                    <div className="flex items-center justify-between pt-1 border-t border-border">
+                      <span className="text-[10px] text-muted-foreground font-medium">
+                        Saldo
+                      </span>
+                      <span
+                        className={`text-[11px] font-bold finance-value ${
+                          saldo >= 0 ? "text-emerald-500" : "text-rose-500"
+                        }`}
+                      >
                         {fmtBRL(saldo)}
                       </span>
                     </div>
@@ -387,148 +801,25 @@ function ViewAno({ ano, transacoes, fmtBRL, onMesClick }: {
 }
 
 // ============================================================
-// VIEW MÊS
+// NOVO: VIEW SEMANA — 7 colunas desktop / linhas mobile
 // ============================================================
-function ViewMes({ currentDate, filteredTransacoes, viewEndOfMonth, fmtBRL, onDiaClick, onDiaVazioClick }: {
-  currentDate: Date;
-  filteredTransacoes: Transacao[];
-  viewEndOfMonth: string;
-  fmtBRL: (v: number) => string;
-  onDiaClick: (dateStr: string) => void;
-  onDiaVazioClick: (dateStr: string) => void;
-}) {
-  const refYear = currentDate.getFullYear();
-  const refMonth = String(currentDate.getMonth()+1).padStart(2,"0");
-  const firstDay = new Date(refYear, currentDate.getMonth(), 1).getDay();
-  const daysInMonth = new Date(refYear, currentDate.getMonth()+1, 0).getDate();
-  const todayIso = toIso(new Date());
-
-  const blanks = Array.from({ length: firstDay });
-  const days = Array.from({ length: daysInMonth }, (_, i) => i+1);
-
-  const antecipadas = filteredTransacoes.filter(t => t.data_vencimento > viewEndOfMonth);
-  const [showAntecipadas, setShowAntecipadas] = useState(false);
-
-  return (
-    <div className="p-3 sm:p-4 animate-in fade-in duration-300">
-      <div className="grid grid-cols-7 gap-1 mb-2">
-        {DIAS_SEMANA_CURTO.map(d => (
-          <div key={d} className="text-center text-xs font-bold text-muted-foreground uppercase tracking-wider py-1">{d}</div>
-        ))}
-      </div>
-      <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
-        {blanks.map((_, i) => <div key={`b-${i}`} className="min-h-[90px] sm:min-h-[110px]" />)}
-        {days.map((dia) => {
-          const dateStr = `${refYear}-${refMonth}-${String(dia).padStart(2,"0")}`;
-          const isHoje = todayIso === dateStr;
-          const isPassado = dateStr < todayIso;
-          const dayTxs = filteredTransacoes.filter(t => t.data_vencimento === dateStr);
-
-          const despPend = dayTxs.filter(t => t.tipo==="DESPESA" && t.status!=="PAGO").reduce((a,b)=>a+b.valor,0);
-          const despPago = dayTxs.filter(t => t.tipo==="DESPESA" && t.status==="PAGO").reduce((a,b)=>a+b.valor,0);
-          const recPend = dayTxs.filter(t => t.tipo==="RECEITA" && t.status!=="PAGO").reduce((a,b)=>a+b.valor,0);
-          const recPago = dayTxs.filter(t => t.tipo==="RECEITA" && t.status==="PAGO").reduce((a,b)=>a+b.valor,0);
-
-          const hasVencido = dayTxs.some(t => t.status !== "PAGO" && dateStr < todayIso);
-          const hasLancamento = dayTxs.length > 0;
-          const isAllPaid = hasLancamento && despPend === 0 && recPend === 0;
-
-          let bgClass = "bg-background/50 border-border/50 text-slate-500 dark:text-slate-500";
-          if (hasLancamento) {
-            if (hasVencido) {
-              bgClass = "bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-500/30 text-slate-800 dark:text-slate-200";
-            } else if (isAllPaid) {
-              bgClass = "bg-slate-100 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400";
-            } else if (despPend > 0) {
-              bgClass = "bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-500/20 text-slate-800 dark:text-slate-200";
-            } else if (recPend > 0) {
-              bgClass = "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-500/20 text-slate-800 dark:text-slate-200";
-            }
-          }
-
-          return (
-            <div key={dia} onClick={() => hasLancamento ? onDiaClick(dateStr) : onDiaVazioClick(dateStr)}
-              className={`min-h-[90px] sm:min-h-[110px] border rounded-lg p-1.5 sm:p-2 flex flex-col transition-all duration-150 ${bgClass} ${isHoje ? "ring-2 ring-foreground/40 shadow-md" : "hover:brightness-95 dark:hover:brightness-110"} cursor-pointer`}>
-              <div className={`text-xs sm:text-sm font-bold leading-none mb-1 ${isHoje ? "text-emerald-500" : ""}`}>
-                {String(dia).padStart(2,"0")}
-              </div>
-              <div className="flex-1 flex flex-col justify-end gap-1 select-none">
-                {hasVencido && despPend > 0 && (
-                  <div className="text-[10px] leading-tight">
-                    <div className="opacity-70 text-rose-600 dark:text-rose-400 font-medium">Vencido:</div>
-                    <div className="font-bold text-rose-600 dark:text-rose-400 finance-value">{fmtBRL(despPend)}</div>
-                  </div>
-                )}
-                {!hasVencido && despPend > 0 && (
-                  <div className="text-[10px] leading-tight">
-                    <div className="opacity-70">A pagar:</div>
-                    <div className="font-semibold text-rose-600 dark:text-rose-400 finance-value">{fmtBRL(despPend)}</div>
-                  </div>
-                )}
-                {recPend > 0 && (
-                  <div className="text-[10px] leading-tight">
-                    <div className="opacity-70">A receber:</div>
-                    <div className="font-semibold text-emerald-600 dark:text-emerald-400 finance-value">{fmtBRL(recPend)}</div>
-                  </div>
-                )}
-                {despPago > 0 && (
-                  <div className="text-[10px] leading-tight opacity-50">
-                    Pago: <span className="line-through finance-value">{fmtBRL(despPago)}</span>
-                  </div>
-                )}
-                {recPago > 0 && (
-                  <div className="text-[10px] leading-tight opacity-50">
-                    Recebido: <span className="line-through finance-value">{fmtBRL(recPago)}</span>
-                  </div>
-                )}
-                {!hasLancamento && (
-                  <div className="text-[10px] text-muted-foreground/30 text-center mt-auto">+</div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {antecipadas.length > 0 && (
-        <div className="mt-4">
-          <button onClick={() => setShowAntecipadas(!showAntecipadas)}
-            className="w-full bg-sky-500/10 border border-sky-500/30 rounded-lg p-3 flex items-center justify-between text-xs font-medium text-sky-500 uppercase tracking-wider hover:bg-sky-500/20 transition-colors">
-            <span>⭐ Pagamentos Antecipados ({antecipadas.length})</span>
-            <span>{showAntecipadas ? <IconChevronDown /> : <IconChevronRight />}</span>
-          </button>
-          {showAntecipadas && (
-            <div className="mt-2 space-y-1.5">
-              {antecipadas.map(t => (
-                <div key={t.id} onClick={() => onDiaClick(t.data_vencimento)}
-                  className="cursor-pointer bg-card border border-border p-3 rounded-lg flex items-center justify-between hover:bg-card/80 transition-colors">
-                  <div>
-                    <p className="text-sm font-semibold">{t.descricao}</p>
-                    <p className="text-xs text-muted-foreground">Vencimento: {t.data_vencimento.split("-").reverse().join("/")}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-muted-foreground line-through finance-value">{fmtBRL(t.valor)}</p>
-                    <p className="text-xs text-emerald-500 font-medium uppercase">Pago</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ============================================================
-// VIEW SEMANA
-// ============================================================
-function ViewSemana({ weekStart, filteredTransacoes, fmtBRL, onDiaClick, onDiaVazioClick, onEdit, onBaixa, onDelete }: {
+function ViewSemana({
+  weekStart,
+  filteredTransacoes,
+  fmtBRL,
+  formatRecorrencia,
+  onDiaVazioClick,
+  onNavegarDia,
+  onEdit,
+  onBaixa,
+  onDelete,
+}: {
   weekStart: Date;
   filteredTransacoes: Transacao[];
   fmtBRL: (v: number) => string;
-  onDiaClick: (dateStr: string) => void;
+  formatRecorrencia: (t: Transacao) => string;
   onDiaVazioClick: (dateStr: string) => void;
+  onNavegarDia: (dateStr: string) => void;
   onEdit: (t: Transacao) => void;
   onBaixa: (t: Transacao) => void;
   onDelete: (t: Transacao) => void;
@@ -538,67 +829,130 @@ function ViewSemana({ weekStart, filteredTransacoes, fmtBRL, onDiaClick, onDiaVa
 
   return (
     <div className="animate-in fade-in duration-300">
-      {/* Desktop: colunas */}
-      <div className="hidden sm:grid sm:grid-cols-7 border-b border-border">
-        {days.map((day, i) => {
-          const dateStr = toIso(day);
-          const isHoje = dateStr === todayIso;
-          return (
-            <div key={i} className={`p-2 text-center border-r border-border last:border-r-0 ${isHoje ? "bg-emerald-500/5" : ""}`}>
-              <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{DIAS_SEMANA_CURTO[day.getDay()]}</div>
-              <div className={`text-lg font-bold mt-0.5 ${isHoje ? "text-emerald-500 bg-emerald-500/10 w-8 h-8 rounded-full flex items-center justify-center mx-auto" : "text-foreground/80"}`}>
-                {day.getDate()}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <div className="hidden sm:grid sm:grid-cols-7 min-h-[400px]">
-        {days.map((day, i) => {
-          const dateStr = toIso(day);
-          const isHoje = dateStr === todayIso;
-          const dayTxs = filteredTransacoes.filter(t => t.data_vencimento === dateStr);
-          return (
-            <div key={i} onClick={() => dayTxs.length === 0 && onDiaVazioClick(dateStr)}
-              className={`border-r border-border last:border-r-0 p-1.5 space-y-1 min-h-[400px] ${isHoje ? "bg-emerald-500/5" : "hover:bg-card/50"} ${dayTxs.length === 0 ? "cursor-pointer" : ""} transition-colors`}>
-              {dayTxs.map(t => (
-                <LancamentoCard key={t.id} t={t} onEdit={onEdit} onBaixa={onBaixa} onDelete={onDelete} />
-              ))}
-              {dayTxs.length === 0 && (
-                <div className="flex items-center justify-center h-full opacity-0 hover:opacity-100 transition-opacity">
-                  <span className="text-xs text-muted-foreground/50">+ Adicionar</span>
+      {/* Desktop: 7 colunas */}
+      <div className="hidden sm:block">
+        {/* Header dos dias */}
+        <div className="grid grid-cols-7 border-b border-border">
+          {days.map((day, i) => {
+            const dateStr = toIso(day);
+            const isHoje = dateStr === todayIso;
+            return (
+              <div
+                key={i}
+                className={`p-2 text-center border-r border-border last:border-r-0 ${
+                  isHoje ? "bg-emerald-500/5" : ""
+                }`}
+              >
+                <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                  {DIAS_SEMANA[day.getDay()]}
                 </div>
-              )}
-            </div>
-          );
-        })}
+                <div
+                  className={`text-lg font-bold mt-0.5 ${
+                    isHoje
+                      ? "text-emerald-500 bg-emerald-500/10 w-8 h-8 rounded-full flex items-center justify-center mx-auto"
+                      : "text-foreground/80"
+                  }`}
+                >
+                  {day.getDate()}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {/* Corpo dos dias */}
+        <div className="grid grid-cols-7 min-h-[400px]">
+          {days.map((day, i) => {
+            const dateStr = toIso(day);
+            const isHoje = dateStr === todayIso;
+            const dayTxs = filteredTransacoes.filter(
+              (t) => t.data_vencimento === dateStr,
+            );
+            return (
+              <div
+                key={i}
+                onClick={() => dayTxs.length === 0 && onDiaVazioClick(dateStr)}
+                className={`border-r border-border last:border-r-0 p-1.5 space-y-1 min-h-[400px] ${
+                  isHoje ? "bg-emerald-500/5" : ""
+                } ${dayTxs.length === 0 ? "cursor-pointer hover:bg-card/50" : ""} transition-colors`}
+              >
+                {dayTxs.map((t) => (
+                  <LancamentoCard
+                    key={t.id}
+                    t={t}
+                    fmtBRL={fmtBRL}
+                    formatRecorrencia={formatRecorrencia}
+                    onEdit={onEdit}
+                    onBaixa={onBaixa}
+                    onDelete={onDelete}
+                  />
+                ))}
+                {dayTxs.length === 0 && (
+                  <div className="flex items-center justify-center h-full opacity-0 hover:opacity-100 transition-opacity">
+                    <span className="text-xs text-muted-foreground/50">
+                      + Adicionar
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Mobile: linhas */}
+      {/* Mobile: linhas empilhadas */}
       <div className="sm:hidden divide-y divide-border">
         {days.map((day, i) => {
           const dateStr = toIso(day);
           const isHoje = dateStr === todayIso;
-          const dayTxs = filteredTransacoes.filter(t => t.data_vencimento === dateStr);
+          const dayTxs = filteredTransacoes.filter(
+            (t) => t.data_vencimento === dateStr,
+          );
           return (
-            <div key={i} className={`p-3 ${isHoje ? "bg-emerald-500/5" : ""}`}>
+            <div
+              key={i}
+              className={`p-3 ${isHoje ? "bg-emerald-500/5" : ""}`}
+            >
               <div className="flex items-center gap-2 mb-2">
-                <div className={`text-sm font-bold ${isHoje ? "text-emerald-500" : "text-foreground/80"}`}>
-                  {DIAS_SEMANA_CURTO[day.getDay()]} {String(day.getDate()).padStart(2,"0")}
+                <div
+                  className={`text-sm font-bold ${
+                    isHoje ? "text-emerald-500" : "text-foreground/80"
+                  }`}
+                >
+                  {DIAS_SEMANA[day.getDay()]}{" "}
+                  {String(day.getDate()).padStart(2, "0")}
                 </div>
-                {isHoje && <span className="text-[10px] bg-emerald-500/20 text-emerald-500 px-1.5 py-0.5 rounded-full font-medium">Hoje</span>}
+                {isHoje && (
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-500 px-1.5 py-0.5 rounded-full font-medium">
+                    Hoje
+                  </span>
+                )}
                 {dayTxs.length === 0 && (
-                  <button onClick={() => onDiaVazioClick(dateStr)} className="ml-auto text-[11px] text-muted-foreground/50 hover:text-emerald-500 transition-colors">+ Adicionar</button>
+                  <button
+                    onClick={() => onDiaVazioClick(dateStr)}
+                    className="ml-auto text-[11px] text-muted-foreground/50 hover:text-emerald-500 transition-colors"
+                  >
+                    + Adicionar
+                  </button>
                 )}
               </div>
               {dayTxs.length > 0 ? (
                 <div className="space-y-1.5">
-                  {dayTxs.map(t => (
-                    <LancamentoCard key={t.id} t={t} onEdit={onEdit} onBaixa={onBaixa} onDelete={onDelete} />
+                  {dayTxs.map((t) => (
+                    <LancamentoCard
+                      key={t.id}
+                      t={t}
+                      fmtBRL={fmtBRL}
+                      formatRecorrencia={formatRecorrencia}
+                      onEdit={onEdit}
+                      onBaixa={onBaixa}
+                      onDelete={onDelete}
+                    />
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground/40 italic">Nenhum lançamento</p>
+                <p className="text-xs text-muted-foreground/40 italic">
+                  Nenhum lançamento
+                </p>
               )}
             </div>
           );
@@ -609,41 +963,72 @@ function ViewSemana({ weekStart, filteredTransacoes, fmtBRL, onDiaClick, onDiaVa
 }
 
 // ============================================================
-// VIEW DIA
+// NOVO: VIEW DIA — lista inline substituindo ModalDiaDetalhes
 // ============================================================
-function ViewDia({ dateStr, filteredTransacoes, fmtBRL, onEdit, onBaixa, onDelete }: {
+function ViewDia({
+  dateStr,
+  filteredTransacoes,
+  fmtBRL,
+  formatRecorrencia,
+  onEdit,
+  onBaixa,
+  onDelete,
+}: {
   dateStr: string;
   filteredTransacoes: Transacao[];
   fmtBRL: (v: number) => string;
+  formatRecorrencia: (t: Transacao) => string;
   onEdit: (t: Transacao) => void;
   onBaixa: (t: Transacao) => void;
   onDelete: (t: Transacao) => void;
 }) {
   const [y, m, d] = dateStr.split("-");
-  const dateObj = new Date(Number(y), Number(m)-1, Number(d));
-  const dateLabel = dateObj.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-  const dayTxs = filteredTransacoes.filter(t => t.data_vencimento === dateStr);
+  const dateObj = new Date(Number(y), Number(m) - 1, Number(d));
+  const dateLabel = dateObj.toLocaleDateString("pt-BR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 
-  const antecipadas = filteredTransacoes.filter(t =>
-    t.data_vencimento !== dateStr &&
-    t.data_pagamento?.split("T")[0] === dateStr
+  const dayTxs = filteredTransacoes.filter(
+    (t) => t.data_vencimento === dateStr,
+  );
+
+  // Antecipadas: vencimento fora deste dia mas pagas neste dia
+  const antecipadasDia = filteredTransacoes.filter(
+    (t) =>
+      t.data_vencimento !== dateStr &&
+      t.data_pagamento?.split("T")[0] === dateStr,
   );
   const [showAntecipadas, setShowAntecipadas] = useState(false);
 
-  const totalReceitas = dayTxs.filter(t => t.tipo === "RECEITA").reduce((a,b) => a+b.valor, 0);
-  const totalDespesas = dayTxs.filter(t => t.tipo === "DESPESA").reduce((a,b) => a+b.valor, 0);
+  const totalReceitas = dayTxs
+    .filter((t) => t.tipo === "RECEITA")
+    .reduce((a, b) => a + b.valor, 0);
+  const totalDespesas = dayTxs
+    .filter((t) => t.tipo === "DESPESA")
+    .reduce((a, b) => a + b.valor, 0);
 
   return (
     <div className="animate-in fade-in duration-300 p-3 sm:p-4">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Agenda do Dia</p>
-          <p className="text-base font-bold text-foreground capitalize">{dateLabel}</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            Agenda do Dia
+          </p>
+          <p className="text-base font-bold text-foreground capitalize">
+            {dateLabel}
+          </p>
         </div>
         {dayTxs.length > 0 && (
           <div className="flex items-center gap-3 text-xs">
-            <span className="text-emerald-500 font-semibold finance-value">+{fmtBRL(totalReceitas)}</span>
-            <span className="text-rose-500 font-semibold finance-value">-{fmtBRL(totalDespesas)}</span>
+            <span className="text-emerald-500 font-semibold finance-value">
+              +{fmtBRL(totalReceitas)}
+            </span>
+            <span className="text-rose-500 font-semibold finance-value">
+              -{fmtBRL(totalDespesas)}
+            </span>
           </div>
         )}
       </div>
@@ -654,45 +1039,106 @@ function ViewDia({ dateStr, filteredTransacoes, fmtBRL, onEdit, onBaixa, onDelet
         </div>
       ) : (
         <div className="space-y-2">
-          {dayTxs.map(t => {
+          {dayTxs.map((t) => {
             const isPago = t.status === "PAGO";
             const isReceita = t.tipo === "RECEITA";
-            let statusClass = "";
-            if (isPago) statusClass = "opacity-60 border-transparent bg-slate-50 dark:bg-white/5";
-            else if (isReceita) statusClass = "border-emerald-500/30 bg-emerald-500/5";
-            else statusClass = "border-rose-500/30 bg-rose-500/5";
 
-            const formatRecorrencia = (t: Transacao) => {
-              if (t.observacoes === "Ajuste automático de saldo") return "Ajuste Automático";
-              if (t.parcela_total) return `Parcela ${t.parcela_atual}/${t.parcela_total}`;
-              if (t.is_recorrente && t.frequencia) return t.frequencia.charAt(0) + t.frequencia.slice(1).toLowerCase();
-              return "Lançamento Único";
-            };
+            let statusClass = "";
+            if (isPago) {
+              statusClass =
+                "opacity-60 border-transparent bg-slate-50 dark:bg-white/5";
+            } else if (isReceita) {
+              statusClass = "border-emerald-500/30 bg-emerald-500/5";
+            } else {
+              statusClass = "border-rose-500/30 bg-rose-500/5";
+            }
 
             return (
-              <div key={t.id} className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 rounded-lg border transition-all hover:opacity-100 ${statusClass}`}>
+              <div
+                key={t.id}
+                className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 rounded-lg border transition-all hover:opacity-100 ${statusClass}`}
+              >
                 <div className="flex flex-col min-w-0 flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${isPago ? "bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400" : isReceita ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/20 text-rose-600 dark:text-rose-400"}`}>
-                      {isPago ? (isReceita ? "Recebido" : "Pago") : (isReceita ? "A Receber" : "A Pagar")}
+                    <span
+                      className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                        isPago
+                          ? "bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                          : isReceita
+                            ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                            : "bg-rose-500/20 text-rose-600 dark:text-rose-400"
+                      }`}
+                    >
+                      {isPago
+                        ? isReceita
+                          ? "Recebido"
+                          : "Pago"
+                        : isReceita
+                          ? "A Receber"
+                          : "A Pagar"}
                     </span>
-                    <span className="text-[11px] text-muted-foreground truncate">
-                      {t.categoria_nome || "Sem categoria"} • {t.conta_nome || "Sem conta"}
+                    <span className="text-[11px] text-muted-foreground font-medium truncate">
+                      {t.categoria_nome || "Sem categoria"} •{" "}
+                      {t.conta_nome || "Sem conta"}
                     </span>
                   </div>
-                  <span className={`text-sm font-semibold truncate ${isPago ? "line-through text-muted-foreground" : "text-foreground"}`}>{t.descricao}</span>
-                  <span className="text-[10px] text-muted-foreground mt-0.5">{formatRecorrencia(t)}</span>
+                  <span
+                    className={`text-sm font-semibold truncate ${
+                      isPago
+                        ? "line-through text-muted-foreground"
+                        : "text-foreground"
+                    }`}
+                  >
+                    {t.descricao}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground mt-0.5">
+                    {formatRecorrencia(t)}
+                  </span>
                 </div>
+
                 <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0">
-                  <span className={`text-base font-bold whitespace-nowrap finance-value ${isPago ? "text-muted-foreground line-through" : isReceita ? "text-emerald-500" : "text-rose-500"}`}>
+                  <span
+                    className={`text-base font-bold whitespace-nowrap finance-value ${
+                      isPago
+                        ? "text-muted-foreground line-through"
+                        : isReceita
+                          ? "text-emerald-500"
+                          : "text-rose-500"
+                    }`}
+                  >
                     {isReceita ? "+" : "-"} {fmtBRL(t.valor)}
                   </span>
+
                   <div className="flex items-center gap-1.5">
-                    <ActionBtn tone={isPago ? "green" : "blue"} title={isPago ? "Desfazer" : (isReceita ? "Confirmar Recebimento" : "Confirmar Pagamento")} onClick={() => onBaixa(t)}>
-                      <IconThumb className={isPago ? "scale-y-100" : "-scale-y-100"} />
+                    <ActionBtn
+                      tone={isPago ? "green" : "blue"}
+                      title={
+                        isPago
+                          ? "Desfazer"
+                          : isReceita
+                            ? "Confirmar Recebimento"
+                            : "Confirmar Pagamento"
+                      }
+                      onClick={() => onBaixa(t)}
+                    >
+                      <IconThumb
+                        className={isPago ? "scale-y-100" : "-scale-y-100"}
+                      />
                     </ActionBtn>
-                    <ActionBtn tone="amber" title="Editar" onClick={() => onEdit(t)}><IconEdit /></ActionBtn>
-                    <ActionBtn tone="red" title="Excluir" onClick={() => onDelete(t)}><IconTrash /></ActionBtn>
+                    <ActionBtn
+                      tone="amber"
+                      title="Editar"
+                      onClick={() => onEdit(t)}
+                    >
+                      <IconEdit />
+                    </ActionBtn>
+                    <ActionBtn
+                      tone="red"
+                      title="Excluir"
+                      onClick={() => onDelete(t)}
+                    >
+                      <IconTrash />
+                    </ActionBtn>
                   </div>
                 </div>
               </div>
@@ -701,22 +1147,36 @@ function ViewDia({ dateStr, filteredTransacoes, fmtBRL, onEdit, onBaixa, onDelet
         </div>
       )}
 
-      {antecipadas.length > 0 && (
+      {/* Antecipadas do dia — minimizadas com expand */}
+      {antecipadasDia.length > 0 && (
         <div className="mt-4">
-          <button onClick={() => setShowAntecipadas(!showAntecipadas)}
-            className="w-full bg-sky-500/10 border border-sky-500/30 rounded-lg p-2.5 flex items-center justify-between text-xs font-medium text-sky-500 uppercase tracking-wider hover:bg-sky-500/20 transition-colors">
-            <span>⭐ Antecipados neste dia ({antecipadas.length})</span>
-            <span>{showAntecipadas ? <IconChevronDown /> : <IconChevronRight />}</span>
+          <button
+            onClick={() => setShowAntecipadas(!showAntecipadas)}
+            className="w-full bg-sky-500/10 border border-sky-500/30 rounded-lg p-2.5 flex items-center justify-between text-xs font-medium text-sky-500 uppercase tracking-wider hover:bg-sky-500/20 transition-colors"
+          >
+            <span>⭐ Antecipados neste dia ({antecipadasDia.length})</span>
+            <span className="transition-transform duration-200">
+              {showAntecipadas ? <IconChevronDown /> : <IconChevronRight />}
+            </span>
           </button>
           {showAntecipadas && (
             <div className="mt-2 space-y-2">
-              {antecipadas.map(t => (
-                <div key={t.id} className="bg-card border border-border p-3 rounded-lg flex items-center justify-between opacity-70">
+              {antecipadasDia.map((t) => (
+                <div
+                  key={t.id}
+                  className="bg-card border border-border p-3 rounded-lg flex items-center justify-between opacity-70"
+                >
                   <div>
-                    <p className="text-sm font-semibold line-through">{t.descricao}</p>
-                    <p className="text-xs text-muted-foreground">Vence: {t.data_vencimento.split("-").reverse().join("/")}</p>
+                    <p className="text-sm font-semibold line-through">
+                      {t.descricao}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Vence: {t.data_vencimento.split("-").reverse().join("/")}
+                    </p>
                   </div>
-                  <p className="text-sm font-bold text-muted-foreground finance-value">{fmtBRL(t.valor)}</p>
+                  <p className="text-sm font-bold text-muted-foreground finance-value">
+                    {fmtBRL(t.valor)}
+                  </p>
                 </div>
               ))}
             </div>
@@ -727,27 +1187,21 @@ function ViewDia({ dateStr, filteredTransacoes, fmtBRL, onEdit, onBaixa, onDelet
   );
 }
 
-// ============================================================
-// PÁGINA PRINCIPAL
-// ============================================================
 function FinanceiroPageContent() {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
   const { confirm, ConfirmUI } = useConfirm();
 
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<ViewMode>("mes");
-  // Para view semana: qual semana está sendo exibida
-  const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
-  // Para view dia: qual dia está sendo exibido
-  const [selectedDay, setSelectedDay] = useState<string>(() => toIso(new Date()));
 
   const [transacoes, setTransacoes] = useState<Transacao[]>([]);
   const [contasDB, setContasDB] = useState<any[]>([]);
   const [categoriasDB, setCategoriasDB] = useState<any[]>([]);
   const [saldosContas, setSaldosContas] = useState<Record<string, number>>({});
 
+  // Filtros
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("Todos");
   const [tipoFilter, setTipoFilter] = useState("Todos");
@@ -758,67 +1212,110 @@ function FinanceiroPageContent() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   // Persistir preferência dos cards no mobile
   const [showMobileCards, setShowMobileCards] = useState(() => {
-    if (typeof window !== "undefined") return localStorage.getItem("fin_show_cards") === "1";
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("fin_show_cards") === "1";
+    }
     return false;
   });
 
-  const [baixaModal, setBaixaModal] = useState<{ open: boolean; transacao: Transacao | null }>({ open: false, transacao: null });
-  const [modalData, setModalData] = useState<{ open: boolean; transacao: Transacao | null; defaultDate?: string }>({ open: false, transacao: null });
+  const [baixaModal, setBaixaModal] = useState<{
+    open: boolean;
+    transacao: Transacao | null;
+  }>({ open: false, transacao: null });
+
+  // Modais
+  const [modalData, setModalData] = useState<{
+    open: boolean;
+    transacao: Transacao | null;
+    defaultDate?: string;
+  }>({ open: false, transacao: null });
   const [pendentesMap, setPendentesMap] = useState<Record<string, number>>({});
   const [showAjusteSaldo, setShowAjusteSaldo] = useState(false);
-  const [deleteData, setDeleteData] = useState<{ open: boolean; transacao: Transacao | null }>({ open: false, transacao: null });
+  const [showAntecipadas, setShowAntecipadas] = useState(false);
+
+  // --- NOVOS STATES DE NAVEGAÇÃO ---
+  const [viewMode, setViewMode] = useState<ViewMode>("mes");
+  const [weekStart, setWeekStart] = useState<Date>(() =>
+    startOfWeek(new Date()),
+  );
+  const [selectedDay, setSelectedDay] = useState<string>(() =>
+    toIso(new Date()),
+  );
 
   const searchParams = useSearchParams();
   const router = useRouter();
 
   useEffect(() => {
-    if (searchParams.get("ajustar") === "1" && !loading && contasDB.length > 0) {
+    if (
+      searchParams.get("ajustar") === "1" &&
+      !loading &&
+      contasDB.length > 0
+    ) {
       setShowAjusteSaldo(true);
       router.replace("/admin/settings/financeiro_pessoal", { scroll: false });
     }
   }, [searchParams, loading, contasDB]);
 
-  function addToast(type: "success" | "error", title: string, message?: string) {
+  const [deleteData, setDeleteData] = useState<{
+    open: boolean;
+    transacao: Transacao | null;
+  }>({ open: false, transacao: null });
+
+  function addToast(
+    type: "success" | "error",
+    title: string,
+    message?: string,
+  ) {
     const id = Date.now();
-    setToasts(prev => [...prev, { id, type, title, message }]);
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 5000);
+    setToasts((prev) => [...prev, { id, type, title, message }]);
+    setTimeout(
+      () => setToasts((prev) => prev.filter((t) => t.id !== id)),
+      5000,
+    );
   }
 
-  const fmtBRL = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+  const monthName = currentDate
+    .toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
+    .replace(" de ", " ");
 
-  const formatRecorrencia = (t: Transacao) => {
-    if (t.observacoes === "Ajuste automático de saldo") return "Ajuste Automático";
-    if (t.parcela_total) return `Parcela ${t.parcela_atual}/${t.parcela_total}`;
-    if (t.is_recorrente && t.frequencia) return t.frequencia.charAt(0) + t.frequencia.slice(1).toLowerCase();
-    return "Lançamento Único";
-  };
-
-  // --- Navegação por view ---
-  const refYear = currentDate.getFullYear();
-  const refMonth = String(currentDate.getMonth()+1).padStart(2,"0");
-  const viewEndOfMonth = new Date(refYear, currentDate.getMonth()+1, 0).toISOString().split("T")[0];
-
-  const monthName = currentDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" }).replace(" de ", " ");
-
-  const handlePrev = () => {
-    if (viewMode === "ano") setCurrentDate(new Date(refYear-1, 0, 1));
-    else if (viewMode === "mes") setCurrentDate(new Date(refYear, currentDate.getMonth()-1, 1));
-    else if (viewMode === "semana") { const w = addDays(weekStart, -7); setWeekStart(w); setCurrentDate(w); }
-    else if (viewMode === "dia") {
-      const d = addDays(new Date(`${selectedDay}T12:00:00`), -1);
-      setSelectedDay(toIso(d));
-      setCurrentDate(d);
+  // --- NAVEGAÇÃO ADAPTADA AO VIEW MODE ---
+  const handlePrevMonth = () => {
+    if (viewMode === "ano") {
+      setCurrentDate(new Date(currentDate.getFullYear() - 1, 0, 1));
+    } else if (viewMode === "mes") {
+      setCurrentDate(
+        new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1),
+      );
+    } else if (viewMode === "semana") {
+      const nova = addDays(weekStart, -7);
+      setWeekStart(nova);
+      setCurrentDate(nova);
+    } else if (viewMode === "dia") {
+      const novoIso = toIso(
+        addDays(new Date(`${selectedDay}T12:00:00`), -1),
+      );
+      setSelectedDay(novoIso);
+      setCurrentDate(new Date(`${novoIso}T12:00:00`));
     }
   };
 
-  const handleNext = () => {
-    if (viewMode === "ano") setCurrentDate(new Date(refYear+1, 0, 1));
-    else if (viewMode === "mes") setCurrentDate(new Date(refYear, currentDate.getMonth()+1, 1));
-    else if (viewMode === "semana") { const w = addDays(weekStart, 7); setWeekStart(w); setCurrentDate(w); }
-    else if (viewMode === "dia") {
-      const d = addDays(new Date(`${selectedDay}T12:00:00`), 1);
-      setSelectedDay(toIso(d));
-      setCurrentDate(d);
+  const handleNextMonth = () => {
+    if (viewMode === "ano") {
+      setCurrentDate(new Date(currentDate.getFullYear() + 1, 0, 1));
+    } else if (viewMode === "mes") {
+      setCurrentDate(
+        new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1),
+      );
+    } else if (viewMode === "semana") {
+      const nova = addDays(weekStart, 7);
+      setWeekStart(nova);
+      setCurrentDate(nova);
+    } else if (viewMode === "dia") {
+      const novoIso = toIso(
+        addDays(new Date(`${selectedDay}T12:00:00`), 1),
+      );
+      setSelectedDay(novoIso);
+      setCurrentDate(new Date(`${novoIso}T12:00:00`));
     }
   };
 
@@ -829,114 +1326,236 @@ function FinanceiroPageContent() {
     setSelectedDay(toIso(hoje));
   };
 
+  // Mudar view mode e sincronizar estados
   const handleSetViewMode = (mode: ViewMode) => {
     setViewMode(mode);
     if (mode === "semana") setWeekStart(startOfWeek(currentDate));
     if (mode === "dia") setSelectedDay(toIso(currentDate));
   };
 
-  // Label dinâmico do período exibido
+  // Label do período exibido no topo
   const periodoLabel = useMemo(() => {
-    if (viewMode === "ano") return String(refYear);
+    if (viewMode === "ano") return String(currentDate.getFullYear());
     if (viewMode === "mes") return monthName;
     if (viewMode === "semana") {
       const fim = addDays(weekStart, 6);
-      const d1 = `${String(weekStart.getDate()).padStart(2,"0")}/${String(weekStart.getMonth()+1).padStart(2,"0")}`;
-      const d2 = `${String(fim.getDate()).padStart(2,"0")}/${String(fim.getMonth()+1).padStart(2,"0")}`;
+      const d1 = `${String(weekStart.getDate()).padStart(2, "0")}/${String(weekStart.getMonth() + 1).padStart(2, "0")}`;
+      const d2 = `${String(fim.getDate()).padStart(2, "0")}/${String(fim.getMonth() + 1).padStart(2, "0")}`;
       return `${d1} – ${d2}`;
     }
     if (viewMode === "dia") {
-      const [y,m,d] = selectedDay.split("-");
-      const obj = new Date(Number(y), Number(m)-1, Number(d));
-      return obj.toLocaleDateString("pt-BR", { weekday: "short", day: "numeric", month: "short" });
+      const [y, m, d] = selectedDay.split("-");
+      const obj = new Date(Number(y), Number(m) - 1, Number(d));
+      return obj.toLocaleDateString("pt-BR", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      });
     }
     return "";
-  }, [viewMode, refYear, monthName, weekStart, selectedDay]);
+  }, [viewMode, currentDate, monthName, weekStart, selectedDay]);
 
-  // --- Sincronização IPTV com cache ---
-  const sincronizarRendimentos = async (tid: string, dateObj: Date, contas: any[], categorias: any[]) => {
+  // Clique em dia com lançamentos → vai para view Dia
+  const handleDiaClick = (dateStr: string) => {
+    setSelectedDay(dateStr);
+    setCurrentDate(new Date(`${dateStr}T12:00:00`));
+    setViewMode("dia");
+  };
+
+  // Clique em dia vazio → abre modal com data pré-preenchida
+  const handleDiaVazioClick = (dateStr: string) => {
+    setModalData({ open: true, transacao: null, defaultDate: dateStr });
+  };
+
+  const sincronizarRendimentos = async (
+    tid: string,
+    dateObj: Date,
+    contas: any[],
+    categorias: any[],
+  ) => {
     const hoje = new Date();
-    const isMesAtual = dateObj.getMonth() === hoje.getMonth() && dateObj.getFullYear() === hoje.getFullYear();
-    const mesPassado = new Date(hoje.getFullYear(), hoje.getMonth()-1, 1);
-    const isMesAnterior = dateObj.getMonth() === mesPassado.getMonth() && dateObj.getFullYear() === mesPassado.getFullYear();
+
+    const isMesAtual =
+      dateObj.getMonth() === hoje.getMonth() &&
+      dateObj.getFullYear() === hoje.getFullYear();
+    const mesPassado = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+    const isMesAnterior =
+      dateObj.getMonth() === mesPassado.getMonth() &&
+      dateObj.getFullYear() === mesPassado.getFullYear();
+
     if (!isMesAtual && !isMesAnterior) return;
 
-    // Cache: só sincroniza uma vez por dia por mês
+    // NOVO: cache — só sincroniza uma vez por dia por mês
     const y = dateObj.getFullYear();
     const m = dateObj.getMonth();
     const cacheKey = `sync_iptv_${tid}_${y}_${m}`;
-    if (typeof window !== "undefined" && localStorage.getItem(cacheKey) === new Date().toISOString().split("T")[0]) return;
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem(cacheKey);
+      const hojeStr = new Date().toISOString().split("T")[0];
+      if (cached === hojeStr) return;
+    }
 
-    const catIPTV = categorias.find(c => c.nome.toLowerCase().includes("iptv"))?.id;
+    const catIPTV = categorias.find((c) =>
+      c.nome.toLowerCase().includes("iptv"),
+    )?.id;
+
     try {
-      const ultimoDia = new Date(y, m+1, 0).getDate();
-      const dataVenc = `${y}-${String(m+1).padStart(2,"0")}-${String(ultimoDia).padStart(2,"0")}`;
-      const mesStart = `${y}-${String(m+1).padStart(2,"0")}-01`;
-      const mesStartStr = `${y}-${String(m+1).padStart(2,"0")}-01T00:00:00.000Z`;
-      const mesEndStr = `${y}-${String(m+1).padStart(2,"0")}-${String(ultimoDia).padStart(2,"0")}T23:59:59.999Z`;
+      const ultimoDia = new Date(y, m + 1, 0).getDate();
+
+      const dataVenc = `${y}-${String(m + 1).padStart(2, "0")}-${String(ultimoDia).padStart(2, "0")}`;
+      const mesStart = `${y}-${String(m + 1).padStart(2, "0")}-01`;
+
+      const mesStartStr = `${y}-${String(m + 1).padStart(2, "0")}-01T00:00:00.000Z`;
+      const mesEndStr = `${y}-${String(m + 1).padStart(2, "0")}-${String(ultimoDia).padStart(2, "0")}T23:59:59.999Z`;
 
       const [resF, resPurchases] = await Promise.all([
-        supabaseBrowser.from("vw_dashboard_finance_cards").select("*").eq("tenant_id", tid).maybeSingle(),
-        supabaseBrowser.from("server_credit_purchases").select("total_amount_brl").eq("tenant_id", tid).gte("created_at", mesStartStr).lte("created_at", mesEndStr),
+        supabaseBrowser
+          .from("vw_dashboard_finance_cards")
+          .select("*")
+          .eq("tenant_id", tid)
+          .maybeSingle(),
+        supabaseBrowser
+          .from("server_credit_purchases")
+          .select("total_amount_brl")
+          .eq("tenant_id", tid)
+          .gte("created_at", mesStartStr)
+          .lte("created_at", mesEndStr),
       ]);
 
       let valorIptv = 0;
       let valorDespesas = 0;
+
       if (isMesAtual) {
-        valorIptv = Number(resF.data?.clients_paid_month_brl_estimated || 0) + Number(resF.data?.reseller_paid_month_brl || 0);
+        valorIptv =
+          Number(resF.data?.clients_paid_month_brl_estimated || 0) +
+          Number(resF.data?.reseller_paid_month_brl || 0);
       } else if (isMesAnterior) {
-        valorIptv = Number(resF.data?.clients_paid_prev_month_brl_estimated || 0) + Number(resF.data?.reseller_paid_prev_month_brl || 0);
+        valorIptv =
+          Number(resF.data?.clients_paid_prev_month_brl_estimated || 0) +
+          Number(resF.data?.reseller_paid_prev_month_brl || 0);
       }
-      valorDespesas = (resPurchases.data || []).reduce((acc, row) => acc + Number(row.total_amount_brl), 0);
+
+      valorDespesas = (resPurchases.data || []).reduce(
+        (acc, row) => acc + Number(row.total_amount_brl),
+        0,
+      );
+
       const dataPagamentoMes = new Date(`${dataVenc}T12:00:00`).toISOString();
 
-      const upsertDinamico = async (descricao: string, valor: number, catId: string, tipoMovimento: "RECEITA" | "DESPESA") => {
+      const upsertDinamico = async (
+        descricao: string,
+        valor: number,
+        catId: string,
+        tipoMovimento: "RECEITA" | "DESPESA",
+      ) => {
         if (!catId || valor <= 0) return;
-        const { data: existentes } = await supabaseBrowser.from("fin_transacoes").select("id").eq("tenant_id", tid).eq("descricao", descricao).gte("data_vencimento", mesStart).lte("data_vencimento", dataVenc);
+
+        const { data: existentes } = await supabaseBrowser
+          .from("fin_transacoes")
+          .select("id")
+          .eq("tenant_id", tid)
+          .eq("descricao", descricao)
+          .gte("data_vencimento", mesStart)
+          .lte("data_vencimento", dataVenc);
+
         if (existentes && existentes.length > 0) {
-          await supabaseBrowser.from("fin_transacoes").update({ valor, data_vencimento: dataVenc, status: "PAGO", data_pagamento: dataPagamentoMes, conta_id: null }).eq("id", existentes[0].id);
+          await supabaseBrowser
+            .from("fin_transacoes")
+            .update({
+              valor,
+              data_vencimento: dataVenc,
+              status: "PAGO",
+              data_pagamento: dataPagamentoMes,
+              conta_id: null,
+            })
+            .eq("id", existentes[0].id);
+
           if (existentes.length > 1) {
-            await supabaseBrowser.from("fin_transacoes").delete().in("id", existentes.slice(1).map(e => e.id));
+            const idsParaDeletar = existentes.slice(1).map((e) => e.id);
+            await supabaseBrowser
+              .from("fin_transacoes")
+              .delete()
+              .in("id", idsParaDeletar);
           }
         } else {
-          await supabaseBrowser.from("fin_transacoes").insert({ tenant_id: tid, tipo: tipoMovimento, descricao, valor, data_vencimento: dataVenc, status: "PAGO", data_pagamento: dataPagamentoMes, conta_id: null, categoria_id: catId, is_recorrente: true, frequencia: "MENSAL", observacoes: "Sincronização Automática" });
+          await supabaseBrowser.from("fin_transacoes").insert({
+            tenant_id: tid,
+            tipo: tipoMovimento,
+            descricao,
+            valor,
+            data_vencimento: dataVenc,
+            status: "PAGO",
+            data_pagamento: dataPagamentoMes,
+            conta_id: null,
+            categoria_id: catId,
+            is_recorrente: true,
+            frequencia: "MENSAL",
+            observacoes: "Sincronização Automática",
+          });
         }
       };
 
       await Promise.all([
         upsertDinamico("IPTV - Rendimentos", valorIptv, catIPTV, "RECEITA"),
-        upsertDinamico("IPTV - Recarga de Servidores", valorDespesas, catIPTV, "DESPESA"),
+        upsertDinamico(
+          "IPTV - Recarga de Servidores",
+          valorDespesas,
+          catIPTV,
+          "DESPESA",
+        ),
       ]);
 
-      if (typeof window !== "undefined") localStorage.setItem(cacheKey, new Date().toISOString().split("T")[0]);
+      // Salva cache após sucesso
+      if (typeof window !== "undefined") {
+        const hojeStr = new Date().toISOString().split("T")[0];
+        localStorage.setItem(cacheKey, hojeStr);
+      }
     } catch (e) {}
   };
 
-  // --- Carregar dados ---
   const carregarDados = async (tid: string, dateObj: Date) => {
     setLoading(true);
     try {
       const y = dateObj.getFullYear();
-      const m = String(dateObj.getMonth()+1).padStart(2,"0");
+      const m = String(dateObj.getMonth() + 1).padStart(2, "0");
       const startOfMonth = `${y}-${m}-01`;
-      const endOfMonth = new Date(y, dateObj.getMonth()+1, 0).toISOString().split("T")[0];
+      const endOfMonth = new Date(y, dateObj.getMonth() + 1, 0)
+        .toISOString()
+        .split("T")[0];
 
       const [resContas, resCat] = await Promise.all([
-        supabaseBrowser.from("fin_contas_bancarias").select("*").eq("tenant_id", tid).order("nome"),
-        supabaseBrowser.from("fin_categorias").select("*").eq("tenant_id", tid).order("nome"),
+        supabaseBrowser
+          .from("fin_contas_bancarias")
+          .select("*")
+          .eq("tenant_id", tid)
+          .order("nome"),
+        supabaseBrowser
+          .from("fin_categorias")
+          .select("*")
+          .eq("tenant_id", tid)
+          .order("nome"),
       ]);
       if (resContas.data) setContasDB(resContas.data);
       if (resCat.data) setCategoriasDB(resCat.data);
 
-      await sincronizarRendimentos(tid, dateObj, resContas.data || [], resCat.data || []);
+      await sincronizarRendimentos(
+        tid,
+        dateObj,
+        resContas.data || [],
+        resCat.data || [],
+      );
 
-      // Saldos em paralelo (melhoria de performance)
+      // NOVO: Saldos em paralelo (melhoria de performance)
       const contasList = resContas.data || [];
       const saldosResultados = await Promise.all(
-        contasList.map(c => supabaseBrowser.rpc("get_saldo_conta", { p_conta_id: c.id }))
+        contasList.map((c) =>
+          supabaseBrowser.rpc("get_saldo_conta", { p_conta_id: c.id }),
+        ),
       );
       const saldos: Record<string, number> = {};
-      contasList.forEach((c, i) => { saldos[c.id] = Number(saldosResultados[i].data || 0); });
+      contasList.forEach((c, i) => {
+        saldos[c.id] = Number(saldosResultados[i].data || 0);
+      });
       setSaldosContas(saldos);
 
       const startOfMonthTimestamp = `${startOfMonth}T00:00:00.000Z`;
@@ -944,31 +1563,62 @@ function FinanceiroPageContent() {
 
       const { data, error } = await supabaseBrowser
         .from("fin_transacoes")
-        .select(`*, fin_contas_bancarias(nome, icone), fin_categorias(nome, icone)`)
+        .select(
+          `*, fin_contas_bancarias(nome, icone), fin_categorias(nome, icone)`,
+        )
         .eq("tenant_id", tid)
-        .or(`and(data_vencimento.gte.${startOfMonth},data_vencimento.lte.${endOfMonth}),and(data_pagamento.gte.${startOfMonthTimestamp},data_pagamento.lte.${endOfMonthTimestamp})`)
+        .or(
+          `and(data_vencimento.gte.${startOfMonth},data_vencimento.lte.${endOfMonth}),and(data_pagamento.gte.${startOfMonthTimestamp},data_pagamento.lte.${endOfMonthTimestamp})`,
+        )
         .order("data_vencimento", { ascending: true });
 
       if (error) throw error;
 
       const formatadas: Transacao[] = (data || []).map((t: any) => ({
-        id: t.id, tipo: t.tipo, descricao: t.descricao, valor: t.valor,
-        data_vencimento: t.data_vencimento, status: t.status,
-        categoria_nome: t.fin_categorias ? `${t.fin_categorias.icone} ${t.fin_categorias.nome}` : "",
-        conta_nome: t.fin_contas_bancarias ? `${t.fin_contas_bancarias.icone} ${t.fin_contas_bancarias.nome}` : "",
-        conta_id: t.conta_id, categoria_id: t.categoria_id,
-        parcela_atual: t.parcela_atual, parcela_total: t.parcela_total,
-        is_recorrente: t.is_recorrente, recorrencia_id: t.recorrencia_id,
-        frequencia: t.frequencia, observacoes: t.observacoes, data_pagamento: t.data_pagamento,
+        id: t.id,
+        tipo: t.tipo,
+        descricao: t.descricao,
+        valor: t.valor,
+        data_vencimento: t.data_vencimento,
+        status: t.status,
+        categoria_nome: t.fin_categorias
+          ? `${t.fin_categorias.icone} ${t.fin_categorias.nome}`
+          : "",
+        conta_nome: t.fin_contas_bancarias
+          ? `${t.fin_contas_bancarias.icone} ${t.fin_contas_bancarias.nome}`
+          : "",
+        conta_id: t.conta_id,
+        categoria_id: t.categoria_id,
+        parcela_atual: t.parcela_atual,
+        parcela_total: t.parcela_total,
+        is_recorrente: t.is_recorrente,
+        recorrencia_id: t.recorrencia_id,
+        frequencia: t.frequencia,
+        observacoes: t.observacoes,
+        data_pagamento: t.data_pagamento,
       }));
+
       setTransacoes(formatadas);
 
-      const recIds = [...new Set(formatadas.filter(t => t.parcela_total && t.recorrencia_id).map(t => t.recorrencia_id as string))];
+      const recIds = [
+        ...new Set(
+          formatadas
+            .filter((t) => t.parcela_total && t.recorrencia_id)
+            .map((t) => t.recorrencia_id as string),
+        ),
+      ];
       if (recIds.length > 0) {
-        const { data: pendentesData } = await supabaseBrowser.from("fin_transacoes").select("recorrencia_id").in("recorrencia_id", recIds).eq("status", "PENDENTE");
+        const { data: pendentesData } = await supabaseBrowser
+          .from("fin_transacoes")
+          .select("recorrencia_id")
+          .in("recorrencia_id", recIds)
+          .eq("status", "PENDENTE");
+
         const counts: Record<string, number> = {};
-        recIds.forEach(id => (counts[id] = 0));
-        (pendentesData || []).forEach(row => { if (row.recorrencia_id) counts[row.recorrencia_id] += 1; });
+        recIds.forEach((id) => (counts[id] = 0));
+        (pendentesData || []).forEach((row) => {
+          if (row.recorrencia_id) counts[row.recorrencia_id] += 1;
+        });
         setPendentesMap(counts);
       } else {
         setPendentesMap({});
@@ -985,21 +1635,36 @@ function FinanceiroPageContent() {
       setLoading(true);
       const tid = await getCurrentTenantId();
       setTenantId(tid);
-      if (tid) await carregarDados(tid, currentDate);
-      else setLoading(false);
+
+      if (tid) {
+        await carregarDados(tid, currentDate);
+      } else {
+        setLoading(false);
+      }
     }
     init();
   }, [currentDate]);
 
-  const handleExclusaoAprovada = async (t: Transacao, modo: "UNICA" | "TODAS") => {
+  const handleExclusaoAprovada = async (
+    t: Transacao,
+    modo: "UNICA" | "TODAS",
+  ) => {
     if (!tenantId) return;
     try {
       if (modo === "TODAS" && t.recorrencia_id) {
-        await supabaseBrowser.from("fin_transacoes").delete().eq("recorrencia_id", t.recorrencia_id).gte("data_vencimento", t.data_vencimento);
+        await supabaseBrowser
+          .from("fin_transacoes")
+          .delete()
+          .eq("recorrencia_id", t.recorrencia_id)
+          .gte("data_vencimento", t.data_vencimento);
       } else {
         await supabaseBrowser.from("fin_transacoes").delete().eq("id", t.id);
       }
-      addToast("success", "Excluído", "Transação(ões) removida(s) com sucesso.");
+      addToast(
+        "success",
+        "Excluído",
+        "Transação(ões) removida(s) com sucesso.",
+      );
       setDeleteData({ open: false, transacao: null });
       carregarDados(tenantId, currentDate);
     } catch (e) {
@@ -1012,8 +1677,15 @@ function FinanceiroPageContent() {
       setDeleteData({ open: true, transacao: t });
     } else {
       const ok = await confirm({
-        title: "Excluir Lançamento", subtitle: "Esta ação não pode ser desfeita.", tone: "rose", icon: "🗑️",
-        details: [`Lançamento: ${t.descricao}`, `Valor: R$ ${t.valor.toFixed(2)}`], confirmText: "Sim, excluir",
+        title: "Excluir Lançamento",
+        subtitle: "Esta ação não pode ser desfeita.",
+        tone: "rose",
+        icon: "🗑️",
+        details: [
+          `Lançamento: ${t.descricao}`,
+          `Valor: R$ ${t.valor.toFixed(2)}`,
+        ],
+        confirmText: "Sim, excluir",
       });
       if (ok) handleExclusaoAprovada(t, "UNICA");
     }
@@ -1021,19 +1693,49 @@ function FinanceiroPageContent() {
 
   const getComputedStatus = (status: string, vencimentoIso: string) => {
     if (status === "PAGO") return "PAGO";
-    const hoje = new Date(); hoje.setHours(0,0,0,0);
-    const [y,m,d] = vencimentoIso.split("-").map(Number);
-    const venc = new Date(y, m-1, d); venc.setHours(0,0,0,0);
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const [y, m, d] = vencimentoIso.split("-").map(Number);
+    const venc = new Date(y, m - 1, d);
+    venc.setHours(0, 0, 0, 0);
     return venc < hoje ? "VENCIDO" : "PENDENTE";
   };
 
+  const fmtBRL = (v: number) =>
+    new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(v);
+
+  const formatRecorrencia = (t: Transacao) => {
+    if (t.observacoes === "Ajuste automático de saldo")
+      return "Ajuste Automático";
+    if (t.parcela_total) return `Parcela ${t.parcela_atual}/${t.parcela_total}`;
+    if (t.is_recorrente && t.frequencia)
+      return t.frequencia.charAt(0) + t.frequencia.slice(1).toLowerCase();
+    return "Lançamento Único";
+  };
+
   const filteredTransacoes = useMemo(() => {
-    const q = search.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    return transacoes.filter(t => {
+    const q = search
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+    return transacoes.filter((t) => {
       const cStatus = getComputedStatus(t.status, t.data_vencimento);
+
       if (statusFilter === "QUICK_PENDENTE" && cStatus === "PAGO") return false;
-      if (statusFilter === "QUICK_CONCLUIDO" && cStatus !== "PAGO") return false;
-      if (statusFilter !== "Todos" && statusFilter !== "QUICK_PENDENTE" && statusFilter !== "QUICK_CONCLUIDO" && cStatus !== statusFilter) return false;
+      if (statusFilter === "QUICK_CONCLUIDO" && cStatus !== "PAGO")
+        return false;
+      if (
+        statusFilter !== "Todos" &&
+        statusFilter !== "QUICK_PENDENTE" &&
+        statusFilter !== "QUICK_CONCLUIDO" &&
+        cStatus !== statusFilter
+      )
+        return false;
+
       if (tipoFilter !== "Todos" && t.tipo !== tipoFilter) return false;
       if (contaFilter !== "Todos" && t.conta_id !== contaFilter) return false;
       if (categoriaFilter !== "Todos" && t.categoria_id !== categoriaFilter) return false;
@@ -1043,277 +1745,808 @@ function FinanceiroPageContent() {
         if (recorrenciaFilter !== "AJUSTE") {
           if (isAjuste) return false;
           if (recorrenciaFilter === "UNICA" && t.is_recorrente) return false;
-          if (recorrenciaFilter === "RECORRENTE" && (!t.is_recorrente || t.parcela_total)) return false;
-          if (recorrenciaFilter === "PARCELADA" && !t.parcela_total) return false;
+          if (
+            recorrenciaFilter === "RECORRENTE" &&
+            (!t.is_recorrente || t.parcela_total)
+          )
+            return false;
+          if (recorrenciaFilter === "PARCELADA" && !t.parcela_total)
+            return false;
         }
       }
+
       if (q) {
-        const hay = [t.descricao, t.categoria_nome, t.conta_nome, formatRecorrencia(t)].join(" ").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const hay = [t.descricao, t.categoria_nome, t.conta_nome, formatRecorrencia(t)]
+          .join(" ")
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "");
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [transacoes, search, statusFilter, tipoFilter, contaFilter, categoriaFilter, recorrenciaFilter]);
+  }, [
+    transacoes,
+    search,
+    statusFilter,
+    tipoFilter,
+    contaFilter,
+    categoriaFilter,
+    recorrenciaFilter,
+  ]);
 
-  const transacoesCards = contaFilter !== "Todos" ? transacoes.filter(t => t.conta_id === contaFilter) : transacoes;
+  const transacoesCards =
+    contaFilter !== "Todos"
+      ? transacoes.filter((t) => t.conta_id === contaFilter)
+      : transacoes;
+
+  const refYear = currentDate.getFullYear();
+  const refMonth = String(currentDate.getMonth() + 1).padStart(2, "0");
   const viewStartOfMonth = `${refYear}-${refMonth}-01`;
+  const viewEndOfMonth = new Date(refYear, currentDate.getMonth() + 1, 0)
+    .toISOString()
+    .split("T")[0];
+
   const isDateInViewMonth = (dateString: string | null | undefined) => {
     if (!dateString) return false;
-    const iso = dateString.split("T")[0];
-    return iso >= viewStartOfMonth && iso <= viewEndOfMonth;
+    const isoDate = dateString.split("T")[0];
+    return isoDate >= viewStartOfMonth && isoDate <= viewEndOfMonth;
   };
 
-  const receitasPagas = transacoesCards.filter(t => t.tipo === "RECEITA" && t.status === "PAGO" && isDateInViewMonth(t.data_pagamento)).reduce((a,b) => a+b.valor, 0);
-  const despesasPagas = transacoesCards.filter(t => t.tipo === "DESPESA" && t.status === "PAGO" && isDateInViewMonth(t.data_pagamento)).reduce((a,b) => a+b.valor, 0);
+  const receitasPagas = transacoesCards
+    .filter(
+      (t) =>
+        t.tipo === "RECEITA" &&
+        t.status === "PAGO" &&
+        isDateInViewMonth(t.data_pagamento),
+    )
+    .reduce((acc, t) => acc + t.valor, 0);
+
+  const despesasPagas = transacoesCards
+    .filter(
+      (t) =>
+        t.tipo === "DESPESA" &&
+        t.status === "PAGO" &&
+        isDateInViewMonth(t.data_pagamento),
+    )
+    .reduce((acc, t) => acc + t.valor, 0);
+
   const todayIso = new Date().toISOString().split("T")[0];
-  const receitasPendentes = transacoesCards.filter(t => t.tipo === "RECEITA" && t.status !== "PAGO" && isDateInViewMonth(t.data_vencimento) && t.data_vencimento >= todayIso).reduce((a,b) => a+b.valor, 0);
-  const despesasPendentes = transacoesCards.filter(t => t.tipo === "DESPESA" && t.status !== "PAGO" && isDateInViewMonth(t.data_vencimento) && t.data_vencimento >= todayIso).reduce((a,b) => a+b.valor, 0);
+
+  const receitasPendentes = transacoesCards
+    .filter(
+      (t) =>
+        t.tipo === "RECEITA" &&
+        t.status !== "PAGO" &&
+        isDateInViewMonth(t.data_vencimento) &&
+        t.data_vencimento >= todayIso,
+    )
+    .reduce((acc, t) => acc + t.valor, 0);
+
+  const despesasPendentes = transacoesCards
+    .filter(
+      (t) =>
+        t.tipo === "DESPESA" &&
+        t.status !== "PAGO" &&
+        isDateInViewMonth(t.data_vencimento) &&
+        t.data_vencimento >= todayIso,
+    )
+    .reduce((acc, t) => acc + t.valor, 0);
+
   const receitasTotal = receitasPagas + receitasPendentes;
   const despesasTotal = despesasPagas + despesasPendentes;
-  let saldoAtualReal = contaFilter !== "Todos" ? (saldosContas[contaFilter] || 0) : Object.values(saldosContas).reduce((a,b) => a+b, 0);
+
+  let saldoAtualReal = 0;
+  if (contaFilter !== "Todos") saldoAtualReal = saldosContas[contaFilter] || 0;
+  else saldoAtualReal = Object.values(saldosContas).reduce((a, b) => a + b, 0);
+
+  const saldoPrevisao =
+    saldoAtualReal +
+    (receitasTotal - receitasPagas) -
+    (despesasTotal - despesasPagas);
+
+  // --- LÓGICA DO CALENDÁRIO MÊS ---
+  const firstDayOfMonth = new Date(refYear, currentDate.getMonth(), 1).getDay();
+  const daysInMonth = new Date(refYear, currentDate.getMonth() + 1, 0).getDate();
+  const calendarBlanks = Array.from({ length: firstDayOfMonth }, (_, i) => null);
+  const calendarDays = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+  // Antecipadas: vencem depois do mês exibido mas foram pagas no mês
+  const antecipadas = filteredTransacoes.filter(
+    (t) => t.data_vencimento > viewEndOfMonth,
+  );
 
   if (loading && contasDB.length === 0) {
-    return <div className="p-12 text-center text-muted-foreground/80 animate-pulse">Carregando Finanças...</div>;
+    return (
+      <div className="p-12 text-center text-muted-foreground/80 animate-pulse">
+        Carregando Finanças...
+      </div>
+    );
   }
 
-  const handleDiaClick = (dateStr: string) => {
-    setSelectedDay(dateStr);
-    setCurrentDate(new Date(`${dateStr}T12:00:00`));
-    setViewMode("dia");
-  };
-
-  const handleDiaVazioClick = (dateStr: string) => {
-    setModalData({ open: true, transacao: null, defaultDate: dateStr });
-  };
-
-  const handleEditFromView = (t: Transacao) => {
-    setModalData({ open: true, transacao: t });
-  };
-
-  const handleBaixaFromView = (t: Transacao) => {
-    setBaixaModal({ open: true, transacao: t });
-  };
-
-  const handleDeleteFromView = (t: Transacao) => {
-    handleDeleteClick(t);
-  };
-
   return (
-    <div className="space-y-4 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-background transition-colors" id="dashboard-values">
-
-      {/* TOPO */}
-      <div className="flex items-center justify-between gap-2 px-3 sm:px-0">
-        <div className="flex items-center gap-3 min-w-0">
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">Controle Financeiro</h1>
-          <EyeToggle />
+    <div
+      className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-background transition-colors"
+      id="dashboard-values"
+    >
+      {/* Topo */}
+      <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
+        {/* Título (esquerda) */}
+        <div className="min-w-0 text-left">
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">
+              Controle Financeiro
+            </h1>
+            <EyeToggle />
+          </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button onClick={() => { setShowMobileCards(!showMobileCards); if (typeof window !== "undefined") localStorage.setItem("fin_show_cards", !showMobileCards ? "1" : "0"); }}
-            className="md:hidden text-[11px] font-medium text-muted-foreground bg-transparent px-2 py-1 rounded-md border border-border hover:text-foreground transition-colors">
-            {showMobileCards ? "Ocultar" : "Valores"}
+
+        <div className="flex items-center gap-2 justify-end shrink-0">
+          <button
+            onClick={() => {
+              const next = !showMobileCards;
+              setShowMobileCards(next);
+              if (typeof window !== "undefined") {
+                localStorage.setItem("fin_show_cards", next ? "1" : "0");
+              }
+            }}
+            className="md:hidden text-[11px] font-medium text-muted-foreground bg-transparent px-2 py-1 rounded-md dark:bg-card/10 dark:border dark:border-white/5 hover:text-foreground dark:text-white dark:text-muted-foreground transition-colors mr-2"
+          >
+            {showMobileCards ? "Ocultar Valores" : "Exibir Valores"}
           </button>
-        </div>
-      </div>
 
-      {/* CARDS DE MÉTRICAS */}
-      <div className={`${showMobileCards ? "grid" : "hidden"} md:grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3 px-3 sm:px-0`}>
-        <MetricCard title="Receitas do Mês" value={fmtBRL(receitasPagas)} tone="emerald" icon="📈"
-          footer={<span className="flex items-center justify-between w-full gap-2">
-            <span>Previsão: {fmtBRL(receitasTotal)}</span>
-            {receitasPendentes > 0 && <span className="text-amber-500">Pend: {fmtBRL(receitasPendentes)}</span>}
-          </span>} />
-        <MetricCard title="Despesas do Mês" value={fmtBRL(despesasPagas)} tone="rose" icon="📉"
-          footer={<span className="flex items-center justify-between w-full gap-2">
-            <span>Previsão: {fmtBRL(despesasTotal)}</span>
-            {despesasPendentes > 0 && <span className="text-rose-500">Pend: {fmtBRL(despesasPendentes)}</span>}
-          </span>} />
-        <MetricCard title="Saldo Atual" value={fmtBRL(saldoAtualReal)} tone={saldoAtualReal >= 0 ? "emerald" : "rose"} icon="💰"
-          footer="Atualizar saldo..." onEdit={() => setShowAjusteSaldo(true)} />
-      </div>
-
-      {/* PAINEL PRINCIPAL */}
-      <div className="px-3 md:p-4 bg-transparent md:bg-card border-0 md:border md:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 z-20">
-
-        {/* BARRA DE CONTROLE: navegação + view mode + filtros + adicionar */}
-        <div className="flex flex-col gap-2">
-          {/* Linha 1: navegação + view mode */}
-          <div className="flex items-center gap-2 flex-wrap">
+          {/* Navegação + Seletor de View Mode */}
+          <div className="flex items-center w-full md:w-auto gap-2">
             {/* Setas + período */}
-            <div className="flex items-center border border-border rounded-lg bg-card/5 shadow-sm">
-              <button onClick={handlePrev} className="p-2 text-muted-foreground hover:text-foreground transition-colors"><IconChevronLeft /></button>
-              <button onClick={() => viewMode === "mes" || viewMode === "ano" ? setShowDatePicker(true) : undefined}
-                className="px-2 sm:px-3 text-sm font-medium capitalize text-foreground/90 hover:text-emerald-500 transition-colors whitespace-nowrap min-w-[120px] text-center">
+            <div className="flex items-center flex-1 md:flex-none justify-between bg-card/5 border border-border rounded-lg shadow-sm">
+              <button
+                onClick={handlePrevMonth}
+                className="p-2 text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white transition-colors"
+              >
+                <IconChevronLeft />
+              </button>
+              <button
+                onClick={() =>
+                  (viewMode === "mes" || viewMode === "ano") &&
+                  setShowDatePicker(true)
+                }
+                className="px-2 sm:px-4 text-sm font-medium capitalize w-full md:w-40 text-center text-foreground/90 hover:text-emerald-500 dark:hover:text-emerald-500 transition-colors truncate"
+              >
                 {periodoLabel}
               </button>
-              <button onClick={handleNext} className="p-2 text-muted-foreground hover:text-foreground transition-colors"><IconChevronRight /></button>
+              <button
+                onClick={handleNextMonth}
+                className="p-2 text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white transition-colors"
+              >
+                <IconChevronRight />
+              </button>
             </div>
 
-            <button onClick={handleToday} className="h-9 px-3 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-card/10 transition-colors">Hoje</button>
+            <button
+              onClick={handleToday}
+              className="h-10 px-4 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-transparent dark:hover:bg-card/10 transition-colors shrink-0"
+            >
+              Hoje
+            </button>
 
             {/* Seletor de view mode — estilo Outlook */}
-            <div className="flex items-center border border-border rounded-lg overflow-hidden bg-card/5 ml-auto">
-              {(["ano","mes","semana","dia"] as ViewMode[]).map((mode) => (
-                <button key={mode} onClick={() => handleSetViewMode(mode)}
-                  className={`px-3 h-9 text-xs font-medium transition-colors capitalize border-r border-border last:border-r-0 ${viewMode === mode ? "bg-emerald-600 text-white" : "text-muted-foreground hover:text-foreground hover:bg-card/10"}`}>
-                  {mode === "ano" ? "Ano" : mode === "mes" ? "Mês" : mode === "semana" ? "Semana" : "Dia"}
+            <div className="hidden md:flex items-center border border-border rounded-lg overflow-hidden bg-card/5">
+              {(["ano", "mes", "semana", "dia"] as ViewMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => handleSetViewMode(mode)}
+                  className={`px-3 h-10 text-xs font-medium transition-colors capitalize border-r border-border last:border-r-0 ${
+                    viewMode === mode
+                      ? "bg-emerald-600 text-white"
+                      : "text-muted-foreground hover:text-foreground hover:bg-card/10"
+                  }`}
+                >
+                  {mode === "ano"
+                    ? "Ano"
+                    : mode === "mes"
+                      ? "Mês"
+                      : mode === "semana"
+                        ? "Semana"
+                        : "Dia"}
                 </button>
               ))}
             </div>
+          </div>
 
-            {/* Botão adicionar desktop */}
-            <button onClick={() => setModalData({ open: true, transacao: null })}
-              className="hidden md:flex h-9 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 items-center gap-2 transition-all">
-              <IconPlus /> Adicionar
+          {showDatePicker && (
+            <ModalDatePicker
+              currentDate={currentDate}
+              onSelect={(date) => {
+                setCurrentDate(date);
+                setShowDatePicker(false);
+              }}
+              onClose={() => setShowDatePicker(false)}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Seletor de view mode mobile */}
+      <div className="md:hidden flex items-center border border-border rounded-lg overflow-hidden bg-card/5 mx-3">
+        {(["ano", "mes", "semana", "dia"] as ViewMode[]).map((mode) => (
+          <button
+            key={mode}
+            onClick={() => handleSetViewMode(mode)}
+            className={`flex-1 h-9 text-xs font-medium transition-colors capitalize border-r border-border last:border-r-0 ${
+              viewMode === mode
+                ? "bg-emerald-600 text-white"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {mode === "ano"
+              ? "Ano"
+              : mode === "mes"
+                ? "Mês"
+                : mode === "semana"
+                  ? "Sem"
+                  : "Dia"}
+          </button>
+        ))}
+      </div>
+
+      <div
+        className={`${showMobileCards ? "grid" : "hidden"} md:grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3 px-3 sm:px-0`}
+      >
+        <MetricCard
+          title="Receitas do Mês"
+          value={fmtBRL(receitasPagas)}
+          tone="emerald"
+          icon="📈"
+          footer={
+            <span className="flex items-center justify-between w-full gap-2">
+              <span>Previsão total: {fmtBRL(receitasTotal)}</span>
+              {receitasPendentes > 0 && (
+                <span className="font-normal text-amber-500 dark:text-amber-500">
+                  Pendente: {fmtBRL(receitasPendentes)}
+                </span>
+              )}
+            </span>
+          }
+        />
+        <MetricCard
+          title="Despesas do Mês"
+          value={fmtBRL(despesasPagas)}
+          tone="rose"
+          icon="📉"
+          footer={
+            <span className="flex items-center justify-between w-full gap-2">
+              <span>Previsão total: {fmtBRL(despesasTotal)}</span>
+              {despesasPendentes > 0 && (
+                <span className="font-normal text-rose-500">
+                  Pendente: {fmtBRL(despesasPendentes)}
+                </span>
+              )}
+            </span>
+          }
+        />
+        <MetricCard
+          title="Saldo Atual"
+          value={fmtBRL(saldoAtualReal)}
+          tone={saldoAtualReal >= 0 ? "emerald" : "rose"}
+          icon="💰"
+          footer={`Atualizar saldo...`}
+          onEdit={() => setShowAjusteSaldo(true)}
+        />
+      </div>
+
+      <div className="px-3 md:p-4 bg-transparent md:bg-card md:dark:bg-card border-0 md:border md:border-border md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 z-20">
+        <div className="flex items-center justify-between">
+          <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground/80 dark:text-muted-foreground tracking-wider">
+            Agenda Financeira
+          </div>
+          <button
+            onClick={() => setModalData({ open: true, transacao: null })}
+            className="hidden md:flex h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 items-center gap-2 transition-all"
+          >
+            <IconPlus /> Adicionar Lançamento
+          </button>
+        </div>
+
+        <div className="md:hidden flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <div className="flex-1 relative">
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Pesquisar..."
+                className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/80 hover:text-rose-500"
+                >
+                  <IconX />
+                </button>
+              )}
+            </div>
+
+            <button
+              onClick={() => setModalData({ open: true, transacao: null })}
+              className="h-10 w-10 shrink-0 flex items-center justify-center rounded-lg bg-emerald-600 text-white shadow-lg"
+            >
+              <IconPlus />
             </button>
           </div>
 
-          {/* Linha 2: filtros mobile */}
-          <div className="md:hidden flex items-center gap-2">
-            <div className="flex-1 relative">
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Pesquisar..."
-                className="w-full h-9 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90" />
-              {search && <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/80 hover:text-rose-500"><IconX /></button>}
-            </div>
-            <button onClick={() => setStatusFilter(statusFilter === "QUICK_PENDENTE" ? "Todos" : "QUICK_PENDENTE")}
-              className={`h-9 px-2 rounded-lg border text-xs font-medium transition-colors ${statusFilter === "QUICK_PENDENTE" ? "border-amber-400 bg-amber-500/10 text-amber-500" : "border-border text-muted-foreground"}`}>
-              ⏳
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            <button
+              onClick={() =>
+                setStatusFilter(
+                  statusFilter === "QUICK_PENDENTE"
+                    ? "Todos"
+                    : "QUICK_PENDENTE",
+                )
+              }
+              className={`h-9 px-3 rounded-lg border text-xs font-medium transition-colors whitespace-nowrap flex-1 sm:flex-none ${statusFilter === "QUICK_PENDENTE" ? "border-amber-400 bg-amber-500/10 text-amber-500  dark:text-amber-500" : "border-border bg-card text-muted-foreground dark:bg-card dark:border-border dark:text-muted-foreground"}`}
+            >
+              ⏳ Pendente
             </button>
-            <button onClick={() => setStatusFilter(statusFilter === "QUICK_CONCLUIDO" ? "Todos" : "QUICK_CONCLUIDO")}
-              className={`h-9 px-2 rounded-lg border text-xs font-medium transition-colors ${statusFilter === "QUICK_CONCLUIDO" ? "border-emerald-400 bg-emerald-500/10 text-emerald-500" : "border-border text-muted-foreground"}`}>
-              ✅
+            <button
+              onClick={() =>
+                setStatusFilter(
+                  statusFilter === "QUICK_CONCLUIDO"
+                    ? "Todos"
+                    : "QUICK_CONCLUIDO",
+                )
+              }
+              className={`h-9 px-3 rounded-lg border text-xs font-medium transition-colors whitespace-nowrap flex-1 sm:flex-none ${statusFilter === "QUICK_CONCLUIDO" ? "border-emerald-400 bg-emerald-500/10 text-emerald-500  dark:text-emerald-500" : "border-border bg-card text-muted-foreground dark:bg-card dark:border-border dark:text-muted-foreground"}`}
+            >
+              ✅ Concluído
             </button>
-            <button onClick={() => setMobileFiltersOpen(v => !v)}
-              className={`h-9 w-9 flex items-center justify-center rounded-lg border transition-colors ${mobileFiltersOpen ? "border-emerald-500 bg-emerald-500/10 text-emerald-500" : "border-border text-muted-foreground"}`}>
+            <button
+              onClick={() => setMobileFiltersOpen((v) => !v)}
+              className={`h-9 w-9 shrink-0 flex items-center justify-center rounded-lg border transition-colors ${mobileFiltersOpen ? "border-emerald-500 bg-emerald-500/10 text-emerald-500  dark:text-emerald-500" : "border-border bg-card text-muted-foreground dark:bg-card dark:border-border dark:text-white/50"}`}
+            >
               <IconChevronDown />
             </button>
+            <button
+              onClick={() => {
+                setSearch("");
+                setStatusFilter("Todos");
+                setTipoFilter("Todos");
+                setContaFilter("Todos");
+                setCategoriaFilter("Todos");
+                setRecorrenciaFilter("Todos");
+                setMobileFiltersOpen(false);
+              }}
+              className="h-9 px-2 shrink-0 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-500 text-[11px] font-medium flex items-center justify-center gap-1 transition-colors hover:bg-rose-500/20 uppercase tracking-wide"
+            >
+              <IconTrash /> <span className="hidden sm:inline">Limpar</span>
+            </button>
           </div>
+        </div>
 
-          {mobileFiltersOpen && (
-            <div className="md:hidden grid grid-cols-3 gap-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
-              <select value={contaFilter} onChange={e => setContaFilter(e.target.value)} className="w-full h-9 px-1 bg-transparent border border-border rounded-lg text-[11px] font-medium outline-none text-foreground/90">
-                <option value="Todos">Conta</option>
-                {contasDB.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-              </select>
-              <select value={categoriaFilter} onChange={e => setCategoriaFilter(e.target.value)} className="w-full h-9 px-1 bg-transparent border border-border rounded-lg text-[11px] font-medium outline-none text-foreground/90">
-                <option value="Todos">Categoria</option>
-                {categoriasDB.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-              </select>
-              <select value={recorrenciaFilter} onChange={e => setRecorrenciaFilter(e.target.value)} className="w-full h-9 px-1 bg-transparent border border-border rounded-lg text-[11px] font-medium outline-none text-foreground/90">
-                <option value="Todos">Recorrência</option>
-                <option value="UNICA">Única</option>
-                <option value="RECORRENTE">Recorrente</option>
-                <option value="PARCELADA">Parcelada</option>
-                <option value="AJUSTE">Ajuste Auto</option>
-              </select>
-            </div>
-          )}
-
-          {/* Linha 2: filtros desktop */}
-          <div className="hidden md:flex items-center gap-2 flex-wrap">
-            <div className="flex-1 min-w-[200px] relative">
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Pesquisar por descrição..."
-                className="w-full h-9 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90" />
-              {search && <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/80 hover:text-rose-500"><IconX /></button>}
-            </div>
-            <select value={tipoFilter} onChange={e => setTipoFilter(e.target.value)} className="w-[120px] h-9 px-3 bg-transparent border border-border rounded-lg text-sm outline-none text-foreground/90">
-              <option value="Todos">Tipo</option>
-              <option value="RECEITA">Receitas</option>
-              <option value="DESPESA">Despesas</option>
-            </select>
-            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-[130px] h-9 px-3 bg-transparent border border-border rounded-lg text-sm outline-none text-foreground/90">
-              <option value="Todos">Status</option>
-              <option value="PAGO">Pagos</option>
-              <option value="PENDENTE">Pendentes</option>
-              <option value="VENCIDO">Vencidos</option>
-            </select>
-            <select value={contaFilter} onChange={e => setContaFilter(e.target.value)} className="w-[130px] h-9 px-3 bg-transparent border border-border rounded-lg text-sm outline-none text-foreground/90">
+        {mobileFiltersOpen && (
+          <div className="md:hidden grid grid-cols-3 gap-1.5 pb-2 animate-in fade-in slide-in-from-top-1 duration-200">
+            <select
+              value={contaFilter}
+              onChange={(e) => setContaFilter(e.target.value)}
+              className="w-full h-9 px-1 bg-transparent border border-border rounded-lg text-[11px] font-medium outline-none text-foreground/90 truncate"
+            >
               <option value="Todos">Conta</option>
-              {contasDB.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              {contasDB.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nome}
+                </option>
+              ))}
             </select>
-            <select value={categoriaFilter} onChange={e => setCategoriaFilter(e.target.value)} className="w-[130px] h-9 px-3 bg-transparent border border-border rounded-lg text-sm outline-none text-foreground/90">
+            <select
+              value={categoriaFilter}
+              onChange={(e) => setCategoriaFilter(e.target.value)}
+              className="w-full h-9 px-1 bg-transparent border border-border rounded-lg text-[11px] font-medium outline-none text-foreground/90 truncate"
+            >
               <option value="Todos">Categoria</option>
-              {categoriasDB.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              {categoriasDB.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nome}
+                </option>
+              ))}
             </select>
-            <select value={recorrenciaFilter} onChange={e => setRecorrenciaFilter(e.target.value)} className="w-[130px] h-9 px-3 bg-transparent border border-border rounded-lg text-sm outline-none text-foreground/90">
+            <select
+              value={recorrenciaFilter}
+              onChange={(e) => setRecorrenciaFilter(e.target.value)}
+              className="w-full h-9 px-1 bg-transparent border border-border rounded-lg text-[11px] font-medium outline-none text-foreground/90 truncate"
+            >
               <option value="Todos">Recorrência</option>
               <option value="UNICA">Única</option>
               <option value="RECORRENTE">Recorrente</option>
               <option value="PARCELADA">Parcelada</option>
               <option value="AJUSTE">Ajuste Auto</option>
             </select>
-            <button onClick={() => { setSearch(""); setStatusFilter("Todos"); setTipoFilter("Todos"); setContaFilter("Todos"); setCategoriaFilter("Todos"); setRecorrenciaFilter("Todos"); }}
-              className="h-9 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 text-sm font-medium hover:bg-rose-500/20 transition-colors flex items-center gap-1.5">
-              <IconX /> Limpar
-            </button>
           </div>
+        )}
+
+        <div className="hidden md:flex items-center gap-2 flex-wrap">
+          <div className="flex-1 min-w-[200px] relative">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Pesquisar por descrição..."
+              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/80 hover:text-rose-500"
+              >
+                <IconX />
+              </button>
+            )}
+          </div>
+          <select
+            value={tipoFilter}
+            onChange={(e) => setTipoFilter(e.target.value)}
+            className="w-[140px] h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+          >
+            <option value="Todos">Tipo</option>
+            <option value="RECEITA">Receitas</option>
+            <option value="DESPESA">Despesas</option>
+          </select>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="w-[140px] h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+          >
+            <option value="Todos">Status</option>
+            <option value="PAGO">Pagos / Recebidos</option>
+            <option value="PENDENTE">Pendentes</option>
+            <option value="VENCIDO">Vencidos</option>
+          </select>
+          <select
+            value={contaFilter}
+            onChange={(e) => setContaFilter(e.target.value)}
+            className="w-[140px] h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90 truncate"
+          >
+            <option value="Todos">Conta</option>
+            {contasDB.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nome}
+              </option>
+            ))}
+          </select>
+          <select
+            value={categoriaFilter}
+            onChange={(e) => setCategoriaFilter(e.target.value)}
+            className="w-[140px] h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90 truncate"
+          >
+            <option value="Todos">Categoria</option>
+            {categoriasDB.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nome}
+              </option>
+            ))}
+          </select>
+          <select
+            value={recorrenciaFilter}
+            onChange={(e) => setRecorrenciaFilter(e.target.value)}
+            className="w-[140px] h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90 truncate"
+          >
+            <option value="Todos">Recorrência</option>
+            <option value="UNICA">Única</option>
+            <option value="RECORRENTE">Recorrente</option>
+            <option value="PARCELADA">Parcelada</option>
+            <option value="AJUSTE">Ajuste Automático</option>
+          </select>
+          <button
+            onClick={() => {
+              setSearch("");
+              setStatusFilter("Todos");
+              setTipoFilter("Todos");
+              setContaFilter("Todos");
+              setCategoriaFilter("Todos");
+              setRecorrenciaFilter("Todos");
+            }}
+            className="h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors flex items-center gap-2"
+          >
+            <IconX /> Limpar
+          </button>
         </div>
       </div>
 
-      {/* ÁREA DO CALENDÁRIO */}
-      <div className="bg-card border-y sm:border border-border rounded-none sm:rounded-xl shadow-sm overflow-hidden">
-        {loading ? (
-          <div className="p-12 text-center text-emerald-500 animate-pulse font-medium">Carregando dados...</div>
-        ) : (
-          <>
-            {viewMode === "ano" && (
-              <ViewAno ano={refYear} transacoes={transacoes} fmtBRL={fmtBRL}
-                onMesClick={(mes) => {
-                  setCurrentDate(new Date(refYear, mes, 1));
-                  setViewMode("mes");
-                }} />
-            )}
-            {viewMode === "mes" && (
-              <ViewMes currentDate={currentDate} filteredTransacoes={filteredTransacoes}
-                viewEndOfMonth={viewEndOfMonth} fmtBRL={fmtBRL}
-                onDiaClick={handleDiaClick} onDiaVazioClick={handleDiaVazioClick} />
-            )}
-            {viewMode === "semana" && (
-              <ViewSemana weekStart={weekStart} filteredTransacoes={filteredTransacoes} fmtBRL={fmtBRL}
-                onDiaClick={handleDiaClick} onDiaVazioClick={handleDiaVazioClick}
-                onEdit={handleEditFromView} onBaixa={handleBaixaFromView} onDelete={handleDeleteFromView} />
-            )}
-            {viewMode === "dia" && (
-              <ViewDia dateStr={selectedDay} filteredTransacoes={filteredTransacoes} fmtBRL={fmtBRL}
-                onEdit={handleEditFromView} onBaixa={handleBaixaFromView} onDelete={handleDeleteFromView} />
-            )}
-          </>
+      {/* ÁREA DO CALENDÁRIO — switch por viewMode */}
+      <div className="bg-card border-y sm:border border-border rounded-none sm:rounded-xl shadow-sm overflow-x-auto">
+        {viewMode === "ano" && tenantId && (
+          <ViewAno
+            ano={currentDate.getFullYear()}
+            tenantId={tenantId}
+            fmtBRL={fmtBRL}
+            onMesClick={(mes) => {
+              setCurrentDate(new Date(currentDate.getFullYear(), mes, 1));
+              setViewMode("mes");
+            }}
+          />
         )}
+
+        {viewMode === "mes" && (
+          <div className="p-3 sm:p-4 min-w-[700px] animate-in fade-in duration-300">
+            <div className="grid grid-cols-7 gap-2 mb-2">
+              {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((d) => (
+                <div
+                  key={d}
+                  className="text-center text-xs font-bold text-muted-foreground uppercase tracking-wider"
+                >
+                  {d}
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+              {calendarBlanks.map((_, i) => (
+                <div
+                  key={`empty-${i}`}
+                  className="bg-transparent rounded-lg p-2 min-h-[100px] sm:min-h-[120px]"
+                />
+              ))}
+              {calendarDays.map((dia) => {
+                const dateStr = `${refYear}-${refMonth}-${String(dia).padStart(2, "0")}`;
+                const isHoje =
+                  new Date().toISOString().split("T")[0] === dateStr;
+                const isPassado = dateStr < todayIso;
+                const dayTxs = filteredTransacoes.filter(
+                  (t) => t.data_vencimento === dateStr,
+                );
+
+                const tDespesasPendentes = dayTxs
+                  .filter((t) => t.tipo === "DESPESA" && t.status !== "PAGO")
+                  .reduce((a, b) => a + b.valor, 0);
+                const tDespesasPagas = dayTxs
+                  .filter((t) => t.tipo === "DESPESA" && t.status === "PAGO")
+                  .reduce((a, b) => a + b.valor, 0);
+                const tReceitasPendentes = dayTxs
+                  .filter((t) => t.tipo === "RECEITA" && t.status !== "PAGO")
+                  .reduce((a, b) => a + b.valor, 0);
+                const tReceitasPagas = dayTxs
+                  .filter((t) => t.tipo === "RECEITA" && t.status === "PAGO")
+                  .reduce((a, b) => a + b.valor, 0);
+
+                const hasLancamento = dayTxs.length > 0;
+                const isAllPaid =
+                  hasLancamento &&
+                  tDespesasPendentes === 0 &&
+                  tReceitasPendentes === 0;
+
+                // Vencidos: pendentes com data no passado
+                const hasVencido =
+                  isPassado &&
+                  (tDespesasPendentes > 0 || tReceitasPendentes > 0);
+
+                let bgClass =
+                  "bg-[#eaf4fc] dark:bg-sky-900/10 border-transparent text-slate-500 dark:text-slate-400";
+
+                if (hasLancamento) {
+                  if (hasVencido) {
+                    bgClass =
+                      "bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-500/30 text-slate-800 dark:text-slate-200";
+                  } else if (isAllPaid) {
+                    bgClass =
+                      "bg-slate-100 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300";
+                  } else if (tDespesasPendentes > 0) {
+                    bgClass =
+                      "bg-[#fbceb1] dark:bg-orange-900/30 border-orange-200 dark:border-orange-500/20 text-slate-800 dark:text-slate-200";
+                  } else if (tReceitasPendentes > 0) {
+                    bgClass =
+                      "bg-[#d1fae5] dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-500/20 text-slate-800 dark:text-slate-200";
+                  }
+                }
+
+                return (
+                  <div
+                    key={dia}
+                    onClick={() => {
+                      if (hasLancamento) {
+                        handleDiaClick(dateStr);
+                      } else {
+                        handleDiaVazioClick(dateStr);
+                      }
+                    }}
+                    className={`min-h-[100px] sm:min-h-[120px] border rounded-md p-2 sm:p-2.5 flex flex-col transition-all duration-200 ${bgClass} ${isHoje ? "ring-2 ring-foreground/50 shadow-md" : "shadow-sm hover:brightness-95 dark:hover:brightness-110"} cursor-pointer hover:-translate-y-0.5`}
+                  >
+                    <div className="font-bold text-sm sm:text-base leading-none">
+                      {String(dia).padStart(2, "0")}
+                    </div>
+
+                    <div className="flex-1 flex flex-col justify-end gap-1.5 pb-0.5 select-none pt-2">
+                      {hasVencido && tDespesasPendentes > 0 && (
+                        <div className="text-[11px] sm:text-[12px] leading-tight">
+                          <div className="opacity-80 text-rose-600 dark:text-rose-400 font-medium">Vencido:</div>
+                          <div className="font-semibold text-rose-600 dark:text-rose-400 finance-value">
+                            {fmtBRL(tDespesasPendentes)}
+                          </div>
+                        </div>
+                      )}
+                      {!hasVencido && tDespesasPendentes > 0 && (
+                        <div className="text-[11px] sm:text-[12px] leading-tight">
+                          <div className="opacity-80">A pagar:</div>
+                          <div className="font-semibold text-rose-600 dark:text-rose-400 finance-value">
+                            {fmtBRL(tDespesasPendentes)}
+                          </div>
+                        </div>
+                      )}
+                      {tReceitasPendentes > 0 && (
+                        <div className="text-[11px] sm:text-[12px] leading-tight">
+                          <div className="opacity-80">A receber:</div>
+                          <div className="font-semibold text-emerald-600 dark:text-emerald-400 finance-value">
+                            {fmtBRL(tReceitasPendentes)}
+                          </div>
+                        </div>
+                      )}
+                      {tDespesasPagas > 0 && (
+                        <div className="text-[10px] sm:text-[11px] leading-tight opacity-60">
+                          <div>
+                            Pago:{" "}
+                            <span className="line-through finance-value">
+                              {fmtBRL(tDespesasPagas)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      {tReceitasPagas > 0 && (
+                        <div className="text-[10px] sm:text-[11px] leading-tight opacity-60">
+                          <div>
+                            Recebido:{" "}
+                            <span className="line-through finance-value">
+                              {fmtBRL(tReceitasPagas)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      {!hasLancamento && (
+                        <div className="text-[10px] text-muted-foreground/30 text-center mt-auto">
+                          +
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {antecipadas.length > 0 && (
+              <div className="mt-4">
+                <button
+                  onClick={() => setShowAntecipadas(!showAntecipadas)}
+                  className="w-full bg-sky-500/10 border border-sky-500/30 rounded-lg p-3 flex items-center justify-between text-xs font-medium text-sky-500 uppercase tracking-wider hover:bg-sky-500/20 transition-colors"
+                >
+                  <span>
+                    ⭐ Pagamentos Antecipados ({antecipadas.length})
+                  </span>
+                  <span className="transition-transform duration-200">
+                    {showAntecipadas ? (
+                      <IconChevronDown />
+                    ) : (
+                      <IconChevronRight />
+                    )}
+                  </span>
+                </button>
+                {showAntecipadas && (
+                  <div className="mt-2 space-y-2">
+                    {antecipadas.map((t) => (
+                      <div
+                        key={t.id}
+                        onClick={() =>
+                          setModalData({ open: true, transacao: t })
+                        }
+                        className="cursor-pointer bg-card border border-border p-3 rounded-lg flex items-center justify-between hover:bg-card/80 transition-colors"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold">{t.descricao}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Vencimento:{" "}
+                            {t.data_vencimento
+                              .split("-")
+                              .reverse()
+                              .join("/")}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-bold text-muted-foreground line-through finance-value">
+                            {fmtBRL(t.valor)}
+                          </p>
+                          <p className="text-xs text-emerald-500 font-medium uppercase">
+                            Pago
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {viewMode === "semana" && (
+          <ViewSemana
+            weekStart={weekStart}
+            filteredTransacoes={filteredTransacoes}
+            fmtBRL={fmtBRL}
+            formatRecorrencia={formatRecorrencia}
+            onDiaVazioClick={handleDiaVazioClick}
+            onNavegarDia={handleDiaClick}
+            onEdit={(t) => setModalData({ open: true, transacao: t })}
+            onBaixa={(t) => setBaixaModal({ open: true, transacao: t })}
+            onDelete={(t) => handleDeleteClick(t)}
+          />
+        )}
+
+        {viewMode === "dia" && (
+          <ViewDia
+            dateStr={selectedDay}
+            filteredTransacoes={filteredTransacoes}
+            fmtBRL={fmtBRL}
+            formatRecorrencia={formatRecorrencia}
+            onEdit={(t) => setModalData({ open: true, transacao: t })}
+            onBaixa={(t) => setBaixaModal({ open: true, transacao: t })}
+            onDelete={(t) => handleDeleteClick(t)}
+          />
+        )}
+
         <div className="h-4" />
       </div>
 
-      {/* FAB MOBILE */}
-      <button onClick={() => setModalData({ open: true, transacao: null })}
-        className="md:hidden fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white shadow-xl shadow-emerald-900/30 flex items-center justify-center transition-all active:scale-95">
+      {/* FAB mobile */}
+      <button
+        onClick={() => setModalData({ open: true, transacao: null })}
+        className="md:hidden fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white shadow-xl shadow-emerald-900/30 flex items-center justify-center transition-all active:scale-95"
+      >
         <IconPlus />
       </button>
 
-      {/* MODAIS */}
       {baixaModal.open && baixaModal.transacao && tenantId && (
-        <ModalBaixa tenantId={tenantId} transacao={baixaModal.transacao} contasDB={contasDB} addToast={addToast}
+        <ModalBaixa
+          tenantId={tenantId}
+          transacao={baixaModal.transacao}
+          contasDB={contasDB}
+          addToast={addToast}
           onClose={() => setBaixaModal({ open: false, transacao: null })}
-          onSuccess={() => { setBaixaModal({ open: false, transacao: null }); carregarDados(tenantId, currentDate); }} />
+          onSuccess={() => {
+            setBaixaModal({ open: false, transacao: null });
+            carregarDados(tenantId, currentDate);
+          }}
+        />
       )}
 
       {ConfirmUI}
 
       {deleteData.open && deleteData.transacao && (
-        <Modal title="Excluir Grupo Recorrente" onClose={() => setDeleteData({ open: false, transacao: null })}>
+        <Modal
+          title="Excluir Grupo Recorrente"
+          onClose={() => setDeleteData({ open: false, transacao: null })}
+        >
           <div className="space-y-4">
-            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-sm text-amber-800 dark:text-amber-300 flex gap-3">
+            <div className="p-3 bg-amber-500/10 border border-amber-500/20 dark:bg-amber-500/10 dark:border-amber-500/20 rounded-xl text-sm text-amber-800 dark:text-amber-300 flex gap-3">
               <span className="text-xl">⚠️</span>
-              <p>A transação <b>{deleteData.transacao.descricao}</b> faz parte de um grupo recorrente/parcelado.</p>
+              <p>
+                A transação <b>{deleteData.transacao.descricao}</b> faz parte de
+                um grupo recorrente/parcelado.
+              </p>
             </div>
             <div className="flex flex-col gap-2 pt-2">
-              <button onClick={() => handleExclusaoAprovada(deleteData.transacao!, "UNICA")}
-                className="px-4 py-3 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-transparent transition-colors">
+              <button
+                onClick={() =>
+                  handleExclusaoAprovada(deleteData.transacao!, "UNICA")
+                }
+                className="px-4 py-3 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-transparent transition-colors"
+              >
                 🗑️ Excluir apenas esta ({monthName})
               </button>
-              <button onClick={() => handleExclusaoAprovada(deleteData.transacao!, "TODAS")}
-                className="px-4 py-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-sm font-medium text-rose-500 hover:bg-rose-500/20 transition-colors">
+              <button
+                onClick={() =>
+                  handleExclusaoAprovada(deleteData.transacao!, "TODAS")
+                }
+                className="px-4 py-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-sm font-medium text-rose-500 hover:bg-rose-500/20 transition-colors"
+              >
                 🗑️ Excluir esta e as futuras
               </button>
-              <button onClick={() => setDeleteData({ open: false, transacao: null })}
-                className="px-4 py-2 mt-2 text-sm font-medium text-muted-foreground/80 hover:text-muted-foreground">
+              <button
+                onClick={() => setDeleteData({ open: false, transacao: null })}
+                className="px-4 py-2 mt-2 text-sm font-medium text-muted-foreground/80 hover:text-muted-foreground"
+              >
                 Cancelar
               </button>
             </div>
@@ -1322,76 +2555,155 @@ function FinanceiroPageContent() {
       )}
 
       {modalData.open && tenantId && (
-        <ModalTransacao tenantId={tenantId} onClose={() => setModalData({ open: false, transacao: null })}
-          transacaoEdit={modalData.transacao} contasDB={contasDB} categoriasDB={categoriasDB}
-          addToast={addToast} pageDate={currentDate} defaultDate={modalData.defaultDate}
-          onSuccess={() => { setModalData({ open: false, transacao: null }); carregarDados(tenantId, currentDate); }} />
+        <ModalTransacao
+          tenantId={tenantId}
+          onClose={() => setModalData({ open: false, transacao: null })}
+          transacaoEdit={modalData.transacao}
+          contasDB={contasDB}
+          categoriasDB={categoriasDB}
+          addToast={addToast}
+          pageDate={currentDate}
+          defaultDate={modalData.defaultDate}
+          onSuccess={() => {
+            setModalData({ open: false, transacao: null });
+            carregarDados(tenantId, currentDate);
+          }}
+        />
       )}
 
       {showAjusteSaldo && tenantId && (
-        <ModalAjusteSaldo tenantId={tenantId} contas={contasDB} saldos={saldosContas}
+        <ModalAjusteSaldo
+          tenantId={tenantId}
+          contas={contasDB}
+          saldos={saldosContas}
           onClose={() => setShowAjusteSaldo(false)}
-          onSuccess={() => { setShowAjusteSaldo(false); carregarDados(tenantId, currentDate); }}
-          addToast={addToast} />
-      )}
-
-      {showDatePicker && (
-        <ModalDatePicker currentDate={currentDate}
-          onSelect={(date) => { setCurrentDate(date); setShowDatePicker(false); }}
-          onClose={() => setShowDatePicker(false)} />
+          onSuccess={() => {
+            setShowAjusteSaldo(false);
+            carregarDados(tenantId, currentDate);
+          }}
+          addToast={addToast}
+        />
       )}
 
       <div className="h-24 sm:h-20" />
-
-      <style dangerouslySetInnerHTML={{ __html: `
+      {/* CSS PARA OCULTAR VALORES COM O EYE-TOGGLE */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
         #dashboard-values[data-values-hidden="true"] .finance-value {
-          filter: blur(8px); opacity: 0.6; pointer-events: none; user-select: none;
+          filter: blur(8px);
+          opacity: 0.6;
+          pointer-events: none;
+          user-select: none;
         }
-      `}} />
+      `,
+        }}
+      />
 
       <div className="relative z-[999999]">
-        <ToastNotifications toasts={toasts} removeToast={(id) => setToasts(t => t.filter(x => x.id !== id))} />
+        <ToastNotifications
+          toasts={toasts}
+          removeToast={(id) => setToasts((t) => t.filter((x) => x.id !== id))}
+        />
       </div>
     </div>
   );
 }
 
-// --- METRIC CARD ---
-function MetricCard({ title, value, tone, icon, footer, onEdit }: {
-  title: string; value: string; tone: "emerald" | "rose"; icon: string; footer: React.ReactNode; onEdit?: () => void;
+function MetricCard({
+  title,
+  value,
+  tone,
+  icon,
+  footer,
+  onEdit,
+}: {
+  title: string;
+  value: string;
+  tone: "emerald" | "rose";
+  icon: string;
+  footer: React.ReactNode;
+  onEdit?: () => void;
 }) {
-  const colors = { emerald: "border-l-emerald-500", rose: "border-l-rose-500" };
+  const colors = {
+    emerald: "border-l-emerald-500",
+    rose: "border-l-rose-500",
+  };
   return (
-    <div className={`rounded-xl border border-border bg-card shadow-sm overflow-hidden flex flex-col border-l-4 ${colors[tone]} ${onEdit ? "cursor-pointer hover:scale-[1.02] hover:shadow-md transition-all" : ""}`} onClick={onEdit}>
-      <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-black/5 dark:border-border font-normal text-[13px] sm:text-sm flex justify-between items-center">
-        <span className="flex items-center gap-2">{icon} {title}</span>
+    <div
+      className={`rounded-xl border border-border bg-card shadow-sm overflow-hidden flex flex-col border-l-4 ${colors[tone]} relative ${onEdit ? "cursor-pointer hover:scale-[1.02] hover:shadow-md transition-all" : ""}`}
+      onClick={onEdit}
+    >
+<div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-black/5 dark:border-border font-normal text-[13px] sm:text-sm flex justify-between items-center">
+        <span className="flex items-center gap-2">
+          {icon} {title}
+        </span>
         {onEdit && (
-          <button onClick={(e) => { e.stopPropagation(); onEdit(); }} className="p-1 rounded-md transition-colors" title="Ajustar Saldo">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit();
+            }}
+            className="p-1 rounded-md bg-card/50 hover:bg-card/80 dark:bg-transparent dark:hover:bg-transparent transition-colors"
+            title="Ajustar Saldo"
+          >
             <IconEdit />
           </button>
         )}
       </div>
       <div className="p-3 sm:p-4 flex-1">
-        <div className="text-[15px] sm:text-2xl font-normal leading-tight tabular-nums transition-all duration-300 finance-value">{value}</div>
+        {/* 👇 CLASSE finance-value MÁGICA DO OLHINHO */}
+        <div className={`text-[15px] sm:text-2xl font-normal leading-tight tabular-nums transition-all duration-300 finance-value`}>
+          {value}
+        </div>
       </div>
       <div className="px-3 sm:px-4 py-2 text-[11px] sm:text-xs bg-transparent opacity-80 font-normal">
+        {/* 👇 CLASSE finance-value NO FOOTER DA PREVISÃO */}
         <span className="finance-value">{footer}</span>
       </div>
     </div>
   );
 }
 
-// --- MODAL BASE ---
-function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void; }) {
+function Modal({
+  title,
+  children,
+  onClose,
+}: {
+  title: string;
+  children: React.ReactNode;
+  onClose: () => void;
+}) {
   if (typeof document === "undefined") return null;
   return createPortal(
-    <div onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.60)", display: "grid", placeItems: "center", zIndex: 99999, padding: 16 }}>
-      <div onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-lg bg-card dark:bg-background border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+    <div
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.60)",
+        display: "grid",
+        placeItems: "center",
+        zIndex: 99999,
+        padding: 16,
+      }}
+    >
+      <div
+        onMouseDown={(e) => e.stopPropagation()}
+        className="w-full max-w-lg bg-card dark:bg-background border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+      >
         <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent">
-          <div className="font-medium text-foreground">{title}</div>
-          <button onClick={onClose} className="p-1 rounded-lg text-muted-foreground hover:text-foreground transition-colors"><IconX /></button>
+          <div className="font-medium text-foreground">
+            {title}
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-lg hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white transition-colors"
+          >
+            <IconX />
+          </button>
         </div>
         <div className="p-4">{children}</div>
       </div>
@@ -1400,567 +2712,2031 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
   );
 }
 
-// --- MODAL AJUSTE SALDO ---
-function ModalAjusteSaldo({ tenantId, contas, saldos, onClose, onSuccess, addToast }: {
-  tenantId: string; contas: any[]; saldos: Record<string,number>; onClose: () => void; onSuccess: () => void; addToast: any;
+function ModalAjusteSaldo({
+  tenantId,
+  contas,
+  saldos,
+  onClose,
+  onSuccess,
+  addToast,
+}: {
+  tenantId: string;
+  contas: any[];
+  saldos: Record<string, number>;
+  onClose: () => void;
+  onSuccess: () => void;
+  addToast: any;
 }) {
   const [contaId, setContaId] = useState(contas[0]?.id || "");
   const [rawCentsSaldo, setRawCentsSaldo] = useState(0);
   const [salvando, setSalvando] = useState(false);
+
   const saldoAtual = saldos[contaId] || 0;
+
   const centsToDisplay = (cents: number) => {
-    const negative = cents < 0; const abs = Math.abs(cents);
-    const str = String(abs).padStart(3,"0");
-    const int = str.slice(0,-2).replace(/\B(?=(\d{3})+(?!\d))/g,".");
+    const negative = cents < 0;
+    const abs = Math.abs(cents);
+    const str = String(abs).padStart(3, "0");
+    const int = str.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
     const dec = str.slice(-2);
     return (negative ? "-" : "") + (int || "0") + "," + dec;
   };
+
   const novoSaldoVal = rawCentsSaldo / 100;
+
   async function handleSave() {
-    if (rawCentsSaldo === 0 && saldoAtual === 0) { onClose(); return; }
-    if (novoSaldoVal === saldoAtual) { onClose(); return; }
+    if (rawCentsSaldo === 0 && saldoAtual === 0) {
+      onClose();
+      return;
+    }
+    const val = novoSaldoVal;
+    if (val === saldoAtual) {
+      onClose();
+      return;
+    }
+
     setSalvando(true);
     try {
-      const { data: conta, error: errConta } = await supabaseBrowser.from("fin_contas_bancarias").select("saldo_inicial").eq("id", contaId).single();
+      const { data: conta, error: errConta } = await supabaseBrowser
+        .from("fin_contas_bancarias")
+        .select("saldo_inicial")
+        .eq("id", contaId)
+        .single();
       if (errConta) throw errConta;
-      const diff = novoSaldoVal - saldoAtual;
-      const { error } = await supabaseBrowser.from("fin_contas_bancarias").update({ saldo_inicial: Number(conta.saldo_inicial || 0) + diff }).eq("id", contaId);
+
+      const saldoInicialAtual = Number(conta.saldo_inicial || 0);
+      const diff = val - saldoAtual;
+      const novoSaldoInicial = saldoInicialAtual + diff;
+
+      const { error } = await supabaseBrowser
+        .from("fin_contas_bancarias")
+        .update({ saldo_inicial: novoSaldoInicial })
+        .eq("id", contaId);
+
       if (error) throw error;
-      addToast("success", "Saldo Atualizado", "O saldo foi ajustado diretamente na conta.");
+      addToast(
+        "success",
+        "Saldo Atualizado",
+        "O saldo foi ajustado diretamente na conta.",
+      );
       onSuccess();
-    } catch (e: any) { addToast("error", "Erro ao ajustar", e.message); }
-    finally { setSalvando(false); }
+    } catch (e: any) {
+      addToast("error", "Erro ao ajustar", e.message);
+    } finally {
+      setSalvando(false);
+    }
   }
+
   return (
     <Modal title="Ajustar Saldo" onClose={onClose}>
       <div className="space-y-4">
-        <div className="p-3 bg-sky-500/10 border border-sky-500/30 rounded-xl text-sm text-sky-800 dark:text-sky-300">O saldo será ajustado diretamente — nenhum lançamento será criado.</div>
+        <div className="p-3 bg-sky-500/10 border border-sky-500/30 dark:bg-sky-500/10 dark:border-sky-500/20 rounded-xl text-sm text-sky-800 dark:text-sky-300">
+          O saldo será ajustado diretamente — nenhum lançamento será criado.
+        </div>
         <div>
-          <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-1.5">Conta / Carteira</label>
-          <select value={contaId} onChange={e => setContaId(e.target.value)} className="w-full h-11 px-3 bg-transparent border border-border rounded-lg outline-none text-sm focus:border-emerald-500 text-foreground">
-            {contas.map(c => <option key={c.id} value={c.id}>{c.icone} {c.nome} (Atual: {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(saldos[c.id]||0)})</option>)}
+          <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-1.5">
+            Conta / Carteira
+          </label>
+          <select
+            value={contaId}
+            onChange={(e) => setContaId(e.target.value)}
+            className="w-full h-11 px-3 bg-transparent border border-border rounded-lg outline-none text-sm focus:border-emerald-500 text-foreground"
+          >
+            {contas.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.icone} {c.nome} (Atual:{" "}
+                {new Intl.NumberFormat("pt-BR", {
+                  style: "currency",
+                  currency: "BRL",
+                }).format(saldos[c.id] || 0)}
+                )
+              </option>
+            ))}
           </select>
         </div>
         <div>
-          <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-1.5">Qual é o saldo real hoje?</label>
-          <div className="flex items-center h-11 bg-card dark:bg-transparent border border-border rounded-lg focus-within:border-emerald-500 overflow-hidden">
-            <span className="pl-3 pr-1 text-sm font-medium text-muted-foreground/80 select-none shrink-0">R$</span>
-            <input autoFocus type="text" inputMode="numeric" value={centsToDisplay(rawCentsSaldo)}
-              onChange={e => { const digits = e.target.value.replace(/\D/g,"").slice(0,13); setRawCentsSaldo(parseInt(digits||"0",10)); }}
-              onFocus={e => e.target.select()} className="flex-1 h-full pr-3 bg-transparent outline-none text-sm font-medium text-foreground" />
+          <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-1.5">
+            Qual é o saldo real hoje?
+          </label>
+          <div className="flex items-center h-11 bg-card dark:bg-transparent border border-border rounded-lg focus-within:border-emerald-500 transition-colors overflow-hidden">
+            <span className="pl-3 pr-1 text-sm font-medium text-muted-foreground/80 dark:text-muted-foreground select-none shrink-0">
+              R$
+            </span>
+            <input
+              autoFocus
+              type="text"
+              inputMode="numeric"
+              value={centsToDisplay(rawCentsSaldo)}
+              onChange={(e) => {
+                const digits = e.target.value.replace(/\D/g, "").slice(0, 13);
+                setRawCentsSaldo(parseInt(digits || "0", 10));
+              }}
+              onFocus={(e) => e.target.select()}
+              className="flex-1 h-full pr-3 bg-transparent outline-none text-sm font-medium text-foreground"
+            />
           </div>
         </div>
         <div className="flex justify-end gap-2 pt-2">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground">Cancelar</button>
-          <button onClick={handleSave} disabled={salvando} className="px-6 py-2 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-500 disabled:opacity-50">Salvar Ajuste</button>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-transparent"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={salvando}
+            className="px-6 py-2 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-500 disabled:opacity-50"
+          >
+            Salvar Ajuste
+          </button>
         </div>
       </div>
     </Modal>
   );
 }
 
-// --- MODAL NOVA CONTA ---
-function ModalNovaConta({ tenantId, onClose, onSave, addToast }: { tenantId: string; onClose: () => void; onSave: (novaConta: any) => void; addToast: any; }) {
-  const [nome, setNome] = useState(""); const [icone, setIcone] = useState("🏦"); const [salvando, setSalvando] = useState(false);
-  const icones = ["🏦","💳","💵","🪙","🟣","🟠","🟢","🔴","🤝","📱"];
+function ModalNovaConta({
+  tenantId,
+  onClose,
+  onSave,
+  addToast,
+}: {
+  tenantId: string;
+  onClose: () => void;
+  onSave: (novaConta: any) => void;
+  addToast: any;
+}) {
+  const [nome, setNome] = useState("");
+  const [icone, setIcone] = useState("🏦");
+  const [salvando, setSalvando] = useState(false);
+  const icones = ["🏦", "💳", "💵", "🪙", "🟣", "🟠", "🟢", "🔴", "🤝", "📱"];
+
   async function handleSave() {
-    if (!nome.trim()) return; setSalvando(true);
+    if (!nome.trim()) return;
+    setSalvando(true);
     try {
-      const { data, error } = await supabaseBrowser.from("fin_contas_bancarias").insert({ tenant_id: tenantId, nome: nome.trim(), icone }).select().single();
+      const { data, error } = await supabaseBrowser
+        .from("fin_contas_bancarias")
+        .insert({ tenant_id: tenantId, nome: nome.trim(), icone })
+        .select()
+        .single();
       if (error) throw error;
-      addToast("success","Conta criada","Nova conta adicionada com sucesso."); onSave(data);
-    } catch (e: any) { addToast("error","Erro ao criar",e.message); } finally { setSalvando(false); }
+      addToast("success", "Conta criada", "Nova conta adicionada com sucesso.");
+      onSave(data);
+    } catch (e: any) {
+      addToast("error", "Erro ao criar", e.message);
+    } finally {
+      setSalvando(false);
+    }
   }
+
   return (
     <div className="fixed inset-0 z-[100000] bg-black/60 grid place-items-center p-4">
       <div className="w-full max-w-sm bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="px-4 py-3 border-b border-border font-medium text-sm flex justify-between"><span>Criar Nova Conta</span><button onClick={onClose}><IconX /></button></div>
+        <div className="px-4 py-3 border-b border-border font-medium text-sm bg-transparent flex justify-between">
+          <span>Criar Nova Conta</span>
+          <button onClick={onClose}>
+            <IconX />
+          </button>
+        </div>
         <div className="p-4 space-y-4">
-          <div><label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-1.5">Nome</label>
-            <input autoFocus value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex: C6 Bank" className="w-full h-10 px-3 bg-card dark:bg-transparent border border-border rounded-lg outline-none text-sm focus:border-emerald-500" /></div>
-          <div><label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-1.5">Ícone</label>
-            <div className="flex flex-wrap gap-2">{icones.map(i => <button key={i} onClick={() => setIcone(i)} className={`w-8 h-8 rounded border text-lg flex items-center justify-center transition-all ${icone===i?"border-emerald-500 bg-emerald-500/10":"border-border"}`}>{i}</button>)}</div></div>
-          <button onClick={handleSave} disabled={salvando} className="w-full h-10 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-500 disabled:opacity-50">Salvar Conta</button>
+          <div>
+            <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-1.5">
+              Nome
+            </label>
+            <input
+              autoFocus
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              placeholder="Ex: C6 Bank"
+              className="w-full h-10 px-3 bg-card dark:bg-transparent border border-border rounded-lg outline-none text-sm focus:border-emerald-500"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-1.5">
+              Ícone
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {icones.map((i) => (
+                <button
+                  key={i}
+                  onClick={() => setIcone(i)}
+                  className={`w-8 h-8 rounded border text-lg flex items-center justify-center transition-all ${icone === i ? "border-emerald-500 bg-emerald-500/10" : "border-border hover:bg-transparent dark:hover:bg-card/5"}`}
+                >
+                  {i}
+                </button>
+              ))}
+            </div>
+          </div>
+          <button
+            onClick={handleSave}
+            disabled={salvando}
+            className="w-full h-10 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-500 shadow-lg transition-colors disabled:opacity-50"
+          >
+            Salvar Conta
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-const ICONES_DISPONIVEIS = ["🏦","💳","💵","🪙","💰","🏧","💸","📊","🔐","🤝","🟣","🟠","🟢","🔴","⭐","🌟","📱","💻","🛒","🏥","🚗","📚","🏖️","🏠","💡","🍔","🐶","👗","📦","📈","🎮","✈️","🎵","🍕","☕","🏋️","💊","📺","🎁","⚡","🌮","🎓","👶","🐱","🚌","⛽","🔧","🌿","🎭","🏃","🍺","🛍️","🎯","🏡","💈","📷","🎸","🧴","🐾","🌈"];
+const ICONES_DISPONIVEIS = [
+  "🏦",
+  "💳",
+  "💵",
+  "🪙",
+  "💰",
+  "🏧",
+  "💸",
+  "📊",
+  "🔐",
+  "🤝",
+  "🟣",
+  "🟠",
+  "🟢",
+  "🔴",
+  "⭐",
+  "🌟",
+  "📱",
+  "💻",
+  "🛒",
+  "🏥",
+  "🚗",
+  "📚",
+  "🏖️",
+  "🏠",
+  "💡",
+  "🍔",
+  "🐶",
+  "👗",
+  "📦",
+  "📈",
+  "🎮",
+  "✈️",
+  "🎵",
+  "🍕",
+  "☕",
+  "🏋️",
+  "💊",
+  "📺",
+  "🎁",
+  "⚡",
+  "🌮",
+  "🎓",
+  "👶",
+  "🐱",
+  "🚌",
+  "⛽",
+  "🔧",
+  "🌿",
+  "🎭",
+  "🏃",
+  "🍺",
+  "🛍️",
+  "🎯",
+  "🏡",
+  "💈",
+  "📷",
+  "🎸",
+  "🧴",
+  "🐾",
+  "🌈",
+];
 
-// --- MODAL GERENCIAR ITENS ---
-function ModalGerenciarItens({ title, items, onExcluir, onEditar, onClose, addToast, groupByTipo }: {
-  title: string; items: any[]; onExcluir: (id: string) => Promise<void>; onEditar: (id: string, nome: string, icone: string) => Promise<void>; onClose: () => void; addToast: any; groupByTipo?: boolean;
+function ModalGerenciarItens({
+  title,
+  items,
+  onExcluir,
+  onEditar,
+  onClose,
+  addToast,
+  groupByTipo,
+}: {
+  title: string;
+  items: any[];
+  onExcluir: (id: string) => Promise<void>;
+  onEditar: (id: string, nome: string, icone: string) => Promise<void>;
+  onClose: () => void;
+  addToast: any;
+  groupByTipo?: boolean;
 }) {
   const { confirm, ConfirmUI } = useConfirm();
-  const [editandoId, setEditandoId] = useState<string|null>(null);
-  const [editNome, setEditNome] = useState(""); const [editIcone, setEditIcone] = useState(""); const [salvando, setSalvando] = useState(false);
-  const receitas = items.filter(i => i.tipo==="RECEITA"||i.tipo==="AMBOS");
-  const despesas = items.filter(i => i.tipo==="DESPESA"||i.tipo==="AMBOS");
-  function abrirEdicao(it: any) { setEditandoId(it.id); setEditNome(it.nome); setEditIcone(it.icone); }
-  function cancelarEdicao() { setEditandoId(null); setEditNome(""); setEditIcone(""); }
-  async function handleSalvarEdicao(id: string) {
-    if (!editNome.trim()) return; setSalvando(true);
-    try { await onEditar(id, editNome.trim(), editIcone); addToast("success","Salvo","Item atualizado."); cancelarEdicao(); }
-    catch (e: any) { addToast("error","Erro ao salvar",e.message); } finally { setSalvando(false); }
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [editNome, setEditNome] = useState("");
+  const [editIcone, setEditIcone] = useState("");
+  const [salvando, setSalvando] = useState(false);
+
+  const receitas = items.filter(
+    (i) => i.tipo === "RECEITA" || i.tipo === "AMBOS",
+  );
+  const despesas = items.filter(
+    (i) => i.tipo === "DESPESA" || i.tipo === "AMBOS",
+  );
+
+  function abrirEdicao(it: any) {
+    setEditandoId(it.id);
+    setEditNome(it.nome);
+    setEditIcone(it.icone);
   }
+
+  function cancelarEdicao() {
+    setEditandoId(null);
+    setEditNome("");
+    setEditIcone("");
+  }
+
+  async function handleSalvarEdicao(id: string) {
+    if (!editNome.trim()) return;
+    setSalvando(true);
+    try {
+      await onEditar(id, editNome.trim(), editIcone);
+      addToast("success", "Salvo", "Item atualizado com sucesso.");
+      cancelarEdicao();
+    } catch (e: any) {
+      addToast("error", "Erro ao salvar", e.message);
+    } finally {
+      setSalvando(false);
+    }
+  }
+
   function renderItem(it: any) {
     return (
-      <div key={it.id} className="rounded-lg border border-border overflow-hidden">
+      <div
+        key={it.id}
+        className="rounded-lg border border-border overflow-hidden"
+      >
         <div className="flex items-center justify-between p-3 bg-transparent">
-          <span className="text-sm font-medium">{it.icone} {it.nome}</span>
+          <span className="text-sm font-medium">
+            {it.icone} {it.nome}
+          </span>
           <div className="flex items-center gap-1.5">
-            <button onClick={() => editandoId===it.id ? cancelarEdicao() : abrirEdicao(it)} className={`p-1.5 rounded-lg transition-colors ${editandoId===it.id?"text-emerald-500 bg-emerald-500/10":"text-muted-foreground/80 hover:text-sky-500 hover:bg-sky-500/10"}`}><IconEdit /></button>
-            <button onClick={async () => { const ok = await confirm({ title:"Excluir Item", subtitle:`Excluir '${it.nome}'?`, tone:"rose", icon:"🗑️", confirmText:"Sim, excluir" }); if (ok) { try { await onExcluir(it.id); } catch { addToast("error","Erro ao excluir","Pode estar em uso."); } } }} className="p-1.5 text-muted-foreground/80 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"><IconTrash /></button>
+            <button
+              onClick={() =>
+                editandoId === it.id ? cancelarEdicao() : abrirEdicao(it)
+              }
+              className={`p-1.5 rounded-lg transition-colors ${editandoId === it.id ? "text-emerald-500 bg-emerald-500/10" : "text-muted-foreground/80 hover:text-sky-500 hover:bg-sky-500/10 dark:hover:bg-sky-500/10"}`}
+              title="Editar"
+            >
+              <IconEdit />
+            </button>
+            <button
+              onClick={async () => {
+                const ok = await confirm({
+                  title: "Excluir Item",
+                  subtitle: `Tem certeza que deseja excluir '${it.nome}'?`,
+                  tone: "rose",
+                  icon: "🗑️",
+                  confirmText: "Sim, excluir",
+                });
+                if (ok) {
+                  try {
+                    await onExcluir(it.id);
+                  } catch (e: any) {
+                    addToast("error", "Erro ao excluir", "Pode estar em uso.");
+                  }
+                }
+              }}
+              className="p-1.5 text-muted-foreground/80 hover:text-rose-500 hover:bg-rose-500/10 dark:hover:bg-rose-500/10 rounded-lg transition-colors"
+              title="Excluir"
+            >
+              <IconTrash />
+            </button>
           </div>
         </div>
-        {editandoId===it.id && (
-          <div className="p-3 border-t border-border bg-card dark:bg-transparent space-y-3 animate-in fade-in duration-150">
-            <input autoFocus value={editNome} onChange={e => setEditNome(e.target.value)} className="w-full h-9 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500 text-foreground" />
-            <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1">
-              {ICONES_DISPONIVEIS.map(ic => <button key={ic} onClick={() => setEditIcone(ic)} className={`w-8 h-8 rounded border text-base flex items-center justify-center transition-all ${editIcone===ic?"border-emerald-500 bg-emerald-500/10 scale-110":"border-border"}`}>{ic}</button>)}
+
+        {editandoId === it.id && (
+          <div className="p-3 border-t border-border bg-card dark:bg-transparent space-y-3 animate-in fade-in slide-in-from-top-1 duration-150">
+            <div>
+              <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-1">
+                Nome
+              </label>
+              <input
+                autoFocus
+                value={editNome}
+                onChange={(e) => setEditNome(e.target.value)}
+                className="w-full h-9 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500 text-foreground"
+              />
             </div>
-            <div className="flex gap-2">
-              <button onClick={cancelarEdicao} className="flex-1 py-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground">Cancelar</button>
-              <button onClick={() => handleSalvarEdicao(it.id)} disabled={salvando} className="flex-1 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold disabled:opacity-50">{salvando?"Salvando...":"Salvar"}</button>
+            <div>
+              <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-1">
+                Ícone
+              </label>
+              <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1">
+                {ICONES_DISPONIVEIS.map((ic) => (
+                  <button
+                    key={ic}
+                    onClick={() => setEditIcone(ic)}
+                    className={`w-8 h-8 rounded border text-base flex items-center justify-center transition-all ${editIcone === ic ? "border-emerald-500 bg-emerald-500/10 scale-110" : "border-border hover:bg-transparent dark:hover:bg-card/5"}`}
+                  >
+                    {ic}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={cancelarEdicao}
+                className="flex-1 py-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-transparent dark:hover:bg-card/5 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => handleSalvarEdicao(it.id)}
+                disabled={salvando}
+                className="flex-1 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors disabled:opacity-50"
+              >
+                {salvando ? "Salvando..." : "Salvar"}
+              </button>
             </div>
           </div>
         )}
       </div>
     );
   }
+
   return (
     <div className="fixed inset-0 z-[100000] bg-black/60 grid place-items-center p-4">
       <div className="w-full max-w-sm bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
-        <div className="px-4 py-3 border-b border-border font-medium text-sm flex justify-between shrink-0"><span>{title}</span><button onClick={onClose}><IconX /></button></div>
-        <div className="p-4 overflow-y-auto flex-1 space-y-2">
-          {items.length===0 && <div className="text-center text-muted-foreground/80 text-sm italic">Nenhum item cadastrado.</div>}
-          {groupByTipo ? (<>
-            {receitas.length>0&&(<><div className="flex items-center gap-2 py-1"><span className="text-[10px] font-medium uppercase tracking-wider text-emerald-500">📈 Receitas</span><div className="flex-1 h-px bg-emerald-200 dark:bg-emerald-500/30"/></div>{receitas.map(it=>renderItem(it))}</>)}
-            {despesas.length>0&&(<><div className="flex items-center gap-2 py-1 mt-2"><span className="text-[10px] font-medium uppercase tracking-wider text-rose-500">📉 Despesas</span><div className="flex-1 h-px bg-rose-200 dark:bg-rose-500/30"/></div>{despesas.map(it=>renderItem(it))}</>)}
-          </>) : items.map(it=>renderItem(it))}
+        <div className="px-4 py-3 border-b border-border font-medium text-sm bg-transparent flex justify-between shrink-0">
+          <span>{title}</span>
+          <button onClick={onClose}>
+            <IconX />
+          </button>
         </div>
-        <div className="px-4 py-3 border-t border-border shrink-0"><button onClick={onClose} className="w-full py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground">Cancelar</button></div>
+
+        <div className="p-4 overflow-y-auto flex-1 space-y-2">
+          {items.length === 0 && (
+            <div className="text-center text-muted-foreground/80 text-sm italic">
+              Nenhum item cadastrado.
+            </div>
+          )}
+
+          {groupByTipo ? (
+            <>
+              {receitas.length > 0 && (
+                <>
+                  <div className="flex items-center gap-2 py-1">
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-emerald-500">
+                      📈 Receitas
+                    </span>
+                    <div className="flex-1 h-px bg-emerald-200 dark:bg-emerald-500/30" />
+                  </div>
+                  {receitas.map((it) => renderItem(it))}
+                </>
+              )}
+              {despesas.length > 0 && (
+                <>
+                  <div className="flex items-center gap-2 py-1 mt-2">
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-rose-500">
+                      📉 Despesas
+                    </span>
+                    <div className="flex-1 h-px bg-rose-200 dark:bg-rose-500/30" />
+                  </div>
+                  {despesas.map((it) => renderItem(it))}
+                </>
+              )}
+            </>
+          ) : (
+            items.map((it) => renderItem(it))
+          )}
+        </div>
+
+        <div className="px-4 py-3 border-t border-border shrink-0">
+          <button
+            onClick={onClose}
+            className="w-full py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-transparent dark:hover:bg-card/5 transition-colors"
+          >
+            Cancelar
+          </button>
+        </div>
       </div>
       {ConfirmUI}
     </div>
   );
 }
 
-// --- MODAL NOVA CATEGORIA ---
-function ModalNovaCategoria({ tenantId, onClose, onSave, tipoFixo, addToast }: { tenantId: string; onClose: () => void; onSave: (novaCat: any) => void; tipoFixo: string; addToast: any; }) {
-  const [nome, setNome] = useState(""); const [icone, setIcone] = useState("📦"); const [salvando, setSalvando] = useState(false);
-  const icones = ["🛒","🏥","🚗","📚","🏖️","🏠","💡","🍔","🐶","👗","📱","💻","📦","💰","📈"];
+function ModalNovaCategoria({
+  tenantId,
+  onClose,
+  onSave,
+  tipoFixo,
+  addToast,
+}: {
+  tenantId: string;
+  onClose: () => void;
+  onSave: (novaCat: any) => void;
+  tipoFixo: string;
+  addToast: any;
+}) {
+  const [nome, setNome] = useState("");
+  const [icone, setIcone] = useState("📦");
+  const [salvando, setSalvando] = useState(false);
+  const icones = [
+    "🛒",
+    "🏥",
+    "🚗",
+    "📚",
+    "🏖️",
+    "🏠",
+    "💡",
+    "🍔",
+    "🐶",
+    "👗",
+    "📱",
+    "💻",
+    "📦",
+    "💰",
+    "📈",
+  ];
+
   async function handleSave() {
-    if (!nome.trim()) return; setSalvando(true);
+    if (!nome.trim()) return;
+    setSalvando(true);
     try {
-      const { data, error } = await supabaseBrowser.from("fin_categorias").insert({ tenant_id: tenantId, nome: nome.trim(), icone, tipo: tipoFixo }).select().single();
+      const { data, error } = await supabaseBrowser
+        .from("fin_categorias")
+        .insert({
+          tenant_id: tenantId,
+          nome: nome.trim(),
+          icone,
+          tipo: tipoFixo,
+        })
+        .select()
+        .single();
       if (error) throw error;
-      addToast("success","Categoria criada","Nova categoria adicionada."); onSave(data);
-    } catch (e: any) { addToast("error","Erro ao criar",e.message); } finally { setSalvando(false); }
+      addToast("success", "Categoria criada", "Nova categoria adicionada.");
+      onSave(data);
+    } catch (e: any) {
+      addToast("error", "Erro ao criar", e.message);
+    } finally {
+      setSalvando(false);
+    }
   }
+
   return (
     <div className="fixed inset-0 z-[100000] bg-black/60 grid place-items-center p-4">
       <div className="w-full max-w-sm bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="px-4 py-3 border-b border-border font-medium text-sm flex justify-between"><span>Nova Categoria de {tipoFixo==="RECEITA"?"Receita":"Despesa"}</span><button onClick={onClose}><IconX /></button></div>
+        <div className="px-4 py-3 border-b border-border font-medium text-sm bg-transparent flex justify-between">
+          <span>
+            Nova Categoria de {tipoFixo === "RECEITA" ? "Receita" : "Despesa"}
+          </span>
+          <button onClick={onClose}>
+            <IconX />
+          </button>
+        </div>
         <div className="p-4 space-y-4">
-          <div><label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-1.5">Nome</label>
-            <input autoFocus value={nome} onChange={e=>setNome(e.target.value)} placeholder="Ex: Roupas" className="w-full h-10 px-3 bg-card dark:bg-transparent border border-border rounded-lg outline-none text-sm focus:border-emerald-500"/></div>
-          <div><label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-1.5">Ícone</label>
-            <div className="flex flex-wrap gap-2">{icones.map(i=><button key={i} onClick={()=>setIcone(i)} className={`w-8 h-8 rounded border text-lg flex items-center justify-center transition-all ${icone===i?"border-emerald-500 bg-emerald-500/10":"border-border"}`}>{i}</button>)}</div></div>
-          <button onClick={handleSave} disabled={salvando} className="w-full h-10 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-500 disabled:opacity-50">Salvar Categoria</button>
+          <div>
+            <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-1.5">
+              Nome
+            </label>
+            <input
+              autoFocus
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              placeholder="Ex: Roupas"
+              className="w-full h-10 px-3 bg-card dark:bg-transparent border border-border rounded-lg outline-none text-sm focus:border-emerald-500"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-1.5">
+              Ícone
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {icones.map((i) => (
+                <button
+                  key={i}
+                  onClick={() => setIcone(i)}
+                  className={`w-8 h-8 rounded border text-lg flex items-center justify-center transition-all ${icone === i ? "border-emerald-500 bg-emerald-500/10" : "border-border hover:bg-transparent dark:hover:bg-card/5"}`}
+                >
+                  {i}
+                </button>
+              ))}
+            </div>
+          </div>
+          <button
+            onClick={handleSave}
+            disabled={salvando}
+            className="w-full h-10 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-500 shadow-lg transition-colors disabled:opacity-50"
+          >
+            Salvar Categoria
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-// --- MODAL TRANSAÇÃO ---
-function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess, contasDB, categoriasDB, pageDate, defaultDate }: {
-  tenantId: string; onClose: () => void; transacaoEdit?: any|null; addToast: any; onSuccess: () => void;
-  contasDB: any[]; categoriasDB: any[]; pageDate?: Date; defaultDate?: string;
+function ModalTransacao({
+  tenantId,
+  onClose,
+  transacaoEdit,
+  addToast,
+  onSuccess,
+  contasDB,
+  categoriasDB,
+  pageDate,
+  defaultDate,
+}: {
+  tenantId: string;
+  onClose: () => void;
+  transacaoEdit?: any | null;
+  addToast: any;
+  onSuccess: () => void;
+  contasDB: any[];
+  categoriasDB: any[];
+  pageDate?: Date;
+  defaultDate?: string;
 }) {
   const isEdit = !!transacaoEdit;
-  const [tipo, setTipo] = useState<"RECEITA"|"DESPESA">(transacaoEdit?.tipo||"DESPESA");
-  const [descricao, setDescricao] = useState(transacaoEdit?.descricao||"");
-  const [valor, setValor] = useState(transacaoEdit?.valor!==undefined?String(transacaoEdit.valor):"0");
-  const centsToDisplay = (cents: number) => { const str=String(cents).padStart(3,"0"); const int=str.slice(0,-2).replace(/\B(?=(\d{3})+(?!\d))/g,"."); const dec=str.slice(-2); return (int||"0")+","+dec; };
-  const initialCents = transacaoEdit?.valor ? Math.round(transacaoEdit.valor*100) : 0;
+
+  const [tipo, setTipo] = useState<"RECEITA" | "DESPESA">(
+    transacaoEdit?.tipo || "DESPESA",
+  );
+  const [descricao, setDescricao] = useState(transacaoEdit?.descricao || "");
+  const [valor, setValor] = useState(
+    transacaoEdit?.valor !== undefined ? String(transacaoEdit.valor) : "0",
+  );
+  const centsToDisplay = (cents: number) => {
+    const str = String(cents).padStart(3, "0");
+    const int = str.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    const dec = str.slice(-2);
+    return (int || "0") + "," + dec;
+  };
+
+  const initialCents = transacaoEdit?.valor
+    ? Math.round(transacaoEdit.valor * 100)
+    : 0;
   const [rawCents, setRawCents] = useState(initialCents);
   const valorDisplay = centsToDisplay(rawCents);
-  const handleValorChange = (e: React.ChangeEvent<HTMLInputElement>) => { const digits=e.target.value.replace(/\D/g,"").slice(0,13); const cents=parseInt(digits||"0",10); setRawCents(cents); setValor(String(cents/100)); };
+
+  const handleValorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, "").slice(0, 13);
+    const cents = parseInt(digits || "0", 10);
+    setRawCents(cents);
+    setValor(String(cents / 100));
+  };
+  const toDisplay = (iso: string) =>
+    iso ? iso.split("-").reverse().join("/") : "";
 
   const getDefaultDate = () => {
     if (transacaoEdit?.data_vencimento) return transacaoEdit.data_vencimento;
+    // NOVO: usa defaultDate se fornecido (clique em dia vazio)
     if (defaultDate) return defaultDate;
-    const ref = pageDate??new Date(); const hoje = new Date();
-    return `${ref.getFullYear()}-${String(ref.getMonth()+1).padStart(2,"0")}-${String(hoje.getDate()).padStart(2,"0")}`;
+    const ref = pageDate ?? new Date();
+    const hoje = new Date();
+    const d = String(hoje.getDate()).padStart(2, "0");
+    const m = String(ref.getMonth() + 1).padStart(2, "0");
+    const y = ref.getFullYear();
+    return `${y}-${m}-${d}`;
   };
-  const isoToRaw = (iso: string) => iso ? iso.split("-").reverse().join("") : "";
-  const rawToDisplay = (raw: string) => { if(raw.length>=5) return raw.slice(0,2)+"/"+raw.slice(2,4)+"/"+raw.slice(4); if(raw.length>=3) return raw.slice(0,2)+"/"+raw.slice(2); return raw; };
+
+  const isoToRaw = (iso: string) =>
+    iso ? iso.split("-").reverse().join("") : "";
+  const rawToDisplay = (raw: string) => {
+    if (raw.length >= 5)
+      return raw.slice(0, 2) + "/" + raw.slice(2, 4) + "/" + raw.slice(4);
+    if (raw.length >= 3) return raw.slice(0, 2) + "/" + raw.slice(2);
+    return raw;
+  };
+
   const [rawDigits, setRawDigits] = useState(isoToRaw(getDefaultDate()));
   const [vencimento, setVencimento] = useState(getDefaultDate());
   const vencimentoDisplay = rawToDisplay(rawDigits);
+
   const handleVencimentoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const input = e.target; const cursorPos = input.selectionStart;
-    const raw = input.value.replace(/\D/g,"").slice(0,8); setRawDigits(raw);
-    if (raw.length===8) { const d=raw.slice(0,2),m=raw.slice(2,4),y=raw.slice(4); setVencimento(`${y}-${m}-${d}`); }
-    requestAnimationFrame(() => { if (cursorPos!==null&&input) input.setSelectionRange(cursorPos,cursorPos); });
+    const input = e.target;
+    const cursorPos = input.selectionStart;
+
+    const raw = input.value.replace(/\D/g, "").slice(0, 8);
+    setRawDigits(raw);
+    if (raw.length === 8) {
+      const d = raw.slice(0, 2),
+        m = raw.slice(2, 4),
+        y = raw.slice(4);
+      setVencimento(`${y}-${m}-${d}`);
+    }
+
+    requestAnimationFrame(() => {
+      if (cursorPos !== null && input) {
+        input.setSelectionRange(cursorPos, cursorPos);
+      }
+    });
   };
-  const [status, setStatus] = useState<"PENDENTE"|"PAGO">(transacaoEdit?.status||"PENDENTE");
-  const [obs, setObs] = useState(transacaoEdit?.observacoes||"");
-  let rTipoInicial: "UNICA"|"RECORRENTE"|"PARCELADA" = "UNICA";
-  if (transacaoEdit?.is_recorrente&&transacaoEdit?.parcela_total) rTipoInicial="PARCELADA";
-  else if (transacaoEdit?.is_recorrente) rTipoInicial="RECORRENTE";
+  const [status, setStatus] = useState<"PENDENTE" | "PAGO">(
+    transacaoEdit?.status || "PENDENTE",
+  );
+  const [obs, setObs] = useState(transacaoEdit?.observacoes || "");
+
+  let rTipoInicial: "UNICA" | "RECORRENTE" | "PARCELADA" = "UNICA";
+  if (transacaoEdit?.is_recorrente && transacaoEdit?.parcela_total)
+    rTipoInicial = "PARCELADA";
+  else if (transacaoEdit?.is_recorrente) rTipoInicial = "RECORRENTE";
+
   const [tipoRecorrencia, setTipoRecorrencia] = useState(rTipoInicial);
-  const [frequencia, setFrequencia] = useState(transacaoEdit?.frequencia||"MENSAL");
-  const [parcelas, setParcelas] = useState(transacaoEdit?.parcela_total?String(transacaoEdit.parcela_total):"2");
-  const [escopoEdicao, setEscopoEdicao] = useState<"UNICA"|"TODAS">("TODAS");
+  const [frequencia, setFrequencia] = useState(
+    transacaoEdit?.frequencia || "MENSAL",
+  );
+  const [parcelas, setParcelas] = useState(
+    transacaoEdit?.parcela_total ? String(transacaoEdit.parcela_total) : "2",
+  );
+  const [escopoEdicao, setEscopoEdicao] = useState<"UNICA" | "TODAS">("TODAS");
+
   const [contas, setContas] = useState<any[]>(contasDB);
   const [categorias, setCategorias] = useState<any[]>(categoriasDB);
-  const categoriasAtivas = categorias.filter(c => c.tipo===tipo||c.tipo==="AMBOS");
-  const [contaSelecionada, setContaSelecionada] = useState(transacaoEdit?.conta_id||(contas.length>0?contas[0].id:""));
-  const [categoriaSelecionada, setCategoriaSelecionada] = useState(transacaoEdit?.categoria_id||"");
+
+  const categoriasAtivas = categorias.filter(
+    (c) => c.tipo === tipo || c.tipo === "AMBOS",
+  );
+  const [contaSelecionada, setContaSelecionada] = useState(
+    transacaoEdit?.conta_id || (contas.length > 0 ? contas[0].id : ""),
+  );
+  const [categoriaSelecionada, setCategoriaSelecionada] = useState(
+    transacaoEdit?.categoria_id || "",
+  );
+
   const [salvando, setSalvando] = useState(false);
 
-  type Sugestao = { descricao: string; valor: number; conta_id: string; categoria_id: string; tipo: "RECEITA"|"DESPESA"; };
+  // ── Autocomplete ────────────────────────────────────────────────────────
+  type Sugestao = {
+    descricao: string;
+    valor: number;
+    conta_id: string;
+    categoria_id: string;
+    tipo: "RECEITA" | "DESPESA";
+  };
   const [sugestoes, setSugestoes] = useState<Sugestao[]>([]);
-  const [sugestaoHover, setSugestaoHover] = useState<Sugestao|null>(null);
+  const [sugestaoHover, setSugestaoHover] = useState<Sugestao | null>(null);
   const [showSugestoes, setShowSugestoes] = useState(false);
   const autocompleteRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>|null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const buscarSugestoes = (q: string) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (q.trim().length<2) { setSugestoes([]); setShowSugestoes(false); return; }
+    if (q.trim().length < 2) {
+      setSugestoes([]);
+      setShowSugestoes(false);
+      return;
+    }
     debounceRef.current = setTimeout(async () => {
-      const { data } = await supabaseBrowser.from("fin_transacoes").select("descricao,valor,conta_id,categoria_id,tipo").eq("tenant_id",tenantId).ilike("descricao",`%${q.trim()}%`).order("data_vencimento",{ascending:false}).limit(50);
+      const { data } = await supabaseBrowser
+        .from("fin_transacoes")
+        .select("descricao, valor, conta_id, categoria_id, tipo")
+        .eq("tenant_id", tenantId)
+        .ilike("descricao", `%${q.trim()}%`)
+        .order("data_vencimento", { ascending: false })
+        .limit(50);
       if (!data) return;
-      const seen=new Set<string>(); const uniq: Sugestao[]=[];
-      for (const r of data) { const key=r.descricao.toLowerCase(); if(!seen.has(key)){seen.add(key);uniq.push(r as Sugestao);} if(uniq.length>=5) break; }
-      setSugestoes(uniq); setShowSugestoes(uniq.length>0);
+      const seen = new Set<string>();
+      const uniq: Sugestao[] = [];
+      for (const r of data) {
+        const key = r.descricao.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          uniq.push(r as Sugestao);
+        }
+        if (uniq.length >= 5) break;
+      }
+      setSugestoes(uniq);
+      setShowSugestoes(uniq.length > 0);
     }, 280);
   };
+
   useEffect(() => {
-    const handler=(e: MouseEvent)=>{ if(autocompleteRef.current&&!autocompleteRef.current.contains(e.target as Node)) setShowSugestoes(false); };
-    document.addEventListener("mousedown",handler); return ()=>document.removeEventListener("mousedown",handler);
-  },[]);
-  const aplicarSugestao=(s: Sugestao)=>{ setDescricao(s.descricao); setTipo(s.tipo); setRawCents(Math.round(s.valor*100)); setValor(String(s.valor)); if(s.conta_id) setContaSelecionada(s.conta_id); if(s.categoria_id) setCategoriaSelecionada(s.categoria_id); setSugestoes([]); setShowSugestoes(false); setSugestaoHover(null); };
+    const handler = (e: MouseEvent) => {
+      if (
+        autocompleteRef.current &&
+        !autocompleteRef.current.contains(e.target as Node)
+      ) {
+        setShowSugestoes(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const aplicarSugestao = (s: Sugestao) => {
+    setDescricao(s.descricao);
+    setTipo(s.tipo);
+    setRawCents(Math.round(s.valor * 100));
+    setValor(String(s.valor));
+    if (s.conta_id) setContaSelecionada(s.conta_id);
+    if (s.categoria_id) setCategoriaSelecionada(s.categoria_id);
+    setSugestoes([]);
+    setShowSugestoes(false);
+    setSugestaoHover(null);
+  };
+  // ────────────────────────────────────────────────────────────────────────
+
   const [showVencimentoPicker, setShowVencimentoPicker] = useState(false);
+
+  // ── Data de Pagamento editável ──────────────────────────────────────────
   const initDataPagamento = (() => {
     if (transacaoEdit?.data_pagamento) {
-      const dt=new Date(transacaoEdit.data_pagamento);
-      const d=String(dt.toLocaleString("en-US",{timeZone:"America/Sao_Paulo",day:"2-digit"})).padStart(2,"0");
-      const m=String(dt.toLocaleString("en-US",{timeZone:"America/Sao_Paulo",month:"2-digit"})).padStart(2,"0");
-      const y=dt.toLocaleString("en-US",{timeZone:"America/Sao_Paulo",year:"numeric"});
+      const dt = new Date(transacaoEdit.data_pagamento);
+      const d = String(
+        dt.toLocaleString("en-US", {
+          timeZone: "America/Sao_Paulo",
+          day: "2-digit",
+        }),
+      ).padStart(2, "0");
+      const m = String(
+        dt.toLocaleString("en-US", {
+          timeZone: "America/Sao_Paulo",
+          month: "2-digit",
+        }),
+      ).padStart(2, "0");
+      const y = dt.toLocaleString("en-US", {
+        timeZone: "America/Sao_Paulo",
+        year: "numeric",
+      });
       return `${y}-${m}-${d}`;
     }
     return new Date().toISOString().split("T")[0];
   })();
   const [dataPagamento, setDataPagamento] = useState(initDataPagamento);
-  const [rawDigitsPagamento, setRawDigitsPagamento] = useState(isoToRaw(initDataPagamento));
+  const [rawDigitsPagamento, setRawDigitsPagamento] = useState(
+    isoToRaw(initDataPagamento),
+  );
   const [showPagamentoPicker, setShowPagamentoPicker] = useState(false);
   const pagamentoDisplay = rawToDisplay(rawDigitsPagamento);
   const handlePagamentoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const input=e.target; const cursorPos=input.selectionStart;
-    const raw=input.value.replace(/\D/g,"").slice(0,8); setRawDigitsPagamento(raw);
-    if(raw.length===8){const d=raw.slice(0,2),m=raw.slice(2,4),y=raw.slice(4); setDataPagamento(`${y}-${m}-${d}`);}
-    requestAnimationFrame(()=>{if(cursorPos!==null&&input) input.setSelectionRange(cursorPos,cursorPos);});
+    const input = e.target;
+    const cursorPos = input.selectionStart;
+    const raw = input.value.replace(/\D/g, "").slice(0, 8);
+    setRawDigitsPagamento(raw);
+    if (raw.length === 8) {
+      const d = raw.slice(0, 2),
+        m = raw.slice(2, 4),
+        y = raw.slice(4);
+      setDataPagamento(`${y}-${m}-${d}`);
+    }
+    requestAnimationFrame(() => {
+      if (cursorPos !== null && input)
+        input.setSelectionRange(cursorPos, cursorPos);
+    });
   };
+  // ────────────────────────────────────────────────────────────────────────
+
   const [showNovaConta, setShowNovaConta] = useState(false);
   const [showGerenciarContas, setShowGerenciarContas] = useState(false);
+
   const [showNovaCategoria, setShowNovaCategoria] = useState(false);
   const [showGerenciarCategorias, setShowGerenciarCategorias] = useState(false);
-  const handleContaChange=(e: React.ChangeEvent<HTMLSelectElement>)=>{ if(e.target.value==="NOVA") setShowNovaConta(true); else if(e.target.value==="GERENCIAR") setShowGerenciarContas(true); else setContaSelecionada(e.target.value); };
-  const handleCategoriaChange=(e: React.ChangeEvent<HTMLSelectElement>)=>{ if(e.target.value==="NOVA") setShowNovaCategoria(true); else if(e.target.value==="GERENCIAR") setShowGerenciarCategorias(true); else setCategoriaSelecionada(e.target.value); };
-  async function handleExcluirConta(id: string) { const {error}=await supabaseBrowser.from("fin_contas_bancarias").delete().eq("id",id); if(error) throw error; setContas(prev=>prev.filter(c=>c.id!==id)); if(contaSelecionada===id) setContaSelecionada(""); }
-  async function handleEditarConta(id: string,nome: string,icone: string) { const {error}=await supabaseBrowser.from("fin_contas_bancarias").update({nome,icone}).eq("id",id); if(error) throw error; setContas(prev=>prev.map(c=>c.id===id?{...c,nome,icone}:c)); }
-  async function handleExcluirCategoria(id: string) { const {error}=await supabaseBrowser.from("fin_categorias").delete().eq("id",id); if(error) throw error; setCategorias(prev=>prev.filter(c=>c.id!==id)); if(categoriaSelecionada===id) setCategoriaSelecionada(""); }
-  async function handleEditarCategoria(id: string,nome: string,icone: string) { const {error}=await supabaseBrowser.from("fin_categorias").update({nome,icone}).eq("id",id); if(error) throw error; setCategorias(prev=>prev.map(c=>c.id===id?{...c,nome,icone}:c)); }
+
+  const handleContaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    if (e.target.value === "NOVA") setShowNovaConta(true);
+    else if (e.target.value === "GERENCIAR") setShowGerenciarContas(true);
+    else setContaSelecionada(e.target.value);
+  };
+
+  const handleCategoriaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    if (e.target.value === "NOVA") setShowNovaCategoria(true);
+    else if (e.target.value === "GERENCIAR") setShowGerenciarCategorias(true);
+    else setCategoriaSelecionada(e.target.value);
+  };
+
+  async function handleExcluirConta(id: string) {
+    const { error } = await supabaseBrowser
+      .from("fin_contas_bancarias")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
+    setContas((prev) => prev.filter((c) => c.id !== id));
+    if (contaSelecionada === id) setContaSelecionada("");
+  }
+
+  async function handleEditarConta(id: string, nome: string, icone: string) {
+    const { error } = await supabaseBrowser
+      .from("fin_contas_bancarias")
+      .update({ nome, icone })
+      .eq("id", id);
+    if (error) throw error;
+    setContas((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, nome, icone } : c)),
+    );
+  }
+
+  async function handleExcluirCategoria(id: string) {
+    const { error } = await supabaseBrowser
+      .from("fin_categorias")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
+    setCategorias((prev) => prev.filter((c) => c.id !== id));
+    if (categoriaSelecionada === id) setCategoriaSelecionada("");
+  }
+
+  async function handleEditarCategoria(
+    id: string,
+    nome: string,
+    icone: string,
+  ) {
+    const { error } = await supabaseBrowser
+      .from("fin_categorias")
+      .update({ nome, icone })
+      .eq("id", id);
+    if (error) throw error;
+    setCategorias((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, nome, icone } : c)),
+    );
+  }
 
   async function handleSave() {
-    if (!descricao.trim()||valor===""||!contaSelecionada||!categoriaSelecionada) { addToast("error","Erro","Preencha todos os campos obrigatórios."); return; }
+    if (
+      !descricao.trim() ||
+      valor === "" ||
+      !contaSelecionada ||
+      !categoriaSelecionada
+    ) {
+      addToast(
+        "error",
+        "Erro",
+        "Preencha todos os campos obrigatórios (Conta e Categoria inclusos)",
+      );
+      return;
+    }
     setSalvando(true);
     try {
       if (isEdit) {
-        if (escopoEdicao==="UNICA"||!transacaoEdit.recorrencia_id) {
-          const {error}=await supabaseBrowser.from("fin_transacoes").update({ tipo,descricao,valor:Number(valor),data_vencimento:vencimento,status,conta_id:contaSelecionada,categoria_id:categoriaSelecionada,observacoes:obs,data_pagamento:status==="PAGO"?new Date(`${dataPagamento}T12:00:00`).toISOString():null }).eq("id",transacaoEdit.id);
-          if(error) throw error;
+        if (escopoEdicao === "UNICA" || !transacaoEdit.recorrencia_id) {
+          const { error } = await supabaseBrowser
+            .from("fin_transacoes")
+            .update({
+              tipo,
+              descricao,
+              valor: Number(valor),
+              data_vencimento: vencimento,
+              status,
+              conta_id: contaSelecionada,
+              categoria_id: categoriaSelecionada,
+              observacoes: obs,
+              data_pagamento:
+                status === "PAGO"
+                  ? new Date(`${dataPagamento}T12:00:00`).toISOString()
+                  : null,
+            })
+            .eq("id", transacaoEdit.id);
+          if (error) throw error;
         } else {
-          const {error:errCurrent}=await supabaseBrowser.from("fin_transacoes").update({ tipo,descricao,valor:Number(valor),data_vencimento:vencimento,status,conta_id:contaSelecionada,categoria_id:categoriaSelecionada,observacoes:obs,frequencia:tipoRecorrencia==="RECORRENTE"?frequencia:null,data_pagamento:status==="PAGO"?new Date(`${dataPagamento}T12:00:00`).toISOString():null }).eq("id",transacaoEdit.id);
-          if(errCurrent) throw errCurrent;
-          const [{data:oficiais},{data:orfas}]=await Promise.all([
-            supabaseBrowser.from("fin_transacoes").select("id,data_vencimento,status,data_pagamento").eq("recorrencia_id",transacaoEdit.recorrencia_id).gt("data_vencimento",transacaoEdit.data_vencimento),
-            supabaseBrowser.from("fin_transacoes").select("id,data_vencimento,status,data_pagamento").eq("descricao",transacaoEdit.descricao).eq("conta_id",transacaoEdit.conta_id).gt("data_vencimento",transacaoEdit.data_vencimento),
+          // 1. Atualiza a transação atual
+          const { error: errCurrent } = await supabaseBrowser
+            .from("fin_transacoes")
+            .update({
+              tipo,
+              descricao,
+              valor: Number(valor),
+              data_vencimento: vencimento,
+              status,
+              conta_id: contaSelecionada,
+              categoria_id: categoriaSelecionada,
+              observacoes: obs,
+              frequencia: tipoRecorrencia === "RECORRENTE" ? frequencia : null,
+              data_pagamento:
+                status === "PAGO"
+                  ? new Date(`${dataPagamento}T12:00:00`).toISOString()
+                  : null,
+            })
+            .eq("id", transacaoEdit.id);
+          if (errCurrent) throw errCurrent;
+
+          // 2. Busca histórico oficial E faturas "órfãs" para limpeza total (À Prova de Balas)
+          const [{ data: oficiais }, { data: orfas }] = await Promise.all([
+            supabaseBrowser
+              .from("fin_transacoes")
+              .select("id, data_vencimento, status, data_pagamento")
+              .eq("recorrencia_id", transacaoEdit.recorrencia_id)
+              .gt("data_vencimento", transacaoEdit.data_vencimento),
+            supabaseBrowser
+              .from("fin_transacoes")
+              .select("id, data_vencimento, status, data_pagamento")
+              .eq("descricao", transacaoEdit.descricao)
+              .eq("conta_id", transacaoEdit.conta_id)
+              .gt("data_vencimento", transacaoEdit.data_vencimento),
           ]);
-          const mapPagos: Record<string,any>={}; const idsToDelete=new Set<string>();
-          const mergeData=(lista: any[])=>{ if(!lista) return; lista.forEach(f=>{ if(f.id!==transacaoEdit.id){ idsToDelete.add(f.id); if(f.status==="PAGO"){const ym=f.data_vencimento.substring(0,7); if(!mapPagos[ym]) mapPagos[ym]={status:f.status,data_pagamento:f.data_pagamento};} } }); };
-          mergeData(oficiais||[]); mergeData(orfas||[]);
-          const arrIds=Array.from(idsToDelete);
-          if(arrIds.length>0){const{error:errDel}=await supabaseBrowser.from("fin_transacoes").delete().in("id",arrIds); if(errDel) throw errDel;}
-          const baseDate=new Date(`${vencimento}T12:00:00`); const baseDia=baseDate.getDate();
-          function addMesesSemOverflow(base: Date,dia: number,meses: number): Date { const tY=base.getFullYear()+Math.floor((base.getMonth()+meses)/12); const tM=(base.getMonth()+meses)%12; const uD=new Date(tY,tM+1,0).getDate(); return new Date(tY,tM,Math.min(dia,uD),12,0,0); }
-          let parcelasRestantes=0; const pAtual=transacaoEdit.parcela_atual||1; const pTotal=transacaoEdit.parcela_total||1;
-          if(tipoRecorrencia==="PARCELADA") parcelasRestantes=pTotal-pAtual;
-          else if(tipoRecorrencia==="RECORRENTE"){const hoje=new Date(); parcelasRestantes=Math.max(60,((hoje.getFullYear()-baseDate.getFullYear())*12+(hoje.getMonth()-baseDate.getMonth()))+60);}
-          if(parcelasRestantes>0){
-            const inserts=[];
-            for(let i=1;i<=parcelasRestantes;i++){
-              let dataVenc: Date; const f=tipoRecorrencia==="RECORRENTE"?frequencia:"MENSAL";
-              if(tipoRecorrencia==="PARCELADA"||f==="MENSAL") dataVenc=addMesesSemOverflow(baseDate,baseDia,i);
-              else if(f==="BIMESTRAL") dataVenc=addMesesSemOverflow(baseDate,baseDia,i*2);
-              else if(f==="TRIMESTRAL") dataVenc=addMesesSemOverflow(baseDate,baseDia,i*3);
-              else if(f==="SEMESTRAL") dataVenc=addMesesSemOverflow(baseDate,baseDia,i*6);
-              else if(f==="ANUAL"){const y=baseDate.getFullYear()+i; const m=baseDate.getMonth(); const uD=new Date(y,m+1,0).getDate(); dataVenc=new Date(y,m,Math.min(baseDia,uD),12,0,0);}
-              else dataVenc=addMesesSemOverflow(baseDate,baseDia,i);
-              const ym=dataVenc.toISOString().substring(0,7); const jaPago=mapPagos[ym];
-              inserts.push({ tenant_id:tenantId,tipo,descricao,valor:Number(valor),data_vencimento:dataVenc.toISOString().split("T")[0],status:jaPago?jaPago.status:"PENDENTE",data_pagamento:jaPago?jaPago.data_pagamento:null,conta_id:contaSelecionada,categoria_id:categoriaSelecionada,observacoes:obs,is_recorrente:true,frequencia:tipoRecorrencia==="RECORRENTE"?frequencia:null,recorrencia_id:transacaoEdit.recorrencia_id,parcela_atual:tipoRecorrencia==="PARCELADA"?pAtual+i:null,parcela_total:tipoRecorrencia==="PARCELADA"?pTotal:null });
+
+          const mapPagos: Record<string, any> = {};
+          const idsToDelete = new Set<string>();
+
+          const mergeData = (lista: any[]) => {
+            if (!lista) return;
+            lista.forEach((f) => {
+              if (f.id !== transacaoEdit.id) {
+                idsToDelete.add(f.id);
+                if (f.status === "PAGO") {
+                  const ym = f.data_vencimento.substring(0, 7);
+                  if (!mapPagos[ym])
+                    mapPagos[ym] = {
+                      status: f.status,
+                      data_pagamento: f.data_pagamento,
+                    };
+                }
+              }
+            });
+          };
+
+          mergeData(oficiais || []);
+          mergeData(orfas || []);
+
+          // 3. Apaga TODAS as parcelas futuras encontradas
+          const arrIds = Array.from(idsToDelete);
+          if (arrIds.length > 0) {
+            const { error: errDel } = await supabaseBrowser
+              .from("fin_transacoes")
+              .delete()
+              .in("id", arrIds);
+            if (errDel) throw errDel;
+          }
+
+          // 4. Recria as futuras
+          const baseDate = new Date(`${vencimento}T12:00:00`);
+          const baseDia = baseDate.getDate();
+
+          function addMesesSemOverflow(
+            base: Date,
+            dia: number,
+            meses: number,
+          ): Date {
+            const targetYear =
+              base.getFullYear() + Math.floor((base.getMonth() + meses) / 12);
+            const targetMonth = (base.getMonth() + meses) % 12;
+            const ultimoDia = new Date(
+              targetYear,
+              targetMonth + 1,
+              0,
+            ).getDate();
+            return new Date(
+              targetYear,
+              targetMonth,
+              Math.min(dia, ultimoDia),
+              12,
+              0,
+              0,
+            );
+          }
+
+          let parcelasRestantes = 0;
+          let pAtual = transacaoEdit.parcela_atual || 1;
+          let pTotal = transacaoEdit.parcela_total || 1;
+
+          if (tipoRecorrencia === "PARCELADA") {
+            parcelasRestantes = pTotal - pAtual;
+          } else if (tipoRecorrencia === "RECORRENTE") {
+            const hoje = new Date();
+            const diffAnos = hoje.getFullYear() - baseDate.getFullYear();
+            const diffMeses =
+              diffAnos * 12 + (hoje.getMonth() - baseDate.getMonth());
+            parcelasRestantes = Math.max(60, diffMeses + 60);
+          }
+
+          if (parcelasRestantes > 0) {
+            const inserts = [];
+            for (let i = 1; i <= parcelasRestantes; i++) {
+              let dataVenc: Date;
+              const f =
+                tipoRecorrencia === "RECORRENTE" ? frequencia : "MENSAL";
+
+              if (tipoRecorrencia === "PARCELADA" || f === "MENSAL") {
+                dataVenc = addMesesSemOverflow(baseDate, baseDia, i);
+              } else if (f === "BIMESTRAL") {
+                dataVenc = addMesesSemOverflow(baseDate, baseDia, i * 2);
+              } else if (f === "TRIMESTRAL") {
+                dataVenc = addMesesSemOverflow(baseDate, baseDia, i * 3);
+              } else if (f === "SEMESTRAL") {
+                dataVenc = addMesesSemOverflow(baseDate, baseDia, i * 6);
+              } else if (f === "ANUAL") {
+                const y = baseDate.getFullYear() + i;
+                const m = baseDate.getMonth();
+                const ultimoDia = new Date(y, m + 1, 0).getDate();
+                dataVenc = new Date(
+                  y,
+                  m,
+                  Math.min(baseDia, ultimoDia),
+                  12,
+                  0,
+                  0,
+                );
+              } else {
+                dataVenc = addMesesSemOverflow(baseDate, baseDia, i);
+              }
+
+              const ym = dataVenc.toISOString().substring(0, 7);
+              const jaPago = mapPagos[ym];
+
+              inserts.push({
+                tenant_id: tenantId,
+                tipo,
+                descricao,
+                valor: Number(valor),
+                data_vencimento: dataVenc.toISOString().split("T")[0],
+                status: jaPago ? jaPago.status : "PENDENTE",
+                data_pagamento: jaPago ? jaPago.data_pagamento : null,
+                conta_id: contaSelecionada,
+                categoria_id: categoriaSelecionada,
+                observacoes: obs,
+                is_recorrente: true,
+                frequencia:
+                  tipoRecorrencia === "RECORRENTE" ? frequencia : null,
+                recorrencia_id: transacaoEdit.recorrencia_id,
+                parcela_atual:
+                  tipoRecorrencia === "PARCELADA" ? pAtual + i : null,
+                parcela_total: tipoRecorrencia === "PARCELADA" ? pTotal : null,
+              });
             }
-            if(inserts.length>0){const{error:batchErr}=await supabaseBrowser.from("fin_transacoes").insert(inserts); if(batchErr) throw batchErr;}
+
+            if (inserts.length > 0) {
+              const { error: batchErr } = await supabaseBrowser
+                .from("fin_transacoes")
+                .insert(inserts);
+              if (batchErr) throw batchErr;
+            }
           }
         }
-        addToast("success","Alteração Salva","Lançamento atualizado com sucesso!");
+        addToast(
+          "success",
+          "Alteração Salva",
+          "Lançamento atualizado com sucesso!",
+        );
       } else {
-        const isRecorrente=tipoRecorrencia!=="UNICA";
-        const totalMesesOuParcelas=tipoRecorrencia==="PARCELADA"?Number(parcelas):tipoRecorrencia==="RECORRENTE"?60:1;
-        const valorInserir=tipoRecorrencia==="PARCELADA"?Number(valor)/totalMesesOuParcelas:Number(valor);
-        const baseDate=new Date(`${vencimento}T12:00:00`); const baseDia=baseDate.getDate();
-        function addMesesSemOverflow(base: Date,dia: number,meses: number): Date { const tY=base.getFullYear()+Math.floor((base.getMonth()+meses)/12); const tM=(base.getMonth()+meses)%12; const uD=new Date(tY,tM+1,0).getDate(); return new Date(tY,tM,Math.min(dia,uD),12,0,0); }
-        const {data:firstTrx,error:firstErr}=await supabaseBrowser.from("fin_transacoes").insert({ tenant_id:tenantId,tipo,descricao,valor:valorInserir,data_vencimento:baseDate.toISOString().split("T")[0],status,data_pagamento:status==="PAGO"?new Date(`${dataPagamento}T12:00:00`).toISOString():null,conta_id:contaSelecionada,categoria_id:categoriaSelecionada,observacoes:obs,is_recorrente:isRecorrente,frequencia:tipoRecorrencia==="RECORRENTE"?frequencia:null,parcela_atual:tipoRecorrencia==="PARCELADA"?1:null,parcela_total:tipoRecorrencia==="PARCELADA"?totalMesesOuParcelas:null }).select("id").single();
-        if(firstErr) throw firstErr;
-        if(totalMesesOuParcelas>1){
-          const recorrenciaIdReal=firstTrx.id;
-          await supabaseBrowser.from("fin_transacoes").update({recorrencia_id:recorrenciaIdReal}).eq("id",recorrenciaIdReal);
-          const inserts=[];
-          for(let i=2;i<=totalMesesOuParcelas;i++){
-            let dataVenc: Date;
-            if(tipoRecorrencia==="PARCELADA"||frequencia==="MENSAL") dataVenc=addMesesSemOverflow(baseDate,baseDia,i-1);
-            else if(frequencia==="BIMESTRAL") dataVenc=addMesesSemOverflow(baseDate,baseDia,(i-1)*2);
-            else if(frequencia==="TRIMESTRAL") dataVenc=addMesesSemOverflow(baseDate,baseDia,(i-1)*3);
-            else if(frequencia==="SEMESTRAL") dataVenc=addMesesSemOverflow(baseDate,baseDia,(i-1)*6);
-            else if(frequencia==="ANUAL"){const y=baseDate.getFullYear()+(i-1); const m=baseDate.getMonth(); const uD=new Date(y,m+1,0).getDate(); dataVenc=new Date(y,m,Math.min(baseDia,uD),12,0,0);}
-            else dataVenc=new Date(baseDate);
-            inserts.push({ tenant_id:tenantId,tipo,descricao,valor:valorInserir,data_vencimento:dataVenc.toISOString().split("T")[0],status:"PENDENTE",data_pagamento:null,conta_id:contaSelecionada,categoria_id:categoriaSelecionada,observacoes:obs,is_recorrente:isRecorrente,frequencia:tipoRecorrencia==="RECORRENTE"?frequencia:null,recorrencia_id:recorrenciaIdReal,parcela_atual:tipoRecorrencia==="PARCELADA"?i:null,parcela_total:tipoRecorrencia==="PARCELADA"?totalMesesOuParcelas:null });
-          }
-          if(inserts.length>0){const{error:batchErr}=await supabaseBrowser.from("fin_transacoes").insert(inserts); if(batchErr) throw batchErr;}
+        const isRecorrente = tipoRecorrencia !== "UNICA";
+        const totalMesesOuParcelas =
+          tipoRecorrencia === "PARCELADA"
+            ? Number(parcelas)
+            : tipoRecorrencia === "RECORRENTE"
+              ? 60
+              : 1;
+        const valorInserir =
+          tipoRecorrencia === "PARCELADA"
+            ? Number(valor) / totalMesesOuParcelas
+            : Number(valor);
+
+        const baseDate = new Date(`${vencimento}T12:00:00`);
+        const baseDia = baseDate.getDate();
+
+        function addMesesSemOverflow(
+          base: Date,
+          dia: number,
+          meses: number,
+        ): Date {
+          const targetYear =
+            base.getFullYear() + Math.floor((base.getMonth() + meses) / 12);
+          const targetMonth = (base.getMonth() + meses) % 12;
+          const ultimoDia = new Date(targetYear, targetMonth + 1, 0).getDate();
+          return new Date(
+            targetYear,
+            targetMonth,
+            Math.min(dia, ultimoDia),
+            12,
+            0,
+            0,
+          );
         }
-        addToast("success","Lançamento Criado",tipoRecorrencia!=="UNICA"?"Lançamentos programados!":"Lançamento adicionado.");
+
+        const { data: firstTrx, error: firstErr } = await supabaseBrowser
+          .from("fin_transacoes")
+          .insert({
+            tenant_id: tenantId,
+            tipo,
+            descricao,
+            valor: valorInserir,
+            data_vencimento: baseDate.toISOString().split("T")[0],
+            status,
+            data_pagamento: status === "PAGO" ? new Date(`${dataPagamento}T12:00:00`).toISOString() : null,
+            conta_id: contaSelecionada,
+            categoria_id: categoriaSelecionada,
+            observacoes: obs,
+            is_recorrente: isRecorrente,
+            frequencia: tipoRecorrencia === "RECORRENTE" ? frequencia : null,
+            parcela_atual: tipoRecorrencia === "PARCELADA" ? 1 : null,
+            parcela_total:
+              tipoRecorrencia === "PARCELADA" ? totalMesesOuParcelas : null,
+          })
+          .select("id")
+          .single();
+
+        if (firstErr) throw firstErr;
+
+        if (totalMesesOuParcelas > 1) {
+          const recorrenciaIdReal = firstTrx.id;
+
+          await supabaseBrowser
+            .from("fin_transacoes")
+            .update({ recorrencia_id: recorrenciaIdReal })
+            .eq("id", recorrenciaIdReal);
+
+          const inserts = [];
+
+          for (let i = 2; i <= totalMesesOuParcelas; i++) {
+            let dataVenc: Date;
+
+            if (tipoRecorrencia === "PARCELADA" || frequencia === "MENSAL") {
+              dataVenc = addMesesSemOverflow(baseDate, baseDia, i - 1);
+            } else if (frequencia === "BIMESTRAL") {
+              dataVenc = addMesesSemOverflow(baseDate, baseDia, (i - 1) * 2);
+            } else if (frequencia === "TRIMESTRAL") {
+              dataVenc = addMesesSemOverflow(baseDate, baseDia, (i - 1) * 3);
+            } else if (frequencia === "SEMESTRAL") {
+              dataVenc = addMesesSemOverflow(baseDate, baseDia, (i - 1) * 6);
+            } else if (frequencia === "ANUAL") {
+              const y = baseDate.getFullYear() + (i - 1);
+              const m = baseDate.getMonth();
+              const ultimoDia = new Date(y, m + 1, 0).getDate();
+              dataVenc = new Date(y, m, Math.min(baseDia, ultimoDia), 12, 0, 0);
+            } else {
+              dataVenc = new Date(baseDate);
+            }
+
+            inserts.push({
+              tenant_id: tenantId,
+              tipo,
+              descricao,
+              valor: valorInserir,
+              data_vencimento: dataVenc.toISOString().split("T")[0],
+              status: "PENDENTE",
+              data_pagamento: null,
+              conta_id: contaSelecionada,
+              categoria_id: categoriaSelecionada,
+              observacoes: obs,
+              is_recorrente: isRecorrente,
+              frequencia: tipoRecorrencia === "RECORRENTE" ? frequencia : null,
+              recorrencia_id: recorrenciaIdReal,
+              parcela_atual: tipoRecorrencia === "PARCELADA" ? i : null,
+              parcela_total:
+                tipoRecorrencia === "PARCELADA" ? totalMesesOuParcelas : null,
+            });
+          }
+
+          if (inserts.length > 0) {
+            const { error: batchErr } = await supabaseBrowser
+              .from("fin_transacoes")
+              .insert(inserts);
+            if (batchErr) throw batchErr;
+          }
+        }
+        addToast(
+          "success",
+          "Lançamento Criado",
+          tipoRecorrencia !== "UNICA"
+            ? "Lançamentos programados com sucesso!"
+            : "Lançamento adicionado.",
+        );
       }
+
       onSuccess();
-    } catch (e: any) { addToast("error","Erro ao salvar",e.message); } finally { setSalvando(false); }
+    } catch (e: any) {
+      addToast("error", "Erro ao salvar", e.message);
+    } finally {
+      setSalvando(false);
+    }
   }
 
   return (
     <>
-      <Modal title={isEdit?"Editar Lançamento":"Adicionar Lançamento"} onClose={onClose}>
+      <Modal
+        title={isEdit ? "Editar Lançamento" : "Adicionar Lançamento"}
+        onClose={onClose}
+      >
         <div className="max-h-[75vh] overflow-y-auto pr-1 space-y-3 sm:space-y-4">
           <div className="flex p-1 bg-transparent rounded-lg border border-border">
-            <button onClick={()=>setTipo("DESPESA")} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${tipo==="DESPESA"?"bg-card text-rose-500 shadow-sm":"text-muted-foreground hover:text-foreground/90"}`}>📉 Despesa</button>
-            <button onClick={()=>setTipo("RECEITA")} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${tipo==="RECEITA"?"bg-card text-emerald-500 shadow-sm":"text-muted-foreground hover:text-foreground/90"}`}>📈 Receita</button>
+            <button
+              onClick={() => setTipo("DESPESA")}
+              className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${tipo === "DESPESA" ? "bg-card text-rose-500 shadow-sm" : "text-muted-foreground hover:text-foreground/90 dark:hover:text-white/80"}`}
+            >
+              📉 Despesa
+            </button>
+            <button
+              onClick={() => setTipo("RECEITA")}
+              className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${tipo === "RECEITA" ? "bg-card text-emerald-500 shadow-sm" : "text-muted-foreground hover:text-foreground/90 dark:hover:text-white/80"}`}
+            >
+              📈 Receita
+            </button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-2 relative" ref={autocompleteRef}>
-              <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1 uppercase tracking-wider">Descrição</label>
-              <input type="text" value={sugestaoHover?sugestaoHover.descricao:descricao} onChange={e=>{setDescricao(e.target.value);buscarSugestoes(e.target.value);}} onFocus={()=>{if(sugestoes.length>0) setShowSugestoes(true);}} placeholder="Ex: Conta de Luz" className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50" />
-              {showSugestoes&&sugestoes.length>0&&(
-                <div className="absolute left-0 right-0 top-full mt-1 z-[9999] bg-card border border-border rounded-xl shadow-xl overflow-hidden animate-in fade-in duration-150">
-                  <div className="px-3 py-1.5 text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider border-b border-border">Lançamentos anteriores</div>
-                  {sugestoes.map((s,i)=>{
-                    const conta=contas.find(c=>c.id===s.conta_id); const cat=categorias.find(c=>c.id===s.categoria_id); const isHov=sugestaoHover?.descricao===s.descricao;
-                    return (<div key={i} onMouseEnter={()=>setSugestaoHover(s)} onMouseLeave={()=>setSugestaoHover(null)} onClick={()=>aplicarSugestao(s)} className={`flex items-center justify-between px-3 py-2.5 cursor-pointer transition-colors ${isHov?"bg-emerald-500/10":"hover:bg-card/5"}`}>
-                      <div className="flex flex-col min-w-0"><span className="text-sm font-semibold text-foreground/90 truncate">{s.descricao}</span>
-                        <div className="flex items-center gap-2 mt-0.5">{conta&&<span className="text-[10px] text-muted-foreground/80">{conta.icone} {conta.nome}</span>}{cat&&<span className="text-[10px] text-muted-foreground/80">{cat.icone} {cat.nome}</span>}</div></div>
-                      <span className={`text-sm font-medium ml-3 shrink-0 ${s.tipo==="RECEITA"?"text-emerald-500":"text-rose-500"}`}>{s.tipo==="RECEITA"?"+":"-"} {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(s.valor)}</span>
-                    </div>);
+              <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1 uppercase tracking-wider">
+                Descrição
+              </label>
+              <input
+                type="text"
+                value={sugestaoHover ? sugestaoHover.descricao : descricao}
+                onChange={(e) => {
+                  setDescricao(e.target.value);
+                  buscarSugestoes(e.target.value);
+                }}
+                onFocus={() => {
+                  if (sugestoes.length > 0) setShowSugestoes(true);
+                }}
+                placeholder="Ex: Conta de Luz"
+                className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
+              />
+              {showSugestoes && sugestoes.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 z-[9999] bg-card border border-border rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                  <div className="px-3 py-1.5 text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider border-b border-border">
+                    Lançamentos anteriores
+                  </div>
+                  {sugestoes.map((s, i) => {
+                    const conta = contas.find((c) => c.id === s.conta_id);
+                    const cat = categorias.find((c) => c.id === s.categoria_id);
+                    const isHov = sugestaoHover?.descricao === s.descricao;
+                    return (
+                      <div
+                        key={i}
+                        onMouseEnter={() => setSugestaoHover(s)}
+                        onMouseLeave={() => setSugestaoHover(null)}
+                        onClick={() => aplicarSugestao(s)}
+                        className={`flex items-center justify-between px-3 py-2.5 cursor-pointer transition-colors ${isHov ? "bg-emerald-500/10" : "hover:bg-transparent dark:hover:bg-card/5"}`}
+                      >
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-sm font-semibold text-foreground/90 truncate">
+                            {s.descricao}
+                          </span>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {conta && (
+                              <span className="text-[10px] text-muted-foreground/80">
+                                {conta.icone} {conta.nome}
+                              </span>
+                            )}
+                            {cat && (
+                              <span className="text-[10px] text-muted-foreground/80">
+                                {cat.icone} {cat.nome}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <span
+                          className={`text-sm font-medium ml-3 shrink-0 ${s.tipo === "RECEITA" ? "text-emerald-500" : "text-rose-500"}`}
+                        >
+                          {s.tipo === "RECEITA" ? "+" : "-"}{" "}
+                          {new Intl.NumberFormat("pt-BR", {
+                            style: "currency",
+                            currency: "BRL",
+                          }).format(s.valor)}
+                        </span>
+                      </div>
+                    );
                   })}
                 </div>
               )}
             </div>
             <div>
-              <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1 uppercase tracking-wider">Valor {tipoRecorrencia==="PARCELADA"&&!isEdit?"Total":""} (R$)</label>
-              <input type="text" inputMode="numeric" value={sugestaoHover?new Intl.NumberFormat("pt-BR",{minimumFractionDigits:2}).format(sugestaoHover.valor):valorDisplay} onChange={handleValorChange} onFocus={e=>e.target.select()} placeholder="0,00" className={`w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm font-medium outline-none focus:border-emerald-500/50 ${(sugestaoHover?.tipo??tipo)==="RECEITA"?"text-emerald-500":"text-rose-500"}`} />
+              <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1 uppercase tracking-wider">
+                Valor{" "}
+                {tipoRecorrencia === "PARCELADA" && !isEdit ? "Total" : ""} (R$)
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={
+                  sugestaoHover
+                    ? new Intl.NumberFormat("pt-BR", {
+                        minimumFractionDigits: 2,
+                      }).format(sugestaoHover.valor)
+                    : valorDisplay
+                }
+                onChange={handleValorChange}
+                onFocus={(e) => e.target.select()}
+                placeholder="0,00"
+                className={`w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm font-medium outline-none focus:border-emerald-500/50 ${(sugestaoHover?.tipo ?? tipo) === "RECEITA" ? "text-emerald-500" : "text-rose-500"}`}
+              />
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1 uppercase tracking-wider">Data de Vencimento</label>
+              <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1 uppercase tracking-wider">
+                Data de Vencimento
+              </label>
               <div className="relative">
-                <input type="text" inputMode="numeric" value={vencimentoDisplay} onChange={handleVencimentoChange} onFocus={e=>e.target.select()} placeholder="DD/MM/AAAA" maxLength={10} className="w-full h-10 px-3 pr-10 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50" />
-                <button type="button" onClick={()=>setShowVencimentoPicker(true)} className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground/80 hover:text-emerald-500 hover:bg-emerald-500/10 rounded-md transition-colors"><IconCalendar /></button>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={vencimentoDisplay}
+                  onChange={handleVencimentoChange}
+                  onFocus={(e) => e.target.select()}
+                  placeholder="DD/MM/AAAA"
+                  maxLength={10}
+                  className="w-full h-10 px-3 pr-10 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowVencimentoPicker(true)}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground/80 hover:text-emerald-500 dark:hover:text-emerald-500 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/10 rounded-md transition-colors"
+                  title="Abrir calendário"
+                >
+                  <IconCalendar />
+                </button>
               </div>
-              {showVencimentoPicker&&(<ModalDayPicker currentDate={vencimento?new Date(`${vencimento}T12:00:00`):new Date()} onSelect={(date)=>{const d=String(date.getDate()).padStart(2,"0");const m=String(date.getMonth()+1).padStart(2,"0");const y=date.getFullYear();setVencimento(`${y}-${m}-${d}`);setRawDigits(`${d}${m}${y}`);setShowVencimentoPicker(false);}} onClose={()=>setShowVencimentoPicker(false)}/>)}
+              {showVencimentoPicker && (
+                <ModalDayPicker
+                  currentDate={
+                    vencimento ? new Date(`${vencimento}T12:00:00`) : new Date()
+                  }
+                  onSelect={(date) => {
+                    const d = String(date.getDate()).padStart(2, "0");
+                    const m = String(date.getMonth() + 1).padStart(2, "0");
+                    const y = date.getFullYear();
+                    setVencimento(`${y}-${m}-${d}`);
+                    setRawDigits(`${d}${m}${y}`);
+                    setShowVencimentoPicker(false);
+                  }}
+                  onClose={() => setShowVencimentoPicker(false)}
+                />
+              )}
             </div>
             <div>
-              <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1 uppercase tracking-wider">Status</label>
+              <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1 uppercase tracking-wider">
+                Status
+              </label>
               <div className="flex bg-transparent rounded-lg border border-border p-1 h-10">
-                <button onClick={()=>setStatus("PENDENTE")} className={`flex-1 rounded-md text-xs font-medium transition-colors ${status==="PENDENTE"?"bg-amber-500/20 text-amber-500":"text-muted-foreground/80"}`}>⏳ Pendente</button>
-                <button onClick={()=>setStatus("PAGO")} className={`flex-1 rounded-md text-xs font-medium transition-colors ${status==="PAGO"?"bg-emerald-500/20 text-emerald-500":"text-muted-foreground/80"}`}>✅ Pago</button>
+                <button
+                  onClick={() => setStatus("PENDENTE")}
+                  className={`flex-1 rounded-md text-xs font-medium transition-colors ${status === "PENDENTE" ? "bg-amber-500/20 text-amber-500  dark:text-amber-500" : "text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80"}`}
+                >
+                  ⏳ Pendente
+                </button>
+                <button
+                  onClick={() => setStatus("PAGO")}
+                  className={`flex-1 rounded-md text-xs font-medium transition-colors ${status === "PAGO" ? "bg-emerald-500/20 text-emerald-500  dark:text-emerald-500" : "text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80"}`}
+                >
+                  ✅ Pago
+                </button>
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1 uppercase tracking-wider">Conta / Carteira</label>
-              <select value={contaSelecionada} onChange={handleContaChange} className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 font-medium">
-                <option value="" disabled>Selecionar Conta</option>
-                {contas.map(c=><option key={c.id} value={c.id}>{c.icone} {c.nome}</option>)}
+              <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1 uppercase tracking-wider">
+                Conta / Carteira
+              </label>
+              <select
+                value={contaSelecionada}
+                onChange={handleContaChange}
+                className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 font-medium"
+              >
+                <option value="" disabled>
+                  Selecionar Conta
+                </option>
+                {contas.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.icone} {c.nome}
+                  </option>
+                ))}
                 <option disabled>──────────</option>
-                <option value="NOVA">+ Nova Conta</option>
-                <option value="GERENCIAR">⚙️ Gerenciar Contas</option>
+                <option value="NOVA" className="font-medium text-emerald-500">
+                  + Nova Conta
+                </option>
+                <option
+                  value="GERENCIAR"
+                  className="font-medium text-muted-foreground"
+                >
+                  ⚙️ Gerenciar Contas
+                </option>
               </select>
             </div>
             <div>
-              <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1 uppercase tracking-wider">Categoria</label>
-              <select value={categoriaSelecionada} onChange={handleCategoriaChange} className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 font-medium">
-                <option value="" disabled>Selecionar Categoria</option>
-                {categoriasAtivas.map(c=><option key={c.id} value={c.id}>{c.icone} {c.nome}</option>)}
+              <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1 uppercase tracking-wider">
+                Categoria
+              </label>
+              <select
+                value={categoriaSelecionada}
+                onChange={handleCategoriaChange}
+                className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 font-medium"
+              >
+                <option value="" disabled>
+                  Selecionar Categoria
+                </option>
+                {categoriasAtivas.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.icone} {c.nome}
+                  </option>
+                ))}
                 <option disabled>──────────</option>
-                <option value="NOVA">+ Nova Categoria</option>
-                <option value="GERENCIAR">⚙️ Gerenciar Categorias</option>
+                <option value="NOVA" className="font-medium text-emerald-500">
+                  + Nova Categoria
+                </option>
+                <option
+                  value="GERENCIAR"
+                  className="font-medium text-muted-foreground"
+                >
+                  ⚙️ Gerenciar Categorias
+                </option>
               </select>
             </div>
           </div>
 
-          {status==="PAGO"&&(
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="sm:col-span-1">
-                <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1 uppercase tracking-wider">Data de Pagamento</label>
-                <button type="button" onClick={()=>setShowPagamentoPicker(true)} className="w-full h-10 px-3 flex justify-center items-center bg-card dark:bg-transparent border border-emerald-500/20 rounded-lg text-sm font-medium text-emerald-500 hover:border-emerald-500 transition-colors">
-                  {pagamentoDisplay}
-                </button>
-                {showPagamentoPicker&&(<ModalDayPicker currentDate={dataPagamento?new Date(`${dataPagamento}T12:00:00`):new Date()} onSelect={(date)=>{const d=String(date.getDate()).padStart(2,"0");const m=String(date.getMonth()+1).padStart(2,"0");const y=date.getFullYear();setDataPagamento(`${y}-${m}-${d}`);setRawDigitsPagamento(`${d}${m}${y}`);setShowPagamentoPicker(false);}} onClose={()=>setShowPagamentoPicker(false)}/>)}
-              </div>
-              <div className="sm:col-span-2">
-                {isEdit&&rTipoInicial!=="UNICA"?(<>
-                  <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1 uppercase tracking-wider">Aplicar alterações em:</label>
-                  <div className="flex bg-transparent rounded-lg border border-border p-1 h-10">
-                    <button type="button" onClick={()=>setEscopoEdicao("UNICA")} className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopoEdicao==="UNICA"?"bg-amber-500/20 text-amber-500 shadow-sm":"text-muted-foreground/80"}`}>📅 Apenas nesta</button>
-                    <button type="button" onClick={()=>setEscopoEdicao("TODAS")} className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopoEdicao==="TODAS"?"bg-sky-500/20 text-sky-500 shadow-sm":"text-muted-foreground/80"}`}>🔁 Nesta e nas futuras</button>
-                  </div>
-                </>):(<div/>)}
-              </div>
+          {status === "PAGO" && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="sm:col-span-1">
+              <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1 uppercase tracking-wider">
+                Data de Pagamento
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowPagamentoPicker(true)}
+                className={`w-full h-10 px-3 flex justify-center items-center bg-card dark:bg-transparent border rounded-lg transition-colors text-sm font-medium ${status === "PAGO" ? "border-emerald-500/20 text-emerald-500 hover:border-emerald-500" : "border-border text-muted-foreground/80 dark:text-white/50 hover:border-slate-400"}`}
+              >
+                {pagamentoDisplay}
+              </button>
+              {showPagamentoPicker && (
+                <ModalDayPicker
+                  currentDate={
+                    dataPagamento
+                      ? new Date(`${dataPagamento}T12:00:00`)
+                      : new Date()
+                  }
+                  onSelect={(date) => {
+                    const d = String(date.getDate()).padStart(2, "0");
+                    const m = String(date.getMonth() + 1).padStart(2, "0");
+                    const y = date.getFullYear();
+                    setDataPagamento(`${y}-${m}-${d}`);
+                    setRawDigitsPagamento(`${d}${m}${y}`);
+                    setShowPagamentoPicker(false);
+                  }}
+                  onClose={() => setShowPagamentoPicker(false)}
+                />
+              )}
             </div>
+
+            <div className="sm:col-span-2">
+              {isEdit && rTipoInicial !== "UNICA" ? (
+                <>
+                  <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1 uppercase tracking-wider">
+                    Aplicar alterações em:
+                  </label>
+                  <div className="flex bg-transparent rounded-lg border border-border p-1 h-10">
+                    <button
+                      type="button"
+                      onClick={() => setEscopoEdicao("UNICA")}
+                      className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopoEdicao === "UNICA" ? "bg-amber-500/20 text-amber-500  dark:text-amber-500 shadow-sm" : "text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80"}`}
+                    >
+                      📅 Apenas nesta
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEscopoEdicao("TODAS")}
+                      className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopoEdicao === "TODAS" ? "bg-sky-500/20 text-sky-500  dark:text-sky-500 shadow-sm" : "text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80"}`}
+                    >
+                      🔁 Nesta e nas futuras
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div />
+              )}
+            </div>
+          </div>
           )}
 
-          {!isEdit&&(
+          {!isEdit && (
             <div className="p-3 rounded-lg border border-border bg-transparent space-y-3">
-              <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider">Recorrência e Parcelamento</label>
+              <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground uppercase tracking-wider">
+                Recorrência e Parcelamento
+              </label>
+
               <div className="flex bg-card dark:bg-transparent rounded-md border border-border p-1">
-                {(["UNICA","RECORRENTE","PARCELADA"] as const).map(mode=>(
-                  <button key={mode} onClick={()=>setTipoRecorrencia(mode)} className={`flex-1 py-1 rounded text-xs font-medium transition-all ${tipoRecorrencia===mode?"bg-emerald-500/10 text-emerald-500 shadow-sm":"text-muted-foreground hover:text-foreground/90"}`}>
-                    {mode==="UNICA"?"Única":mode==="RECORRENTE"?"Recorrente":"Parcelado"}
-                  </button>
-                ))}
+                <button
+                  onClick={() => setTipoRecorrencia("UNICA")}
+                  className={`flex-1 py-1 rounded text-xs font-medium transition-all ${tipoRecorrencia === "UNICA" ? "bg-emerald-500/10 text-emerald-500  dark:text-emerald-500 shadow-sm" : "text-muted-foreground hover:text-foreground/90 dark:hover:text-white/80"}`}
+                >
+                  Única
+                </button>
+                <button
+                  onClick={() => setTipoRecorrencia("RECORRENTE")}
+                  className={`flex-1 py-1 rounded text-xs font-medium transition-all ${tipoRecorrencia === "RECORRENTE" ? "bg-emerald-500/10 text-emerald-500  dark:text-emerald-500 shadow-sm" : "text-muted-foreground hover:text-foreground/90 dark:hover:text-white/80"}`}
+                >
+                  Recorrente
+                </button>
+                <button
+                  onClick={() => setTipoRecorrencia("PARCELADA")}
+                  className={`flex-1 py-1 rounded text-xs font-medium transition-all ${tipoRecorrencia === "PARCELADA" ? "bg-emerald-500/10 text-emerald-500  dark:text-emerald-500 shadow-sm" : "text-muted-foreground hover:text-foreground/90 dark:hover:text-white/80"}`}
+                >
+                  Parcelado
+                </button>
               </div>
-              {tipoRecorrencia==="PARCELADA"&&(<div className="flex items-center gap-3 animate-in fade-in"><span className="text-xs font-medium text-muted-foreground">Qtd de Parcelas:</span><input type="number" min="2" max="120" value={parcelas} onChange={e=>setParcelas(e.target.value)} className="w-16 h-8 px-2 text-center bg-card dark:bg-black/40 border border-border rounded-md text-sm font-medium outline-none focus:border-emerald-500/50 text-foreground"/></div>)}
-              {tipoRecorrencia==="RECORRENTE"&&(<div className="flex items-center gap-3 animate-in fade-in"><span className="text-xs font-medium text-muted-foreground">Repetir a cada:</span><select value={frequencia} onChange={e=>setFrequencia(e.target.value)} className="flex-1 h-8 px-2 bg-card dark:bg-black/40 border border-border rounded-md text-sm font-medium outline-none focus:border-emerald-500/50 text-foreground"><option value="MENSAL">Mês</option><option value="BIMESTRAL">2 Meses</option><option value="TRIMESTRAL">3 Meses</option><option value="SEMESTRAL">6 Meses</option><option value="ANUAL">Ano</option></select></div>)}
+
+              {tipoRecorrencia === "PARCELADA" && (
+                <div className="flex items-center gap-3 animate-in fade-in zoom-in-95">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Qtd de Parcelas:
+                  </span>
+                  <input
+                    type="number"
+                    min="2"
+                    max="120"
+                    value={parcelas}
+                    onChange={(e) => setParcelas(e.target.value)}
+                    className="w-16 h-8 px-2 text-center bg-card dark:bg-black/40 border border-border rounded-md text-sm font-medium outline-none focus:border-emerald-500/50 text-foreground"
+                  />
+                </div>
+              )}
+
+              {tipoRecorrencia === "RECORRENTE" && (
+                <div className="flex items-center gap-3 animate-in fade-in zoom-in-95">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Repetir a cada:
+                  </span>
+                  <select
+                    value={frequencia}
+                    onChange={(e) => setFrequencia(e.target.value)}
+                    className="flex-1 h-8 px-2 bg-card dark:bg-black/40 border border-border rounded-md text-sm font-medium outline-none focus:border-emerald-500/50 text-foreground"
+                  >
+                    <option value="MENSAL">Mês</option>
+                    <option value="BIMESTRAL">2 Meses</option>
+                    <option value="TRIMESTRAL">3 Meses</option>
+                    <option value="SEMESTRAL">6 Meses</option>
+                    <option value="ANUAL">Ano</option>
+                  </select>
+                </div>
+              )}
             </div>
           )}
 
           <div>
-            <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1 uppercase tracking-wider">Observações</label>
-            <textarea value={obs} onChange={e=>setObs(e.target.value)} rows={2} placeholder="Detalhes adicionais..." className="w-full p-2 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 resize-none"/>
+            <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1 uppercase tracking-wider">
+              Observações
+            </label>
+            <textarea
+              value={obs}
+              onChange={(e) => setObs(e.target.value)}
+              rows={2}
+              placeholder="Detalhes adicionais..."
+              className="w-full p-2 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 resize-none"
+            />
           </div>
         </div>
 
         <div className="flex justify-end gap-2 mt-3 pt-3 border-t border-border">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground">Cancelar</button>
-          <button onClick={handleSave} disabled={salvando} className={`px-5 py-2 rounded-lg text-white text-sm font-bold shadow-lg transition-all disabled:opacity-50 ${tipo==="RECEITA"?"bg-emerald-600 hover:bg-emerald-500":"bg-rose-600 hover:bg-rose-500"}`}>
-            {salvando?"Processando...":isEdit?"Salvar Alterações":"Criar Lançamento"}
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-transparent dark:hover:bg-card/5 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={salvando}
+            className={`px-5 py-2 rounded-lg text-white text-sm font-bold shadow-lg transition-all disabled:opacity-50 ${tipo === "RECEITA" ? "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/20" : "bg-rose-600 hover:bg-rose-500 shadow-rose-900/20"}`}
+          >
+            {salvando
+              ? "Processando..."
+              : isEdit
+                ? "Salvar Alterações"
+                : "Criar Lançamento"}
           </button>
         </div>
       </Modal>
 
-      {showNovaConta&&(<ModalNovaConta tenantId={tenantId} addToast={addToast} onClose={()=>{setShowNovaConta(false);setContaSelecionada("");}} onSave={(nova)=>{setContas([...contas,nova]);setContaSelecionada(nova.id);setShowNovaConta(false);}}/>)}
-      {showNovaCategoria&&(<ModalNovaCategoria tenantId={tenantId} addToast={addToast} tipoFixo={tipo} onClose={()=>{setShowNovaCategoria(false);setCategoriaSelecionada("");}} onSave={(nova)=>{setCategorias([...categorias,nova]);setCategoriaSelecionada(nova.id);setShowNovaCategoria(false);}}/>)}
-      {showGerenciarContas&&(<ModalGerenciarItens title="Gerenciar Contas" items={contas} onClose={()=>setShowGerenciarContas(false)} addToast={addToast} onExcluir={async(id)=>handleExcluirConta(id)} onEditar={async(id,nome,icone)=>handleEditarConta(id,nome,icone)}/>)}
-      {showGerenciarCategorias&&(<ModalGerenciarItens title="Gerenciar Categorias" items={categorias} onClose={()=>setShowGerenciarCategorias(false)} addToast={addToast} onExcluir={async(id)=>handleExcluirCategoria(id)} onEditar={async(id,nome,icone)=>handleEditarCategoria(id,nome,icone)} groupByTipo/>)}
+      {showNovaConta && (
+        <ModalNovaConta
+          tenantId={tenantId}
+          addToast={addToast}
+          onClose={() => {
+            setShowNovaConta(false);
+            setContaSelecionada("");
+          }}
+          onSave={(nova) => {
+            setContas([...contas, nova]);
+            setContaSelecionada(nova.id);
+            setShowNovaConta(false);
+          }}
+        />
+      )}
+      {showNovaCategoria && (
+        <ModalNovaCategoria
+          tenantId={tenantId}
+          addToast={addToast}
+          tipoFixo={tipo}
+          onClose={() => {
+            setShowNovaCategoria(false);
+            setCategoriaSelecionada("");
+          }}
+          onSave={(nova) => {
+            setCategorias([...categorias, nova]);
+            setCategoriaSelecionada(nova.id);
+            setShowNovaCategoria(false);
+          }}
+        />
+      )}
+
+      {showGerenciarContas && (
+        <ModalGerenciarItens
+          title="Gerenciar Contas"
+          items={contas}
+          onClose={() => setShowGerenciarContas(false)}
+          addToast={addToast}
+          onExcluir={async (id) => {
+            await handleExcluirConta(id);
+          }}
+          onEditar={async (id, nome, icone) => {
+            await handleEditarConta(id, nome, icone);
+          }}
+        />
+      )}
+      {showGerenciarCategorias && (
+        <ModalGerenciarItens
+          title="Gerenciar Categorias"
+          items={categorias}
+          onClose={() => setShowGerenciarCategorias(false)}
+          addToast={addToast}
+          onExcluir={async (id) => {
+            await handleExcluirCategoria(id);
+          }}
+          onEditar={async (id, nome, icone) => {
+            await handleEditarCategoria(id, nome, icone);
+          }}
+          groupByTipo
+        />
+      )}
     </>
   );
 }
 
-// --- MODAL BAIXA ---
-function ModalBaixa({ tenantId, transacao, contasDB, addToast, onClose, onSuccess }: {
-  tenantId: string; transacao: Transacao; contasDB: any[]; addToast: any; onClose: () => void; onSuccess: () => void;
+function ModalBaixa({
+  tenantId,
+  transacao,
+  contasDB,
+  addToast,
+  onClose,
+  onSuccess,
+}: {
+  tenantId: string;
+  transacao: Transacao;
+  contasDB: any[];
+  addToast: any;
+  onClose: () => void;
+  onSuccess: () => void;
 }) {
   const isBaixando = transacao.status !== "PAGO";
   const isReceita = transacao.tipo === "RECEITA";
-  const initialCents = Math.round(transacao.valor*100);
+
+  const initialCents = Math.round(transacao.valor * 100);
   const [rawCents, setRawCents] = useState(initialCents);
   const valorAlterado = rawCents !== initialCents;
-  const centsToDisplay = (cents: number) => { const str=String(cents).padStart(3,"0"); const int=str.slice(0,-2).replace(/\B(?=(\d{3})+(?!\d))/g,"."); const dec=str.slice(-2); return (int||"0")+","+dec; };
-  const [contaSelecionada, setContaSelecionada] = useState(transacao.conta_id||(contasDB[0]?.id??""));
-  const [escopo, setEscopo] = useState<"UNICA"|"TODAS">("UNICA");
-  const isoToRaw=(iso: string)=>iso?iso.split("-").reverse().join(""):"";
-  const rawToDisplay=(raw: string)=>{ if(raw.length>=5) return raw.slice(0,2)+"/"+raw.slice(2,4)+"/"+raw.slice(4); if(raw.length>=3) return raw.slice(0,2)+"/"+raw.slice(2); return raw; };
-  const initDateIso=(()=>{ if(!isBaixando&&transacao.data_pagamento){const dt=new Date(transacao.data_pagamento);const d=String(dt.getDate()).padStart(2,"0");const m=String(dt.getMonth()+1).padStart(2,"0");return `${dt.getFullYear()}-${m}-${d}`;} const t=new Date(); return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`; })();
+
+  const centsToDisplay = (cents: number) => {
+    const str = String(cents).padStart(3, "0");
+    const int = str.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    const dec = str.slice(-2);
+    return (int || "0") + "," + dec;
+  };
+
+  const [contaSelecionada, setContaSelecionada] = useState(
+    transacao.conta_id || (contasDB[0]?.id ?? ""),
+  );
+
+  const [escopo, setEscopo] = useState<"UNICA" | "TODAS">("UNICA");
+
+  const isoToRaw = (iso: string) =>
+    iso ? iso.split("-").reverse().join("") : "";
+  const rawToDisplay = (raw: string) => {
+    if (raw.length >= 5)
+      return raw.slice(0, 2) + "/" + raw.slice(2, 4) + "/" + raw.slice(4);
+    if (raw.length >= 3) return raw.slice(0, 2) + "/" + raw.slice(2);
+    return raw;
+  };
+
+  const initDateIso = (() => {
+    if (!isBaixando && transacao.data_pagamento) {
+      const dt = new Date(transacao.data_pagamento);
+      const d = String(dt.getDate()).padStart(2, "0");
+      const m = String(dt.getMonth() + 1).padStart(2, "0");
+      return `${dt.getFullYear()}-${m}-${d}`;
+    }
+    const t = new Date();
+    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+  })();
+
   const [dataPagamento, setDataPagamento] = useState(initDateIso);
   const [rawDigits, setRawDigits] = useState(isoToRaw(initDateIso));
   const [showPicker, setShowPicker] = useState(false);
   const [salvando, setSalvando] = useState(false);
-  const handleDigitsChange=(e: React.ChangeEvent<HTMLInputElement>)=>{ const input=e.target; const cursorPos=input.selectionStart; const raw=input.value.replace(/\D/g,"").slice(0,8); setRawDigits(raw); if(raw.length===8){const d=raw.slice(0,2),m=raw.slice(2,4),y=raw.slice(4);setDataPagamento(`${y}-${m}-${d}`);} requestAnimationFrame(()=>{if(cursorPos!==null&&input) input.setSelectionRange(cursorPos,cursorPos);}); };
+
+  const handleDigitsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target;
+    const cursorPos = input.selectionStart;
+    const raw = input.value.replace(/\D/g, "").slice(0, 8);
+    setRawDigits(raw);
+    if (raw.length === 8) {
+      const d = raw.slice(0, 2), m = raw.slice(2, 4), y = raw.slice(4);
+      setDataPagamento(`${y}-${m}-${d}`);
+    }
+    requestAnimationFrame(() => {
+      if (cursorPos !== null && input) input.setSelectionRange(cursorPos, cursorPos);
+    });
+  };
+
   async function handleSave() {
     setSalvando(true);
     try {
-      const novoStatus=isBaixando?"PAGO":"PENDENTE";
-      const novoValor=rawCents/100;
-      const novaDataPagamento=isBaixando?new Date(`${dataPagamento}T12:00:00`).toISOString():null;
-      const {error}=await supabaseBrowser.from("fin_transacoes").update({ status:novoStatus,valor:novoValor,conta_id:contaSelecionada||null,data_pagamento:novaDataPagamento }).eq("id",transacao.id);
-      if(error) throw error;
-      if(valorAlterado&&escopo==="TODAS"&&transacao.recorrencia_id) { await supabaseBrowser.from("fin_transacoes").update({valor:novoValor}).eq("recorrencia_id",transacao.recorrencia_id).eq("status","PENDENTE").gt("data_vencimento",transacao.data_vencimento); }
-      addToast("success",isBaixando?(isReceita?"Recebimento confirmado":"Pagamento confirmado"):"Revertido para pendente","Lançamento atualizado.");
+      const novoStatus = isBaixando ? "PAGO" : "PENDENTE";
+      const novoValor = rawCents / 100;
+      const novaDataPagamento = isBaixando
+        ? new Date(`${dataPagamento}T12:00:00`).toISOString()
+        : null;
+
+      const { error } = await supabaseBrowser
+        .from("fin_transacoes")
+        .update({
+          status: novoStatus,
+          valor: novoValor,
+          conta_id: contaSelecionada || null,
+          data_pagamento: novaDataPagamento,
+        })
+        .eq("id", transacao.id);
+
+      if (error) throw error;
+
+      if (valorAlterado && escopo === "TODAS" && transacao.recorrencia_id) {
+        await supabaseBrowser
+          .from("fin_transacoes")
+          .update({ valor: novoValor })
+          .eq("recorrencia_id", transacao.recorrencia_id)
+          .eq("status", "PENDENTE")
+          .gt("data_vencimento", transacao.data_vencimento);
+      }
+
+      addToast(
+        "success",
+        isBaixando
+          ? isReceita ? "Recebimento confirmado" : "Pagamento confirmado"
+          : "Revertido para pendente",
+        "Lançamento atualizado com sucesso.",
+      );
       onSuccess();
-    } catch(e: any){ addToast("error","Erro ao salvar",e.message); } finally { setSalvando(false); }
+    } catch (e: any) {
+      addToast("error", "Erro ao salvar", e.message);
+    } finally {
+      setSalvando(false);
+    }
   }
-  const btnLabel=isBaixando?(isReceita?"Confirmar Recebimento":"Confirmar Pagamento"):"Voltar para Pendente";
-  const btnColor=isBaixando?(isReceita?"bg-emerald-600 hover:bg-emerald-500":"bg-rose-600 hover:bg-rose-500"):"bg-amber-500 hover:bg-amber-400";
+
+  const btnLabel = isBaixando
+    ? isReceita ? "Confirmar Recebimento" : "Confirmar Pagamento"
+    : "Voltar para Pendente";
+
+  const btnColor = isBaixando
+    ? isReceita
+      ? "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/20"
+      : "bg-rose-600 hover:bg-rose-500 shadow-rose-900/20"
+    : "bg-amber-500 hover:bg-amber-400 shadow-amber-900/20";
+
   return (
-    <Modal title={isBaixando?(isReceita?"Confirmar Recebimento":"Confirmar Pagamento"):"Reverter para Pendente"} onClose={onClose}>
+    <Modal
+      title={
+        isBaixando
+          ? isReceita ? "Confirmar Recebimento" : "Confirmar Pagamento"
+          : "Reverter para Pendente"
+      }
+      onClose={onClose}
+    >
       <div className="space-y-4">
         <div className="p-3 rounded-xl border border-border bg-transparent flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-medium text-muted-foreground/80 uppercase tracking-wider mb-0.5">{isReceita?"📈 Receita":"📉 Despesa"}</p>
-            <p className="text-sm font-medium text-foreground/90 truncate">{transacao.descricao}</p>
-            {transacao.categoria_nome&&<p className="text-xs text-muted-foreground/80 mt-0.5">{transacao.categoria_nome}</p>}
+            <p className="text-xs font-medium text-muted-foreground/80 dark:text-muted-foreground uppercase tracking-wider mb-0.5">
+              {isReceita ? "📈 Receita" : "📉 Despesa"}
+            </p>
+            <p className="text-sm font-medium text-foreground/90 truncate">
+              {transacao.descricao}
+            </p>
+            {transacao.categoria_nome && (
+              <p className="text-xs text-muted-foreground/80 dark:text-muted-foreground mt-0.5">
+                {transacao.categoria_nome}
+              </p>
+            )}
           </div>
           <div className="text-right shrink-0">
-            <p className="text-[10px] text-muted-foreground/80 uppercase tracking-wider mb-1">Valor (R$)</p>
-            <input type="text" inputMode="numeric" value={centsToDisplay(rawCents)} onChange={e=>{const digits=e.target.value.replace(/\D/g,"").slice(0,13);setRawCents(parseInt(digits||"0",10));}} onFocus={e=>e.target.select()} className={`w-28 h-9 px-2 text-right font-medium rounded-lg border bg-card dark:bg-transparent outline-none focus:border-emerald-500/50 text-sm ${isReceita?"text-emerald-500 border-emerald-500/20":"text-rose-500 border-rose-500/20"}`}/>
-            {valorAlterado&&<p className="text-[10px] text-amber-500 mt-0.5">Valor alterado</p>}
+            <p className="text-[10px] text-muted-foreground/80 uppercase tracking-wider mb-1">
+              Valor (R$)
+            </p>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={centsToDisplay(rawCents)}
+              onChange={(e) => {
+                const digits = e.target.value.replace(/\D/g, "").slice(0, 13);
+                setRawCents(parseInt(digits || "0", 10));
+              }}
+              onFocus={(e) => e.target.select()}
+              className={`w-28 h-9 px-2 text-right font-medium rounded-lg border bg-card dark:bg-transparent outline-none focus:border-emerald-500/50 text-sm ${
+                isReceita
+                  ? "text-emerald-500 border-emerald-500/20"
+                  : "text-rose-500 border-rose-500/20"
+              }`}
+            />
+            {valorAlterado && (
+              <p className="text-[10px] text-amber-500 mt-0.5">Valor alterado</p>
+            )}
           </div>
         </div>
-        {valorAlterado&&transacao.recorrencia_id&&(
-          <div className="animate-in fade-in duration-150">
-            <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1.5 uppercase tracking-wider">Aplicar novo valor em:</label>
+
+        {valorAlterado && transacao.recorrencia_id && (
+          <div className="animate-in fade-in zoom-in-95 duration-150">
+            <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              Aplicar novo valor em:
+            </label>
             <div className="flex bg-transparent rounded-lg border border-border p-1 h-10">
-              <button type="button" onClick={()=>setEscopo("UNICA")} className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopo==="UNICA"?"bg-amber-500/20 text-amber-500 shadow-sm":"text-muted-foreground/80"}`}>📅 Apenas nesta</button>
-              <button type="button" onClick={()=>setEscopo("TODAS")} className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopo==="TODAS"?"bg-sky-500/20 text-sky-500 shadow-sm":"text-muted-foreground/80"}`}>🔁 Nesta e nas futuras</button>
+              <button
+                type="button"
+                onClick={() => setEscopo("UNICA")}
+                className={`flex-1 rounded-md text-xs font-medium transition-colors ${
+                  escopo === "UNICA"
+                    ? "bg-amber-500/20 text-amber-500 shadow-sm"
+                    : "text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80"
+                }`}
+              >
+                📅 Apenas nesta
+              </button>
+              <button
+                type="button"
+                onClick={() => setEscopo("TODAS")}
+                className={`flex-1 rounded-md text-xs font-medium transition-colors ${
+                  escopo === "TODAS"
+                    ? "bg-sky-500/20 text-sky-500 shadow-sm"
+                    : "text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80"
+                }`}
+              >
+                🔁 Nesta e nas futuras
+              </button>
             </div>
           </div>
         )}
-        {isBaixando&&(
+
+        {isBaixando && (
           <div>
-            <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1.5 uppercase tracking-wider">Data de Pagamento</label>
+            <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              Data de Pagamento
+            </label>
             <div className="relative">
-              <input type="text" inputMode="numeric" value={rawToDisplay(rawDigits)} onChange={handleDigitsChange} onFocus={e=>e.target.select()} placeholder="DD/MM/AAAA" maxLength={10} className="w-full h-10 px-3 pr-10 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"/>
-              <button type="button" onClick={()=>setShowPicker(true)} className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground/80 hover:text-emerald-500 hover:bg-emerald-500/10 rounded-md transition-colors"><IconCalendar/></button>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={rawToDisplay(rawDigits)}
+                onChange={handleDigitsChange}
+                onFocus={(e) => e.target.select()}
+                placeholder="DD/MM/AAAA"
+                maxLength={10}
+                className="w-full h-10 px-3 pr-10 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPicker(true)}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground/80 hover:text-emerald-500 hover:bg-emerald-500/10 rounded-md transition-colors"
+              >
+                <IconCalendar />
+              </button>
             </div>
-            {showPicker&&(<ModalDayPicker currentDate={dataPagamento?new Date(`${dataPagamento}T12:00:00`):new Date()} onSelect={(date)=>{const d=String(date.getDate()).padStart(2,"0");const m=String(date.getMonth()+1).padStart(2,"0");const y=date.getFullYear();setDataPagamento(`${y}-${m}-${d}`);setRawDigits(`${d}${m}${y}`);setShowPicker(false);}} onClose={()=>setShowPicker(false)}/>)}
+            {showPicker && (
+              <ModalDayPicker
+                currentDate={dataPagamento ? new Date(`${dataPagamento}T12:00:00`) : new Date()}
+                onSelect={(date) => {
+                  const d = String(date.getDate()).padStart(2, "0");
+                  const m = String(date.getMonth() + 1).padStart(2, "0");
+                  const y = date.getFullYear();
+                  setDataPagamento(`${y}-${m}-${d}`);
+                  setRawDigits(`${d}${m}${y}`);
+                  setShowPicker(false);
+                }}
+                onClose={() => setShowPicker(false)}
+              />
+            )}
           </div>
         )}
+
         <div>
-          <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1.5 uppercase tracking-wider">Conta / Carteira</label>
-          <select value={contaSelecionada} onChange={e=>setContaSelecionada(e.target.value)} className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50">
+          <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+            Conta / Carteira
+          </label>
+          <select
+            value={contaSelecionada}
+            onChange={(e) => setContaSelecionada(e.target.value)}
+            className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
+          >
             <option value="">Sem conta</option>
-            {contasDB.map(c=><option key={c.id} value={c.id}>{c.icone} {c.nome}</option>)}
+            {contasDB.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.icone} {c.nome}
+              </option>
+            ))}
           </select>
         </div>
+
         <div className="flex gap-2 pt-1">
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-lg border border-border text-sm font-medium text-muted-foreground">Cancelar</button>
-          <button onClick={handleSave} disabled={salvando} className={`flex-1 py-2.5 rounded-lg text-white text-sm font-medium shadow-lg transition-all disabled:opacity-50 ${btnColor}`}>{salvando?"Salvando...":btnLabel}</button>
+          <button
+            onClick={onClose}
+            className="flex-1 py-2.5 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-transparent dark:hover:bg-card/5 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={salvando}
+            className={`flex-1 py-2.5 rounded-lg text-white text-sm font-medium shadow-lg transition-all disabled:opacity-50 ${btnColor}`}
+          >
+            {salvando ? "Salvando..." : btnLabel}
+          </button>
         </div>
       </div>
     </Modal>
@@ -1969,7 +4745,13 @@ function ModalBaixa({ tenantId, transacao, contasDB, addToast, onClose, onSucces
 
 export default function FinanceiroPessoalPage() {
   return (
-    <Suspense fallback={<div className="p-12 text-center text-muted-foreground/80 animate-pulse">Carregando Finanças...</div>}>
+    <Suspense
+      fallback={
+        <div className="p-12 text-center text-muted-foreground/80 animate-pulse">
+          Carregando Finanças...
+        </div>
+      }
+    >
       <FinanceiroPageContent />
     </Suspense>
   );

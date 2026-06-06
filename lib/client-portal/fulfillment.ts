@@ -350,8 +350,9 @@ if (!renewRes.ok || !renewJson?.ok) {
     updated_at: new Date().toISOString(),
   };
 
-  if ((client as any)?.is_trial === true) updatePayload.is_trial = false;
-  if (newPassword) updatePayload.server_password = String(newPassword);
+  updatePayload.is_trial = false;
+updatePayload.is_archived = false;
+if (newPassword) updatePayload.server_password = String(newPassword);
   if (newExternalId) updatePayload.external_user_id = String(newExternalId); // ✅ Salva o ID real no banco!
 
   const { error: upClientErr } = await supabaseAdmin
