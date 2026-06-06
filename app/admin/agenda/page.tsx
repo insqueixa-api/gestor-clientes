@@ -157,19 +157,15 @@ function displayPhone(raw: string | null | undefined): string {
   }
 
   if (ddi === "55") {
-    if (national.startsWith("0")) national = national.slice(1);
-    const ddd = national.slice(0, 2);
-    const rest = national.slice(2);
-    if (rest.length === 9)
-      return `(${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
-
-    if (rest.length === 8)
-      return `(${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
-
-    return `(${ddd}) ${rest}`.trim();
-
-
-  }
+  if (national.startsWith("0")) national = national.slice(1);
+  const ddd = national.slice(0, 2);
+  const rest = national.slice(2);
+  if (rest.length === 9)
+    return `(0${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
+  if (rest.length === 8)
+    return `(0${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
+  return `(0${ddd}) ${rest}`.trim();
+}
 
   const opt = DDI_OPTIONS.find((o) => o.code === ddi);
   const flag = opt?.flag || "🌐";
@@ -1824,7 +1820,8 @@ if (!res.ok) {
                                   <MenuItem
                                     key={p.id}
                                     icon={<IconSend />}
-                                    label={`Para: ${p.label} (${displayPhone(p.value)})`}
+                                    label={`Para: ${p.label} · ${displayPhone(p.value)}`}
+
                                     onClick={() => {
                                       setMsgMenuForId(null);
                                       setMessageText("");
