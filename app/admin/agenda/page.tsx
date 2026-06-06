@@ -161,10 +161,14 @@ function displayPhone(raw: string | null | undefined): string {
     const ddd = national.slice(0, 2);
     const rest = national.slice(2);
     if (rest.length === 9)
-      return `(0${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
+      return `(${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
+
     if (rest.length === 8)
-      return `(0${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
-    return `(0${ddd}) ${rest}`.trim();
+      return `(${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
+
+    return `(${ddd}) ${rest}`.trim();
+
+
   }
 
   const opt = DDI_OPTIONS.find((o) => o.code === ddi);
@@ -1820,7 +1824,7 @@ if (!res.ok) {
                                   <MenuItem
                                     key={p.id}
                                     icon={<IconSend />}
-                                    label={`Para: ${p.label} (${displayPhone(p.value).replace(/^[^ ]+ \+/, '+')})`}
+                                    label={`Para: ${p.label} (${displayPhone(p.value)})`}
                                     onClick={() => {
                                       setMsgMenuForId(null);
                                       setMessageText("");
