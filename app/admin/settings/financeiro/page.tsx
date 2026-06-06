@@ -379,7 +379,7 @@ function ModalDiaDetalhes({
     if (t.observacoes === "Ajuste automático de saldo") return "Ajuste Automático";
     if (t.parcela_total) return `Parcela ${t.parcela_atual}/${t.parcela_total}`;
     if (t.is_recorrente && t.frequencia) return t.frequencia.charAt(0) + t.frequencia.slice(1).toLowerCase();
-    return "Único";
+    return "Lançamento Único";
   };
 
   const fmtBRL = (v: number) =>
@@ -874,10 +874,7 @@ function FinanceiroPageContent() {
         "Transação(ões) removida(s) com sucesso.",
       );
       setDeleteData({ open: false, transacao: null });
-      if (diaSelecionado) {
-          // Se fechar ou excluir, talvez queiramos fechar o modal ou recarregar
-          setDiaSelecionado(null);
-      }
+      setDiaSelecionado(null);
       carregarDados(tenantId, currentDate);
     } catch (e) {
       addToast("error", "Erro ao excluir", "Tente novamente.");
@@ -919,6 +916,13 @@ function FinanceiroPageContent() {
       currency: "BRL",
     }).format(v);
 
+  const formatRecorrencia = (t: Transacao) => {
+    if (t.observacoes === "Ajuste automático de saldo") return "Ajuste Automático";
+    if (t.parcela_total) return `Parcela ${t.parcela_atual}/${t.parcela_total}`;
+    if (t.is_recorrente && t.frequencia) return t.frequencia.charAt(0) + t.frequencia.slice(1).toLowerCase();
+    return "Lançamento Único";
+  };
+
   const filteredTransacoes = useMemo(() => {
     const q = search
       .trim()
@@ -958,7 +962,7 @@ function FinanceiroPageContent() {
       }
 
       if (q) {
-        const hay = [t.descricao, t.categoria_nome, t.conta_nome]
+        const hay = [t.descricao, t.categoria_nome, t.conta_nome, formatRecorrencia(t)]
           .join(" ")
           .toLowerCase()
           .normalize("NFD")
@@ -1511,7 +1515,8 @@ function FinanceiroPageContent() {
           onBaixa={(t) => {
             setBaixaModal({ open: true, transacao: t });
           }}
-          onDelete={(t) => {
+onDelete={(t) => {
+            setDiaSelecionado(null);
             handleDeleteClick(t);
           }}
         />
