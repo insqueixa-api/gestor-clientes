@@ -67,10 +67,24 @@ export async function POST(req: Request) {
   }
 
   // Normaliza número — aceita qualquer formato
-  const digits = phone.replace(/\D/g, "");
-  if (digits.length < 8) {
-    return NextResponse.json({ error: "Número inválido" }, { status: 400 });
-  }
+  let digits = phone.replace(/\D/g, "");
+if (digits.length < 8) {
+  return NextResponse.json({ error: "Número inválido" }, { status: 400 });
+}
+
+// Normaliza para E.164 completo (o que a VM espera)
+// Formato banco BR: "02197163313" (11 dígitos, começa com 0) → "5521979163313"
+if (digits.startsWith("0") && digits.length <= 12) {
+  digits = "55" + digits.slice(1); // remove o 0, adiciona 55
+}
+// Número BR sem DDI e sem zero: "21979163313" (11 dígitos)
+else if (digits.length === 11 && !digits.startsWith("55")) {
+  digits = "55" + digits;
+}
+// Número BR sem DDI e sem zero: "2197916331" (10 dígitos — fixo)
+else if (digits.length === 10 && !digits.startsWith("55")) {
+  digits = "55" + digits;
+}
 
   // Session key
   const sessionKey = makeSessionKey(
