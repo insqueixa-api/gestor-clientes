@@ -1688,9 +1688,20 @@ export default function NovoCliente({
         const clientTableExists = clientTableId
           ? allTables.some((t) => t.id === clientTableId)
           : false;
-        let initialTableId = clientTableExists
-          ? clientTableId
-          : defaultBRL?.id || allTables[0]?.id || "";
+          
+        let initialTableId = "";
+        if (clientTableExists) {
+          initialTableId = clientTableId;
+        } else if (clientToEdit?.price_currency) {
+          // ✅ Fallback Inteligente para Testes: se o ID da tabela não vier, busca a tabela pela moeda!
+          const fallbackTable = allTables.find((t) => t.currency === clientToEdit.price_currency && t.is_system_default) 
+                             || allTables.find((t) => t.currency === clientToEdit.price_currency);
+          if (fallbackTable) initialTableId = fallbackTable.id;
+        }
+
+        if (!initialTableId) {
+          initialTableId = defaultBRL?.id || allTables[0]?.id || "";
+        }
 
         // ✅ aplica a seleção inicial
         if (initialTableId) {
@@ -1714,6 +1725,7 @@ export default function NovoCliente({
           }
         }
 
+        // ✅ Só força para o Padrão BRL se for a CRIAÇÃO de um novo teste
         if (isTrialMode && !isEditing && defaultBRL) {
           setSelectedTableId(defaultBRL.id);
           setCurrency("BRL");

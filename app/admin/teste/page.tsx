@@ -86,6 +86,7 @@ type VwClientRow = {
   price_amount: number | null;
   price_currency: string | null;
   plan_name: string | null;
+  plan_table_id?: string | null; // ✅ ADICIONADO
   whatsapp_e164: string | null;
   whatsapp_username: string | null;
   whatsapp_opt_in: boolean | null;
@@ -127,6 +128,7 @@ type TrialRow = {
   price_amount?: number;
   price_currency?: string;
   plan_name?: string;
+  plan_table_id?: string; // ✅ ADICIONADO
   vencimento?: string;
   notes?: string;
   converted: boolean;
@@ -815,6 +817,7 @@ export default function TrialsPage() {
         price_amount: r.price_amount ?? undefined,
         price_currency: r.price_currency ?? undefined,
         plan_name: r.plan_name ?? undefined,
+        plan_table_id: r.plan_table_id ?? undefined, // ✅ ADICIONADO
         vencimento: r.vencimento ?? undefined,
 
         notes: (notesMap[id] ?? r.notes ?? "") as any,
@@ -982,6 +985,7 @@ export default function TrialsPage() {
       price_amount: r.price_amount,
       price_currency: r.price_currency,
       plan_name: r.plan_name,
+      plan_table_id: r.plan_table_id, // ✅ ADICIONADO
 
       vencimento: r.vencimento,
       notes: r.notes ?? "",
