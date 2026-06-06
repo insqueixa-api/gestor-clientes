@@ -1714,7 +1714,7 @@ export default function NovoCliente({
           }
         }
 
-        if (isTrialMode && defaultBRL && !clientToEdit?.price_amount) {
+        if (isTrialMode && !isEditing && defaultBRL) {
           setSelectedTableId(defaultBRL.id);
           setCurrency("BRL");
           setSelectedPlanPeriod("MONTHLY");
