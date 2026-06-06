@@ -86,47 +86,53 @@ else if (digits.length === 10 && !digits.startsWith("55")) {
   digits = "55" + digits;
 }
 
-  // Session key
-  const sessionKey = makeSessionKey(
-    tenantId,
-    authedUserId,
-    whatsappSession === "session2" ? 2 : 1,
-  );
+  const sessionNumber = whatsappSession === "session2" ? 2 : 1;
+const sessionKey = makeSessionKey(tenantId, authedUserId, sessionNumber);
 
-  // Disparo
+try {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+  let res: Response;
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15_000);
-    let res: Response;
-    try {
-      res = await fetch(`${baseUrl}/send`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${waToken}`,
-          "x-session-key": sessionKey,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({ phone: digits, message }),
-        signal: controller.signal,
-      });
-    } finally {
-      clearTimeout(timeout);
-    }
-
-    const raw = await res.text();
-    let parsed: any = null;
-    try { parsed = raw ? JSON.parse(raw) : null; } catch {}
-
-    if (!res.ok || (parsed && (parsed.ok === false || !!parsed.error))) {
-      return NextResponse.json(
-        { error: parsed?.error || raw || "Falha ao enviar" },
-        { status: 502 },
-      );
-    }
-
-    return NextResponse.json({ ok: true, phone: digits });
-  } catch (err: any) {
-    return NextResponse.json({ error: err?.message || "Erro" }, { status: 500 });
+    res = await fetch(`${baseUrl}/send`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${waToken}`,
+        "x-session-key": sessionKey,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({ phone: digits, message }),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
   }
+
+  const raw = await res.text();
+  let parsed: any = null;
+  try { parsed = raw ? JSON.parse(raw) : null; } catch {}
+
+  console.log("[envio_avulso] VM response:", {
+    status: res.status,
+    raw: raw?.slice(0, 200),
+    phone: digits,
+    sessionKeyPrefix: sessionKey.slice(0, 16),
+  });
+
+  if (!res.ok || (parsed && (parsed.ok === false || !!parsed.error))) {
+    return NextResponse.json(
+      { error: parsed?.error || raw || "Falha ao enviar" },
+      { status: 502 },
+    );
+  }
+
+  return NextResponse.json({ ok: true, phone: digits });
+} catch (err: any) {
+  const isTimeout = err?.name === "AbortError";
+  return NextResponse.json(
+    { error: isTimeout ? "Timeout ao conectar na VM" : err?.message || "Erro" },
+    { status: isTimeout ? 504 : 500 },
+  );
+}
 }
