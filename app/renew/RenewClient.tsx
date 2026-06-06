@@ -994,7 +994,7 @@ export default function RenewClient() {
                 <p className="text-xs text-foreground/70 dark:text-white/50 mb-1">
                   Somente Visa ou Mastercard
                 </p>
-                <span className="inline-block px-2 py-0.5 bg-emerald-500/20 text-emerald-300 text-[10px] font-bold rounded-full">
+                <span className="inline-block px-2 py-0.5 bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 text-[10px] font-bold rounded-full">
                   ✅ Renovação Automática
                 </span>
               </div>
@@ -1014,7 +1014,7 @@ export default function RenewClient() {
                 <p className="text-xs text-foreground/70 dark:text-white/50 mb-1">
                   Utilize a carteira digital do seu dispositivo
                 </p>
-                <span className="inline-block px-2 py-0.5 bg-emerald-500/20 text-emerald-300 text-[10px] font-bold rounded-full">
+                <span className="inline-block px-2 py-0.5 bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 text-[10px] font-bold rounded-full">
                   ✅ Renovação Automática
                 </span>
               </div>
@@ -1034,7 +1034,7 @@ export default function RenewClient() {
                 <p className="text-xs text-foreground/70 dark:text-white/50 mb-1">
                   IBAN / SEPA — confirmação via suporte
                 </p>
-                <span className="inline-block px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded-full">
+                <span className="inline-block px-2 py-0.5 bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300 text-[10px] font-bold rounded-full">
                   ⚠️ Renovação Manual
                 </span>
               </div>
@@ -1771,20 +1771,20 @@ export default function RenewClient() {
                         Titular (Favorecido)
                       </p>
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-medium text-foreground/90/80">
-                          {paymentData.beneficiary_name ||
-                            paymentData.holder_name}
-                        </p>
-                        <button
-                          onClick={() =>
-                            copyField(
-                              "pix_name",
-                              paymentData.beneficiary_name ||
-                                paymentData.holder_name,
-                            )
-                          }
-                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "pix_name" ? "bg-emerald-500 text-white" : "bg-white/10 text-foreground hover:bg-white/20"}`}
-                        >
+                        <p className="text-sm font-medium text-foreground/90">
+                        {paymentData.beneficiary_name ||
+                          paymentData.holder_name}
+                      </p>
+                      <button
+                        onClick={() =>
+                          copyField(
+                            "pix_name",
+                            paymentData.beneficiary_name ||
+                              paymentData.holder_name,
+                          )
+                        }
+                        className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "pix_name" ? "bg-emerald-500 text-white" : "bg-black/5 dark:bg-white/10 text-foreground hover:bg-black/10 dark:hover:bg-white/20"}`}
+                      >
                           {copiedField === "pix_name"
                             ? "✅ Copiado"
                             : "📋 Copiar"}
@@ -1798,14 +1798,14 @@ export default function RenewClient() {
                           Instituição Bancária
                         </p>
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm font-medium text-foreground/90/80">
+                          <p className="text-sm font-medium text-foreground/90">
                             {paymentData.institution}
                           </p>
                           <button
                             onClick={() =>
                               copyField("pix_inst", paymentData.institution)
                             }
-                            className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "pix_inst" ? "bg-emerald-500 text-white" : "bg-white/10 text-foreground hover:bg-white/20"}`}
+                            className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "pix_inst" ? "bg-emerald-500 text-white" : "bg-black/5 dark:bg-white/10 text-foreground hover:bg-black/10 dark:hover:bg-white/20"}`}
                           >
                             {copiedField === "pix_inst"
                               ? "✅ Copiado"
