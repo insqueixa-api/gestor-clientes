@@ -113,13 +113,6 @@ try {
   let parsed: any = null;
   try { parsed = raw ? JSON.parse(raw) : null; } catch {}
 
-  console.log("[envio_avulso] VM response:", {
-    status: res.status,
-    raw: raw?.slice(0, 200),
-    phone: digits,
-    sessionKeyPrefix: sessionKey.slice(0, 16),
-  });
-
   if (!res.ok || (parsed && (parsed.ok === false || !!parsed.error))) {
     return NextResponse.json(
       { error: parsed?.error || raw || "Falha ao enviar" },
