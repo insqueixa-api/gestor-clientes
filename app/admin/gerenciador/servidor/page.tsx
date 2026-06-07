@@ -6,6 +6,8 @@ import {
   Clock,
   Network,
   Globe,
+  EyeOff,
+  Eye,
 } from "lucide-react";
 
 import { useEffect, useState } from "react";
@@ -90,6 +92,7 @@ export default function AdminServersPage() {
 
   // ✅ Seu hook (pelo erro) é o formato "confirm simples"
   const { confirm, ConfirmUI } = useConfirm();
+  const [valuesHidden, setValuesHidden] = useState(false);
 
   const [syncingServerId, setSyncingServerId] = useState<string | null>(null);
 
@@ -617,9 +620,19 @@ export default function AdminServersPage() {
         {/* Título (esquerda) */}
         <div className="min-w-0 text-left">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-medium text-foreground tracking-tight truncate">
+<h1 className="text-xl sm:text-2xl font-medium text-foreground tracking-tight truncate">
               Servidores
             </h1>
+            <button
+              onClick={() => setValuesHidden(v => !v)}
+              title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-card/5 text-muted-foreground/80 hover:text-foreground/90 hover:border-slate-400 transition-all text-xs font-medium shadow-sm select-none"
+            >
+              {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              <span className="hidden sm:inline text-[11px] tracking-wide">
+                {valuesHidden ? "Exibir" : "Ocultar"}
+              </span>
+            </button>
           </div>
         </div>
 
@@ -816,9 +829,9 @@ export default function AdminServersPage() {
                         </svg>
                         <span>Total de clientes</span>
                       </div>
-                      <span className="font-normal text-foreground/90/80">
-  {formatNumber(server.stats?.total)}
-</span>
+<span className={`font-normal text-foreground/90 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+                        {formatNumber(server.stats?.total)}
+                      </span>
                     </div>
 
                     <div className="flex justify-between items-center text-xs">
@@ -838,9 +851,9 @@ export default function AdminServersPage() {
                         <span>Clientes ativos</span>
                       </div>
                       <Link
-  href={`/admin/cliente?server_id=${server.id}&status=active`}
-  className="font-normal text-muted-foreground hover:text-emerald-500 hover:underline cursor-pointer transition-colors"
->
+                        href={`/admin/cliente?server_id=${server.id}&status=active`}
+                        className={`font-normal text-muted-foreground hover:text-emerald-500 hover:underline cursor-pointer transition-all duration-300 ${valuesHidden ? "blur-sm select-none pointer-events-none" : ""}`}
+                      >
                         {formatNumber(server.stats?.active)}
                       </Link>
                     </div>
@@ -863,9 +876,9 @@ export default function AdminServersPage() {
                         <span>Clientes inativos</span>
                       </div>
                       <Link
-  href={`/admin/cliente?server_id=${server.id}&status=inactive`}
-  className="font-normal text-muted-foreground hover:text-rose-500 hover:underline cursor-pointer transition-colors"
->
+                        href={`/admin/cliente?server_id=${server.id}&status=inactive`}
+                        className={`font-normal text-muted-foreground hover:text-rose-500 hover:underline cursor-pointer transition-all duration-300 ${valuesHidden ? "blur-sm select-none pointer-events-none" : ""}`}
+                      >
                         {formatNumber(server.stats?.inactive)}
                       </Link>
                     </div>
@@ -891,9 +904,9 @@ export default function AdminServersPage() {
                         <span>Testes ativos</span>
                       </div>
                       <Link
-  href={`/admin/cliente?server_id=${server.id}&status=trial`}
-  className="font-normal text-muted-foreground hover:text-sky-500 hover:underline cursor-pointer transition-colors"
->
+                        href={`/admin/cliente?server_id=${server.id}&status=trial`}
+                        className={`font-normal text-muted-foreground hover:text-sky-500 hover:underline cursor-pointer transition-all duration-300 ${valuesHidden ? "blur-sm select-none pointer-events-none" : ""}`}
+                      >
                         {formatNumber(server.stats?.trial)}
                       </Link>
                     </div>
@@ -904,9 +917,9 @@ export default function AdminServersPage() {
                         <span>Revendas</span>
                       </div>
                       <Link
-  href={`/admin/revendedor?server_id=${server.id}`}
-  className="font-normal text-muted-foreground hover:text-amber-500 hover:underline cursor-pointer transition-colors"
->
+                        href={`/admin/revendedor?server_id=${server.id}`}
+                        className={`font-normal text-muted-foreground hover:text-amber-500 hover:underline cursor-pointer transition-all duration-300 ${valuesHidden ? "blur-sm select-none pointer-events-none" : ""}`}
+                      >
                         {formatNumber(server.stats?.resellers)}
                       </Link>
                     </div>
@@ -917,7 +930,7 @@ export default function AdminServersPage() {
                       <span className="flex items-center gap-2 text-muted-foreground">
                         <IconCardCusto /> Custo crédito
                       </span>
-<span className="font-normal text-foreground/90 bg-transparent border border-border px-2 py-0.5 rounded-lg text-xs">
+<span className={`font-normal text-foreground/90 bg-transparent border border-border px-2 py-0.5 rounded-lg text-xs transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                         {formatMoney(
                           server.credit_unit_cost_brl ??
                             server.default_credit_unit_price,
@@ -930,13 +943,7 @@ export default function AdminServersPage() {
                       <span className="flex items-center gap-2 text-muted-foreground">
                         <IconCardSaldo /> Saldo atual
                       </span>
-                      <span
-                        className={`font-normal px-2 py-0.5 rounded-lg text-xs ${
-    server.credits_available > 10
-                            ? "text-emerald-400 bg-emerald-500/10"
-                            : "text-rose-500 bg-rose-500/10"
-                        }`}
-                      >
+                      <span className={`font-normal px-2 py-0.5 rounded-lg text-xs transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""} ${server.credits_available > 10 ? "text-emerald-400 bg-emerald-500/10" : "text-rose-500 bg-rose-500/10"}`}>
                         {formatNumber(server.credits_available)}
                       </span>
                     </div>
@@ -1039,7 +1046,7 @@ export default function AdminServersPage() {
                 {(server.panel_web_url ||
                   server.panel_telegram_group ||
                   server.notes) && (
-                  <div className="bg-transparent p-3 border-t border-border text-[11px] space-y-2">
+                  <div className={`bg-transparent p-3 border-t border-border text-[11px] space-y-2 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                     {server.panel_web_url && (
                       <div className="flex gap-2">
                         <span className="font-medium text-muted-foreground/80 dark:text-white/30 uppercase tracking-tighter">
