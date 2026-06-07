@@ -500,6 +500,16 @@ const { confirm, ConfirmUI } = useConfirm();
             >
               {reseller.is_archived ? "Arquivado" : "Ativo"}
             </span>
+            <button
+              onClick={() => setValuesHidden(v => !v)}
+              title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-card/5 text-muted-foreground/80 hover:text-foreground/90 hover:border-slate-400 transition-all text-xs font-medium shadow-sm select-none"
+            >
+              {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              <span className="hidden sm:inline text-[11px] tracking-wide">
+                {valuesHidden ? "Exibir" : "Ocultar"}
+              </span>
+            </button>
           </div>
           {/* Subtítulo opcional (email ou telefone) */}
           <span className="text-xs text-muted-foreground font-medium truncate">
@@ -509,17 +519,6 @@ const { confirm, ConfirmUI } = useConfirm();
 
         {/* Ações */}
         <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={() => setValuesHidden(v => !v)}
-            title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-card/5 text-muted-foreground/80 hover:text-foreground/90 hover:border-slate-400 transition-all text-xs font-medium shadow-sm select-none"
-          >
-            {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            <span className="hidden sm:inline text-[11px] tracking-wide">
-              {valuesHidden ? "Exibir" : "Ocultar"}
-            </span>
-          </button>
-
           {/* Voltar (Só Desktop) */}
           <Link
             href="/admin/revendedor"
