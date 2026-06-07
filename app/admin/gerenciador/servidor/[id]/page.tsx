@@ -1,5 +1,5 @@
 "use client";
-import { Loader2, CreditCard } from "lucide-react";
+import { Loader2, CreditCard, EyeOff, Eye } from "lucide-react";
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
@@ -68,8 +68,9 @@ export default function ServerDetailsPage() {
 
   // Toast
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const { confirm, ConfirmUI } = useConfirm();
+const { confirm, ConfirmUI } = useConfirm();
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [valuesHidden, setValuesHidden] = useState(false);
 
   async function handleDeleteMovement(m: MovementRow) {
     const ok = await confirm({
@@ -564,7 +565,7 @@ export default function ServerDetailsPage() {
             </h1>
 
             <span
-              className={`px-2 py-0.5 rounded-lg text-xs font-medium border shadow-sm ${
+              className={`px-2 py-0.5 rounded-lg text-xs font-medium border shadow-sm transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""} ${
                 server.credits_available > 10
                   ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                   : "bg-rose-500/10 text-rose-400 border-rose-500/20"
@@ -572,6 +573,16 @@ export default function ServerDetailsPage() {
             >
               {fmtInt(server.credits_available)} créditos disponíveis
             </span>
+            <button
+              onClick={() => setValuesHidden(v => !v)}
+              title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-card/5 text-muted-foreground/80 hover:text-foreground/90 hover:border-slate-400 transition-all text-xs font-medium shadow-sm select-none"
+            >
+              {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              <span className="hidden sm:inline text-[11px] tracking-wide">
+                {valuesHidden ? "Exibir" : "Ocultar"}
+              </span>
+            </button>
           </div>
 
           <div className="text-muted-foreground mt-1 text-xs flex items-center justify-start gap-2 font-medium">
@@ -589,8 +600,7 @@ export default function ServerDetailsPage() {
         </div>
 
         {/* SELETOR DE MÊS */}
-        <div className="w-full md:w-auto flex justify-end">
-          <div className="flex items-center bg-transparent rounded-lg p-1 border border-border shadow-sm w-full md:w-auto"></div>
+        <div className="w-full md:w-auto flex justify-end items-center">
           <button
             onClick={handlePrevMonth}
             className="p-2 hover:bg-card dark:hover:bg-card/10 rounded-md text-muted-foreground transition-all active:scale-95"
@@ -659,27 +669,15 @@ export default function ServerDetailsPage() {
             </span>
           </div>
           <div className="p-5 grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard
-              title="Faturamento total"
-              value={fmtMoney(metrics.revenue)}
-            />
-            <StatCard
-              title="Custo recargas"
-              value={fmtMoney(metrics.restockCost)}
-            />
+            <StatCard title="Faturamento total" value={fmtMoney(metrics.revenue)} hidden={valuesHidden} />
+            <StatCard title="Custo recargas" value={fmtMoney(metrics.restockCost)} hidden={valuesHidden} />
             <StatCard
               title="Lucro operacional"
               value={fmtMoney(metrics.estimatedProfit)}
-              className={
-                metrics.estimatedProfit >= 0
-                  ? "text-emerald-400"
-                  : "text-rose-500"
-              }
+              className={metrics.estimatedProfit >= 0 ? "text-emerald-400" : "text-rose-500"}
+              hidden={valuesHidden}
             />
-            <StatCard
-              title="Créditos vendidos"
-              value={fmtInt(metrics.creditsSold)}
-            />
+            <StatCard title="Créditos vendidos" value={fmtInt(metrics.creditsSold)} hidden={valuesHidden} />
           </div>
         </div>
 
@@ -693,35 +691,14 @@ export default function ServerDetailsPage() {
             </div>
             <div className="p-5 space-y-6">
               <div className="grid grid-cols-3 gap-4 border-b border-border pb-6">
-                <DetailStat
-                  label="Total clientes"
-                  value={fmtInt(clientStats.total)}
-                />
-                <DetailStat
-                  label="Ativos"
-                  value={fmtInt(clientStats.active)}
-                  valueColor="text-emerald-400"
-                />
-                <DetailStat
-                  label="Consumo"
-                  value={fmtInt(metrics.cliente.consumed) + " cr"}
-                />
+                <DetailStat label="Total clientes" value={fmtInt(clientStats.total)} hidden={valuesHidden} />
+                <DetailStat label="Ativos" value={fmtInt(clientStats.active)} valueColor="text-emerald-400" hidden={valuesHidden} />
+                <DetailStat label="Consumo" value={fmtInt(metrics.cliente.consumed) + " cr"} hidden={valuesHidden} />
               </div>
               <div className="grid grid-cols-3 gap-4">
-                <DetailStat
-                  label="Receita"
-                  value={fmtMoney(metrics.cliente.revenue)}
-                />
-                <DetailStat
-                  label="Custo"
-                  value={fmtMoney(metrics.cliente.cost)}
-                  valueColor="text-rose-500 dark:text-rose-400"
-                />
-                <DetailStat
-                  label="Lucro"
-                  value={fmtMoney(metrics.cliente.profit)}
-                  valueColor="text-emerald-400"
-                />
+                <DetailStat label="Receita" value={fmtMoney(metrics.cliente.revenue)} hidden={valuesHidden} />
+                <DetailStat label="Custo" value={fmtMoney(metrics.cliente.cost)} valueColor="text-rose-500 dark:text-rose-400" hidden={valuesHidden} />
+                <DetailStat label="Lucro" value={fmtMoney(metrics.cliente.profit)} valueColor="text-emerald-400" hidden={valuesHidden} />
               </div>
             </div>
           </div>
@@ -734,30 +711,13 @@ export default function ServerDetailsPage() {
             </div>
             <div className="p-5 space-y-6">
               <div className="grid grid-cols-2 gap-4 border-b border-border pb-6">
-                <DetailStat
-                  label="Total revendas"
-                  value={fmtInt(resellerCount)}
-                />
-                <DetailStat
-                  label="Consumo"
-                  value={fmtInt(metrics.resellers.consumed) + " cr"}
-                />
+                <DetailStat label="Total revendas" value={fmtInt(resellerCount)} hidden={valuesHidden} />
+                <DetailStat label="Consumo" value={fmtInt(metrics.resellers.consumed) + " cr"} hidden={valuesHidden} />
               </div>
               <div className="grid grid-cols-3 gap-4">
-                <DetailStat
-                  label="Receita"
-                  value={fmtMoney(metrics.resellers.revenue)}
-                />
-                <DetailStat
-                  label="Custo"
-                  value={fmtMoney(metrics.resellers.cost)}
-                  valueColor="text-rose-500 dark:text-rose-400"
-                />
-                <DetailStat
-                  label="Lucro"
-                  value={fmtMoney(metrics.resellers.profit)}
-                  valueColor="text-emerald-400"
-                />
+                <DetailStat label="Receita" value={fmtMoney(metrics.resellers.revenue)} hidden={valuesHidden} />
+                <DetailStat label="Custo" value={fmtMoney(metrics.resellers.cost)} valueColor="text-rose-500 dark:text-rose-400" hidden={valuesHidden} />
+                <DetailStat label="Lucro" value={fmtMoney(metrics.resellers.profit)} valueColor="text-emerald-400" hidden={valuesHidden} />
               </div>
             </div>
           </div>
@@ -866,7 +826,7 @@ export default function ServerDetailsPage() {
                       <td className="px-5 py-3 font-medium text-center group-hover:text-emerald-500 transition-colors">
                         {m.qty_credits}
                       </td>
- <td className="px-5 py-3 font-medium">
+ <td className={`px-5 py-3 font-medium transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                         {m.total_brl !== null ? fmtMoney(m.total_brl) : "--"}
                       </td>
                       {/* ✅ Nova formatação da Descrição */}
@@ -946,10 +906,12 @@ function StatCard({
   title,
   value,
   className = "",
+  hidden = false,
 }: {
   title: string;
   value: string;
   className?: string;
+  hidden?: boolean;
 }) {
   return (
     <div className="bg-transparent/50 dark:bg-transparent p-4 rounded-xl border border-border flex flex-col justify-between h-24 transition-all hover:border-emerald-500/30">
@@ -957,7 +919,7 @@ function StatCard({
         {title}
       </div>
       <div
-        className={`text-xl font-medium text-foreground tracking-tight ${className}`}
+        className={`text-xl font-medium text-foreground tracking-tight transition-all duration-300 ${hidden ? "blur-sm select-none" : ""} ${className}`}
       >
         {value}
       </div>
@@ -970,11 +932,13 @@ function DetailStat({
   value,
   valueColor = "text-foreground",
   sub,
+  hidden = false,
 }: {
   label: string;
   value: string;
   valueColor?: string;
   sub?: string;
+  hidden?: boolean;
 }) {
   return (
     <div className="group">
@@ -982,7 +946,7 @@ function DetailStat({
         {label}
       </div>
       <div
-        className={`text-lg font-medium tracking-tight group-hover:scale-105 transition-transform origin-left ${valueColor}`}
+        className={`text-lg font-medium tracking-tight group-hover:scale-105 transition-transform origin-left transition-all duration-300 ${hidden ? "blur-sm select-none" : ""} ${valueColor}`}
       >
         {value}
       </div>
