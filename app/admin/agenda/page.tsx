@@ -7,6 +7,8 @@ import {
   MessageCircle,
   Send,
   Pencil,
+  EyeOff,
+  Eye,
 } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
@@ -280,7 +282,8 @@ function AgendaPageContent() {
   const router = useRouter();
 
   // 👇 Ativando o nosso confirm customizado
-  const { confirm, ConfirmUI } = useConfirm();
+const { confirm, ConfirmUI } = useConfirm();
+  const [valuesHidden, setValuesHidden] = useState(false);
 
   const [rows, setRows] = useState<GoogleContact[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1252,9 +1255,19 @@ if (!res.ok) {
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
         <div className="min-w-0 text-left">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">
+<h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">
               Agenda
             </h1>
+            <button
+              onClick={() => setValuesHidden(v => !v)}
+              title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-card/5 text-muted-foreground/80 hover:text-foreground/90 hover:border-slate-400 transition-all text-xs font-medium shadow-sm select-none"
+            >
+              {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              <span className="hidden sm:inline text-[11px] tracking-wide">
+                {valuesHidden ? "Exibir" : "Ocultar"}
+              </span>
+            </button>
           </div>
         </div>
         <div className="flex items-center gap-1.5 justify-end shrink-0">
@@ -1718,7 +1731,7 @@ if (!res.ok) {
 
                       {/* TELEFONES */}
                       <Td>
-                        <div className="flex flex-col gap-1 py-1">
+                        <div className={`flex flex-col gap-1 py-1 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                           {rPhones.length > 0 ? (
                             rPhones.map((p) => (
                               <div
@@ -1745,7 +1758,7 @@ if (!res.ok) {
 
                       {/* EMAILS */}
                       <Td>
-                        <div className="flex flex-col gap-1 py-1">
+                        <div className={`flex flex-col gap-1 py-1 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                           {rEmails.length > 0 ? (
                             rEmails.map((e) => (
                               <div
