@@ -972,6 +972,20 @@ function AuditoriaPageContent() {
         </>
       )}
 
+      {/* CSS PARA OCULTAR VALORES COM O EYE-TOGGLE */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+        #dashboard-values[data-values-hidden="true"] .finance-value {
+          filter: blur(8px);
+          opacity: 0.6;
+          pointer-events: none;
+          user-select: none;
+        }
+      `,
+        }}
+      />
+
       {ConfirmUI}
       <div className="relative z-[999999]">
         <ToastNotifications
