@@ -2152,8 +2152,8 @@ function FinanceiroPageContent() {
         </div>
       </div>
 
-      {/* NAVEGAÇÃO + SELETOR DE VIEW MODE — abaixo da busca, acima do calendário */}
-      <div className="flex items-center gap-2 px-3 sm:px-0 flex-wrap">
+{/* NAVEGAÇÃO + SELETOR DE VIEW MODE — abaixo da busca, acima do calendário */}
+      <div className="flex items-center justify-end gap-2 px-3 sm:px-0 flex-wrap">
         {/* Seletor Ano | Mês | Semana */}
         <div className="flex items-center border border-border rounded-lg overflow-hidden bg-card/5">
           {(["ano", "mes", "semana"] as ViewMode[]).map((mode) => (
@@ -2170,6 +2170,26 @@ function FinanceiroPageContent() {
             </button>
           ))}
         </div>
+
+{/* Hoje — só aparece quando fora do período atual */}
+        {(() => {
+          const hoje = new Date();
+          const mesAtual =
+            currentDate.getFullYear() === hoje.getFullYear() &&
+            currentDate.getMonth() === hoje.getMonth();
+          const semanaAtual = toIso(startOfWeek(hoje)) === toIso(weekStart);
+          const mostrarHoje =
+            (viewMode === "mes" && !mesAtual) ||
+            (viewMode === "semana" && !semanaAtual);
+          return mostrarHoje ? (
+            <button
+              onClick={handleToday}
+              className="h-9 px-4 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-card/10 transition-colors shrink-0"
+            >
+              Hoje
+            </button>
+          ) : null;
+        })()}
 
         {/* Setas + período */}
         <div className="flex items-center bg-card/5 border border-border rounded-lg shadow-sm">
@@ -2195,26 +2215,6 @@ function FinanceiroPageContent() {
             <IconChevronRight />
           </button>
         </div>
-
-        {/* Hoje — só aparece quando fora do período atual */}
-        {(() => {
-          const hoje = new Date();
-          const mesAtual =
-            currentDate.getFullYear() === hoje.getFullYear() &&
-            currentDate.getMonth() === hoje.getMonth();
-          const semanaAtual = toIso(startOfWeek(hoje)) === toIso(weekStart);
-          const mostrarHoje =
-            (viewMode === "mes" && !mesAtual) ||
-            (viewMode === "semana" && !semanaAtual);
-          return mostrarHoje ? (
-            <button
-              onClick={handleToday}
-              className="h-9 px-4 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-card/10 transition-colors shrink-0"
-            >
-              Hoje
-            </button>
-          ) : null;
-        })()}
 
         {showDatePicker && (
           <ModalDatePicker

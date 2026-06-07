@@ -8,6 +8,7 @@ import { useConfirm } from "@/app/admin/HookuseConfirm";
 import ToastNotifications, {
   ToastMessage,
 } from "@/app/admin/ToastNotifications";
+import { EyeToggle } from "@/app/admin/eye-toggle";
 
 // ✅ Importa os modais de recarga
 import RecargaCliente from "../cliente/recarga_cliente";
@@ -594,7 +595,7 @@ function AuditoriaPageContent() {
   }
 
   return (
-    <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-background transition-colors">
+    <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-background transition-colors" id="dashboard-values">
       {/* TOPO */}
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
         <div className="min-w-0 text-left">
@@ -602,6 +603,7 @@ function AuditoriaPageContent() {
             <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate flex items-center gap-2">
               Auditoria do Portal
             </h1>
+            <EyeToggle />
           </div>
           <p className="text-xs sm:text-sm text-foreground/70 mt-1">
             Log completo de ponta a ponta dos pagamentos e renovações.
@@ -847,7 +849,7 @@ function AuditoriaPageContent() {
 
                         {/* Valor */}
                         <td className="px-4 py-3 text-right">
-                          <span className="font-medium text-foreground/90">
+<span className="font-medium text-foreground/90 finance-value">
                             {new Intl.NumberFormat("pt-BR", {
                               style: "currency",
                               currency: r.price_currency || "BRL",
