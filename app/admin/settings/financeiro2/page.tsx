@@ -1913,13 +1913,6 @@ function FinanceiroPageContent() {
               </button>
             </div>
 
-            <button
-              onClick={handleToday}
-              className="h-10 px-4 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-transparent dark:hover:bg-card/10 transition-colors shrink-0"
-            >
-              Hoje
-            </button>
-
             {/* Seletor de view mode removido do topo — está abaixo da busca */}
           </div>
 
@@ -2215,11 +2208,27 @@ function FinanceiroPageContent() {
             </button>
           ))}
         </div>
-        {viewMode === "semana" && selectedDay && (
-          <span className="text-xs text-muted-foreground hidden sm:block">
-            Semana de {periodoLabel}
-          </span>
-        )}
+        {(() => {
+          const hoje = new Date();
+          const mesAtual =
+            currentDate.getFullYear() === hoje.getFullYear() &&
+            currentDate.getMonth() === hoje.getMonth();
+          const semanaAtual = (() => {
+            const s = startOfWeek(hoje);
+            return toIso(s) === toIso(weekStart);
+          })();
+          const mostrarHoje =
+            (viewMode === "mes" && !mesAtual) ||
+            (viewMode === "semana" && !semanaAtual);
+          return mostrarHoje ? (
+            <button
+              onClick={handleToday}
+              className="h-9 px-4 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-card/10 transition-colors shrink-0"
+            >
+              Hoje
+            </button>
+          ) : null;
+        })()}
       </div>
 
       {/* ÁREA DO CALENDÁRIO — switch por viewMode */}
