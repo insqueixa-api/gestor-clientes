@@ -1084,7 +1084,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
                         href={`https://wa.me/${client.secondary_phone_e164.replace(/\D/g, "")}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 text-emerald-400 font-medium text-xs hover:underline text-right"
+                        className={`inline-flex items-center gap-1.5 text-emerald-400 font-medium text-xs hover:underline text-right transition-all duration-300 ${valuesHidden ? "blur-sm select-none pointer-events-none" : ""}`}
                       >
                         <IconWhatsapp />
                         {client.secondary_whatsapp_username
