@@ -10,6 +10,8 @@ import {
   Pencil,
   Bell,
   RefreshCcw,
+  EyeOff,
+  Eye,
 } from "lucide-react";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -217,6 +219,7 @@ export default function RevendaPage() {
 
   // ✅ HOOK DE CONFIRMAÇÃO
   const { confirm, ConfirmUI } = useConfirm();
+  const [valuesHidden, setValuesHidden] = useState(false);
 
   // Filtros
   const [search, setSearch] = useState("");
@@ -1191,9 +1194,16 @@ export default function RevendaPage() {
         {/* Título */}
         <div className="min-w-0 text-left">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">
+<h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">
               Gestão de Revendas
             </h1>
+            <button
+              onClick={(e) => { e.stopPropagation(); setValuesHidden(v => !v); }}
+              title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-card/5 text-muted-foreground/80 hover:text-foreground/90 hover:border-slate-400 transition-all text-xs font-medium shadow-sm select-none"
+            >
+              {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
           </div>
         </div>
 
@@ -1541,17 +1551,17 @@ export default function RevendaPage() {
                     </Td>
 
                     <Td>
- <span className=" font-medium text-foreground/90/80">
+                      <span className={`font-medium text-foreground/90 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                         {r.revenueLabel}
                       </span>
                     </Td>
                     <Td>
- <span className=" font-medium text-muted-foreground">
+                      <span className={`font-medium text-muted-foreground transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                         {r.costLabel}
                       </span>
                     </Td>
                     <Td>
- <span className=" font-medium text-emerald-400/70 dark:text-emerald-500/70">
+                      <span className={`font-medium text-emerald-400/70 dark:text-emerald-500/70 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                         {r.profitLabel}
                       </span>
                     </Td>
