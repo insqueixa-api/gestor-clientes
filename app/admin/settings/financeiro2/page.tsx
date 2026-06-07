@@ -34,7 +34,7 @@ type Transacao = {
 };
 
 // --- TIPO VIEW MODE ---
-type ViewMode = "ano" | "mes" | "semana" | "dia";
+type ViewMode = "ano" | "mes" | "semana";
 
 // --- HELPERS DE DATA ---
 function toIso(date: Date): string {
@@ -1043,20 +1043,24 @@ function ViewDia({
             const isPago = t.status === "PAGO";
             const isReceita = t.tipo === "RECEITA";
 
-            let statusClass = "";
-            if (isPago) {
-              statusClass =
-                "opacity-60 border-transparent bg-slate-50 dark:bg-white/5";
-            } else if (isReceita) {
-              statusClass = "border-emerald-500/30 bg-emerald-500/5";
+            // Fundo:
+            // A Receber → verde vivo  |  A Pagar → vermelho vivo
+            // Recebido  → verde esmaecido  |  Pago → vermelho esmaecido
+            let containerClass = "";
+            if (!isPago && isReceita) {
+              containerClass = "border-emerald-400/50 bg-emerald-500/10 dark:bg-emerald-500/10";
+            } else if (!isPago && !isReceita) {
+              containerClass = "border-rose-400/50 bg-rose-500/10 dark:bg-rose-500/10";
+            } else if (isPago && isReceita) {
+              containerClass = "border-emerald-200/60 bg-emerald-50 dark:bg-emerald-900/10 dark:border-emerald-800/40 opacity-70";
             } else {
-              statusClass = "border-rose-500/30 bg-rose-500/5";
+              containerClass = "border-rose-200/60 bg-rose-50 dark:bg-rose-900/10 dark:border-rose-800/40 opacity-70";
             }
 
             return (
               <div
                 key={t.id}
-                className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 rounded-lg border transition-all hover:opacity-100 ${statusClass}`}
+                className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 rounded-lg border transition-all hover:opacity-100 ${containerClass}`}
               >
                 <div className="flex flex-col min-w-0 flex-1">
                   <div className="flex items-center gap-2 mb-1">
@@ -1290,12 +1294,6 @@ function FinanceiroPageContent() {
       const nova = addDays(weekStart, -7);
       setWeekStart(nova);
       setCurrentDate(nova);
-    } else if (viewMode === "dia") {
-      const novoIso = toIso(
-        addDays(new Date(`${selectedDay}T12:00:00`), -1),
-      );
-      setSelectedDay(novoIso);
-      setCurrentDate(new Date(`${novoIso}T12:00:00`));
     }
   };
 
@@ -1310,12 +1308,6 @@ function FinanceiroPageContent() {
       const nova = addDays(weekStart, 7);
       setWeekStart(nova);
       setCurrentDate(nova);
-    } else if (viewMode === "dia") {
-      const novoIso = toIso(
-        addDays(new Date(`${selectedDay}T12:00:00`), 1),
-      );
-      setSelectedDay(novoIso);
-      setCurrentDate(new Date(`${novoIso}T12:00:00`));
     }
   };
 
@@ -1330,7 +1322,6 @@ function FinanceiroPageContent() {
   const handleSetViewMode = (mode: ViewMode) => {
     setViewMode(mode);
     if (mode === "semana") setWeekStart(startOfWeek(currentDate));
-    if (mode === "dia") setSelectedDay(toIso(currentDate));
   };
 
   // Label do período exibido no topo
@@ -1343,23 +1334,15 @@ function FinanceiroPageContent() {
       const d2 = `${String(fim.getDate()).padStart(2, "0")}/${String(fim.getMonth() + 1).padStart(2, "0")}`;
       return `${d1} – ${d2}`;
     }
-    if (viewMode === "dia") {
-      const [y, m, d] = selectedDay.split("-");
-      const obj = new Date(Number(y), Number(m) - 1, Number(d));
-      return obj.toLocaleDateString("pt-BR", {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-      });
-    }
     return "";
-  }, [viewMode, currentDate, monthName, weekStart, selectedDay]);
+  }, [viewMode, currentDate, monthName, weekStart]);
 
-  // Clique em dia com lançamentos → vai para view Dia
+  // Clique em dia com lançamentos → mostra ViewDia inline dentro da ViewSemana ou abre selectedDay
   const handleDiaClick = (dateStr: string) => {
     setSelectedDay(dateStr);
     setCurrentDate(new Date(`${dateStr}T12:00:00`));
-    setViewMode("dia");
+    setWeekStart(startOfWeek(new Date(`${dateStr}T12:00:00`)));
+    setViewMode("semana");
   };
 
   // Clique em dia vazio → abre modal com data pré-preenchida
@@ -1929,28 +1912,7 @@ function FinanceiroPageContent() {
               Hoje
             </button>
 
-            {/* Seletor de view mode — estilo Outlook */}
-            <div className="hidden md:flex items-center border border-border rounded-lg overflow-hidden bg-card/5">
-              {(["ano", "mes", "semana", "dia"] as ViewMode[]).map((mode) => (
-                <button
-                  key={mode}
-                  onClick={() => handleSetViewMode(mode)}
-                  className={`px-3 h-10 text-xs font-medium transition-colors capitalize border-r border-border last:border-r-0 ${
-                    viewMode === mode
-                      ? "bg-emerald-600 text-white"
-                      : "text-muted-foreground hover:text-foreground hover:bg-card/10"
-                  }`}
-                >
-                  {mode === "ano"
-                    ? "Ano"
-                    : mode === "mes"
-                      ? "Mês"
-                      : mode === "semana"
-                        ? "Semana"
-                        : "Dia"}
-                </button>
-              ))}
-            </div>
+            {/* Seletor de view mode removido do topo — está abaixo da busca */}
           </div>
 
           {showDatePicker && (
@@ -1966,28 +1928,7 @@ function FinanceiroPageContent() {
         </div>
       </div>
 
-      {/* Seletor de view mode mobile */}
-      <div className="md:hidden flex items-center border border-border rounded-lg overflow-hidden bg-card/5 mx-3">
-        {(["ano", "mes", "semana", "dia"] as ViewMode[]).map((mode) => (
-          <button
-            key={mode}
-            onClick={() => handleSetViewMode(mode)}
-            className={`flex-1 h-9 text-xs font-medium transition-colors capitalize border-r border-border last:border-r-0 ${
-              viewMode === mode
-                ? "bg-emerald-600 text-white"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {mode === "ano"
-              ? "Ano"
-              : mode === "mes"
-                ? "Mês"
-                : mode === "semana"
-                  ? "Sem"
-                  : "Dia"}
-          </button>
-        ))}
-      </div>
+      {/* Seletor de view mode — movido para abaixo da busca, acima do calendário */}
 
       <div
         className={`${showMobileCards ? "grid" : "hidden"} md:grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3 px-3 sm:px-0`}
@@ -2249,6 +2190,30 @@ function FinanceiroPageContent() {
         </div>
       </div>
 
+      {/* SELETOR DE VIEW MODE — abaixo da busca, acima do calendário */}
+      <div className="flex items-center justify-between gap-3 px-3 sm:px-0">
+        <div className="flex items-center border border-border rounded-lg overflow-hidden bg-card/5">
+          {(["ano", "mes", "semana"] as ViewMode[]).map((mode) => (
+            <button
+              key={mode}
+              onClick={() => handleSetViewMode(mode)}
+              className={`px-4 h-9 text-xs font-medium transition-colors border-r border-border last:border-r-0 ${
+                viewMode === mode
+                  ? "bg-emerald-600 text-white"
+                  : "text-muted-foreground hover:text-foreground hover:bg-card/10"
+              }`}
+            >
+              {mode === "ano" ? "Ano" : mode === "mes" ? "Mês" : "Semana"}
+            </button>
+          ))}
+        </div>
+        {viewMode === "semana" && selectedDay && (
+          <span className="text-xs text-muted-foreground hidden sm:block">
+            Semana de {periodoLabel}
+          </span>
+        )}
+      </div>
+
       {/* ÁREA DO CALENDÁRIO — switch por viewMode */}
       <div className="bg-card border-y sm:border border-border rounded-none sm:rounded-xl shadow-sm overflow-x-auto">
         {viewMode === "ano" && tenantId && (
@@ -2468,18 +2433,6 @@ function FinanceiroPageContent() {
             formatRecorrencia={formatRecorrencia}
             onDiaVazioClick={handleDiaVazioClick}
             onNavegarDia={handleDiaClick}
-            onEdit={(t) => setModalData({ open: true, transacao: t })}
-            onBaixa={(t) => setBaixaModal({ open: true, transacao: t })}
-            onDelete={(t) => handleDeleteClick(t)}
-          />
-        )}
-
-        {viewMode === "dia" && (
-          <ViewDia
-            dateStr={selectedDay}
-            filteredTransacoes={filteredTransacoes}
-            fmtBRL={fmtBRL}
-            formatRecorrencia={formatRecorrencia}
             onEdit={(t) => setModalData({ open: true, transacao: t })}
             onBaixa={(t) => setBaixaModal({ open: true, transacao: t })}
             onDelete={(t) => handleDeleteClick(t)}
