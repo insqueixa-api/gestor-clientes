@@ -1886,46 +1886,7 @@ function FinanceiroPageContent() {
             {showMobileCards ? "Ocultar Valores" : "Exibir Valores"}
           </button>
 
-          {/* Navegação + Seletor de View Mode */}
-          <div className="flex items-center w-full md:w-auto gap-2">
-            {/* Setas + período */}
-            <div className="flex items-center flex-1 md:flex-none justify-between bg-card/5 border border-border rounded-lg shadow-sm">
-              <button
-                onClick={handlePrevMonth}
-                className="p-2 text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white transition-colors"
-              >
-                <IconChevronLeft />
-              </button>
-              <button
-                onClick={() =>
-                  (viewMode === "mes" || viewMode === "ano") &&
-                  setShowDatePicker(true)
-                }
-                className="px-2 sm:px-4 text-sm font-medium capitalize w-full md:w-40 text-center text-foreground/90 hover:text-emerald-500 dark:hover:text-emerald-500 transition-colors truncate"
-              >
-                {periodoLabel}
-              </button>
-              <button
-                onClick={handleNextMonth}
-                className="p-2 text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white transition-colors"
-              >
-                <IconChevronRight />
-              </button>
-            </div>
-
-            {/* Seletor de view mode removido do topo — está abaixo da busca */}
-          </div>
-
-          {showDatePicker && (
-            <ModalDatePicker
-              currentDate={currentDate}
-              onSelect={(date) => {
-                setCurrentDate(date);
-                setShowDatePicker(false);
-              }}
-              onClose={() => setShowDatePicker(false)}
-            />
-          )}
+          
         </div>
       </div>
 
@@ -2191,8 +2152,9 @@ function FinanceiroPageContent() {
         </div>
       </div>
 
-      {/* SELETOR DE VIEW MODE — abaixo da busca, acima do calendário */}
-      <div className="flex items-center justify-between gap-3 px-3 sm:px-0">
+      {/* NAVEGAÇÃO + SELETOR DE VIEW MODE — abaixo da busca, acima do calendário */}
+      <div className="flex items-center gap-2 px-3 sm:px-0 flex-wrap">
+        {/* Seletor Ano | Mês | Semana */}
         <div className="flex items-center border border-border rounded-lg overflow-hidden bg-card/5">
           {(["ano", "mes", "semana"] as ViewMode[]).map((mode) => (
             <button
@@ -2208,15 +2170,39 @@ function FinanceiroPageContent() {
             </button>
           ))}
         </div>
+
+        {/* Setas + período */}
+        <div className="flex items-center bg-card/5 border border-border rounded-lg shadow-sm">
+          <button
+            onClick={handlePrevMonth}
+            className="p-2 text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white transition-colors"
+          >
+            <IconChevronLeft />
+          </button>
+          <button
+            onClick={() =>
+              (viewMode === "mes" || viewMode === "ano") &&
+              setShowDatePicker(true)
+            }
+            className="px-3 text-sm font-medium capitalize min-w-[120px] text-center text-foreground/90 hover:text-emerald-500 dark:hover:text-emerald-500 transition-colors truncate"
+          >
+            {periodoLabel}
+          </button>
+          <button
+            onClick={handleNextMonth}
+            className="p-2 text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white transition-colors"
+          >
+            <IconChevronRight />
+          </button>
+        </div>
+
+        {/* Hoje — só aparece quando fora do período atual */}
         {(() => {
           const hoje = new Date();
           const mesAtual =
             currentDate.getFullYear() === hoje.getFullYear() &&
             currentDate.getMonth() === hoje.getMonth();
-          const semanaAtual = (() => {
-            const s = startOfWeek(hoje);
-            return toIso(s) === toIso(weekStart);
-          })();
+          const semanaAtual = toIso(startOfWeek(hoje)) === toIso(weekStart);
           const mostrarHoje =
             (viewMode === "mes" && !mesAtual) ||
             (viewMode === "semana" && !semanaAtual);
@@ -2229,6 +2215,17 @@ function FinanceiroPageContent() {
             </button>
           ) : null;
         })()}
+
+        {showDatePicker && (
+          <ModalDatePicker
+            currentDate={currentDate}
+            onSelect={(date) => {
+              setCurrentDate(date);
+              setShowDatePicker(false);
+            }}
+            onClose={() => setShowDatePicker(false)}
+          />
+        )}
       </div>
 
       {/* ÁREA DO CALENDÁRIO — switch por viewMode */}
