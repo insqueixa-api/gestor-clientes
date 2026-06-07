@@ -1052,7 +1052,7 @@ export default function NovoCliente({
   const [servers, setServers] = useState<SelectOption[]>([]);
   const [allApps, setAllApps] = useState<SelectOption[]>([]);
 
-  const [syncAgenda, setSyncAgenda] = useState(true);
+  const [syncAgenda, setSyncAgenda] = useState(false); // Habilita e desabilita Toggle de Sincronização com Agenda (true)
   const [syncOperadora, setSyncOperadora] = useState(false);
 
   // plan tables
@@ -3203,23 +3203,51 @@ if (syncAgenda && finalPrimaryE164) {
     username,
   );
 }
+
+// Secundário: sincroniza agenda também se tiver número
+if (syncAgenda && finalSecondaryE164) {
+  await syncToGoogleAgenda(
+    clientId,
+    finalSecondaryE164,
+    secName || displayName,
+    username,
+  );
+}
+
 if (syncOperadora) {
   setLoadingStep("Operadora...");
   try {
-    const { data: contact } = await supabaseBrowser
+    const contactIds: string[] = [];
+
+    // Busca id do contato principal
+    const rd1 = onlyDigits(finalPrimaryE164);
+    const phoneDigits1 = rd1.startsWith("55") && rd1.length >= 12 ? "0" + rd1.slice(2) : rd1;
+    const { data: contact1 } = await supabaseBrowser
       .from("google_contacts")
       .select("id")
       .eq("tenant_id", tid)
-      .eq("phone_e164", (() => {
-        const rd = onlyDigits(finalPrimaryE164);
-        return rd.startsWith("55") && rd.length >= 12 ? "0" + rd.slice(2) : rd;
-      })())
+      .eq("phone_e164", phoneDigits1)
       .maybeSingle();
-    if (contact?.id) {
+    if (contact1?.id) contactIds.push(contact1.id);
+
+    // Busca id do contato secundário
+    if (finalSecondaryE164) {
+      const rd2 = onlyDigits(finalSecondaryE164);
+      const phoneDigits2 = rd2.startsWith("55") && rd2.length >= 12 ? "0" + rd2.slice(2) : rd2;
+      const { data: contact2 } = await supabaseBrowser
+        .from("google_contacts")
+        .select("id")
+        .eq("tenant_id", tid)
+        .eq("phone_e164", phoneDigits2)
+        .maybeSingle();
+      if (contact2?.id) contactIds.push(contact2.id);
+    }
+
+    if (contactIds.length > 0) {
       await fetch("/api/auth/google/sync-operadora", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contact_ids: [contact.id] }),
+        body: JSON.stringify({ contact_ids: contactIds }),
       });
     }
   } catch {}
@@ -3992,33 +4020,51 @@ if (syncOperadora) {
         }
 
         // ✅ PAPA TESTES: salva histórico sempre que cria cliente ou teste
-        if (clientId) {
-          try {
-            const tid2 = await getCurrentTenantId();
-            const selectedServerName2 =
-              servers.find((s) => s.id === serverId)?.name || null;
-            const papaWaUsername = onlyDigits(whatsappUsername) || onlyDigits(finalPrimaryE164) || "desconhecido";
+if (clientId) {
+  try {
+    const tid2 = await getCurrentTenantId();
+    const selectedServerName2 =
+      servers.find((s) => s.id === serverId)?.name || null;
+    const papaWaUsername = onlyDigits(whatsappUsername) || onlyDigits(finalPrimaryE164) || "desconhecido";
 
-const { error: papaErr } = await supabaseBrowser.from("papa_testes").insert({
-  tenant_id: tid2,
-  whatsapp_username: papaWaUsername,
-  client_name: displayName,
-  phone_e164: finalPrimaryE164 || null,
-  server_name: selectedServerName2,
-  username: apiUsername || username,
-  plan_price: rpcPriceAmount || null,
-  plan_currency: rpcCurrency || "BRL",
-  is_trial: isTrialMode,
-  created_at: new Date().toISOString(),
-});
+    const papaTestes: any[] = [{
+      tenant_id: tid2,
+      whatsapp_username: papaWaUsername,
+      client_name: displayName,
+      phone_e164: finalPrimaryE164 || null,
+      server_name: selectedServerName2,
+      username: apiUsername || username,
+      plan_price: rpcPriceAmount || null,
+      plan_currency: rpcCurrency || "BRL",
+      is_trial: isTrialMode,
+      created_at: new Date().toISOString(),
+    }];
 
-if (papaErr) {
-  addToast("error", "Erro no histórico", papaErr.message);
+    // Secundário: insere também se tiver número
+    if (finalSecondaryE164 && secWhatsUser) {
+      papaTestes.push({
+        tenant_id: tid2,
+        whatsapp_username: onlyDigits(secWhatsUser),
+        client_name: secName || displayName,
+        phone_e164: finalSecondaryE164,
+        server_name: selectedServerName2,
+        username: apiUsername || username,
+        plan_price: rpcPriceAmount || null,
+        plan_currency: rpcCurrency || "BRL",
+        is_trial: isTrialMode,
+        created_at: new Date().toISOString(),
+      });
+    }
+
+    const { error: papaErr } = await supabaseBrowser.from("papa_testes").insert(papaTestes);
+
+    if (papaErr) {
+      addToast("error", "Erro no histórico", papaErr.message);
+    }
+  } catch (e: any) {
+    addToast("error", "Erro no histórico", e?.message || "Falha ao salvar papa teste.");
+  }
 }
-          } catch (e: any) {
-  addToast("error", "Erro no histórico", e?.message || "Falha ao salvar papa teste.");
-}
-        }
 
         // ✅ TRIAL: enviar mensagem de teste imediatamente + toast na tela de testes
         // 🔒 TRAVA: Só dispara se whatsappOptIn for true
@@ -4085,15 +4131,25 @@ if (papaErr) {
         }
 
         // Agenda Google (só na criação, onde apiUsername existe)
-        if (finalPrimaryE164 && clientId) {
-          setLoadingStep("Agenda Google...");
-          await syncToGoogleAgenda(
-            clientId,
-            finalPrimaryE164,
-            displayName,
-            apiUsername,
-          );
-        }
+if (finalPrimaryE164 && clientId) {
+  setLoadingStep("Agenda Google...");
+  await syncToGoogleAgenda(
+    clientId,
+    finalPrimaryE164,
+    displayName,
+    apiUsername,
+  );
+}
+
+// Secundário: sincroniza agenda também se tiver número
+if (finalSecondaryE164 && clientId) {
+  await syncToGoogleAgenda(
+    clientId,
+    finalSecondaryE164,
+    secName || displayName,
+    apiUsername,
+  );
+}
       }
 
       // ✅ RENOVAÇÃO AUTOMÁTICA: SOMENTE NA CRIAÇÃO (nunca na edição)

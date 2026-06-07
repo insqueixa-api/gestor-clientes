@@ -1069,18 +1069,28 @@ export default function AdminShell({
           onClose={() => setShowNotificationsModal(false)}
         >
           <div className="space-y-4">
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={handleSync}
-                className="px-3 py-1.5 rounded-lg border border-border dark:border-border text-foreground/90 font-medium hover:bg-transparent/50 dark:hover:bg-card/5 transition-colors text-xs uppercase flex items-center gap-1.5"
-                title="Recupera as notificações apagadas do navegador"
-              >
-                <RefreshCcw className="w-3.5 h-3.5" /> Sincronizar
-              </button>
+            <div className="flex items-center gap-2 w-full">
+              <div className="flex-1 grid grid-cols-2 gap-2">
+                <Link
+                  href="/admin/auditoria"
+                  onClick={() => setShowNotificationsModal(false)}
+                  className="px-3 py-1.5 rounded-lg border border-border dark:border-border text-foreground/90 font-medium hover:bg-transparent/50 dark:hover:bg-card/5 transition-colors text-xs uppercase flex items-center justify-center gap-1.5 whitespace-nowrap"
+                  title="Ver registros de auditoria"
+                >
+                  <ScrollText className="w-3.5 h-3.5 text-emerald-400" /> Log do Portal
+                </Link>
+                <button
+                  onClick={handleSync}
+                  className="px-3 py-1.5 rounded-lg border border-border dark:border-border text-foreground/90 font-medium hover:bg-transparent/50 dark:hover:bg-card/5 transition-colors text-xs uppercase flex items-center justify-center gap-1.5 whitespace-nowrap"
+                  title="Recupera as notificações apagadas do navegador"
+                >
+                  <RefreshCcw className="w-3.5 h-3.5" /> Sincronizar
+                </button>
+              </div>
               {notifications.length > 0 && (
                 <button
                   onClick={clearAllNotifications}
-                  className="px-3 py-1.5 rounded-lg border border-border dark:border-border text-foreground/90 font-medium hover:bg-rose-500/10 hover:text-rose-400 hover:border-rose-500/20 dark:hover:bg-rose-500/10 dark:hover:text-rose-400 transition-colors text-xs uppercase"
+                  className="shrink-0 px-3 py-1.5 rounded-lg border border-border dark:border-border text-foreground/90 font-medium hover:bg-rose-500/10 hover:text-rose-400 hover:border-rose-500/20 dark:hover:bg-rose-500/10 dark:hover:text-rose-400 transition-colors text-xs uppercase whitespace-nowrap"
                 >
                   Limpar todas
                 </button>
