@@ -1203,6 +1203,9 @@ export default function RevendaPage() {
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-card/5 text-muted-foreground/80 hover:text-foreground/90 hover:border-slate-400 transition-all text-xs font-medium shadow-sm select-none"
             >
               {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              <span className="hidden sm:inline text-[11px] tracking-wide">
+                {valuesHidden ? "Exibir" : "Ocultar"}
+              </span>
             </button>
           </div>
         </div>
@@ -1534,7 +1537,7 @@ export default function RevendaPage() {
                           </div>
                         </div>
 
-                        <span className="text-xs font-medium text-emerald-400/70 dark:text-emerald-500/70 truncate">
+                        <span className={`text-xs font-medium text-emerald-400/70 dark:text-emerald-500/70 truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                           {r.whatsapp_username
                             ? `@${r.whatsapp_username}`
                             : r.primary_phone}

@@ -9,6 +9,8 @@ import {
   Clock,
   Pencil,
   RefreshCcw,
+  EyeOff,
+  Eye,
 } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
@@ -299,8 +301,9 @@ export default function TrialsPage() {
   // Modais
   const [showFormModal, setShowFormModal] = useState(false);
   const [trialToEdit, setTrialToEdit] = useState<ClientData | null>(null);
-  const { confirm, ConfirmUI } = useConfirm(); // ✅ HOOK INJETADO
+  const { confirm, ConfirmUI } = useConfirm(); // ✅ Hook adicionado
   const [showPapaTestes, setShowPapaTestes] = useState(false);
+  const [valuesHidden, setValuesHidden] = useState(false);
 
   // ✅ Controle de qual aba abrir no modal de edição
   type EditTab = "dados" | "pagamento" | "apps";
@@ -1116,9 +1119,19 @@ export default function TrialsPage() {
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
         <div className="min-w-0 text-left">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">
+<h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">
               Gestão de Testes
             </h1>
+            <button
+              onClick={(e) => { e.stopPropagation(); setValuesHidden(v => !v); }}
+              title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-card/5 text-muted-foreground/80 hover:text-foreground/90 hover:border-slate-400 transition-all text-xs font-medium shadow-sm select-none"
+            >
+              {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              <span className="hidden sm:inline text-[11px] tracking-wide">
+                {valuesHidden ? "Exibir" : "Ocultar"}
+              </span>
+            </button>
           </div>
         </div>
 
@@ -1528,16 +1541,16 @@ export default function TrialsPage() {
                             </div>
                           </div>
 
-                          <span className="text-xs font-medium text-muted-foreground dark:text-white/60 truncate">
+                          <span className={`text-xs font-medium text-muted-foreground dark:text-white/60 truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                             {r.username}
                           </span>
                           {r.whatsapp_username && (
-                            <span className="text-xs font-medium text-emerald-400 truncate">
+                            <span className={`text-xs font-medium text-emerald-400 truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                               @{r.whatsapp_username}
                             </span>
                           )}
                           {r.secondary_whatsapp_username && (
-                            <span className="text-xs font-medium text-muted-foreground/80 dark:text-white/45 truncate">
+                            <span className={`text-xs font-medium text-muted-foreground/80 dark:text-white/45 truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                               @{r.secondary_whatsapp_username}
                             </span>
                           )}
