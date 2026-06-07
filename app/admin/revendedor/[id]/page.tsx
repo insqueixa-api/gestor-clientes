@@ -1,5 +1,5 @@
 "use client";
-import { Loader2, Pencil, RefreshCcw } from "lucide-react";
+import { Loader2, Pencil, RefreshCcw, EyeOff, Eye } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -180,7 +180,8 @@ export default function ResellerDetailPage() {
   const resellerIdSafe = (resellerId ?? "").trim();
 
   // ✅ 2. Inicializar o Hook de Confirmação
-  const { confirm, ConfirmUI } = useConfirm();
+const { confirm, ConfirmUI } = useConfirm();
+  const [valuesHidden, setValuesHidden] = useState(false);
 
   // Estados de Dados
   const [loading, setLoading] = useState(true);
@@ -508,6 +509,17 @@ export default function ResellerDetailPage() {
 
         {/* Ações */}
         <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => setValuesHidden(v => !v)}
+            title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-card/5 text-muted-foreground/80 hover:text-foreground/90 hover:border-slate-400 transition-all text-xs font-medium shadow-sm select-none"
+          >
+            {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            <span className="hidden sm:inline text-[11px] tracking-wide">
+              {valuesHidden ? "Exibir" : "Ocultar"}
+            </span>
+          </button>
+
           {/* Voltar (Só Desktop) */}
           <Link
             href="/admin/revendedor"
@@ -561,7 +573,7 @@ export default function ResellerDetailPage() {
                 <span className="text-muted-foreground font-medium text-[11px] uppercase tracking-tight">
                   Total Investido
                 </span>
- <div className="text-right font-medium text-base text-emerald-400">
+<div className={`text-right font-medium text-base text-emerald-400 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                   {fmtBRL(totalInvested)}
                 </div>
               </div>
@@ -592,7 +604,7 @@ export default function ResellerDetailPage() {
                 <span className="text-muted-foreground font-medium">
                   Telefone
                 </span>
- <span className=" font-medium text-foreground text-right">
+<span className={`font-medium text-foreground text-right transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                   {formatPhoneDisplay(reseller.whatsapp_e164)}
                 </span>
               </div>
@@ -602,28 +614,30 @@ export default function ResellerDetailPage() {
                 <span className="text-muted-foreground font-medium">
                   WhatsApp
                 </span>
-                {reseller.whatsapp_username ? (
-                  <a
-                    href={`https://wa.me/${reseller.whatsapp_e164?.replace(/\D/g, "")}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-emerald-400 hover:text-emerald-500 font-medium hover:underline"
-                  >
-                    <IconWhatsapp />@{reseller.whatsapp_username}
-                  </a>
-                ) : reseller.whatsapp_e164 ? (
-                  <a
-                    href={`https://wa.me/${reseller.whatsapp_e164?.replace(/\D/g, "")}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-emerald-400 hover:text-emerald-500 font-medium hover:underline"
-                  >
-                    <IconWhatsapp />
-                    {formatPhoneDisplay(reseller.whatsapp_e164)}
-                  </a>
-                ) : (
-                  <span className="text-muted-foreground/80 italic text-sm">—</span>
-                )}
+<span className={`transition-all duration-300 ${valuesHidden ? "blur-sm select-none pointer-events-none" : ""}`}>
+                  {reseller.whatsapp_username ? (
+                    <a
+                      href={`https://wa.me/${reseller.whatsapp_e164?.replace(/\D/g, "")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-emerald-400 hover:text-emerald-500 font-medium hover:underline"
+                    >
+                      <IconWhatsapp />@{reseller.whatsapp_username}
+                    </a>
+                  ) : reseller.whatsapp_e164 ? (
+                    <a
+                      href={`https://wa.me/${reseller.whatsapp_e164?.replace(/\D/g, "")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-emerald-400 hover:text-emerald-500 font-medium hover:underline"
+                    >
+                      <IconWhatsapp />
+                      {formatPhoneDisplay(reseller.whatsapp_e164)}
+                    </a>
+                  ) : (
+                    <span className="text-muted-foreground/80 italic text-sm">—</span>
+                  )}
+                </span>
               </div>
 
               {/* Opt-in */}
@@ -783,7 +797,7 @@ export default function ResellerDetailPage() {
                             💳 Compra de Créditos
                           </div>
 
-                          <div className="mt-1 text-xs font-medium text-muted-foreground dark:text-white/60 tracking-tight">
+<div className={`mt-1 text-xs font-medium text-muted-foreground dark:text-white/60 tracking-tight transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                             {h.notes
                               ? h.notes
                               : `${serverName} · ${num(h.qty_credits)} créditos · Unit: ${fmtMoney(String(h.currency || "BRL"), Number(h.unit_price || 0))} · Total: ${fmtBRL(total)}`}

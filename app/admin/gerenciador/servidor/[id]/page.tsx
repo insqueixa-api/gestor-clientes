@@ -830,7 +830,7 @@ const { confirm, ConfirmUI } = useConfirm();
                         {m.total_brl !== null ? fmtMoney(m.total_brl) : "--"}
                       </td>
                       {/* ✅ Nova formatação da Descrição */}
-                      <td className="px-5 py-3 text-xs leading-relaxed max-w-[300px]">
+                      <td className={`px-5 py-3 text-xs leading-relaxed max-w-[300px] transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                         {m.kind === "CLIENT_RENEWAL" ? (
                           <span className="font-medium text-foreground dark:text-slate-200">
                             {m.label}
