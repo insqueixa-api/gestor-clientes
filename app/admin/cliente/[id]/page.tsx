@@ -1,5 +1,5 @@
 "use client";
-import { Loader2, CreditCard, Pencil, RefreshCcw } from "lucide-react";
+import { Loader2, CreditCard, Pencil, RefreshCcw, EyeOff, Eye } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
@@ -221,6 +221,7 @@ export default function ClientDetailsPage() {
   const clientId = Array.isArray(clientIdRaw) ? clientIdRaw[0] : clientIdRaw;
   const clientIdSafe = (clientId ?? "").trim();
 
+const [valuesHidden, setValuesHidden] = useState(false);
   const [loading, setLoading] = useState(true);
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
@@ -704,6 +705,16 @@ export default function ClientDetailsPage() {
               {client.client_name}
             </h1>
             <StatusBadge status={client.computed_status} />
+            <button
+              onClick={() => setValuesHidden(v => !v)}
+              title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-card/5 text-muted-foreground/80 hover:text-foreground/90 hover:border-slate-400 transition-all text-xs font-medium shadow-sm select-none"
+            >
+              {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              <span className="hidden sm:inline text-[11px] tracking-wide">
+                {valuesHidden ? "Exibir" : "Ocultar"}
+              </span>
+            </button>
           </div>
           <span className="text-xs text-muted-foreground font-medium truncate">
             {client.username}
@@ -956,7 +967,7 @@ export default function ClientDetailsPage() {
                 <span className="text-muted-foreground font-medium">
                   Valor
                 </span>
- <span className=" font-medium text-foreground bg-transparent px-2 py-0.5 rounded-md">
+<span className={`font-medium text-foreground bg-transparent px-2 py-0.5 rounded-md transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                   {fmtMoney(client.price_amount, client.price_currency)}
                 </span>
               </div>
@@ -967,15 +978,7 @@ export default function ClientDetailsPage() {
                   <span className="text-muted-foreground font-medium text-[11px] uppercase tracking-tight">
                     Vencimento
                   </span>
-                  <div
- className={`text-right font-medium text-base ${
-                      client.computed_status === "OVERDUE"
-                        ? "text-rose-500"
-                        : client.computed_status === "ACTIVE"
-                          ? "text-emerald-500"
-                          : "text-muted-foreground"
-                    }`}
-                  >
+                  <div className={`text-right font-medium text-base transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""} ${client.computed_status === "OVERDUE" ? "text-rose-500" : client.computed_status === "ACTIVE" ? "text-emerald-500" : "text-muted-foreground"}`}>
                     {client.vencimento ? fmtDateTime(client.vencimento) : "—"}
                   </div>
                 </div>
@@ -1014,7 +1017,7 @@ export default function ClientDetailsPage() {
                 <span className="text-muted-foreground font-medium">
                   Telefone Principal
                 </span>
- <span className=" font-medium text-foreground text-right">
+<span className={`font-medium text-foreground text-right transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                   {formatPhoneDisplay(client.whatsapp_e164)}
                 </span>
               </div>
@@ -1024,30 +1027,32 @@ export default function ClientDetailsPage() {
                 <span className="text-muted-foreground font-medium">
                   WhatsApp Principal
                 </span>
-                {client.whatsapp_username ? (
-                  <a
-                    href={`https://wa.me/${client.whatsapp_e164?.replace(/\D/g, "")}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-emerald-400 font-medium hover:underline text-right"
-                  >
-                    <IconWhatsapp />@{client.whatsapp_username}
-                  </a>
-                ) : client.whatsapp_e164 ? (
-                  <a
-                    href={`https://wa.me/${client.whatsapp_e164?.replace(/\D/g, "")}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-emerald-400 font-medium hover:underline text-right"
-                  >
-                    <IconWhatsapp />
-                    {formatPhoneDisplay(client.whatsapp_e164)}
-                  </a>
-                ) : (
-                  <span className="text-muted-foreground/80 italic text-sm text-right">
-                    Não informado
-                  </span>
-                )}
+                <span className={`transition-all duration-300 ${valuesHidden ? "blur-sm select-none pointer-events-none" : ""}`}>
+                  {client.whatsapp_username ? (
+                    <a
+                      href={`https://wa.me/${client.whatsapp_e164?.replace(/\D/g, "")}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 text-emerald-400 font-medium hover:underline text-right"
+                    >
+                      <IconWhatsapp />@{client.whatsapp_username}
+                    </a>
+                  ) : client.whatsapp_e164 ? (
+                    <a
+                      href={`https://wa.me/${client.whatsapp_e164?.replace(/\D/g, "")}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 text-emerald-400 font-medium hover:underline text-right"
+                    >
+                      <IconWhatsapp />
+                      {formatPhoneDisplay(client.whatsapp_e164)}
+                    </a>
+                  ) : (
+                    <span className="text-muted-foreground/80 italic text-sm text-right">
+                      Não informado
+                    </span>
+                  )}
+                </span>
               </div>
 
               {/* ✅ NOVO: Contato Secundário (Só aparece se existir) */}
@@ -1164,7 +1169,7 @@ export default function ClientDetailsPage() {
                       <div className="text-sm font-medium text-foreground tracking-tight">
                         {EVENT_LABELS[item.event_type] ?? item.event_type}
                       </div>
-                      <div className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+<div className={`text-xs text-muted-foreground mt-1.5 leading-relaxed transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                         {item.message ||
                           (item.meta ? JSON.stringify(item.meta) : "")}
                       </div>
