@@ -517,17 +517,25 @@ function LancamentoCard({
   const isPago = t.status === "PAGO";
   const isReceita = t.tipo === "RECEITA";
 
-  let borderColor = "border-l-slate-300 dark:border-l-slate-600";
-  if (!isPago && isReceita) borderColor = "border-l-emerald-400";
-  else if (!isPago && !isReceita) borderColor = "border-l-rose-400";
-  else if (!isPago) {
-    // vencido
-    borderColor = "border-l-red-500";
+let borderColor = "border-l-slate-300 dark:border-l-slate-600";
+  let bgColor = "bg-card";
+  if (!isPago && isReceita) {
+    borderColor = "border-l-emerald-400";
+    bgColor = "bg-emerald-500/10 dark:bg-emerald-500/10";
+  } else if (!isPago && !isReceita) {
+    borderColor = "border-l-rose-400";
+    bgColor = "bg-rose-500/10 dark:bg-rose-500/10";
+  } else if (isPago && isReceita) {
+    borderColor = "border-l-emerald-200 dark:border-l-emerald-900";
+    bgColor = "bg-emerald-50 dark:bg-emerald-900/10";
+  } else if (isPago && !isReceita) {
+    borderColor = "border-l-rose-200 dark:border-l-rose-900";
+    bgColor = "bg-rose-50 dark:bg-rose-900/10";
   }
 
   return (
     <div
-      className={`border-l-2 ${borderColor} bg-card rounded-r-lg px-2 py-1.5 ${
+      className={`border-l-2 ${borderColor} ${bgColor} rounded-r-lg px-2 py-1.5 ${
         isPago ? "opacity-60" : ""
       } hover:opacity-100 transition-all group`}
     >
