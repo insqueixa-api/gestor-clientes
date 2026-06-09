@@ -176,16 +176,19 @@ async function fetchEParsear(cfg: EpgConfigRow): Promise<{
     try {
       console.log(`[EPG] ${cfg.provider} tentando: ${url}`);
       const res = await fetch(url, {
-        signal: AbortSignal.timeout(45_000),
+        signal:   AbortSignal.timeout(45_000),
+        redirect: "follow",
         headers: {
-          "User-Agent": "Mozilla/5.0 (compatible; IPTV/1.0)",
-          "Accept":     "application/xml, text/xml, */*",
+          "User-Agent":      "VLC/3.0.18 LibVLC/3.0.18",
+          "Accept":          "*/*",
+          "Accept-Language": "pt-BR,pt;q=0.9",
+          "Connection":      "keep-alive",
         },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       xmlText = await res.text();
-      console.log(`[EPG] ${cfg.provider} ok com ${url}`);
-      break; // Funcionou, para aqui
+      console.log(`[EPG] ${cfg.provider} ok com ${url} (${xmlText.length} bytes)`);
+      break;
     } catch (e: any) {
       lastErro = e.message;
       console.warn(`[EPG] ${cfg.provider} falhou em ${url}: ${e.message}`);
