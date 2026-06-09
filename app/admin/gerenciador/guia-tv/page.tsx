@@ -344,8 +344,10 @@ function GradeEPG({ canais, progsPorCanal }: {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [agora, setAgora]     = useState(nowBRT);
   const [progSel, setProgSel] = useState<Programa | null>(null);
-  const [showNomes, setShowNomes] = useState(true);
-  const canalW = showNomes ? CANAL_COL_W : 52; // 52px = só ícone
+  // Mobile inicia minimizado (só ícone), desktop sempre expandido
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+  const [showNomes, setShowNomes] = useState(!isMobile);
+  const canalW = showNomes ? CANAL_COL_W : 44; // 44px = só ícone
 
   useEffect(() => {
     const iv = setInterval(() => setAgora(nowBRT()), 60000);
@@ -392,22 +394,12 @@ function GradeEPG({ canais, progsPorCanal }: {
             display: "flex", height: REGUA_H,
             background: "#13151f", borderBottom: "1px solid #1e2130",
           }}>
-            {/* Canto fixo — botão toggle de nomes */}
+            {/* Canto fixo — só visual, sem botão no desktop */}
             <div style={{
               width: canalW, flexShrink: 0,
               position: "sticky", left: 0, zIndex: 31,
               background: "#13151f", borderRight: "1px solid #1e2130",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer",
-            }} onClick={() => setShowNomes(v => !v)}
-              title={showNomes ? "Ocultar nomes" : "Mostrar nomes"}>
-              <div style={{
-                fontSize: 9, color: "#475569", fontWeight: 600,
-                textAlign: "center", lineHeight: 1.2, userSelect: "none",
-              }}>
-                {showNomes ? "◀ ocultar" : "▶"}
-              </div>
-            </div>
+            }} />
             {/* Labels de hora */}
             <div style={{ position: "relative", width: gradeWidth, flexShrink: 0 }}>
               {horaLabels.map((h, i) => (
@@ -434,13 +426,21 @@ function GradeEPG({ canais, progsPorCanal }: {
             return (
               <div key={canal.id} style={{ display: "flex", height: LINHA_H, borderBottom: "1px solid #1a1d2e" }}>
 
-                {/* Nome do canal — sticky à esquerda */}
-                <div style={{
-                  width: canalW, flexShrink: 0,
-                  position: "sticky", left: 0, zIndex: 20,
-                  background: "#0f1117", borderRight: "1px solid #1e2130",
-                  display: "flex", alignItems: "center", gap: 10, padding: "0 12px",
-                }}>
+                {/* Nome do canal — sticky à esquerda; no mobile é clicável */}
+                <div
+                  style={{
+                    width: canalW, flexShrink: 0,
+                    position: "sticky", left: 0, zIndex: 20,
+                    background: "#0f1117", borderRight: "1px solid #1e2130",
+                    display: "flex", alignItems: "center",
+                    gap: showNomes ? 10 : 0,
+                    padding: showNomes ? "0 12px" : "0",
+                    justifyContent: showNomes ? "flex-start" : "center",
+                    cursor: isMobile ? "pointer" : "default",
+                    userSelect: "none",
+                  }}
+                  onClick={() => isMobile && setShowNomes(v => !v)}
+                >
                   <Logo src={canal.icon} nome={canal.nome} categoria={canal.categoria} size={showNomes ? 32 : 36} />
                   {showNomes && (
                     <span style={{
@@ -726,7 +726,7 @@ export default function GuiaTVPage() {
   const emBusca = buscaAtiva.trim().length > 0;
 
   return (
-    <div style={{ background: "#0f1117", height: "100dvh", display: "flex", flexDirection: "column", color: "#cbd5e1", overflow: "hidden" }}>
+    <div style={{ background: "#0f1117", height: "100%", display: "flex", flexDirection: "column", color: "#cbd5e1", overflow: "hidden" }}>
 
       {/* ── Topo ────────────────────────────────────────────────── */}
       <div style={{
