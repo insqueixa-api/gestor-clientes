@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
-  Search, RefreshCw, ChevronDown,
-  AlertTriangle, CheckCircle, X, Tv
+  Search, RefreshCw, ChevronDown, AlertTriangle, CheckCircle,
+  X, Tv, Film, Clapperboard, Database, Play, Clock,
+  Wifi, Server, LayoutGrid
 } from "lucide-react";
 
-// ─── Tipos ────────────────────────────────────────────────────
+// ─── Tipos ────────────────────────────────────────────────────────────────────
 type Canal = {
   id: string; display_name: string; nome: string;
   categoria: string; icon: string; servidor: string;
@@ -14,16 +15,29 @@ type Canal = {
 type Programa = {
   channel_id: string; channel_nome: string; categoria: string;
   start: string; stop: string; duracao_min: number;
-  title: string; desc: string;
-  prog_icon?: string;
+  title: string; desc: string; prog_icon?: string;
 };
 type EpgData = {
-  gerado_em: string;
-  servidores_ok: string[]; total_canais: number; total_programas: number;
+  gerado_em: string; servidores_ok: string[];
+  total_canais: number; total_programas: number;
   canais: Canal[]; programas: Programa[];
 };
+type CatalogItem = {
+  id: string; titulo_normalizado: string; tipo: "CANAL" | "FILME" | "SERIE";
+  cover_url: string | null; ano: number | null;
+  total_temporadas: number; total_episodios: number;
+  elite_desde: string | null; natv_desde: string | null; fast_desde: string | null;
+  elite_categoria: string | null; natv_categoria: string | null; fast_categoria: string | null;
+  disponivel_elite: boolean; disponivel_natv: boolean; disponivel_fast: boolean;
+  total_servidores: number;
+};
+type SyncStatus = "idle" | "waiting" | "running" | "ok" | "error";
+type SyncState = {
+  elite: SyncStatus; fast: SyncStatus; natv: SyncStatus;
+  eliteStats: any; fastStats: any; natvStats: any;
+};
 
-// ─── Constantes ───────────────────────────────────────────────
+// ─── Constantes ───────────────────────────────────────────────────────────────
 const CATS_ORDEM = [
   "Aberta","Notícias","Esportes","Filmes","Variedades",
   "Documentários","Infantil","Música","Regional","Religioso","Outros"
@@ -39,78 +53,26 @@ const CAT_EMOJI: Record<string,string> = {
   "Variedades":"🎭","Documentários":"🌍","Infantil":"🧒","Música":"🎵",
   "Regional":"🗺️","Religioso":"✝️","Outros":"📡",
 };
-const SUBGRUPOS: Record<string,{label:string;match:string[]}[]> = {
-  "Esportes":[
-    {label:"SporTV",   match:["SPORTV","SPORT TV"]},
-    {label:"Premiere", match:["PREMIERE"]},
-    {label:"ESPN",     match:["ESPN"]},
-    {label:"Combate",  match:["COMBATE"]},
-    {label:"BandSports",match:["BANDSPORT","BAND SPORT"]},
-    {label:"CONMEBOL", match:["CONMEBOL"]},
-    {label:"DAZN",     match:["DAZN"]},
-  ],
-  "Filmes":[
-    {label:"Telecine", match:["TELECINE"]},
-    {label:"HBO",      match:["HBO"]},
-    {label:"Cinemax",  match:["CINEMAX"]},
-    {label:"TNT",      match:["TNT"]},
-    {label:"Star",     match:["STAR ","STAR C","STAR H","STAR L","STAR A"]},
-    {label:"Universal",match:["UNIVERSAL","STUDIO UNIVERSAL"]},
-    {label:"Warner",   match:["WARNER"]},
-    {label:"Paramount",match:["PARAMOUNT"]},
-    {label:"Megapix",  match:["MEGAPIX"]},
-    {label:"AXN",      match:["AXN"]},
-  ],
-  "Variedades":[
-    {label:"Multishow",match:["MULTISHOW"]},
-    {label:"GNT",      match:["GNT"]},
-    {label:"TLC",      match:["TLC"]},
-    {label:"E!",       match:["E!"]},
-    {label:"Lifetime", match:["LIFETIME"]},
-  ],
-  "Documentários":[
-    {label:"Discovery",match:["DISCOVERY"]},
-    {label:"History",  match:["HISTORY"]},
-    {label:"Nat Geo",  match:["NAT GEO","NATIONAL GEO","NATGEO"]},
-    {label:"Animal Planet",match:["ANIMAL PLANET"]},
-    {label:"A&E",      match:["A&E"]},
-  ],
-  "Infantil":[
-    {label:"Cartoon",  match:["CARTOON"]},
-    {label:"Disney",   match:["DISNEY"]},
-    {label:"Nick",     match:["NICK","NICKELODEON"]},
-    {label:"Gloob",    match:["GLOOB"]},
-    {label:"Discovery Kids",match:["DISCOVERY KIDS"]},
-  ],
-  "Aberta":[
-    {label:"Globo",    match:["GLOBO"]},
-    {label:"SBT",      match:["SBT"]},
-    {label:"Record",   match:["RECORD","RECORDTV"]},
-    {label:"Band",     match:["BAND ","BANDNEWS"]},
-    {label:"RedeTV",   match:["REDETV"]},
-  ],
+
+// Cores por servidor
+const SERVIDOR_COR: Record<string,string> = {
+  ELITE: "#6366f1", NATV: "#f59e0b", FAST: "#10b981",
+};
+const SERVIDOR_LABEL: Record<string,string> = {
+  ELITE: "Elite", NATV: "NaTV", FAST: "Fast",
 };
 
-// EPG grid: quantas horas mostrar
-const HORAS_VISIVEIS = 4;
-const MIN_POR_PX = 0.25; // 1px = 0.25 min → 240px por hora
-const PX_POR_MIN = 1 / MIN_POR_PX; // 4px por minuto
-const HORA_WIDTH = 60 * PX_POR_MIN; // 240px por hora
-const CANAL_COL_W = 180; // largura da coluna de canal
+const PX_POR_MIN  = 4;
+const HORA_WIDTH  = 60 * PX_POR_MIN;
+const CANAL_COL_W = 180;
+const LINHA_H     = 60;
+const REGUA_H     = 34;
 
-// ─── Helpers ─────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 function nowBRT(): Date {
-  // Cria um Date que representa o horário atual de São Paulo
-  // usando Intl para garantir o offset correto independente do servidor
   const now = new Date();
-  const brtStr = now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" });
-  return new Date(brtStr);
+  return new Date(now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
 }
-
-function nowBRTMs(): number {
-  return nowBRT().getTime();
-}
-
 function formatHora(iso: string) {
   return new Date(iso).toLocaleTimeString("pt-BR",
     { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
@@ -119,85 +81,61 @@ function formatDataHora(iso: string) {
   return new Date(iso).toLocaleString("pt-BR",
     { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit", timeZone:"America/Sao_Paulo" });
 }
-function diasDecorridos(iso: string) {
-  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
-}
 function iniciais(nome: string) {
   return nome.split(" ").filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase();
 }
-function minutosDesdeInicio(iso: string, baseMs: number): number {
-  // new Date(iso) já converte corretamente strings ISO com offset
-  const t = new Date(iso).getTime();
-  return (t - baseMs) / 60000;
+function numFmt(n: number) {
+  return n.toLocaleString("pt-BR");
 }
 
-// ─── Logo do canal ────────────────────────────────────────────
-function Logo({ canal, size = 44 }: { canal: Canal; size?: number }) {
+// ─── Logo canal ───────────────────────────────────────────────────────────────
+function Logo({ src, nome, categoria, size = 44 }: {
+  src?: string; nome: string; categoria?: string; size?: number;
+}) {
   const [err, setErr] = useState(false);
-  const cor = CAT_COR[canal.categoria] || "#6b7280";
-  if (!canal.icon || err) return (
+  const cor = CAT_COR[categoria || ""] || "#6b7280";
+  if (!src || err) return (
     <div style={{
       width: size, height: size, flexShrink: 0,
       background: cor + "20", border: `1.5px solid ${cor}40`,
       borderRadius: 8, display: "flex", alignItems: "center",
-      justifyContent: "center", fontSize: size * 0.3, fontWeight: 700,
-      color: cor, letterSpacing: "-0.5px",
-    }}>{iniciais(canal.nome)}</div>
+      justifyContent: "center", fontSize: size * 0.28, fontWeight: 700,
+      color: cor, letterSpacing: "-0.5px", userSelect: "none",
+    }}>{iniciais(nome)}</div>
   );
   return (
-    <img src={canal.icon} alt={canal.nome} onError={() => setErr(true)}
-      style={{
-        width: size, height: size, flexShrink: 0,
-        objectFit: "contain", borderRadius: 8,
-        background: "#111", border: "1px solid #ffffff12",
-      }}
-    />
+    <img src={src} alt={nome} onError={() => setErr(true)} style={{
+      width: size, height: size, flexShrink: 0, objectFit: "contain",
+      borderRadius: 8, background: "#111", border: "1px solid #ffffff10",
+    }} />
   );
 }
 
-// ─── Tooltip do programa ──────────────────────────────────────
+// ─── Tooltip programa ─────────────────────────────────────────────────────────
 function ProgramaTooltip({ prog, onClose }: { prog: Programa; onClose: () => void }) {
   return (
     <div style={{
-      position: "fixed", inset: 0, zIndex: 9999,
-      display: "flex", alignItems: "center", justifyContent: "center",
-      background: "rgba(0,0,0,0.7)", padding: 16,
+      position: "fixed", inset: 0, zIndex: 9999, display: "flex",
+      alignItems: "center", justifyContent: "center",
+      background: "rgba(0,0,0,0.75)", padding: 16,
     }} onClick={onClose}>
       <div onClick={e => e.stopPropagation()} style={{
-        background: "#1a1a1a", border: "1px solid #333",
-        borderRadius: 14, overflow: "hidden", maxWidth: 460, width: "100%",
-        boxShadow: "0 20px 60px rgba(0,0,0,0.8)",
+        background: "#161616", border: "1px solid #2a2a2a", borderRadius: 14,
+        overflow: "hidden", maxWidth: 460, width: "100%",
+        boxShadow: "0 24px 64px rgba(0,0,0,0.9)",
       }}>
-        {/* Imagem do programa — ocupa largura total */}
         {prog.prog_icon && (
           <div style={{ position: "relative", width: "100%", height: 200, background: "#111" }}>
-            <img
-              src={prog.prog_icon}
-              alt={prog.title}
-              style={{
-                width: "100%", height: "100%",
-                objectFit: "cover",
-              }}
-            />
-            {/* Gradiente sobre a imagem para o título */}
-            <div style={{
-              position: "absolute", inset: 0,
-              background: "linear-gradient(to top, rgba(26,26,26,1) 0%, rgba(26,26,26,0.3) 50%, transparent 100%)",
-            }} />
-            {/* Botão fechar sobre a imagem */}
+            <img src={prog.prog_icon} alt={prog.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, #161616 0%, transparent 60%)" }} />
             <button onClick={onClose} style={{
-              position: "absolute", top: 10, right: 10,
-              background: "rgba(0,0,0,0.5)", border: "none", cursor: "pointer",
-              color: "#fff", borderRadius: "50%", width: 28, height: 28,
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}>
-              <X style={{ width: 14, height: 14 }} />
-            </button>
+              position: "absolute", top: 10, right: 10, background: "rgba(0,0,0,0.6)",
+              border: "none", cursor: "pointer", color: "#fff", borderRadius: "50%",
+              width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center",
+            }}><X style={{ width: 14, height: 14 }} /></button>
           </div>
         )}
-
         <div style={{ padding: 18 }}>
-          {/* Botão fechar quando não tem imagem */}
           {!prog.prog_icon && (
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
               <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#888" }}>
@@ -205,8 +143,7 @@ function ProgramaTooltip({ prog, onClose }: { prog: Programa; onClose: () => voi
               </button>
             </div>
           )}
-
-          <div style={{ fontSize: 11, color: "#888", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+          <div style={{ fontSize: 11, color: "#666", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.5px" }}>
             {prog.channel_nome} · {prog.categoria}
           </div>
           <div style={{ fontSize: 17, fontWeight: 600, color: "#fff", lineHeight: 1.3, marginBottom: 10 }}>
@@ -216,269 +153,178 @@ function ProgramaTooltip({ prog, onClose }: { prog: Programa; onClose: () => voi
             <span style={{ fontSize: 12, color: "#f59e0b", fontWeight: 600 }}>
               {formatHora(prog.start)} – {formatHora(prog.stop)}
             </span>
-            <span style={{ fontSize: 12, color: "#666" }}>
-              · {prog.duracao_min} min
-            </span>
+            <span style={{ fontSize: 12, color: "#555" }}>· {prog.duracao_min} min</span>
           </div>
-          {prog.desc && (
-            <div style={{ fontSize: 13, color: "#aaa", lineHeight: 1.6 }}>
-              {prog.desc}
-            </div>
-          )}
+          {prog.desc && <div style={{ fontSize: 13, color: "#999", lineHeight: 1.6 }}>{prog.desc}</div>}
         </div>
       </div>
     </div>
   );
 }
 
-// ─── Grade EPG corrigida ──────────────────────────────────────
-// PROBLEMA 1: linhas desalinhadas → usar display:grid numa div única
-// PROBLEMA 2: header não sticky → posição sticky na régua
-// SOLUÇÃO: grade como uma tabela HTML virtual com scroll sincronizado
-
+// ─── Grade EPG ────────────────────────────────────────────────────────────────
 function GradeEPG({ canais, progsPorCanal }: {
-  canais: Canal[];
-  progsPorCanal: Map<string, Programa[]>;
+  canais: Canal[]; progsPorCanal: Map<string, Programa[]>;
 }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [agora, setAgora] = useState(() => nowBRT());
-  const [progSelecionado, setProgSelecionado] = useState<Programa | null>(null);
+  const reguaRef   = useRef<HTMLDivElement>(null);
+  const gradeRef   = useRef<HTMLDivElement>(null);
+  const [agora, setAgora]             = useState(nowBRT);
+  const [progSel, setProgSel]         = useState<Programa | null>(null);
 
   useEffect(() => {
     const iv = setInterval(() => setAgora(nowBRT()), 60000);
     return () => clearInterval(iv);
   }, []);
 
-  // Base: hora cheia, 1h atrás do BRT atual
-  const baseMs = useMemo(() => {
-    const agoraBRTMs = Date.now() - 3 * 3600000;
-    const horaCheia = Math.floor(agoraBRTMs / 3600000) * 3600000;
-    return horaCheia - 3600000;
-  }, []);
-
   const totalHoras = 12;
   const gradeWidth = totalHoras * HORA_WIDTH;
 
+  // Base: hora cheia 1h atrás (BRT em ms UTC-3)
+  const baseMs = useMemo(() => {
+    const brtMs = Date.now() - 3 * 3600000;
+    return Math.floor(brtMs / 3600000) * 3600000 - 3600000;
+  }, []);
+
   const agoraOffsetPx = useMemo(() => {
-    const diffMs = agora.getTime() - baseMs;
-    return (diffMs / 60000) * PX_POR_MIN;
+    const brtMs = agora.getTime() - 3 * 3600000;
+    return ((brtMs - baseMs) / 60000) * PX_POR_MIN;
   }, [agora, baseMs]);
 
   const horaLabels = useMemo(() => {
-    const labels = [];
-    for (let i = 0; i <= totalHoras; i++) {
-      // Converte baseMs (UTC-3) para label BRT
-      const tMs = baseMs + 3 * 3600000 + i * 3600000; // volta para UTC para criar Date
-      const t = new Date(tMs);
-      const h = t.toLocaleTimeString("pt-BR", {
-        hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo"
-      });
-      labels.push({ x: i * HORA_WIDTH, label: h });
-    }
-    return labels;
-  }, [baseMs, totalHoras]);
+    return Array.from({ length: totalHoras + 1 }, (_, i) => {
+      const tMs = baseMs + 3 * 3600000 + i * 3600000;
+      const label = new Date(tMs).toLocaleTimeString("pt-BR",
+        { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+      return { x: i * HORA_WIDTH, label };
+    });
+  }, [baseMs]);
 
-  // Scroll inicial para "agora" (com 60px de margem esquerda)
+  function syncScroll(src: "regua" | "grade", val: number) {
+    if (src === "regua" && gradeRef.current) gradeRef.current.scrollLeft = val;
+    if (src === "grade" && reguaRef.current) reguaRef.current.scrollLeft = val;
+  }
+
   useEffect(() => {
-    if (scrollRef.current && agoraOffsetPx > 0) {
-      const target = Math.max(0, agoraOffsetPx - 60);
-      scrollRef.current.scrollLeft = target;
+    if (reguaRef.current && agoraOffsetPx > 0) {
+      reguaRef.current.scrollLeft = Math.max(0, agoraOffsetPx - 60);
     }
   }, [agoraOffsetPx]);
 
-  const LINHA_H = 60;
-  const REGUA_H = 34;
   const totalHeight = canais.length * LINHA_H;
 
   return (
     <>
-      {progSelecionado && (
-        <ProgramaTooltip prog={progSelecionado} onClose={() => setProgSelecionado(null)} />
-      )}
-
-      {/* Container principal — flex row */}
-      <div style={{ display: "flex", background: "#0a0a0a" }}>
-
-        {/* ── Coluna fixa esquerda (canais) ── */}
+      {progSel && <ProgramaTooltip prog={progSel} onClose={() => setProgSel(null)} />}
+      <div style={{ display: "flex", background: "#080808" }}>
+        {/* Coluna fixa — canais */}
         <div style={{
-          width: CANAL_COL_W, flexShrink: 0,
-          borderRight: "1px solid #1e1e1e",
-          // sticky no scroll vertical da página
-          position: "sticky", left: 0, zIndex: 20,
-          background: "#0a0a0a",
+          width: CANAL_COL_W, flexShrink: 0, borderRight: "1px solid #1a1a1a",
+          position: "sticky", left: 0, zIndex: 20, background: "#080808",
         }}>
-          {/* Célula vazia no topo — alinha com a régua */}
           <div style={{
-            height: REGUA_H,
-            borderBottom: "1px solid #1e1e1e",
-            background: "#0f0f0f",
+            height: REGUA_H, borderBottom: "1px solid #1a1a1a", background: "#0d0d0d",
             position: "sticky", top: 0, zIndex: 21,
           }} />
-          {/* Nomes dos canais */}
-          {canais.map(canal => (
-            <div key={canal.id} style={{
-              height: LINHA_H,
-              display: "flex", alignItems: "center", gap: 10, padding: "0 12px",
-              borderBottom: "1px solid #141414",
-              background: "#0a0a0a",
+          {canais.map(c => (
+            <div key={c.id} style={{
+              height: LINHA_H, display: "flex", alignItems: "center",
+              gap: 10, padding: "0 12px", borderBottom: "1px solid #111",
             }}>
-              <Logo canal={canal} size={32} />
+              <Logo src={c.icon} nome={c.nome} categoria={c.categoria} size={32} />
               <span style={{
                 fontSize: 11, color: "#bbb", fontWeight: 500,
                 overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-              }}>{canal.nome}</span>
+              }}>{c.nome}</span>
             </div>
           ))}
         </div>
 
-        {/* ── Área de scroll horizontal ── */}
-        <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
-
-         {/* Régua de horas — sticky abaixo dos filtros */}
+        {/* Área scroll */}
+        <div style={{ flex: 1, overflow: "hidden" }}>
+          {/* Régua */}
           <div style={{
-            position: "sticky", top: 170, zIndex: 15,
-            background: "#0f0f0f",
-            borderBottom: "1px solid #1e1e1e",
-            overflow: "hidden", height: REGUA_H,
+            position: "sticky", top: 0, zIndex: 15, height: REGUA_H,
+            background: "#0d0d0d", borderBottom: "1px solid #1a1a1a", overflow: "hidden",
           }}>
-            <div
-              ref={scrollRef}
-              style={{ overflowX: "scroll", overflowY: "hidden", height: REGUA_H + 20 }}
-              onScroll={e => {
-                // Sincroniza scroll da régua com a grade
-                const target = (e.target as HTMLDivElement).scrollLeft;
-                const gradeEl = document.getElementById("epg-grade-scroll");
-                if (gradeEl) gradeEl.scrollLeft = target;
-              }}
-            >
+            <div ref={reguaRef} style={{ overflowX: "scroll", overflowY: "hidden", height: REGUA_H + 20 }}
+              onScroll={e => syncScroll("regua", (e.target as HTMLDivElement).scrollLeft)}>
               <div style={{ position: "relative", width: gradeWidth, height: REGUA_H }}>
                 {horaLabels.map((h, i) => (
                   <div key={i} style={{
-                    position: "absolute", left: h.x, top: 0,
-                    height: "100%", display: "flex", alignItems: "center",
-                    paddingLeft: 8,
-                    borderLeft: i > 0 ? "1px solid #1e1e1e" : "none",
+                    position: "absolute", left: h.x, top: 0, height: "100%",
+                    display: "flex", alignItems: "center", paddingLeft: 8,
+                    borderLeft: i > 0 ? "1px solid #1a1a1a" : "none",
                   }}>
-                    <span style={{ fontSize: 11, color: "#555", fontWeight: 500, whiteSpace: "nowrap" }}>
-                      {h.label}
-                    </span>
+                    <span style={{ fontSize: 11, color: "#444", whiteSpace: "nowrap" }}>{h.label}</span>
                   </div>
                 ))}
-                {/* Linha vermelha na régua */}
-                <div style={{
-                  position: "absolute", left: agoraOffsetPx, top: 0,
-                  width: 2, height: "100%", background: "#ef4444", zIndex: 5,
-                }} />
+                <div style={{ position: "absolute", left: agoraOffsetPx, top: 0, width: 2, height: "100%", background: "#ef4444" }} />
               </div>
             </div>
           </div>
 
-          {/* Grade de programas — scroll sincronizado */}
-          <div
-            id="epg-grade-scroll"
-            style={{ overflowX: "scroll", overflowY: "visible" }}
-            onScroll={e => {
-              const target = (e.target as HTMLDivElement).scrollLeft;
-              if (scrollRef.current) scrollRef.current.scrollLeft = target;
-            }}
-          >
+          {/* Grade */}
+          <div ref={gradeRef} style={{ overflowX: "scroll" }}
+            onScroll={e => syncScroll("grade", (e.target as HTMLDivElement).scrollLeft)}>
             <div style={{ position: "relative", width: gradeWidth, height: totalHeight }}>
-
-              {/* Linha vermelha "agora" */}
-              <div style={{
-                position: "absolute", left: agoraOffsetPx, top: 0,
-                width: 2, height: totalHeight,
-                background: "#ef4444", zIndex: 5, pointerEvents: "none",
-              }} />
-
-              {/* Linhas verticais de hora */}
+              <div style={{ position: "absolute", left: agoraOffsetPx, top: 0, width: 2, height: totalHeight, background: "#ef4444", zIndex: 5, pointerEvents: "none" }} />
               {horaLabels.map((h, i) => i > 0 && (
-                <div key={i} style={{
-                  position: "absolute", left: h.x, top: 0,
-                  width: 1, height: totalHeight,
-                  background: "#1a1a1a", pointerEvents: "none",
-                }} />
+                <div key={i} style={{ position: "absolute", left: h.x, top: 0, width: 1, height: totalHeight, background: "#141414", pointerEvents: "none" }} />
               ))}
-
-              {/* Linhas de canais */}
               {canais.map((canal, rowIdx) => {
                 const progs = (progsPorCanal.get(canal.id) || [])
                   .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
                 const cor = CAT_COR[canal.categoria] || "#6b7280";
                 const top = rowIdx * LINHA_H;
-
+                const agoraBrtMs = agora.getTime() - 3 * 3600000;
                 return (
                   <div key={canal.id} style={{
                     position: "absolute", top, left: 0,
-                    width: gradeWidth, height: LINHA_H,
-                    borderBottom: "1px solid #141414",
+                    width: gradeWidth, height: LINHA_H, borderBottom: "1px solid #111",
                   }}>
                     {progs.map(prog => {
-                      // Calcula posição em px usando diferença de ms
-                      const startMs = new Date(prog.start).getTime() - 3 * 3600000; // UTC-3 → UTC
-                      const stopMs  = new Date(prog.stop).getTime()  - 3 * 3600000;
-                      const leftPxRaw = ((startMs - baseMs) / 60000) * PX_POR_MIN;
-const widthPxRaw = Math.max(((stopMs - startMs) / 60000) * PX_POR_MIN - 2, 4);
-// Se o programa começou antes da janela, clipa à esquerda
-const leftPx  = Math.max(leftPxRaw, 0);
-const widthPx = Math.max(widthPxRaw - (leftPx - leftPxRaw), 20);
-
-                      const isAtual = (agora.getTime() - 3*3600000) >= startMs &&
-                                      (agora.getTime() - 3*3600000) <= stopMs;
-
+                      const sMs = new Date(prog.start).getTime() - 3 * 3600000;
+                      const eMs = new Date(prog.stop).getTime()  - 3 * 3600000;
+                      const lRaw = ((sMs - baseMs) / 60000) * PX_POR_MIN;
+                      const wRaw = Math.max(((eMs - sMs) / 60000) * PX_POR_MIN - 2, 4);
+                      const lPx  = Math.max(lRaw, 0);
+                      const wPx  = Math.max(wRaw - (lPx - lRaw), 20);
+                      const isAtual = agoraBrtMs >= sMs && agoraBrtMs <= eMs;
                       return (
-                        <div
-                          key={prog.start}
-                          onClick={() => setProgSelecionado(prog)}
-                          title={`${formatHora(prog.start)} — ${prog.title}`}
+                        <div key={prog.start} onClick={() => setProgSel(prog)}
                           style={{
-                            position: "absolute",
-                            left: leftPx + 1, width: widthPx - 2,
-                            top: 5, bottom: 5, borderRadius: 5,
-                            background: isAtual ? cor + "25" : "#161616",
-                            border: `1px solid ${isAtual ? cor + "50" : "#222"}`,
-                            overflow: "hidden", cursor: "pointer",
-                            display: "flex", alignItems: "center",
-                            transition: "background 0.12s, border-color 0.12s",
+                            position: "absolute", left: lPx + 1, width: wPx - 2,
+                            top: 5, bottom: 5, borderRadius: 5, cursor: "pointer",
+                            background: isAtual ? cor + "25" : "#141414",
+                            border: `1px solid ${isAtual ? cor + "50" : "#1e1e1e"}`,
+                            overflow: "hidden", display: "flex", alignItems: "center",
+                            transition: "background 0.1s, border-color 0.1s",
                           }}
                           onMouseEnter={e => {
-                            e.currentTarget.style.background = isAtual ? cor + "40" : "#242424";
+                            e.currentTarget.style.background = isAtual ? cor + "40" : "#1e1e1e";
                             e.currentTarget.style.borderColor = cor + "60";
                           }}
                           onMouseLeave={e => {
-                            e.currentTarget.style.background = isAtual ? cor + "25" : "#161616";
-                            e.currentTarget.style.borderColor = isAtual ? cor + "50" : "#222";
+                            e.currentTarget.style.background = isAtual ? cor + "25" : "#141414";
+                            e.currentTarget.style.borderColor = isAtual ? cor + "50" : "#1e1e1e";
                           }}
                         >
-                          {/* Thumb do programa */}
-                          {prog.prog_icon && widthPx > 90 && (
-                            <img src={prog.prog_icon} alt=""
-                              style={{
-                                height: "100%", width: "auto",
-                                maxWidth: Math.min(widthPx * 0.28, 52),
-                                objectFit: "cover", flexShrink: 0, opacity: 0.85,
-                              }}
-                            />
+                          {prog.prog_icon && wPx > 90 && (
+                            <img src={prog.prog_icon} alt="" style={{
+                              height: "100%", width: "auto", maxWidth: Math.min(wPx * 0.28, 52),
+                              objectFit: "cover", flexShrink: 0, opacity: 0.8,
+                            }} />
                           )}
                           <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 5, padding: "0 7px" }}>
                             {isAtual && (
-                              <div style={{
-                                width: 5, height: 5, borderRadius: "50%",
-                                background: cor, flexShrink: 0,
-                                boxShadow: `0 0 5px ${cor}88`,
-                              }} />
+                              <div style={{ width: 5, height: 5, borderRadius: "50%", background: cor, flexShrink: 0, boxShadow: `0 0 5px ${cor}80` }} />
                             )}
                             <span style={{
-                              fontSize: 11,
-                              color: isAtual ? "#eee" : "#666",
-                              fontWeight: isAtual ? 500 : 400,
+                              fontSize: 11, fontWeight: isAtual ? 500 : 400,
+                              color: isAtual ? "#e5e5e5" : "#555",
                               overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                             }}>
-                              {leftPxRaw < 0
-  ? `◀ ${prog.title}` // indica que começou antes
-  : widthPx > 70
-    ? `${formatHora(prog.start)} ${prog.title}`
-    : prog.title}
+                              {lRaw < 0 ? `◀ ${prog.title}` : wPx > 70 ? `${formatHora(prog.start)} ${prog.title}` : prog.title}
                             </span>
                           </div>
                         </div>
@@ -495,108 +341,545 @@ const widthPx = Math.max(widthPxRaw - (leftPx - leftPxRaw), 20);
   );
 }
 
-// ─── Dropdown customizado ─────────────────────────────────────
-function Dropdown({
-  label, icon, options, value, onChange, disabled = false,
-}: {
-  label: string; icon?: string;
-  options: { value: string; label: string }[];
-  value: string; onChange: (v: string) => void;
-  disabled?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const selected = options.find(o => o.value === value);
+// ─── Card catálogo (filme / série) ────────────────────────────────────────────
+function CatalogCard({ item }: { item: CatalogItem }) {
+  const [imgErr, setImgErr] = useState(false);
+  const cor = item.tipo === "FILME" ? "#f59e0b" : "#6366f1";
 
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
+  const servidores = [
+    item.disponivel_elite && "ELITE",
+    item.disponivel_natv  && "NATV",
+    item.disponivel_fast  && "FAST",
+  ].filter(Boolean) as string[];
 
   return (
-    <div ref={ref} style={{ position: "relative", minWidth: 260, flex: 1 }}>
-      {/* Label acima */}
-      <div style={{
-        display: "flex", alignItems: "center", gap: 6,
-        marginBottom: 8, fontSize: 11, color: "#f97316",
-        fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.8px",
-      }}>
-        {icon && <span>{icon}</span>}
-        {label}
-      </div>
-      {/* Trigger */}
-      <button
-        onClick={() => !disabled && setOpen(o => !o)}
-        disabled={disabled}
-        style={{
-          width: "100%", height: 44, padding: "0 14px",
-          background: "#111", border: "1px solid #2a2a2a",
-          borderRadius: 8, display: "flex", alignItems: "center",
-          justifyContent: "space-between", cursor: disabled ? "not-allowed" : "pointer",
-          color: disabled ? "#444" : "#ccc", fontSize: 14,
-          transition: "border-color 0.15s",
-        }}
-        onMouseEnter={e => !disabled && ((e.currentTarget as HTMLButtonElement).style.borderColor = "#444")}
-        onMouseLeave={e => !disabled && ((e.currentTarget as HTMLButtonElement).style.borderColor = "#2a2a2a")}
-      >
-        <span>{selected ? selected.label : "Escolha uma categoria"}</span>
-        <ChevronDown style={{ width: 16, height: 16, opacity: 0.5, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
-      </button>
-
-      {/* Dropdown */}
-      {open && (
+    <div style={{
+      background: "#111", border: "1px solid #1e1e1e", borderRadius: 10,
+      overflow: "hidden", transition: "border-color 0.15s, transform 0.15s",
+      cursor: "default",
+    }}
+      onMouseEnter={e => {
+        (e.currentTarget as HTMLDivElement).style.borderColor = cor + "50";
+        (e.currentTarget as HTMLDivElement).style.transform = "translateY(-2px)";
+      }}
+      onMouseLeave={e => {
+        (e.currentTarget as HTMLDivElement).style.borderColor = "#1e1e1e";
+        (e.currentTarget as HTMLDivElement).style.transform = "translateY(0)";
+      }}
+    >
+      {/* Capa */}
+      <div style={{ position: "relative", paddingTop: "150%", background: "#0a0a0a" }}>
+        {item.cover_url && !imgErr ? (
+          <img src={item.cover_url} alt={item.titulo_normalizado} onError={() => setImgErr(true)}
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+        ) : (
+          <div style={{
+            position: "absolute", inset: 0, display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center", gap: 8,
+            background: cor + "10",
+          }}>
+            {item.tipo === "FILME"
+              ? <Film style={{ width: 28, height: 28, color: cor, opacity: 0.5 }} />
+              : <Clapperboard style={{ width: 28, height: 28, color: cor, opacity: 0.5 }} />}
+          </div>
+        )}
+        {/* Badge tipo */}
         <div style={{
-          position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0,
-          background: "#111", border: "1px solid #2a2a2a", borderRadius: 8,
-          zIndex: 100, overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.8)",
-          maxHeight: 320, overflowY: "auto",
+          position: "absolute", top: 6, left: 6,
+          background: cor + "dd", borderRadius: 4,
+          padding: "2px 6px", fontSize: 9, fontWeight: 700, color: "#fff",
+          letterSpacing: "0.5px",
         }}>
-          {options.map(opt => (
-            <button
-              key={opt.value}
-              onClick={() => { onChange(opt.value); setOpen(false); }}
-              style={{
-                width: "100%", padding: "10px 14px", background: "none",
-                border: "none", textAlign: "left", cursor: "pointer",
-                color: opt.value === value ? "#f97316" : "#aaa",
-                fontSize: 13, transition: "all 0.1s",
-                borderLeft: opt.value === value ? "2px solid #f97316" : "2px solid transparent",
-              }}
-              onMouseEnter={e => {
-                if (opt.value !== value) (e.currentTarget as HTMLButtonElement).style.background = "#1a1a1a";
-                (e.currentTarget as HTMLButtonElement).style.color = opt.value === value ? "#f97316" : "#fff";
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLButtonElement).style.background = "none";
-                (e.currentTarget as HTMLButtonElement).style.color = opt.value === value ? "#f97316" : "#aaa";
-              }}
-            >
-              {opt.label}
-            </button>
+          {item.tipo === "SERIE" ? `${item.total_temporadas}T · ${item.total_episodios}EP` : item.tipo}
+        </div>
+        {/* Servidores */}
+        <div style={{
+          position: "absolute", top: 6, right: 6,
+          display: "flex", flexDirection: "column", gap: 3,
+        }}>
+          {servidores.map(s => (
+            <div key={s} style={{
+              width: 6, height: 6, borderRadius: "50%",
+              background: SERVIDOR_COR[s],
+              boxShadow: `0 0 4px ${SERVIDOR_COR[s]}`,
+            }} />
           ))}
         </div>
-      )}
+      </div>
+      {/* Info */}
+      <div style={{ padding: "10px 10px 12px" }}>
+        <div style={{
+          fontSize: 12, fontWeight: 600, color: "#ddd", lineHeight: 1.3,
+          overflow: "hidden", textOverflow: "ellipsis",
+          display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+          marginBottom: 6,
+        }}>
+          {item.titulo_normalizado.charAt(0).toUpperCase() + item.titulo_normalizado.slice(1).toLowerCase()}
+        </div>
+        {item.ano && <div style={{ fontSize: 10, color: "#444" }}>{item.ano}</div>}
+      </div>
     </div>
   );
 }
 
-// ─── Página principal ─────────────────────────────────────────
-export default function GuiaTVPage() {
-  const [epg, setEpg]             = useState<EpgData | null>(null);
-  const [loading, setLoading]     = useState(true);
-  const [erro, setErro]           = useState<string | null>(null);
-  const [catAtiva, setCatAtiva]   = useState("Todos");
-  const [subAtiva, setSubAtiva]   = useState("Todos");
-  const [busca, setBusca]         = useState("");
-  const [syncing, setSyncing]     = useState(false);
-  const [msg, setMsg]             = useState<{tipo:"ok"|"err";texto:string}|null>(null);
+// ─── Modal Sync Catálogo ──────────────────────────────────────────────────────
+function ModalSync({ onClose }: { onClose: () => void }) {
+  const [syncState, setSyncState] = useState<SyncState>({
+    elite: "idle", fast: "idle", natv: "idle",
+    eliteStats: null, fastStats: null, natvStats: null,
+  });
+  const [logs, setLogs] = useState<Record<string, string[]>>({ elite: [], fast: [], natv: [] });
+  const [rodando, setRodando] = useState(false);
+  const [countdowns, setCountdowns] = useState<Record<string, number>>({});
 
+  const addLog = (srv: string, msg: string) =>
+    setLogs(prev => ({ ...prev, [srv]: [...(prev[srv] || []), msg] }));
+
+  // ── Parser M3U client-side ─────────────────────────────────
+  function parseM3U(texto: string, onProgress: (n: number) => void) {
+    const linhas = texto.split(/\r?\n/);
+    const canaisMap = new Map<string, any>();
+    const filmesMap = new Map<string, any>();
+    const seriesMap = new Map<string, any>();
+    const episodios: any[] = [];
+    let extinf = "", count = 0;
+
+    const isAdulto = (g: string) => {
+      const u = g.toUpperCase();
+      return ["XXX","ADULTO","ADULT","18+","ONLYFAN","PLAYBOY","PRIVACY"].some(x => u.includes(x));
+    };
+    const normGrupo = (g: string) => g.includes(" | ") ? g.split(" | ").slice(1).join(" | ").trim() : g.trim();
+    const normCanal = (n: string) => n.toUpperCase()
+      .replace(/\s*\[?(4K|FHD|FHDR|H265|H\.265|HD|SD)\]?\s*/gi, " ")
+      .replace(/\s*\*+\s*$/g, "").replace(/\s+/g, " ").trim();
+    const qualPeso = (n: string) => {
+      const u = n.toUpperCase();
+      if (u.includes("4K")) return 5; if (u.includes("FHD")) return 4;
+      if (u.includes("H265")) return 3; if (u.includes("HD")) return 2; return 1;
+    };
+    const normFilme = (n: string) => {
+      const ano = n.match(/[\[(](\d{4})[\])]/)?.[1];
+      const titulo = n.toUpperCase()
+        .replace(/[\[(]\d{4}[\])]/g, "").replace(/\s*\[L\]\s*/gi, " ")
+        .replace(/\s+LEG\b|\s+DUB\b|\s+DUBLADO\b|\s+LEGENDADO\b/gi, "")
+        .replace(/\s+/g, " ").trim();
+      return { titulo, ano: ano ? parseInt(ano) : null };
+    };
+    const normSerie = (n: string) => {
+      const se = n.match(/S(\d+)\s*E(\d+)/i);
+      const ano = n.match(/[\[(](\d{4})[\])]/)?.[1];
+      const titulo = n.replace(/\s*S\d+\s*E\d+.*/i, "")
+        .replace(/[\[(]\d{4}[\])]\s*/g, "").replace(/\s*\[L\]\s*/gi, " ")
+        .replace(/\s+LEG\b|\s+DUB\b/gi, "").toUpperCase().replace(/\s+/g, " ").trim();
+      return { titulo, ano: ano ? parseInt(ano) : null, temporada: se ? parseInt(se[1]) : null, episodio: se ? parseInt(se[2]) : null };
+    };
+
+    for (const linha of linhas) {
+      const l = linha.trim();
+      if (l.startsWith("#EXTINF")) { extinf = l; continue; }
+      if (!l.startsWith("http") || !extinf) continue;
+      count++;
+      if (count % 20000 === 0) onProgress(count);
+
+      const nome  = extinf.match(/tvg-name="([^"]*)"/)?.[1]?.trim() || "";
+      const logo  = extinf.match(/tvg-logo="([^"]*)"/)?.[1]?.trim() || "";
+      const grupo = extinf.match(/group-title="([^"]*)"/)?.[1]?.trim() || "";
+      extinf = "";
+      if (!nome || isAdulto(grupo)) continue;
+
+      const cat = normGrupo(grupo);
+      const tipo = l.includes("/movie/") ? "FILME" : l.includes("/series/") ? "SERIE" : "CANAL";
+
+      if (tipo === "CANAL") {
+        const t = normCanal(nome); if (!t) continue;
+        const peso = qualPeso(nome);
+        if (!canaisMap.has(t) || peso > canaisMap.get(t).peso)
+          canaisMap.set(t, { titulo_normalizado: t, tipo: "CANAL", cover_url: logo, ano: null, categoria_origem: cat, peso });
+      } else if (tipo === "FILME") {
+        const { titulo, ano } = normFilme(nome); if (!titulo) continue;
+        if (!filmesMap.has(titulo) || (!filmesMap.get(titulo).cover_url && logo))
+          filmesMap.set(titulo, { titulo_normalizado: titulo, tipo: "FILME", cover_url: logo, ano, categoria_origem: cat });
+      } else {
+        const { titulo, ano, temporada, episodio } = normSerie(nome);
+        if (!titulo || temporada === null || episodio === null) continue;
+        if (!seriesMap.has(titulo) || (!seriesMap.get(titulo).cover_url && logo))
+          seriesMap.set(titulo, { titulo_normalizado: titulo, tipo: "SERIE", cover_url: logo, ano, categoria_origem: cat });
+        episodios.push({ titulo_normalizado: titulo, temporada, episodio, cover_url: logo });
+      }
+    }
+    return { canais: [...canaisMap.values()], filmes: [...filmesMap.values()], series: [...seriesMap.values()], episodios };
+  }
+
+  // ── Supabase upsert direto ─────────────────────────────────
+  async function sbUpsert(table: string, rows: any[], onConflict: string, ignoreDup: boolean) {
+    const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const SUPA_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    const prefer = ignoreDup ? "resolution=ignore-duplicates" : "resolution=merge-duplicates";
+    const res = await fetch(`${SUPA_URL}/rest/v1/${table}`, {
+      method: "POST",
+      headers: {
+        "apikey": SUPA_KEY, "Authorization": `Bearer ${SUPA_KEY}`,
+        "Content-Type": "application/json", "Prefer": `return=minimal,${prefer}`,
+      },
+      body: JSON.stringify(rows),
+    });
+    if (!res.ok) throw new Error(`${table}: HTTP ${res.status} ${(await res.text()).slice(0, 120)}`);
+  }
+
+  async function sbSelectIds(titulos: string[]): Promise<Map<string, string>> {
+    const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const SUPA_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    const map = new Map<string, string>();
+    const BATCH = 400;
+    for (let i = 0; i < titulos.length; i += BATCH) {
+      const lote = titulos.slice(i, i + BATCH);
+      const enc = lote.map(t => `"${t.replace(/"/g, '\\"')}"`).join(",");
+      const res = await fetch(
+        `${SUPA_URL}/rest/v1/catalog_master?select=id,titulo_normalizado&titulo_normalizado=in.(${enc})`,
+        { headers: { "apikey": SUPA_KEY, "Authorization": `Bearer ${SUPA_KEY}` } }
+      );
+      if (!res.ok) continue;
+      const rows: any[] = await res.json();
+      for (const r of rows) map.set(r.titulo_normalizado, r.id);
+    }
+    return map;
+  }
+
+  async function sbRPC(fn: string, params: any) {
+    const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const SUPA_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    await fetch(`${SUPA_URL}/rest/v1/rpc/${fn}`, {
+      method: "POST",
+      headers: { "apikey": SUPA_KEY, "Authorization": `Bearer ${SUPA_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    });
+  }
+
+  // ── Sync via browser (Fast / NaTV) ─────────────────────────
+  async function syncBrowser(srv: string, urls: string[]) {
+    const inicio = Date.now();
+    setSyncState(p => ({ ...p, [srv.toLowerCase()]: "running" }));
+
+    let texto = "";
+    for (const url of urls) {
+      addLog(srv, `⬇ Baixando de ${new URL(url).hostname}...`);
+      try {
+        const r = await fetch(url);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        texto = await r.text();
+        addLog(srv, `✓ ${(texto.length / 1024 / 1024).toFixed(1)} MB recebidos`);
+        break;
+      } catch (e: any) { addLog(srv, `✗ ${e.message}`); }
+    }
+    if (!texto) throw new Error("Falha em todos os DNS");
+
+    addLog(srv, "⚙ Parseando...");
+    const { canais, filmes, series, episodios } = parseM3U(texto, n =>
+      addLog(srv, `  ${n.toLocaleString("pt-BR")} entradas...`)
+    );
+    addLog(srv, `✓ ${canais.length} canais · ${filmes.length} filmes · ${series.length} séries · ${episodios.length} eps`);
+
+    const SERVIDOR = srv.toUpperCase();
+    const todasMaster = [...canais, ...filmes, ...series];
+    const BATCH = 500;
+
+    addLog(srv, `↑ Salvando ${todasMaster.length} títulos...`);
+    for (let i = 0; i < todasMaster.length; i += BATCH) {
+      const rows = todasMaster.slice(i, i + BATCH).map(e => ({
+        titulo_normalizado: e.titulo_normalizado, tipo: e.tipo,
+        ...(e.cover_url ? { cover_url: e.cover_url } : {}),
+        ano: e.ano || null, atualizado_em: new Date().toISOString(),
+      }));
+      await sbUpsert("catalog_master", rows, "titulo_normalizado", false);
+    }
+
+    const idMap = await sbSelectIds(todasMaster.map(e => e.titulo_normalizado));
+    addLog(srv, `✓ ${idMap.size} IDs mapeados`);
+
+    const availRows = todasMaster.map(e => {
+      const master_id = idMap.get(e.titulo_normalizado);
+      return master_id ? { master_id, servidor: SERVIDOR, categoria_origem: e.categoria_origem } : null;
+    }).filter(Boolean);
+
+    for (let i = 0; i < availRows.length; i += BATCH)
+      await sbUpsert("catalog_availability", availRows.slice(i, i + BATCH), "master_id,servidor", true);
+
+    const epRows = episodios.map(ep => {
+      const master_id = idMap.get(ep.titulo_normalizado);
+      return master_id ? { master_id, servidor: SERVIDOR, temporada: ep.temporada, episodio: ep.episodio, cover_url: ep.cover_url || null } : null;
+    }).filter(Boolean);
+
+    for (let i = 0; i < epRows.length; i += BATCH)
+      await sbUpsert("catalog_episodes", epRows.slice(i, i + BATCH), "master_id,servidor,temporada,episodio", true);
+
+    await sbRPC("catalog_atualizar_contadores", { p_servidor: SERVIDOR });
+
+    const dur = Math.round((Date.now() - inicio) / 1000);
+    addLog(srv, `✅ Concluído em ${dur}s`);
+    const stats = { canais: canais.length, filmes: filmes.length, series_unicas: series.length, episodios: epRows.length, duracao_s: dur };
+    setSyncState(p => ({ ...p, [srv.toLowerCase()]: "ok", [`${srv.toLowerCase()}Stats`]: stats }));
+    return stats;
+  }
+
+  // ── Sync Elite via servidor ────────────────────────────────
+  async function syncElite() {
+    const inicio = Date.now();
+    setSyncState(p => ({ ...p, elite: "running" }));
+    addLog("elite", "⬇ Chamando rota do servidor...");
+    const res = await fetch("/api/epg/sync-catalog/elite", { method: "POST" });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || "Erro desconhecido");
+    addLog("elite", `✅ Concluído em ${data.duracao_s}s`);
+    setSyncState(p => ({ ...p, elite: "ok", eliteStats: data }));
+    return data;
+  }
+
+  // ── Countdown ──────────────────────────────────────────────
+  function countdown(srv: string, ms: number): Promise<void> {
+    return new Promise(resolve => {
+      setSyncState(p => ({ ...p, [srv]: "waiting" }));
+      const fim = Date.now() + ms;
+      const iv = setInterval(() => {
+        const rest = Math.max(0, Math.round((fim - Date.now()) / 1000));
+        setCountdowns(p => ({ ...p, [srv]: rest }));
+        if (rest === 0) { clearInterval(iv); resolve(); }
+      }, 1000);
+    });
+  }
+
+  // ── Iniciar tudo ───────────────────────────────────────────
+  async function iniciar() {
+    setRodando(true);
+    try {
+      // Elite
+      await syncElite();
+      // Fast — 5 min
+      addLog("fast", "⏳ Aguardando 5 minutos...");
+      await countdown("fast", 5 * 60 * 1000);
+      await syncBrowser("fast", [
+        "http://psbox.top/get.php?username=Insqueixa&password=uC8369&type=m3u_plus",
+        "http://p1fast.com/get.php?username=Insqueixa&password=uC8369&type=m3u_plus",
+      ]);
+      // NaTV — mais 5 min
+      addLog("natv", "⏳ Aguardando 5 minutos...");
+      await countdown("natv", 5 * 60 * 1000);
+      await syncBrowser("natv", [
+        "http://rj98.eu/get.php?username=Insqueixa&password=62206935744&type=m3u_plus",
+        "http://rw26.eu/get.php?username=Insqueixa&password=62206935744&type=m3u_plus",
+        "http://nc18.org/get.php?username=Insqueixa&password=62206935744&type=m3u_plus",
+      ]);
+    } catch (e: any) {
+      addLog("elite", `❌ ${e.message}`);
+    } finally {
+      setRodando(false);
+    }
+  }
+
+  const SERVERS = [
+    { id: "elite", label: "EliteTV", sub: "via servidor · chinaz.asia", cor: "#6366f1" },
+    { id: "fast",  label: "FastTV",  sub: "via browser · psbox.top",   cor: "#10b981" },
+    { id: "natv",  label: "NaTV",    sub: "via browser · rj98.eu",     cor: "#f59e0b" },
+  ];
+
+  function statusLabel(s: SyncStatus, srv: string) {
+    if (s === "waiting") {
+      const sec = countdowns[srv] || 0;
+      const m = Math.floor(sec / 60), ss = sec % 60;
+      return `Na fila — ${m}:${ss.toString().padStart(2,"0")}`;
+    }
+    return { idle: "Aguardando", running: "Rodando...", ok: "Concluído", error: "Erro" }[s];
+  }
+  function statusCor(s: SyncStatus) {
+    return { idle: "#374151", waiting: "#92400e", running: "#6366f1", ok: "#10b981", error: "#ef4444" }[s];
+  }
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 1000,
+      background: "rgba(0,0,0,0.85)", display: "flex",
+      alignItems: "center", justifyContent: "center", padding: 20,
+    }} onClick={!rodando ? onClose : undefined}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: "#0f0f13", border: "1px solid #1e1e2e",
+        borderRadius: 16, width: "100%", maxWidth: 600,
+        maxHeight: "90vh", overflow: "auto",
+        boxShadow: "0 32px 80px rgba(0,0,0,0.9)",
+      }}>
+        {/* Header */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "18px 20px", borderBottom: "1px solid #1e1e2e",
+        }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#f1f5f9" }}>Sincronizar Catálogo</div>
+            <div style={{ fontSize: 12, color: "#475569", marginTop: 2 }}>
+              Atualiza filmes, séries e canais dos 3 servidores
+            </div>
+          </div>
+          {!rodando && (
+            <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#475569" }}>
+              <X style={{ width: 18, height: 18 }} />
+            </button>
+          )}
+        </div>
+
+        {/* Servidores */}
+        <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+          {SERVERS.map(srv => {
+            const status = syncState[srv.id as keyof typeof syncState] as SyncStatus;
+            const stats  = syncState[`${srv.id}Stats` as keyof typeof syncState] as any;
+            const srvLogs = logs[srv.id] || [];
+
+            return (
+              <div key={srv.id} style={{
+                background: "#111", border: `1px solid #1e1e2e`,
+                borderRadius: 10, overflow: "hidden",
+              }}>
+                {/* Cabeçalho do servidor */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{
+                      width: 8, height: 8, borderRadius: "50%",
+                      background: status === "idle" ? "#1e293b" : srv.cor,
+                      boxShadow: status === "running" ? `0 0 8px ${srv.cor}` : "none",
+                      animation: status === "running" ? "pulse 1s infinite" : "none",
+                    }} />
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>{srv.label}</div>
+                      <div style={{ fontSize: 11, color: "#334155", marginTop: 1 }}>{srv.sub}</div>
+                    </div>
+                  </div>
+                  <span style={{
+                    fontSize: 11, fontWeight: 600, padding: "3px 10px",
+                    borderRadius: 20, background: statusCor(status) + "20",
+                    color: statusCor(status), border: `1px solid ${statusCor(status)}30`,
+                  }}>
+                    {statusLabel(status, srv.id)}
+                  </span>
+                </div>
+
+                {/* Log */}
+                {srvLogs.length > 0 && (
+                  <div style={{
+                    padding: "6px 14px 10px",
+                    borderTop: "1px solid #1e1e2e",
+                    fontFamily: "monospace", fontSize: 11,
+                    color: "#475569", lineHeight: 1.7,
+                    maxHeight: 100, overflowY: "auto",
+                  }}>
+                    {srvLogs.map((l, i) => (
+                      <div key={i} style={{
+                        color: l.startsWith("✅") ? "#4ade80" : l.startsWith("❌") || l.startsWith("✗") ? "#f87171"
+                          : l.startsWith("✓") ? "#818cf8" : "#475569"
+                      }}>{l}</div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Stats */}
+                {stats && (
+                  <div style={{
+                    display: "flex", borderTop: "1px solid #1e1e2e",
+                  }}>
+                    {[
+                      ["Canais", stats.canais],
+                      ["Filmes", stats.filmes],
+                      ["Séries", stats.series_unicas],
+                      ["Episódios", stats.episodios],
+                      ["Tempo", `${stats.duracao_s}s`],
+                    ].map(([label, val]) => (
+                      <div key={label as string} style={{
+                        flex: 1, padding: "8px 0", textAlign: "center",
+                        borderRight: "1px solid #1e1e2e",
+                      }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: srv.cor }}>
+                          {typeof val === "number" ? numFmt(val) : val}
+                        </div>
+                        <div style={{ fontSize: 10, color: "#334155", marginTop: 1, textTransform: "uppercase" }}>{label}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer */}
+        <div style={{
+          padding: "14px 20px", borderTop: "1px solid #1e1e2e",
+          display: "flex", alignItems: "center", gap: 10,
+        }}>
+          {!rodando ? (
+            <button onClick={iniciar} style={{
+              flex: 1, padding: "11px 0", borderRadius: 8, border: "none",
+              background: "#6366f1", color: "#fff", fontSize: 14, fontWeight: 600,
+              cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+            }}>
+              <Play style={{ width: 14, height: 14 }} />
+              Iniciar Sincronização
+            </button>
+          ) : (
+            <div style={{
+              flex: 1, padding: "11px 0", borderRadius: 8,
+              background: "#1e1b4b", color: "#818cf8", fontSize: 14, fontWeight: 600,
+              textAlign: "center",
+            }}>
+              <RefreshCw style={{ width: 13, height: 13, marginRight: 6, display: "inline", animation: "spin 1s linear infinite" }} />
+              Sincronizando — não feche esta aba
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Filtro pill ──────────────────────────────────────────────────────────────
+function Pill({ label, ativo, cor, onClick }: {
+  label: string; ativo: boolean; cor?: string; onClick: () => void;
+}) {
+  const c = cor || "#6366f1";
+  return (
+    <button onClick={onClick} style={{
+      padding: "5px 12px", borderRadius: 20, border: `1px solid ${ativo ? c : "#1e1e2e"}`,
+      background: ativo ? c + "20" : "transparent", color: ativo ? c : "#475569",
+      fontSize: 12, fontWeight: ativo ? 600 : 400, cursor: "pointer",
+      whiteSpace: "nowrap", transition: "all 0.12s",
+    }}>
+      {label}
+    </button>
+  );
+}
+
+// ─── Página principal ─────────────────────────────────────────────────────────
+export default function GuiaTVPage() {
+  // EPG
+  const [epg, setEpg]         = useState<EpgData | null>(null);
+  const [epgLoad, setEpgLoad] = useState(true);
+  const [epgErro, setEpgErro] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [epgMsg, setEpgMsg]   = useState<{ tipo: "ok" | "err"; texto: string } | null>(null);
+
+  // Catálogo
+  const [catalog, setCatalog]         = useState<CatalogItem[]>([]);
+  const [catalogLoad, setCatalogLoad] = useState(false);
+  const [catalogPage, setCatalogPage] = useState(0);
+  const CATALOG_PAGE_SIZE = 60;
+
+  // Filtros globais
+  const [aba, setAba]               = useState<"canais" | "filmes" | "series">("canais");
+  const [servidorFiltro, setServidorFiltro] = useState<"TODOS" | "ELITE" | "NATV" | "FAST">("TODOS");
+  const [catAtiva, setCatAtiva]     = useState("Todos");
+  const [busca, setBusca]           = useState("");
+
+  // Modal sync
+  const [modalSync, setModalSync]   = useState(false);
+
+  // ── Carrega EPG ──────────────────────────────────────────────
   useEffect(() => {
-    async function load() {
-      setLoading(true); setErro(null);
+    (async () => {
+      setEpgLoad(true); setEpgErro(null);
       try {
         const res = await fetch(
           `${process.env.NEXT_PUBLIC_R2_DEV_URL}/epg/epg_br.json?t=${Date.now()}`,
@@ -604,280 +887,346 @@ export default function GuiaTVPage() {
         );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         setEpg(await res.json());
-      } catch { setErro("Grade não encontrada. Rode o sync para carregar."); }
-      finally { setLoading(false); }
-    }
-    load();
+      } catch { setEpgErro("Grade EPG não encontrada. Rode o sync."); }
+      finally { setEpgLoad(false); }
+    })();
   }, []);
 
-  // Programas: 2h atrás até 10h à frente, horário BRT
+  // ── Carrega catálogo (filmes/séries) ─────────────────────────
+  useEffect(() => {
+    if (aba === "canais") return;
+    (async () => {
+      setCatalogLoad(true);
+      try {
+        const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+        const SUPA_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+        const tipo = aba === "filmes" ? "FILME" : "SERIE";
+        const params = new URLSearchParams({
+          select: "id,titulo_normalizado,tipo,cover_url,ano,total_temporadas,total_episodios,elite_desde,natv_desde,fast_desde,elite_categoria,natv_categoria,fast_categoria,disponivel_elite,disponivel_natv,disponivel_fast,total_servidores",
+          tipo: `eq.${tipo}`,
+          order: "titulo_normalizado.asc",
+          limit: "500",
+        });
+        if (servidorFiltro === "ELITE") params.set("disponivel_elite", "eq.true");
+        if (servidorFiltro === "NATV")  params.set("disponivel_natv",  "eq.true");
+        if (servidorFiltro === "FAST")  params.set("disponivel_fast",  "eq.true");
+
+        const res = await fetch(`${SUPA_URL}/rest/v1/vw_catalog_full?${params}`, {
+          headers: { "apikey": SUPA_KEY, "Authorization": `Bearer ${SUPA_KEY}` },
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        setCatalog(await res.json());
+        setCatalogPage(0);
+      } catch (e: any) { console.error(e); }
+      finally { setCatalogLoad(false); }
+    })();
+  }, [aba, servidorFiltro]);
+
+  // ── Programas por canal (EPG) ─────────────────────────────────
   const progsPorCanal = useMemo(() => {
     if (!epg) return new Map<string, Programa[]>();
     const map = new Map<string, Programa[]>();
-    // Usa Date.now() + offset BRT (-3h = -10800000ms)
-    const agoraMs = Date.now() - 3 * 3600000; // UTC-3
-    const inicio  = agoraMs - 2 * 3600000;
-    const fim     = agoraMs + 10 * 3600000;
+    const brtMs = Date.now() - 3 * 3600000;
+    const ini = brtMs - 2 * 3600000, fim = brtMs + 10 * 3600000;
     for (const p of epg.programas) {
-      // new Date(iso) com offset -03:00 converte para UTC internamente
-      const s = new Date(p.start).getTime();
-      const e = new Date(p.stop).getTime();
-      if (e < inicio || s > fim) continue;
-      const arr = map.get(p.channel_id) || [];
-      arr.push(p);
+      const s = new Date(p.start).getTime(), e = new Date(p.stop).getTime();
+      if (e < ini || s > fim) continue;
+      const arr = map.get(p.channel_id) || []; arr.push(p);
       map.set(p.channel_id, arr);
     }
     return map;
   }, [epg]);
 
-  // Categorias disponíveis
+  // ── Canais filtrados (EPG) ────────────────────────────────────
+  const canaisFiltrados = useMemo(() => {
+    if (!epg) return [];
+    let lista = epg.canais;
+    if (catAtiva !== "Todos") lista = lista.filter(c => c.categoria === catAtiva);
+    if (busca.trim()) {
+      const q = busca.toLowerCase();
+      const porNome = lista.filter(c => c.nome.toLowerCase().includes(q) || c.display_name.toLowerCase().includes(q));
+      if (porNome.length) return porNome;
+      const ids = new Set<string>();
+      for (const p of epg.programas)
+        if (p.title.toLowerCase().includes(q) || p.desc?.toLowerCase().includes(q)) ids.add(p.channel_id);
+      return lista.filter(c => ids.has(c.id));
+    }
+    return lista;
+  }, [epg, catAtiva, busca]);
+
+  // ── Catálogo filtrado ─────────────────────────────────────────
+  const catalogFiltrado = useMemo(() => {
+    if (!catalog.length) return [];
+    let lista = catalog;
+    if (busca.trim()) {
+      const q = busca.toLowerCase();
+      lista = lista.filter(i => i.titulo_normalizado.toLowerCase().includes(q));
+    }
+    if (catAtiva !== "Todos") {
+      lista = lista.filter(i => {
+        const cats = [i.elite_categoria, i.natv_categoria, i.fast_categoria].filter(Boolean);
+        return cats.some(c => c?.toLowerCase().includes(catAtiva.toLowerCase()));
+      });
+    }
+    return lista;
+  }, [catalog, busca, catAtiva]);
+
+  const catalogPaginado = useMemo(() =>
+    catalogFiltrado.slice(0, (catalogPage + 1) * CATALOG_PAGE_SIZE),
+  [catalogFiltrado, catalogPage]);
+
+  // ── Categorias disponíveis ────────────────────────────────────
   const catsDisponiveis = useMemo(() => {
     if (!epg) return [];
     const set = new Set(epg.canais.map(c => c.categoria));
     return CATS_ORDEM.filter(c => set.has(c));
   }, [epg]);
 
-  // Subgrupos da categoria ativa
-  const subgruposDisponiveis = useMemo(() => {
-    if (catAtiva === "Todos") return [];
-    return SUBGRUPOS[catAtiva] || [];
-  }, [catAtiva]);
-
-  // Canais filtrados — busca por nome de canal OU por conteúdo da programação
-  const canaisFiltrados = useMemo(() => {
-    if (!epg) return [];
-    let lista = epg.canais;
-    if (catAtiva !== "Todos") lista = lista.filter(c => c.categoria === catAtiva);
-    if (subAtiva !== "Todos") {
-      const sg = subgruposDisponiveis.find(s => s.label === subAtiva);
-      if (sg) lista = lista.filter(c => sg.match.some(m => c.display_name.toUpperCase().includes(m)));
-    }
-    if (busca.trim()) {
-      const q = busca.trim().toLowerCase();
-      // Tenta primeiro por nome do canal
-      const porNome = lista.filter(c =>
-        c.nome.toLowerCase().includes(q) || c.display_name.toLowerCase().includes(q)
-      );
-      if (porNome.length > 0) return porNome;
-      // Se não encontrou canal pelo nome, busca por conteúdo da programação
-      const idsComConteudo = new Set<string>();
-      for (const p of epg.programas) {
-        if (
-          p.title.toLowerCase().includes(q) ||
-          p.desc?.toLowerCase().includes(q)
-        ) {
-          idsComConteudo.add(p.channel_id);
-        }
-      }
-      return lista.filter(c => idsComConteudo.has(c.id));
-    }
-    return lista;
-  }, [epg, catAtiva, subAtiva, subgruposDisponiveis, busca]);
-
-  // Quando muda categoria, reseta subcategoria
-  function handleCatChange(v: string) {
-    setCatAtiva(v);
-    setSubAtiva("Todos");
-  }
-
-
-  async function handleSync() {
-    setSyncing(true); setMsg(null);
+  // ── Sync EPG ──────────────────────────────────────────────────
+  async function handleSyncEPG() {
+    setSyncing(true); setEpgMsg(null);
     try {
       const d = await fetch("/api/epg/sync", { method: "POST" }).then(r => r.json());
       if (d.ok) {
-        const srvs = d.log?.resultado?.servidores_ok?.join(" + ");
-        setMsg({ tipo: "ok", texto: `Sync OK — ${srvs} em ${d.duracao_s}s` });
+        setEpgMsg({ tipo: "ok", texto: `EPG sincronizado em ${d.duracao_s}s` });
         setTimeout(() => window.location.reload(), 1800);
-      } else setMsg({ tipo: "err", texto: d.error || "Sync falhou" });
-    } catch (e: any) { setMsg({ tipo: "err", texto: e.message }); }
+      } else setEpgMsg({ tipo: "err", texto: d.error || "Sync EPG falhou" });
+    } catch (e: any) { setEpgMsg({ tipo: "err", texto: e.message }); }
     finally { setSyncing(false); }
   }
 
-  // Opções dos dropdowns
-  const catOptions = [
-    { value: "Todos", label: "📡 Todos os canais" },
-    ...catsDisponiveis.map(c => ({
-      value: c,
-      label: `${CAT_EMOJI[c]} ${c} (${epg?.canais.filter(ch => ch.categoria === c).length || 0})`,
-    })),
-  ];
-  const subOptions = [
-    { value: "Todos", label: `Todos em ${catAtiva}` },
-    ...subgruposDisponiveis.map(s => ({
-      value: s.label,
-      label: `${s.label} (${epg?.canais.filter(c => c.categoria === catAtiva && s.match.some(m => c.display_name.toUpperCase().includes(m))).length || 0})`,
-    })),
-  ];
+  const ABAS = [
+    { id: "canais",  label: "Canais",  icon: <Tv style={{ width: 13, height: 13 }} /> },
+    { id: "filmes",  label: "Filmes",  icon: <Film style={{ width: 13, height: 13 }} /> },
+    { id: "series",  label: "Séries",  icon: <Clapperboard style={{ width: 13, height: 13 }} /> },
+  ] as const;
 
   return (
-    // Força dark nessa página
-    <div style={{
-      background: "#080808", minHeight: "100vh",
-      color: "#ccc", fontFamily: "inherit",
-      overflow: "hidden",
-    }}>
-      {/* Topo */}
+    <div style={{ background: "#080808", minHeight: "100vh", color: "#ccc" }}>
+
+      {/* ── Topo ────────────────────────────────────────────────── */}
       <div style={{
-        padding: "14px 20px", borderBottom: "1px solid #1a1a1a",
-        display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
-        background: "#0d0d0d",
-        position: "sticky", top: 0, zIndex: 30,
+        position: "sticky", top: 0, zIndex: 40, background: "#0d0d0d",
+        borderBottom: "1px solid #1a1a1a",
       }}>
-        <Tv style={{ color: "#ef4444", width: 18, height: 18, flexShrink: 0 }} />
-        <span style={{ fontSize: 16, fontWeight: 500, color: "#eee" }}>Guia TV</span>
-        {epg && (
-          <span style={{ fontSize: 12, color: "#555" }}>
-            · {epg.total_canais} canais · {formatDataHora(epg.gerado_em)}
-          </span>
-        )}
-        <div style={{ flex: 1 }} />
-
-
-        <button onClick={handleSync} disabled={syncing}
-          style={{
-            display: "flex", alignItems: "center", gap: 5, fontSize: 12,
-            color: syncing ? "#555" : "#10b981",
-            background: "#111", border: `1px solid ${syncing ? "#222" : "#10b98130"}`,
-            borderRadius: 7, padding: "5px 10px", cursor: syncing ? "not-allowed" : "pointer",
-          }}>
-          <RefreshCw style={{ width: 12, height: 12, animation: syncing ? "spin 1s linear infinite" : "none" }} />
-          {syncing ? "Sync..." : "Sync"}
-        </button>
-      </div>
-
-      {/* Feedback */}
-      {msg && (
+        {/* Linha 1: título + ações */}
         <div style={{
-          display: "flex", alignItems: "center", gap: 8, padding: "10px 20px",
-          background: msg.tipo === "ok" ? "#10b98115" : "#ef444415",
-          borderBottom: `1px solid ${msg.tipo === "ok" ? "#10b98130" : "#ef444430"}`,
-          fontSize: 13, color: msg.tipo === "ok" ? "#10b981" : "#ef4444",
+          display: "flex", alignItems: "center", gap: 12,
+          padding: "12px 20px", flexWrap: "wrap",
         }}>
-          {msg.tipo === "ok" ? <CheckCircle style={{ width: 14, height: 14 }} /> : <AlertTriangle style={{ width: 14, height: 14 }} />}
-          {msg.texto}
-          <button onClick={() => setMsg(null)} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "inherit" }}>
-            <X style={{ width: 13, height: 13 }} />
+          <Tv style={{ color: "#ef4444", width: 17, height: 17, flexShrink: 0 }} />
+          <span style={{ fontSize: 15, fontWeight: 600, color: "#eee" }}>Guia TV</span>
+          {epg && (
+            <span style={{ fontSize: 11, color: "#334155" }}>
+              · {epg.total_canais} canais · {formatDataHora(epg.gerado_em)}
+            </span>
+          )}
+          <div style={{ flex: 1 }} />
+
+          {/* Sync EPG */}
+          <button onClick={handleSyncEPG} disabled={syncing} style={{
+            display: "flex", alignItems: "center", gap: 5, padding: "5px 10px",
+            background: "#111", border: `1px solid ${syncing ? "#1e1e1e" : "#10b98130"}`,
+            borderRadius: 7, cursor: syncing ? "not-allowed" : "pointer",
+            color: syncing ? "#374151" : "#10b981", fontSize: 12, fontWeight: 500,
+          }}>
+            <RefreshCw style={{ width: 11, height: 11, animation: syncing ? "spin 1s linear infinite" : "none" }} />
+            {syncing ? "Sync EPG..." : "Sync EPG"}
+          </button>
+
+          {/* Sync Catálogo */}
+          <button onClick={() => setModalSync(true)} style={{
+            display: "flex", alignItems: "center", gap: 5, padding: "5px 10px",
+            background: "#1e1b4b", border: "1px solid #312e81",
+            borderRadius: 7, cursor: "pointer",
+            color: "#818cf8", fontSize: 12, fontWeight: 500,
+          }}>
+            <Database style={{ width: 11, height: 11 }} />
+            Sync Catálogo
           </button>
         </div>
-      )}
 
-      {/* Filtros */}
-      <div style={{
-        padding: "20px 20px 16px",
-        background: "#0d0d0d", borderBottom: "1px solid #1a1a1a",
-        display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end",
-        position: "sticky", top: 56, zIndex: 29,
-      }}>
-        {/* Dropdown Categoria */}
-        <Dropdown
-          label="Selecione a Categoria"
-          icon="📺"
-          options={catOptions}
-          value={catAtiva}
-          onChange={handleCatChange}
-        />
-
-        {/* Dropdown Subcategoria (só aparece quando tem subgrupos) */}
-        {subgruposDisponiveis.length > 0 && (
-          <Dropdown
-            label="Subcategoria"
-            icon="🔍"
-            options={subOptions}
-            value={subAtiva}
-            onChange={setSubAtiva}
-          />
+        {/* Feedback EPG */}
+        {epgMsg && (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 8, padding: "8px 20px",
+            background: epgMsg.tipo === "ok" ? "#10b98115" : "#ef444415",
+            borderBottom: `1px solid ${epgMsg.tipo === "ok" ? "#10b98130" : "#ef444430"}`,
+            fontSize: 12, color: epgMsg.tipo === "ok" ? "#10b981" : "#ef4444",
+          }}>
+            {epgMsg.tipo === "ok"
+              ? <CheckCircle style={{ width: 13, height: 13 }} />
+              : <AlertTriangle style={{ width: 13, height: 13 }} />}
+            {epgMsg.texto}
+            <button onClick={() => setEpgMsg(null)} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "inherit" }}>
+              <X style={{ width: 12, height: 12 }} />
+            </button>
+          </div>
         )}
 
-        {/* Busca */}
-        <div style={{ flex: 1, minWidth: 220 }}>
-          <div style={{
-            display: "flex", alignItems: "center", gap: 6,
-            marginBottom: 8, fontSize: 11, color: "#f97316",
-            fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.8px",
-          }}>
-            <Search style={{ width: 11, height: 11 }} /> Pesquisar Canais
-          </div>
-          <div style={{ position: "relative" }}>
-            <input
-              value={busca} onChange={e => setBusca(e.target.value)}
-              placeholder="Digite o nome do canal..."
+        {/* Linha 2: abas + filtros */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 0,
+          padding: "0 20px", borderBottom: "1px solid #111", overflowX: "auto",
+        }}>
+          {ABAS.map(a => (
+            <button key={a.id} onClick={() => { setAba(a.id); setCatAtiva("Todos"); setBusca(""); }}
               style={{
-                width: "100%", height: 44, paddingLeft: 14, paddingRight: 44,
-                background: "#111", border: "1px solid #2a2a2a",
-                borderRadius: 8, fontSize: 14, color: "#ccc",
-                outline: "none", boxSizing: "border-box",
+                display: "flex", alignItems: "center", gap: 5,
+                padding: "10px 14px", background: "none", border: "none",
+                borderBottom: `2px solid ${aba === a.id ? "#6366f1" : "transparent"}`,
+                color: aba === a.id ? "#818cf8" : "#475569",
+                fontSize: 13, fontWeight: aba === a.id ? 600 : 400,
+                cursor: "pointer", whiteSpace: "nowrap", transition: "color 0.12s",
+                marginBottom: -1,
+              }}>
+              {a.icon} {a.label}
+            </button>
+          ))}
+
+          <div style={{ flex: 1 }} />
+
+          {/* Busca inline */}
+          <div style={{ position: "relative", marginLeft: 12 }}>
+            <Search style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", width: 13, height: 13, color: "#374151" }} />
+            <input value={busca} onChange={e => setBusca(e.target.value)}
+              placeholder={aba === "canais" ? "Buscar canal ou programa..." : "Buscar título..."}
+              style={{
+                height: 32, paddingLeft: 30, paddingRight: 12, width: 220,
+                background: "#111", border: "1px solid #1e1e2e",
+                borderRadius: 7, fontSize: 12, color: "#ccc", outline: "none",
               }}
-              onFocus={e => (e.target.style.borderColor = "#f97316")}
-              onBlur={e => (e.target.style.borderColor = "#2a2a2a")}
+              onFocus={e => (e.target.style.borderColor = "#6366f1")}
+              onBlur={e => (e.target.style.borderColor = "#1e1e2e")}
             />
-            <div style={{
-              position: "absolute", right: 0, top: 0, height: 44, width: 44,
-              background: "#f97316", borderRadius: "0 8px 8px 0",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer",
-            }}>
-              <Search style={{ width: 16, height: 16, color: "#fff" }} />
-            </div>
           </div>
+        </div>
+
+        {/* Linha 3: filtros de categoria + servidor */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 6,
+          padding: "10px 20px", overflowX: "auto",
+          borderBottom: aba !== "canais" ? "1px solid #111" : "none",
+        }}>
+          {/* Filtro servidor (catálogo) */}
+          {aba !== "canais" && (
+            <>
+              {(["TODOS","ELITE","NATV","FAST"] as const).map(s => (
+                <Pill key={s} label={s === "TODOS" ? "Todos servidores" : SERVIDOR_LABEL[s]}
+                  ativo={servidorFiltro === s}
+                  cor={s === "TODOS" ? "#6366f1" : SERVIDOR_COR[s]}
+                  onClick={() => setServidorFiltro(s)}
+                />
+              ))}
+              <div style={{ width: 1, height: 20, background: "#1e1e2e", margin: "0 4px" }} />
+            </>
+          )}
+
+          {/* Categorias (canais) */}
+          {aba === "canais" && (
+            <>
+              <Pill label="Todos" ativo={catAtiva === "Todos"} onClick={() => setCatAtiva("Todos")} />
+              {catsDisponiveis.map(c => (
+                <Pill key={c} label={`${CAT_EMOJI[c]} ${c}`} ativo={catAtiva === c}
+                  cor={CAT_COR[c]} onClick={() => setCatAtiva(c)} />
+              ))}
+            </>
+          )}
         </div>
       </div>
 
-      {/* Contador */}
-      {!loading && !erro && epg && (
-        <div style={{ padding: "8px 20px", fontSize: 12, color: "#444", background: "#080808" }}>
-          {canaisFiltrados.length} canal{canaisFiltrados.length !== 1 ? "is" : ""}
-          {busca ? ` para "${busca}"` : ""}
-          {catAtiva !== "Todos" ? ` · ${catAtiva}` : ""}
-          {subAtiva !== "Todos" ? ` · ${subAtiva}` : ""}
-        </div>
-      )}
-
-      {/* Loading */}
-      {loading && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: 80, color: "#555", fontSize: 14 }}>
-          <RefreshCw style={{ width: 18, height: 18, animation: "spin 1s linear infinite" }} />
-          Carregando grade de programação...
-        </div>
-      )}
-
-      {/* Erro */}
-      {erro && !loading && (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: 80, textAlign: "center" }}>
-          <AlertTriangle style={{ width: 28, height: 28, color: "#f59e0b" }} />
-          <div style={{ fontSize: 15, fontWeight: 500, color: "#eee" }}>Grade não encontrada</div>
-          <div style={{ fontSize: 13, color: "#555" }}>{erro}</div>
-          <button onClick={handleSync} disabled={syncing}
-            style={{
-              display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 500,
-              color: "#10b981", background: "#10b98115", border: "1px solid #10b98130",
-              borderRadius: 9, padding: "8px 16px", cursor: "pointer",
-            }}>
-            <RefreshCw style={{ width: 14, height: 14 }} />
-            {syncing ? "Sincronizando..." : "Sincronizar agora"}
-          </button>
-        </div>
-      )}
-
-      {/* Grade EPG */}
-      {!loading && !erro && epg && (
-        <div style={{ overflowX: "hidden" }}>
-          {canaisFiltrados.length === 0 ? (
-            <div style={{ textAlign: "center", padding: 60, color: "#555", fontSize: 14 }}>
-              Nenhum canal encontrado.
+      {/* ── Conteúdo: Canais (EPG) ──────────────────────────────── */}
+      {aba === "canais" && (
+        <>
+          {epgLoad && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: 80, color: "#374151", fontSize: 13 }}>
+              <RefreshCw style={{ width: 16, height: 16, animation: "spin 1s linear infinite" }} /> Carregando grade...
             </div>
-          ) : (
-            <GradeEPG canais={canaisFiltrados} progsPorCanal={progsPorCanal} />
+          )}
+          {epgErro && !epgLoad && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: 80, textAlign: "center" }}>
+              <AlertTriangle style={{ width: 26, height: 26, color: "#f59e0b" }} />
+              <div style={{ fontSize: 14, color: "#bbb" }}>Grade não encontrada</div>
+              <div style={{ fontSize: 12, color: "#374151" }}>{epgErro}</div>
+              <button onClick={handleSyncEPG} style={{
+                display: "flex", alignItems: "center", gap: 6, padding: "7px 14px",
+                background: "#10b98115", border: "1px solid #10b98130", borderRadius: 8,
+                color: "#10b981", fontSize: 12, cursor: "pointer",
+              }}>
+                <RefreshCw style={{ width: 13, height: 13 }} /> Sync EPG agora
+              </button>
+            </div>
+          )}
+          {!epgLoad && !epgErro && epg && (
+            canaisFiltrados.length === 0
+              ? <div style={{ textAlign: "center", padding: 60, color: "#374151", fontSize: 13 }}>Nenhum canal encontrado.</div>
+              : <GradeEPG canais={canaisFiltrados} progsPorCanal={progsPorCanal} />
+          )}
+        </>
+      )}
+
+      {/* ── Conteúdo: Filmes / Séries (Catálogo) ────────────────── */}
+      {(aba === "filmes" || aba === "series") && (
+        <div style={{ padding: "20px" }}>
+          {catalogLoad && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: 60, color: "#374151", fontSize: 13 }}>
+              <RefreshCw style={{ width: 16, height: 16, animation: "spin 1s linear infinite" }} /> Carregando catálogo...
+            </div>
+          )}
+          {!catalogLoad && catalogFiltrado.length === 0 && (
+            <div style={{ textAlign: "center", padding: 60 }}>
+              <Database style={{ width: 28, height: 28, color: "#1e293b", margin: "0 auto 12px" }} />
+              <div style={{ fontSize: 14, color: "#374151" }}>
+                {catalog.length === 0 ? "Catálogo vazio. Rode o Sync Catálogo." : "Nenhum resultado encontrado."}
+              </div>
+              {catalog.length === 0 && (
+                <button onClick={() => setModalSync(true)} style={{
+                  marginTop: 14, display: "inline-flex", alignItems: "center", gap: 6,
+                  padding: "7px 14px", background: "#1e1b4b", border: "1px solid #312e81",
+                  borderRadius: 8, color: "#818cf8", fontSize: 12, cursor: "pointer",
+                }}>
+                  <Database style={{ width: 12, height: 12 }} /> Sync Catálogo
+                </button>
+              )}
+            </div>
+          )}
+          {!catalogLoad && catalogPaginado.length > 0 && (
+            <>
+              <div style={{ fontSize: 11, color: "#334155", marginBottom: 16 }}>
+                {numFmt(catalogFiltrado.length)} {aba} · {servidorFiltro !== "TODOS" ? SERVIDOR_LABEL[servidorFiltro] : "todos os servidores"}
+              </div>
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+                gap: 12,
+              }}>
+                {catalogPaginado.map(item => <CatalogCard key={item.id} item={item} />)}
+              </div>
+              {catalogPaginado.length < catalogFiltrado.length && (
+                <div style={{ textAlign: "center", marginTop: 24 }}>
+                  <button onClick={() => setCatalogPage(p => p + 1)} style={{
+                    padding: "9px 20px", background: "#111", border: "1px solid #1e1e2e",
+                    borderRadius: 8, color: "#818cf8", fontSize: 13, cursor: "pointer",
+                  }}>
+                    Carregar mais ({numFmt(catalogFiltrado.length - catalogPaginado.length)} restantes)
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
 
+      {/* ── Modal Sync Catálogo ──────────────────────────────────── */}
+      {modalSync && <ModalSync onClose={() => setModalSync(false)} />}
+
       <style>{`
-        @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: #111; }
-        ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #333; }
+        @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
+        @keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.3 } }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: #0a0a0a; }
+        ::-webkit-scrollbar-thumb { background: #1e1e2e; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #2a2a3a; }
       `}</style>
     </div>
   );
