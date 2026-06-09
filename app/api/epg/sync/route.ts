@@ -140,6 +140,7 @@ function isBR(channelId: string, displayName: string): boolean {
 
 // ─── Monta URL do EPG por provider ───────────────────────────
 function buildEpgUrl(cfg: EpgConfigRow): string {
+  // Sempre usa o primeiro DNS do servidor, nunca api_base_url
   const dns = cfg.dns?.[0] || "";
   const base = dns.replace(/\/$/, "");
   const user = cfg.server_username;
@@ -149,9 +150,7 @@ function buildEpgUrl(cfg: EpgConfigRow): string {
     case "FAST":
       return `${base}/epg.php?username=${user}&password=${pass}`;
     case "ELITE":
-      // Elite usa api_base_url, não o dns
-      const eliteBase = (cfg.api_base_url || base).replace(/\/$/, "");
-      return `${eliteBase}/xmltv.php?username=${user}&password=${pass}`;
+      return `${base}/xmltv.php?username=${user}&password=${pass}`;
     case "NATV":
       return `${base}/epg`;
     default:
@@ -170,7 +169,14 @@ async function fetchEParsear(cfg: EpgConfigRow): Promise<{
 
   let xmlText: string;
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(45_000) });
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(45_000),
+      headers: {
+        // Simula um player IPTV comum para evitar bloqueio por user-agent
+        "User-Agent": "Mozilla/5.0 (compatible; IPTV/1.0)",
+        "Accept":     "application/xml, text/xml, */*",
+      },
+    });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     xmlText = await res.text();
   } catch (e: any) {
