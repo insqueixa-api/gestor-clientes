@@ -437,41 +437,6 @@ export default function AdminShell({
         } catch (e) {}
       }
 
-      // Notificação de upload do Fast EPG
-      try {
-        const fastLogUrl = `${process.env.NEXT_PUBLIC_R2_DEV_URL}/epg/epg_fast.json`;
-        const fastRes = await fetch(fastLogUrl, { cache: "no-store" });
-        if (fastRes.ok) {
-          const fastData = await fastRes.json();
-          const geradoEm = fastData?.gerado_em ? new Date(fastData.gerado_em) : null;
-          if (geradoEm) {
-            const diasDecorridos = Math.floor((Date.now() - geradoEm.getTime()) / (1000 * 60 * 60 * 24));
-            if (diasDecorridos >= 3) {
-              list.push({
-                id: `epg_fast_upload_${geradoEm.toISOString().slice(0, 10)}`,
-                title: "📺 Atualizar Guia TV (Fast)",
-                message: `O EPG do Fast foi atualizado há ${diasDecorridos} dia(s). Faça o upload de um novo arquivo para manter a grade completa.`,
-                link: "/admin/gerenciador/guia-tv",
-                type: "warning",
-                is_read: false,
-                created_at: nowIso,
-              });
-            }
-          }
-        } else {
-          // Fast nunca foi enviado
-          list.push({
-            id: "epg_fast_nunca_enviado",
-            title: "📺 Guia TV — Fast não configurado",
-            message: "Nenhum arquivo do Fast foi enviado ainda. Acesse o Guia TV para fazer o upload.",
-            link: "/admin/gerenciador/guia-tv",
-            type: "info",
-            is_read: false,
-            created_at: nowIso,
-          });
-        }
-      } catch (e) {}
-
       const dismissed = JSON.parse(
         localStorage.getItem("dismissed_notifs") || "[]",
       );

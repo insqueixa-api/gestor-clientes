@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-Search, RefreshCw, ChevronDown,
+  Search, Upload, Download, RefreshCw, ChevronDown,
   AlertTriangle, CheckCircle, X, Tv
 } from "lucide-react";
 
@@ -199,62 +199,64 @@ function ProgramaTooltip({ prog, onClose }: { prog: Programa; onClose: () => voi
   );
 }
 
-// ─── Grade EPG ────────────────────────────────────────────────
+// ─── Grade EPG corrigida ──────────────────────────────────────
+// PROBLEMA 1: linhas desalinhadas → usar display:grid numa div única
+// PROBLEMA 2: header não sticky → posição sticky na régua
+// SOLUÇÃO: grade como uma tabela HTML virtual com scroll sincronizado
+
 function GradeEPG({ canais, progsPorCanal }: {
   canais: Canal[];
   progsPorCanal: Map<string, Programa[]>;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [agora, setAgora] = useState(nowBRT());
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [agora, setAgora] = useState(() => nowBRT());
   const [progSelecionado, setProgSelecionado] = useState<Programa | null>(null);
-  const [scrollX, setScrollX] = useState(0);
 
-  // Atualiza agora a cada minuto
   useEffect(() => {
     const iv = setInterval(() => setAgora(nowBRT()), 60000);
     return () => clearInterval(iv);
   }, []);
 
-  // Base = 1h atrás do horário UTC-3 atual (hora cheia)
+  // Base: hora cheia, 1h atrás do BRT atual
   const baseMs = useMemo(() => {
-    // Data/hora atual em UTC-3 (BRT): subtrai 3h do UTC
     const agoraBRTMs = Date.now() - 3 * 3600000;
-    // Arredonda para a hora cheia anterior, depois subtrai 1h
     const horaCheia = Math.floor(agoraBRTMs / 3600000) * 3600000;
-    return horaCheia - 3600000; // 1h antes da hora cheia atual
+    return horaCheia - 3600000;
   }, []);
 
-  const totalHoras = HORAS_VISIVEIS + 2; // +2 para buffer
+  const totalHoras = 12;
   const gradeWidth = totalHoras * HORA_WIDTH;
 
-  // Posição do cursor "agora" — diferença em minutos desde baseMs
   const agoraOffsetPx = useMemo(() => {
     const diffMs = agora.getTime() - baseMs;
-    const diffMin = diffMs / 60000;
-    return diffMin * PX_POR_MIN;
+    return (diffMs / 60000) * PX_POR_MIN;
   }, [agora, baseMs]);
 
-  // Labels de hora na régua
   const horaLabels = useMemo(() => {
     const labels = [];
     for (let i = 0; i <= totalHoras; i++) {
-      const t = new Date(baseMs + i * 3600000);
-      const h = t.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+      // Converte baseMs (UTC-3) para label BRT
+      const tMs = baseMs + 3 * 3600000 + i * 3600000; // volta para UTC para criar Date
+      const t = new Date(tMs);
+      const h = t.toLocaleTimeString("pt-BR", {
+        hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo"
+      });
       labels.push({ x: i * HORA_WIDTH, label: h });
     }
     return labels;
   }, [baseMs, totalHoras]);
 
-  // Scroll para "agora" no carregamento
+  // Scroll inicial para "agora" (com 60px de margem esquerda)
   useEffect(() => {
-    if (containerRef.current) {
-      const target = Math.max(0, agoraOffsetPx - 80);
-      containerRef.current.scrollLeft = target;
+    if (scrollRef.current && agoraOffsetPx > 0) {
+      const target = Math.max(0, agoraOffsetPx - 60);
+      scrollRef.current.scrollLeft = target;
     }
   }, [agoraOffsetPx]);
 
-  const LINHA_H = 64; // altura de cada linha de canal
-  const REGUA_H = 36; // altura da régua de horas
+  const LINHA_H = 60;
+  const REGUA_H = 34;
+  const totalHeight = canais.length * LINHA_H;
 
   return (
     <>
@@ -262,161 +264,189 @@ function GradeEPG({ canais, progsPorCanal }: {
         <ProgramaTooltip prog={progSelecionado} onClose={() => setProgSelecionado(null)} />
       )}
 
-      <div style={{ display: "flex", flexDirection: "column", background: "#0a0a0a" }}>
-        {/* Cabeçalho com régua */}
-        <div style={{ display: "flex", position: "sticky", top: 0, zIndex: 10, background: "#0a0a0a", borderBottom: "1px solid #1e1e1e" }}>
-          {/* Canto vazio */}
-          <div style={{ width: CANAL_COL_W, flexShrink: 0, height: REGUA_H, background: "#0f0f0f", borderRight: "1px solid #1e1e1e" }} />
-          {/* Régua de horas */}
-          <div style={{ overflow: "hidden", flex: 1 }}>
-            <div style={{ position: "relative", width: gradeWidth, height: REGUA_H }}>
-              {horaLabels.map((h, i) => (
-                <div key={i} style={{
-                  position: "absolute", left: h.x, top: 0,
-                  height: "100%", display: "flex", alignItems: "center",
-                  paddingLeft: 8, borderLeft: i > 0 ? "1px solid #1e1e1e" : "none",
-                }}>
-                  <span style={{ fontSize: 11, color: "#555", fontWeight: 500, whiteSpace: "nowrap" }}>
-                    {h.label}
-                  </span>
-                </div>
-              ))}
-              {/* Linha vermelha "agora" na régua */}
-              <div style={{
-                position: "absolute", left: agoraOffsetPx, top: 0,
-                width: 2, height: "100%",
-                background: "#ef4444", zIndex: 5,
-              }} />
+      {/* Container principal — flex row */}
+      <div style={{ display: "flex", background: "#0a0a0a" }}>
+
+        {/* ── Coluna fixa esquerda (canais) ── */}
+        <div style={{
+          width: CANAL_COL_W, flexShrink: 0,
+          borderRight: "1px solid #1e1e1e",
+          // sticky no scroll vertical da página
+          position: "sticky", left: 0, zIndex: 20,
+          background: "#0a0a0a",
+        }}>
+          {/* Célula vazia no topo — alinha com a régua */}
+          <div style={{
+            height: REGUA_H,
+            borderBottom: "1px solid #1e1e1e",
+            background: "#0f0f0f",
+            position: "sticky", top: 0, zIndex: 21,
+          }} />
+          {/* Nomes dos canais */}
+          {canais.map(canal => (
+            <div key={canal.id} style={{
+              height: LINHA_H,
+              display: "flex", alignItems: "center", gap: 10, padding: "0 12px",
+              borderBottom: "1px solid #141414",
+              background: "#0a0a0a",
+            }}>
+              <Logo canal={canal} size={32} />
+              <span style={{
+                fontSize: 11, color: "#bbb", fontWeight: 500,
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              }}>{canal.nome}</span>
             </div>
-          </div>
+          ))}
         </div>
 
-        {/* Linhas de canais */}
-        <div style={{ display: "flex", overflow: "hidden" }}>
-          {/* Coluna fixa de canais */}
-          <div style={{ width: CANAL_COL_W, flexShrink: 0 }}>
-            {canais.map(canal => (
-              <div key={canal.id} style={{
-                height: LINHA_H, display: "flex", alignItems: "center",
-                gap: 10, padding: "0 12px",
-                borderBottom: "1px solid #141414",
-                borderRight: "1px solid #1e1e1e",
-                background: "#0f0f0f",
-              }}>
-                <Logo canal={canal} size={36} />
-                <span style={{
-                  fontSize: 11, color: "#bbb", fontWeight: 500,
-                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                }}>
-                  {canal.nome}
-                </span>
+        {/* ── Área de scroll horizontal ── */}
+        <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
+
+          {/* Régua de horas — sticky no topo */}
+          <div style={{
+            position: "sticky", top: 0, zIndex: 15,
+            background: "#0f0f0f",
+            borderBottom: "1px solid #1e1e1e",
+            overflow: "hidden", height: REGUA_H,
+          }}>
+            <div
+              ref={scrollRef}
+              style={{ overflowX: "scroll", overflowY: "hidden", height: REGUA_H + 20 }}
+              onScroll={e => {
+                // Sincroniza scroll da régua com a grade
+                const target = (e.target as HTMLDivElement).scrollLeft;
+                const gradeEl = document.getElementById("epg-grade-scroll");
+                if (gradeEl) gradeEl.scrollLeft = target;
+              }}
+            >
+              <div style={{ position: "relative", width: gradeWidth, height: REGUA_H }}>
+                {horaLabels.map((h, i) => (
+                  <div key={i} style={{
+                    position: "absolute", left: h.x, top: 0,
+                    height: "100%", display: "flex", alignItems: "center",
+                    paddingLeft: 8,
+                    borderLeft: i > 0 ? "1px solid #1e1e1e" : "none",
+                  }}>
+                    <span style={{ fontSize: 11, color: "#555", fontWeight: 500, whiteSpace: "nowrap" }}>
+                      {h.label}
+                    </span>
+                  </div>
+                ))}
+                {/* Linha vermelha na régua */}
+                <div style={{
+                  position: "absolute", left: agoraOffsetPx, top: 0,
+                  width: 2, height: "100%", background: "#ef4444", zIndex: 5,
+                }} />
               </div>
-            ))}
+            </div>
           </div>
 
-          {/* Grade de programas — scroll horizontal */}
+          {/* Grade de programas — scroll sincronizado */}
           <div
-            ref={containerRef}
-            style={{ overflow: "auto", flex: 1 }}
-            onScroll={e => setScrollX((e.target as HTMLDivElement).scrollLeft)}
+            id="epg-grade-scroll"
+            style={{ overflowX: "scroll", overflowY: "visible" }}
+            onScroll={e => {
+              const target = (e.target as HTMLDivElement).scrollLeft;
+              if (scrollRef.current) scrollRef.current.scrollLeft = target;
+            }}
           >
-            <div style={{ position: "relative", width: gradeWidth }}>
-              {/* Linha vermelha "agora" sobre os programas */}
+            <div style={{ position: "relative", width: gradeWidth, height: totalHeight }}>
+
+              {/* Linha vermelha "agora" */}
               <div style={{
                 position: "absolute", left: agoraOffsetPx, top: 0,
-                width: 2, height: canais.length * LINHA_H,
+                width: 2, height: totalHeight,
                 background: "#ef4444", zIndex: 5, pointerEvents: "none",
               }} />
 
-              {/* Grades verticais de hora */}
+              {/* Linhas verticais de hora */}
               {horaLabels.map((h, i) => i > 0 && (
                 <div key={i} style={{
                   position: "absolute", left: h.x, top: 0,
-                  width: 1, height: canais.length * LINHA_H,
-                  background: "#1e1e1e", pointerEvents: "none",
+                  width: 1, height: totalHeight,
+                  background: "#1a1a1a", pointerEvents: "none",
                 }} />
               ))}
 
-              {/* Linhas de programas */}
+              {/* Linhas de canais */}
               {canais.map((canal, rowIdx) => {
                 const progs = (progsPorCanal.get(canal.id) || [])
                   .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
                 const cor = CAT_COR[canal.categoria] || "#6b7280";
+                const top = rowIdx * LINHA_H;
 
                 return (
                   <div key={canal.id} style={{
-                    position: "absolute", top: rowIdx * LINHA_H,
-                    left: 0, width: gradeWidth, height: LINHA_H,
+                    position: "absolute", top, left: 0,
+                    width: gradeWidth, height: LINHA_H,
                     borderBottom: "1px solid #141414",
-                    display: "flex", alignItems: "center",
                   }}>
                     {progs.map(prog => {
-                      const startMin = minutosDesdeInicio(prog.start, baseMs);
-                      const durMin = prog.duracao_min || 30;
-                      const leftPx = startMin * PX_POR_MIN;
-                      const widthPx = Math.max(durMin * PX_POR_MIN - 2, 4);
-                      const isAtual = new Date(prog.start).getTime() <= agora.getTime() &&
-                        new Date(prog.stop).getTime() >= agora.getTime();
+                      // Calcula posição em px usando diferença de ms
+                      const startMs = new Date(prog.start).getTime() - 3 * 3600000; // UTC-3 → UTC
+                      const stopMs  = new Date(prog.stop).getTime()  - 3 * 3600000;
+                      const leftPx  = ((startMs - baseMs) / 60000) * PX_POR_MIN;
+                      const widthPx = Math.max(((stopMs - startMs) / 60000) * PX_POR_MIN - 2, 4);
+
+                      const isAtual = (agora.getTime() - 3*3600000) >= startMs &&
+                                      (agora.getTime() - 3*3600000) <= stopMs;
 
                       return (
                         <div
                           key={prog.start}
                           onClick={() => setProgSelecionado(prog)}
+                          title={`${formatHora(prog.start)} — ${prog.title}`}
                           style={{
                             position: "absolute",
-                            left: leftPx + 1, width: widthPx - 1,
-                            top: 4, bottom: 4, borderRadius: 6,
-                            background: isAtual ? cor + "28" : "#161616",
-                            border: isAtual ? `1px solid ${cor}55` : "1px solid #222",
+                            left: leftPx + 1, width: widthPx - 2,
+                            top: 5, bottom: 5, borderRadius: 5,
+                            background: isAtual ? cor + "25" : "#161616",
+                            border: `1px solid ${isAtual ? cor + "50" : "#222"}`,
                             overflow: "hidden", cursor: "pointer",
                             display: "flex", alignItems: "center",
-                            padding: "0 0 0 0", gap: 0,
-                            transition: "background 0.15s, border-color 0.15s",
+                            transition: "background 0.12s, border-color 0.12s",
                           }}
                           onMouseEnter={e => {
-                            (e.currentTarget as HTMLDivElement).style.background = isAtual ? cor + "40" : "#222";
-                            (e.currentTarget as HTMLDivElement).style.borderColor = cor + "55";
+                            e.currentTarget.style.background = isAtual ? cor + "40" : "#242424";
+                            e.currentTarget.style.borderColor = cor + "60";
                           }}
                           onMouseLeave={e => {
-                            (e.currentTarget as HTMLDivElement).style.background = isAtual ? cor + "28" : "#161616";
-                            (e.currentTarget as HTMLDivElement).style.borderColor = isAtual ? cor + "55" : "#222";
+                            e.currentTarget.style.background = isAtual ? cor + "25" : "#161616";
+                            e.currentTarget.style.borderColor = isAtual ? cor + "50" : "#222";
                           }}
                         >
-                          {/* Imagem do programa — só se tiver espaço */}
-                          {prog.prog_icon && widthPx > 80 && (
-                            <img
-                              src={prog.prog_icon}
-                              alt=""
+                          {/* Thumb do programa */}
+                          {prog.prog_icon && widthPx > 90 && (
+                            <img src={prog.prog_icon} alt=""
                               style={{
                                 height: "100%", width: "auto",
-                                maxWidth: Math.min(widthPx * 0.3, 56),
-                                objectFit: "cover",
-                                flexShrink: 0,
-                                opacity: 0.9,
+                                maxWidth: Math.min(widthPx * 0.28, 52),
+                                objectFit: "cover", flexShrink: 0, opacity: 0.85,
                               }}
                             />
                           )}
-                          <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 5, padding: "0 8px" }}>
+                          <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 5, padding: "0 7px" }}>
                             {isAtual && (
                               <div style={{
                                 width: 5, height: 5, borderRadius: "50%",
                                 background: cor, flexShrink: 0,
-                                boxShadow: `0 0 5px ${cor}`,
+                                boxShadow: `0 0 5px ${cor}88`,
                               }} />
                             )}
                             <span style={{
-                              fontSize: 11, color: isAtual ? "#fff" : "#777",
+                              fontSize: 11,
+                              color: isAtual ? "#eee" : "#666",
                               fontWeight: isAtual ? 500 : 400,
                               overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                             }}>
-                              {widthPx > 70 ? `${formatHora(prog.start)} ${prog.title}` : prog.title}
+                              {widthPx > 70
+                                ? `${formatHora(prog.start)} ${prog.title}`
+                                : prog.title}
                             </span>
                           </div>
                         </div>
                       );
                     })}
-
-                    {/* Faixa "sem programação" onde não há programas */}
                   </div>
                 );
               })}
@@ -524,8 +554,10 @@ export default function GuiaTVPage() {
   const [catAtiva, setCatAtiva]   = useState("Todos");
   const [subAtiva, setSubAtiva]   = useState("Todos");
   const [busca, setBusca]         = useState("");
-const [syncing, setSyncing]     = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [syncing, setSyncing]     = useState(false);
   const [msg, setMsg]             = useState<{tipo:"ok"|"err";texto:string}|null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     async function load() {
@@ -598,7 +630,19 @@ const [syncing, setSyncing]     = useState(false);
     setSubAtiva("Todos");
   }
 
-  
+  async function handleUpload(file: File) {
+    setUploading(true); setMsg(null);
+    try {
+      const { presignedUrl } = await fetch("/api/epg/upload-fast").then(r => r.json());
+      await fetch(presignedUrl, { method: "PUT", body: file, headers: { "Content-Type": "application/xml" } });
+      const d = await fetch("/api/epg/upload-fast", { method: "POST" }).then(r => r.json());
+      if (d.ok) {
+        setMsg({ tipo: "ok", texto: `Fast atualizado — ${d.total_canais} canais, ${d.total_programas} programas` });
+        setTimeout(() => window.location.reload(), 1800);
+      } else setMsg({ tipo: "err", texto: d.error || "Erro ao processar" });
+    } catch (e: any) { setMsg({ tipo: "err", texto: e.message }); }
+    finally { setUploading(false); }
+  }
 
   async function handleSync() {
     setSyncing(true); setMsg(null);
@@ -650,7 +694,45 @@ const [syncing, setSyncing]     = useState(false);
         )}
         <div style={{ flex: 1 }} />
 
-        
+        {/* Status Fast */}
+        {epg && (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+            <div style={{
+              width: 7, height: 7, borderRadius: "50%",
+              background: epg.fast_valido ? "#10b981" : "#f59e0b",
+              boxShadow: epg.fast_valido ? "0 0 6px #10b98166" : "0 0 6px #f59e0b66",
+            }} />
+            <span style={{ color: "#555" }}>Fast</span>
+            <span style={{ color: epg.fast_valido ? "#10b981" : "#f59e0b", fontWeight: 500 }}>
+              {epg.fast_valido
+                ? `${epg.fast_gerado_em ? diasDecorridos(epg.fast_gerado_em) : 0}d`
+                : epg.fast_gerado_em ? `expirado` : "não enviado"}
+            </span>
+          </div>
+        )}
+
+        {/* Ações */}
+        <a href="http://psbox.top/epg.php" target="_blank" rel="noopener noreferrer"
+          style={{
+            display: "flex", alignItems: "center", gap: 5, fontSize: 12,
+            color: "#888", textDecoration: "none",
+            background: "#111", border: "1px solid #222",
+            borderRadius: 7, padding: "5px 10px",
+          }}>
+          <Download style={{ width: 12, height: 12 }} /> Baixar Fast
+        </a>
+        <button onClick={() => fileRef.current?.click()} disabled={uploading}
+          style={{
+            display: "flex", alignItems: "center", gap: 5, fontSize: 12,
+            color: uploading ? "#555" : "#f59e0b",
+            background: "#111", border: `1px solid ${uploading ? "#222" : "#f59e0b30"}`,
+            borderRadius: 7, padding: "5px 10px", cursor: uploading ? "not-allowed" : "pointer",
+          }}>
+          <Upload style={{ width: 12, height: 12 }} />
+          {uploading ? "Enviando..." : "Upload Fast"}
+        </button>
+        <input ref={fileRef} type="file" accept=".xml" style={{ display: "none" }}
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ""; }} />
         <button onClick={handleSync} disabled={syncing}
           style={{
             display: "flex", alignItems: "center", gap: 5, fontSize: 12,

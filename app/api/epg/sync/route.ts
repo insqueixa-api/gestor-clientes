@@ -157,15 +157,23 @@ function categorizar(nome: string): string {
 }
 
 function isBR(channelId: string, displayName: string): boolean {
+  // Bloqueia canais com prefixo de país [pt], [es], [us], [ar], etc.
+  // Esses são canais internacionais mesmo que tenham nomes parecidos com BR
+  if (/^\[(pt|es|us|ar|mx|co|cl|fr|de|it|uk|au|jp|cn)\]/i.test(displayName.trim())) return false;
   if (channelId.toLowerCase().endsWith(".br")) return true;
   const dn = displayName.toUpperCase();
   return BR_KEYWORDS.some(kw => dn.includes(kw));
 }
 
 // Canais Globo permitidos — só os principais, sem afiliadas regionais
+// Apenas estes canais Globo são aceitos — RJ, SP, Brasil, News, e Globosat
+// Todas as afiliadas regionais (Inter TV, NSC TV, RBS, etc.) são descartadas
 const GLOBO_PERMITIDOS = [
-  "GLOBO RJ","GLOBO SP","GLOBO BRASIL","GLOBONEWS","GLOBO NEWS",
-  "+ GLOBOSAT","MAIS GLOBOSAT","GLOBO TV INTERNACIONAL","GLOBO INTERNACIONAL",
+  "GLOBO RJ", "GLOBO SP",
+  "GLOBO BRASIL", "GLOBO BRAZIL",
+  "GLOBONEWS", "GLOBO NEWS",
+  "+ GLOBOSAT", "MAIS GLOBOSAT",
+  "GLOBO TV INTERNACIONAL", "GLOBO INTERNACIONAL",
 ];
 
 function isAfiliataDescartavel(nomeUpper: string): boolean {
