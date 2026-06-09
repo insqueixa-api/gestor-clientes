@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   Users,
   Activity,
+  Tv,
   Clock,
   Network,
   Settings2,
@@ -779,7 +780,7 @@ export default function AdminShell({
   href="/admin/gerenciador/guia-tv"
   label={
     <span className="flex items-center gap-2">
-      <Activity className="w-4 h-4 text-rose-400" /> Guia TV
+      <Tv className="w-4 h-4 text-rose-400" /> Guia TV
     </span>
   }
   onClick={() => setOpenMenu(null)}
@@ -913,7 +914,7 @@ export default function AdminShell({
   href="/admin/gerenciador/guia-tv"
   label={
     <span className="flex items-center gap-2">
-      <Activity className="w-4 h-4 text-rose-400" /> Guia TV
+      <Tv className="w-4 h-4 text-rose-400" /> Guia TV
     </span>
   }
   onClick={() => setOpenMenu(null)}

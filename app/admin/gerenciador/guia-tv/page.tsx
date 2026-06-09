@@ -165,35 +165,67 @@ function ProgramaTooltip({ prog, onClose }: { prog: Programa; onClose: () => voi
     }} onClick={onClose}>
       <div onClick={e => e.stopPropagation()} style={{
         background: "#1a1a1a", border: "1px solid #333",
-        borderRadius: 14, padding: 20, maxWidth: 420, width: "100%",
+        borderRadius: 14, overflow: "hidden", maxWidth: 460, width: "100%",
         boxShadow: "0 20px 60px rgba(0,0,0,0.8)",
       }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 11, color: "#888", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-              {prog.channel_nome} · {prog.categoria}
-            </div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: "#fff", lineHeight: 1.3 }}>
-              {prog.title}
-            </div>
-          </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#888", padding: "0 0 0 12px", flexShrink: 0 }}>
-            <X style={{ width: 16, height: 16 }} />
-          </button>
-        </div>
-        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-          <span style={{ fontSize: 12, color: "#f59e0b", fontWeight: 600 }}>
-            {formatHora(prog.start)} – {formatHora(prog.stop)}
-          </span>
-          <span style={{ fontSize: 12, color: "#666" }}>
-            · {prog.duracao_min} min
-          </span>
-        </div>
-        {prog.desc && (
-          <div style={{ fontSize: 13, color: "#aaa", lineHeight: 1.6 }}>
-            {prog.desc}
+        {/* Imagem do programa — ocupa largura total */}
+        {prog.prog_icon && (
+          <div style={{ position: "relative", width: "100%", height: 200, background: "#111" }}>
+            <img
+              src={prog.prog_icon}
+              alt={prog.title}
+              style={{
+                width: "100%", height: "100%",
+                objectFit: "cover",
+              }}
+            />
+            {/* Gradiente sobre a imagem para o título */}
+            <div style={{
+              position: "absolute", inset: 0,
+              background: "linear-gradient(to top, rgba(26,26,26,1) 0%, rgba(26,26,26,0.3) 50%, transparent 100%)",
+            }} />
+            {/* Botão fechar sobre a imagem */}
+            <button onClick={onClose} style={{
+              position: "absolute", top: 10, right: 10,
+              background: "rgba(0,0,0,0.5)", border: "none", cursor: "pointer",
+              color: "#fff", borderRadius: "50%", width: 28, height: 28,
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <X style={{ width: 14, height: 14 }} />
+            </button>
           </div>
         )}
+
+        <div style={{ padding: 18 }}>
+          {/* Botão fechar quando não tem imagem */}
+          {!prog.prog_icon && (
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+              <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#888" }}>
+                <X style={{ width: 16, height: 16 }} />
+              </button>
+            </div>
+          )}
+
+          <div style={{ fontSize: 11, color: "#888", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+            {prog.channel_nome} · {prog.categoria}
+          </div>
+          <div style={{ fontSize: 17, fontWeight: 600, color: "#fff", lineHeight: 1.3, marginBottom: 10 }}>
+            {prog.title}
+          </div>
+          <div style={{ display: "flex", gap: 8, marginBottom: prog.desc ? 12 : 0 }}>
+            <span style={{ fontSize: 12, color: "#f59e0b", fontWeight: 600 }}>
+              {formatHora(prog.start)} – {formatHora(prog.stop)}
+            </span>
+            <span style={{ fontSize: 12, color: "#666" }}>
+              · {prog.duracao_min} min
+            </span>
+          </div>
+          {prog.desc && (
+            <div style={{ fontSize: 13, color: "#aaa", lineHeight: 1.6 }}>
+              {prog.desc}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -611,7 +643,7 @@ export default function GuiaTVPage() {
     return SUBGRUPOS[catAtiva] || [];
   }, [catAtiva]);
 
-  // Canais filtrados
+  // Canais filtrados — busca por nome de canal OU por conteúdo da programação
   const canaisFiltrados = useMemo(() => {
     if (!epg) return [];
     let lista = epg.canais;
@@ -622,7 +654,22 @@ export default function GuiaTVPage() {
     }
     if (busca.trim()) {
       const q = busca.trim().toLowerCase();
-      lista = lista.filter(c => c.nome.toLowerCase().includes(q) || c.display_name.toLowerCase().includes(q));
+      // Tenta primeiro por nome do canal
+      const porNome = lista.filter(c =>
+        c.nome.toLowerCase().includes(q) || c.display_name.toLowerCase().includes(q)
+      );
+      if (porNome.length > 0) return porNome;
+      // Se não encontrou canal pelo nome, busca por conteúdo da programação
+      const idsComConteudo = new Set<string>();
+      for (const p of epg.programas) {
+        if (
+          p.title.toLowerCase().includes(q) ||
+          p.desc?.toLowerCase().includes(q)
+        ) {
+          idsComConteudo.add(p.channel_id);
+        }
+      }
+      return lista.filter(c => idsComConteudo.has(c.id));
     }
     return lista;
   }, [epg, catAtiva, subAtiva, subgruposDisponiveis, busca]);

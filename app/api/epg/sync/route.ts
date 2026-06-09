@@ -191,11 +191,17 @@ async function parseEPGBR(): Promise<{
   return { canais, programas };
 }
 
-// ─── Parse Elite/NaTV (complemento) ──────────────────────────
-// Só aproveitamos programas de canais que já estão na lista do EPGBR
-// A correspondência é feita por nome normalizado
-async function parseComplementar(cfg: EpgConfigRow, canaisMestre: Map<string, Canal>): Promise<{
+// ─── Parse Elite/NaTV (complemento + canais extras) ─────────
+// Aproveita programas dos canais do EPGBR E adiciona canais BR novos que
+// não existem no EPGBR (ex: DAZN, Sportynet, NBA League Pass)
+// Canais extras só são adicionados se o provider for ELITE (mais completo)
+async function parseComplementar(
+  cfg: EpgConfigRow,
+  canaisMestre: Map<string, Canal>,
+  adicionarExtras: boolean = false
+): Promise<{
   programas: Programa[];
+  canaisNovos: Canal[];
   erro?: string;
 }> {
   // Monta mapa nome_normalizado → canal_id do mestre
@@ -223,11 +229,11 @@ async function parseComplementar(cfg: EpgConfigRow, canaisMestre: Map<string, Ca
     xml = await fetchXML(url);
     if (xml) break;
   }
-  if (!xml) return { programas: [], erro: "Sem XML" };
+  if (!xml) return { programas: [], canaisNovos: [], erro: "Sem XML" };
 
   let parsed: any;
   try { parsed = await parseStringPromise(xml, { explicitArray: true }); }
-  catch (e: any) { return { programas: [], erro: `XML inválido` }; }
+  catch (e: any) { return { programas: [], canaisNovos: [], erro: `XML inválido` }; }
 
   const tv         = parsed?.tv || {};
   const channels   = tv.channel   || [];
@@ -252,15 +258,70 @@ async function parseComplementar(cfg: EpgConfigRow, canaisMestre: Map<string, Ca
     if (mestreId) serverIdParaMestreId.set(cid, mestreId);
   }
 
-  // Programas só para canais que mapearam
+  // Detecta canais extras BR (não no EPGBR) para adicionar à lista mestre
+  const canaisNovos: Canal[] = [];
+  if (adicionarExtras) {
+    const idsJaNoMestre = new Set([...canaisMestre.keys()]);
+    const normsMestre   = new Set([...canaisMestre.values()].map(c =>
+      c.nome.toUpperCase().replace(/\s+/g, " ").trim()
+    ));
+
+    // Palavras que indicam canal de esporte BR relevante
+    const ESPORTE_KWS_EXTRA = ["DAZN","SPORTYNET","NOSSO FUTEBOL","NBA LEAGUE PASS",
+                                "NFL NETWORK","AMAZON PRIME SPORT","PPV"];
+
+    for (const ch of channels) {
+      const cid = ch.$?.id?.trim() || "";
+      const dn  = ch["display-name"]?.[0]?._ || ch["display-name"]?.[0] || "";
+      const icon = ch.icon?.[0]?.$?.src || "";
+      if (!cid || !dn) continue;
+      // Só canais com id terminando em .br
+      if (!cid.toLowerCase().endsWith(".br")) continue;
+      // Já está no mestre?
+      if (idsJaNoMestre.has(cid)) continue;
+      // Nome normalizado já mapeado?
+      const nomeNorm = nomeExibicao(dn)
+        .replace(/\[?(FHD|HD|SD|4K|H265)\]?/gi, "")
+        .replace(/\bLEG\b|\bFHDR\b|\bBR\b|\*$/gi, "")
+        .replace(/\s+/g, " ").trim();
+      if (normsMestre.has(nomeNorm.toUpperCase())) continue;
+      // É canal de esporte extra relevante?
+      if (!ESPORTE_KWS_EXTRA.some(kw => dn.toUpperCase().includes(kw))) continue;
+      // Evita duplicatas de qualidade (pega só o primeiro encontrado)
+      if (normsMestre.has(nomeNorm.toUpperCase())) continue;
+      normsMestre.add(nomeNorm.toUpperCase());
+      idsJaNoMestre.add(cid);
+      canaisNovos.push({
+        id:           cid,
+        display_name: dn,
+        nome:         nomeNorm.split(" ").map((w: string) =>
+                        w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+                      ).join(" "),
+        categoria:    "Esportes",
+        icon,
+        servidor:     "ELITE",
+      });
+    }
+  }
+
+  // Programas para canais do mestre E canais novos
+  const todosCanaisMap = new Map(canaisMestre);
+  for (const c of canaisNovos) todosCanaisMap.set(c.id, c);
+
+  // Adiciona também mapeamento direto por cid para canais novos
+  for (const c of canaisNovos) {
+    serverIdParaMestreId.set(c.id, c.id);
+  }
+
   const programas: Programa[] = [];
   for (const prog of programmes) {
     const serverCid = prog.$?.channel?.trim() || "";
     const mestreCid = serverIdParaMestreId.get(serverCid);
     if (!mestreCid) continue;
-    const canal    = canaisMestre.get(mestreCid)!;
-    const startDt  = parseToBRT(prog.$?.start || "");
-    const stopDt   = parseToBRT(prog.$?.stop  || "");
+    const canal   = todosCanaisMap.get(mestreCid);
+    if (!canal) continue;
+    const startDt = parseToBRT(prog.$?.start || "");
+    const stopDt  = parseToBRT(prog.$?.stop  || "");
     if (!startDt || !stopDt || stopDt < agora || startDt > limite) continue;
     const title = prog.title?.[0]?._ || prog.title?.[0] || "";
     const desc  = prog.desc?.[0]?._  || prog.desc?.[0]  || "";
@@ -277,7 +338,7 @@ async function parseComplementar(cfg: EpgConfigRow, canaisMestre: Map<string, Ca
     });
   }
 
-  return { programas };
+  return { programas, canaisNovos };
 }
 
 // ─── Upload R2 ────────────────────────────────────────────────
@@ -337,12 +398,22 @@ export async function POST(req: NextRequest) {
 
   for (const cfg of (configs || []) as EpgConfigRow[]) {
     console.log(`[EPG] Complementando com ${cfg.provider}...`);
-    const { programas: progsComp, erro } = await parseComplementar(cfg, canaisMestre);
+    const ehElite = cfg.provider === "ELITE";
+    const { programas: progsComp, canaisNovos, erro } = await parseComplementar(
+      cfg, canaisMestre, ehElite
+    );
+
+    // Adiciona canais novos do Elite à lista mestre
+    if (canaisNovos.length > 0) {
+      for (const c of canaisNovos) canaisMestre.set(c.id, c);
+      console.log(`[EPG] ELITE: +${canaisNovos.length} canais extras adicionados`);
+    }
 
     log.servidores[cfg.provider] = {
-      ok:        !erro,
-      programas: progsComp.length,
-      erro:      erro || null,
+      ok:             !erro,
+      programas:      progsComp.length,
+      canais_extras:  canaisNovos.length,
+      erro:           erro || null,
     };
 
     if (!erro && progsComp.length > 0) {
