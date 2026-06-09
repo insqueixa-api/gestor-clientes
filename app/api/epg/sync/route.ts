@@ -138,23 +138,24 @@ function isBR(channelId: string, displayName: string): boolean {
   return BR_KEYWORDS.some(kw => dn.includes(kw));
 }
 
-// ─── Monta URL do EPG por provider ───────────────────────────
-function buildEpgUrl(cfg: EpgConfigRow): string {
-  // Sempre usa o primeiro DNS do servidor, nunca api_base_url
-  const dns = cfg.dns?.[0] || "";
-  const base = dns.replace(/\/$/, "");
+// ─── Monta URLs do EPG por provider (retorna múltiplas para fallback) ──
+function buildEpgUrls(cfg: EpgConfigRow): string[] {
+  const dns  = cfg.dns || [];
   const user = cfg.server_username;
   const pass = cfg.server_password;
 
   switch (cfg.provider) {
     case "FAST":
-      return `${base}/epg.php?username=${user}&password=${pass}`;
+      // Fast: EPG público, sem credenciais — tenta todos os DNS
+      return dns.map((d: string) => `${d.replace(/\/$/, "")}/epg.php`);
     case "ELITE":
-      return `${base}/xmltv.php?username=${user}&password=${pass}`;
+      // Elite: DNS do servidor com credenciais
+      return dns.map((d: string) => `${d.replace(/\/$/, "")}/xmltv.php?username=${user}&password=${pass}`);
     case "NATV":
-      return `${base}/epg`;
+      // NaTV: sem credenciais
+      return dns.map((d: string) => `${d.replace(/\/$/, "")}/epg`);
     default:
-      return "";
+      return [];
   }
 }
 
@@ -164,24 +165,34 @@ async function fetchEParsear(cfg: EpgConfigRow): Promise<{
   programas: Programa[];
   erro?: string;
 }> {
-  const url = buildEpgUrl(cfg);
-  if (!url) return { canais: new Map(), programas: [], erro: "URL vazia" };
+  const urls = buildEpgUrls(cfg);
+  if (!urls.length) return { canais: new Map(), programas: [], erro: "Sem DNS configurado" };
 
-  let xmlText: string;
-  try {
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(45_000),
-      headers: {
-        // Simula um player IPTV comum para evitar bloqueio por user-agent
-        "User-Agent": "Mozilla/5.0 (compatible; IPTV/1.0)",
-        "Accept":     "application/xml, text/xml, */*",
-      },
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    xmlText = await res.text();
-  } catch (e: any) {
-    return { canais: new Map(), programas: [], erro: e.message };
+  let xmlText: string = "";
+  let lastErro = "";
+
+  // Tenta cada DNS em ordem até um funcionar
+  for (const url of urls) {
+    try {
+      console.log(`[EPG] ${cfg.provider} tentando: ${url}`);
+      const res = await fetch(url, {
+        signal: AbortSignal.timeout(45_000),
+        headers: {
+          "User-Agent": "Mozilla/5.0 (compatible; IPTV/1.0)",
+          "Accept":     "application/xml, text/xml, */*",
+        },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      xmlText = await res.text();
+      console.log(`[EPG] ${cfg.provider} ok com ${url}`);
+      break; // Funcionou, para aqui
+    } catch (e: any) {
+      lastErro = e.message;
+      console.warn(`[EPG] ${cfg.provider} falhou em ${url}: ${e.message}`);
+    }
   }
+
+  if (!xmlText) return { canais: new Map(), programas: [], erro: lastErro || "Todos os DNS falharam" };
 
   let parsed: any;
   try {
