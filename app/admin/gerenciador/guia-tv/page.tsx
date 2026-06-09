@@ -424,16 +424,35 @@ function CatalogCard({ item }: { item: CatalogItem }) {
 
 // ─── Modal Sync Catálogo ──────────────────────────────────────────────────────
 function ModalSync({ onClose }: { onClose: () => void }) {
-  const [syncState, setSyncState] = useState<SyncState>({
-    elite: "idle", fast: "idle", natv: "idle",
-    eliteStats: null, fastStats: null, natvStats: null,
-  });
-  const [logs, setLogs] = useState<Record<string, string[]>>({ elite: [], fast: [], natv: [] });
-  const [rodando, setRodando] = useState(false);
-  const [countdowns, setCountdowns] = useState<Record<string, number>>({});
+  // Estado independente por servidor
+  const [status, setStatus] = useState<Record<string, SyncStatus>>({ elite: "idle", fast: "idle", natv: "idle" });
+  const [stats,  setStats]  = useState<Record<string, any>>({});
+  const [logs,   setLogs]   = useState<Record<string, string[]>>({ elite: [], fast: [], natv: [] });
+  const [ultima, setUltima] = useState<Record<string, string>>({}); // última sync por servidor
+
+  const isRodando = (srv: string) => status[srv] === "running";
+  const anyRodando = Object.values(status).some(s => s === "running");
 
   const addLog = (srv: string, msg: string) =>
     setLogs(prev => ({ ...prev, [srv]: [...(prev[srv] || []), msg] }));
+
+  // Carrega datas da última sync dos logs do R2
+  useEffect(() => {
+    const R2 = process.env.NEXT_PUBLIC_R2_DEV_URL || "";
+    const LOG_URLS: Record<string, string> = {
+      elite: `${R2}/epg/catalog_elite_log.json`,
+      fast:  `${R2}/epg/catalog_fast_log.json`,
+      natv:  `${R2}/epg/catalog_natv_log.json`,
+    };
+    Object.entries(LOG_URLS).forEach(async ([srv, url]) => {
+      try {
+        const r = await fetch(`${url}?t=${Date.now()}`, { cache: "no-store" });
+        if (!r.ok) return;
+        const j = await r.json();
+        if (j.executado_em) setUltima(p => ({ ...p, [srv]: j.executado_em }));
+      } catch {}
+    });
+  }, []);
 
   // ── Parser M3U client-side ─────────────────────────────────
   function parseM3U(texto: string, onProgress: (n: number) => void) {
@@ -443,7 +462,6 @@ function ModalSync({ onClose }: { onClose: () => void }) {
     const seriesMap = new Map<string, any>();
     const episodios: any[] = [];
     let extinf = "", count = 0;
-
     const isAdulto = (g: string) => {
       const u = g.toUpperCase();
       return ["XXX","ADULTO","ADULT","18+","ONLYFAN","PLAYBOY","PRIVACY"].some(x => u.includes(x));
@@ -473,23 +491,19 @@ function ModalSync({ onClose }: { onClose: () => void }) {
         .replace(/\s+LEG\b|\s+DUB\b/gi, "").toUpperCase().replace(/\s+/g, " ").trim();
       return { titulo, ano: ano ? parseInt(ano) : null, temporada: se ? parseInt(se[1]) : null, episodio: se ? parseInt(se[2]) : null };
     };
-
     for (const linha of linhas) {
       const l = linha.trim();
       if (l.startsWith("#EXTINF")) { extinf = l; continue; }
       if (!l.startsWith("http") || !extinf) continue;
       count++;
       if (count % 20000 === 0) onProgress(count);
-
       const nome  = extinf.match(/tvg-name="([^"]*)"/)?.[1]?.trim() || "";
       const logo  = extinf.match(/tvg-logo="([^"]*)"/)?.[1]?.trim() || "";
       const grupo = extinf.match(/group-title="([^"]*)"/)?.[1]?.trim() || "";
       extinf = "";
       if (!nome || isAdulto(grupo)) continue;
-
       const cat = normGrupo(grupo);
       const tipo = l.includes("/movie/") ? "FILME" : l.includes("/series/") ? "SERIE" : "CANAL";
-
       if (tipo === "CANAL") {
         const t = normCanal(nome); if (!t) continue;
         const peso = qualPeso(nome);
@@ -510,168 +524,134 @@ function ModalSync({ onClose }: { onClose: () => void }) {
     return { canais: [...canaisMap.values()], filmes: [...filmesMap.values()], series: [...seriesMap.values()], episodios };
   }
 
-  // ── Supabase upsert direto ─────────────────────────────────
-  async function sbUpsert(table: string, rows: any[], onConflict: string, ignoreDup: boolean) {
-    const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const SUPA_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  // ── Supabase helpers ───────────────────────────────────────
+  async function sbUpsert(table: string, rows: any[], ignoreDup: boolean) {
+    const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
     const prefer = ignoreDup ? "resolution=ignore-duplicates" : "resolution=merge-duplicates";
-    const res = await fetch(`${SUPA_URL}/rest/v1/${table}`, {
+    const r = await fetch(`${URL}/rest/v1/${table}`, {
       method: "POST",
-      headers: {
-        "apikey": SUPA_KEY, "Authorization": `Bearer ${SUPA_KEY}`,
-        "Content-Type": "application/json", "Prefer": `return=minimal,${prefer}`,
-      },
+      headers: { "apikey": KEY, "Authorization": `Bearer ${KEY}`, "Content-Type": "application/json", "Prefer": `return=minimal,${prefer}` },
       body: JSON.stringify(rows),
     });
-    if (!res.ok) throw new Error(`${table}: HTTP ${res.status} ${(await res.text()).slice(0, 120)}`);
+    if (!r.ok) throw new Error(`${table} HTTP ${r.status}: ${(await r.text()).slice(0, 100)}`);
   }
-
   async function sbSelectIds(titulos: string[]): Promise<Map<string, string>> {
-    const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const SUPA_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
     const map = new Map<string, string>();
-    const BATCH = 400;
-    for (let i = 0; i < titulos.length; i += BATCH) {
-      const lote = titulos.slice(i, i + BATCH);
-      const enc = lote.map(t => `"${t.replace(/"/g, '\\"')}"`).join(",");
-      const res = await fetch(
-        `${SUPA_URL}/rest/v1/catalog_master?select=id,titulo_normalizado&titulo_normalizado=in.(${enc})`,
-        { headers: { "apikey": SUPA_KEY, "Authorization": `Bearer ${SUPA_KEY}` } }
-      );
-      if (!res.ok) continue;
-      const rows: any[] = await res.json();
-      for (const r of rows) map.set(r.titulo_normalizado, r.id);
+    for (let i = 0; i < titulos.length; i += 400) {
+      const enc = titulos.slice(i, i + 400).map(t => `"${t.replace(/"/g, '\\"')}"`).join(",");
+      const r = await fetch(`${URL}/rest/v1/catalog_master?select=id,titulo_normalizado&titulo_normalizado=in.(${enc})`,
+        { headers: { "apikey": KEY, "Authorization": `Bearer ${KEY}` } });
+      if (!r.ok) continue;
+      for (const row of await r.json() as any[]) map.set(row.titulo_normalizado, row.id);
     }
     return map;
   }
-
   async function sbRPC(fn: string, params: any) {
-    const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const SUPA_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-    await fetch(`${SUPA_URL}/rest/v1/rpc/${fn}`, {
+    const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    await fetch(`${URL}/rest/v1/rpc/${fn}`, {
       method: "POST",
-      headers: { "apikey": SUPA_KEY, "Authorization": `Bearer ${SUPA_KEY}`, "Content-Type": "application/json" },
+      headers: { "apikey": KEY, "Authorization": `Bearer ${KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify(params),
     });
   }
 
-  // ── Sync via browser (Fast / NaTV) ─────────────────────────
-  async function syncBrowser(srv: string, urls: string[]) {
+  // ── Core sync browser (Fast / NaTV) ───────────────────────
+  async function execSyncBrowser(srvId: string, urls: string[]) {
     const inicio = Date.now();
-    setSyncState(p => ({ ...p, [srv.toLowerCase()]: "running" }));
+    setStatus(p => ({ ...p, [srvId]: "running" }));
+    setLogs(p => ({ ...p, [srvId]: [] }));
+    const log = (msg: string) => addLog(srvId, msg);
 
     let texto = "";
     for (const url of urls) {
-      addLog(srv, `⬇ Baixando de ${new URL(url).hostname}...`);
+      log(`⬇ Baixando de ${new URL(url).hostname}...`);
       try {
         const r = await fetch(url);
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         texto = await r.text();
-        addLog(srv, `✓ ${(texto.length / 1024 / 1024).toFixed(1)} MB recebidos`);
+        log(`✓ ${(texto.length / 1024 / 1024).toFixed(1)} MB recebidos`);
         break;
-      } catch (e: any) { addLog(srv, `✗ ${e.message}`); }
+      } catch (e: any) { log(`✗ ${e.message}`); }
     }
     if (!texto) throw new Error("Falha em todos os DNS");
 
-    addLog(srv, "⚙ Parseando...");
-    const { canais, filmes, series, episodios } = parseM3U(texto, n =>
-      addLog(srv, `  ${n.toLocaleString("pt-BR")} entradas...`)
-    );
-    addLog(srv, `✓ ${canais.length} canais · ${filmes.length} filmes · ${series.length} séries · ${episodios.length} eps`);
+    log("⚙ Parseando...");
+    const { canais, filmes, series, episodios } = parseM3U(texto, n => log(`  ${n.toLocaleString("pt-BR")} entradas...`));
+    log(`✓ ${canais.length} canais · ${filmes.length} filmes · ${series.length} séries · ${episodios.length} eps`);
 
-    const SERVIDOR = srv.toUpperCase();
+    const SERVIDOR = srvId.toUpperCase();
     const todasMaster = [...canais, ...filmes, ...series];
     const BATCH = 500;
 
-    addLog(srv, `↑ Salvando ${todasMaster.length} títulos...`);
+    log(`↑ Salvando ${todasMaster.length} títulos...`);
     for (let i = 0; i < todasMaster.length; i += BATCH) {
-      const rows = todasMaster.slice(i, i + BATCH).map(e => ({
+      await sbUpsert("catalog_master", todasMaster.slice(i, i + BATCH).map(e => ({
         titulo_normalizado: e.titulo_normalizado, tipo: e.tipo,
         ...(e.cover_url ? { cover_url: e.cover_url } : {}),
         ano: e.ano || null, atualizado_em: new Date().toISOString(),
-      }));
-      await sbUpsert("catalog_master", rows, "titulo_normalizado", false);
+      })), false);
     }
-
     const idMap = await sbSelectIds(todasMaster.map(e => e.titulo_normalizado));
-    addLog(srv, `✓ ${idMap.size} IDs mapeados`);
+    log(`✓ ${idMap.size} IDs mapeados`);
 
     const availRows = todasMaster.map(e => {
       const master_id = idMap.get(e.titulo_normalizado);
       return master_id ? { master_id, servidor: SERVIDOR, categoria_origem: e.categoria_origem } : null;
     }).filter(Boolean);
-
     for (let i = 0; i < availRows.length; i += BATCH)
-      await sbUpsert("catalog_availability", availRows.slice(i, i + BATCH), "master_id,servidor", true);
+      await sbUpsert("catalog_availability", availRows.slice(i, i + BATCH), true);
 
     const epRows = episodios.map(ep => {
       const master_id = idMap.get(ep.titulo_normalizado);
       return master_id ? { master_id, servidor: SERVIDOR, temporada: ep.temporada, episodio: ep.episodio, cover_url: ep.cover_url || null } : null;
     }).filter(Boolean);
-
     for (let i = 0; i < epRows.length; i += BATCH)
-      await sbUpsert("catalog_episodes", epRows.slice(i, i + BATCH), "master_id,servidor,temporada,episodio", true);
+      await sbUpsert("catalog_episodes", epRows.slice(i, i + BATCH), true);
 
     await sbRPC("catalog_atualizar_contadores", { p_servidor: SERVIDOR });
 
     const dur = Math.round((Date.now() - inicio) / 1000);
-    addLog(srv, `✅ Concluído em ${dur}s`);
-    const stats = { canais: canais.length, filmes: filmes.length, series_unicas: series.length, episodios: epRows.length, duracao_s: dur };
-    setSyncState(p => ({ ...p, [srv.toLowerCase()]: "ok", [`${srv.toLowerCase()}Stats`]: stats }));
-    return stats;
+    const agora = new Date().toISOString();
+    log(`✅ Concluído em ${dur}s`);
+    setStats(p => ({ ...p, [srvId]: { canais: canais.length, filmes: filmes.length, series_unicas: series.length, episodios: epRows.length, duracao_s: dur } }));
+    setStatus(p => ({ ...p, [srvId]: "ok" }));
+    setUltima(p => ({ ...p, [srvId]: agora }));
   }
 
-  // ── Sync Elite via servidor ────────────────────────────────
-  async function syncElite() {
-    const inicio = Date.now();
-    setSyncState(p => ({ ...p, elite: "running" }));
+  // ── Core sync Elite (via servidor) ────────────────────────
+  async function execSyncElite() {
+    setStatus(p => ({ ...p, elite: "running" }));
+    setLogs(p => ({ ...p, elite: [] }));
     addLog("elite", "⬇ Chamando rota do servidor...");
-    const res = await fetch("/api/epg/sync-catalog/elite", { method: "POST" });
-    const data = await res.json();
-    if (!res.ok || data.error) throw new Error(data.error || "Erro desconhecido");
+    const r = await fetch("/api/epg/sync-catalog/elite", { method: "POST" });
+    const data = await r.json();
+    if (!r.ok || data.error) throw new Error(data.error || "Erro desconhecido");
     addLog("elite", `✅ Concluído em ${data.duracao_s}s`);
-    setSyncState(p => ({ ...p, elite: "ok", eliteStats: data }));
-    return data;
+    setStats(p => ({ ...p, elite: data }));
+    setStatus(p => ({ ...p, elite: "ok" }));
+    setUltima(p => ({ ...p, elite: new Date().toISOString() }));
   }
 
-  // ── Countdown ──────────────────────────────────────────────
-  function countdown(srv: string, ms: number): Promise<void> {
-    return new Promise(resolve => {
-      setSyncState(p => ({ ...p, [srv]: "waiting" }));
-      const fim = Date.now() + ms;
-      const iv = setInterval(() => {
-        const rest = Math.max(0, Math.round((fim - Date.now()) / 1000));
-        setCountdowns(p => ({ ...p, [srv]: rest }));
-        if (rest === 0) { clearInterval(iv); resolve(); }
-      }, 1000);
-    });
-  }
-
-  // ── Iniciar tudo ───────────────────────────────────────────
-  async function iniciar() {
-    setRodando(true);
+  // ── Handlers individuais ───────────────────────────────────
+  async function handleSync(srvId: string) {
     try {
-      // Elite
-      await syncElite();
-      // Fast — 5 min
-      addLog("fast", "⏳ Aguardando 5 minutos...");
-      await countdown("fast", 5 * 60 * 1000);
-      await syncBrowser("fast", [
+      if (srvId === "elite") await execSyncElite();
+      else if (srvId === "fast") await execSyncBrowser("fast", [
         "http://psbox.top/get.php?username=Insqueixa&password=uC8369&type=m3u_plus",
         "http://p1fast.com/get.php?username=Insqueixa&password=uC8369&type=m3u_plus",
       ]);
-      // NaTV — mais 5 min
-      addLog("natv", "⏳ Aguardando 5 minutos...");
-      await countdown("natv", 5 * 60 * 1000);
-      await syncBrowser("natv", [
+      else await execSyncBrowser("natv", [
         "http://rj98.eu/get.php?username=Insqueixa&password=62206935744&type=m3u_plus",
         "http://rw26.eu/get.php?username=Insqueixa&password=62206935744&type=m3u_plus",
         "http://nc18.org/get.php?username=Insqueixa&password=62206935744&type=m3u_plus",
       ]);
     } catch (e: any) {
-      addLog("elite", `❌ ${e.message}`);
-    } finally {
-      setRodando(false);
+      addLog(srvId, `❌ ${e.message}`);
+      setStatus(p => ({ ...p, [srvId]: "error" }));
     }
   }
 
@@ -681,16 +661,17 @@ function ModalSync({ onClose }: { onClose: () => void }) {
     { id: "natv",  label: "NaTV",    sub: "via browser · rj98.eu",     cor: "#f59e0b" },
   ];
 
-  function statusLabel(s: SyncStatus, srv: string) {
-    if (s === "waiting") {
-      const sec = countdowns[srv] || 0;
-      const m = Math.floor(sec / 60), ss = sec % 60;
-      return `Na fila — ${m}:${ss.toString().padStart(2,"0")}`;
-    }
-    return { idle: "Aguardando", running: "Rodando...", ok: "Concluído", error: "Erro" }[s];
+  function statusLabel(s: SyncStatus) {
+    return { idle: "Sincronizar", running: "Rodando...", ok: "Concluído", error: "Falhou", waiting: "Aguardando" }[s];
   }
   function statusCor(s: SyncStatus) {
-    return { idle: "#374151", waiting: "#92400e", running: "#6366f1", ok: "#10b981", error: "#ef4444" }[s];
+    return { idle: "#6366f1", running: "#818cf8", ok: "#10b981", error: "#ef4444", waiting: "#374151" }[s];
+  }
+  function formatUltima(iso: string) {
+    return new Date(iso).toLocaleString("pt-BR", {
+      day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
+      timeZone: "America/Sao_Paulo",
+    });
   }
 
   return (
@@ -698,10 +679,10 @@ function ModalSync({ onClose }: { onClose: () => void }) {
       position: "fixed", inset: 0, zIndex: 1000,
       background: "rgba(0,0,0,0.85)", display: "flex",
       alignItems: "center", justifyContent: "center", padding: 20,
-    }} onClick={!rodando ? onClose : undefined}>
+    }} onClick={!anyRodando ? onClose : undefined}>
       <div onClick={e => e.stopPropagation()} style={{
         background: "#0f0f13", border: "1px solid #1e1e2e",
-        borderRadius: 16, width: "100%", maxWidth: 600,
+        borderRadius: 16, width: "100%", maxWidth: 560,
         maxHeight: "90vh", overflow: "auto",
         boxShadow: "0 32px 80px rgba(0,0,0,0.9)",
       }}>
@@ -713,89 +694,116 @@ function ModalSync({ onClose }: { onClose: () => void }) {
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: "#f1f5f9" }}>Sincronizar Catálogo</div>
             <div style={{ fontSize: 12, color: "#475569", marginTop: 2 }}>
-              Atualiza filmes, séries e canais dos 3 servidores
+              Rode cada servidor individualmente
             </div>
           </div>
-          {!rodando && (
+          {!anyRodando && (
             <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#475569" }}>
               <X style={{ width: 18, height: 18 }} />
             </button>
           )}
         </div>
 
-        {/* Servidores */}
+        {/* Cards por servidor */}
         <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
           {SERVERS.map(srv => {
-            const status = syncState[srv.id as keyof typeof syncState] as SyncStatus;
-            const stats  = syncState[`${srv.id}Stats` as keyof typeof syncState] as any;
-            const srvLogs = logs[srv.id] || [];
+            const s     = status[srv.id] as SyncStatus;
+            const st    = stats[srv.id];
+            const sLogs = logs[srv.id] || [];
+            const ult   = ultima[srv.id];
+            const rod   = s === "running";
 
             return (
               <div key={srv.id} style={{
-                background: "#111", border: `1px solid #1e1e2e`,
+                background: "#111", border: `1px solid ${rod ? srv.cor + "40" : "#1e1e2e"}`,
                 borderRadius: 10, overflow: "hidden",
+                transition: "border-color 0.2s",
               }}>
-                {/* Cabeçalho do servidor */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px" }}>
+                {/* Cabeçalho */}
+                <div style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "12px 14px",
+                }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <div style={{
                       width: 8, height: 8, borderRadius: "50%",
-                      background: status === "idle" ? "#1e293b" : srv.cor,
-                      boxShadow: status === "running" ? `0 0 8px ${srv.cor}` : "none",
-                      animation: status === "running" ? "pulse 1s infinite" : "none",
+                      background: s === "idle" ? "#1e293b" : srv.cor,
+                      boxShadow: rod ? `0 0 8px ${srv.cor}` : "none",
+                      animation: rod ? "pulse 1s infinite" : "none",
+                      flexShrink: 0,
                     }} />
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>{srv.label}</div>
-                      <div style={{ fontSize: 11, color: "#334155", marginTop: 1 }}>{srv.sub}</div>
+                      <div style={{ fontSize: 10, color: "#334155", marginTop: 1 }}>
+                        {srv.sub}
+                        {ult && (
+                          <span style={{ color: "#1e3a2f", marginLeft: 6 }}>
+                            · sync {formatUltima(ult)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <span style={{
-                    fontSize: 11, fontWeight: 600, padding: "3px 10px",
-                    borderRadius: 20, background: statusCor(status) + "20",
-                    color: statusCor(status), border: `1px solid ${statusCor(status)}30`,
-                  }}>
-                    {statusLabel(status, srv.id)}
-                  </span>
+
+                  {/* Botão individual */}
+                  <button
+                    onClick={() => !rod && handleSync(srv.id)}
+                    disabled={rod}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 5,
+                      padding: "6px 14px", borderRadius: 7,
+                      background: rod ? "#1e1b4b" : s === "ok" ? "#052e16" : s === "error" ? "#1c0a0a" : srv.cor + "20",
+                      color: rod ? "#818cf8" : s === "ok" ? "#4ade80" : s === "error" ? "#f87171" : srv.cor,
+                      fontSize: 12, fontWeight: 600, cursor: rod ? "not-allowed" : "pointer",
+                      border: "1px solid " + (rod ? "#312e81" : s === "ok" ? "#14532d" : s === "error" ? "#450a0a" : srv.cor + "40"),
+                      transition: "all 0.15s", minWidth: 110,
+                    }}
+                  >
+                    {rod
+                      ? <><RefreshCw style={{ width: 11, height: 11, animation: "spin 1s linear infinite" }} /> Rodando...</>
+                      : s === "ok"
+                      ? <><CheckCircle style={{ width: 11, height: 11 }} /> Concluído</>
+                      : s === "error"
+                      ? <><AlertTriangle style={{ width: 11, height: 11 }} /> Tentar novamente</>
+                      : <><Play style={{ width: 11, height: 11 }} /> Sincronizar</>
+                    }
+                  </button>
                 </div>
 
                 {/* Log */}
-                {srvLogs.length > 0 && (
+                {sLogs.length > 0 && (
                   <div style={{
-                    padding: "6px 14px 10px",
-                    borderTop: "1px solid #1e1e2e",
-                    fontFamily: "monospace", fontSize: 11,
-                    color: "#475569", lineHeight: 1.7,
-                    maxHeight: 100, overflowY: "auto",
+                    padding: "6px 14px 10px", borderTop: "1px solid #1a1a2e",
+                    fontFamily: "monospace", fontSize: 11, lineHeight: 1.7,
+                    maxHeight: 110, overflowY: "auto",
                   }}>
-                    {srvLogs.map((l, i) => (
+                    {sLogs.map((l, i) => (
                       <div key={i} style={{
-                        color: l.startsWith("✅") ? "#4ade80" : l.startsWith("❌") || l.startsWith("✗") ? "#f87171"
-                          : l.startsWith("✓") ? "#818cf8" : "#475569"
+                        color: l.startsWith("✅") || l.startsWith("✓") ? (l.startsWith("✅") ? "#4ade80" : "#818cf8")
+                          : l.startsWith("❌") || l.startsWith("✗") ? "#f87171" : "#374151"
                       }}>{l}</div>
                     ))}
                   </div>
                 )}
 
                 {/* Stats */}
-                {stats && (
-                  <div style={{
-                    display: "flex", borderTop: "1px solid #1e1e2e",
-                  }}>
+                {st && (
+                  <div style={{ display: "flex", borderTop: "1px solid #1a1a2e" }}>
                     {[
-                      ["Canais", stats.canais],
-                      ["Filmes", stats.filmes],
-                      ["Séries", stats.series_unicas],
-                      ["Episódios", stats.episodios],
-                      ["Tempo", `${stats.duracao_s}s`],
-                    ].map(([label, val]) => (
+                      ["Canais",    st.canais],
+                      ["Filmes",    st.filmes],
+                      ["Séries",    st.series_unicas],
+                      ["Episódios", st.episodios],
+                      ["Tempo",     `${st.duracao_s}s`],
+                    ].map(([label, val], i, arr) => (
                       <div key={label as string} style={{
                         flex: 1, padding: "8px 0", textAlign: "center",
-                        borderRight: "1px solid #1e1e2e",
+                        borderRight: i < arr.length - 1 ? "1px solid #1a1a2e" : "none",
                       }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: srv.cor }}>
                           {typeof val === "number" ? numFmt(val) : val}
                         </div>
-                        <div style={{ fontSize: 10, color: "#334155", marginTop: 1, textTransform: "uppercase" }}>{label}</div>
+                        <div style={{ fontSize: 10, color: "#334155", marginTop: 1, textTransform: "uppercase", letterSpacing: "0.3px" }}>{label}</div>
                       </div>
                     ))}
                   </div>
@@ -805,31 +813,18 @@ function ModalSync({ onClose }: { onClose: () => void }) {
           })}
         </div>
 
-        {/* Footer */}
-        <div style={{
-          padding: "14px 20px", borderTop: "1px solid #1e1e2e",
-          display: "flex", alignItems: "center", gap: 10,
-        }}>
-          {!rodando ? (
-            <button onClick={iniciar} style={{
-              flex: 1, padding: "11px 0", borderRadius: 8, border: "none",
-              background: "#6366f1", color: "#fff", fontSize: 14, fontWeight: 600,
-              cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-            }}>
-              <Play style={{ width: 14, height: 14 }} />
-              Iniciar Sincronização
-            </button>
-          ) : (
-            <div style={{
-              flex: 1, padding: "11px 0", borderRadius: 8,
-              background: "#1e1b4b", color: "#818cf8", fontSize: 14, fontWeight: 600,
-              textAlign: "center",
-            }}>
-              <RefreshCw style={{ width: 13, height: 13, marginRight: 6, display: "inline", animation: "spin 1s linear infinite" }} />
-              Sincronizando — não feche esta aba
-            </div>
-          )}
-        </div>
+        {/* Aviso se algum estiver rodando */}
+        {anyRodando && (
+          <div style={{
+            margin: "0 16px 16px", padding: "10px 14px",
+            background: "#1e1b4b", border: "1px solid #312e81",
+            borderRadius: 8, fontSize: 12, color: "#818cf8",
+            display: "flex", alignItems: "center", gap: 6,
+          }}>
+            <RefreshCw style={{ width: 12, height: 12, animation: "spin 1s linear infinite", flexShrink: 0 }} />
+            Não feche esta aba enquanto estiver sincronizando
+          </div>
+        )}
       </div>
     </div>
   );
