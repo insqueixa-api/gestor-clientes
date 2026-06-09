@@ -727,7 +727,7 @@ export default function GuiaTVPage() {
   const emBusca = buscaAtiva.trim().length > 0;
 
   return (
-    <div style={{ background: "#0f1117", display: "flex", flexDirection: "column", color: "#cbd5e1" }}>
+    <div style={{ background: "#0f1117", display: "flex", flexDirection: "column", color: "#cbd5e1", maxHeight: "calc(100vh - 57px)", overflow: "hidden" }}>
 
       {/* ── Topo ────────────────────────────────────────────────── */}
       <div style={{

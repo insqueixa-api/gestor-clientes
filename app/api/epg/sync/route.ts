@@ -1,6 +1,10 @@
 // app/api/epg/sync/route.ts
 // Arquitetura: EPGBR (iptv-epg.org) é a lista mestre de canais.
 // Elite e NaTV completam programação para canais que o EPGBR não cobrir.
+//
+// FIXES:
+// - Normalização de nomes melhorada (remove HD, FHD, *, números no final, estados)
+// - Deduplicação por janela de ±5min (evita duplicatas com horário ligeiramente diferente)
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
@@ -82,8 +86,21 @@ function categorizar(nome: string): string {
 }
 
 function nomeExibicao(raw: string): string {
-  // Remove prefixo "BR - " do iptv-epg.org
   return raw.replace(/^BR\s*-\s*/i, "").trim();
+}
+
+// ─── Normalização robusta para matching ───────────────────────
+// Remove TUDO que pode variar entre fontes, deixando só o nome base do canal
+function normalizarParaMatch(dn: string): string {
+  return nomeExibicao(dn)
+    .toUpperCase()
+    .replace(/\[?(FHD|FHDR|H\.265|H265|4K|HD|SD)\]?/gi, "")  // qualidade
+    .replace(/\b(LEG|DUB|DUBLADO|LEGENDADO)\b/gi, "")          // áudio
+    .replace(/\s*\*+\s*$/g, "")                                 // asterisco de backup
+    .replace(/\s+\d+\s*$/g, "")                                 // número no final (BIS 2)
+    .replace(/\b(BR|SP|RJ|MG|RS|SC|PR|DF|GO|BA|PE|CE|AM|PA)\b/gi, "") // estado
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 // ─── Parse BRT ────────────────────────────────────────────────
@@ -123,7 +140,6 @@ async function fetchXML(url: string): Promise<string | null> {
 }
 
 // ─── Parse EPGBR (lista mestre) ───────────────────────────────
-// Retorna mapa channel_id → Canal E programas
 async function parseEPGBR(): Promise<{
   canais: Map<string, Canal>;
   programas: Programa[];
@@ -143,7 +159,6 @@ async function parseEPGBR(): Promise<{
   const agora      = new Date();
   const limite     = new Date(agora.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-  // Monta canais — todos os 176 são BR por definição
   const canais = new Map<string, Canal>();
   for (const ch of channels) {
     const cid  = ch.$?.id?.trim() || "";
@@ -161,7 +176,6 @@ async function parseEPGBR(): Promise<{
     });
   }
 
-  // Monta programas
   const programas: Programa[] = [];
   for (const prog of programmes) {
     const cid = prog.$?.channel?.trim() || "";
@@ -192,9 +206,6 @@ async function parseEPGBR(): Promise<{
 }
 
 // ─── Parse Elite/NaTV (complemento + canais extras) ─────────
-// Aproveita programas dos canais do EPGBR E adiciona canais BR novos que
-// não existem no EPGBR (ex: DAZN, Sportynet, NBA League Pass)
-// Canais extras só são adicionados se o provider for ELITE (mais completo)
 async function parseComplementar(
   cfg: EpgConfigRow,
   canaisMestre: Map<string, Canal>,
@@ -204,14 +215,18 @@ async function parseComplementar(
   canaisNovos: Canal[];
   erro?: string;
 }> {
-  // Monta mapa nome_normalizado → canal_id do mestre
+  // Mapa nome_normalizado → canal_id do mestre
+  // Usa normalizarParaMatch para ser tolerante a variações de nome
   const normParaId = new Map<string, string>();
   for (const [cid, canal] of canaisMestre) {
-    const norm = canal.nome.toUpperCase().replace(/\s+/g, " ").trim();
-    normParaId.set(norm, cid);
+    const norm = normalizarParaMatch(canal.display_name);
+    // Só adiciona se não existir ainda (evita sobrescrever com versão pior)
+    if (!normParaId.has(norm)) normParaId.set(norm, cid);
+    // Também indexa pelo nome limpo (sem prefixo BR -)
+    const normNome = normalizarParaMatch(canal.nome);
+    if (!normParaId.has(normNome)) normParaId.set(normNome, cid);
   }
 
-  // URLs
   const dns  = cfg.dns || [];
   const user = cfg.server_username;
   const pass = cfg.server_password;
@@ -241,55 +256,39 @@ async function parseComplementar(
   const agora      = new Date();
   const limite     = new Date(agora.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-  // Mapeia channel_id do server → channel_id do mestre
+  // Mapeia channel_id do servidor → channel_id do EPGBR (mestre)
   const serverIdParaMestreId = new Map<string, string>();
   for (const ch of channels) {
     const cid = ch.$?.id?.trim() || "";
     const dn  = ch["display-name"]?.[0]?._ || ch["display-name"]?.[0] || "";
     if (!cid || !dn) continue;
-    // Normaliza igual ao mestre
-    const norm = nomeExibicao(dn)
-      .toUpperCase()
-      .replace(/\[?(FHD|HD|SD|4K)\]?/g, "")
-      .replace(/\bLEG\b/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
+    const norm = normalizarParaMatch(dn);
     const mestreId = normParaId.get(norm);
     if (mestreId) serverIdParaMestreId.set(cid, mestreId);
   }
 
-  // Detecta canais extras BR (não no EPGBR) para adicionar à lista mestre
+  // Detecta canais extras BR (não no EPGBR)
   const canaisNovos: Canal[] = [];
   if (adicionarExtras) {
     const idsJaNoMestre = new Set([...canaisMestre.keys()]);
     const normsMestre   = new Set([...canaisMestre.values()].map(c =>
-      c.nome.toUpperCase().replace(/\s+/g, " ").trim()
+      normalizarParaMatch(c.display_name)
     ));
 
-    // Palavras que indicam canal de esporte BR relevante
     const ESPORTE_KWS_EXTRA = ["DAZN","SPORTYNET","NOSSO FUTEBOL","NBA LEAGUE PASS",
                                 "NFL NETWORK","AMAZON PRIME SPORT","PPV"];
 
     for (const ch of channels) {
-      const cid = ch.$?.id?.trim() || "";
-      const dn  = ch["display-name"]?.[0]?._ || ch["display-name"]?.[0] || "";
+      const cid  = ch.$?.id?.trim() || "";
+      const dn   = ch["display-name"]?.[0]?._ || ch["display-name"]?.[0] || "";
       const icon = ch.icon?.[0]?.$?.src || "";
       if (!cid || !dn) continue;
-      // Só canais com id terminando em .br
       if (!cid.toLowerCase().endsWith(".br")) continue;
-      // Já está no mestre?
       if (idsJaNoMestre.has(cid)) continue;
-      // Nome normalizado já mapeado?
-      const nomeNorm = nomeExibicao(dn)
-        .replace(/\[?(FHD|HD|SD|4K|H265)\]?/gi, "")
-        .replace(/\bLEG\b|\bFHDR\b|\bBR\b|\*$/gi, "")
-        .replace(/\s+/g, " ").trim();
-      if (normsMestre.has(nomeNorm.toUpperCase())) continue;
-      // É canal de esporte extra relevante?
+      const nomeNorm = normalizarParaMatch(dn);
+      if (normsMestre.has(nomeNorm)) continue;
       if (!ESPORTE_KWS_EXTRA.some(kw => dn.toUpperCase().includes(kw))) continue;
-      // Evita duplicatas de qualidade (pega só o primeiro encontrado)
-      if (normsMestre.has(nomeNorm.toUpperCase())) continue;
-      normsMestre.add(nomeNorm.toUpperCase());
+      normsMestre.add(nomeNorm);
       idsJaNoMestre.add(cid);
       canaisNovos.push({
         id:           cid,
@@ -304,12 +303,9 @@ async function parseComplementar(
     }
   }
 
-  // Programas para canais do mestre E canais novos
   const todosCanaisMap = new Map(canaisMestre);
-  for (const c of canaisNovos) todosCanaisMap.set(c.id, c);
-
-  // Adiciona também mapeamento direto por cid para canais novos
   for (const c of canaisNovos) {
+    todosCanaisMap.set(c.id, c);
     serverIdParaMestreId.set(c.id, c.id);
   }
 
@@ -379,19 +375,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: log.erro, log }, { status: 502 });
   }
 
-  // 2. Elite e NaTV — complementam programação
+  // 2. Elite e NaTV
   const { data: configs } = await supabase
     .from("vw_epg_config")
     .select("*")
     .in("provider", ["ELITE", "NATV"])
     .order("priority", { ascending: true });
 
-  // Mapa canal_id → conjunto de starts já registrados (evita duplicatas)
-  const jaTemProg = new Map<string, Set<string>>();
+  // ── Deduplicação por janela de ±5min ──────────────────────────
+  // Evita duplicatas quando Elite/NaTV têm o mesmo programa com horário
+  // ligeiramente diferente do EPGBR (ex: 20:30 vs 20:31)
+  const jaTemProg = new Map<string, number[]>(); // canal_id → array de timestamps em ms
+
   for (const p of progsMestre) {
-    const s = jaTemProg.get(p.channel_id) || new Set();
-    s.add(p.start);
-    jaTemProg.set(p.channel_id, s);
+    const arr = jaTemProg.get(p.channel_id) || [];
+    arr.push(new Date(p.start).getTime());
+    jaTemProg.set(p.channel_id, arr);
+  }
+
+  // Retorna true se já existe programa nesse canal com start dentro de ±5min
+  function jaExiste(channelId: string, startIso: string): boolean {
+    const arr = jaTemProg.get(channelId);
+    if (!arr || arr.length === 0) return false;
+    const t = new Date(startIso).getTime();
+    return arr.some(existing => Math.abs(existing - t) <= 5 * 60 * 1000);
   }
 
   let programasFinais = [...progsMestre];
@@ -403,7 +410,6 @@ export async function POST(req: NextRequest) {
       cfg, canaisMestre, ehElite
     );
 
-    // Adiciona canais novos do Elite à lista mestre
     if (canaisNovos.length > 0) {
       for (const c of canaisNovos) canaisMestre.set(c.id, c);
       console.log(`[EPG] ELITE: +${canaisNovos.length} canais extras adicionados`);
@@ -419,10 +425,11 @@ export async function POST(req: NextRequest) {
     if (!erro && progsComp.length > 0) {
       let adicionados = 0;
       for (const p of progsComp) {
-        const s = jaTemProg.get(p.channel_id) || new Set();
-        if (!s.has(p.start)) {
-          s.add(p.start);
-          jaTemProg.set(p.channel_id, s);
+        // Só adiciona se NÃO existe programa próximo (±5min) no mesmo canal
+        if (!jaExiste(p.channel_id, p.start)) {
+          const arr = jaTemProg.get(p.channel_id) || [];
+          arr.push(new Date(p.start).getTime());
+          jaTemProg.set(p.channel_id, arr);
           programasFinais.push(p);
           adicionados++;
         }
@@ -432,7 +439,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 3. Ordena canais e programas
+  // 3. Ordena
   const canaisLista = [...canaisMestre.values()]
     .sort((a, b) => a.categoria.localeCompare(b.categoria) || a.nome.localeCompare(b.nome));
 
