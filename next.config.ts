@@ -10,6 +10,11 @@ const nextConfig: NextConfig = {
   compiler: {
     removeConsole: process.env.NODE_ENV === "production",
   },
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "15mb",
+    },
+  },
 };
 
 export default withPWA(nextConfig);
