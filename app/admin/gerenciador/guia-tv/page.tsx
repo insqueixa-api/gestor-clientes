@@ -737,7 +737,7 @@ export default function GuiaTVPage() {
         {/* Linha única: título · filtros · busca · sync */}
         <div style={{
           display: "flex", alignItems: "center", gap: 10,
-          padding: "10px 20px", flexWrap: "wrap",
+          padding: "14px 20px", flexWrap: "wrap",
         }}>
           {/* Título */}
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: 4 }}>
@@ -868,7 +868,7 @@ export default function GuiaTVPage() {
       </div>
 
       {/* ── Conteúdo scrollável ─────────────────────────────────── */}
-      <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", minHeight: 0 }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
 
       {/* ── Loading ──────────────────────────────────────────────── */}
       {loading && (
