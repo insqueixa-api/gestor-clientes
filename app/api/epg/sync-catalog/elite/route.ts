@@ -5,13 +5,10 @@
 // Fluxo:
 //   1. GET  → retorna status do último sync (lê log do R2)
 //   2. POST → executa o sync completo:
-//      a. Busca credenciais do EliteTV via vw_epg_config
-//      b. Constrói URL do M3U e baixa (~30MB)
+//      a. Busca m3u_url direto da tabela clients pelo ID fixo do cliente Elite
+//      b. Baixa o M3U usando exatamente esse link
 //      c. Parseia entradas: CANAL / FILME / SERIE
-//      d. Upsert em lote no Supabase:
-//         - catalog_master       → upsert (onConflict: titulo_normalizado)
-//         - catalog_availability → upsert ignoreDuplicates (preserva adicionado_em)
-//         - catalog_episodes     → upsert ignoreDuplicates (preserva adicionado_em)
+//      d. Upsert em lote no Supabase
 //      e. Salva log JSON no R2
 //
 // Endereço: POST /api/epg/sync-catalog/elite
@@ -22,7 +19,6 @@ import { createClient as createAdmin } from "@supabase/supabase-js";
 import { S3Client, PutObjectCommand }  from "@aws-sdk/client-s3";
 import {
   parseM3U,
-  buildM3UUrl,
   statsDoparse,
   type EntradaCatalogo,
 } from "@/lib/catalog/catalog-parser";
@@ -89,57 +85,40 @@ export async function POST(req: NextRequest) {
   };
 
   try {
-    // ── 1. Credenciais via vw_epg_config ─────────────────────────────────────
-    const { data: epgCfg, error: cfgErr } = await supabaseAdmin
-      .from("vw_epg_config")
-      .select("server_username, server_password, dns")
-      .eq("provider", "ELITE")
+    // ── 1. Busca m3u_url direto do cliente no banco ───────────────────────────
+    const { data: cliente, error: clienteErr } = await supabaseAdmin
+      .from("clients")
+      .select("m3u_url")
+      .eq("id", "27a871c0-4850-4bd0-8a5a-52609abe569f")
       .single();
 
-    if (cfgErr || !epgCfg) {
-      log.erro = `Configuração ELITE não encontrada: ${cfgErr?.message}`;
+    if (clienteErr || !cliente?.m3u_url) {
+      log.erro = `m3u_url do cliente Elite não encontrado: ${clienteErr?.message}`;
       await salvarLog(log);
       return NextResponse.json({ error: log.erro }, { status: 500 });
     }
 
-    const { server_username, server_password, dns } = epgCfg as {
-      server_username: string;
-      server_password: string;
-      dns: string[];
-    };
+    const m3uUrl = cliente.m3u_url as string;
+    log.etapas.credenciais = { ok: true, m3u_url: m3uUrl.replace(/password=[^&]+/, "password=***") };
 
-    log.etapas.credenciais = { ok: true, username: server_username, dns_count: dns.length };
-
-    // ── 2. Baixar M3U (tenta cada DNS em ordem) ───────────────────────────────
-    const m3uUrl = buildM3UUrl(dns, server_username, server_password);
-    console.log(`[CATALOG-ELITE] Baixando M3U de ${dns[0]}...`);
+    // ── 2. Baixar M3U ─────────────────────────────────────────────────────────
+    console.log(`[CATALOG-ELITE] Baixando M3U...`);
 
     let m3uText = "";
-    let dnsUsado = "";
-
-    for (const d of dns) {
-      try {
-        const url  = buildM3UUrl([d], server_username, server_password);
-        const resp = await fetch(url, {
-          signal:  AbortSignal.timeout(55_000),
-          headers: { "User-Agent": "VLC/3.0.18 LibVLC/3.0.18" },
-        });
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        m3uText  = await resp.text();
-        dnsUsado = d;
-        break;
-      } catch (e: any) {
-        console.warn(`[CATALOG-ELITE] DNS ${d} falhou: ${e.message}`);
-      }
-    }
-
-    if (!m3uText) {
-      log.erro = "Falha ao baixar M3U de todos os DNS";
+    try {
+      const resp = await fetch(m3uUrl, {
+        signal:  AbortSignal.timeout(55_000),
+        headers: { "User-Agent": "VLC/3.0.18 LibVLC/3.0.18" },
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      m3uText = await resp.text();
+    } catch (e: any) {
+      log.erro = `Falha ao baixar M3U: ${e.message}`;
       await salvarLog(log);
       return NextResponse.json({ error: log.erro }, { status: 502 });
     }
 
-    log.etapas.download = { ok: true, dns_usado: dnsUsado, bytes: m3uText.length };
+    log.etapas.download = { ok: true, bytes: m3uText.length };
 
     // ── 3. Parsear M3U ────────────────────────────────────────────────────────
     console.log(`[CATALOG-ELITE] Parseando ${m3uText.length} bytes...`);
