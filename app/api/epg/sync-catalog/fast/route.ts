@@ -2,24 +2,26 @@
 //
 // Cron de sincronização do catálogo — Servidor FAST
 //
-// Fluxo:
-//   1. GET  → retorna status do último sync (lê log do R2)
-//   2. POST → executa o sync completo:
-//      a. Busca credenciais do EliteTV via vw_epg_config
-//      b. Constrói URL do M3U e baixa (~30MB)
-//      c. Parseia entradas: CANAL / FILME / SERIE
-//      d. Upsert em lote no Supabase:
-//         - catalog_master       → upsert (onConflict: titulo_normalizado)
-//         - catalog_availability → upsert ignoreDuplicates (preserva adicionado_em)
-//         - catalog_episodes     → upsert ignoreDuplicates (preserva adicionado_em)
-//      e. Salva log JSON no R2
+// O Fast (e NaTV) bloqueiam downloads server-side por IP de datacenter.
+// Fluxo adaptado:
+//   GET  → gera presigned URL para o BROWSER fazer o upload do M3U direto no R2
+//   POST → lê o M3U do R2 e processa (upsert no Supabase)
 //
-// Endereço: POST /api/epg/sync-catalog/fast
+// No frontend, o botão "Sincronizar Fast" faz:
+//   1. GET  → pega { presignedUrl, m3uUrl }
+//   2. Baixa o M3U via fetch() no browser (IP do cliente, sem bloqueio)
+//   3. PUT do blob direto na presignedUrl (R2)
+//   4. POST → processa
+//
+// Endereço:
+//   GET  /api/epg/sync-catalog/fast  → presigned URL
+//   POST /api/epg/sync-catalog/fast  → processa M3U do R2
 
 import { NextRequest, NextResponse }   from "next/server";
 import { createClient }                from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
-import { S3Client, PutObjectCommand }  from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl }                from "@aws-sdk/s3-request-presigner";
 import {
   parseM3U,
   buildM3UUrl,
@@ -40,38 +42,61 @@ const s3 = new S3Client({
   },
 });
 
-const R2_BUCKET = process.env.R2_BUCKET_NAME        || "unigestor-media";
-const R2_URL    = process.env.NEXT_PUBLIC_R2_DEV_URL || "";
-const LOG_KEY   = "epg/catalog_fast_log.json";
-const SERVIDOR  = "FAST" as const;
+const R2_BUCKET   = process.env.R2_BUCKET_NAME        || "unigestor-media";
+const R2_URL      = process.env.NEXT_PUBLIC_R2_DEV_URL || "";
+const M3U_RAW_KEY = "catalog/fast_raw.m3u";    // M3U temporário no R2
+const LOG_KEY     = "epg/catalog_fast_log.json";
+const SERVIDOR    = "FAST" as const;
 
-// ─── supabaseAdmin (bypassa RLS) ──────────────────────────────────────────────
+// ─── supabaseAdmin ────────────────────────────────────────────────────────────
 const supabaseAdmin = createAdmin(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
-// ─── Tamanho do lote para upsert ──────────────────────────────────────────────
-const BATCH_MASTER       = 500;
-const BATCH_AVAILABILITY = 500;
-const BATCH_EPISODES     = 500;
+const BATCH = 500;
 
-// ─── GET — Status do último sync ──────────────────────────────────────────────
-export async function GET() {
+// ─── GET — Gera presigned URL + URL do M3U para o browser ─────────────────────
+export async function GET(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-  try {
-    const res = await fetch(`${R2_URL}/${LOG_KEY}`, { cache: "no-store" });
-    if (!res.ok) return NextResponse.json({ status: "Nenhum sync realizado ainda" });
-    return NextResponse.json(await res.json());
-  } catch {
-    return NextResponse.json({ status: "Log não encontrado" });
+  // Busca credenciais do Fast
+  const { data: cfg, error: cfgErr } = await supabaseAdmin
+    .from("vw_epg_config")
+    .select("server_username, server_password, dns")
+    .eq("provider", "FAST")
+    .single();
+
+  if (cfgErr || !cfg) {
+    return NextResponse.json({ error: "Configuração FAST não encontrada" }, { status: 500 });
   }
+
+  const { server_username, server_password, dns } = cfg as {
+    server_username: string;
+    server_password: string;
+    dns: string[];
+  };
+
+  // Presigned URL para o browser fazer PUT do M3U no R2 (válida por 10 min)
+  const presignedUrl = await getSignedUrl(
+    s3,
+    new PutObjectCommand({
+      Bucket:      R2_BUCKET,
+      Key:         M3U_RAW_KEY,
+      ContentType: "application/x-mpegurl",
+    }),
+    { expiresIn: 600 }
+  );
+
+  // URL do M3U que o browser vai baixar
+  const m3uUrl = buildM3UUrl(dns, server_username, server_password);
+
+  return NextResponse.json({ presignedUrl, m3uUrl, key: M3U_RAW_KEY });
 }
 
-// ─── POST — Sync completo ─────────────────────────────────────────────────────
+// ─── POST — Processa o M3U já salvo no R2 ────────────────────────────────────
 export async function POST(req: NextRequest) {
   const inicio = Date.now();
   const agora  = new Date().toISOString();
@@ -89,66 +114,27 @@ export async function POST(req: NextRequest) {
   };
 
   try {
-    // ── 1. Credenciais via vw_epg_config ─────────────────────────────────────
-    const { data: epgCfg, error: cfgErr } = await supabaseAdmin
-      .from("vw_epg_config")
-      .select("server_username, server_password, dns")
-      .eq("provider", "FAST")
-      .single();
-
-    if (cfgErr || !epgCfg) {
-      log.erro = `Configuração ELITE não encontrada: ${cfgErr?.message}`;
+    // ── 1. Lê o M3U do R2 ────────────────────────────────────────────────────
+    let m3uText: string;
+    try {
+      const obj = await s3.send(new GetObjectCommand({ Bucket: R2_BUCKET, Key: M3U_RAW_KEY }));
+      m3uText   = await obj.Body!.transformToString("utf-8");
+    } catch (e: any) {
+      log.erro = `M3U não encontrado no R2. Faça o upload primeiro via GET. (${e.message})`;
       await salvarLog(log);
-      return NextResponse.json({ error: log.erro }, { status: 500 });
+      return NextResponse.json({ error: log.erro }, { status: 400 });
     }
 
-    const { server_username, server_password, dns } = epgCfg as {
-      server_username: string;
-      server_password: string;
-      dns: string[];
-    };
+    log.etapas.download = { ok: true, fonte: "R2", bytes: m3uText.length };
 
-    log.etapas.credenciais = { ok: true, username: server_username, dns_count: dns.length };
-
-    // ── 2. Baixar M3U (tenta cada DNS em ordem) ───────────────────────────────
-    const m3uUrl = buildM3UUrl(dns, server_username, server_password);
-    console.log(`[CATALOG-FAST] Baixando M3U de ${dns[0]}...`);
-
-    let m3uText = "";
-    let dnsUsado = "";
-
-    for (const d of dns) {
-      try {
-        const url  = buildM3UUrl([d], server_username, server_password);
-        const resp = await fetch(url, {
-          signal:  AbortSignal.timeout(55_000),
-          headers: { "User-Agent": "VLC/3.0.18 LibVLC/3.0.18" },
-        });
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        m3uText  = await resp.text();
-        dnsUsado = d;
-        break;
-      } catch (e: any) {
-        console.warn(`[CATALOG-FAST] DNS ${d} falhou: ${e.message}`);
-      }
-    }
-
-    if (!m3uText) {
-      log.erro = "Falha ao baixar M3U de todos os DNS";
-      await salvarLog(log);
-      return NextResponse.json({ error: log.erro }, { status: 502 });
-    }
-
-    log.etapas.download = { ok: true, dns_usado: dnsUsado, bytes: m3uText.length };
-
-    // ── 3. Parsear M3U ────────────────────────────────────────────────────────
+    // ── 2. Parsear ────────────────────────────────────────────────────────────
     console.log(`[CATALOG-FAST] Parseando ${m3uText.length} bytes...`);
     const entradas = parseM3U(m3uText);
     const stats    = statsDoparse(entradas);
     log.etapas.parse = { ok: true, ...stats, total_entradas: entradas.length };
     console.log(`[CATALOG-FAST] Parse concluído:`, stats);
 
-    // ── 4. Separar e deduplicar ───────────────────────────────────────────────
+    // ── 3. Separar e deduplicar ───────────────────────────────────────────────
     const canais       = entradas.filter(e => e.tipo === "CANAL");
     const filmes       = entradas.filter(e => e.tipo === "FILME");
     const series       = entradas.filter(e => e.tipo === "SERIE");
@@ -157,144 +143,85 @@ export async function POST(req: NextRequest) {
     const todasMaster  = [...canais, ...filmesUnicos, ...seriesUnicas.master];
 
     // ── 4a. Upsert catalog_master ─────────────────────────────────────────────
-    // ignoreDuplicates: false → atualiza atualizado_em mas NÃO sobrescreve cover_url
-    // (cover_url só é gravado no INSERT; no UPDATE mantemos o que já está)
-    // Para isso usamos uma RPC ou aceitamos que o upsert vai sobrescrever.
-    // Decisão: no upsert do master, cover_url só é enviado se não vier vazio,
-    // e o Supabase vai sobrescrever (aceitável — é sempre o dado mais recente do servidor)
     console.log(`[CATALOG-FAST] Upsert catalog_master: ${todasMaster.length} títulos...`);
-    for (let i = 0; i < todasMaster.length; i += BATCH_MASTER) {
-      const lote = todasMaster.slice(i, i + BATCH_MASTER);
-      const rows = lote.map(e => ({
+    for (let i = 0; i < todasMaster.length; i += BATCH) {
+      const rows = todasMaster.slice(i, i + BATCH).map(e => ({
         titulo_normalizado: e.titulo_normalizado,
         tipo:               e.tipo,
-        // cover_url: só inclui se existir, para não apagar uma capa que já tínhamos
         ...(e.cover_url ? { cover_url: e.cover_url } : {}),
         ano:          e.ano ?? null,
-        atualizado_em: new Date().toISOString(),
+        atualizado_em: agora,
       }));
-
       const { error } = await supabaseAdmin
         .from("catalog_master")
-        .upsert(rows, {
-          onConflict:       "titulo_normalizado",
-          ignoreDuplicates: false,
-        });
-
+        .upsert(rows, { onConflict: "titulo_normalizado", ignoreDuplicates: false });
       if (error) console.error(`[CATALOG-FAST] Erro master lote ${i}:`, error.message);
     }
 
-    // ── 4b. Buscar IDs gerados/existentes no catalog_master ───────────────────
-    console.log(`[CATALOG-FAST] Buscando IDs do catalog_master...`);
-    const masterIdMap = new Map<string, string>(); // titulo_normalizado → id
-
+    // ── 4b. Buscar IDs ────────────────────────────────────────────────────────
+    const masterIdMap = new Map<string, string>();
     const titulos = todasMaster.map(e => e.titulo_normalizado);
     for (let i = 0; i < titulos.length; i += 500) {
-      const { data, error } = await supabaseAdmin
+      const { data } = await supabaseAdmin
         .from("catalog_master")
         .select("id, titulo_normalizado")
         .in("titulo_normalizado", titulos.slice(i, i + 500));
-
-      if (error) {
-        console.error(`[CATALOG-FAST] Erro ao buscar IDs lote ${i}:`, error.message);
-      } else {
-        for (const row of data || []) {
-          masterIdMap.set(row.titulo_normalizado, row.id);
-        }
-      }
+      for (const row of data || []) masterIdMap.set(row.titulo_normalizado, row.id);
     }
 
-    log.etapas.master = {
-      ok:                  true,
-      titulos_processados: todasMaster.length,
-      ids_encontrados:     masterIdMap.size,
-    };
+    log.etapas.master = { ok: true, titulos: todasMaster.length, ids: masterIdMap.size };
 
     // ── 4c. Upsert catalog_availability ──────────────────────────────────────
-    // ignoreDuplicates: true → DO NOTHING se já existe (preserva adicionado_em original)
-    const availabilityRows = [...canais, ...filmesUnicos, ...seriesUnicas.master]
+    const availRows = todasMaster
       .map(e => {
         const master_id = masterIdMap.get(e.titulo_normalizado);
-        if (!master_id) return null;
-        return { master_id, servidor: SERVIDOR, categoria_origem: e.categoria_origem };
+        return master_id ? { master_id, servidor: SERVIDOR, categoria_origem: e.categoria_origem } : null;
       })
       .filter(Boolean) as Array<{ master_id: string; servidor: string; categoria_origem: string }>;
 
-    console.log(`[CATALOG-FAST] Upsert catalog_availability: ${availabilityRows.length} entradas...`);
-    let availabilityNovos = 0;
-    for (let i = 0; i < availabilityRows.length; i += BATCH_AVAILABILITY) {
-      const lote = availabilityRows.slice(i, i + BATCH_AVAILABILITY);
+    console.log(`[CATALOG-FAST] Upsert availability: ${availRows.length}...`);
+    for (let i = 0; i < availRows.length; i += BATCH) {
       const { error } = await supabaseAdmin
         .from("catalog_availability")
-        .upsert(lote, {
-          onConflict:       "master_id,servidor",  // string com vírgula, sem espaço
-          ignoreDuplicates: true,                  // preserva adicionado_em do registro original
+        .upsert(availRows.slice(i, i + BATCH), {
+          onConflict: "master_id,servidor", ignoreDuplicates: true,
         });
-
-      if (error) {
-        console.error(`[CATALOG-FAST] Erro availability lote ${i}:`, error.message);
-      } else {
-        availabilityNovos += lote.length;
-      }
+      if (error) console.error(`[CATALOG-FAST] Erro availability lote ${i}:`, error.message);
     }
 
     // ── 4d. Upsert catalog_episodes ───────────────────────────────────────────
-    // ignoreDuplicates: true → DO NOTHING se episódio já existe (preserva adicionado_em)
     const episodeRows = seriesUnicas.episodios
       .map(ep => {
         const master_id = masterIdMap.get(ep.titulo_normalizado);
-        if (!master_id) return null;
-        return {
-          master_id,
-          servidor:  SERVIDOR,
-          temporada: ep.temporada!,
-          episodio:  ep.episodio!,
+        return master_id ? {
+          master_id, servidor: SERVIDOR,
+          temporada: ep.temporada!, episodio: ep.episodio!,
           cover_url: ep.cover_url || null,
-        };
+        } : null;
       })
-      .filter(Boolean) as Array<{
-        master_id: string;
-        servidor:  string;
-        temporada: number;
-        episodio:  number;
-        cover_url: string | null;
-      }>;
+      .filter(Boolean) as Array<{ master_id: string; servidor: string; temporada: number; episodio: number; cover_url: string | null }>;
 
-    console.log(`[CATALOG-FAST] Upsert catalog_episodes: ${episodeRows.length} episódios...`);
-    let episodiosNovos = 0;
-    for (let i = 0; i < episodeRows.length; i += BATCH_EPISODES) {
-      const lote = episodeRows.slice(i, i + BATCH_EPISODES);
+    console.log(`[CATALOG-FAST] Upsert episodes: ${episodeRows.length}...`);
+    for (let i = 0; i < episodeRows.length; i += BATCH) {
       const { error } = await supabaseAdmin
         .from("catalog_episodes")
-        .upsert(lote, {
-          onConflict:       "master_id,servidor,temporada,episodio",
-          ignoreDuplicates: true,
+        .upsert(episodeRows.slice(i, i + BATCH), {
+          onConflict: "master_id,servidor,temporada,episodio", ignoreDuplicates: true,
         });
-
-      if (error) {
-        console.error(`[CATALOG-FAST] Erro episodes lote ${i}:`, error.message);
-      } else {
-        episodiosNovos += lote.length;
-      }
+      if (error) console.error(`[CATALOG-FAST] Erro episodes lote ${i}:`, error.message);
     }
 
-    // ── 4e. Atualizar contadores de temporadas/episódios (RPC) ───────────────
-    console.log(`[CATALOG-FAST] Atualizando contadores...`);
-    const { error: rpcErr } = await supabaseAdmin
-      .rpc("catalog_atualizar_contadores", { p_servidor: SERVIDOR });
-
-    if (rpcErr) console.error(`[CATALOG-FAST] Erro RPC contadores:`, rpcErr.message);
+    // ── 4e. Contadores ────────────────────────────────────────────────────────
+    await supabaseAdmin.rpc("catalog_atualizar_contadores", { p_servidor: SERVIDOR });
 
     // ── 5. Resultado ──────────────────────────────────────────────────────────
     const duracao = Math.round((Date.now() - inicio) / 1000);
     log.resultado = {
-      duracao_s:          duracao,
-      canais:             canais.length,
-      filmes:             filmesUnicos.length,
-      series_unicas:      seriesUnicas.master.length,
-      episodios:          episodeRows.length,
-      availability_upsert: availabilityNovos,
-      episodes_upsert:    episodiosNovos,
+      duracao_s:     duracao,
+      canais:        canais.length,
+      filmes:        filmesUnicos.length,
+      series_unicas: seriesUnicas.master.length,
+      episodios:     episodeRows.length,
     };
 
     await salvarLog(log);
@@ -305,57 +232,34 @@ export async function POST(req: NextRequest) {
   } catch (e: any) {
     log.erro = e.message;
     await salvarLog(log);
-    console.error(`[CATALOG-FAST] Erro fatal:`, e.message);
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/** Deduplicar filmes: mantém o primeiro com cover_url; se não tiver, mantém o primeiro */
 function deduplicarPorTitulo(filmes: EntradaCatalogo[]): EntradaCatalogo[] {
   const mapa = new Map<string, EntradaCatalogo>();
   for (const f of filmes) {
-    const existente = mapa.get(f.titulo_normalizado);
-    if (!existente || (!existente.cover_url && f.cover_url)) {
-      mapa.set(f.titulo_normalizado, f);
-    }
+    const ex = mapa.get(f.titulo_normalizado);
+    if (!ex || (!ex.cover_url && f.cover_url)) mapa.set(f.titulo_normalizado, f);
   }
   return [...mapa.values()];
 }
 
-/**
- * Séries:
- *  master   → uma entrada por título único (catalog_master + catalog_availability)
- *  episodios → todos os episódios individuais (catalog_episodes)
- */
-function agruparSeries(series: EntradaCatalogo[]): {
-  master:    EntradaCatalogo[];
-  episodios: EntradaCatalogo[];
-} {
+function agruparSeries(series: EntradaCatalogo[]) {
   const masterMap = new Map<string, EntradaCatalogo>();
   for (const ep of series) {
-    const existente = masterMap.get(ep.titulo_normalizado);
-    if (!existente || (!existente.cover_url && ep.cover_url)) {
-      masterMap.set(ep.titulo_normalizado, ep);
-    }
+    const ex = masterMap.get(ep.titulo_normalizado);
+    if (!ex || (!ex.cover_url && ep.cover_url)) masterMap.set(ep.titulo_normalizado, ep);
   }
-  return {
-    master:    [...masterMap.values()],
-    episodios: series,
-  };
+  return { master: [...masterMap.values()], episodios: series };
 }
 
-/** Salva log de execução no R2 */
-async function salvarLog(log: Record<string, any>): Promise<void> {
+async function salvarLog(log: Record<string, any>) {
   try {
     await s3.send(new PutObjectCommand({
-      Bucket:      R2_BUCKET,
-      Key:         LOG_KEY,
-      Body:        JSON.stringify(log, null, 2),
-      ContentType: "application/json",
+      Bucket: R2_BUCKET, Key: LOG_KEY,
+      Body: JSON.stringify(log, null, 2), ContentType: "application/json",
     }));
-  } catch (e) {
-    console.error("[CATALOG-FAST] Erro ao salvar log no R2:", e);
-  }
+  } catch (e) { console.error("[CATALOG-FAST] Erro ao salvar log:", e); }
 }
