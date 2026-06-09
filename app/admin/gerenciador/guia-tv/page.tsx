@@ -359,7 +359,8 @@ function GradeEPG({ canais, progsPorCanal }: {
 
   const baseMs = useMemo(() => {
     const brtMs = Date.now() - 3 * 3600000;
-    return Math.floor(brtMs / 3600000) * 3600000 - 3600000;
+    // Inicia 2h atrás da hora cheia atual para sempre mostrar contexto
+    return Math.floor(brtMs / 3600000) * 3600000 - 2 * 3600000;
   }, []);
 
   const agoraOffsetPx = useMemo(() => {
@@ -378,7 +379,7 @@ function GradeEPG({ canais, progsPorCanal }: {
   // Scroll inicial: "agora" com 1h de contexto à esquerda
   useEffect(() => {
     if (scrollRef.current && agoraOffsetPx > 0)
-      scrollRef.current.scrollLeft = Math.max(0, agoraOffsetPx - HORA_WIDTH);
+      scrollRef.current.scrollLeft = Math.max(0, agoraOffsetPx - 2 * HORA_WIDTH);
   }, [agoraOffsetPx]);
 
   return (
@@ -648,7 +649,7 @@ export default function GuiaTVPage() {
     if (!epg) return new Map<string, Programa[]>();
     const map = new Map<string, Programa[]>();
     const brtMs = Date.now() - 3 * 3600000;
-    const ini = brtMs - 1 * 3600000, fim = brtMs + 24 * 3600000;
+    const ini = brtMs - 2 * 3600000, fim = brtMs + 24 * 3600000;
     for (const p of epg.programas) {
       const s = new Date(p.start).getTime(), e = new Date(p.stop).getTime();
       if (e < ini || s > fim) continue;
@@ -727,7 +728,7 @@ export default function GuiaTVPage() {
   const emBusca = buscaAtiva.trim().length > 0;
 
   return (
-    <div style={{ background: "#0f1117", display: "flex", flexDirection: "column", color: "#cbd5e1", maxHeight: "calc(100vh - 57px)", overflow: "hidden" }}>
+    <div style={{ background: "#0f1117", display: "flex", flexDirection: "column", color: "#cbd5e1", position: "fixed", top: 57, left: 0, right: 0, bottom: 0, zIndex: 10 }}>
 
       {/* ── Topo ────────────────────────────────────────────────── */}
       <div style={{
