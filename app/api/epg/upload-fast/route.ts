@@ -1,10 +1,14 @@
 // app/api/epg/upload-fast/route.ts
-// Upload manual do XML do Fast — salva como epg_fast.json no R2
-// Chamada pelo painel do UniGestor (botão de upload)
+// Upload manual do XML do Fast via presigned URL (bypassa limite do Vercel)
+//
+// Fluxo:
+//   GET  → retorna presigned URL para upload direto no R2
+//   POST → processa o XML já salvo no R2 e gera epg_fast.json
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { parseStringPromise } from "xml2js";
 
 export const dynamic = "force-dynamic";
@@ -19,10 +23,12 @@ const s3 = new S3Client({
   },
 });
 
-const R2_BUCKET    = process.env.R2_BUCKET_NAME        || "unigestor-media";
-const R2_URL       = process.env.NEXT_PUBLIC_R2_DEV_URL || "";
-const EPG_FAST_KEY = "epg/epg_fast.json";
+const R2_BUCKET      = process.env.R2_BUCKET_NAME        || "unigestor-media";
+const R2_URL         = process.env.NEXT_PUBLIC_R2_DEV_URL || "";
+const EPG_FAST_KEY   = "epg/epg_fast.json";
+const EPG_FAST_RAW   = "epg/epg_fast_raw.xml"; // XML temporário
 
+// ─── Helpers (mesmos do sync) ─────────────────────────────────
 const BRT_OFFSET = -3 * 60;
 
 function parseToBRT(tsStr: string): Date | null {
@@ -102,25 +108,41 @@ function isBR(channelId: string, displayName: string): boolean {
   return BR_KEYWORDS.some(kw => displayName.toUpperCase().includes(kw));
 }
 
-export async function POST(req: NextRequest) {
-  // Autenticação
+// ─── GET — Gera presigned URL para upload direto no R2 ────────
+export async function GET(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-  // Recebe o XML como multipart/form-data
+  const presignedUrl = await getSignedUrl(
+    s3,
+    new PutObjectCommand({
+      Bucket:      R2_BUCKET,
+      Key:         EPG_FAST_RAW,
+      ContentType: "application/xml",
+    }),
+    { expiresIn: 300 } // 5 minutos
+  );
+
+  return NextResponse.json({ presignedUrl, key: EPG_FAST_RAW });
+}
+
+// ─── POST — Processa o XML já salvo no R2 ────────────────────
+export async function POST(req: NextRequest) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+
+  // Lê o XML bruto do R2
   let xmlText: string;
   try {
-    const formData = await req.formData();
-    const file = formData.get("file") as File | null;
-    if (!file) return NextResponse.json({ error: "Nenhum arquivo enviado" }, { status: 400 });
-    if (!file.name.endsWith(".xml")) return NextResponse.json({ error: "Envie um arquivo .xml" }, { status: 400 });
-    xmlText = await file.text();
+    const obj  = await s3.send(new GetObjectCommand({ Bucket: R2_BUCKET, Key: EPG_FAST_RAW }));
+    xmlText    = await obj.Body!.transformToString("utf-8");
   } catch (e: any) {
-    return NextResponse.json({ error: "Erro ao ler arquivo", detail: e.message }, { status: 400 });
+    return NextResponse.json({ error: "XML não encontrado no R2. Faça o upload primeiro.", detail: e.message }, { status: 400 });
   }
 
-  // Parseia o XML
+  // Parseia
   let parsed: any;
   try {
     parsed = await parseStringPromise(xmlText, { explicitArray: true });
@@ -141,13 +163,10 @@ export async function POST(req: NextRequest) {
     const dn   = ch["display-name"]?.[0]?._ || ch["display-name"]?.[0] || "";
     const icon = ch.icon?.[0]?.$?.src || "";
     if (!cid || !dn || !isBR(cid, dn)) continue;
-
     const existing = canais.get(cid);
     if (existing && qualidadePeso(dn) <= qualidadePeso(existing.display_name)) continue;
-
     const cat = categorizar(dn);
     if (cat === "Adulto") continue;
-
     canais.set(cid, {
       id:           cid,
       display_name: dn,
@@ -184,36 +203,33 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Cobertura real do arquivo
-  const todasDatas = programas.map(p => new Date(p.stop)).filter(Boolean);
-  const ultimaData = todasDatas.length ? new Date(Math.max(...todasDatas.map(d => d.getTime()))) : null;
+  // Cobertura real
+  const todasDatas   = programas.map(p => new Date(p.stop)).filter(Boolean);
+  const ultimaData   = todasDatas.length ? new Date(Math.max(...todasDatas.map(d => d.getTime()))) : null;
+  const gerado_em    = agora.toISOString();
 
-  // Salva no R2
-  const gerado_em = agora.toISOString();
+  // Salva epg_fast.json
   const payload = {
     gerado_em,
-    fonte:          "upload_manual",
-    total_canais:   canais.size,
+    fonte:           "upload_manual",
+    total_canais:    canais.size,
     total_programas: programas.length,
-    cobertura_ate:  ultimaData?.toISOString() || null,
-    canais:         [...canais.values()],
+    cobertura_ate:   ultimaData?.toISOString() || null,
+    canais:          [...canais.values()],
     programas,
   };
 
-  const url = await (async () => {
-    await s3.send(new PutObjectCommand({
-      Bucket:       R2_BUCKET,
-      Key:          EPG_FAST_KEY,
-      Body:         JSON.stringify(payload, null, 0),
-      ContentType:  "application/json",
-      CacheControl: "public, max-age=3600",
-    }));
-    return `${R2_URL}/${EPG_FAST_KEY}`;
-  })();
+  await s3.send(new PutObjectCommand({
+    Bucket:       R2_BUCKET,
+    Key:          EPG_FAST_KEY,
+    Body:         JSON.stringify(payload, null, 0),
+    ContentType:  "application/json",
+    CacheControl: "public, max-age=3600",
+  }));
 
   return NextResponse.json({
     ok:              true,
-    url,
+    url:             `${R2_URL}/${EPG_FAST_KEY}`,
     total_canais:    canais.size,
     total_programas: programas.length,
     gerado_em,
