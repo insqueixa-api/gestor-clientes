@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Search, RefreshCw, AlertTriangle, CheckCircle, X, Tv, ChevronDown } from "lucide-react";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -65,7 +65,7 @@ const HORA_WIDTH  = 60 * PX_POR_MIN;
 const CANAL_COL_W = 180;
 const LINHA_H     = 60;
 const REGUA_H     = 34;
-const TOTAL_HORAS = 12;
+const TOTAL_HORAS = 26;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function nowBRT(): Date {
@@ -375,7 +375,7 @@ function GradeEPG({ canais, progsPorCanal }: {
 
   useEffect(() => {
     if (reguaRef.current && agoraOffsetPx > 0)
-      reguaRef.current.scrollLeft = Math.max(0, agoraOffsetPx - 60);
+      reguaRef.current.scrollLeft = Math.max(0, agoraOffsetPx - HORA_WIDTH);
   }, [agoraOffsetPx]);
 
   const totalHeight = canais.length * LINHA_H;
@@ -388,17 +388,17 @@ function GradeEPG({ canais, progsPorCanal }: {
         {/* Coluna fixa canais */}
         <div style={{
           width: CANAL_COL_W, flexShrink: 0, borderRight: "1px solid #141414",
-          position: "sticky", left: 0, zIndex: 20, background: "#080808",
+          position: "sticky", left: 0, zIndex: 20, background: "#0f1117",
         }}>
-          <div style={{ height: REGUA_H, borderBottom: "1px solid #141414", background: "#0d0d0d", position: "sticky", top: 0, zIndex: 21 }} />
+          <div style={{ height: REGUA_H, borderBottom: "1px solid #1e2130", background: "#13151f", position: "sticky", top: 0, zIndex: 21 }} />
           {canais.map(c => (
             <div key={c.id} style={{
               height: LINHA_H, display: "flex", alignItems: "center",
-              gap: 10, padding: "0 12px", borderBottom: "1px solid #0f0f0f",
+              gap: 10, padding: "0 12px", borderBottom: "1px solid #1a1d2e",
             }}>
               <Logo src={c.icon} nome={c.nome} categoria={c.categoria} size={32} />
               <span style={{
-                fontSize: 11, color: "#aaa", fontWeight: 500,
+                fontSize: 11, color: "#94a3b8", fontWeight: 500,
                 overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
               }}>{c.nome}</span>
             </div>
@@ -408,7 +408,7 @@ function GradeEPG({ canais, progsPorCanal }: {
         {/* Scroll area */}
         <div style={{ flex: 1, overflow: "hidden" }}>
           {/* Régua */}
-          <div style={{ position: "sticky", top: 0, zIndex: 15, height: REGUA_H, background: "#0d0d0d", borderBottom: "1px solid #141414", overflow: "hidden" }}>
+          <div style={{ position: "sticky", top: 0, zIndex: 15, height: REGUA_H, background: "#13151f", borderBottom: "1px solid #1e2130", overflow: "hidden" }}>
             <div ref={reguaRef} style={{ overflowX: "scroll", overflowY: "hidden", height: REGUA_H + 20 }}
               onScroll={e => syncScroll("r", (e.target as HTMLDivElement).scrollLeft)}>
               <div style={{ position: "relative", width: gradeWidth, height: REGUA_H }}>
@@ -418,7 +418,7 @@ function GradeEPG({ canais, progsPorCanal }: {
                     display: "flex", alignItems: "center", paddingLeft: 8,
                     borderLeft: i > 0 ? "1px solid #141414" : "none",
                   }}>
-                    <span style={{ fontSize: 11, color: "#333", whiteSpace: "nowrap" }}>{h.label}</span>
+                    <span style={{ fontSize: 11, color: "#4a5568", whiteSpace: "nowrap" }}>{h.label}</span>
                   </div>
                 ))}
                 <div style={{ position: "absolute", left: agoraOffsetPx, top: 0, width: 2, height: "100%", background: "#ef4444" }} />
@@ -432,7 +432,7 @@ function GradeEPG({ canais, progsPorCanal }: {
             <div style={{ position: "relative", width: gradeWidth, height: totalHeight }}>
               <div style={{ position: "absolute", left: agoraOffsetPx, top: 0, width: 2, height: totalHeight, background: "#ef4444", zIndex: 5, pointerEvents: "none" }} />
               {horaLabels.map((h, i) => i > 0 && (
-                <div key={i} style={{ position: "absolute", left: h.x, top: 0, width: 1, height: totalHeight, background: "#111", pointerEvents: "none" }} />
+                <div key={i} style={{ position: "absolute", left: h.x, top: 0, width: 1, height: totalHeight, background: "#1e2130", pointerEvents: "none" }} />
               ))}
               {canais.map((canal, rowIdx) => {
                 const progs = (progsPorCanal.get(canal.id) || [])
@@ -443,7 +443,7 @@ function GradeEPG({ canais, progsPorCanal }: {
                 return (
                   <div key={canal.id} style={{
                     position: "absolute", top, left: 0,
-                    width: gradeWidth, height: LINHA_H, borderBottom: "1px solid #0f0f0f",
+                    width: gradeWidth, height: LINHA_H, borderBottom: "1px solid #1a1d2e",
                   }}>
                     {progs.map(prog => {
                       const sMs = new Date(prog.start).getTime() - 3 * 3600000;
@@ -458,8 +458,8 @@ function GradeEPG({ canais, progsPorCanal }: {
                           style={{
                             position: "absolute", left: lPx + 1, width: wPx - 2,
                             top: 5, bottom: 5, borderRadius: 5, cursor: "pointer",
-                            background: isAtual ? cor + "22" : "#111",
-                            border: `1px solid ${isAtual ? cor + "50" : "#1a1a1a"}`,
+                            background: isAtual ? cor + "22" : "#1a1d2e",
+                            border: `1px solid ${isAtual ? cor + "50" : "#252840"}`,
                             overflow: "hidden", display: "flex", alignItems: "center",
                             transition: "background 0.1s",
                           }}
@@ -468,7 +468,7 @@ function GradeEPG({ canais, progsPorCanal }: {
                             (e.currentTarget as HTMLDivElement).style.borderColor = cor + "60";
                           }}
                           onMouseLeave={e => {
-                            (e.currentTarget as HTMLDivElement).style.background = isAtual ? cor + "22" : "#111";
+                            (e.currentTarget as HTMLDivElement).style.background = isAtual ? cor + "22" : "#1a1d2e";
                             (e.currentTarget as HTMLDivElement).style.borderColor = isAtual ? cor + "50" : "#1a1a1a";
                           }}
                         >
@@ -482,7 +482,7 @@ function GradeEPG({ canais, progsPorCanal }: {
                             {isAtual && <div style={{ width: 5, height: 5, borderRadius: "50%", background: cor, flexShrink: 0, boxShadow: `0 0 5px ${cor}80` }} />}
                             <span style={{
                               fontSize: 11, fontWeight: isAtual ? 500 : 400,
-                              color: isAtual ? "#ddd" : "#444",
+                              color: isAtual ? "#f1f5f9" : "#64748b",
                               overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                             }}>
                               {lRaw < 0 ? `◀ ${prog.title}` : wPx > 70 ? `${formatHora(prog.start)} ${prog.title}` : prog.title}
@@ -499,6 +499,50 @@ function GradeEPG({ canais, progsPorCanal }: {
         </div>
       </div>
     </>
+  );
+}
+
+// ─── Dropdown filtro ─────────────────────────────────────────────────────────
+function DropdownFiltro({ label, ativo, cor, children }: {
+  label: string; ativo: boolean; cor?: string; children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const c = cor || "#6366f1";
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div ref={ref} style={{ position: "relative", flexShrink: 0 }}>
+      <button onClick={() => setOpen(o => !o)} style={{
+        display: "flex", alignItems: "center", gap: 6,
+        height: 36, padding: "0 12px",
+        background: ativo ? c + "15" : "#1a1d2e",
+        border: `1px solid ${ativo ? c + "50" : "#252840"}`,
+        borderRadius: 8, cursor: "pointer",
+        color: ativo ? c : "#94a3b8", fontSize: 13, fontWeight: ativo ? 600 : 400,
+        transition: "all 0.12s", whiteSpace: "nowrap",
+      }}>
+        {label}
+        <ChevronDown style={{ width: 13, height: 13, opacity: 0.6, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+      </button>
+      {open && (
+        <div onClick={() => setOpen(false)} style={{
+          position: "absolute", top: "calc(100% + 6px)", left: 0, minWidth: 200,
+          background: "#13151f", border: "1px solid #1e2130", borderRadius: 10,
+          zIndex: 200, overflow: "hidden", boxShadow: "0 12px 40px rgba(0,0,0,0.7)",
+          maxHeight: 320, overflowY: "auto",
+        }}>
+          {children}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -566,7 +610,7 @@ export default function GuiaTVPage() {
     if (!epg) return new Map<string, Programa[]>();
     const map = new Map<string, Programa[]>();
     const brtMs = Date.now() - 3 * 3600000;
-    const ini = brtMs - 2 * 3600000, fim = brtMs + 10 * 3600000;
+    const ini = brtMs - 1 * 3600000, fim = brtMs + 24 * 3600000;
     for (const p of epg.programas) {
       const s = new Date(p.start).getTime(), e = new Date(p.stop).getTime();
       if (e < ini || s > fim) continue;
@@ -645,33 +689,122 @@ export default function GuiaTVPage() {
   const emBusca = buscaAtiva.trim().length > 0;
 
   return (
-    <div style={{ background: "#080808", minHeight: "100vh", color: "#ccc" }}>
+    <div style={{ background: "#0f1117", minHeight: "100vh", color: "#cbd5e1" }}>
 
       {/* ── Topo ────────────────────────────────────────────────── */}
       <div style={{
         position: "sticky", top: 0, zIndex: 40,
-        background: "#0a0a0a", borderBottom: "1px solid #141414",
+        background: "#13151f", borderBottom: "1px solid #1e2130",
       }}>
-        {/* Linha 1: título + sync + busca */}
+        {/* Linha única: título · filtros · busca · sync */}
         <div style={{
-          display: "flex", alignItems: "center", gap: 12,
+          display: "flex", alignItems: "center", gap: 10,
           padding: "10px 20px", flexWrap: "wrap",
         }}>
-          <Tv style={{ color: "#ef4444", width: 17, height: 17, flexShrink: 0 }} />
-          <span style={{ fontSize: 15, fontWeight: 600, color: "#eee" }}>Guia TV</span>
-          {epg && (
-            <span style={{ fontSize: 11, color: "#1e293b" }}>
-              · {epg.total_canais} canais · {formatDataHora(epg.gerado_em)}
-            </span>
+          {/* Título */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: 4 }}>
+            <Tv style={{ color: "#ef4444", width: 16, height: 16, flexShrink: 0 }} />
+            <span style={{ fontSize: 14, fontWeight: 700, color: "#f1f5f9", whiteSpace: "nowrap" }}>Guia TV</span>
+            {epg && (
+              <span style={{ fontSize: 10, color: "#475569", whiteSpace: "nowrap" }}>
+                {epg.total_canais} canais · {formatDataHora(epg.gerado_em)}
+              </span>
+            )}
+          </div>
+
+          {/* Dropdown Categoria */}
+          <DropdownFiltro
+            label={catAtiva === "Todos" ? "Categoria" : `${CAT_EMOJI[catAtiva]} ${catAtiva}`}
+            ativo={catAtiva !== "Todos"}
+            cor={catAtiva !== "Todos" ? CAT_COR[catAtiva] : undefined}
+          >
+            {[{ value: "Todos", label: "📡 Todas as categorias" },
+              ...catsDisponiveis.map(c => ({ value: c, label: `${CAT_EMOJI[c]} ${c}` }))
+            ].map(opt => (
+              <button key={opt.value} onClick={() => handleCatChange(opt.value)} style={{
+                display: "block", width: "100%", padding: "8px 14px",
+                background: catAtiva === opt.value ? "#1e2130" : "none",
+                border: "none", textAlign: "left", cursor: "pointer",
+                color: catAtiva === opt.value ? "#f1f5f9" : "#94a3b8",
+                fontSize: 13, borderLeft: `3px solid ${catAtiva === opt.value ? (CAT_COR[opt.value] || "#6366f1") : "transparent"}`,
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = "#1e2130")}
+              onMouseLeave={e => (e.currentTarget.style.background = catAtiva === opt.value ? "#1e2130" : "none")}
+              >{opt.label}</button>
+            ))}
+          </DropdownFiltro>
+
+          {/* Dropdown Subcategoria — só aparece quando há subgrupos */}
+          {subgruposDisponiveis.length > 0 && (
+            <DropdownFiltro
+              label={subAtiva === "Todos" ? "Subcategoria" : subAtiva}
+              ativo={subAtiva !== "Todos"}
+              cor={catAtiva !== "Todos" ? CAT_COR[catAtiva] : undefined}
+            >
+              {[{ value: "Todos", label: `Todos em ${catAtiva}` },
+                ...subgruposDisponiveis.map(s => ({ value: s.label, label: s.label }))
+              ].map(opt => (
+                <button key={opt.value} onClick={() => setSubAtiva(opt.value)} style={{
+                  display: "block", width: "100%", padding: "8px 14px",
+                  background: subAtiva === opt.value ? "#1e2130" : "none",
+                  border: "none", textAlign: "left", cursor: "pointer",
+                  color: subAtiva === opt.value ? "#f1f5f9" : "#94a3b8",
+                  fontSize: 13, borderLeft: `3px solid ${subAtiva === opt.value ? (CAT_COR[catAtiva] || "#6366f1") : "transparent"}`,
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = "#1e2130")}
+                onMouseLeave={e => (e.currentTarget.style.background = subAtiva === opt.value ? "#1e2130" : "none")}
+                >{opt.label}</button>
+              ))}
+            </DropdownFiltro>
           )}
-          <div style={{ flex: 1 }} />
+
+          {/* Busca */}
+          <div style={{ position: "relative", flex: 1, minWidth: 180, maxWidth: 360 }}>
+            <Search style={{
+              position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)",
+              width: 13, height: 13, color: "#475569", pointerEvents: "none",
+            }} />
+            <input
+              value={busca}
+              onChange={e => setBusca(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleBusca()}
+              placeholder="Buscar programas..."
+              style={{
+                width: "100%", height: 36, paddingLeft: 32, paddingRight: busca ? 30 : 10,
+                background: "#1a1d2e", border: `1px solid ${emBusca ? "#6366f1" : "#252840"}`,
+                borderRadius: 8, fontSize: 13, color: "#e2e8f0", outline: "none",
+                boxSizing: "border-box",
+              }}
+              onFocus={e => (e.target.style.borderColor = "#6366f1")}
+              onBlur={e => (e.target.style.borderColor = emBusca ? "#6366f1" : "#252840")}
+            />
+            {busca && (
+              <button onClick={limparBusca} style={{
+                position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
+                background: "none", border: "none", cursor: "pointer", color: "#475569",
+                display: "flex", padding: 0,
+              }}>
+                <X style={{ width: 13, height: 13 }} />
+              </button>
+            )}
+          </div>
+
+          <button onClick={handleBusca} style={{
+            height: 36, padding: "0 14px", background: "#6366f1", border: "none",
+            borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 600,
+            cursor: "pointer", flexShrink: 0,
+          }}>
+            Buscar
+          </button>
+
+          <div style={{ flex: 1, minWidth: 8 }} />
 
           {/* Sync EPG */}
           <button onClick={handleSync} disabled={syncing} style={{
-            display: "flex", alignItems: "center", gap: 5, padding: "5px 10px",
-            background: "#0d0d0d", border: `1px solid ${syncing ? "#141414" : "#10b98130"}`,
-            borderRadius: 7, cursor: syncing ? "not-allowed" : "pointer",
-            color: syncing ? "#1e293b" : "#10b981", fontSize: 12, fontWeight: 500,
+            display: "flex", alignItems: "center", gap: 5, height: 36, padding: "0 12px",
+            background: "#0d2218", border: `1px solid ${syncing ? "#1a1a1a" : "#10b98150"}`,
+            borderRadius: 8, cursor: syncing ? "not-allowed" : "pointer",
+            color: syncing ? "#2d4a3e" : "#10b981", fontSize: 12, fontWeight: 500,
             flexShrink: 0,
           }}>
             <RefreshCw style={{ width: 11, height: 11, animation: syncing ? "spin 1s linear infinite" : "none" }} />
@@ -694,70 +827,6 @@ export default function GuiaTVPage() {
             </button>
           </div>
         )}
-
-        {/* Linha 2: busca */}
-        <div style={{ padding: "10px 20px 0", display: "flex", gap: 8 }}>
-          <div style={{ position: "relative", flex: 1, maxWidth: 480 }}>
-            <Search style={{
-              position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)",
-              width: 13, height: 13, color: "#374151", pointerEvents: "none",
-            }} />
-            <input
-              value={busca}
-              onChange={e => setBusca(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && handleBusca()}
-              placeholder="Buscar programa, filme, série... (Enter para buscar)"
-              style={{
-                width: "100%", height: 36, paddingLeft: 32, paddingRight: buscaAtiva ? 32 : 12,
-                background: "#111", border: `1px solid ${emBusca ? "#6366f1" : "#1e1e1e"}`,
-                borderRadius: 8, fontSize: 13, color: "#ccc", outline: "none",
-                boxSizing: "border-box",
-              }}
-              onFocus={e => (e.target.style.borderColor = "#6366f1")}
-              onBlur={e => (e.target.style.borderColor = emBusca ? "#6366f1" : "#1e1e1e")}
-            />
-            {busca && (
-              <button onClick={limparBusca} style={{
-                position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
-                background: "none", border: "none", cursor: "pointer", color: "#374151",
-                display: "flex", alignItems: "center",
-              }}>
-                <X style={{ width: 13, height: 13 }} />
-              </button>
-            )}
-          </div>
-          <button onClick={handleBusca} style={{
-            padding: "0 14px", background: "#6366f1", border: "none",
-            borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 600,
-            cursor: "pointer", flexShrink: 0, height: 36,
-          }}>
-            Buscar
-          </button>
-        </div>
-
-        {/* Linha 3: categorias + subcategorias */}
-        <div style={{
-          display: "flex", alignItems: "center", gap: 6,
-          padding: "10px 20px", overflowX: "auto",
-          scrollbarWidth: "none",
-        }}>
-          <Pill label="Todos" ativo={catAtiva === "Todos"} onClick={() => handleCatChange("Todos")} />
-          {catsDisponiveis.map(c => (
-            <Pill key={c} label={`${CAT_EMOJI[c]} ${c}`} ativo={catAtiva === c}
-              cor={CAT_COR[c]} onClick={() => handleCatChange(c)} />
-          ))}
-          {subgruposDisponiveis.length > 0 && (
-            <>
-              <div style={{ width: 1, height: 18, background: "#1e1e1e", flexShrink: 0, margin: "0 4px" }} />
-              <Pill label="Todos" ativo={subAtiva === "Todos"} cor={CAT_COR[catAtiva]}
-                onClick={() => setSubAtiva("Todos")} />
-              {subgruposDisponiveis.map(s => (
-                <Pill key={s.label} label={s.label} ativo={subAtiva === s.label}
-                  cor={CAT_COR[catAtiva]} onClick={() => setSubAtiva(s.label)} />
-              ))}
-            </>
-          )}
-        </div>
       </div>
 
       {/* ── Loading ──────────────────────────────────────────────── */}
