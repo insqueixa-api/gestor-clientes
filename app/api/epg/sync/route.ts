@@ -1,14 +1,15 @@
 // app/api/epg/sync/route.ts
-// Baixa os 3 EPGs, processa e salva no Cloudflare R2
+// Sync automático: Elite (principal) + NaTV (fallback)
+// Fast: upload manual pelo painel do UniGestor
 // Acionada pelo cron do Supabase ou manualmente
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { parseStringPromise } from "xml2js";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60; // segundos — Vercel Hobby limit
+export const maxDuration = 60;
 
 // ─── R2 Client ───────────────────────────────────────────────
 const s3 = new S3Client({
@@ -20,10 +21,13 @@ const s3 = new S3Client({
   },
 });
 
-const R2_BUCKET = process.env.R2_BUCKET_NAME       || "unigestor-media";
-const R2_URL    = process.env.NEXT_PUBLIC_R2_DEV_URL || "";
-const EPG_KEY   = "epg/epg_br.json";
-const LOG_KEY   = "epg/epg_sync_log.json";
+const R2_BUCKET    = process.env.R2_BUCKET_NAME        || "unigestor-media";
+const R2_URL       = process.env.NEXT_PUBLIC_R2_DEV_URL || "";
+const EPG_KEY      = "epg/epg_br.json";       // resultado final (Elite+NaTV+Fast se válido)
+const EPG_FAST_KEY = "epg/epg_fast.json";     // Fast separado — gerenciado pelo upload manual
+const LOG_KEY      = "epg/epg_sync_log.json";
+
+const FAST_MAX_DIAS = 3; // Fast é ignorado se tiver mais de 3 dias
 
 // ─── Tipos ───────────────────────────────────────────────────
 type EpgConfigRow = {
@@ -55,8 +59,19 @@ type Programa = {
   desc:         string;
 };
 
+type EpgPayload = {
+  gerado_em:       string;
+  fast_gerado_em?: string | null;
+  fast_valido?:    boolean;
+  servidores_ok:   string[];
+  total_canais:    number;
+  total_programas: number;
+  canais:          Canal[];
+  programas:       Programa[];
+};
+
 // ─── Helpers ─────────────────────────────────────────────────
-const BRT_OFFSET = -3 * 60; // minutos
+const BRT_OFFSET = -3 * 60;
 
 function parseToBRT(tsStr: string): Date | null {
   const m = tsStr.trim().match(/^(\d{14})\s*([+-]\d{4})$/);
@@ -138,21 +153,16 @@ function isBR(channelId: string, displayName: string): boolean {
   return BR_KEYWORDS.some(kw => dn.includes(kw));
 }
 
-// ─── Monta URLs do EPG por provider (retorna múltiplas para fallback) ──
+// ─── Monta URLs do EPG (Elite e NaTV apenas) ─────────────────
 function buildEpgUrls(cfg: EpgConfigRow): string[] {
   const dns  = cfg.dns || [];
   const user = cfg.server_username;
   const pass = cfg.server_password;
 
   switch (cfg.provider) {
-    case "FAST":
-      // Fast: EPG público, sem credenciais — tenta todos os DNS
-      return dns.map((d: string) => `${d.replace(/\/$/, "")}/epg.php`);
     case "ELITE":
-      // Elite: DNS do servidor com credenciais
       return dns.map((d: string) => `${d.replace(/\/$/, "")}/xmltv.php?username=${user}&password=${pass}`);
     case "NATV":
-      // NaTV: sem credenciais
       return dns.map((d: string) => `${d.replace(/\/$/, "")}/epg`);
     default:
       return [];
@@ -166,12 +176,11 @@ async function fetchEParsear(cfg: EpgConfigRow): Promise<{
   erro?: string;
 }> {
   const urls = buildEpgUrls(cfg);
-  if (!urls.length) return { canais: new Map(), programas: [], erro: "Sem DNS configurado" };
+  if (!urls.length) return { canais: new Map(), programas: [], erro: "Provider não suportado no sync automático" };
 
-  let xmlText: string = "";
+  let xmlText = "";
   let lastErro = "";
 
-  // Tenta cada DNS em ordem até um funcionar
   for (const url of urls) {
     try {
       console.log(`[EPG] ${cfg.provider} tentando: ${url}`);
@@ -179,15 +188,13 @@ async function fetchEParsear(cfg: EpgConfigRow): Promise<{
         signal:   AbortSignal.timeout(45_000),
         redirect: "follow",
         headers: {
-          "User-Agent":      "VLC/3.0.18 LibVLC/3.0.18",
-          "Accept":          "*/*",
-          "Accept-Language": "pt-BR,pt;q=0.9",
-          "Connection":      "keep-alive",
+          "User-Agent": "VLC/3.0.18 LibVLC/3.0.18",
+          "Accept":     "*/*",
         },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       xmlText = await res.text();
-      console.log(`[EPG] ${cfg.provider} ok com ${url} (${xmlText.length} bytes)`);
+      console.log(`[EPG] ${cfg.provider} ok: ${xmlText.length} bytes`);
       break;
     } catch (e: any) {
       lastErro = e.message;
@@ -204,21 +211,18 @@ async function fetchEParsear(cfg: EpgConfigRow): Promise<{
     return { canais: new Map(), programas: [], erro: `XML inválido: ${e.message}` };
   }
 
-  const tv        = parsed?.tv || {};
-  const channels  = tv.channel  || [];
+  const tv         = parsed?.tv || {};
+  const channels   = tv.channel   || [];
   const programmes = tv.programme || [];
+  const agora      = new Date();
+  const limite     = new Date(agora.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-  const agora  = new Date();
-  const limite = new Date(agora.getTime() + 7 * 24 * 60 * 60 * 1000);
-
-  // Canais BR
   const canais = new Map<string, Canal>();
   for (const ch of channels) {
-    const cid = ch.$?.id?.trim() || "";
-    const dn  = ch["display-name"]?.[0]?._ || ch["display-name"]?.[0] || "";
+    const cid  = ch.$?.id?.trim() || "";
+    const dn   = ch["display-name"]?.[0]?._ || ch["display-name"]?.[0] || "";
     const icon = ch.icon?.[0]?.$?.src || "";
-    if (!cid || !dn) continue;
-    if (!isBR(cid, dn)) continue;
+    if (!cid || !dn || !isBR(cid, dn)) continue;
 
     const existing = canais.get(cid);
     if (existing && qualidadePeso(dn) <= qualidadePeso(existing.display_name)) continue;
@@ -238,29 +242,24 @@ async function fetchEParsear(cfg: EpgConfigRow): Promise<{
     });
   }
 
-  // Programas BR
   const programas: Programa[] = [];
   for (const prog of programmes) {
-    const cid   = prog.$?.channel?.trim() || "";
+    const cid     = prog.$?.channel?.trim() || "";
     if (!canais.has(cid)) continue;
-
     const startDt = parseToBRT(prog.$?.start || "");
     const stopDt  = parseToBRT(prog.$?.stop  || "");
-    if (!startDt || !stopDt) continue;
-    if (stopDt < agora || startDt > limite) continue;
-
+    if (!startDt || !stopDt || stopDt < agora || startDt > limite) continue;
     const title = prog.title?.[0]?._ || prog.title?.[0] || "";
     const desc  = prog.desc?.[0]?._  || prog.desc?.[0]  || "";
     if (!title) continue;
-
     const canal = canais.get(cid)!;
     programas.push({
-      channel_id:  cid,
+      channel_id:   cid,
       channel_nome: canal.nome,
-      categoria:   canal.categoria,
-      start:       toISOBRT(startDt),
-      stop:        toISOBRT(stopDt),
-      duracao_min: Math.round((stopDt.getTime() - startDt.getTime()) / 60000),
+      categoria:    canal.categoria,
+      start:        toISOBRT(startDt),
+      stop:         toISOBRT(stopDt),
+      duracao_min:  Math.round((stopDt.getTime() - startDt.getTime()) / 60000),
       title,
       desc,
     });
@@ -269,14 +268,51 @@ async function fetchEParsear(cfg: EpgConfigRow): Promise<{
   return { canais, programas };
 }
 
-// ─── Merge dos 3 servidores ───────────────────────────────────
+// ─── Lê Fast do R2 (se existir e for válido) ─────────────────
+async function lerFastDoR2(): Promise<{
+  canais: Map<string, Canal>;
+  programas: Programa[];
+  gerado_em: string | null;
+  valido: boolean;
+}> {
+  const vazio = { canais: new Map<string, Canal>(), programas: [] as Programa[], gerado_em: null, valido: false };
+
+  try {
+    const obj = await s3.send(new GetObjectCommand({ Bucket: R2_BUCKET, Key: EPG_FAST_KEY }));
+    const body = await obj.Body?.transformToString();
+    if (!body) return vazio;
+
+    const fast = JSON.parse(body) as EpgPayload & { gerado_em: string };
+    const gerado = new Date(fast.gerado_em);
+    const diasDecorridos = (Date.now() - gerado.getTime()) / (1000 * 60 * 60 * 24);
+
+    if (diasDecorridos > FAST_MAX_DIAS) {
+      console.log(`[EPG] Fast ignorado — ${diasDecorridos.toFixed(1)} dias (limite: ${FAST_MAX_DIAS})`);
+      return { ...vazio, gerado_em: fast.gerado_em, valido: false };
+    }
+
+    // Reconstrói Map de canais e lista de programas
+    const canais = new Map<string, Canal>();
+    for (const c of fast.canais || []) canais.set(c.id, c);
+
+    console.log(`[EPG] Fast válido: ${canais.size} canais, ${fast.programas?.length} programas (${diasDecorridos.toFixed(1)} dias)`);
+    return { canais, programas: fast.programas || [], gerado_em: fast.gerado_em, valido: true };
+
+  } catch {
+    console.log("[EPG] Fast não encontrado no R2");
+    return vazio;
+  }
+}
+
+// ─── Merge dos servidores ─────────────────────────────────────
 function consolidar(resultados: Array<{ canais: Map<string, Canal>; programas: Programa[]; provider: string }>) {
+  // Fast tem prioridade máxima quando válido
   const prioridade: Record<string, number> = { FAST: 3, ELITE: 2, NATV: 1 };
-  const canaisFinais = new Map<string, Canal>();  // nome_norm → canal
+  const canaisFinais  = new Map<string, Canal>();
   const programasTodos: Programa[] = [];
 
   for (const { canais, programas, provider } of resultados) {
-    const prio = prioridade[provider] || 0;
+    const prio       = prioridade[provider] || 0;
     const idParaNorm = new Map<string, string>();
 
     for (const [cid, canal] of canais) {
@@ -290,8 +326,7 @@ function consolidar(resultados: Array<{ canais: Map<string, Canal>; programas: P
       } else {
         const prioExist = prioridade[existente.servidor] || 0;
         if (prio > prioExist) {
-          const icon = canal.icon || existente.icon;
-          canaisFinais.set(norm, { ...canal, icon });
+          canaisFinais.set(norm, { ...canal, icon: canal.icon || existente.icon });
         } else if (!existente.icon && canal.icon) {
           existente.icon = canal.icon;
         }
@@ -301,16 +336,11 @@ function consolidar(resultados: Array<{ canais: Map<string, Canal>; programas: P
     for (const prog of programas) {
       const norm = idParaNorm.get(prog.channel_id);
       if (!norm || !canaisFinais.has(norm)) continue;
-      programasTodos.push({
-        ...prog,
-        channel_id:   canaisFinais.get(norm)!.id,
-        channel_nome: canaisFinais.get(norm)!.nome,
-        categoria:    canaisFinais.get(norm)!.categoria,
-      });
+      const cf = canaisFinais.get(norm)!;
+      programasTodos.push({ ...prog, channel_id: cf.id, channel_nome: cf.nome, categoria: cf.categoria });
     }
   }
 
-  // Remove programas duplicados (mesmo canal + mesmo start)
   const vistos = new Set<string>();
   const programasDedup = programasTodos.filter(p => {
     const key = `${p.channel_id}|${p.start}`;
@@ -339,96 +369,87 @@ async function uploadR2(key: string, body: string) {
   return `${R2_URL}/${key}`;
 }
 
-// ─── Handler Principal ────────────────────────────────────────
+// ─── POST — Sync automático (Elite + NaTV + Fast do R2) ──────
 export async function POST(req: NextRequest) {
   const inicio = Date.now();
   const agora  = new Date().toISOString();
 
-  // Autenticação
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-  // Busca configuração dos servidores EPG
+  // Busca só Elite e NaTV (Fast não entra no sync automático)
   const { data: configs, error: cfgErr } = await supabase
     .from("vw_epg_config")
     .select("*")
+    .in("provider", ["ELITE", "NATV"])
     .order("priority", { ascending: true });
 
   if (cfgErr || !configs?.length) {
     return NextResponse.json({ error: "Sem configuração EPG no banco", detail: cfgErr?.message }, { status: 500 });
   }
 
-  const log: Record<string, any> = {
-    executado_em: agora,
-    servidores: {},
-    resultado:  {},
-    erro:       null,
-  };
-
-  // Processa sequencialmente (Fast → Elite → NaTV)
-  // Salva resultado parcial após cada servidor
+  const log: Record<string, any> = { executado_em: agora, servidores: {}, resultado: {}, erro: null };
   const resultados: Array<{ canais: Map<string, Canal>; programas: Programa[]; provider: string }> = [];
   let jsonUrl = "";
 
+  // 1. Processa Elite e NaTV
   for (const cfg of configs as EpgConfigRow[]) {
     console.log(`[EPG] Processando ${cfg.provider}...`);
     const { canais, programas, erro } = await fetchEParsear(cfg);
 
-    log.servidores[cfg.provider] = {
-      ok:        !erro,
-      canais:    canais.size,
-      programas: programas.length,
-      erro:      erro || null,
-    };
+    log.servidores[cfg.provider] = { ok: !erro, canais: canais.size, programas: programas.length, erro: erro || null };
 
-    if (erro || !canais.size) {
-      console.warn(`[EPG] ${cfg.provider} falhou: ${erro}`);
-      continue;
-    }
+    if (erro || !canais.size) { console.warn(`[EPG] ${cfg.provider} falhou: ${erro}`); continue; }
 
     resultados.push({ canais, programas, provider: cfg.provider });
-
-    // Salva parcial após cada servidor com sucesso
-    const { canais: c, programas: p } = consolidar(resultados);
-    const payload = {
-      gerado_em:       agora,
-      servidores_ok:   resultados.map(r => r.provider),
-      total_canais:    c.length,
-      total_programas: p.length,
-      canais:          c,
-      programas:       p,
-    };
-
-    jsonUrl = await uploadR2(EPG_KEY, JSON.stringify(payload, null, 0));
-    console.log(`[EPG] Parcial salvo após ${cfg.provider}: ${c.length} canais, ${p.length} programas`);
   }
 
   if (!resultados.length) {
-    log.erro = "Todos os servidores falharam";
+    log.erro = "Elite e NaTV falharam";
     await uploadR2(LOG_KEY, JSON.stringify(log, null, 2));
     return NextResponse.json({ error: log.erro, log }, { status: 502 });
   }
 
-  // Log final
-  const duracao = Math.round((Date.now() - inicio) / 1000);
-  log.resultado = {
-    url:      jsonUrl,
-    duracao_s: duracao,
-    servidores_ok: resultados.map(r => r.provider),
+  // 2. Tenta incluir Fast do R2 (se válido)
+  const fast = await lerFastDoR2();
+  log.servidores["FAST"] = {
+    ok:        fast.valido,
+    canais:    fast.canais.size,
+    programas: fast.programas.length,
+    gerado_em: fast.gerado_em,
+    fonte:     "R2 (upload manual)",
+    erro:      fast.valido ? null : fast.gerado_em ? `Expirado (>${FAST_MAX_DIAS} dias)` : "Não encontrado",
   };
 
+  if (fast.valido) {
+    // Fast vai primeiro (prioridade máxima)
+    resultados.unshift({ canais: fast.canais, programas: fast.programas, provider: "FAST" });
+  }
+
+  // 3. Consolida e salva
+  const { canais, programas } = consolidar(resultados);
+  const payload: EpgPayload = {
+    gerado_em:       agora,
+    fast_gerado_em:  fast.gerado_em,
+    fast_valido:     fast.valido,
+    servidores_ok:   resultados.map(r => r.provider),
+    total_canais:    canais.length,
+    total_programas: programas.length,
+    canais,
+    programas,
+  };
+
+  jsonUrl = await uploadR2(EPG_KEY, JSON.stringify(payload, null, 0));
+
+  const duracao = Math.round((Date.now() - inicio) / 1000);
+  log.resultado = { url: jsonUrl, duracao_s: duracao, servidores_ok: resultados.map(r => r.provider) };
   await uploadR2(LOG_KEY, JSON.stringify(log, null, 2));
 
-  return NextResponse.json({
-    ok:       true,
-    url:      jsonUrl,
-    duracao_s: duracao,
-    log,
-  });
+  return NextResponse.json({ ok: true, url: jsonUrl, duracao_s: duracao, log });
 }
 
-// GET para verificar status (último log)
+// ─── GET — Status do último sync ─────────────────────────────
 export async function GET() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -437,8 +458,7 @@ export async function GET() {
   try {
     const res = await fetch(`${R2_URL}/${LOG_KEY}`, { cache: "no-store" });
     if (!res.ok) return NextResponse.json({ status: "Nenhum sync realizado ainda" });
-    const log = await res.json();
-    return NextResponse.json(log);
+    return NextResponse.json(await res.json());
   } catch {
     return NextResponse.json({ status: "Log não encontrado" });
   }
