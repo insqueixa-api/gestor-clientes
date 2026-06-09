@@ -650,30 +650,45 @@ function ModalSync({ onClose }: { onClose: () => void }) {
     const m3uUrl = getJson.m3u_url;
     if (!m3uUrl) throw new Error("m3u_url não encontrado no banco");
 
-    // 2. Abre popup para o browser baixar com o IP do cliente
-    log(`⬇ Abrindo download — salve o arquivo e selecione abaixo...`);
-    window.open(m3uUrl, "_blank");
+    // 2. Força download via <a download> — browser baixa com seu IP, sem abrir player
+    // Remove output=ts que faz Chrome tentar reproduzir como stream
+    const urlDownload = m3uUrl.replace(/&output=ts/i, "").replace(/\?output=ts&/i, "?");
+    log(`⬇ Iniciando download do M3U...`);
+    await new Promise<void>(resolve => {
+      const a = document.createElement("a");
+      a.href = urlDownload;
+      a.download = `${srvId}_catalog.m3u`;
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      // Aguarda 2s para o download iniciar antes de abrir o seletor
+      setTimeout(resolve, 2000);
+    });
 
-    // 3. Abre input de arquivo para o usuário selecionar o .m3u baixado
+    // 3. Abre seletor de arquivo — usuário seleciona o .m3u que acabou de baixar
+    log(`📂 Selecione o arquivo M3U baixado...`);
     const arquivo = await new Promise<File | null>(resolve => {
       const input = document.createElement("input");
       input.type = "file";
-      input.accept = ".m3u,.m3u8,application/x-mpegurl,audio/x-mpegurl";
+      input.accept = ".m3u,.m3u8,application/x-mpegurl,audio/x-mpegurl,text/plain";
       input.onchange = () => resolve(input.files?.[0] || null);
       input.oncancel = () => resolve(null);
+      document.body.appendChild(input);
       input.click();
+      document.body.removeChild(input);
     });
 
     if (!arquivo) {
-      log("⚠ Nenhum arquivo selecionado.");
+      log("⚠ Nenhum arquivo selecionado. Clique em Sincronizar para tentar novamente.");
       setStatus(p => ({ ...p, [srvId]: "idle" }));
       return;
     }
 
-    log(`✓ Arquivo recebido: ${arquivo.name} (${(arquivo.size / 1024 / 1024).toFixed(1)} MB)`);
-    log("↑ Enviando para processamento...");
+    log(`✓ Arquivo: ${arquivo.name} (${(arquivo.size / 1024 / 1024).toFixed(1)} MB)`);
+    log("↑ Processando no servidor...");
 
-    // 4. Envia o arquivo para o POST da rota processar
+    // 4. Envia para o POST processar
     const form = new FormData();
     form.append("m3u", arquivo);
 
