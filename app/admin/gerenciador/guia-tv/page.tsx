@@ -334,13 +334,15 @@ function ResultadoBusca({ resultados, busca, onClear }: {
   );
 }
 
-// ─── Grade EPG ────────────────────────────────────────────────────────────────
+// ─── Grade EPG ──────────────────────────────────────────────────────────────
+// Scroll único (um só div scroll em X e Y).
+// Régua fica sticky no topo, coluna de canais sticky à esquerda.
+// Funciona corretamente com o layout flex-column da página.
 function GradeEPG({ canais, progsPorCanal }: {
   canais: Canal[]; progsPorCanal: Map<string, Programa[]>;
 }) {
-  const reguaRef = useRef<HTMLDivElement>(null);
-  const gradeRef = useRef<HTMLDivElement>(null);
-  const [agora, setAgora]   = useState(nowBRT);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [agora, setAgora]     = useState(nowBRT);
   const [progSel, setProgSel] = useState<Programa | null>(null);
 
   useEffect(() => {
@@ -368,136 +370,139 @@ function GradeEPG({ canais, progsPorCanal }: {
     }))
   , [baseMs]);
 
-  function syncScroll(src: "r" | "g", val: number) {
-    if (src === "r" && gradeRef.current) gradeRef.current.scrollLeft = val;
-    if (src === "g" && reguaRef.current) reguaRef.current.scrollLeft = val;
-  }
-
+  // Scroll inicial: "agora" com 1h de contexto à esquerda
   useEffect(() => {
-    if (reguaRef.current && agoraOffsetPx > 0)
-      reguaRef.current.scrollLeft = Math.max(0, agoraOffsetPx - HORA_WIDTH);
+    if (scrollRef.current && agoraOffsetPx > 0)
+      scrollRef.current.scrollLeft = Math.max(0, agoraOffsetPx - HORA_WIDTH);
   }, [agoraOffsetPx]);
-
-  const totalHeight = canais.length * LINHA_H;
 
   return (
     <>
       {progSel && <ProgramaTooltip prog={progSel} onClose={() => setProgSel(null)} />}
-      <div style={{ display: "flex", background: "#080808" }}>
 
-        {/* Coluna fixa canais */}
-        <div style={{
-          width: CANAL_COL_W, flexShrink: 0, borderRight: "1px solid #141414",
-          position: "sticky", left: 0, zIndex: 20, background: "#0f1117",
-        }}>
-          <div style={{ height: REGUA_H, borderBottom: "1px solid #1e2130", background: "#13151f", position: "sticky", top: 0, zIndex: 21 }} />
-          {canais.map(c => (
-            <div key={c.id} style={{
-              height: LINHA_H, display: "flex", alignItems: "center",
-              gap: 10, padding: "0 12px", borderBottom: "1px solid #1a1d2e",
-            }}>
-              <Logo src={c.icon} nome={c.nome} categoria={c.categoria} size={32} />
-              <span style={{
-                fontSize: 11, color: "#94a3b8", fontWeight: 500,
-                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-              }}>{c.nome}</span>
-            </div>
-          ))}
-        </div>
+      {/* Um único div com scroll em ambas as direções */}
+      <div ref={scrollRef} style={{ overflowX: "auto", overflowY: "auto", background: "#0f1117", height: "100%" }}>
+        <div style={{ display: "inline-block", minWidth: CANAL_COL_W + gradeWidth }}>
 
-        {/* Scroll area */}
-        <div style={{ flex: 1, overflow: "hidden" }}>
-          {/* Régua */}
-          <div style={{ position: "sticky", top: 0, zIndex: 15, height: REGUA_H, background: "#13151f", borderBottom: "1px solid #1e2130", overflow: "hidden" }}>
-            <div ref={reguaRef} style={{ overflowX: "scroll", overflowY: "hidden", height: REGUA_H + 20 }}
-              onScroll={e => syncScroll("r", (e.target as HTMLDivElement).scrollLeft)}>
-              <div style={{ position: "relative", width: gradeWidth, height: REGUA_H }}>
-                {horaLabels.map((h, i) => (
-                  <div key={i} style={{
-                    position: "absolute", left: h.x, top: 0, height: "100%",
-                    display: "flex", alignItems: "center", paddingLeft: 8,
-                    borderLeft: i > 0 ? "1px solid #141414" : "none",
-                  }}>
-                    <span style={{ fontSize: 11, color: "#4a5568", whiteSpace: "nowrap" }}>{h.label}</span>
-                  </div>
-                ))}
-                <div style={{ position: "absolute", left: agoraOffsetPx, top: 0, width: 2, height: "100%", background: "#ef4444" }} />
-              </div>
-            </div>
-          </div>
-
-          {/* Grade */}
-          <div ref={gradeRef} style={{ overflowX: "scroll" }}
-            onScroll={e => syncScroll("g", (e.target as HTMLDivElement).scrollLeft)}>
-            <div style={{ position: "relative", width: gradeWidth, height: totalHeight }}>
-              <div style={{ position: "absolute", left: agoraOffsetPx, top: 0, width: 2, height: totalHeight, background: "#ef4444", zIndex: 5, pointerEvents: "none" }} />
-              {horaLabels.map((h, i) => i > 0 && (
-                <div key={i} style={{ position: "absolute", left: h.x, top: 0, width: 1, height: totalHeight, background: "#1e2130", pointerEvents: "none" }} />
+          {/* ── Régua de horas — sticky no topo ── */}
+          <div style={{
+            position: "sticky", top: 0, zIndex: 30,
+            display: "flex", height: REGUA_H,
+            background: "#13151f", borderBottom: "1px solid #1e2130",
+          }}>
+            {/* Canto fixo — alinha com a coluna de canais */}
+            <div style={{
+              width: CANAL_COL_W, flexShrink: 0,
+              position: "sticky", left: 0, zIndex: 31,
+              background: "#13151f", borderRight: "1px solid #1e2130",
+            }} />
+            {/* Labels de hora */}
+            <div style={{ position: "relative", width: gradeWidth, flexShrink: 0 }}>
+              {horaLabels.map((h, i) => (
+                <div key={i} style={{
+                  position: "absolute", left: h.x, top: 0, height: "100%",
+                  display: "flex", alignItems: "center", paddingLeft: 8,
+                  borderLeft: i > 0 ? "1px solid #1e2130" : "none",
+                }}>
+                  <span style={{ fontSize: 11, color: "#4a5568", whiteSpace: "nowrap" }}>{h.label}</span>
+                </div>
               ))}
-              {canais.map((canal, rowIdx) => {
-                const progs = (progsPorCanal.get(canal.id) || [])
-                  .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
-                const cor = CAT_COR[canal.categoria] || "#6b7280";
-                const top = rowIdx * LINHA_H;
-                const agoraBrtMs = agora.getTime() - 3 * 3600000;
-                return (
-                  <div key={canal.id} style={{
-                    position: "absolute", top, left: 0,
-                    width: gradeWidth, height: LINHA_H, borderBottom: "1px solid #1a1d2e",
-                  }}>
-                    {progs.map(prog => {
-                      const sMs = new Date(prog.start).getTime() - 3 * 3600000;
-                      const eMs = new Date(prog.stop).getTime()  - 3 * 3600000;
-                      const lRaw = ((sMs - baseMs) / 60000) * PX_POR_MIN;
-                      const wRaw = Math.max(((eMs - sMs) / 60000) * PX_POR_MIN - 2, 4);
-                      const lPx  = Math.max(lRaw, 0);
-                      const wPx  = Math.max(wRaw - (lPx - lRaw), 20);
-                      const isAtual = agoraBrtMs >= sMs && agoraBrtMs <= eMs;
-                      return (
-                        <div key={prog.start} onClick={() => setProgSel(prog)}
-                          style={{
-                            position: "absolute", left: lPx + 1, width: wPx - 2,
-                            top: 5, bottom: 5, borderRadius: 5, cursor: "pointer",
-                            background: isAtual ? cor + "22" : "#1a1d2e",
-                            border: `1px solid ${isAtual ? cor + "50" : "#252840"}`,
-                            overflow: "hidden", display: "flex", alignItems: "center",
-                            transition: "background 0.1s",
-                          }}
-                          onMouseEnter={e => {
-                            (e.currentTarget as HTMLDivElement).style.background = isAtual ? cor + "35" : "#1a1a1a";
-                            (e.currentTarget as HTMLDivElement).style.borderColor = cor + "60";
-                          }}
-                          onMouseLeave={e => {
-                            (e.currentTarget as HTMLDivElement).style.background = isAtual ? cor + "22" : "#1a1d2e";
-                            (e.currentTarget as HTMLDivElement).style.borderColor = isAtual ? cor + "50" : "#1a1a1a";
-                          }}
-                        >
-                          {prog.prog_icon && wPx > 90 && (
-                            <img src={prog.prog_icon} alt="" style={{
-                              height: "100%", width: "auto", maxWidth: Math.min(wPx * 0.28, 52),
-                              objectFit: "cover", flexShrink: 0, opacity: 0.8,
-                            }} />
-                          )}
-                          <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 5, padding: "0 7px" }}>
-                            {isAtual && <div style={{ width: 5, height: 5, borderRadius: "50%", background: cor, flexShrink: 0, boxShadow: `0 0 5px ${cor}80` }} />}
-                            <span style={{
-                              fontSize: 11, fontWeight: isAtual ? 500 : 400,
-                              color: isAtual ? "#f1f5f9" : "#64748b",
-                              overflow: "hidden", display: "-webkit-box",
-                              WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
-                              whiteSpace: "normal", lineHeight: 1.3,
-                            }}>
-                              {lRaw < 0 ? `◀ ${prog.title}` : wPx > 70 ? `${formatHora(prog.start)} ${prog.title}` : prog.title}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
+              {/* Linha vermelha na régua */}
+              <div style={{ position: "absolute", left: agoraOffsetPx, top: 0, width: 2, height: "100%", background: "#ef4444" }} />
             </div>
           </div>
+
+          {/* ── Linhas de canal ── */}
+          {canais.map((canal) => {
+            const progs = (progsPorCanal.get(canal.id) || [])
+              .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+            const cor = CAT_COR[canal.categoria] || "#6b7280";
+            const agoraBrtMs = agora.getTime() - 3 * 3600000;
+
+            return (
+              <div key={canal.id} style={{ display: "flex", height: LINHA_H, borderBottom: "1px solid #1a1d2e" }}>
+
+                {/* Nome do canal — sticky à esquerda */}
+                <div style={{
+                  width: CANAL_COL_W, flexShrink: 0,
+                  position: "sticky", left: 0, zIndex: 20,
+                  background: "#0f1117", borderRight: "1px solid #1e2130",
+                  display: "flex", alignItems: "center", gap: 10, padding: "0 12px",
+                }}>
+                  <Logo src={canal.icon} nome={canal.nome} categoria={canal.categoria} size={32} />
+                  <span style={{
+                    fontSize: 11, color: "#94a3b8", fontWeight: 500,
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  }}>{canal.nome}</span>
+                </div>
+
+                {/* Área de programas */}
+                <div style={{ position: "relative", width: gradeWidth, flexShrink: 0 }}>
+                  {/* Linha vermelha do "agora" */}
+                  <div style={{ position: "absolute", left: agoraOffsetPx, top: 0, width: 2, height: "100%", background: "#ef4444", zIndex: 5, pointerEvents: "none" }} />
+                  {/* Divisórias de hora */}
+                  {horaLabels.map((h, i) => i > 0 && (
+                    <div key={i} style={{ position: "absolute", left: h.x, top: 0, width: 1, height: "100%", background: "#1e2130", pointerEvents: "none" }} />
+                  ))}
+                  {/* Programas */}
+                  {progs.map(prog => {
+                    const sMs  = new Date(prog.start).getTime() - 3 * 3600000;
+                    const eMs  = new Date(prog.stop).getTime()  - 3 * 3600000;
+                    const lRaw = ((sMs - baseMs) / 60000) * PX_POR_MIN;
+                    const wRaw = Math.max(((eMs - sMs) / 60000) * PX_POR_MIN - 2, 4);
+                    const lPx  = Math.max(lRaw, 0);
+                    const wPx  = Math.max(wRaw - (lPx - lRaw), 20);
+                    const isAtual = agoraBrtMs >= sMs && agoraBrtMs <= eMs;
+
+                    return (
+                      <div key={prog.start} onClick={() => setProgSel(prog)}
+                        style={{
+                          position: "absolute", left: lPx + 1, width: wPx - 2,
+                          top: 5, bottom: 5, borderRadius: 5, cursor: "pointer",
+                          background: isAtual ? cor + "22" : "#1a1d2e",
+                          border: `1px solid ${isAtual ? cor + "50" : "#252840"}`,
+                          overflow: "hidden", display: "flex", alignItems: "center",
+                          transition: "background 0.1s",
+                        }}
+                        onMouseEnter={e => {
+                          (e.currentTarget as HTMLDivElement).style.background = isAtual ? cor + "35" : "#1e2130";
+                          (e.currentTarget as HTMLDivElement).style.borderColor = cor + "60";
+                        }}
+                        onMouseLeave={e => {
+                          (e.currentTarget as HTMLDivElement).style.background = isAtual ? cor + "22" : "#1a1d2e";
+                          (e.currentTarget as HTMLDivElement).style.borderColor = isAtual ? cor + "50" : "#252840";
+                        }}
+                      >
+                        {/* Thumbnail */}
+                        {prog.prog_icon && wPx > 90 && (
+                          <img src={prog.prog_icon} alt="" style={{
+                            height: "100%", width: "auto", maxWidth: Math.min(wPx * 0.28, 52),
+                            objectFit: "cover", flexShrink: 0, opacity: 0.8,
+                          }} />
+                        )}
+                        {/* Título */}
+                        <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: isAtual ? "flex-start" : "center", gap: 5, padding: "4px 7px" }}>
+                          {isAtual && (
+                            <div style={{ width: 5, height: 5, borderRadius: "50%", background: cor, flexShrink: 0, boxShadow: `0 0 5px ${cor}80`, marginTop: 3 }} />
+                          )}
+                          <span style={{
+                            fontSize: 11, fontWeight: isAtual ? 500 : 400,
+                            color: isAtual ? "#f1f5f9" : "#64748b",
+                            overflow: "hidden", display: "-webkit-box",
+                            WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+                            whiteSpace: "normal", lineHeight: 1.3,
+                          }}>
+                            {lRaw < 0 ? `◀ ${prog.title}` : wPx > 70 ? `${formatHora(prog.start)} ${prog.title}` : prog.title}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+
         </div>
       </div>
     </>
