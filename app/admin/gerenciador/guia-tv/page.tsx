@@ -355,6 +355,7 @@ function GradeEPG({ canais, progsPorCanal }: {
   }, []);
 
   const gradeWidth = TOTAL_HORAS * HORA_WIDTH;
+  const linhaH = isMobile ? 80 : LINHA_H; // Mobile: linhas maiores
 
   const baseMs = useMemo(() => {
     const brtMs = Date.now() - 3 * 3600000;
@@ -385,7 +386,7 @@ function GradeEPG({ canais, progsPorCanal }: {
       {progSel && <ProgramaTooltip prog={progSel} onClose={() => setProgSel(null)} />}
 
       {/* Um único div com scroll em ambas as direções */}
-      <div ref={scrollRef} style={{ overflowX: "auto", overflowY: "auto", background: "#0f1117", height: "100%" }}>
+      <div ref={scrollRef} style={{ overflowX: "auto", overflowY: "auto", background: "#0f1117", flex: 1, minHeight: 0 }}>
         <div style={{ display: "inline-block", minWidth: canalW + gradeWidth }}>
 
           {/* ── Régua de horas — sticky no topo ── */}
@@ -424,7 +425,7 @@ function GradeEPG({ canais, progsPorCanal }: {
             const agoraBrtMs = agora.getTime() - 3 * 3600000;
 
             return (
-              <div key={canal.id} style={{ display: "flex", height: LINHA_H, borderBottom: "1px solid #1a1d2e" }}>
+              <div key={canal.id} style={{ display: "flex", height: linhaH, borderBottom: "1px solid #1a1d2e" }}>
 
                 {/* Nome do canal — sticky à esquerda; no mobile é clicável */}
                 <div
@@ -441,7 +442,7 @@ function GradeEPG({ canais, progsPorCanal }: {
                   }}
                   onClick={() => isMobile && setShowNomes(v => !v)}
                 >
-                  <Logo src={canal.icon} nome={canal.nome} categoria={canal.categoria} size={showNomes ? 32 : 36} />
+                  <Logo src={canal.icon} nome={canal.nome} categoria={canal.categoria} size={showNomes ? (isMobile ? 38 : 32) : (isMobile ? 42 : 36)} />
                   {showNomes && (
                     <span style={{
                       fontSize: 11, color: "#94a3b8", fontWeight: 500,
@@ -726,7 +727,7 @@ export default function GuiaTVPage() {
   const emBusca = buscaAtiva.trim().length > 0;
 
   return (
-    <div style={{ background: "#0f1117", height: "100%", display: "flex", flexDirection: "column", color: "#cbd5e1", overflow: "hidden" }}>
+    <div style={{ background: "#0f1117", display: "flex", flexDirection: "column", color: "#cbd5e1" }}>
 
       {/* ── Topo ────────────────────────────────────────────────── */}
       <div style={{
@@ -867,7 +868,7 @@ export default function GuiaTVPage() {
       </div>
 
       {/* ── Conteúdo scrollável ─────────────────────────────────── */}
-      <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+      <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", minHeight: 0 }}>
 
       {/* ── Loading ──────────────────────────────────────────────── */}
       {loading && (

@@ -593,8 +593,7 @@ export default function AdminShell({
   const canUseDom = typeof document !== "undefined";
 
   return (
-    <div className="h-screen flex flex-col bg-background text-foreground transition-colors duration-200">
-
+    <div className="min-h-screen bg-background text-foreground transition-colors duration-200">
       <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
         <div className="mx-auto flex w-full items-center gap-2 px-3 sm:px-4 py-2">
           <div className="flex items-center gap-4">
@@ -1080,7 +1079,6 @@ export default function AdminShell({
         )}
 
       <main className="mx-auto w-full px-0 sm:px-2 pt-2 pb-6 animate-in fade-in duration-500">
-
         {children}
       </main>
 
