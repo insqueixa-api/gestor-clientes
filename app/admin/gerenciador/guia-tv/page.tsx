@@ -302,9 +302,9 @@ function GradeEPG({ canais, progsPorCanal }: {
         {/* ── Área de scroll horizontal ── */}
         <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
 
-          {/* Régua de horas — sticky no topo */}
+         {/* Régua de horas — sticky abaixo dos filtros */}
           <div style={{
-            position: "sticky", top: 0, zIndex: 15,
+            position: "sticky", top: 170, zIndex: 15,
             background: "#0f0f0f",
             borderBottom: "1px solid #1e1e1e",
             overflow: "hidden", height: REGUA_H,
@@ -385,8 +385,11 @@ function GradeEPG({ canais, progsPorCanal }: {
                       // Calcula posição em px usando diferença de ms
                       const startMs = new Date(prog.start).getTime() - 3 * 3600000; // UTC-3 → UTC
                       const stopMs  = new Date(prog.stop).getTime()  - 3 * 3600000;
-                      const leftPx  = ((startMs - baseMs) / 60000) * PX_POR_MIN;
-                      const widthPx = Math.max(((stopMs - startMs) / 60000) * PX_POR_MIN - 2, 4);
+                      const leftPxRaw = ((startMs - baseMs) / 60000) * PX_POR_MIN;
+const widthPxRaw = Math.max(((stopMs - startMs) / 60000) * PX_POR_MIN - 2, 4);
+// Se o programa começou antes da janela, clipa à esquerda
+const leftPx  = Math.max(leftPxRaw, 0);
+const widthPx = Math.max(widthPxRaw - (leftPx - leftPxRaw), 20);
 
                       const isAtual = (agora.getTime() - 3*3600000) >= startMs &&
                                       (agora.getTime() - 3*3600000) <= stopMs;
@@ -439,9 +442,11 @@ function GradeEPG({ canais, progsPorCanal }: {
                               fontWeight: isAtual ? 500 : 400,
                               overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                             }}>
-                              {widthPx > 70
-                                ? `${formatHora(prog.start)} ${prog.title}`
-                                : prog.title}
+                              {leftPxRaw < 0
+  ? `◀ ${prog.title}` // indica que começou antes
+  : widthPx > 70
+    ? `${formatHora(prog.start)} ${prog.title}`
+    : prog.title}
                             </span>
                           </div>
                         </div>
@@ -670,6 +675,7 @@ export default function GuiaTVPage() {
         padding: "14px 20px", borderBottom: "1px solid #1a1a1a",
         display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
         background: "#0d0d0d",
+        position: "sticky", top: 0, zIndex: 30,
       }}>
         <Tv style={{ color: "#ef4444", width: 18, height: 18, flexShrink: 0 }} />
         <span style={{ fontSize: 16, fontWeight: 500, color: "#eee" }}>Guia TV</span>
@@ -714,6 +720,7 @@ export default function GuiaTVPage() {
         padding: "20px 20px 16px",
         background: "#0d0d0d", borderBottom: "1px solid #1a1a1a",
         display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end",
+        position: "sticky", top: 56, zIndex: 29,
       }}>
         {/* Dropdown Categoria */}
         <Dropdown
