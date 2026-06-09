@@ -63,7 +63,7 @@ const SUBGRUPOS: Record<string, { label: string; match: string[] }[]> = {
 const PX_POR_MIN  = 4;
 const HORA_WIDTH  = 60 * PX_POR_MIN;
 const CANAL_COL_W = 180;
-const LINHA_H     = 60;
+const LINHA_H     = 72;
 const REGUA_H     = 34;
 const TOTAL_HORAS = 26;
 
@@ -483,7 +483,9 @@ function GradeEPG({ canais, progsPorCanal }: {
                             <span style={{
                               fontSize: 11, fontWeight: isAtual ? 500 : 400,
                               color: isAtual ? "#f1f5f9" : "#64748b",
-                              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                              overflow: "hidden", display: "-webkit-box",
+                              WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+                              whiteSpace: "normal", lineHeight: 1.3,
                             }}>
                               {lRaw < 0 ? `◀ ${prog.title}` : wPx > 70 ? `${formatHora(prog.start)} ${prog.title}` : prog.title}
                             </span>
@@ -689,11 +691,11 @@ export default function GuiaTVPage() {
   const emBusca = buscaAtiva.trim().length > 0;
 
   return (
-    <div style={{ background: "#0f1117", minHeight: "100vh", color: "#cbd5e1" }}>
+    <div style={{ background: "#0f1117", height: "100dvh", display: "flex", flexDirection: "column", color: "#cbd5e1", overflow: "hidden" }}>
 
       {/* ── Topo ────────────────────────────────────────────────── */}
       <div style={{
-        position: "sticky", top: 0, zIndex: 40,
+        zIndex: 40, flexShrink: 0,
         background: "#13151f", borderBottom: "1px solid #1e2130",
       }}>
         {/* Linha única: título · filtros · busca · sync */}
@@ -829,6 +831,9 @@ export default function GuiaTVPage() {
         )}
       </div>
 
+      {/* ── Conteúdo scrollável ─────────────────────────────────── */}
+      <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
+
       {/* ── Loading ──────────────────────────────────────────────── */}
       {loading && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: 80, color: "#374151", fontSize: 13 }}>
@@ -870,14 +875,15 @@ export default function GuiaTVPage() {
         )
       )}
 
+      </div>{/* fim conteúdo scrollável */}
+
       <style>{`
         @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
         @keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.4 } }
         ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #1e1e1e; border-radius: 2px; }
-        ::-webkit-scrollbar-thumb:hover { background: #2a2a2a; }
-        [style*="overflow"]::-webkit-scrollbar { display: none; }
+        ::-webkit-scrollbar-thumb { background: #252840; border-radius: 2px; }
+        ::-webkit-scrollbar-thumb:hover { background: #2e3354; }
       `}</style>
     </div>
   );
