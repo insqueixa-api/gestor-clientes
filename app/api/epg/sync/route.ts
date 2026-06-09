@@ -57,6 +57,7 @@ type Programa = {
   duracao_min:  number;
   title:        string;
   desc:         string;
+  prog_icon?:   string; // ícone do programa (quando disponível)
 };
 
 type EpgPayload = {
@@ -92,9 +93,17 @@ function toISOBRT(d: Date): string {
 
 function normalizarNome(s: string): string {
   return s.toUpperCase()
+    // Remove prefixo "BR - " do iptv-epg.org
+    .replace(/^BR\s*-\s*/i, "")
+    // Remove qualidade entre colchetes [FHD], [HD], [SD], [4K]
     .replace(/\[?(FHD|HD|SD|4K|H265|H\.265)\]?/g, "")
+    // Remove sufixo " LEG" (legendado)
+    .replace(/\bLEG\b/g, "")
+    // Remove estados/regiões
     .replace(/\b(SP|RJ|BR|MG|RS|GO|PE|BA|CE|AM|PA|SC|PR|DF)\b/g, "")
-    .replace(/[*²³]/g, "")
+    // Remove colchetes vazios e símbolos
+    .replace(/\[\]|\(\)/g, "")
+    .replace(/[*²³+]/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -151,6 +160,18 @@ function isBR(channelId: string, displayName: string): boolean {
   if (channelId.toLowerCase().endsWith(".br")) return true;
   const dn = displayName.toUpperCase();
   return BR_KEYWORDS.some(kw => dn.includes(kw));
+}
+
+// Canais Globo permitidos — só os principais, sem afiliadas regionais
+const GLOBO_PERMITIDOS = [
+  "GLOBO RJ","GLOBO SP","GLOBO BRASIL","GLOBONEWS","GLOBO NEWS",
+  "+ GLOBOSAT","MAIS GLOBOSAT","GLOBO TV INTERNACIONAL","GLOBO INTERNACIONAL",
+];
+
+function isAfiliataDescartavel(nomeUpper: string): boolean {
+  // Se é um canal Globo mas NÃO está na lista de permitidos → descarta
+  if (!nomeUpper.includes("GLOBO")) return false;
+  return !GLOBO_PERMITIDOS.some(p => nomeUpper.includes(p));
 }
 
 // ─── Monta URLs do EPG (Elite e NaTV apenas) ─────────────────
@@ -232,6 +253,9 @@ async function fetchEParsear(cfg: EpgConfigRow): Promise<{
     const cat = categorizar(dn);
     if (cat === "Adulto") continue;
 
+    // Descarta afiliadas regionais da Globo (só mantém RJ, SP, Brasil, News)
+    if (isAfiliataDescartavel(dn.toUpperCase())) continue;
+
     canais.set(cid, {
       id:           cid,
       display_name: dn,
@@ -251,11 +275,12 @@ async function fetchEParsear(cfg: EpgConfigRow): Promise<{
     const startDt = parseToBRT(prog.$?.start || "");
     const stopDt  = parseToBRT(prog.$?.stop  || "");
     if (!startDt || !stopDt || stopDt < agora || startDt > limite) continue;
-    const title = prog.title?.[0]?._ || prog.title?.[0] || "";
-    const desc  = prog.desc?.[0]?._  || prog.desc?.[0]  || "";
+    const title    = prog.title?.[0]?._ || prog.title?.[0] || "";
+    const desc     = prog.desc?.[0]?._  || prog.desc?.[0]  || "";
     if (!title) continue;
-    const canal = canais.get(cid)!;
-    programas.push({
+    const progIcon = prog.icon?.[0]?.$?.src || "";
+    const canal    = canais.get(cid)!;
+    const entry: Programa = {
       channel_id:   cid,
       channel_nome: canal.nome,
       categoria:    canal.categoria,
@@ -264,7 +289,9 @@ async function fetchEParsear(cfg: EpgConfigRow): Promise<{
       duracao_min:  Math.round((stopDt.getTime() - startDt.getTime()) / 60000),
       title,
       desc,
-    });
+    };
+    if (progIcon) entry.prog_icon = progIcon;
+    programas.push(entry);
   }
 
   return { canais, programas };

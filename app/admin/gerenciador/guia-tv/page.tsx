@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Search, Upload, Download, RefreshCw, ChevronDown,
+Search, RefreshCw, ChevronDown,
   AlertTriangle, CheckCircle, X, Tv
 } from "lucide-react";
 
@@ -15,6 +15,7 @@ type Programa = {
   channel_id: string; channel_nome: string; categoria: string;
   start: string; stop: string; duracao_min: number;
   title: string; desc: string;
+  prog_icon?: string;
 };
 type EpgData = {
   gerado_em: string; fast_gerado_em: string | null; fast_valido: boolean;
@@ -99,8 +100,15 @@ const CANAL_COL_W = 180; // largura da coluna de canal
 
 // ─── Helpers ─────────────────────────────────────────────────
 function nowBRT(): Date {
-  // Retorna objeto Date ajustado para BRT
-  return new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+  // Cria um Date que representa o horário atual de São Paulo
+  // usando Intl para garantir o offset correto independente do servidor
+  const now = new Date();
+  const brtStr = now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" });
+  return new Date(brtStr);
+}
+
+function nowBRTMs(): number {
+  return nowBRT().getTime();
 }
 
 function formatHora(iso: string) {
@@ -118,7 +126,9 @@ function iniciais(nome: string) {
   return nome.split(" ").filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase();
 }
 function minutosDesdeInicio(iso: string, baseMs: number): number {
-  return (new Date(iso).getTime() - baseMs) / 60000;
+  // new Date(iso) já converte corretamente strings ISO com offset
+  const t = new Date(iso).getTime();
+  return (t - baseMs) / 60000;
 }
 
 // ─── Logo do canal ────────────────────────────────────────────
@@ -205,20 +215,23 @@ function GradeEPG({ canais, progsPorCanal }: {
     return () => clearInterval(iv);
   }, []);
 
-  // Base = hora cheia mais antiga com programação (ou 2h atrás)
+  // Base = 1h atrás do horário UTC-3 atual (hora cheia)
   const baseMs = useMemo(() => {
-    const brt = nowBRT();
-    brt.setMinutes(0, 0, 0);
-    brt.setHours(brt.getHours() - 1);
-    return brt.getTime();
+    // Data/hora atual em UTC-3 (BRT): subtrai 3h do UTC
+    const agoraBRTMs = Date.now() - 3 * 3600000;
+    // Arredonda para a hora cheia anterior, depois subtrai 1h
+    const horaCheia = Math.floor(agoraBRTMs / 3600000) * 3600000;
+    return horaCheia - 3600000; // 1h antes da hora cheia atual
   }, []);
 
   const totalHoras = HORAS_VISIVEIS + 2; // +2 para buffer
   const gradeWidth = totalHoras * HORA_WIDTH;
 
-  // Posição do cursor "agora"
+  // Posição do cursor "agora" — diferença em minutos desde baseMs
   const agoraOffsetPx = useMemo(() => {
-    return ((agora.getTime() - baseMs) / 60000) * PX_POR_MIN;
+    const diffMs = agora.getTime() - baseMs;
+    const diffMin = diffMs / 60000;
+    return diffMin * PX_POR_MIN;
   }, [agora, baseMs]);
 
   // Labels de hora na régua
@@ -352,37 +365,53 @@ function GradeEPG({ canais, progsPorCanal }: {
                           style={{
                             position: "absolute",
                             left: leftPx + 1, width: widthPx - 1,
-                            top: 6, bottom: 6, borderRadius: 6,
-                            background: isAtual ? cor + "30" : "#1a1a1a",
-                            border: isAtual ? `1px solid ${cor}60` : "1px solid #252525",
+                            top: 4, bottom: 4, borderRadius: 6,
+                            background: isAtual ? cor + "28" : "#161616",
+                            border: isAtual ? `1px solid ${cor}55` : "1px solid #222",
                             overflow: "hidden", cursor: "pointer",
                             display: "flex", alignItems: "center",
-                            padding: "0 8px", gap: 4,
+                            padding: "0 0 0 0", gap: 0,
                             transition: "background 0.15s, border-color 0.15s",
                           }}
                           onMouseEnter={e => {
-                            (e.currentTarget as HTMLDivElement).style.background = isAtual ? cor + "45" : "#252525";
-                            (e.currentTarget as HTMLDivElement).style.borderColor = cor + "60";
+                            (e.currentTarget as HTMLDivElement).style.background = isAtual ? cor + "40" : "#222";
+                            (e.currentTarget as HTMLDivElement).style.borderColor = cor + "55";
                           }}
                           onMouseLeave={e => {
-                            (e.currentTarget as HTMLDivElement).style.background = isAtual ? cor + "30" : "#1a1a1a";
-                            (e.currentTarget as HTMLDivElement).style.borderColor = isAtual ? cor + "60" : "#252525";
+                            (e.currentTarget as HTMLDivElement).style.background = isAtual ? cor + "28" : "#161616";
+                            (e.currentTarget as HTMLDivElement).style.borderColor = isAtual ? cor + "55" : "#222";
                           }}
                         >
-                          {isAtual && (
-                            <div style={{
-                              width: 6, height: 6, borderRadius: "50%",
-                              background: cor, flexShrink: 0,
-                              boxShadow: `0 0 6px ${cor}`,
-                            }} />
+                          {/* Imagem do programa — só se tiver espaço */}
+                          {prog.prog_icon && widthPx > 80 && (
+                            <img
+                              src={prog.prog_icon}
+                              alt=""
+                              style={{
+                                height: "100%", width: "auto",
+                                maxWidth: Math.min(widthPx * 0.3, 56),
+                                objectFit: "cover",
+                                flexShrink: 0,
+                                opacity: 0.9,
+                              }}
+                            />
                           )}
-                          <span style={{
-                            fontSize: 11, color: isAtual ? "#fff" : "#888",
-                            fontWeight: isAtual ? 500 : 400,
-                            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                          }}>
-                            {widthPx > 60 ? `${formatHora(prog.start)} ${prog.title}` : prog.title}
-                          </span>
+                          <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 5, padding: "0 8px" }}>
+                            {isAtual && (
+                              <div style={{
+                                width: 5, height: 5, borderRadius: "50%",
+                                background: cor, flexShrink: 0,
+                                boxShadow: `0 0 5px ${cor}`,
+                              }} />
+                            )}
+                            <span style={{
+                              fontSize: 11, color: isAtual ? "#fff" : "#777",
+                              fontWeight: isAtual ? 500 : 400,
+                              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                            }}>
+                              {widthPx > 70 ? `${formatHora(prog.start)} ${prog.title}` : prog.title}
+                            </span>
+                          </div>
                         </div>
                       );
                     })}
@@ -495,10 +524,8 @@ export default function GuiaTVPage() {
   const [catAtiva, setCatAtiva]   = useState("Todos");
   const [subAtiva, setSubAtiva]   = useState("Todos");
   const [busca, setBusca]         = useState("");
-  const [uploading, setUploading] = useState(false);
-  const [syncing, setSyncing]     = useState(false);
+const [syncing, setSyncing]     = useState(false);
   const [msg, setMsg]             = useState<{tipo:"ok"|"err";texto:string}|null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     async function load() {
@@ -516,14 +543,16 @@ export default function GuiaTVPage() {
     load();
   }, []);
 
-  // Programas das próximas 8h + 2h atrás por canal
+  // Programas: 2h atrás até 10h à frente, horário BRT
   const progsPorCanal = useMemo(() => {
     if (!epg) return new Map<string, Programa[]>();
     const map = new Map<string, Programa[]>();
-    const agora = nowBRT().getTime();
-    const inicio = agora - 2 * 3600000;
-    const fim    = agora + 8 * 3600000;
+    // Usa Date.now() + offset BRT (-3h = -10800000ms)
+    const agoraMs = Date.now() - 3 * 3600000; // UTC-3
+    const inicio  = agoraMs - 2 * 3600000;
+    const fim     = agoraMs + 10 * 3600000;
     for (const p of epg.programas) {
+      // new Date(iso) com offset -03:00 converte para UTC internamente
       const s = new Date(p.start).getTime();
       const e = new Date(p.stop).getTime();
       if (e < inicio || s > fim) continue;
@@ -569,19 +598,7 @@ export default function GuiaTVPage() {
     setSubAtiva("Todos");
   }
 
-  async function handleUpload(file: File) {
-    setUploading(true); setMsg(null);
-    try {
-      const { presignedUrl } = await fetch("/api/epg/upload-fast").then(r => r.json());
-      await fetch(presignedUrl, { method: "PUT", body: file, headers: { "Content-Type": "application/xml" } });
-      const d = await fetch("/api/epg/upload-fast", { method: "POST" }).then(r => r.json());
-      if (d.ok) {
-        setMsg({ tipo: "ok", texto: `Fast atualizado — ${d.total_canais} canais, ${d.total_programas} programas` });
-        setTimeout(() => window.location.reload(), 1800);
-      } else setMsg({ tipo: "err", texto: d.error || "Erro ao processar" });
-    } catch (e: any) { setMsg({ tipo: "err", texto: e.message }); }
-    finally { setUploading(false); }
-  }
+  
 
   async function handleSync() {
     setSyncing(true); setMsg(null);
@@ -633,45 +650,7 @@ export default function GuiaTVPage() {
         )}
         <div style={{ flex: 1 }} />
 
-        {/* Status Fast */}
-        {epg && (
-          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
-            <div style={{
-              width: 7, height: 7, borderRadius: "50%",
-              background: epg.fast_valido ? "#10b981" : "#f59e0b",
-              boxShadow: epg.fast_valido ? "0 0 6px #10b98166" : "0 0 6px #f59e0b66",
-            }} />
-            <span style={{ color: "#555" }}>Fast</span>
-            <span style={{ color: epg.fast_valido ? "#10b981" : "#f59e0b", fontWeight: 500 }}>
-              {epg.fast_valido
-                ? `${epg.fast_gerado_em ? diasDecorridos(epg.fast_gerado_em) : 0}d`
-                : epg.fast_gerado_em ? `expirado` : "não enviado"}
-            </span>
-          </div>
-        )}
-
-        {/* Ações */}
-        <a href="http://psbox.top/epg.php" target="_blank" rel="noopener noreferrer"
-          style={{
-            display: "flex", alignItems: "center", gap: 5, fontSize: 12,
-            color: "#888", textDecoration: "none",
-            background: "#111", border: "1px solid #222",
-            borderRadius: 7, padding: "5px 10px",
-          }}>
-          <Download style={{ width: 12, height: 12 }} /> Baixar Fast
-        </a>
-        <button onClick={() => fileRef.current?.click()} disabled={uploading}
-          style={{
-            display: "flex", alignItems: "center", gap: 5, fontSize: 12,
-            color: uploading ? "#555" : "#f59e0b",
-            background: "#111", border: `1px solid ${uploading ? "#222" : "#f59e0b30"}`,
-            borderRadius: 7, padding: "5px 10px", cursor: uploading ? "not-allowed" : "pointer",
-          }}>
-          <Upload style={{ width: 12, height: 12 }} />
-          {uploading ? "Enviando..." : "Upload Fast"}
-        </button>
-        <input ref={fileRef} type="file" accept=".xml" style={{ display: "none" }}
-          onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ""; }} />
+        
         <button onClick={handleSync} disabled={syncing}
           style={{
             display: "flex", alignItems: "center", gap: 5, fontSize: 12,
