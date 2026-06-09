@@ -31,7 +31,7 @@ const FAST_MAX_DIAS = 3; // Fast é ignorado se tiver mais de 3 dias
 
 // ─── Tipos ───────────────────────────────────────────────────
 type EpgConfigRow = {
-  provider:        "FAST" | "ELITE" | "NATV";
+  provider:        "FAST" | "ELITE" | "NATV" | "EPGBR";
   priority:        number;
   server_username: string;
   server_password: string;
@@ -164,6 +164,8 @@ function buildEpgUrls(cfg: EpgConfigRow): string[] {
       return dns.map((d: string) => `${d.replace(/\/$/, "")}/xmltv.php?username=${user}&password=${pass}`);
     case "NATV":
       return dns.map((d: string) => `${d.replace(/\/$/, "")}/epg`);
+    case "EPGBR":
+      return ["https://iptv-epg.org/files/epg-br.xml"];
     default:
       return [];
   }
@@ -307,7 +309,8 @@ async function lerFastDoR2(): Promise<{
 // ─── Merge dos servidores ─────────────────────────────────────
 function consolidar(resultados: Array<{ canais: Map<string, Canal>; programas: Programa[]; provider: string }>) {
   // Fast tem prioridade máxima quando válido
-  const prioridade: Record<string, number> = { FAST: 3, ELITE: 2, NATV: 1 };
+  // EPGBR: prioridade 3 (mesma do Fast, ícones perfeitos)
+  const prioridade: Record<string, number> = { FAST: 3, EPGBR: 3, ELITE: 2, NATV: 1 };
   const canaisFinais  = new Map<string, Canal>();
   const programasTodos: Programa[] = [];
 
@@ -378,7 +381,7 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-  // Busca só Elite e NaTV (Fast não entra no sync automático)
+  // Busca Elite e NaTV do banco
   const { data: configs, error: cfgErr } = await supabase
     .from("vw_epg_config")
     .select("*")
@@ -389,12 +392,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Sem configuração EPG no banco", detail: cfgErr?.message }, { status: 500 });
   }
 
+  // Adiciona EPGBR como fonte extra (pública, sem credenciais, sem bloqueio de IP)
+  const configsComEpgBr = [
+    ...(configs as EpgConfigRow[]),
+    {
+      provider:        "EPGBR" as const,
+      priority:        0, // processado primeiro
+      server_username: "",
+      server_password: "",
+      dns:             [],
+      api_base_url:    null,
+    },
+  ].sort((a, b) => a.priority - b.priority); // EPGBR (0) primeiro
+
   const log: Record<string, any> = { executado_em: agora, servidores: {}, resultado: {}, erro: null };
   const resultados: Array<{ canais: Map<string, Canal>; programas: Programa[]; provider: string }> = [];
   let jsonUrl = "";
 
-  // 1. Processa Elite e NaTV
-  for (const cfg of configs as EpgConfigRow[]) {
+  // 1. Processa EPGBR + Elite + NaTV
+  for (const cfg of configsComEpgBr) {
     console.log(`[EPG] Processando ${cfg.provider}...`);
     const { canais, programas, erro } = await fetchEParsear(cfg);
 

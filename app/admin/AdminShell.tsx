@@ -437,6 +437,41 @@ export default function AdminShell({
         } catch (e) {}
       }
 
+      // Notificação de upload do Fast EPG
+      try {
+        const fastLogUrl = `${process.env.NEXT_PUBLIC_R2_DEV_URL}/epg/epg_fast.json`;
+        const fastRes = await fetch(fastLogUrl, { cache: "no-store" });
+        if (fastRes.ok) {
+          const fastData = await fastRes.json();
+          const geradoEm = fastData?.gerado_em ? new Date(fastData.gerado_em) : null;
+          if (geradoEm) {
+            const diasDecorridos = Math.floor((Date.now() - geradoEm.getTime()) / (1000 * 60 * 60 * 24));
+            if (diasDecorridos >= 3) {
+              list.push({
+                id: `epg_fast_upload_${geradoEm.toISOString().slice(0, 10)}`,
+                title: "📺 Atualizar Guia TV (Fast)",
+                message: `O EPG do Fast foi atualizado há ${diasDecorridos} dia(s). Faça o upload de um novo arquivo para manter a grade completa.`,
+                link: "/admin/gerenciador/guia-tv",
+                type: "warning",
+                is_read: false,
+                created_at: nowIso,
+              });
+            }
+          }
+        } else {
+          // Fast nunca foi enviado
+          list.push({
+            id: "epg_fast_nunca_enviado",
+            title: "📺 Guia TV — Fast não configurado",
+            message: "Nenhum arquivo do Fast foi enviado ainda. Acesse o Guia TV para fazer o upload.",
+            link: "/admin/gerenciador/guia-tv",
+            type: "info",
+            is_read: false,
+            created_at: nowIso,
+          });
+        }
+      } catch (e) {}
+
       const dismissed = JSON.parse(
         localStorage.getItem("dismissed_notifs") || "[]",
       );
@@ -773,10 +808,19 @@ export default function AdminShell({
             onClose={() => setOpenMenu(null)}
           >
             <div className="px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80 dark:text-white/30">
-              Gestão
-            </div>
-            <MenuLink
-              href="/admin/gerenciador/servidor"
+  Gestão
+</div>
+<MenuLink
+  href="/admin/gerenciador/guia-tv"
+  label={
+    <span className="flex items-center gap-2">
+      <Activity className="w-4 h-4 text-rose-400" /> Guia TV
+    </span>
+  }
+  onClick={() => setOpenMenu(null)}
+/>
+<MenuLink
+  href="/admin/gerenciador/servidor"
               label={
                 <span className="flex items-center gap-2">
                   <Server className="w-4 h-4 text-sky-400" /> Servidores
@@ -901,14 +945,23 @@ export default function AdminShell({
               Gerenciador
             </div>
             <MenuLink
-              href="/admin/gerenciador/servidor"
-              label={
-                <span className="flex items-center gap-2">
-                  <Server className="w-4 h-4 text-sky-400" /> Servidores
-                </span>
-              }
-              onClick={() => setOpenMenu(null)}
-            />
+  href="/admin/gerenciador/guia-tv"
+  label={
+    <span className="flex items-center gap-2">
+      <Activity className="w-4 h-4 text-rose-400" /> Guia TV
+    </span>
+  }
+  onClick={() => setOpenMenu(null)}
+/>
+<MenuLink
+  href="/admin/gerenciador/servidor"
+  label={
+    <span className="flex items-center gap-2">
+      <Server className="w-4 h-4 text-sky-400" /> Servidores
+    </span>
+  }
+  onClick={() => setOpenMenu(null)}
+/>
             <MenuLink
               href="/admin/gerenciador/plano"
               label={
