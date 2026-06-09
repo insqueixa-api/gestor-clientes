@@ -344,6 +344,8 @@ function GradeEPG({ canais, progsPorCanal }: {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [agora, setAgora]     = useState(nowBRT);
   const [progSel, setProgSel] = useState<Programa | null>(null);
+  const [showNomes, setShowNomes] = useState(true);
+  const canalW = showNomes ? CANAL_COL_W : 52; // 52px = só ícone
 
   useEffect(() => {
     const iv = setInterval(() => setAgora(nowBRT()), 60000);
@@ -382,7 +384,7 @@ function GradeEPG({ canais, progsPorCanal }: {
 
       {/* Um único div com scroll em ambas as direções */}
       <div ref={scrollRef} style={{ overflowX: "auto", overflowY: "auto", background: "#0f1117", height: "100%" }}>
-        <div style={{ display: "inline-block", minWidth: CANAL_COL_W + gradeWidth }}>
+        <div style={{ display: "inline-block", minWidth: canalW + gradeWidth }}>
 
           {/* ── Régua de horas — sticky no topo ── */}
           <div style={{
@@ -390,12 +392,22 @@ function GradeEPG({ canais, progsPorCanal }: {
             display: "flex", height: REGUA_H,
             background: "#13151f", borderBottom: "1px solid #1e2130",
           }}>
-            {/* Canto fixo — alinha com a coluna de canais */}
+            {/* Canto fixo — botão toggle de nomes */}
             <div style={{
-              width: CANAL_COL_W, flexShrink: 0,
+              width: canalW, flexShrink: 0,
               position: "sticky", left: 0, zIndex: 31,
               background: "#13151f", borderRight: "1px solid #1e2130",
-            }} />
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer",
+            }} onClick={() => setShowNomes(v => !v)}
+              title={showNomes ? "Ocultar nomes" : "Mostrar nomes"}>
+              <div style={{
+                fontSize: 9, color: "#475569", fontWeight: 600,
+                textAlign: "center", lineHeight: 1.2, userSelect: "none",
+              }}>
+                {showNomes ? "◀ ocultar" : "▶"}
+              </div>
+            </div>
             {/* Labels de hora */}
             <div style={{ position: "relative", width: gradeWidth, flexShrink: 0 }}>
               {horaLabels.map((h, i) => (
@@ -424,16 +436,18 @@ function GradeEPG({ canais, progsPorCanal }: {
 
                 {/* Nome do canal — sticky à esquerda */}
                 <div style={{
-                  width: CANAL_COL_W, flexShrink: 0,
+                  width: canalW, flexShrink: 0,
                   position: "sticky", left: 0, zIndex: 20,
                   background: "#0f1117", borderRight: "1px solid #1e2130",
                   display: "flex", alignItems: "center", gap: 10, padding: "0 12px",
                 }}>
-                  <Logo src={canal.icon} nome={canal.nome} categoria={canal.categoria} size={32} />
-                  <span style={{
-                    fontSize: 11, color: "#94a3b8", fontWeight: 500,
-                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                  }}>{canal.nome}</span>
+                  <Logo src={canal.icon} nome={canal.nome} categoria={canal.categoria} size={showNomes ? 32 : 36} />
+                  {showNomes && (
+                    <span style={{
+                      fontSize: 11, color: "#94a3b8", fontWeight: 500,
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>{canal.nome}</span>
+                  )}
                 </div>
 
                 {/* Área de programas */}
@@ -445,6 +459,22 @@ function GradeEPG({ canais, progsPorCanal }: {
                     <div key={i} style={{ position: "absolute", left: h.x, top: 0, width: 1, height: "100%", background: "#1e2130", pointerEvents: "none" }} />
                   ))}
                   {/* Programas */}
+                  {/* Se não há programação, exibe placeholder a cada 2h */}
+                  {progs.length === 0 && Array.from({ length: Math.ceil(TOTAL_HORAS / 2) }, (_, i) => {
+                    const lPx = i * 2 * HORA_WIDTH + 1;
+                    const wPx = 2 * HORA_WIDTH - 6;
+                    return (
+                      <div key={`placeholder-${i}`} style={{
+                        position: "absolute", left: lPx, width: wPx,
+                        top: 5, bottom: 5, borderRadius: 5,
+                        background: "#141624", border: "1px solid #1e2130",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        opacity: 0.5,
+                      }}>
+                        <span style={{ fontSize: 11, color: "#374151" }}>Sem informação</span>
+                      </div>
+                    );
+                  })}
                   {progs.map(prog => {
                     const sMs  = new Date(prog.start).getTime() - 3 * 3600000;
                     const eMs  = new Date(prog.stop).getTime()  - 3 * 3600000;
@@ -837,7 +867,7 @@ export default function GuiaTVPage() {
       </div>
 
       {/* ── Conteúdo scrollável ─────────────────────────────────── */}
-      <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
+      <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
 
       {/* ── Loading ──────────────────────────────────────────────── */}
       {loading && (
@@ -867,16 +897,16 @@ export default function GuiaTVPage() {
       {!loading && !erro && epg && (
         emBusca ? (
           // Modo busca: lista de programas encontrados
-          <ResultadoBusca
+          <div style={{ flex: 1, overflowY: "auto" }}><ResultadoBusca
             resultados={resultadosBusca}
             busca={buscaAtiva}
             onClear={limparBusca}
-          />
+          /></div>
         ) : (
           // Modo normal: grade EPG
           canaisFiltrados.length === 0
             ? <div style={{ textAlign: "center", padding: 60, color: "#374151", fontSize: 13 }}>Nenhum canal encontrado.</div>
-            : <GradeEPG canais={canaisFiltrados} progsPorCanal={progsPorCanal} />
+            : <div style={{ flex: 1, overflow: "hidden" }}><GradeEPG canais={canaisFiltrados} progsPorCanal={progsPorCanal} /></div>
         )
       )}
 
