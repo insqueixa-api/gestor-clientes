@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Search, Upload, Download, RefreshCw, ChevronDown,
+  Search, RefreshCw, ChevronDown,
   AlertTriangle, CheckCircle, X, Tv
 } from "lucide-react";
 
@@ -18,7 +18,7 @@ type Programa = {
   prog_icon?: string;
 };
 type EpgData = {
-  gerado_em: string; fast_gerado_em: string | null; fast_valido: boolean;
+  gerado_em: string;
   servidores_ok: string[]; total_canais: number; total_programas: number;
   canais: Canal[]; programas: Programa[];
 };
@@ -554,10 +554,8 @@ export default function GuiaTVPage() {
   const [catAtiva, setCatAtiva]   = useState("Todos");
   const [subAtiva, setSubAtiva]   = useState("Todos");
   const [busca, setBusca]         = useState("");
-  const [uploading, setUploading] = useState(false);
   const [syncing, setSyncing]     = useState(false);
   const [msg, setMsg]             = useState<{tipo:"ok"|"err";texto:string}|null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     async function load() {
@@ -630,19 +628,6 @@ export default function GuiaTVPage() {
     setSubAtiva("Todos");
   }
 
-  async function handleUpload(file: File) {
-    setUploading(true); setMsg(null);
-    try {
-      const { presignedUrl } = await fetch("/api/epg/upload-fast").then(r => r.json());
-      await fetch(presignedUrl, { method: "PUT", body: file, headers: { "Content-Type": "application/xml" } });
-      const d = await fetch("/api/epg/upload-fast", { method: "POST" }).then(r => r.json());
-      if (d.ok) {
-        setMsg({ tipo: "ok", texto: `Fast atualizado — ${d.total_canais} canais, ${d.total_programas} programas` });
-        setTimeout(() => window.location.reload(), 1800);
-      } else setMsg({ tipo: "err", texto: d.error || "Erro ao processar" });
-    } catch (e: any) { setMsg({ tipo: "err", texto: e.message }); }
-    finally { setUploading(false); }
-  }
 
   async function handleSync() {
     setSyncing(true); setMsg(null);
@@ -678,6 +663,7 @@ export default function GuiaTVPage() {
     <div style={{
       background: "#080808", minHeight: "100vh",
       color: "#ccc", fontFamily: "inherit",
+      overflow: "hidden",
     }}>
       {/* Topo */}
       <div style={{
@@ -694,45 +680,7 @@ export default function GuiaTVPage() {
         )}
         <div style={{ flex: 1 }} />
 
-        {/* Status Fast */}
-        {epg && (
-          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
-            <div style={{
-              width: 7, height: 7, borderRadius: "50%",
-              background: epg.fast_valido ? "#10b981" : "#f59e0b",
-              boxShadow: epg.fast_valido ? "0 0 6px #10b98166" : "0 0 6px #f59e0b66",
-            }} />
-            <span style={{ color: "#555" }}>Fast</span>
-            <span style={{ color: epg.fast_valido ? "#10b981" : "#f59e0b", fontWeight: 500 }}>
-              {epg.fast_valido
-                ? `${epg.fast_gerado_em ? diasDecorridos(epg.fast_gerado_em) : 0}d`
-                : epg.fast_gerado_em ? `expirado` : "não enviado"}
-            </span>
-          </div>
-        )}
 
-        {/* Ações */}
-        <a href="http://psbox.top/epg.php" target="_blank" rel="noopener noreferrer"
-          style={{
-            display: "flex", alignItems: "center", gap: 5, fontSize: 12,
-            color: "#888", textDecoration: "none",
-            background: "#111", border: "1px solid #222",
-            borderRadius: 7, padding: "5px 10px",
-          }}>
-          <Download style={{ width: 12, height: 12 }} /> Baixar Fast
-        </a>
-        <button onClick={() => fileRef.current?.click()} disabled={uploading}
-          style={{
-            display: "flex", alignItems: "center", gap: 5, fontSize: 12,
-            color: uploading ? "#555" : "#f59e0b",
-            background: "#111", border: `1px solid ${uploading ? "#222" : "#f59e0b30"}`,
-            borderRadius: 7, padding: "5px 10px", cursor: uploading ? "not-allowed" : "pointer",
-          }}>
-          <Upload style={{ width: 12, height: 12 }} />
-          {uploading ? "Enviando..." : "Upload Fast"}
-        </button>
-        <input ref={fileRef} type="file" accept=".xml" style={{ display: "none" }}
-          onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ""; }} />
         <button onClick={handleSync} disabled={syncing}
           style={{
             display: "flex", alignItems: "center", gap: 5, fontSize: 12,
