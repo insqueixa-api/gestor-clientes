@@ -1,30 +1,18 @@
 // app/api/epg/sync-catalog/natv/route.ts
 //
-// Cron de sincronização do catálogo — Servidor NATV
+// Sincronização do catálogo — Servidor NATV
 //
-// O Fast (e NaTV) bloqueiam downloads server-side por IP de datacenter.
-// Fluxo adaptado:
-//   GET  → gera presigned URL para o BROWSER fazer o upload do M3U direto no R2
-//   POST → lê o M3U do R2 e processa (upsert no Supabase)
-//
-// No frontend, o botão "Sincronizar Fast" faz:
-//   1. GET  → pega { presignedUrl, m3uUrl }
-//   2. Baixa o M3U via fetch() no browser (IP do cliente, sem bloqueio)
-//   3. PUT do blob direto na presignedUrl (R2)
-//   4. POST → processa
-//
-
-//   GET  /api/epg/sync-catalog/fast  → presigned URL
-//   POST /api/epg/sync-catalog/fast  → processa M3U do R2
+// O Fast bloqueia downloads server-side por IP de datacenter.
+// Fluxo:
+//   GET  → devolve o m3u_url do cliente para o browser abrir/baixar
+//   POST → recebe o arquivo M3U como multipart/form-data e processa
 
 import { NextRequest, NextResponse }   from "next/server";
 import { createClient }                from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl }                from "@aws-sdk/s3-request-presigner";
+import { S3Client, PutObjectCommand }  from "@aws-sdk/client-s3";
 import {
   parseM3U,
-  buildM3UUrl,
   statsDoparse,
   type EntradaCatalogo,
 } from "@/lib/catalog/catalog-parser";
@@ -42,13 +30,12 @@ const s3 = new S3Client({
   },
 });
 
-const R2_BUCKET   = process.env.R2_BUCKET_NAME        || "unigestor-media";
-const R2_URL      = process.env.NEXT_PUBLIC_R2_DEV_URL || "";
-const M3U_RAW_KEY = "catalog/natv_raw.m3u";    // M3U temporário no R2
-const LOG_KEY     = "epg/catalog_natv_log.json";
-const SERVIDOR    = "NATV" as const;
+const R2_BUCKET = process.env.R2_BUCKET_NAME        || "unigestor-media";
+const R2_URL    = process.env.NEXT_PUBLIC_R2_DEV_URL || "";
+const LOG_KEY   = "epg/catalog_natv_log.json";
+const SERVIDOR  = "NATV" as const;
+const CLIENT_ID = "f7e0b6e7-e7bb-486f-924c-5fc6704b94e9";
 
-// ─── supabaseAdmin ────────────────────────────────────────────────────────────
 const supabaseAdmin = createAdmin(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -56,47 +43,32 @@ const supabaseAdmin = createAdmin(
 
 const BATCH = 500;
 
-// ─── GET — Gera presigned URL + URL do M3U para o browser ─────────────────────
-export async function GET(req: NextRequest) {
+// ─── GET — Devolve m3u_url para o browser abrir ───────────────────────────────
+export async function GET() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-  // Busca credenciais do Fast
-  const { data: cfg, error: cfgErr } = await supabaseAdmin
-    .from("vw_epg_config")
-    .select("server_username, server_password, dns")
-    .eq("provider", "NATV")
+  // Tenta também retornar status do último sync
+  let ultimoSync = null;
+  try {
+    const logRes = await fetch(`${R2_URL}/${LOG_KEY}`, { cache: "no-store" });
+    if (logRes.ok) ultimoSync = await logRes.json();
+  } catch {}
+
+  const { data: cliente } = await supabaseAdmin
+    .from("clients")
+    .select("m3u_url")
+    .eq("id", CLIENT_ID)
     .single();
 
-  if (cfgErr || !cfg) {
-    return NextResponse.json({ error: "Configuração FAST não encontrada" }, { status: 500 });
-  }
-
-  const { server_username, server_password, dns } = cfg as {
-    server_username: string;
-    server_password: string;
-    dns: string[];
-  };
-
-  // Presigned URL para o browser fazer PUT do M3U no R2 (válida por 10 min)
-  const presignedUrl = await getSignedUrl(
-    s3,
-    new PutObjectCommand({
-      Bucket:      R2_BUCKET,
-      Key:         M3U_RAW_KEY,
-      ContentType: "application/x-mpegurl",
-    }),
-    { expiresIn: 600 }
-  );
-
-  // URL do M3U que o browser vai baixar
-  const m3uUrl = buildM3UUrl(dns, server_username, server_password);
-
-  return NextResponse.json({ presignedUrl, m3uUrl, key: M3U_RAW_KEY });
+  return NextResponse.json({
+    m3u_url:   cliente?.m3u_url || null,
+    ultimo_sync: ultimoSync,
+  });
 }
 
-// ─── POST — Processa o M3U já salvo no R2 ────────────────────────────────────
+// ─── POST — Recebe o arquivo M3U e processa ───────────────────────────────────
 export async function POST(req: NextRequest) {
   const inicio = Date.now();
   const agora  = new Date().toISOString();
@@ -106,29 +78,27 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
   const log: Record<string, any> = {
-    servidor:     SERVIDOR,
-    executado_em: agora,
-    etapas:       {},
-    resultado:    {},
-    erro:         null,
+    servidor: SERVIDOR, executado_em: agora,
+    etapas: {}, resultado: {}, erro: null,
   };
 
   try {
-    // ── 1. Lê o M3U do R2 ────────────────────────────────────────────────────
-    let m3uText: string;
-    try {
-      const obj = await s3.send(new GetObjectCommand({ Bucket: R2_BUCKET, Key: M3U_RAW_KEY }));
-      m3uText   = await obj.Body!.transformToString("utf-8");
-    } catch (e: any) {
-      log.erro = `M3U não encontrado no R2. Faça o upload primeiro via GET. (${e.message})`;
+    // ── 1. Lê o arquivo M3U do form-data ─────────────────────────────────────
+    const formData = await req.formData();
+    const arquivo  = formData.get("m3u") as File | null;
+
+    if (!arquivo) {
+      log.erro = "Nenhum arquivo M3U enviado. Use o campo 'm3u' no form-data.";
       await salvarLog(log);
       return NextResponse.json({ error: log.erro }, { status: 400 });
     }
 
-    log.etapas.download = { ok: true, fonte: "R2", bytes: m3uText.length };
+    const m3uText = await arquivo.text();
+    log.etapas.upload = { ok: true, nome: arquivo.name, bytes: m3uText.length };
+    console.log(`[CATALOG-NATV] Arquivo recebido: ${arquivo.name} (${m3uText.length} bytes)`);
 
     // ── 2. Parsear ────────────────────────────────────────────────────────────
-    console.log(`[CATALOG-NATV] Parseando ${m3uText.length} bytes...`);
+    console.log(`[CATALOG-NATV] Parseando...`);
     const entradas = parseM3U(m3uText);
     const stats    = statsDoparse(entradas);
     log.etapas.parse = { ok: true, ...stats, total_entradas: entradas.length };
@@ -159,6 +129,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 4b. Buscar IDs ────────────────────────────────────────────────────────
+    console.log(`[CATALOG-NATV] Buscando IDs...`);
     const masterIdMap = new Map<string, string>();
     const titulos = todasMaster.map(e => e.titulo_normalizado);
     for (let i = 0; i < titulos.length; i += 500) {
@@ -168,29 +139,25 @@ export async function POST(req: NextRequest) {
         .in("titulo_normalizado", titulos.slice(i, i + 500));
       for (const row of data || []) masterIdMap.set(row.titulo_normalizado, row.id);
     }
-
     log.etapas.master = { ok: true, titulos: todasMaster.length, ids: masterIdMap.size };
 
     // ── 4c. Upsert catalog_availability ──────────────────────────────────────
-    const availRows = todasMaster
+    const availRows = [...canais, ...filmesUnicos, ...seriesUnicas.master]
       .map(e => {
         const master_id = masterIdMap.get(e.titulo_normalizado);
         return master_id ? { master_id, servidor: SERVIDOR, categoria_origem: e.categoria_origem } : null;
       })
-      .filter(Boolean) as Array<{ master_id: string; servidor: string; categoria_origem: string }>;
+      .filter(Boolean) as any[];
 
-    console.log(`[CATALOG-NATV] Upsert availability: ${availRows.length}...`);
     for (let i = 0; i < availRows.length; i += BATCH) {
       const { error } = await supabaseAdmin
         .from("catalog_availability")
-        .upsert(availRows.slice(i, i + BATCH), {
-          onConflict: "master_id,servidor", ignoreDuplicates: true,
-        });
+        .upsert(availRows.slice(i, i + BATCH), { onConflict: "master_id,servidor", ignoreDuplicates: true });
       if (error) console.error(`[CATALOG-NATV] Erro availability lote ${i}:`, error.message);
     }
 
     // ── 4d. Upsert catalog_episodes ───────────────────────────────────────────
-    const episodeRows = seriesUnicas.episodios
+    const epRows = seriesUnicas.episodios
       .map(ep => {
         const master_id = masterIdMap.get(ep.titulo_normalizado);
         return master_id ? {
@@ -199,15 +166,12 @@ export async function POST(req: NextRequest) {
           cover_url: ep.cover_url || null,
         } : null;
       })
-      .filter(Boolean) as Array<{ master_id: string; servidor: string; temporada: number; episodio: number; cover_url: string | null }>;
+      .filter(Boolean) as any[];
 
-    console.log(`[CATALOG-NATV] Upsert episodes: ${episodeRows.length}...`);
-    for (let i = 0; i < episodeRows.length; i += BATCH) {
+    for (let i = 0; i < epRows.length; i += BATCH) {
       const { error } = await supabaseAdmin
         .from("catalog_episodes")
-        .upsert(episodeRows.slice(i, i + BATCH), {
-          onConflict: "master_id,servidor,temporada,episodio", ignoreDuplicates: true,
-        });
+        .upsert(epRows.slice(i, i + BATCH), { onConflict: "master_id,servidor,temporada,episodio", ignoreDuplicates: true });
       if (error) console.error(`[CATALOG-NATV] Erro episodes lote ${i}:`, error.message);
     }
 
@@ -221,7 +185,9 @@ export async function POST(req: NextRequest) {
       canais:        canais.length,
       filmes:        filmesUnicos.length,
       series_unicas: seriesUnicas.master.length,
-      episodios:     episodeRows.length,
+      episodios:     epRows.length,
+      availability_upsert: availRows.length,
+      episodes_upsert:     epRows.length,
     };
 
     await salvarLog(log);
@@ -232,6 +198,7 @@ export async function POST(req: NextRequest) {
   } catch (e: any) {
     log.erro = e.message;
     await salvarLog(log);
+    console.error(`[CATALOG-NATV] Erro fatal:`, e.message);
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }

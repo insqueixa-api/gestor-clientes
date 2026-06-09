@@ -637,18 +637,66 @@ function ModalSync({ onClose }: { onClose: () => void }) {
   }
 
   // ── Handlers individuais ───────────────────────────────────
+  // ── Sync via arquivo (Fast / NaTV) — browser baixa, usuário seleciona ────
+  async function execSyncArquivo(srvId: string) {
+    setStatus(p => ({ ...p, [srvId]: "running" }));
+    setLogs(p => ({ ...p, [srvId]: [] }));
+    const log = (msg: string) => addLog(srvId, msg);
+
+    // 1. Busca m3u_url do banco via GET
+    log("🔍 Buscando link M3U...");
+    const getRes = await fetch(`/api/epg/sync-catalog/${srvId}`);
+    const getJson = await getRes.json();
+    const m3uUrl = getJson.m3u_url;
+    if (!m3uUrl) throw new Error("m3u_url não encontrado no banco");
+
+    // 2. Abre popup para o browser baixar com o IP do cliente
+    log(`⬇ Abrindo download — salve o arquivo e selecione abaixo...`);
+    window.open(m3uUrl, "_blank");
+
+    // 3. Abre input de arquivo para o usuário selecionar o .m3u baixado
+    const arquivo = await new Promise<File | null>(resolve => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".m3u,.m3u8,application/x-mpegurl,audio/x-mpegurl";
+      input.onchange = () => resolve(input.files?.[0] || null);
+      input.oncancel = () => resolve(null);
+      input.click();
+    });
+
+    if (!arquivo) {
+      log("⚠ Nenhum arquivo selecionado.");
+      setStatus(p => ({ ...p, [srvId]: "idle" }));
+      return;
+    }
+
+    log(`✓ Arquivo recebido: ${arquivo.name} (${(arquivo.size / 1024 / 1024).toFixed(1)} MB)`);
+    log("↑ Enviando para processamento...");
+
+    // 4. Envia o arquivo para o POST da rota processar
+    const form = new FormData();
+    form.append("m3u", arquivo);
+
+    const inicio = Date.now();
+    const postRes = await fetch(`/api/epg/sync-catalog/${srvId}`, {
+      method: "POST",
+      body: form,
+    });
+    const data = await postRes.json();
+
+    if (!postRes.ok || data.error) throw new Error(data.error || "Erro no processamento");
+
+    const dur = Math.round((Date.now() - inicio) / 1000);
+    log(`✅ Concluído em ${dur}s`);
+    setStats(p => ({ ...p, [srvId]: data }));
+    setStatus(p => ({ ...p, [srvId]: "ok" }));
+    setUltima(p => ({ ...p, [srvId]: new Date().toISOString() }));
+  }
+
   async function handleSync(srvId: string) {
     try {
       if (srvId === "elite") await execSyncElite();
-      else if (srvId === "fast") await execSyncBrowser("fast", [
-        "http://psbox.top/get.php?username=Insqueixa&password=uC8369&type=m3u_plus",
-        "http://p1fast.com/get.php?username=Insqueixa&password=uC8369&type=m3u_plus",
-      ]);
-      else await execSyncBrowser("natv", [
-        "http://rj98.eu/get.php?username=Insqueixa&password=62206935744&type=m3u_plus",
-        "http://rw26.eu/get.php?username=Insqueixa&password=62206935744&type=m3u_plus",
-        "http://nc18.org/get.php?username=Insqueixa&password=62206935744&type=m3u_plus",
-      ]);
+      else await execSyncArquivo(srvId); // fast e natv
     } catch (e: any) {
       addLog(srvId, `❌ ${e.message}`);
       setStatus(p => ({ ...p, [srvId]: "error" }));
