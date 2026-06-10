@@ -1,17 +1,10 @@
 // app/api/epg/sync/route.ts
 // Arquitetura: EPGBR (iptv-epg.org) é a lista mestre de canais.
 // Elite e NaTV completam programação para canais que o EPGBR não cobrir.
-//
-// Mapeamento em 3 camadas (ordem de prioridade):
-//   1. channel ID exato
-//   2. channel ID case-insensitive
-//   3. nome normalizado (remove HD/FHD/FHDR/qualidade/estado/sufixos)
-//
-// Deduplicação por janela de ±5min (evita duplicatas de horário ligeiramente diferente)
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { parseStringPromise } from "xml2js";
 
 export const dynamic = "force-dynamic";
@@ -31,26 +24,36 @@ const R2_URL    = process.env.NEXT_PUBLIC_R2_DEV_URL || "";
 const EPG_KEY   = "epg/epg_br.json";
 const LOG_KEY   = "epg/epg_sync_log.json";
 
-// ─── Tipos ───────────────────────────────────────────────────
 type Canal = {
-  id: string; display_name: string; nome: string;
-  categoria: string; icon: string; servidor: string;
-};
-type Programa = {
-  channel_id: string; channel_nome: string; categoria: string;
-  start: string; stop: string; duracao_min: number;
-  title: string; desc: string; prog_icon?: string;
-};
-type EpgConfigRow = {
-  provider: "ELITE" | "NATV" | "EPGBR";
-  priority: number;
-  server_username: string;
-  server_password: string;
-  dns: string[];
-  api_base_url: string | null;
+  id:           string;
+  display_name: string;
+  nome:         string;
+  categoria:    string;
+  icon:         string;
+  servidor:     string;
 };
 
-// ─── Categorias ──────────────────────────────────────────────
+type Programa = {
+  channel_id:   string;
+  channel_nome: string;
+  categoria:    string;
+  start:        string;
+  stop:         string;
+  duracao_min:  number;
+  title:        string;
+  desc:         string;
+  prog_icon?:   string;
+};
+
+type EpgConfigRow = {
+  provider:        "ELITE" | "NATV" | "EPGBR";
+  priority:        number;
+  server_username: string;
+  server_password: string;
+  dns:             string[];
+  api_base_url:    string | null;
+};
+
 const CATEGORIAS: Record<string, string[]> = {
   "Notícias":      ["NEWS","CNN","JOVEM PAN","GLOBONEWS","RECORD NEWS","BAND NEWS","FOX NEWS"],
   "Esportes":      ["SPORT","ESPN","FOX SPORTS","COMBATE","PREMIERE","CONMEBOL","FIFA","DAZN","GE TV"],
@@ -69,7 +72,9 @@ function categorizar(nome: string): string {
   const n = nome.toUpperCase();
   for (const [cat, kws] of Object.entries(CATEGORIAS)) {
     if (cat === "Outros") continue;
-    for (const kw of kws) { if (n.includes(kw)) return cat; }
+    for (const kw of kws) {
+      if (n.includes(kw)) return cat;
+    }
   }
   return "Outros";
 }
@@ -78,51 +83,6 @@ function nomeExibicao(raw: string): string {
   return raw.replace(/^BR\s*-\s*/i, "").trim();
 }
 
-// ─── Slug: remove tudo exceto letras e números, tudo minúsculo ───────────────
-// Usado para matching robusto — independe de pontos, traços, espaços, acentos
-function slug(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-
-// Apelidos manuais: slugs de IDs que nunca vão bater automaticamente
-// slug(ID_do_Elite_ou_NaTV) → channel_id_do_EPGBR
-const SLUG_ALIASES: Record<string, string> = {
-  "investigacaodiscoveryidbr": "InvestigacaoDiscovery.br",
-  "discoveryworldhdbr":        "DiscoveryWorld.br",
-  "homehealthbr":              "DiscoveryHomeandHealth.br",
-  "hdtheaterbr":               "DiscoveryTheater.br",
-  "universalchannelbr":        "Universal.br",
-  "h2br":                      "History2.br",
-  "discturbohdbr":             "DiscoveryTurbo.br",
-  "histobr":                   "HistoryChannel.br",
-  "cartbr":                    "CartoonNetwork.br",
-  "musicbbr":                  "MusicBoxBrasil.br",
-  "hdunvbr":                   "Universal.br",
-  "tntnbr":                    "TNT.br",
-  "idbr":                      "InvestigacaoDiscovery.br",
-  "globobr":                   "GloboRJ.br",
-  "cnovabr":                   "CancaoNova.br",
-  "hdtrbobr":                  "TravelBoxBrazil.br",
-  "hdgazbr":                   "TVGazeta.br",
-};
-
-// Normaliza nome de canal removendo qualidade/estado antes de slugificar
-function normSlug(nome: string): string {
-  return slug(
-    nome
-      .replace(/^BR\s*[-–]\s*/i, "")           // remove prefixo "BR - "
-      .replace(/\b(FHDR?|H\.?265|4K|HD|SD)\b/gi, " ")  // qualidade
-      .replace(/\b(LEG|DUB|DUBLADO|LEGENDADO)\b/gi, " ") // áudio
-      .replace(/\b(BR|SP|RJ|MG|RS|SC|PR|DF|GO|BA|PE|CE|AM|PA)\b/gi, " ") // estado
-      .replace(/[*²³]/g, " ")
-      .replace(/&amp;/gi, "e")
-  );
-}
-
-// mantém compatibilidade com código que ainda usa normalizarParaMatch
-function normalizarParaMatch(s: string): string { return normSlug(s); }
-
-// ─── Parse BRT ────────────────────────────────────────────────
 const BRT_OFFSET = -3 * 60;
 
 function parseToBRT(tsStr: string): Date | null {
@@ -142,13 +102,12 @@ function toISOBRT(d: Date): string {
   return d.toISOString().replace("Z", "-03:00");
 }
 
-// ─── Busca XML ────────────────────────────────────────────────
 async function fetchXML(url: string): Promise<string | null> {
   try {
     const res = await fetch(url, {
-      signal: AbortSignal.timeout(45_000),
+      signal:   AbortSignal.timeout(45_000),
       redirect: "follow",
-      headers: { "User-Agent": "VLC/3.0.18 LibVLC/3.0.18", "Accept": "*/*" },
+      headers:  { "User-Agent": "VLC/3.0.18 LibVLC/3.0.18", "Accept": "*/*" },
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.text();
@@ -158,13 +117,13 @@ async function fetchXML(url: string): Promise<string | null> {
   }
 }
 
-// ─── Parse EPGBR (lista mestre) ───────────────────────────────
 async function parseEPGBR(): Promise<{
   canais: Map<string, Canal>;
   programas: Programa[];
   erro?: string;
 }> {
-  const xml = await fetchXML("https://iptv-epg.org/files/epg-br.xml");
+  const url = "https://iptv-epg.org/files/epg-br.xml";
+  const xml = await fetchXML(url);
   if (!xml) return { canais: new Map(), programas: [], erro: "Falha ao baixar EPGBR" };
 
   let parsed: any;
@@ -184,7 +143,14 @@ async function parseEPGBR(): Promise<{
     const icon = ch.icon?.[0]?.$?.src || "";
     if (!cid || !dn) continue;
     const nome = nomeExibicao(dn);
-    canais.set(cid, { id: cid, display_name: dn, nome, categoria: categorizar(nome), icon, servidor: "EPGBR" });
+    canais.set(cid, {
+      id:           cid,
+      display_name: dn,
+      nome,
+      categoria:    categorizar(nome),
+      icon,
+      servidor:     "EPGBR",
+    });
   }
 
   const programas: Programa[] = [];
@@ -200,10 +166,14 @@ async function parseEPGBR(): Promise<{
     if (!title) continue;
     const canal = canais.get(cid)!;
     const entry: Programa = {
-      channel_id: cid, channel_nome: canal.nome, categoria: canal.categoria,
-      start: toISOBRT(startDt), stop: toISOBRT(stopDt),
-      duracao_min: Math.round((stopDt.getTime() - startDt.getTime()) / 60000),
-      title, desc,
+      channel_id:   cid,
+      channel_nome: canal.nome,
+      categoria:    canal.categoria,
+      start:        toISOBRT(startDt),
+      stop:         toISOBRT(stopDt),
+      duracao_min:  Math.round((stopDt.getTime() - startDt.getTime()) / 60000),
+      title,
+      desc,
     };
     if (progIcon) entry.prog_icon = progIcon;
     programas.push(entry);
@@ -212,55 +182,19 @@ async function parseEPGBR(): Promise<{
   return { canais, programas };
 }
 
-// ─── Parse Elite/NaTV (complemento) ──────────────────────────
 async function parseComplementar(
   cfg: EpgConfigRow,
   canaisMestre: Map<string, Canal>,
   adicionarExtras: boolean = false
-): Promise<{ programas: Programa[]; canaisNovos: Canal[]; erro?: string }> {
-
-  // Índice EPGBR por slug — cobre todas as variações de capitalização/pontuação
-  const epgbrPorIdExato = new Map<string, string>(); // id exato → id (mantido para compat)
-  const epgbrPorSlug    = new Map<string, string>(); // slug(id ou nome) → id
-
+): Promise<{
+  programas: Programa[];
+  canaisNovos: Canal[];
+  erro?: string;
+}> {
+  const normParaId = new Map<string, string>();
   for (const [cid, canal] of canaisMestre) {
-    epgbrPorIdExato.set(cid, cid);
-    // Slug do ID
-    const sId = slug(cid);
-    if (!epgbrPorSlug.has(sId)) epgbrPorSlug.set(sId, cid);
-    // Slug do ID sem "br" no final
-    const sIdNoBr = sId.replace(/br$/, "");
-    if (sIdNoBr && !epgbrPorSlug.has(sIdNoBr)) epgbrPorSlug.set(sIdNoBr, cid);
-    // Slug do nome completo
-    const sNome = normSlug(canal.display_name);
-    if (sNome && !epgbrPorSlug.has(sNome)) epgbrPorSlug.set(sNome, cid);
-    // Slug do nome sem prefixo
-    const sNomeSimp = normSlug(canal.nome);
-    if (sNomeSimp && !epgbrPorSlug.has(sNomeSimp)) epgbrPorSlug.set(sNomeSimp, cid);
-  }
-
-  function mapearCanal(sourceId: string, sourceNames: string[]): string | null {
-    // 1. Apelido manual (casos impossíveis de resolver automaticamente)
-    const sAlias = slug(sourceId);
-    if (SLUG_ALIASES[sAlias]) return SLUG_ALIASES[sAlias];
-
-    // 2. Slug do ID exato
-    if (epgbrPorIdExato.has(sourceId)) return epgbrPorIdExato.get(sourceId)!;
-
-    // 3. Slug do ID (sem distinção de maiúsculas/pontos/traços)
-    const sId = slug(sourceId);
-    if (epgbrPorSlug.has(sId)) return epgbrPorSlug.get(sId)!;
-
-    // 4. Slug do ID sem o sufixo "br" no final
-    const sIdNoBr = sId.replace(/br$/, "");
-    if (sIdNoBr && epgbrPorSlug.has(sIdNoBr)) return epgbrPorSlug.get(sIdNoBr)!;
-
-    // 5. Slug do nome normalizado
-    for (const name of sourceNames) {
-      const sNome = normSlug(name);
-      if (sNome && epgbrPorSlug.has(sNome)) return epgbrPorSlug.get(sNome)!;
-    }
-    return null;
+    const norm = canal.nome.toUpperCase().replace(/\s+/g, " ").trim();
+    normParaId.set(norm, cid);
   }
 
   const dns  = cfg.dns || [];
@@ -271,17 +205,20 @@ async function parseComplementar(
     urls = dns.map(d => `${d.replace(/\/$/, "")}/xmltv.php?username=${user}&password=${pass}`);
   } else if (cfg.provider === "NATV") {
     urls = dns.map(d => `${d.replace(/\/$/, "")}/epg`);
-  } else {
+  } else if (cfg.provider === "EPGBR") {
     urls = ["https://iptv-epg.org/files/epg-br.xml"];
   }
 
   let xml: string | null = null;
-  for (const url of urls) { xml = await fetchXML(url); if (xml) break; }
+  for (const url of urls) {
+    xml = await fetchXML(url);
+    if (xml) break;
+  }
   if (!xml) return { programas: [], canaisNovos: [], erro: "Sem XML" };
 
   let parsed: any;
   try { parsed = await parseStringPromise(xml, { explicitArray: true }); }
-  catch { return { programas: [], canaisNovos: [], erro: "XML inválido" }; }
+  catch (e: any) { return { programas: [], canaisNovos: [], erro: `XML inválido` }; }
 
   const tv         = parsed?.tv || {};
   const channels   = tv.channel   || [];
@@ -289,53 +226,72 @@ async function parseComplementar(
   const agora      = new Date();
   const limite     = new Date(agora.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-  // Mapear channel IDs do servidor para IDs do EPGBR
   const serverIdParaMestreId = new Map<string, string>();
   for (const ch of channels) {
-    const cid   = ch.$?.id?.trim() || "";
-    const names = [ch["display-name"]?.[0]?._ || ch["display-name"]?.[0] || ""].filter(Boolean);
-    if (!cid) continue;
-    const mestreId = mapearCanal(cid, names);
+    const cid = ch.$?.id?.trim() || "";
+    const dn  = ch["display-name"]?.[0]?._ || ch["display-name"]?.[0] || "";
+    if (!cid || !dn) continue;
+    const norm = nomeExibicao(dn)
+      .toUpperCase()
+      .replace(/\[?(FHD|HD|SD|4K)\]?/g, "")
+      .replace(/\bLEG\b/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    const mestreId = normParaId.get(norm);
     if (mestreId) serverIdParaMestreId.set(cid, mestreId);
   }
 
-  // Canais extras BR (só Elite)
   const canaisNovos: Canal[] = [];
   if (adicionarExtras) {
     const idsJaNoMestre = new Set([...canaisMestre.keys()]);
-    const normsJaNoMestre = new Set([...canaisMestre.values()].map(c => normalizarParaMatch(c.display_name)));
-    const ESPORTE_KWS_EXTRA = ["DAZN","SPORTYNET","NOSSO FUTEBOL","NBA LEAGUE PASS","NFL NETWORK","PPV"];
+    const normsMestre   = new Set([...canaisMestre.values()].map(c =>
+      c.nome.toUpperCase().replace(/\s+/g, " ").trim()
+    ));
+
+    const ESPORTE_KWS_EXTRA = ["DAZN","SPORTYNET","NOSSO FUTEBOL","NBA LEAGUE PASS",
+                                "NFL NETWORK","AMAZON PRIME SPORT","PPV"];
 
     for (const ch of channels) {
-      const cid  = ch.$?.id?.trim() || "";
-      const dn   = ch["display-name"]?.[0]?._ || ch["display-name"]?.[0] || "";
+      const cid = ch.$?.id?.trim() || "";
+      const dn  = ch["display-name"]?.[0]?._ || ch["display-name"]?.[0] || "";
       const icon = ch.icon?.[0]?.$?.src || "";
       if (!cid || !dn) continue;
       if (!cid.toLowerCase().endsWith(".br")) continue;
       if (idsJaNoMestre.has(cid)) continue;
-      const n = normalizarParaMatch(dn);
-      if (normsJaNoMestre.has(n)) continue;
+      const nomeNorm = nomeExibicao(dn)
+        .replace(/\[?(FHD|HD|SD|4K|H265)\]?/gi, "")
+        .replace(/\bLEG\b|\bFHDR\b|\bBR\b|\*$/gi, "")
+        .replace(/\s+/g, " ").trim();
+      if (normsMestre.has(nomeNorm.toUpperCase())) continue;
       if (!ESPORTE_KWS_EXTRA.some(kw => dn.toUpperCase().includes(kw))) continue;
-      normsJaNoMestre.add(n);
+      if (normsMestre.has(nomeNorm.toUpperCase())) continue;
+      normsMestre.add(nomeNorm.toUpperCase());
       idsJaNoMestre.add(cid);
-      serverIdParaMestreId.set(cid, cid);
       canaisNovos.push({
-        id: cid, display_name: dn,
-        nome: n.split(" ").map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" "),
-        categoria: "Esportes", icon, servidor: "ELITE",
+        id:           cid,
+        display_name: dn,
+        nome:         nomeNorm.split(" ").map((w: string) =>
+                        w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+                      ).join(" "),
+        categoria:    "Esportes",
+        icon,
+        servidor:     "ELITE",
       });
     }
   }
 
   const todosCanaisMap = new Map(canaisMestre);
   for (const c of canaisNovos) todosCanaisMap.set(c.id, c);
+  for (const c of canaisNovos) {
+    serverIdParaMestreId.set(c.id, c.id);
+  }
 
   const programas: Programa[] = [];
   for (const prog of programmes) {
     const serverCid = prog.$?.channel?.trim() || "";
     const mestreCid = serverIdParaMestreId.get(serverCid);
     if (!mestreCid) continue;
-    const canal = todosCanaisMap.get(mestreCid);
+    const canal   = todosCanaisMap.get(mestreCid);
     if (!canal) continue;
     const startDt = parseToBRT(prog.$?.start || "");
     const stopDt  = parseToBRT(prog.$?.stop  || "");
@@ -344,26 +300,29 @@ async function parseComplementar(
     const desc  = prog.desc?.[0]?._  || prog.desc?.[0]  || "";
     if (!title) continue;
     programas.push({
-      channel_id: mestreCid, channel_nome: canal.nome, categoria: canal.categoria,
-      start: toISOBRT(startDt), stop: toISOBRT(stopDt),
-      duracao_min: Math.round((stopDt.getTime() - startDt.getTime()) / 60000),
-      title, desc,
+      channel_id:   mestreCid,
+      channel_nome: canal.nome,
+      categoria:    canal.categoria,
+      start:        toISOBRT(startDt),
+      stop:         toISOBRT(stopDt),
+      duracao_min:  Math.round((stopDt.getTime() - startDt.getTime()) / 60000),
+      title,
+      desc,
     });
   }
 
   return { programas, canaisNovos };
 }
 
-// ─── Upload R2 ────────────────────────────────────────────────
 async function uploadR2(key: string, body: string) {
   await s3.send(new PutObjectCommand({
     Bucket: R2_BUCKET, Key: key, Body: body,
-    ContentType: "application/json", CacheControl: "public, max-age=3600",
+    ContentType: "application/json",
+    CacheControl: "public, max-age=3600",
   }));
   return `${R2_URL}/${key}`;
 }
 
-// ─── POST — Sync ──────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   const inicio = Date.now();
   const agora  = new Date().toISOString();
@@ -374,9 +333,15 @@ export async function POST(req: NextRequest) {
 
   const log: Record<string, any> = { executado_em: agora, servidores: {}, resultado: {}, erro: null };
 
-  // 1. EPGBR — lista mestre
+  console.log("[EPG] Processando EPGBR (lista mestre)...");
   const { canais: canaisMestre, programas: progsMestre, erro: erroMestre } = await parseEPGBR();
-  log.servidores["EPGBR"] = { ok: !erroMestre, canais: canaisMestre.size, programas: progsMestre.length, erro: erroMestre || null };
+
+  log.servidores["EPGBR"] = {
+    ok:        !erroMestre,
+    canais:    canaisMestre.size,
+    programas: progsMestre.length,
+    erro:      erroMestre || null,
+  };
 
   if (erroMestre || !canaisMestre.size) {
     log.erro = "EPGBR falhou — abortando";
@@ -384,47 +349,47 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: log.erro, log }, { status: 502 });
   }
 
-  // 2. Elite e NaTV
   const { data: configs } = await supabase
     .from("vw_epg_config")
     .select("*")
     .in("provider", ["ELITE", "NATV"])
     .order("priority", { ascending: true });
 
-  // Deduplicação por janela ±5min (evita duplicatas de horário ligeiramente diferente)
-  const jaTemProg = new Map<string, number[]>(); // canal_id → timestamps em ms
+  const jaTemProg = new Map<string, Set<string>>();
   for (const p of progsMestre) {
-    const arr = jaTemProg.get(p.channel_id) || [];
-    arr.push(new Date(p.start).getTime());
-    jaTemProg.set(p.channel_id, arr);
-  }
-
-  function jaExiste(channelId: string, startIso: string): boolean {
-    const arr = jaTemProg.get(channelId);
-    if (!arr?.length) return false;
-    const t = new Date(startIso).getTime();
-    return arr.some(e => Math.abs(e - t) <= 5 * 60 * 1000);
+    const s = jaTemProg.get(p.channel_id) || new Set();
+    s.add(p.start);
+    jaTemProg.set(p.channel_id, s);
   }
 
   let programasFinais = [...progsMestre];
 
   for (const cfg of (configs || []) as EpgConfigRow[]) {
     console.log(`[EPG] Complementando com ${cfg.provider}...`);
-    const { programas: progsComp, canaisNovos, erro } = await parseComplementar(cfg, canaisMestre, cfg.provider === "ELITE");
+    const ehElite = cfg.provider === "ELITE";
+    const { programas: progsComp, canaisNovos, erro } = await parseComplementar(
+      cfg, canaisMestre, ehElite
+    );
 
     if (canaisNovos.length > 0) {
       for (const c of canaisNovos) canaisMestre.set(c.id, c);
+      console.log(`[EPG] ELITE: +${canaisNovos.length} canais extras adicionados`);
     }
 
-    log.servidores[cfg.provider] = { ok: !erro, programas: progsComp.length, canais_extras: canaisNovos.length, erro: erro || null };
+    log.servidores[cfg.provider] = {
+      ok:             !erro,
+      programas:      progsComp.length,
+      canais_extras:  canaisNovos.length,
+      erro:           erro || null,
+    };
 
     if (!erro && progsComp.length > 0) {
       let adicionados = 0;
       for (const p of progsComp) {
-        if (!jaExiste(p.channel_id, p.start)) {
-          const arr = jaTemProg.get(p.channel_id) || [];
-          arr.push(new Date(p.start).getTime());
-          jaTemProg.set(p.channel_id, arr);
+        const s = jaTemProg.get(p.channel_id) || new Set();
+        if (!s.has(p.start)) {
+          s.add(p.start);
+          jaTemProg.set(p.channel_id, s);
           programasFinais.push(p);
           adicionados++;
         }
@@ -434,7 +399,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 3. Ordena e salva
   const canaisLista = [...canaisMestre.values()]
     .sort((a, b) => a.categoria.localeCompare(b.categoria) || a.nome.localeCompare(b.nome));
 
@@ -443,12 +407,12 @@ export async function POST(req: NextRequest) {
   );
 
   const payload = {
-    gerado_em: agora,
-    servidores_ok: ["EPGBR", ...(configs || []).map((c: any) => c.provider)],
-    total_canais: canaisLista.length,
+    gerado_em:       agora,
+    servidores_ok:   ["EPGBR", ...(configs || []).map((c: any) => c.provider)],
+    total_canais:    canaisLista.length,
     total_programas: programasFinais.length,
-    canais: canaisLista,
-    programas: programasFinais,
+    canais:          canaisLista,
+    programas:       programasFinais,
   };
 
   const jsonUrl = await uploadR2(EPG_KEY, JSON.stringify(payload, null, 0));
@@ -460,7 +424,6 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ ok: true, url: jsonUrl, duracao_s: duracao, log });
 }
 
-// ─── GET — Status do último sync ─────────────────────────────
 export async function GET() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
