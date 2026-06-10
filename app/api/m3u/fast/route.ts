@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function GET() {
-  const M3U_URL = "http://psbox.top/get.php?username=Insqueixa&password=uC8369&type=m3u_plus&output=ts";
+  const M3U_URL = "http://p1fast.com/get.php?username=Insqueixa&password=uC8369&type=m3u_plus&output=ts";
 
   try {
     // A chave mestra para evitar o Erro 403 em servidores IPTV
