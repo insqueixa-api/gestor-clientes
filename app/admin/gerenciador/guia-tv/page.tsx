@@ -23,9 +23,9 @@ const LINHA_H = 72;
 const REGUA_H = 34;
 const TOTAL_HORAS = 26;
 
-function nowBRT(): Date { return new Date(new Date().toLocaleString("en-US",{timeZone:"America/Sao_Paulo"})); }
-function formatHora(iso: string) { return new Date(iso).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",timeZone:"America/Sao_Paulo"}); }
-function formatDataHora(iso: string) { return new Date(iso).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit",timeZone:"America/Sao_Paulo"}); }
+function nowBRT(): Date { return new Date(); }
+function formatHora(iso: string) { return new Date(iso).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}); }
+function formatDataHora(iso: string) { return new Date(iso).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}); }
 function iniciais(nome: string) { return nome.split(" ").filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase(); }
 
 function Logo({src,nome,categoria,size=32}:{src?:string;nome:string;categoria?:string;size?:number}) {
@@ -42,10 +42,10 @@ function ProgramaTooltip({prog,onClose}:{prog:Programa;onClose:()=>void}) {
         {prog.prog_icon&&<div style={{position:"relative",height:200,background:"#111"}}><img src={prog.prog_icon} alt={prog.title} style={{width:"100%",height:"100%",objectFit:"cover"}}/><div style={{position:"absolute",inset:0,background:"linear-gradient(to top,#161616 0%,transparent 60%)"}}/><button onClick={onClose} style={{position:"absolute",top:10,right:10,background:"rgba(0,0,0,0.6)",border:"none",cursor:"pointer",color:"#fff",borderRadius:"50%",width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center"}}><X style={{width:14,height:14}}/></button></div>}
         <div style={{padding:18}}>
           {!prog.prog_icon&&<div style={{display:"flex",justifyContent:"flex-end",marginBottom:8}}><button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:"#666"}}><X style={{width:16,height:16}}/></button></div>}
-          <div style={{fontSize:11,color:"#555",marginBottom:6,textTransform:"uppercase",letterSpacing:"0.5px"}}>{prog.channel_nome} · {prog.categoria}</div>
-          <div style={{fontSize:17,fontWeight:600,color:"#fff",lineHeight:1.3,marginBottom:10}}>{prog.title}</div>
-          <div style={{display:"flex",gap:8,marginBottom:prog.desc?12:0}}><span style={{fontSize:12,color:"#f59e0b",fontWeight:600}}>{formatHora(prog.start)} – {formatHora(prog.stop)}</span><span style={{fontSize:12,color:"#444"}}>· {prog.duracao_min} min</span></div>
-          {prog.desc&&<div style={{fontSize:13,color:"#888",lineHeight:1.6}}>{prog.desc}</div>}
+          <div style={{fontSize:13,color:"#777",marginBottom:6,textTransform:"uppercase",letterSpacing:"0.5px"}}>{prog.channel_nome} · {prog.categoria}</div>
+          <div style={{fontSize:19,fontWeight:600,color:"#fff",lineHeight:1.3,marginBottom:10}}>{prog.title}</div>
+          <div style={{display:"flex",gap:8,marginBottom:prog.desc?12:0}}><span style={{fontSize:14,color:"#f59e0b",fontWeight:600}}>{formatHora(prog.start)} – {formatHora(prog.stop)}</span><span style={{fontSize:14,color:"#555"}}>· {prog.duracao_min} min</span></div>
+          {prog.desc&&<div style={{fontSize:15,color:"#aaa",lineHeight:1.6}}>{prog.desc}</div>}
         </div>
       </div>
     </div>
@@ -116,7 +116,7 @@ function GradeEPG({canais,progsPorCanal}:{canais:Canal[];progsPorCanal:Map<strin
   const [progSel,setProgSel]=useState<Programa|null>(null);
   const isMobile=typeof window!=="undefined"&&window.innerWidth<768;
   const [showNomes,setShowNomes]=useState(!isMobile);
-  const canalW=showNomes?CANAL_COL_W:44;
+  const canalW=showNomes?CANAL_COL_W:(isMobile?60:54);
   const linhaH=isMobile?80:LINHA_H;
 
   useEffect(()=>{const iv=setInterval(()=>setAgora(nowBRT()),60000);return()=>clearInterval(iv);},[]);
@@ -124,19 +124,17 @@ function GradeEPG({canais,progsPorCanal}:{canais:Canal[];progsPorCanal:Map<strin
   const gradeWidth=TOTAL_HORAS*HORA_WIDTH;
 
   const baseMs=useMemo(()=>{
-    const brtMs=Date.now()-3*3600000;
-    return Math.floor(brtMs/3600000)*3600000-2*3600000;
+    return Math.floor(Date.now()/3600000)*3600000-2*3600000;
   },[]);
 
   const agoraOffsetPx=useMemo(()=>{
-    const brtMs=agora.getTime()-3*3600000;
-    return((brtMs-baseMs)/60000)*PX_POR_MIN;
+    return((agora.getTime()-baseMs)/60000)*PX_POR_MIN;
   },[agora,baseMs]);
 
   const horaLabels=useMemo(()=>
     Array.from({length:TOTAL_HORAS+1},(_,i)=>({
       x:i*HORA_WIDTH,
-      label:new Date(baseMs+3*3600000+i*3600000).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",timeZone:"America/Sao_Paulo"}),
+      label:new Date(baseMs+i*3600000).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}),
     }))
   ,[baseMs]);
 
@@ -172,22 +170,22 @@ function GradeEPG({canais,progsPorCanal}:{canais:Canal[];progsPorCanal:Map<strin
                 {/* Coluna canal sticky */}
                 <div style={{width:canalW,flexShrink:0,position:"sticky",left:0,zIndex:20,background:"#0f1117",borderRight:"1px solid #1e2130",display:"flex",alignItems:"center",gap:showNomes?10:0,padding:showNomes?"0 12px":"0",justifyContent:showNomes?"flex-start":"center",cursor:isMobile?"pointer":"default",userSelect:"none"}}
                   onClick={()=>isMobile&&setShowNomes(v=>!v)}>
-                  <Logo src={canal.icon} nome={canal.nome} categoria={canal.categoria} size={showNomes?(isMobile?38:32):(isMobile?42:36)}/>
-                  {showNomes&&<span style={{fontSize:11,color:"#94a3b8",fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{canal.nome}</span>}
+                  <Logo src={canal.icon} nome={canal.nome} categoria={canal.categoria} size={showNomes?(isMobile?40:34):(isMobile?50:44)}/>
+                  {showNomes&&<span style={{fontSize:13,color:"#94a3b8",fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{canal.nome}</span>}
                 </div>
                 {/* Área programas */}
                 <div style={{position:"relative",width:gradeWidth,flexShrink:0}}>
-                  <div style={{position:"absolute",left:agoraOffsetPx,top:0,width:2,height:"100%",background:"#ef4444",zIndex:5,pointerEvents:"none"}}/>
-                  {horaLabels.map((h,i)=>i>0&&<div key={i} style={{position:"absolute",left:h.x,top:0,width:1,height:"100%",background:"#1e2130",pointerEvents:"none"}}/>)}
-                  {progs.length===0&&Array.from({length:Math.ceil(TOTAL_HORAS/2)},(_,i)=>(
-                    <div key={i} style={{position:"absolute",left:i*2*HORA_WIDTH+1,width:2*HORA_WIDTH-6,top:5,bottom:5,borderRadius:5,background:"#141624",border:"1px solid #1e2130",display:"flex",alignItems:"center",justifyContent:"center",opacity:0.5}}>
-                      <span style={{fontSize:11,color:"#374151"}}>Sem informação</span>
-                    </div>
-                  ))}
-                  {progs.map(prog=>{
-                    const sMs=new Date(prog.start).getTime()-3*3600000;
-                    const eMs=new Date(prog.stop).getTime()-3*3600000;
-                    const lRaw=((sMs-baseMs)/60000)*PX_POR_MIN;
+                <div style={{position:"absolute",left:agoraOffsetPx,top:0,width:2,height:"100%",background:"#ef4444",zIndex:5,pointerEvents:"none"}}/>
+                {horaLabels.map((h,i)=>i>0&&<div key={i} style={{position:"absolute",left:h.x,top:0,width:1,height:"100%",background:"#1e2130",pointerEvents:"none"}}/>)}
+                {progs.length===0&&Array.from({length:Math.ceil(TOTAL_HORAS/2)},(_,i)=>(
+                  <div key={i} style={{position:"absolute",left:i*2*HORA_WIDTH+1,width:2*HORA_WIDTH-6,top:5,bottom:5,borderRadius:5,background:"#141624",border:"1px solid #1e2130",display:"flex",alignItems:"center",justifyContent:"center",opacity:0.8}}>
+                    <span style={{fontSize:13,color:"#64748b",fontWeight:500}}>Sem informação</span>
+                  </div>
+                ))}
+                {progs.map(prog=>{
+                  const sMs=new Date(prog.start).getTime();
+                  const eMs=new Date(prog.stop).getTime();
+                  const lRaw=((sMs-baseMs)/60000)*PX_POR_MIN;
                     const wRaw=Math.max(((eMs-sMs)/60000)*PX_POR_MIN-2,4);
                     const lPx=Math.max(lRaw,0);
                     const wPx=Math.max(wRaw-(lPx-lRaw),20);
@@ -200,7 +198,7 @@ function GradeEPG({canais,progsPorCanal}:{canais:Canal[];progsPorCanal:Map<strin
                         {prog.prog_icon&&wPx>90&&<img src={prog.prog_icon} alt="" style={{height:"100%",width:"auto",maxWidth:Math.min(wPx*0.28,52),objectFit:"cover",flexShrink:0,opacity:0.8}}/>}
                         <div style={{flex:1,minWidth:0,display:"flex",alignItems:isAtual?"flex-start":"center",gap:5,padding:"4px 7px"}}>
                           {isAtual&&<div style={{width:5,height:5,borderRadius:"50%",background:cor,flexShrink:0,boxShadow:`0 0 5px ${cor}80`,marginTop:3}}/>}
-                          <span style={{fontSize:11,fontWeight:isAtual?500:400,color:isAtual?"#f1f5f9":"#64748b",overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",whiteSpace:"normal",lineHeight:1.3}}>
+                          <span style={{fontSize:13,fontWeight:isAtual?500:400,color:isAtual?"#f1f5f9":"#8492a6",overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",whiteSpace:"normal",lineHeight:1.3}}>
                             {lRaw<0?`◀ ${prog.title}`:wPx>70?`${formatHora(prog.start)} ${prog.title}`:prog.title}
                           </span>
                         </div>
