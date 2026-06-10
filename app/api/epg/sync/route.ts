@@ -308,7 +308,6 @@ async function parseComplementar(
   if (adicionarExtras) {
     const idsJaNoMestre = new Set([...canaisMestre.keys()]);
     const normsJaNoMestre = new Set([...canaisMestre.values()].map(c => normalizarParaMatch(c.display_name)));
-    const ESPORTE_KWS_EXTRA = ["DAZN","SPORTYNET","NOSSO FUTEBOL","NBA LEAGUE PASS","NFL NETWORK","PPV"];
 
     for (const ch of channels) {
       const cid  = ch.$?.id?.trim() || "";
@@ -319,18 +318,21 @@ async function parseComplementar(
       if (idsJaNoMestre.has(cid)) continue;
       const n = normalizarParaMatch(dn);
       if (normsJaNoMestre.has(n)) continue;
-      if (!ESPORTE_KWS_EXTRA.some(kw => dn.toUpperCase().includes(kw))) continue;
+      
       normsJaNoMestre.add(n);
       idsJaNoMestre.add(cid);
       serverIdParaMestreId.set(cid, cid);
+      
+      const nomeFinal = n.split(" ").map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+      
       canaisNovos.push({
         id: cid, display_name: dn,
-        nome: n.split(" ").map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" "),
-        categoria: "Esportes", icon, servidor: "ELITE",
+        nome: nomeFinal,
+        categoria: categorizar(nomeFinal), // Usa a sua lista mestre de categorias para alocar
+        icon, servidor: "ELITE",
       });
     }
   }
-
   const todosCanaisMap = new Map(canaisMestre);
   for (const c of canaisNovos) todosCanaisMap.set(c.id, c);
 

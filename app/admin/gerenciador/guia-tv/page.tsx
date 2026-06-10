@@ -54,48 +54,75 @@ function ProgramaTooltip({prog,onClose}:{prog:Programa;onClose:()=>void}) {
 
 function ResultadoBusca({resultados,busca,onClear}:{resultados:Array<{canal:Canal;prog:Programa}>;busca:string;onClear:()=>void}) {
   const [sel,setSel]=useState<Programa|null>(null);
-  const agrupado=useMemo(()=>{
+  const [modo, setModo] = useState<"PROGRAMA" | "CANAL">("PROGRAMA");
+  
+  const agrupadoPorPrograma = useMemo(()=>{
     const map=new Map<string,Array<{canal:Canal;prog:Programa}>>();
     for(const r of resultados){const k=r.prog.title.trim();const a=map.get(k)||[];a.push(r);map.set(k,a);}
     return [...map.entries()].sort((a,b)=>b[1].length-a[1].length).map(([titulo,items])=>({titulo,items:items.sort((a,b)=>new Date(a.prog.start).getTime()-new Date(b.prog.start).getTime())}));
   },[resultados]);
+
+  const agrupadoPorCanal = useMemo(()=>{
+    const map=new Map<string,Array<{canal:Canal;prog:Programa}>>();
+    for(const r of resultados){const k=r.canal.nome;const a=map.get(k)||[];a.push(r);map.set(k,a);}
+    return [...map.entries()].sort((a,b)=>a[0].localeCompare(b[0])).map(([titulo,items])=>({titulo,items:items.sort((a,b)=>new Date(a.prog.start).getTime()-new Date(b.prog.start).getTime())}));
+  },[resultados]);
+
   const agora=nowBRT().getTime();
+  const listagemAtiva = modo === "PROGRAMA" ? agrupadoPorPrograma : agrupadoPorCanal;
+
   return (
     <>
       {sel&&<ProgramaTooltip prog={sel} onClose={()=>setSel(null)}/>}
       <div style={{padding:"16px 20px"}}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
-          <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,color:"#e2e8f0"}}>{resultados.length} resultado{resultados.length!==1?"s":""}</div><div style={{fontSize:11,color:"#374151",marginTop:2}}>"{busca}" — {agrupado.length} título{agrupado.length!==1?"s":""}</div></div>
-          <button onClick={onClear} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",background:"#111",border:"1px solid #1e1e2e",borderRadius:7,color:"#475569",fontSize:12,cursor:"pointer"}}><X style={{width:11,height:11}}/> Limpar</button>
+          <div style={{flex:1}}>
+            <div style={{fontSize:13,fontWeight:600,color:"#e2e8f0"}}>{resultados.length} resultado{resultados.length!==1?"s":""}</div>
+            <div style={{fontSize:11,color:"#374151",marginTop:2}}>"{busca}" — {listagemAtiva.length} {modo === "PROGRAMA" ? "título(s)" : "canal(is)"}</div>
+          </div>
+          
+          <div style={{display:"flex", background:"#1a1d2e", padding:4, borderRadius:8, gap:4}}>
+            <button onClick={()=>setModo("PROGRAMA")} style={{padding:"6px 12px", background:modo==="PROGRAMA"?"#6366f1":"transparent", color:modo==="PROGRAMA"?"#fff":"#64748b", border:"none", borderRadius:6, fontSize:12, fontWeight:600, cursor:"pointer"}}>Por Programa</button>
+            <button onClick={()=>setModo("CANAL")} style={{padding:"6px 12px", background:modo==="CANAL"?"#6366f1":"transparent", color:modo==="CANAL"?"#fff":"#64748b", border:"none", borderRadius:6, fontSize:12, fontWeight:600, cursor:"pointer"}}>Por Canal</button>
+          </div>
+
+          <button onClick={onClear} style={{display:"flex",alignItems:"center",gap:5,padding:"6px 12px",background:"#111",border:"1px solid #1e1e2e",borderRadius:8,color:"#475569",fontSize:12,cursor:"pointer"}}><X style={{width:13,height:13}}/> Limpar</button>
         </div>
-        {agrupado.length===0&&<div style={{textAlign:"center",padding:"60px 0",color:"#374151"}}><Search style={{width:28,height:28,margin:"0 auto 12px",display:"block",opacity:0.3}}/><div style={{fontSize:14}}>Nenhum resultado para "{busca}"</div></div>}
-        <div style={{display:"flex",flexDirection:"column",gap:20}}>
-          {agrupado.map(({titulo,items})=>{
+        
+        {listagemAtiva.length===0&&<div style={{textAlign:"center",padding:"60px 0",color:"#374151"}}><Search style={{width:28,height:28,margin:"0 auto 12px",display:"block",opacity:0.3}}/><div style={{fontSize:14}}>Nenhum resultado para "{busca}"</div></div>}
+        
+        <div style={{display:"flex",flexDirection:"column",gap:24}}>
+          {listagemAtiva.map(({titulo,items})=>{
             const cor=CAT_COR[items[0].canal.categoria]||"#6b7280";
             return (
-              <div key={titulo}>
-                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,paddingBottom:8,borderBottom:`1px solid ${cor}20`}}>
-                  <div style={{width:3,height:16,background:cor,borderRadius:2,flexShrink:0}}/>
-                  <div style={{fontSize:14,fontWeight:600,color:"#e2e8f0"}}>{titulo}</div>
+              <div key={titulo} style={{background:"#13151f", border:"1px solid #1e2130", borderRadius:10, padding:14}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+                  {modo === "CANAL" && <Logo src={items[0].canal.icon} nome={items[0].canal.nome} categoria={items[0].canal.categoria} size={28}/>}
+                  {modo === "PROGRAMA" && <div style={{width:4,height:18,background:cor,borderRadius:2,flexShrink:0}}/>}
+                  <div style={{fontSize:15,fontWeight:700,color:"#e2e8f0"}}>{titulo}</div>
                   <div style={{fontSize:10,fontWeight:600,padding:"2px 7px",borderRadius:20,background:cor+"20",color:cor,border:`1px solid ${cor}30`}}>{items.length}x</div>
                 </div>
-                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
                   {items.map((r,i)=>{
                     const sMs=new Date(r.prog.start).getTime(),eMs=new Date(r.prog.stop).getTime();
                     const emAnd=agora>=sMs&&agora<=eMs,passou=agora>eMs;
                     return (
-                      <div key={i} onClick={()=>setSel(r.prog)} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:9,cursor:"pointer",background:emAnd?cor+"12":"#0f0f0f",border:`1px solid ${emAnd?cor+"40":"#1a1a1a"}`,opacity:passou?0.45:1}}
+                      <div key={i} onClick={()=>setSel(r.prog)} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:8,cursor:"pointer",background:emAnd?cor+"12":"#0f0f0f",border:`1px solid ${emAnd?cor+"40":"#1a1a1a"}`,opacity:passou?0.45:1}}
                         onMouseEnter={e=>{if(!passou){(e.currentTarget as HTMLDivElement).style.background=emAnd?cor+"20":"#161616";(e.currentTarget as HTMLDivElement).style.borderColor=cor+"50";}}}
                         onMouseLeave={e=>{(e.currentTarget as HTMLDivElement).style.background=emAnd?cor+"12":"#0f0f0f";(e.currentTarget as HTMLDivElement).style.borderColor=emAnd?cor+"40":"#1a1a1a";}}>
-                        <Logo src={r.canal.icon} nome={r.canal.nome} categoria={r.canal.categoria} size={36}/>
-                        <div style={{minWidth:120,flexShrink:0}}><div style={{fontSize:12,fontWeight:600,color:"#bbb"}}>{r.canal.nome}</div><div style={{fontSize:10,color:"#374151",marginTop:2}}>{r.canal.categoria}</div></div>
+                        
+                        {modo === "PROGRAMA" && <Logo src={r.canal.icon} nome={r.canal.nome} categoria={r.canal.categoria} size={36}/>}
+                        {modo === "PROGRAMA" && <div style={{minWidth:120,flexShrink:0}}><div style={{fontSize:13,fontWeight:600,color:"#bbb"}}>{r.canal.nome}</div><div style={{fontSize:11,color:"#475569",marginTop:2}}>{r.canal.categoria}</div></div>}
+                        
                         <div style={{flex:1}}>
                           <div style={{display:"flex",alignItems:"center",gap:8}}>
                             {emAnd&&<div style={{display:"flex",alignItems:"center",gap:4,fontSize:10,fontWeight:700,color:cor,background:cor+"20",padding:"2px 7px",borderRadius:20,flexShrink:0}}><div style={{width:5,height:5,borderRadius:"50%",background:cor,animation:"pulse 1s infinite"}}/> AO VIVO</div>}
-                            <span style={{fontSize:13,fontWeight:600,color:emAnd?"#fff":"#888"}}>{formatHora(r.prog.start)} – {formatHora(r.prog.stop)}</span>
-                            <span style={{fontSize:11,color:"#374151"}}>· {r.prog.duracao_min} min</span>
+                            <span style={{fontSize:14,fontWeight:600,color:emAnd?"#fff":"#888"}}>{formatHora(r.prog.start)} – {formatHora(r.prog.stop)}</span>
+                            {modo === "CANAL" && <span style={{fontSize:14,fontWeight:600,color:"#cbd5e1", marginLeft:8}}>{r.prog.title}</span>}
+                            <span style={{fontSize:12,color:"#475569"}}>· {r.prog.duracao_min} min</span>
                           </div>
-                          {r.prog.desc&&<div style={{fontSize:11,color:"#374151",marginTop:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:340}}>{r.prog.desc}</div>}
+                          {r.prog.desc&&<div style={{fontSize:12,color:"#64748b",marginTop:4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"100%"}}>{r.prog.desc}</div>}
                         </div>
                       </div>
                     );
@@ -217,7 +244,7 @@ function GradeEPG({canais,progsPorCanal}:{canais:Canal[];progsPorCanal:Map<strin
   );
 }
 
-function DropdownFiltro({label,ativo,cor,children}:{label:string;ativo:boolean;cor?:string;children:React.ReactNode}) {
+function DropdownFiltro({label,ativo,cor,disabled,children}:{label:string;ativo:boolean;cor?:string;disabled?:boolean;children:React.ReactNode}) {
   const [open,setOpen]=useState(false);
   const ref=useRef<HTMLDivElement>(null);
   const c=cor||"#6366f1";
@@ -226,11 +253,11 @@ function DropdownFiltro({label,ativo,cor,children}:{label:string;ativo:boolean;c
     document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);
   },[]);
   return (
-    <div ref={ref} style={{position:"relative",flexShrink:0}}>
-      <button onClick={()=>setOpen(o=>!o)} style={{display:"flex",alignItems:"center",gap:6,height:36,padding:"0 12px",background:ativo?c+"15":"#1a1d2e",border:`1px solid ${ativo?c+"50":"#252840"}`,borderRadius:8,cursor:"pointer",color:ativo?c:"#94a3b8",fontSize:13,fontWeight:ativo?600:400,whiteSpace:"nowrap"}}>
+    <div ref={ref} style={{position:"relative",flexShrink:0, opacity: disabled ? 0.4 : 1}}>
+      <button onClick={()=>!disabled && setOpen(o=>!o)} style={{display:"flex",alignItems:"center",gap:6,height:36,padding:"0 12px",background:ativo?c+"15":"#1a1d2e",border:`1px solid ${ativo?c+"50":"#252840"}`,borderRadius:8,cursor:disabled?"not-allowed":"pointer",color:ativo?c:"#94a3b8",fontSize:13,fontWeight:ativo?600:400,whiteSpace:"nowrap"}}>
         {label}<ChevronDown style={{width:13,height:13,opacity:0.6,transform:open?"rotate(180deg)":"none",transition:"transform 0.15s"}}/>
       </button>
-      {open&&(
+      {open && !disabled &&(
         <div onClick={()=>setOpen(false)} style={{position:"absolute",top:"calc(100% + 6px)",left:0,minWidth:200,background:"#13151f",border:"1px solid #1e2130",borderRadius:10,zIndex:200,overflow:"hidden",boxShadow:"0 12px 40px rgba(0,0,0,0.7)",maxHeight:320,overflowY:"auto"}}>
           {children}
         </div>
@@ -295,14 +322,20 @@ export default function GuiaTVPage() {
 
   const resultadosBusca=useMemo(()=>{
     if(!epg||!buscaAtiva.trim())return[];
-    const q=buscaAtiva.toLowerCase().trim();
+    
+    // Busca inteligente: divide a string em palavras e exige que TODAS estejam presentes em qualquer campo
+    const kws = buscaAtiva.toLowerCase().trim().split(/\s+/);
     const res:Array<{canal:Canal;prog:Programa}>=[];
     const cmap=new Map(epg.canais.map(c=>[c.id,c]));
+    
     for(const p of epg.programas){
-      if(!p.title.toLowerCase().includes(q)&&!p.desc?.toLowerCase().includes(q))continue;
       const c=cmap.get(p.channel_id);if(!c)continue;
       if(catAtiva!=="Todos"&&c.categoria!==catAtiva)continue;
-      res.push({canal:c,prog:p});
+
+      const textoBuscavel = `${p.title} ${p.desc || ""} ${c.nome} ${c.categoria}`.toLowerCase();
+      const match = kws.every(kw => textoBuscavel.includes(kw));
+      
+      if(match) res.push({canal:c,prog:p});
     }
     const agora=Date.now();
     return res.sort((a,b)=>{
@@ -318,7 +351,6 @@ export default function GuiaTVPage() {
   const emBusca=buscaAtiva.trim().length>0;
 
   // Layout: header fixo + grade ocupa o resto da viewport
-  // Usa CSS simples sem depender do pai
   return (
     <div style={{display:"flex",flexDirection:"column",height:"calc(100vh - 57px)",background:"#0f1117",color:"#cbd5e1",overflow:"hidden"}}>
       {/* Header */}
@@ -329,20 +361,21 @@ export default function GuiaTVPage() {
             <span style={{fontSize:14,fontWeight:700,color:"#f1f5f9",whiteSpace:"nowrap"}}>Guia TV</span>
             {epg&&<span style={{fontSize:10,color:"#475569",whiteSpace:"nowrap"}}>{epg.total_canais} canais · {formatDataHora(epg.gerado_em)}</span>}
           </div>
+          
           <DropdownFiltro label={catAtiva==="Todos"?"Categoria":`${CAT_EMOJI[catAtiva]} ${catAtiva}`} ativo={catAtiva!=="Todos"} cor={catAtiva!=="Todos"?CAT_COR[catAtiva]:undefined}>
             {[{value:"Todos",label:"📡 Todas as categorias"},...catsDisponiveis.map(c=>({value:c,label:`${CAT_EMOJI[c]} ${c}`}))].map(opt=>(
               <button key={opt.value} onClick={()=>{setCatAtiva(opt.value);setSubAtiva("Todos");}} style={{display:"block",width:"100%",padding:"8px 14px",background:catAtiva===opt.value?"#1e2130":"none",border:"none",textAlign:"left",cursor:"pointer",color:catAtiva===opt.value?"#f1f5f9":"#94a3b8",fontSize:13,borderLeft:`3px solid ${catAtiva===opt.value?(CAT_COR[opt.value]||"#6366f1"):"transparent"}`}}
                 onMouseEnter={e=>(e.currentTarget.style.background="#1e2130")} onMouseLeave={e=>(e.currentTarget.style.background=catAtiva===opt.value?"#1e2130":"none")}>{opt.label}</button>
             ))}
           </DropdownFiltro>
-          {subgruposDisponiveis.length>0&&(
-            <DropdownFiltro label={subAtiva==="Todos"?"Subcategoria":subAtiva} ativo={subAtiva!=="Todos"} cor={catAtiva!=="Todos"?CAT_COR[catAtiva]:undefined}>
-              {[{value:"Todos",label:`Todos em ${catAtiva}`},...subgruposDisponiveis.map(s=>({value:s.label,label:s.label}))].map(opt=>(
-                <button key={opt.value} onClick={()=>setSubAtiva(opt.value)} style={{display:"block",width:"100%",padding:"8px 14px",background:subAtiva===opt.value?"#1e2130":"none",border:"none",textAlign:"left",cursor:"pointer",color:subAtiva===opt.value?"#f1f5f9":"#94a3b8",fontSize:13,borderLeft:`3px solid ${subAtiva===opt.value?(CAT_COR[catAtiva]||"#6366f1"):"transparent"}`}}
-                  onMouseEnter={e=>(e.currentTarget.style.background="#1e2130")} onMouseLeave={e=>(e.currentTarget.style.background=subAtiva===opt.value?"#1e2130":"none")}>{opt.label}</button>
-              ))}
-            </DropdownFiltro>
-          )}
+          
+          <DropdownFiltro disabled={subgruposDisponiveis.length === 0} label={subAtiva==="Todos"?"Subcategoria":subAtiva} ativo={subAtiva!=="Todos"} cor={catAtiva!=="Todos"?CAT_COR[catAtiva]:undefined}>
+            {[{value:"Todos",label:`Todos em ${catAtiva}`},...subgruposDisponiveis.map(s=>({value:s.label,label:s.label}))].map(opt=>(
+              <button key={opt.value} onClick={()=>setSubAtiva(opt.value)} style={{display:"block",width:"100%",padding:"8px 14px",background:subAtiva===opt.value?"#1e2130":"none",border:"none",textAlign:"left",cursor:"pointer",color:subAtiva===opt.value?"#f1f5f9":"#94a3b8",fontSize:13,borderLeft:`3px solid ${subAtiva===opt.value?(CAT_COR[catAtiva]||"#6366f1"):"transparent"}`}}
+                onMouseEnter={e=>(e.currentTarget.style.background="#1e2130")} onMouseLeave={e=>(e.currentTarget.style.background=subAtiva===opt.value?"#1e2130":"none")}>{opt.label}</button>
+            ))}
+          </DropdownFiltro>
+
           <div style={{position:"relative",flex:1,minWidth:180,maxWidth:360}}>
             <Search style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",width:13,height:13,color:"#475569",pointerEvents:"none"}}/>
             <input value={busca} onChange={e=>setBusca(e.target.value)} onKeyDown={e=>e.key==="Enter"&&setBuscaAtiva(busca.trim())} placeholder="Buscar programas..." style={{width:"100%",height:36,paddingLeft:32,paddingRight:busca?30:10,background:"#1a1d2e",border:`1px solid ${emBusca?"#6366f1":"#252840"}`,borderRadius:8,fontSize:13,color:"#e2e8f0",outline:"none",boxSizing:"border-box"}}
