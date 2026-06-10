@@ -276,7 +276,7 @@ export default function GuiaTVPage() {
     if(!epg)return new Map<string,Programa[]>();
     const map=new Map<string,Programa[]>();
     const brtMs=Date.now()-3*3600000;
-    const ini=brtMs-2*3600000,fim=brtMs+24*3600000;
+    const ini=brtMs-6*3600000,fim=brtMs+24*3600000;
     for(const p of epg.programas){
       const s=new Date(p.start).getTime(),e=new Date(p.stop).getTime();
       if(e<ini||s>fim)continue;

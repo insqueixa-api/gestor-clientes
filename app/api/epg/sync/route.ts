@@ -78,22 +78,49 @@ function nomeExibicao(raw: string): string {
   return raw.replace(/^BR\s*-\s*/i, "").trim();
 }
 
-// ─── Normalização robusta para matching ───────────────────────
-// Remove tudo que varia entre fontes, deixando só o nome base
-// Ordem importa: FHDR antes de FHD (senão "FHDR" → "R" sobra)
-function normalizarParaMatch(s: string): string {
-  return nomeExibicao(s)
-    .toUpperCase()
-    .replace(/\b(FHDR|FHD|H\.265|H265|4K|HD|SD)\b/gi, "")   // qualidade como palavra
-    .replace(/\[?(FHDR|FHD|H\.265|H265|4K|HD|SD)\]?/gi, "")  // qualidade com colchetes
-    .replace(/\b(LEG|DUB|DUBLADO|LEGENDADO)\b/gi, "")          // áudio
-    .replace(/\s*\*+\s*$/g, "")                                 // asterisco de backup
-    .replace(/\s+\d+\s*$/g, "")                                 // número no final (BIS 2)
-    .replace(/\b(BR|SP|RJ|MG|RS|SC|PR|DF|GO|BA|PE|CE|AM|PA)\b/gi, "") // estado
-    .replace(/&amp;/gi, "&")                                    // HTML entity
-    .replace(/\s+/g, " ")
-    .trim();
+// ─── Slug: remove tudo exceto letras e números, tudo minúsculo ───────────────
+// Usado para matching robusto — independe de pontos, traços, espaços, acentos
+function slug(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
+
+// Apelidos manuais: slugs de IDs que nunca vão bater automaticamente
+// slug(ID_do_Elite_ou_NaTV) → channel_id_do_EPGBR
+const SLUG_ALIASES: Record<string, string> = {
+  "investigacaodiscoveryidbr": "InvestigacaoDiscovery.br",
+  "discoveryworldhdbr":        "DiscoveryWorld.br",
+  "homehealthbr":              "DiscoveryHomeandHealth.br",
+  "hdtheaterbr":               "DiscoveryTheater.br",
+  "universalchannelbr":        "Universal.br",
+  "h2br":                      "History2.br",
+  "discturbohdbr":             "DiscoveryTurbo.br",
+  "histobr":                   "HistoryChannel.br",
+  "cartbr":                    "CartoonNetwork.br",
+  "musicbbr":                  "MusicBoxBrasil.br",
+  "hdunvbr":                   "Universal.br",
+  "tntnbr":                    "TNT.br",
+  "idbr":                      "InvestigacaoDiscovery.br",
+  "globobr":                   "GloboRJ.br",
+  "cnovabr":                   "CancaoNova.br",
+  "hdtrbobr":                  "TravelBoxBrazil.br",
+  "hdgazbr":                   "TVGazeta.br",
+};
+
+// Normaliza nome de canal removendo qualidade/estado antes de slugificar
+function normSlug(nome: string): string {
+  return slug(
+    nome
+      .replace(/^BR\s*[-–]\s*/i, "")           // remove prefixo "BR - "
+      .replace(/\b(FHDR?|H\.?265|4K|HD|SD)\b/gi, " ")  // qualidade
+      .replace(/\b(LEG|DUB|DUBLADO|LEGENDADO)\b/gi, " ") // áudio
+      .replace(/\b(BR|SP|RJ|MG|RS|SC|PR|DF|GO|BA|PE|CE|AM|PA)\b/gi, " ") // estado
+      .replace(/[*²³]/g, " ")
+      .replace(/&amp;/gi, "e")
+  );
+}
+
+// mantém compatibilidade com código que ainda usa normalizarParaMatch
+function normalizarParaMatch(s: string): string { return normSlug(s); }
 
 // ─── Parse BRT ────────────────────────────────────────────────
 const BRT_OFFSET = -3 * 60;
@@ -192,29 +219,46 @@ async function parseComplementar(
   adicionarExtras: boolean = false
 ): Promise<{ programas: Programa[]; canaisNovos: Canal[]; erro?: string }> {
 
-  // Índice triplo do EPGBR para mapeamento robusto
-  const epgbrPorIdExato  = new Map<string, string>(); // id → id
-  const epgbrPorIdLower  = new Map<string, string>(); // id.lower → id
-  const epgbrPorNomeNorm = new Map<string, string>(); // norm(nome) → id
+  // Índice EPGBR por slug — cobre todas as variações de capitalização/pontuação
+  const epgbrPorIdExato = new Map<string, string>(); // id exato → id (mantido para compat)
+  const epgbrPorSlug    = new Map<string, string>(); // slug(id ou nome) → id
 
   for (const [cid, canal] of canaisMestre) {
     epgbrPorIdExato.set(cid, cid);
-    epgbrPorIdLower.set(cid.toLowerCase(), cid);
-    const n1 = normalizarParaMatch(canal.display_name);
-    const n2 = normalizarParaMatch(canal.nome);
-    if (n1 && !epgbrPorNomeNorm.has(n1)) epgbrPorNomeNorm.set(n1, cid);
-    if (n2 && !epgbrPorNomeNorm.has(n2)) epgbrPorNomeNorm.set(n2, cid);
+    // Slug do ID
+    const sId = slug(cid);
+    if (!epgbrPorSlug.has(sId)) epgbrPorSlug.set(sId, cid);
+    // Slug do ID sem "br" no final
+    const sIdNoBr = sId.replace(/br$/, "");
+    if (sIdNoBr && !epgbrPorSlug.has(sIdNoBr)) epgbrPorSlug.set(sIdNoBr, cid);
+    // Slug do nome completo
+    const sNome = normSlug(canal.display_name);
+    if (sNome && !epgbrPorSlug.has(sNome)) epgbrPorSlug.set(sNome, cid);
+    // Slug do nome sem prefixo
+    const sNomeSimp = normSlug(canal.nome);
+    if (sNomeSimp && !epgbrPorSlug.has(sNomeSimp)) epgbrPorSlug.set(sNomeSimp, cid);
   }
 
   function mapearCanal(sourceId: string, sourceNames: string[]): string | null {
-    // 1. ID exato
+    // 1. Apelido manual (casos impossíveis de resolver automaticamente)
+    const sAlias = slug(sourceId);
+    if (SLUG_ALIASES[sAlias]) return SLUG_ALIASES[sAlias];
+
+    // 2. Slug do ID exato
     if (epgbrPorIdExato.has(sourceId)) return epgbrPorIdExato.get(sourceId)!;
-    // 2. ID case-insensitive
-    if (epgbrPorIdLower.has(sourceId.toLowerCase())) return epgbrPorIdLower.get(sourceId.toLowerCase())!;
-    // 3. Nome normalizado
+
+    // 3. Slug do ID (sem distinção de maiúsculas/pontos/traços)
+    const sId = slug(sourceId);
+    if (epgbrPorSlug.has(sId)) return epgbrPorSlug.get(sId)!;
+
+    // 4. Slug do ID sem o sufixo "br" no final
+    const sIdNoBr = sId.replace(/br$/, "");
+    if (sIdNoBr && epgbrPorSlug.has(sIdNoBr)) return epgbrPorSlug.get(sIdNoBr)!;
+
+    // 5. Slug do nome normalizado
     for (const name of sourceNames) {
-      const n = normalizarParaMatch(name);
-      if (n && epgbrPorNomeNorm.has(n)) return epgbrPorNomeNorm.get(n)!;
+      const sNome = normSlug(name);
+      if (sNome && epgbrPorSlug.has(sNome)) return epgbrPorSlug.get(sNome)!;
     }
     return null;
   }
