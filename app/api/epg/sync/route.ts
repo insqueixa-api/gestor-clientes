@@ -395,19 +395,23 @@ export async function POST(req: NextRequest) {
     .in("provider", ["ELITE", "NATV"])
     .order("priority", { ascending: true });
 
-  // Deduplicação por janela ±5min (evita duplicatas de horário ligeiramente diferente)
-  const jaTemProg = new Map<string, number[]>(); // canal_id → timestamps em ms
+  // Deduplicação por sobreposição de período (bloqueia o intervalo inteiro do programa)
+  const jaTemProg = new Map<string, { start: number; stop: number }[]>();
   for (const p of progsMestre) {
     const arr = jaTemProg.get(p.channel_id) || [];
-    arr.push(new Date(p.start).getTime());
+    arr.push({ start: new Date(p.start).getTime(), stop: new Date(p.stop).getTime() });
     jaTemProg.set(p.channel_id, arr);
   }
 
-  function jaExiste(channelId: string, startIso: string): boolean {
+  function jaExiste(channelId: string, startIso: string, stopIso: string): boolean {
     const arr = jaTemProg.get(channelId);
     if (!arr?.length) return false;
-    const t = new Date(startIso).getTime();
-    return arr.some(e => Math.abs(e - t) <= 5 * 60 * 1000);
+    
+    const newStart = new Date(startIso).getTime();
+    const newStop = new Date(stopIso).getTime();
+    
+    // Bloqueia se houver sobreposição: NOVO começa antes do ATUAL terminar E NOVO termina depois do ATUAL começar
+    return arr.some(existente => newStart < existente.stop && newStop > existente.start);
   }
 
   let programasFinais = [...progsMestre];
@@ -425,9 +429,9 @@ export async function POST(req: NextRequest) {
     if (!erro && progsComp.length > 0) {
       let adicionados = 0;
       for (const p of progsComp) {
-        if (!jaExiste(p.channel_id, p.start)) {
+        if (!jaExiste(p.channel_id, p.start, p.stop)) {
           const arr = jaTemProg.get(p.channel_id) || [];
-          arr.push(new Date(p.start).getTime());
+          arr.push({ start: new Date(p.start).getTime(), stop: new Date(p.stop).getTime() });
           jaTemProg.set(p.channel_id, arr);
           programasFinais.push(p);
           adicionados++;

@@ -192,17 +192,19 @@ function GradeEPG({canais,progsPorCanal}:{canais:Canal[];progsPorCanal:Map<strin
                     const isAtual=agoraBrtMs>=sMs&&agoraBrtMs<=eMs;
                     return (
                       <div key={prog.start} onClick={()=>setProgSel(prog)}
-                        style={{position:"absolute",left:lPx+1,width:wPx-2,top:5,bottom:5,borderRadius:5,cursor:"pointer",background:isAtual?cor+"22":"#1a1d2e",border:`1px solid ${isAtual?cor+"50":"#252840"}`,overflow:"hidden",display:"flex",alignItems:"center",transition:"background 0.1s"}}
-                        onMouseEnter={e=>{(e.currentTarget as HTMLDivElement).style.background=isAtual?cor+"35":"#1e2130";(e.currentTarget as HTMLDivElement).style.borderColor=cor+"60";}}
-                        onMouseLeave={e=>{(e.currentTarget as HTMLDivElement).style.background=isAtual?cor+"22":"#1a1d2e";(e.currentTarget as HTMLDivElement).style.borderColor=isAtual?cor+"50":"#252840";}}>
-                        {prog.prog_icon&&wPx>90&&<img src={prog.prog_icon} alt="" style={{height:"100%",width:"auto",maxWidth:Math.min(wPx*0.28,52),objectFit:"cover",flexShrink:0,opacity:0.8}}/>}
-                        <div style={{flex:1,minWidth:0,display:"flex",alignItems:isAtual?"flex-start":"center",gap:5,padding:"4px 7px"}}>
-                          {isAtual&&<div style={{width:5,height:5,borderRadius:"50%",background:cor,flexShrink:0,boxShadow:`0 0 5px ${cor}80`,marginTop:3}}/>}
-                          <span style={{fontSize:13,fontWeight:isAtual?500:400,color:isAtual?"#f1f5f9":"#8492a6",overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",whiteSpace:"normal",lineHeight:1.3}}>
-                            {lRaw<0?`◀ ${prog.title}`:wPx>70?`${formatHora(prog.start)} ${prog.title}`:prog.title}
-                          </span>
+                          style={{position:"absolute",left:lPx+1,width:wPx-2,top:5,bottom:5,borderRadius:5,cursor:"pointer",background:isAtual?cor+"22":"#1a1d2e",border:`1px solid ${isAtual?cor+"50":"#252840"}`,clipPath:"inset(0 round 5px)",display:"flex",alignItems:"center",transition:"background 0.1s"}}
+                          onMouseEnter={e=>{(e.currentTarget as HTMLDivElement).style.background=isAtual?cor+"35":"#1e2130";(e.currentTarget as HTMLDivElement).style.borderColor=cor+"60";}}
+                          onMouseLeave={e=>{(e.currentTarget as HTMLDivElement).style.background=isAtual?cor+"22":"#1a1d2e";(e.currentTarget as HTMLDivElement).style.borderColor=isAtual?cor+"50":"#252840";}}>
+                          <div style={{position:"sticky",left:canalW,display:"flex",alignItems:"center",height:"100%",minWidth:0,maxWidth:"100%"}}>
+                            {prog.prog_icon&&wPx>90&&<img src={prog.prog_icon} alt="" style={{height:"100%",width:"auto",maxWidth:Math.min(wPx*0.28,52),objectFit:"cover",flexShrink:0,opacity:0.8}}/>}
+                            <div style={{flex:1,minWidth:0,display:"flex",alignItems:isAtual?"flex-start":"center",gap:5,padding:"4px 7px"}}>
+                              {isAtual&&<div style={{width:5,height:5,borderRadius:"50%",background:cor,flexShrink:0,boxShadow:`0 0 5px ${cor}80`,marginTop:3}}/>}
+                              <span style={{fontSize:13,fontWeight:isAtual?500:400,color:isAtual?"#f1f5f9":"#8492a6",overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",whiteSpace:"normal",lineHeight:1.3}}>
+                                {lRaw<0?`◀ ${prog.title}`:wPx>70?`${formatHora(prog.start)} ${prog.title}`:prog.title}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                      </div>
                     );
                   })}
                 </div>
