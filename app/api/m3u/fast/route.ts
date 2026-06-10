@@ -4,14 +4,23 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function GET() {
-  const M3U_URL = "http://p1fast.com/get.php?username=Insqueixa&password=uC8369&type=m3u_plus&output=ts";
+  const M3U_URL = "http://p1fast.com/get.php?username=AndersonFastTV31&password=4186520479&type=m3u_plus&output=ts";
 
   try {
-    // A chave mestra para evitar o Erro 403 em servidores IPTV
+    // Tentativa de simulação perfeita de um navegador Google Chrome para burlar o firewall
     const response = await fetch(M3U_URL, {
       headers: { 
-        "User-Agent": "IPTVSmartersPro",
-        "Accept": "*/*"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "Pragma": "no-cache",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
+        "Upgrade-Insecure-Requests": "1"
       } 
     });
 
@@ -41,7 +50,7 @@ export async function GET() {
         const logo = trimmed.match(/tvg-logo="([^"]*)"/)?.[1] || "";
         const group = trimmed.match(/group-title="([^"]*)"/)?.[1] || "Outros";
         
-        // Em listas de VOD, o nome do filme fica no final da string EXTINF
+        // O título fica após a última vírgula na linha EXTINF
         const title = trimmed.split(",").pop()?.trim() || "Desconhecido";
 
         currentVOD = {
@@ -60,7 +69,6 @@ export async function GET() {
       }
     }
 
-    // Para não travar o seu navegador no teste, retornamos o total e apenas os 20 primeiros filmes
     return NextResponse.json({
       ok: true,
       total_vods: vods.length,
