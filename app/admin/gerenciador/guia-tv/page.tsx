@@ -56,19 +56,23 @@ function ProgramaTooltip({prog,onClose}:{prog:Programa;onClose:()=>void}) {
 
 function ResultadoBusca({resultados,busca,onClear}:{resultados:Array<{canal:Canal;prog:Programa}>;busca:string;onClear:()=>void}) {
   const [sel,setSel]=useState<Programa|null>(null);
-  const [modo, setModo] = useState<"PROGRAMA"|"CANAL">("PROGRAMA");
-  const agrupadoPorPrograma=useMemo(()=>{
+  const [modo, setModo] = useState<"PROGRAMA" | "CANAL">("PROGRAMA");
+  
+  const agrupadoPorPrograma = useMemo(()=>{
     const map=new Map<string,Array<{canal:Canal;prog:Programa}>>();
     for(const r of resultados){const k=r.prog.title.trim();const a=map.get(k)||[];a.push(r);map.set(k,a);}
     return [...map.entries()].sort((a,b)=>b[1].length-a[1].length).map(([titulo,items])=>({titulo,items:items.sort((a,b)=>new Date(a.prog.start).getTime()-new Date(b.prog.start).getTime())}));
   },[resultados]);
-  const agrupadoPorCanal=useMemo(()=>{
+
+  const agrupadoPorCanal = useMemo(()=>{
     const map=new Map<string,Array<{canal:Canal;prog:Programa}>>();
     for(const r of resultados){const k=r.canal.nome;const a=map.get(k)||[];a.push(r);map.set(k,a);}
     return [...map.entries()].sort((a,b)=>a[0].localeCompare(b[0])).map(([titulo,items])=>({titulo,items:items.sort((a,b)=>new Date(a.prog.start).getTime()-new Date(b.prog.start).getTime())}));
   },[resultados]);
+
   const agora=nowBRT().getTime();
-  const listagemAtiva = modo==="PROGRAMA" ? agrupadoPorPrograma : agrupadoPorCanal;
+  const listagemAtiva = modo === "PROGRAMA" ? agrupadoPorPrograma : agrupadoPorCanal;
+
   return (
     <>
       {sel&&<ProgramaTooltip prog={sel} onClose={()=>setSel(null)}/>}
@@ -76,26 +80,31 @@ function ResultadoBusca({resultados,busca,onClear}:{resultados:Array<{canal:Cana
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
           <div style={{flex:1}}>
             <div style={{fontSize:13,fontWeight:600,color:"#e2e8f0"}}>{resultados.length} resultado{resultados.length!==1?"s":""}</div>
-            <div style={{fontSize:11,color:"#374151",marginTop:2}}>"{busca}" — {listagemAtiva.length} {modo==="PROGRAMA"?"título(s)":"canal(is)"}</div>
+            <div style={{fontSize:11,color:"#374151",marginTop:2}}>"{busca}" — {listagemAtiva.length} {modo === "PROGRAMA" ? "título(s)" : "canal(is)"}</div>
           </div>
-          <div style={{display:"flex",background:"#1a1d2e",padding:4,borderRadius:8,gap:4}}>
-            <button onClick={()=>setModo("PROGRAMA")} style={{padding:"6px 12px",background:modo==="PROGRAMA"?"#6366f1":"transparent",color:modo==="PROGRAMA"?"#fff":"#64748b",border:"none",borderRadius:6,fontSize:12,fontWeight:600,cursor:"pointer"}}>Por Programa</button>
-            <button onClick={()=>setModo("CANAL")} style={{padding:"6px 12px",background:modo==="CANAL"?"#6366f1":"transparent",color:modo==="CANAL"?"#fff":"#64748b",border:"none",borderRadius:6,fontSize:12,fontWeight:600,cursor:"pointer"}}>Por Canal</button>
+          
+          <div style={{display:"flex", background:"#1a1d2e", padding:4, borderRadius:8, gap:4}}>
+            <button onClick={()=>setModo("PROGRAMA")} style={{padding:"6px 12px", background:modo==="PROGRAMA"?"#6366f1":"transparent", color:modo==="PROGRAMA"?"#fff":"#64748b", border:"none", borderRadius:6, fontSize:12, fontWeight:600, cursor:"pointer"}}>Por Programa</button>
+            <button onClick={()=>setModo("CANAL")} style={{padding:"6px 12px", background:modo==="CANAL"?"#6366f1":"transparent", color:modo==="CANAL"?"#fff":"#64748b", border:"none", borderRadius:6, fontSize:12, fontWeight:600, cursor:"pointer"}}>Por Canal</button>
           </div>
+
           <button onClick={onClear} style={{display:"flex",alignItems:"center",gap:5,padding:"6px 12px",background:"#111",border:"1px solid #1e1e2e",borderRadius:8,color:"#475569",fontSize:12,cursor:"pointer"}}><X style={{width:13,height:13}}/> Limpar</button>
         </div>
+        
         {listagemAtiva.length===0&&<div style={{textAlign:"center",padding:"60px 0",color:"#374151"}}><Search style={{width:28,height:28,margin:"0 auto 12px",display:"block",opacity:0.3}}/><div style={{fontSize:14}}>Nenhum resultado para "{busca}"</div></div>}
+        
         <div style={{display:"flex",flexDirection:"column",gap:24}}>
           {listagemAtiva.map(({titulo,items})=>{
             const cor=CAT_COR[items[0].canal.categoria]||"#6b7280";
             return (
-              <div key={titulo} style={{background:"#13151f",border:"1px solid #1e2130",borderRadius:10,padding:14}}>
+              <div key={titulo} style={{background:"#13151f", border:"1px solid #1e2130", borderRadius:10, padding:14}}>
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
-                  {modo==="CANAL"&&<Logo src={items[0].canal.icon} nome={items[0].canal.nome} categoria={items[0].canal.categoria} size={28}/>}
-                  {modo==="PROGRAMA"&&<div style={{width:4,height:18,background:cor,borderRadius:2,flexShrink:0}}/>}
+                  {modo === "CANAL" && <Logo src={items[0].canal.icon} nome={items[0].canal.nome} categoria={items[0].canal.categoria} size={28}/>}
+                  {modo === "PROGRAMA" && <div style={{width:4,height:18,background:cor,borderRadius:2,flexShrink:0}}/>}
                   <div style={{fontSize:15,fontWeight:700,color:"#e2e8f0"}}>{titulo}</div>
                   <div style={{fontSize:10,fontWeight:600,padding:"2px 7px",borderRadius:20,background:cor+"20",color:cor,border:`1px solid ${cor}30`}}>{items.length}x</div>
                 </div>
+                
                 <div style={{display:"flex",flexDirection:"column",gap:8}}>
                   {items.map((r,i)=>{
                     const sMs=new Date(r.prog.start).getTime(),eMs=new Date(r.prog.stop).getTime();
@@ -104,16 +113,18 @@ function ResultadoBusca({resultados,busca,onClear}:{resultados:Array<{canal:Cana
                       <div key={i} onClick={()=>setSel(r.prog)} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:8,cursor:"pointer",background:emAnd?cor+"12":"#0f0f0f",border:`1px solid ${emAnd?cor+"40":"#1a1a1a"}`,opacity:passou?0.45:1}}
                         onMouseEnter={e=>{if(!passou){(e.currentTarget as HTMLDivElement).style.background=emAnd?cor+"20":"#161616";(e.currentTarget as HTMLDivElement).style.borderColor=cor+"50";}}}
                         onMouseLeave={e=>{(e.currentTarget as HTMLDivElement).style.background=emAnd?cor+"12":"#0f0f0f";(e.currentTarget as HTMLDivElement).style.borderColor=emAnd?cor+"40":"#1a1a1a";}}>
-                        {modo==="PROGRAMA"&&<Logo src={r.canal.icon} nome={r.canal.nome} categoria={r.canal.categoria} size={36}/>}
-                        {modo==="PROGRAMA"&&<div style={{minWidth:120,flexShrink:0}}><div style={{fontSize:13,fontWeight:600,color:"#bbb"}}>{r.canal.nome}</div><div style={{fontSize:11,color:"#475569",marginTop:2}}>{r.canal.categoria}</div></div>}
+                        
+                        {modo === "PROGRAMA" && <Logo src={r.canal.icon} nome={r.canal.nome} categoria={r.canal.categoria} size={36}/>}
+                        {modo === "PROGRAMA" && <div style={{minWidth:120,flexShrink:0}}><div style={{fontSize:13,fontWeight:600,color:"#bbb"}}>{r.canal.nome}</div><div style={{fontSize:11,color:"#475569",marginTop:2}}>{r.canal.categoria}</div></div>}
+                        
                         <div style={{flex:1}}>
                           <div style={{display:"flex",alignItems:"center",gap:8}}>
                             {emAnd&&<div style={{display:"flex",alignItems:"center",gap:4,fontSize:10,fontWeight:700,color:cor,background:cor+"20",padding:"2px 7px",borderRadius:20,flexShrink:0}}><div style={{width:5,height:5,borderRadius:"50%",background:cor,animation:"pulse 1s infinite"}}/> AO VIVO</div>}
                             <span style={{fontSize:14,fontWeight:600,color:emAnd?"#fff":"#888"}}>{formatHora(r.prog.start)} – {formatHora(r.prog.stop)}</span>
-                            {modo==="CANAL"&&<span style={{fontSize:14,fontWeight:600,color:"#cbd5e1",marginLeft:8}}>{r.prog.title}</span>}
+                            {modo === "CANAL" && <span style={{fontSize:14,fontWeight:600,color:"#cbd5e1", marginLeft:8}}>{r.prog.title}</span>}
                             <span style={{fontSize:12,color:"#475569"}}>· {r.prog.duracao_min} min</span>
                           </div>
-                          {r.prog.desc&&<div style={{fontSize:12,color:"#64748b",marginTop:4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.prog.desc}</div>}
+                          {r.prog.desc&&<div style={{fontSize:12,color:"#64748b",marginTop:4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"100%"}}>{r.prog.desc}</div>}
                         </div>
                       </div>
                     );
@@ -136,17 +147,37 @@ function GradeEPG({canais,progsPorCanal}:{canais:Canal[];progsPorCanal:Map<strin
   const [showNomes,setShowNomes]=useState(!isMobile);
   const canalW=showNomes?CANAL_COL_W:(isMobile?60:54);
   const linhaH=isMobile?80:LINHA_H;
+
   useEffect(()=>{const iv=setInterval(()=>setAgora(nowBRT()),60000);return()=>clearInterval(iv);},[]);
+
   const gradeWidth=TOTAL_HORAS*HORA_WIDTH;
-  const baseMs=useMemo(()=>Math.floor(Date.now()/3600000)*3600000-2*3600000,[]);
-  const agoraOffsetPx=useMemo(()=>((agora.getTime()-baseMs)/60000)*PX_POR_MIN,[agora,baseMs]);
-  const horaLabels=useMemo(()=>Array.from({length:TOTAL_HORAS+1},(_,i)=>({x:i*HORA_WIDTH,label:new Date(baseMs+i*3600000).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})})),[baseMs]);
-  useEffect(()=>{if(scrollRef.current&&agoraOffsetPx>0)scrollRef.current.scrollLeft=Math.max(0,agoraOffsetPx-2*HORA_WIDTH);},[agoraOffsetPx]);
+
+  const baseMs=useMemo(()=>{
+    return Math.floor(Date.now()/3600000)*3600000-2*3600000;
+  },[]);
+
+  const agoraOffsetPx=useMemo(()=>{
+    return((agora.getTime()-baseMs)/60000)*PX_POR_MIN;
+  },[agora,baseMs]);
+
+  const horaLabels=useMemo(()=>
+    Array.from({length:TOTAL_HORAS+1},(_,i)=>({
+      x:i*HORA_WIDTH,
+      label:new Date(baseMs+i*3600000).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}),
+    }))
+  ,[baseMs]);
+
+  useEffect(()=>{
+    if(scrollRef.current&&agoraOffsetPx>0)
+      scrollRef.current.scrollLeft=Math.max(0,agoraOffsetPx-2*HORA_WIDTH);
+  },[agoraOffsetPx]);
+
   return (
     <>
       {progSel&&<ProgramaTooltip prog={progSel} onClose={()=>setProgSel(null)}/>}
       <div ref={scrollRef} style={{overflowX:"auto",overflowY:"auto",background:"#0f1117",flex:1,minHeight:0}}>
         <div style={{display:"inline-block",minWidth:canalW+gradeWidth}}>
+          {/* Régua sticky no topo */}
           <div style={{position:"sticky",top:0,zIndex:30,display:"flex",height:REGUA_H,background:"#13151f",borderBottom:"1px solid #1e2130"}}>
             <div style={{width:canalW,flexShrink:0,position:"sticky",left:0,zIndex:31,background:"#13151f",borderRight:"1px solid #1e2130"}}/>
             <div style={{position:"relative",width:gradeWidth,flexShrink:0}}>
@@ -158,46 +189,51 @@ function GradeEPG({canais,progsPorCanal}:{canais:Canal[];progsPorCanal:Map<strin
               <div style={{position:"absolute",left:agoraOffsetPx,top:0,width:2,height:"100%",background:"#ef4444"}}/>
             </div>
           </div>
+          {/* Linhas de canal */}
           {canais.map(canal=>{
             const progs=(progsPorCanal.get(canal.id)||[]).sort((a,b)=>new Date(a.start).getTime()-new Date(b.start).getTime());
             const cor=CAT_COR[canal.categoria]||"#6b7280";
             const agoraBrtMs=agora.getTime()-3*3600000;
             return (
               <div key={canal.id} style={{display:"flex",height:linhaH,borderBottom:"1px solid #1a1d2e"}}>
+                {/* Coluna canal sticky */}
                 <div style={{width:canalW,flexShrink:0,position:"sticky",left:0,zIndex:20,background:"#0f1117",borderRight:"1px solid #1e2130",display:"flex",alignItems:"center",gap:showNomes?10:0,padding:showNomes?"0 12px":"0",justifyContent:showNomes?"flex-start":"center",cursor:isMobile?"pointer":"default",userSelect:"none"}}
                   onClick={()=>isMobile&&setShowNomes(v=>!v)}>
                   <Logo src={canal.icon} nome={canal.nome} categoria={canal.categoria} size={showNomes?(isMobile?40:34):(isMobile?50:44)}/>
                   {showNomes&&<span style={{fontSize:13,color:"#94a3b8",fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{canal.nome}</span>}
                 </div>
+                {/* Área programas */}
                 <div style={{position:"relative",width:gradeWidth,flexShrink:0}}>
-                  <div style={{position:"absolute",left:agoraOffsetPx,top:0,width:2,height:"100%",background:"#ef4444",zIndex:5,pointerEvents:"none"}}/>
-                  {horaLabels.map((h,i)=>i>0&&<div key={i} style={{position:"absolute",left:h.x,top:0,width:1,height:"100%",background:"#1e2130",pointerEvents:"none"}}/>)}
-                  {progs.length===0&&Array.from({length:Math.ceil(TOTAL_HORAS/2)},(_,i)=>(
-                    <div key={i} style={{position:"absolute",left:i*2*HORA_WIDTH+1,width:2*HORA_WIDTH-6,top:5,bottom:5,borderRadius:5,background:"#141624",border:"1px solid #1e2130",display:"flex",alignItems:"center",justifyContent:"center",opacity:0.8}}>
-                      <span style={{fontSize:13,color:"#64748b",fontWeight:500}}>Sem informação</span>
-                    </div>
-                  ))}
-                  {progs.map(prog=>{
-                    const sMs=new Date(prog.start).getTime();
-                    const eMs=new Date(prog.stop).getTime();
-                    const lRaw=((sMs-baseMs)/60000)*PX_POR_MIN;
+                <div style={{position:"absolute",left:agoraOffsetPx,top:0,width:2,height:"100%",background:"#ef4444",zIndex:5,pointerEvents:"none"}}/>
+                {horaLabels.map((h,i)=>i>0&&<div key={i} style={{position:"absolute",left:h.x,top:0,width:1,height:"100%",background:"#1e2130",pointerEvents:"none"}}/>)}
+                {progs.length===0&&Array.from({length:Math.ceil(TOTAL_HORAS/2)},(_,i)=>(
+                  <div key={i} style={{position:"absolute",left:i*2*HORA_WIDTH+1,width:2*HORA_WIDTH-6,top:5,bottom:5,borderRadius:5,background:"#141624",border:"1px solid #1e2130",display:"flex",alignItems:"center",justifyContent:"center",opacity:0.8}}>
+                    <span style={{fontSize:13,color:"#64748b",fontWeight:500}}>Sem informação</span>
+                  </div>
+                ))}
+                {progs.map(prog=>{
+                  const sMs=new Date(prog.start).getTime();
+                  const eMs=new Date(prog.stop).getTime();
+                  const lRaw=((sMs-baseMs)/60000)*PX_POR_MIN;
                     const wRaw=Math.max(((eMs-sMs)/60000)*PX_POR_MIN-2,4);
                     const lPx=Math.max(lRaw,0);
                     const wPx=Math.max(wRaw-(lPx-lRaw),20);
                     const isAtual=agoraBrtMs>=sMs&&agoraBrtMs<=eMs;
                     return (
                       <div key={prog.start} onClick={()=>setProgSel(prog)}
-                        style={{position:"absolute",left:lPx+1,width:wPx-2,top:5,bottom:5,borderRadius:5,cursor:"pointer",background:isAtual?cor+"22":"#1a1d2e",border:`1px solid ${isAtual?cor+"50":"#252840"}`,overflow:"hidden",display:"flex",alignItems:"center",transition:"background 0.1s"}}
-                        onMouseEnter={e=>{(e.currentTarget as HTMLDivElement).style.background=isAtual?cor+"35":"#1e2130";(e.currentTarget as HTMLDivElement).style.borderColor=cor+"60";}}
-                        onMouseLeave={e=>{(e.currentTarget as HTMLDivElement).style.background=isAtual?cor+"22":"#1a1d2e";(e.currentTarget as HTMLDivElement).style.borderColor=isAtual?cor+"50":"#252840";}}>
-                        {prog.prog_icon&&wPx>90&&<img src={prog.prog_icon} alt="" style={{height:"100%",width:"auto",maxWidth:Math.min(wPx*0.28,52),objectFit:"cover",flexShrink:0,opacity:0.8}}/>}
-                        <div style={{flex:1,minWidth:0,display:"flex",alignItems:isAtual?"flex-start":"center",gap:5,padding:"4px 7px"}}>
-                          {isAtual&&<div style={{width:5,height:5,borderRadius:"50%",background:cor,flexShrink:0,boxShadow:`0 0 5px ${cor}80`,marginTop:3}}/>}
-                          <span style={{fontSize:13,fontWeight:isAtual?500:400,color:isAtual?"#f1f5f9":"#8492a6",overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",whiteSpace:"normal",lineHeight:1.3}}>
-                            {lRaw<0?`◀ ${prog.title}`:wPx>70?`${formatHora(prog.start)} ${prog.title}`:prog.title}
-                          </span>
+                          style={{position:"absolute",left:lPx+1,width:wPx-2,top:5,bottom:5,borderRadius:5,cursor:"pointer",background:isAtual?cor+"22":"#1a1d2e",border:`1px solid ${isAtual?cor+"50":"#252840"}`,clipPath:"inset(0 round 5px)",display:"flex",alignItems:"center",transition:"background 0.1s"}}
+                          onMouseEnter={e=>{(e.currentTarget as HTMLDivElement).style.background=isAtual?cor+"35":"#1e2130";(e.currentTarget as HTMLDivElement).style.borderColor=cor+"60";}}
+                          onMouseLeave={e=>{(e.currentTarget as HTMLDivElement).style.background=isAtual?cor+"22":"#1a1d2e";(e.currentTarget as HTMLDivElement).style.borderColor=isAtual?cor+"50":"#252840";}}>
+                          <div style={{position:"sticky",left:canalW,display:"flex",alignItems:"center",height:"100%",minWidth:0,maxWidth:"100%"}}>
+                            {prog.prog_icon&&wPx>90&&<img src={prog.prog_icon} alt="" style={{height:"100%",width:"auto",maxWidth:Math.min(wPx*0.28,52),objectFit:"cover",flexShrink:0,opacity:0.8}}/>}
+                            <div style={{flex:1,minWidth:0,display:"flex",alignItems:isAtual?"flex-start":"center",gap:5,padding:"4px 7px"}}>
+                              {isAtual&&<div style={{width:5,height:5,borderRadius:"50%",background:cor,flexShrink:0,boxShadow:`0 0 5px ${cor}80`,marginTop:3}}/>}
+                              <span style={{fontSize:13,fontWeight:isAtual?500:400,color:isAtual?"#f1f5f9":"#8492a6",overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",whiteSpace:"normal",lineHeight:1.3}}>
+                                {lRaw<0?`◀ ${prog.title}`:wPx>70?`${formatHora(prog.start)} ${prog.title}`:prog.title}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                      </div>
                     );
                   })}
                 </div>
@@ -219,14 +255,15 @@ function DropdownFiltro({label,ativo,cor,disabled,children}:{label:string;ativo:
     document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);
   },[]);
   return (
-    <div ref={ref} style={{position:"relative",flexShrink:0,opacity:disabled?0.4:1}}>
-      <button onClick={()=>!disabled&&setOpen(o=>!o)} style={{display:"flex",alignItems:"center",gap:6,height:36,padding:"0 12px",background:ativo?c+"15":"#1a1d2e",border:`1px solid ${ativo?c+"50":"#252840"}`,borderRadius:8,cursor:disabled?"not-allowed":"pointer",color:ativo?c:"#94a3b8",fontSize:13,fontWeight:ativo?600:400,whiteSpace:"nowrap"}}>
+    <div ref={ref} style={{position:"relative",flexShrink:0, opacity: disabled ? 0.4 : 1}}>
+      <button onClick={()=>!disabled && setOpen(o=>!o)} style={{display:"flex",alignItems:"center",gap:6,height:36,padding:"0 12px",background:ativo?c+"15":"#1a1d2e",border:`1px solid ${ativo?c+"50":"#252840"}`,borderRadius:8,cursor:disabled?"not-allowed":"pointer",color:ativo?c:"#94a3b8",fontSize:13,fontWeight:ativo?600:400,whiteSpace:"nowrap"}}>
         {label}<ChevronDown style={{width:13,height:13,opacity:0.6,transform:open?"rotate(180deg)":"none",transition:"transform 0.15s"}}/>
       </button>
-      {open&&!disabled&&(
+      {open && !disabled &&(
         <div onClick={()=>setOpen(false)} style={{position:"absolute",top:"calc(100% + 6px)",left:0,minWidth:200,background:"#13151f",border:"1px solid #1e2130",borderRadius:10,zIndex:200,overflow:"hidden",boxShadow:"0 12px 40px rgba(0,0,0,0.7)",maxHeight:320,overflowY:"auto"}}>
           {children}
         </div>
+      // (Fim do componente DropdownFiltro)
       )}
     </div>
   );
@@ -243,7 +280,6 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
 
   const addLog = (srv:SrvId, msg:string) => setLogs(p=>({...p,[srv]:[...p[srv],msg]}));
 
-  // Carrega status dos últimos syncs ao abrir
   useEffect(()=>{
     (["elite","natv","fast"] as SrvId[]).forEach(async srv=>{
       try{
@@ -292,13 +328,11 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
     }catch(e:any){addLog("natv",`❌ ${e.message}`);setStatus(p=>({...p,natv:"error"}));}
   }
 
-  // Fast: chama extensão via CustomEvent
   function syncFast(){
     setStatus(p=>({...p,fast:"running"}));
     setLogs(p=>({...p,fast:[]}));
     addLog("fast","⬇ Baixando M3U via extensão...");
 
-    // Escuta resposta da extensão
     function onResult(e:Event){
       const detail = (e as CustomEvent).detail;
       window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", onResult);
@@ -311,7 +345,6 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
     }
     window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", onResult);
 
-    // Escuta conclusão da extensão (notifyUniGestor)
     function onDone(e:Event){
       const detail = (e as CustomEvent).detail;
       if(detail?.action !== "FAST_VOD_SYNC_RESULT") return;
@@ -330,11 +363,10 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
     }
     window.addEventListener("UNIGESTOR_INTEGRATION_CALL", onDone);
 
-    // Dispara para a extensão
     window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL",{
       detail:{
         action:"FAST_VOD_SYNC",
-        m3uUrl: "", // A extensão deve buscar o m3uUrl da API antes de chamar
+        m3uUrl: "",
         apiBase: window.location.origin,
       }
     }));
@@ -349,7 +381,6 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
   return (
     <div style={{position:"fixed",inset:0,zIndex:9998,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={onClose}>
       <div onClick={e=>e.stopPropagation()} style={{background:"#13151f",border:"1px solid #1e2130",borderRadius:14,width:"100%",maxWidth:520,boxShadow:"0 24px 64px rgba(0,0,0,0.9)",overflow:"hidden"}}>
-        {/* Header */}
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 20px",borderBottom:"1px solid #1e2130"}}>
           <div>
             <div style={{fontSize:15,fontWeight:700,color:"#f1f5f9",display:"flex",alignItems:"center",gap:8}}>
@@ -360,7 +391,6 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
           <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:"#475569"}}><X style={{width:16,height:16}}/></button>
         </div>
 
-        {/* Cards por servidor */}
         <div style={{padding:16,display:"flex",flexDirection:"column",gap:12}}>
           {SERVIDORES.map(({id,label,cor,onSync})=>{
             const st = status[id];
@@ -466,14 +496,20 @@ export default function GuiaTVPage() {
 
   const resultadosBusca=useMemo(()=>{
     if(!epg||!buscaAtiva.trim())return[];
-    const kws=buscaAtiva.toLowerCase().trim().split(/\s+/);
+    
+    // Busca inteligente: divide a string em palavras e exige que TODAS estejam presentes em qualquer campo
+    const kws = buscaAtiva.toLowerCase().trim().split(/\s+/);
     const res:Array<{canal:Canal;prog:Programa}>=[];
     const cmap=new Map(epg.canais.map(c=>[c.id,c]));
+    
     for(const p of epg.programas){
       const c=cmap.get(p.channel_id);if(!c)continue;
       if(catAtiva!=="Todos"&&c.categoria!==catAtiva)continue;
-      const textoBuscavel=`${p.title} ${p.desc||""} ${c.nome} ${c.categoria}`.toLowerCase();
-      if(kws.every(kw=>textoBuscavel.includes(kw)))res.push({canal:c,prog:p});
+
+      const textoBuscavel = `${p.title} ${p.desc || ""} ${c.nome} ${c.categoria}`.toLowerCase();
+      const match = kws.every(kw => textoBuscavel.includes(kw));
+      
+      if(match) res.push({canal:c,prog:p});
     }
     const agora=Date.now();
     return res.sort((a,b)=>{
@@ -488,6 +524,7 @@ export default function GuiaTVPage() {
   const subgruposDisponiveis=SUBGRUPOS[catAtiva]||[];
   const emBusca=buscaAtiva.trim().length>0;
 
+  // Layout: header fixo + grade ocupa o resto da viewport
   return (
     <div style={{display:"flex",flexDirection:"column",height:"calc(100vh - 57px)",background:"#0f1117",color:"#cbd5e1",overflow:"hidden"}}>
       {showCatalogo&&<ModalCatalogo onClose={()=>setShowCatalogo(false)}/>}
@@ -500,18 +537,21 @@ export default function GuiaTVPage() {
             <span style={{fontSize:14,fontWeight:700,color:"#f1f5f9",whiteSpace:"nowrap"}}>Guia TV</span>
             {epg&&<span style={{fontSize:10,color:"#475569",whiteSpace:"nowrap"}}>{epg.total_canais} canais · {formatDataHora(epg.gerado_em)}</span>}
           </div>
+          
           <DropdownFiltro label={catAtiva==="Todos"?"Categoria":`${CAT_EMOJI[catAtiva]} ${catAtiva}`} ativo={catAtiva!=="Todos"} cor={catAtiva!=="Todos"?CAT_COR[catAtiva]:undefined}>
             {[{value:"Todos",label:"📡 Todas as categorias"},...catsDisponiveis.map(c=>({value:c,label:`${CAT_EMOJI[c]} ${c}`}))].map(opt=>(
               <button key={opt.value} onClick={()=>{setCatAtiva(opt.value);setSubAtiva("Todos");}} style={{display:"block",width:"100%",padding:"8px 14px",background:catAtiva===opt.value?"#1e2130":"none",border:"none",textAlign:"left",cursor:"pointer",color:catAtiva===opt.value?"#f1f5f9":"#94a3b8",fontSize:13,borderLeft:`3px solid ${catAtiva===opt.value?(CAT_COR[opt.value]||"#6366f1"):"transparent"}`}}
                 onMouseEnter={e=>(e.currentTarget.style.background="#1e2130")} onMouseLeave={e=>(e.currentTarget.style.background=catAtiva===opt.value?"#1e2130":"none")}>{opt.label}</button>
             ))}
           </DropdownFiltro>
-          <DropdownFiltro disabled={subgruposDisponiveis.length===0} label={subAtiva==="Todos"?"Subcategoria":subAtiva} ativo={subAtiva!=="Todos"} cor={catAtiva!=="Todos"?CAT_COR[catAtiva]:undefined}>
+          
+          <DropdownFiltro disabled={subgruposDisponiveis.length === 0} label={subAtiva==="Todos"?"Subcategoria":subAtiva} ativo={subAtiva!=="Todos"} cor={catAtiva!=="Todos"?CAT_COR[catAtiva]:undefined}>
             {[{value:"Todos",label:`Todos em ${catAtiva}`},...subgruposDisponiveis.map(s=>({value:s.label,label:s.label}))].map(opt=>(
               <button key={opt.value} onClick={()=>setSubAtiva(opt.value)} style={{display:"block",width:"100%",padding:"8px 14px",background:subAtiva===opt.value?"#1e2130":"none",border:"none",textAlign:"left",cursor:"pointer",color:subAtiva===opt.value?"#f1f5f9":"#94a3b8",fontSize:13,borderLeft:`3px solid ${subAtiva===opt.value?(CAT_COR[catAtiva]||"#6366f1"):"transparent"}`}}
                 onMouseEnter={e=>(e.currentTarget.style.background="#1e2130")} onMouseLeave={e=>(e.currentTarget.style.background=subAtiva===opt.value?"#1e2130":"none")}>{opt.label}</button>
             ))}
           </DropdownFiltro>
+
           <div style={{position:"relative",flex:1,minWidth:180,maxWidth:360}}>
             <Search style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",width:13,height:13,color:"#475569",pointerEvents:"none"}}/>
             <input value={busca} onChange={e=>setBusca(e.target.value)} onKeyDown={e=>e.key==="Enter"&&setBuscaAtiva(busca.trim())} placeholder="Buscar programas..." style={{width:"100%",height:36,paddingLeft:32,paddingRight:busca?30:10,background:"#1a1d2e",border:`1px solid ${emBusca?"#6366f1":"#252840"}`,borderRadius:8,fontSize:13,color:"#e2e8f0",outline:"none",boxSizing:"border-box"}}
@@ -537,6 +577,7 @@ export default function GuiaTVPage() {
         )}
       </div>
 
+      {/* Conteúdo — ocupa o resto */}
       {loading&&<div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,padding:80,color:"#374151",fontSize:13}}><RefreshCw style={{width:16,height:16,animation:"spin 1s linear infinite"}}/>Carregando...</div>}
       {erro&&!loading&&(
         <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:12,padding:80,textAlign:"center"}}>
