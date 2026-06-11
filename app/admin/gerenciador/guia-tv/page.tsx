@@ -588,13 +588,13 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
           break;
         }
 
-        // 10 segundos entre lotes
+        // 15 segundos entre lotes
         // Atualiza contador do card em tempo real
         const s = await fetch('/api/epg/sync-tmdb').then(r=>r.json());
         if(s.filmes) setTmdbInfo(s);
 
         // 10 segundos entre lotes
-        await new Promise(r => setTimeout(r, 10_000));
+        await new Promise(r => setTimeout(r, 15_000));
       }
 
       const s = await fetch('/api/epg/sync-tmdb').then(r=>r.json());
