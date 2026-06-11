@@ -32,24 +32,74 @@ const SLEEP_MS     = 250; // respeita rate limit do TMDB (40 req/s)
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
+// ─── Normalização para comparação ────────────────────────────────────────────
+function normComp(s: string): string {
+  return s.toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, "")
+    .replace(/\s+/g, " ").trim();
+}
+
+// Score de similaridade: palavras em comum / total de palavras únicas
+function similaridade(a: string, b: string): number {
+  if (!a || !b) return 0;
+  const wa = new Set(normComp(a).split(" ").filter(Boolean));
+  const wb = new Set(normComp(b).split(" ").filter(Boolean));
+  if (wa.size === 0 || wb.size === 0) return 0;
+  const intersecao = [...wa].filter(w => wb.has(w)).length;
+  return intersecao / Math.max(wa.size, wb.size);
+}
+
+// Score máximo entre título original, título PT-BR e título alternativo
+function melhorScore(busca: string, resultado: any, tipo: "FILME" | "SERIE"): number {
+  const candidatos = [
+    tipo === "FILME" ? resultado.title         : resultado.name,
+    tipo === "FILME" ? resultado.original_title : resultado.original_name,
+  ].filter(Boolean);
+  return Math.max(...candidatos.map((c: string) => similaridade(busca, c)));
+}
+
 // ─── Busca no TMDB ────────────────────────────────────────────────────────────
-async function buscarTMDB(titulo: string, tipo: "FILME" | "SERIE", ano: number | null) {
+async function buscarTMDB(titulo: string, tipo: "FILME" | "SERIE", ano: number | null): Promise<{
+  resultado: any;
+  score: number;
+} | null> {
   const endpoint = tipo === "FILME" ? "search/movie" : "search/tv";
-  const params   = new URLSearchParams({
-    api_key:       TMDB_KEY,
-    query:         titulo,
-    language:      "pt-BR",
-    include_adult: "false",
-    ...(ano ? { year: String(ano) } : {}),
-  });
 
-  const res = await fetch(`${TMDB_BASE}/${endpoint}?${params}`, {
-    signal: AbortSignal.timeout(8_000),
-  });
+  // Tenta primeiro com ano, depois sem (para aumentar chances de encontrar)
+  const tentativas = ano
+    ? [{ api_key: TMDB_KEY, query: titulo, language: "pt-BR", include_adult: "false", year: String(ano) },
+       { api_key: TMDB_KEY, query: titulo, language: "pt-BR", include_adult: "false" }]
+    : [{ api_key: TMDB_KEY, query: titulo, language: "pt-BR", include_adult: "false" }];
 
-  if (!res.ok) return null;
-  const data = await res.json();
-  return data.results?.[0] || null;
+  for (const p of tentativas) {
+    const res = await fetch(`${TMDB_BASE}/${endpoint}?${new URLSearchParams(p)}`, {
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!res.ok) continue;
+
+    const data = await res.json();
+    const resultados = data.results || [];
+
+    // Pega o resultado com maior score de similaridade (não necessariamente o primeiro)
+    let melhor: any = null;
+    let melhorScoreVal = 0;
+
+    for (const r of resultados.slice(0, 5)) { // checa os 5 primeiros
+      const score = melhorScore(titulo, r, tipo);
+      if (score > melhorScoreVal) {
+        melhorScoreVal = score;
+        melhor = r;
+      }
+    }
+
+    // Só aceita se o score for aceitável
+    if (melhor && melhorScoreVal >= 0.5) {
+      return { resultado: melhor, score: melhorScoreVal };
+    }
+  }
+
+  return null;
 }
 
 // ─── Busca detalhes completos do título ───────────────────────────────────────
@@ -132,14 +182,17 @@ export async function POST(req: NextRequest) {
     try {
       await sleep(SLEEP_MS);
 
-      const resultado = await buscarTMDB(titulo.titulo_normalizado, tipo, titulo.ano);
+      const tmdbRes = await buscarTMDB(titulo.titulo_normalizado, tipo, titulo.ano);
 
-      if (!resultado) {
-        // Marca como tentado mas sem resultado
+      if (!tmdbRes) {
+        // Score muito baixo ou sem resultado — marca como tentado
         await supabaseAdmin.from("catalog_master").update({ tmdb_buscado_em: agora }).eq("id", titulo.id);
         nao_encontrados++;
+        console.log(`[TMDB] ✗ "${titulo.titulo_normalizado}" — sem match confiável`);
         continue;
       }
+
+      const { resultado, score } = tmdbRes;
 
       // Busca detalhes completos para pegar sinopse e gêneros
       const detalhes = await buscarDetalhes(resultado.id, tipo);
@@ -151,18 +204,22 @@ export async function POST(req: NextRequest) {
       const sinopse       = detalhes?.overview || resultado.overview || null;
       const avaliacao     = resultado.vote_average ? parseFloat(resultado.vote_average.toFixed(1)) : null;
 
+      // Score >= 0.8 → match confiável (confirmado automaticamente)
+      // Score 0.5–0.79 → match provável mas precisa revisão manual
+      const confirmado = score >= 0.8;
+
       await supabaseAdmin.from("catalog_master").update({
         tmdb_id:         resultado.id,
         sinopse:         sinopse || null,
         avaliacao:       avaliacao,
         generos:         generosList.length > 0 ? generosList : null,
         poster_tmdb_url: poster,
-        tmdb_confirmado: false,  // automático = não confirmado
+        tmdb_confirmado: confirmado,
         tmdb_buscado_em: agora,
       }).eq("id", titulo.id);
 
       encontrados++;
-      console.log(`[TMDB] ✓ "${titulo.titulo_normalizado}" → "${nomeResultado}" (${resultado.id})`);
+      console.log(`[TMDB] ${confirmado ? "✓✓" : "✓?"} "${titulo.titulo_normalizado}" → "${nomeResultado}" score=${score.toFixed(2)} (${resultado.id})`);
 
     } catch (e: any) {
       console.error(`[TMDB] Erro em "${titulo.titulo_normalizado}":`, e.message);
