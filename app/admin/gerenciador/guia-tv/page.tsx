@@ -263,7 +263,7 @@ function DropdownFiltro({label,ativo,cor,disabled,children}:{label:string;ativo:
         <div onClick={()=>setOpen(false)} style={{position:"absolute",top:"calc(100% + 6px)",left:0,minWidth:200,background:"#13151f",border:"1px solid #1e2130",borderRadius:10,zIndex:200,overflow:"hidden",boxShadow:"0 12px 40px rgba(0,0,0,0.7)",maxHeight:320,overflowY:"auto"}}>
           {children}
         </div>
-      // (Fim do componente DropdownFiltro)
+      
       )}
     </div>
   );
@@ -337,7 +337,8 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
     const CLIENT_ID_FAST = "aefcff7a-9b8f-46be-9a1b-155a73a472de";
 
     try {
-      const res = await fetch(`/api/epg/sync-catalog/fast?clientId=${CLIENT_ID_FAST}`);
+      const res = await fetch(`/api/epg/sync-catalog/fast`);
+
       const data = await res.json();
       
       if (!data.m3u_url) {
@@ -362,7 +363,8 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
       function onDone(e:Event){
         const detail = (e as CustomEvent).detail;
         if(detail?.action !== "FAST_VOD_SYNC_RESULT") return;
-        window.removeEventListener("UNIGESTOR_INTEGRATION_CALL", onDone as any);
+        window.removeEventListener("UNIGESTOR_BACKGROUND_MESSAGE", onDone as any);
+
         if(!detail.ok){
           addLog("fast",`❌ ${detail.error}`);
           setStatus(p=>({...p,fast:"error"}));
@@ -375,7 +377,8 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
         setInfo(p=>({...p,fast:{ultimo_sync:new Date().toISOString(),filmes:detail.filmes??0,series_unicas:detail.series??0,episodios:detail.episodios??0}}));
         setStatus(p=>({...p,fast:"ok"}));
       }
-      window.addEventListener("UNIGESTOR_INTEGRATION_CALL", onDone);
+      window.addEventListener("UNIGESTOR_BACKGROUND_MESSAGE", onDone);
+
 
       // 3. Dispara o evento passando a URL recebida
       window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL",{

@@ -39,43 +39,26 @@ const supabaseAdmin = createAdmin(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
-// ─── GET — Status do último sync e buscar URL M3U ─────────────────────────────
-export async function GET(req: NextRequest) {
+const CLIENT_ID = "aefcff7a-9b8f-46be-9a1b-155a73a472de";
+
+export async function GET() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-  // 1. Captura o clientId enviado pelo front-end
-  const clientId = req.nextUrl.searchParams.get("clientId");
-  let m3uUrl = null;
+  const { data: cliente } = await supabaseAdmin
+    .from("clients")
+    .select("m3u_url")
+    .eq("id", CLIENT_ID)
+    .single();
 
-  // 2. Busca a URL M3U do cliente especificamente por este ID, ignorando RLS
-  if (clientId) {
-    const { data: cliente } = await supabaseAdmin
-      .from("clients")
-      .select("m3u_url")
-      .eq("id", clientId)
-      .single();
-      
-    m3uUrl = cliente?.m3u_url || null;
-  }
-
-  // 3. Busca o status do último sync do R2
-  let logData = { status: "Log não encontrado" };
+  let logData: any = { status: "Nenhum sync realizado ainda" };
   try {
     const res = await fetch(`${R2_URL}/${LOG_KEY}`, { cache: "no-store" });
-    if (res.ok) {
-      logData = await res.json();
-    } else {
-      logData = { status: "Nenhum sync realizado ainda" };
-    }
+    if (res.ok) logData = await res.json();
   } catch {}
 
-  // 4. Retorna tudo consolidado para o front
-  return NextResponse.json({
-    ...logData,
-    m3u_url: m3uUrl
-  });
+  return NextResponse.json({ ...logData, m3u_url: cliente?.m3u_url || null });
 }
 
 // ─── POST — Recebe lotes da extensão e grava no Supabase ─────────────────────

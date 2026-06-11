@@ -234,12 +234,11 @@ export function buildM3UUrl(dns: string[], username: string, password: string): 
 
 // ─── Stats do parse para o log ────────────────────────────────────────────────
 export function statsDoparse(entradas: EntradaCatalogo[]) {
-  let canais = 0, filmes = 0, episodios = 0;
+  let filmes = 0, episodios = 0;
   const seriesUnicas = new Set<string>();
   for (const e of entradas) {
-    if (e.tipo === "CANAL")       canais++;
-    else if (e.tipo === "FILME")  filmes++;
+    if (e.tipo === "FILME") filmes++;
     else { episodios++; seriesUnicas.add(e.titulo_normalizado); }
   }
-  return { canais, filmes, episodios, series_unicas: seriesUnicas.size };
+  return { filmes, episodios, series_unicas: seriesUnicas.size };
 }
