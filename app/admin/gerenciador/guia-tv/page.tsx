@@ -23,7 +23,7 @@ const HORA_WIDTH = 60 * PX_POR_MIN;
 const CANAL_COL_W = 180;
 const LINHA_H = 72;
 const REGUA_H = 34;
-const TOTAL_HORAS = 26;
+const TOTAL_HORAS = 48; // ontem meia-noite → depois de amanhã meia-noite
 
 function nowBRT(): Date { return new Date(); }
 function formatHora(iso: string) { return new Date(iso).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}); }
@@ -54,88 +54,198 @@ function ProgramaTooltip({prog,onClose}:{prog:Programa;onClose:()=>void}) {
   );
 }
 
-function ResultadoBusca({resultados,busca,onClear}:{resultados:Array<{canal:Canal;prog:Programa}>;busca:string;onClear:()=>void}) {
-  const [sel,setSel]=useState<Programa|null>(null);
-  const [modo, setModo] = useState<"PROGRAMA" | "CANAL">("PROGRAMA");
-  
-  const agrupadoPorPrograma = useMemo(()=>{
-    const map=new Map<string,Array<{canal:Canal;prog:Programa}>>();
-    for(const r of resultados){const k=r.prog.title.trim();const a=map.get(k)||[];a.push(r);map.set(k,a);}
-    return [...map.entries()].sort((a,b)=>b[1].length-a[1].length).map(([titulo,items])=>({titulo,items:items.sort((a,b)=>new Date(a.prog.start).getTime()-new Date(b.prog.start).getTime())}));
-  },[resultados]);
+function ResultadoBusca({epg,busca,progsPorCanal,onClear}:{epg:EpgData;busca:string;progsPorCanal:Map<string,Programa[]>;onClear:()=>void}) {
+  const [detalhe, setDetalhe] = useState<
+    | null
+    | {tipo:"canal"; canal:Canal}
+    | {tipo:"programa"; titulo:string}
+  >(null);
 
-  const agrupadoPorCanal = useMemo(()=>{
-    const map=new Map<string,Array<{canal:Canal;prog:Programa}>>();
-    for(const r of resultados){const k=r.canal.nome;const a=map.get(k)||[];a.push(r);map.set(k,a);}
-    return [...map.entries()].sort((a,b)=>a[0].localeCompare(b[0])).map(([titulo,items])=>({titulo,items:items.sort((a,b)=>new Date(a.prog.start).getTime()-new Date(b.prog.start).getTime())}));
-  },[resultados]);
+  const termo = busca.toLowerCase().trim();
 
-  const agora=nowBRT().getTime();
-  const listagemAtiva = modo === "PROGRAMA" ? agrupadoPorPrograma : agrupadoPorCanal;
+  // Canais cujo nome contém o termo
+  const canaisMatch = useMemo(()=>
+    epg.canais.filter(c => c.nome.toLowerCase().includes(termo) || c.display_name.toLowerCase().includes(termo))
+  ,[epg, termo]);
 
-  return (
-    <>
-      {sel&&<ProgramaTooltip prog={sel} onClose={()=>setSel(null)}/>}
+  // Programas cujo título contém o termo (títulos únicos)
+  const programasMatch = useMemo(()=>{
+    const titulos = new Map<string, {prog:Programa; canal:Canal}[]>();
+    const cmap = new Map(epg.canais.map(c=>[c.id,c]));
+    for(const p of epg.programas){
+      if(!p.title.toLowerCase().includes(termo)) continue;
+      const c = cmap.get(p.channel_id);
+      if(!c) continue;
+      const arr = titulos.get(p.title) || [];
+      arr.push({prog:p, canal:c});
+      titulos.set(p.title, arr);
+    }
+    return [...titulos.entries()]
+      .map(([titulo, items])=>({titulo, items: items.sort((a,b)=>new Date(a.prog.start).getTime()-new Date(b.prog.start).getTime())}))
+      .sort((a,b)=>b.items.length-a.items.length);
+  },[epg, termo]);
+
+  // Programação de um canal nas próximas 24h
+  const progCanal = useMemo(()=>{
+    if(detalhe?.tipo !== "canal") return [];
+    const agora = Date.now();
+    const fim = agora + 24*3600000;
+    return (progsPorCanal.get(detalhe.canal.id) || [])
+      .filter(p => new Date(p.stop).getTime() > agora && new Date(p.start).getTime() < fim)
+      .sort((a,b)=>new Date(a.start).getTime()-new Date(b.start).getTime());
+  },[detalhe, progsPorCanal]);
+
+  const agora = Date.now();
+  const cor = detalhe?.tipo==="canal" ? (CAT_COR[detalhe.canal.categoria]||"#6b7280") : "#6366f1";
+
+  // ── Detalhe de canal ──────────────────────────────────────────────────────
+  if(detalhe?.tipo==="canal"){
+    return (
       <div style={{padding:"16px 20px"}}>
-        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
-          <div style={{flex:1}}>
-            <div style={{fontSize:13,fontWeight:600,color:"#e2e8f0"}}>{resultados.length} resultado{resultados.length!==1?"s":""}</div>
-            <div style={{fontSize:11,color:"#374151",marginTop:2}}>"{busca}" — {listagemAtiva.length} {modo === "PROGRAMA" ? "título(s)" : "canal(is)"}</div>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+          <button onClick={()=>setDetalhe(null)} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",background:"#1a1d2e",border:"1px solid #252840",borderRadius:7,color:"#94a3b8",fontSize:12,cursor:"pointer"}}>
+            ← Voltar
+          </button>
+          <Logo src={detalhe.canal.icon} nome={detalhe.canal.nome} categoria={detalhe.canal.categoria} size={32}/>
+          <div>
+            <div style={{fontSize:15,fontWeight:700,color:"#f1f5f9"}}>{detalhe.canal.nome}</div>
+            <div style={{fontSize:11,color:"#475569"}}>{detalhe.canal.categoria} · próximas 24h</div>
           </div>
-          
-          <div style={{display:"flex", background:"#1a1d2e", padding:4, borderRadius:8, gap:4}}>
-            <button onClick={()=>setModo("PROGRAMA")} style={{padding:"6px 12px", background:modo==="PROGRAMA"?"#6366f1":"transparent", color:modo==="PROGRAMA"?"#fff":"#64748b", border:"none", borderRadius:6, fontSize:12, fontWeight:600, cursor:"pointer"}}>Por Programa</button>
-            <button onClick={()=>setModo("CANAL")} style={{padding:"6px 12px", background:modo==="CANAL"?"#6366f1":"transparent", color:modo==="CANAL"?"#fff":"#64748b", border:"none", borderRadius:6, fontSize:12, fontWeight:600, cursor:"pointer"}}>Por Canal</button>
-          </div>
-
-          <button onClick={onClear} style={{display:"flex",alignItems:"center",gap:5,padding:"6px 12px",background:"#111",border:"1px solid #1e1e2e",borderRadius:8,color:"#475569",fontSize:12,cursor:"pointer"}}><X style={{width:13,height:13}}/> Limpar</button>
+          <button onClick={onClear} style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:5,padding:"5px 10px",background:"#111",border:"1px solid #1e1e2e",borderRadius:7,color:"#475569",fontSize:12,cursor:"pointer"}}><X style={{width:12,height:12}}/> Nova busca</button>
         </div>
-        
-        {listagemAtiva.length===0&&<div style={{textAlign:"center",padding:"60px 0",color:"#374151"}}><Search style={{width:28,height:28,margin:"0 auto 12px",display:"block",opacity:0.3}}/><div style={{fontSize:14}}>Nenhum resultado para "{busca}"</div></div>}
-        
-        <div style={{display:"flex",flexDirection:"column",gap:24}}>
-          {listagemAtiva.map(({titulo,items})=>{
-            const cor=CAT_COR[items[0].canal.categoria]||"#6b7280";
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          {progCanal.length===0&&<div style={{textAlign:"center",padding:40,color:"#374151",fontSize:13}}>Sem programação disponível</div>}
+          {progCanal.map((p,i)=>{
+            const emAnd = agora>=new Date(p.start).getTime()&&agora<=new Date(p.stop).getTime();
             return (
-              <div key={titulo} style={{background:"#13151f", border:"1px solid #1e2130", borderRadius:10, padding:14}}>
-                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
-                  {modo === "CANAL" && <Logo src={items[0].canal.icon} nome={items[0].canal.nome} categoria={items[0].canal.categoria} size={28}/>}
-                  {modo === "PROGRAMA" && <div style={{width:4,height:18,background:cor,borderRadius:2,flexShrink:0}}/>}
-                  <div style={{fontSize:15,fontWeight:700,color:"#e2e8f0"}}>{titulo}</div>
-                  <div style={{fontSize:10,fontWeight:600,padding:"2px 7px",borderRadius:20,background:cor+"20",color:cor,border:`1px solid ${cor}30`}}>{items.length}x</div>
-                </div>
-                
-                <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                  {items.map((r,i)=>{
-                    const sMs=new Date(r.prog.start).getTime(),eMs=new Date(r.prog.stop).getTime();
-                    const emAnd=agora>=sMs&&agora<=eMs,passou=agora>eMs;
-                    return (
-                      <div key={i} onClick={()=>setSel(r.prog)} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:8,cursor:"pointer",background:emAnd?cor+"12":"#0f0f0f",border:`1px solid ${emAnd?cor+"40":"#1a1a1a"}`,opacity:passou?0.45:1}}
-                        onMouseEnter={e=>{if(!passou){(e.currentTarget as HTMLDivElement).style.background=emAnd?cor+"20":"#161616";(e.currentTarget as HTMLDivElement).style.borderColor=cor+"50";}}}
-                        onMouseLeave={e=>{(e.currentTarget as HTMLDivElement).style.background=emAnd?cor+"12":"#0f0f0f";(e.currentTarget as HTMLDivElement).style.borderColor=emAnd?cor+"40":"#1a1a1a";}}>
-                        
-                        {modo === "PROGRAMA" && <Logo src={r.canal.icon} nome={r.canal.nome} categoria={r.canal.categoria} size={36}/>}
-                        {modo === "PROGRAMA" && <div style={{minWidth:120,flexShrink:0}}><div style={{fontSize:13,fontWeight:600,color:"#bbb"}}>{r.canal.nome}</div><div style={{fontSize:11,color:"#475569",marginTop:2}}>{r.canal.categoria}</div></div>}
-                        
-                        <div style={{flex:1}}>
-                          <div style={{display:"flex",alignItems:"center",gap:8}}>
-                            {emAnd&&<div style={{display:"flex",alignItems:"center",gap:4,fontSize:10,fontWeight:700,color:cor,background:cor+"20",padding:"2px 7px",borderRadius:20,flexShrink:0}}><div style={{width:5,height:5,borderRadius:"50%",background:cor,animation:"pulse 1s infinite"}}/> AO VIVO</div>}
-                            <span style={{fontSize:14,fontWeight:600,color:emAnd?"#fff":"#888"}}>{formatHora(r.prog.start)} – {formatHora(r.prog.stop)}</span>
-                            {modo === "CANAL" && <span style={{fontSize:14,fontWeight:600,color:"#cbd5e1", marginLeft:8}}>{r.prog.title}</span>}
-                            <span style={{fontSize:12,color:"#475569"}}>· {r.prog.duracao_min} min</span>
-                          </div>
-                          {r.prog.desc&&<div style={{fontSize:12,color:"#64748b",marginTop:4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"100%"}}>{r.prog.desc}</div>}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+              <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:8,background:emAnd?cor+"12":"#0f0f0f",border:`1px solid ${emAnd?cor+"40":"#1a1a1a"}`}}>
+                {emAnd&&<div style={{display:"flex",alignItems:"center",gap:4,fontSize:10,fontWeight:700,color:cor,background:cor+"20",padding:"2px 7px",borderRadius:20,flexShrink:0,whiteSpace:"nowrap"}}><div style={{width:5,height:5,borderRadius:"50%",background:cor,animation:"pulse 1s infinite"}}/> AO VIVO</div>}
+                <span style={{fontSize:13,color:"#64748b",flexShrink:0,minWidth:90}}>{formatHora(p.start)} – {formatHora(p.stop)}</span>
+                <span style={{fontSize:13,fontWeight:emAnd?600:400,color:emAnd?"#f1f5f9":"#94a3b8",flex:1}}>{p.title}</span>
+                <span style={{fontSize:11,color:"#374151",flexShrink:0}}>{p.duracao_min} min</span>
               </div>
             );
           })}
         </div>
       </div>
-    </>
+    );
+  }
+
+  // ── Detalhe de programa ───────────────────────────────────────────────────
+  if(detalhe?.tipo==="programa"){
+    const ocorrencias = programasMatch.find(p=>p.titulo===detalhe.titulo)?.items || [];
+    return (
+      <div style={{padding:"16px 20px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+          <button onClick={()=>setDetalhe(null)} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",background:"#1a1d2e",border:"1px solid #252840",borderRadius:7,color:"#94a3b8",fontSize:12,cursor:"pointer"}}>
+            ← Voltar
+          </button>
+          <div style={{flex:1}}>
+            <div style={{fontSize:15,fontWeight:700,color:"#f1f5f9"}}>{detalhe.titulo}</div>
+            <div style={{fontSize:11,color:"#475569"}}>{ocorrencias.length} exibição{ocorrencias.length!==1?"ões":""} encontrada{ocorrencias.length!==1?"s":""}</div>
+          </div>
+          <button onClick={onClear} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",background:"#111",border:"1px solid #1e1e2e",borderRadius:7,color:"#475569",fontSize:12,cursor:"pointer"}}><X style={{width:12,height:12}}/> Nova busca</button>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          {ocorrencias.map((item,i)=>{
+            const emAnd = agora>=new Date(item.prog.start).getTime()&&agora<=new Date(item.prog.stop).getTime();
+            const passou = agora>new Date(item.prog.stop).getTime();
+            const corCanal = CAT_COR[item.canal.categoria]||"#6b7280";
+            return (
+              <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:8,background:emAnd?corCanal+"12":"#0f0f0f",border:`1px solid ${emAnd?corCanal+"40":"#1a1a1a"}`,opacity:passou?0.45:1}}>
+                <Logo src={item.canal.icon} nome={item.canal.nome} categoria={item.canal.categoria} size={32}/>
+                <div style={{minWidth:130,flexShrink:0}}>
+                  <div style={{fontSize:12,fontWeight:600,color:"#bbb"}}>{item.canal.nome}</div>
+                  <div style={{fontSize:10,color:"#475569"}}>{item.canal.categoria}</div>
+                </div>
+                {emAnd&&<div style={{display:"flex",alignItems:"center",gap:4,fontSize:10,fontWeight:700,color:corCanal,background:corCanal+"20",padding:"2px 7px",borderRadius:20,flexShrink:0}}><div style={{width:5,height:5,borderRadius:"50%",background:corCanal,animation:"pulse 1s infinite"}}/> AO VIVO</div>}
+                <span style={{fontSize:13,color:"#64748b",flexShrink:0}}>{formatHora(item.prog.start)} – {formatHora(item.prog.stop)}</span>
+                <span style={{fontSize:11,color:"#374151",flexShrink:0,marginLeft:"auto"}}>{item.prog.duracao_min} min</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Lista de resultados ───────────────────────────────────────────────────
+  return (
+    <div style={{padding:"16px 20px"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
+        <div style={{fontSize:13,color:"#94a3b8"}}>Resultados para <span style={{color:"#f1f5f9",fontWeight:600}}>"{busca}"</span></div>
+        <button onClick={onClear} style={{display:"flex",alignItems:"center",gap:5,padding:"6px 12px",background:"#111",border:"1px solid #1e1e2e",borderRadius:8,color:"#475569",fontSize:12,cursor:"pointer"}}><X style={{width:13,height:13}}/> Limpar</button>
+      </div>
+
+      {/* Seção Canais */}
+      {canaisMatch.length>0&&(
+        <div style={{marginBottom:24}}>
+          <div style={{fontSize:11,fontWeight:700,color:"#475569",textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:10}}>
+            📺 Canais ({canaisMatch.length})
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {canaisMatch.map(canal=>{
+              const cor = CAT_COR[canal.categoria]||"#6b7280";
+              const progsCanal = progsPorCanal.get(canal.id)||[];
+              const atual = progsCanal.find(p=>agora>=new Date(p.start).getTime()&&agora<=new Date(p.stop).getTime());
+              return (
+                <div key={canal.id} onClick={()=>setDetalhe({tipo:"canal",canal})}
+                  style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:8,cursor:"pointer",background:"#0f0f0f",border:"1px solid #1a1a1a"}}
+                  onMouseEnter={e=>{(e.currentTarget as HTMLDivElement).style.background="#161616";(e.currentTarget as HTMLDivElement).style.borderColor=cor+"40";}}
+                  onMouseLeave={e=>{(e.currentTarget as HTMLDivElement).style.background="#0f0f0f";(e.currentTarget as HTMLDivElement).style.borderColor="#1a1a1a";}}>
+                  <Logo src={canal.icon} nome={canal.nome} categoria={canal.categoria} size={36}/>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:13,fontWeight:600,color:"#e2e8f0"}}>{canal.nome}</div>
+                    <div style={{fontSize:11,color:"#475569",marginTop:2}}>{canal.categoria}{atual?` · ${atual.title}`:""}</div>
+                  </div>
+                  <span style={{fontSize:11,color:"#374151"}}>Ver programação →</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Seção Programas */}
+      {programasMatch.length>0&&(
+        <div>
+          <div style={{fontSize:11,fontWeight:700,color:"#475569",textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:10}}>
+            🎬 Programas ({programasMatch.length})
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {programasMatch.map(({titulo,items})=>{
+              const emAr = items.some(i=>agora>=new Date(i.prog.start).getTime()&&agora<=new Date(i.prog.stop).getTime());
+              const proximo = items.find(i=>new Date(i.prog.start).getTime()>agora);
+              return (
+                <div key={titulo} onClick={()=>setDetalhe({tipo:"programa",titulo})}
+                  style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:8,cursor:"pointer",background:emAr?"#6366f112":"#0f0f0f",border:`1px solid ${emAr?"#6366f140":"#1a1a1a"}`}}
+                  onMouseEnter={e=>{(e.currentTarget as HTMLDivElement).style.background=emAr?"#6366f120":"#161616";}}
+                  onMouseLeave={e=>{(e.currentTarget as HTMLDivElement).style.background=emAr?"#6366f112":"#0f0f0f";}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      {emAr&&<div style={{fontSize:10,fontWeight:700,color:"#6366f1",background:"#6366f120",padding:"2px 7px",borderRadius:20,flexShrink:0,display:"flex",alignItems:"center",gap:4}}><div style={{width:5,height:5,borderRadius:"50%",background:"#6366f1",animation:"pulse 1s infinite"}}/> AO VIVO</div>}
+                      <span style={{fontSize:13,fontWeight:600,color:"#e2e8f0"}}>{titulo}</span>
+                    </div>
+                    <div style={{fontSize:11,color:"#475569",marginTop:2}}>
+                      {items.length} canal{items.length!==1?"is":""}
+                      {proximo&&!emAr?` · próximo: ${formatHora(proximo.prog.start)} em ${proximo.canal.nome}`:""}
+                    </div>
+                  </div>
+                  <span style={{fontSize:11,color:"#374151",flexShrink:0}}>Ver canais →</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {canaisMatch.length===0&&programasMatch.length===0&&(
+        <div style={{textAlign:"center",padding:"60px 0",color:"#374151"}}>
+          <Search style={{width:28,height:28,margin:"0 auto 12px",display:"block",opacity:0.3}}/>
+          <div style={{fontSize:14}}>Nenhum resultado para "{busca}"</div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -153,7 +263,16 @@ function GradeEPG({canais,progsPorCanal}:{canais:Canal[];progsPorCanal:Map<strin
   const gradeWidth=TOTAL_HORAS*HORA_WIDTH;
 
   const baseMs=useMemo(()=>{
-    return Math.floor(Date.now()/3600000)*3600000-2*3600000;
+    // Meia-noite de hoje em BRT (UTC-3)
+    const agora = new Date();
+    const brtOffset = -3 * 60;
+    const meianoite = new Date(agora);
+    meianoite.setUTCHours(3, 0, 0, 0); // 03:00 UTC = 00:00 BRT
+    // Se já passou da meia-noite BRT hoje, usa hoje; senão usa ontem
+    if (meianoite.getTime() > agora.getTime()) {
+      meianoite.setUTCDate(meianoite.getUTCDate() - 1);
+    }
+    return meianoite.getTime();
   },[]);
 
   const agoraOffsetPx=useMemo(()=>{
@@ -175,8 +294,8 @@ function GradeEPG({canais,progsPorCanal}:{canais:Canal[];progsPorCanal:Map<strin
   return (
     <>
       {progSel&&<ProgramaTooltip prog={progSel} onClose={()=>setProgSel(null)}/>}
-      <div ref={scrollRef} style={{overflowX:"auto",overflowY:"auto",background:"#0f1117",flex:1,minHeight:0}}>
-        <div style={{display:"inline-block",minWidth:canalW+gradeWidth}}>
+<div ref={scrollRef} style={{overflowX:"auto",overflowY:"auto",background:"#0f1117",flex:1,minHeight:0}}>
+        <div style={{display:"inline-block",width:canalW+gradeWidth,maxWidth:canalW+gradeWidth}}>
           {/* Régua sticky no topo */}
           <div style={{position:"sticky",top:0,zIndex:30,display:"flex",height:REGUA_H,background:"#13151f",borderBottom:"1px solid #1e2130"}}>
             <div style={{width:canalW,flexShrink:0,position:"sticky",left:0,zIndex:31,background:"#13151f",borderRight:"1px solid #1e2130"}}/>
@@ -713,12 +832,19 @@ export default function GuiaTVPage() {
             {epg&&<span style={{fontSize:10,color:"#475569",whiteSpace:"nowrap"}}>{epg.total_canais} canais · {formatDataHora(epg.gerado_em)}</span>}
           </div>
           
-          <DropdownFiltro label={catAtiva==="Todos"?"Categoria":`${CAT_EMOJI[catAtiva]} ${catAtiva}`} ativo={catAtiva!=="Todos"} cor={catAtiva!=="Todos"?CAT_COR[catAtiva]:undefined}>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <DropdownFiltro label={catAtiva==="Todos"?"Categoria":`${CAT_EMOJI[catAtiva]} ${catAtiva}`} ativo={catAtiva!=="Todos"} cor={catAtiva!=="Todos"?CAT_COR[catAtiva]:undefined}>
             {[{value:"Todos",label:"📡 Todas as categorias"},...catsDisponiveis.map(c=>({value:c,label:`${CAT_EMOJI[c]} ${c}`}))].map(opt=>(
               <button key={opt.value} onClick={()=>{setCatAtiva(opt.value);setSubAtiva("Todos");}} style={{display:"block",width:"100%",padding:"8px 14px",background:catAtiva===opt.value?"#1e2130":"none",border:"none",textAlign:"left",cursor:"pointer",color:catAtiva===opt.value?"#f1f5f9":"#94a3b8",fontSize:13,borderLeft:`3px solid ${catAtiva===opt.value?(CAT_COR[opt.value]||"#6366f1"):"transparent"}`}}
                 onMouseEnter={e=>(e.currentTarget.style.background="#1e2130")} onMouseLeave={e=>(e.currentTarget.style.background=catAtiva===opt.value?"#1e2130":"none")}>{opt.label}</button>
             ))}
           </DropdownFiltro>
+            {catAtiva!=="Todos"&&(
+              <button onClick={()=>{setCatAtiva("Todos");setSubAtiva("Todos");}} style={{display:"flex",alignItems:"center",gap:3,padding:"4px 8px",background:"#ef444415",border:"1px solid #ef444430",borderRadius:6,color:"#ef4444",fontSize:11,cursor:"pointer"}}>
+                <X style={{width:10,height:10}}/> Limpar
+              </button>
+            )}
+          </div>
           
           <DropdownFiltro disabled={subgruposDisponiveis.length === 0} label={subAtiva==="Todos"?"Subcategoria":subAtiva} ativo={subAtiva!=="Todos"} cor={catAtiva!=="Todos"?CAT_COR[catAtiva]:undefined}>
             {[{value:"Todos",label:`Todos em ${catAtiva}`},...subgruposDisponiveis.map(s=>({value:s.label,label:s.label}))].map(opt=>(
@@ -762,7 +888,7 @@ export default function GuiaTVPage() {
       )}
       {!loading&&!erro&&epg&&(
         emBusca
-          ? <div style={{flex:1,overflowY:"auto"}}><ResultadoBusca resultados={resultadosBusca} busca={buscaAtiva} onClear={()=>{setBusca("");setBuscaAtiva("");}}/></div>
+          ? <div style={{flex:1,overflowY:"auto"}}><ResultadoBusca epg={epg} busca={buscaAtiva} progsPorCanal={progsPorCanal} onClear={()=>{setBusca("");setBuscaAtiva("");}}/></div>
           : canaisFiltrados.length===0
             ? <div style={{textAlign:"center",padding:60,color:"#374151",fontSize:13}}>Nenhum canal encontrado.</div>
             : <GradeEPG canais={canaisFiltrados} progsPorCanal={progsPorCanal}/>
