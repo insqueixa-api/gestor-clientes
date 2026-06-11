@@ -486,9 +486,7 @@ export default function AppManagerPage() {
               ? "IBO Pro Player"
               : app.integration_type === "QUICKPLAYER"
                 ? "Quick Player"
-                : app.integration_type === "DUPLEXPLAY"
-                  ? "DuplexPlay"
-                  : app.integration_type === "LAZERPLAY"
+                : app.integration_type === "LAZERPLAY"
                     ? "Lazer Play"
                     : app.integration_type === "FUNPLAY"
                       ? "Fun Play"
@@ -764,7 +762,7 @@ export default function AppManagerPage() {
                 <div>
                   <Label>Nome do Aplicativo</Label>
                   <Input
-                    placeholder="Ex: DuplexPlay, IBO..."
+                    placeholder="Ex: DupleCast, IBO..."
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
                     autoFocus
@@ -878,7 +876,6 @@ export default function AppManagerPage() {
                       <option value="IBOSOL">IBO Sol</option>
                       <option value="IBOPRO">IBO Pro Player</option>
                       <option value="QUICKPLAYER">Quick Player</option>
-                      <option value="DUPLEXPLAY">DuplexPlay</option>
                       <option value="LAZERPLAY">Lazer Play</option>
                       <option value="FUNPLAY">Fun Play</option>
                       <option value="FOCOXPLAY">FocoX Play</option>

@@ -384,7 +384,8 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
       window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL",{
         detail:{
           action:"FAST_VOD_SYNC",
-          m3uUrl: data.m3u_url,
+          m3uUrl: data.m3u_url.replace(/&output=ts$/i, "").replace(/&output=ts&/i, "&"),
+
           apiBase: window.location.origin,
         }
       }));

@@ -2309,8 +2309,6 @@ export default function NovoCliente({
         intType = "IBOPRO";
       else if (appNameStr === "QUICK PLAYER" || appNameStr === "QUICKPLAYER")
         intType = "QUICKPLAYER";
-      else if (appNameStr === "DUPLEXPLAY" || appNameStr === "DUPLEX PLAY")
-        intType = "DUPLEXPLAY";
       else if (appNameStr === "LAZERPLAY" || appNameStr === "LAZER PLAY")
         intType = "LAZERPLAY";
       else if (appNameStr === "FUNPLAY" || appNameStr === "FUN PLAY")
@@ -2434,7 +2432,6 @@ export default function NovoCliente({
         handler.actionPrefix === "IBOSOL" ||
         handler.actionPrefix === "IBOPRO" ||
         handler.actionPrefix === "QUICKPLAYER" ||
-        handler.actionPrefix === "DUPLEXPLAY" ||
         handler.actionPrefix === "LAZERPLAY"
           ? appPin
           : password,
@@ -2539,7 +2536,6 @@ export default function NovoCliente({
           handler.actionPrefix === "DUPLECAST" ||
           handler.actionPrefix === "IBOSOL" ||
           handler.actionPrefix === "IBOPRO" ||
-          handler.actionPrefix === "DUPLEXPLAY" ||
           handler.actionPrefix === "LAZERPLAY"
         ) {
           if (e.detail.expireDate) {
@@ -2718,7 +2714,6 @@ export default function NovoCliente({
           handler.actionPrefix === "IBOSOL" ||
           handler.actionPrefix === "IBOPRO" ||
           handler.actionPrefix === "QUICKPLAYER" ||
-          handler.actionPrefix === "DUPLEXPLAY" ||
           handler.actionPrefix === "LAZERPLAY"
             ? appPinDelete
             : password,
@@ -3837,7 +3832,6 @@ if (syncOperadora) {
                       handler.actionPrefix === "IBOSOL" ||
                       handler.actionPrefix === "IBOPRO" ||
                       handler.actionPrefix === "QUICKPLAYER" ||
-                      handler.actionPrefix === "DUPLEXPLAY" ||
                       handler.actionPrefix === "LAZERPLAY"
                         ? appPinAuto
                         : apiPassword,
@@ -3933,7 +3927,6 @@ if (syncOperadora) {
                             handler.actionPrefix === "IBOSOL" ||
                             handler.actionPrefix === "IBOPRO" ||
                             handler.actionPrefix === "QUICKPLAYER" ||
-                            handler.actionPrefix === "DUPLEXPLAY" ||
                             handler.actionPrefix === "LAZERPLAY"
                           ) {
                             if (e.detail.expireDate) {
@@ -5804,9 +5797,7 @@ if (finalSecondaryE164 && clientId) {
                         ? "GerenciaApp"
                         : integrationType === "DUPLECAST"
                           ? "Duplecast"
-                          : integrationType === "DUPLEXPLAY"
-                            ? "DuplexPlay"
-                            : integrationType;
+                          : integrationType;
                     // ✅ NOVO: Cálculo de Vencimento do App
                     let diffDays = null;
                     const dateField = app.fields_config?.find(

@@ -50,7 +50,7 @@ export async function GET() {
       "Ativo",
       "Servidor Principal",         
       "Mensal, Anual",              
-      "DuplexPlay",                 
+      "DupleCast",                 
       "Cadastro",
       "0",                          
       "default",

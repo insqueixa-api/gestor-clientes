@@ -1,6 +1,5 @@
 import { GerenciaAppIntegration } from "./gerenciaapp"; 
 import { DupleCastIntegration } from "./duplecast";
-import { DuplexPlayIntegration } from "./duplexplay";
 import { LazerPlayIntegration } from "./lazerplay"; // ✅ Importando a nova lib
 import { IbosolAPI as IboSolIntegration } from "@/app/api/integrations/apps/ibosol/ibosol";
 import { IboProAPI as IboProIntegration } from "@/app/api/integrations/apps/ibopro/ibopro";
@@ -18,7 +17,6 @@ const INTEGRATION_REGISTRY: Record<string, any> = {
     "GPCLG":            GerenciaAppIntegration,
 
     "DUPLECAST":        DupleCastIntegration, 
-    "DUPLEXPLAY":       DuplexPlayIntegration,
     "LAZERPLAY":        LazerPlayIntegration,
     "FUNPLAY":          LazerPlayIntegration,
     "FOCOXPLAY":        LazerPlayIntegration,

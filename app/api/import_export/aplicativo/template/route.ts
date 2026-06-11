@@ -22,7 +22,7 @@ export async function GET() {
     "João Silva",          // Cliente — display_name do cliente
     "joao.silva",          // Usuario — server_username (usado para identificar o cliente)
     "UniTV",               // Servidor — nome do servidor (usado para identificar o cliente)
-    "DuplexPlay",          // App — nome exato do app cadastrado
+    "DupleCast",          // App — nome exato do app cadastrado
     "20/09/2026",          // Vencimento — DD/MM/AAAA (deixe vazio se o app não tiver)
     "B8:31:B5:A2:51:DE",   // Device ID (MAC) — formato 00:1A:2B:3C:4D:5E (deixe vazio se não tiver)
     "1127848741",          // Device Key (deixe vazio se não tiver)

@@ -64,7 +64,6 @@ export default function AppIntegracaoModal({
   const isIboSol = appName === "IBOSOL";
   const isIboPro = appName === "IBOPRO";
   const isQuickPlayer = appName === "QUICKPLAYER";
-  const isDuplexPlay = appName === "DUPLEXPLAY";
   const isLazerPlay =
     appName === "LAZERPLAY" || appName === "FUNPLAY" || appName === "FOCOXPLAY";
   const needsPin =
@@ -72,10 +71,9 @@ export default function AppIntegracaoModal({
     isIboSol ||
     isIboPro ||
     isQuickPlayer ||
-    isDuplexPlay ||
     isLazerPlay;
   const noCredentials =
-    isIboSol || isIboPro || isQuickPlayer || isDuplexPlay || isLazerPlay; // Apps que não usam email/senha
+    isIboSol || isIboPro || isQuickPlayer || isLazerPlay; // Apps que não usam email/senha
 
   useEffect(() => {
     if (integration) {
@@ -264,7 +262,6 @@ export default function AppIntegracaoModal({
                 <option value="IBOSOL">IBO Sol</option>
                 <option value="IBOPRO">IBO Pro Player</option>
                 <option value="QUICKPLAYER">Quick Player</option>
-                <option value="DUPLEXPLAY">DuplexPlay</option>
                 <option value="LAZERPLAY">Lazer Play</option>
                 <option value="FUNPLAY">Fun Play</option>
                 <option value="FOCOXPLAY">FocoX Play</option>
@@ -288,9 +285,7 @@ export default function AppIntegracaoModal({
                         ? 'Ex: "IBO Pro Player"'
                         : appName === "QUICKPLAYER"
                           ? 'Ex: "Quick Player"'
-                          : appName === "DUPLEXPLAY"
-                            ? 'Ex: "DuplexPlay"'
-                            : appName === "LAZERPLAY"
+                          : appName === "LAZERPLAY"
                               ? 'Ex: "Lazer Play"'
                               : appName === "FUNPLAY"
                                 ? 'Ex: "Fun Play"'
@@ -319,9 +314,7 @@ export default function AppIntegracaoModal({
                         ? "Ex: https://iboproapp.com"
                         : isQuickPlayer
                           ? "Ex: https://api.quickplayer.app/api"
-                          : isDuplexPlay
-                            ? "Ex: https://edit.duplexplay.com"
-                            : isLazerPlay
+                          : isLazerPlay
                               ? "Ex: https://lazerplay.io"
                               : "Ex: https://gerenciaapp.top"
                 }
