@@ -39,20 +39,28 @@ const supabaseAdmin = createAdmin(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
-// ─── GET — Status do último sync e URL M3U ────────────────────────────────────
-export async function GET() {
+// ─── GET — Status do último sync e buscar URL M3U ─────────────────────────────
+export async function GET(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-  // 1. Busca a URL M3U do cliente no banco (ajuste o nome da tabela/coluna se necessário)
-  const { data: cliente } = await supabaseAdmin
-    .from("clients") 
-    .select("m3u_url")
-    .eq("user_id", user.id) // Ajuste se a sua FK de relacionamento for diferente
-    .single();
+  // 1. Captura o clientId enviado pelo front-end
+  const clientId = req.nextUrl.searchParams.get("clientId");
+  let m3uUrl = null;
 
-  // 2. Busca o log do R2
+  // 2. Busca a URL M3U do cliente especificamente por este ID, ignorando RLS
+  if (clientId) {
+    const { data: cliente } = await supabaseAdmin
+      .from("clients")
+      .select("m3u_url")
+      .eq("id", clientId)
+      .single();
+      
+    m3uUrl = cliente?.m3u_url || null;
+  }
+
+  // 3. Busca o status do último sync do R2
   let logData = { status: "Log não encontrado" };
   try {
     const res = await fetch(`${R2_URL}/${LOG_KEY}`, { cache: "no-store" });
@@ -63,10 +71,10 @@ export async function GET() {
     }
   } catch {}
 
-  // 3. Retorna o log consolidado com a URL
+  // 4. Retorna tudo consolidado para o front
   return NextResponse.json({
     ...logData,
-    m3u_url: cliente?.m3u_url || null
+    m3u_url: m3uUrl
   });
 }
 

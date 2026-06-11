@@ -333,13 +333,15 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
     setLogs(p=>({...p,fast:[]}));
     addLog("fast","⬇ Buscando URL M3U do servidor Fast...");
 
+    // Cole aqui o ID (UUID) exato que corresponde ao servidor Fast
+    const CLIENT_ID_FAST = "aefcff7a-9b8f-46be-9a1b-155a73a472de";
+
     try {
-      // 1. Busca a m3u_url na API
-      const res = await fetch("/api/epg/sync-catalog/fast");
+      const res = await fetch(`/api/epg/sync-catalog/fast?clientId=${CLIENT_ID_FAST}`);
       const data = await res.json();
       
       if (!data.m3u_url) {
-        throw new Error("URL M3U não encontrada. Verifique o banco de dados.");
+        throw new Error("URL M3U não encontrada no banco de dados.");
       }
 
       addLog("fast","⬇ Baixando M3U via extensão...");
