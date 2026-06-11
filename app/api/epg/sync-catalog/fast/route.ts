@@ -168,11 +168,27 @@ export async function POST(req: NextRequest) {
   if (tipo === "finalizar") {
     await supabaseAdmin.rpc("catalog_atualizar_contadores", { p_servidor: SERVIDOR });
 
+    const stats = body.stats || {};
+
+    // Conta totais no banco após sync
+    const { count: totalAvail }     = await supabaseAdmin
+      .from("catalog_availability").select("*", { count: "exact", head: true })
+      .eq("servidor", SERVIDOR);
+    const { count: totalEpisodios } = await supabaseAdmin
+      .from("catalog_episodes").select("*", { count: "exact", head: true })
+      .eq("servidor", SERVIDOR);
+
     const log = {
       servidor:     SERVIDOR,
       executado_em: new Date().toISOString(),
-      resultado:    body.stats || {},
-      erro:         null,
+      resultado: {
+        ...stats,
+        novos_titulos:   Math.max(0, (totalAvail    || 0) - (stats.filmes  + stats.series)),
+        novos_episodios: Math.max(0, (totalEpisodios || 0) - stats.episodios),
+        banco_titulos:   totalAvail    || 0,
+        banco_episodios: totalEpisodios || 0,
+      },
+      erro: null,
     };
 
     try {

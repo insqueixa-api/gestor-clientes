@@ -205,13 +205,25 @@ export async function POST(req: NextRequest) {
 
     // ── 5. Resultado ──────────────────────────────────────────────────────────
     const duracao = Math.round((Date.now() - inicio) / 1000);
+
+    // Conta totais no banco após sync
+    const { count: totalAvail }     = await supabaseAdmin
+      .from("catalog_availability").select("*", { count: "exact", head: true })
+      .eq("servidor", SERVIDOR);
+    const { count: totalEpisodios } = await supabaseAdmin
+      .from("catalog_episodes").select("*", { count: "exact", head: true })
+      .eq("servidor", SERVIDOR);
+
+    const totalEnviado = filmesUnicos.length + seriesUnicas.master.length;
     log.resultado = {
       duracao_s:           duracao,
       filmes:              filmesUnicos.length,
       series_unicas:       seriesUnicas.master.length,
       episodios:           epRows.length,
-      availability_upsert: availRows.length,
-      episodes_upsert:     epRows.length,
+      novos_titulos:       Math.max(0, (totalAvail    || 0) - totalEnviado),
+      novos_episodios:     Math.max(0, (totalEpisodios || 0) - epRows.length),
+      banco_titulos:       totalAvail    || 0,
+      banco_episodios:     totalEpisodios || 0,
     };
 
     await salvarLog(log);
