@@ -416,7 +416,7 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
   // ─── TMDB ────────────────────────────────────────────────────────────────
   const [tmdbStatus,   setTmdbStatus]   = useState<"idle"|"running"|"ok"|"error">("idle");
   const [tmdbLogs,     setTmdbLogs]     = useState<string[]>([]);
-  const [tmdbLote,     setTmdbLote]     = useState<number>(100);
+  const [tmdbLote,     setTmdbLote]     = useState<number>(50);
   const [tmdbInfo,     setTmdbInfo]     = useState<{filmes:{sem_tmdb:number;com_tmdb:number};series:{sem_tmdb:number;com_tmdb:number}}|null>(null);
   const [tmdbConfirm,  setTmdbConfirm]  = useState(false);
   const [tmdbTipo,     setTmdbTipo]     = useState<"FILME"|"SERIE">("FILME");
@@ -433,24 +433,57 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
     setTmdbStatus("running");
     setTmdbLogs([]);
     setTmdbConfirm(false);
-    addTmdbLog(`↑ Buscando ${tmdbLote} ${tmdbTipo === "FILME" ? "filmes" : "séries"} sem TMDB...`);
+
+    let loteNum   = 1;
+    let totalProc = 0;
+    let totalEnc  = 0;
+    let totalNao  = 0;
+
+    addTmdbLog(`↑ Iniciando — ${tmdbTipo === "FILME" ? "Filmes" : "Séries"} · lote ${tmdbLote}`);
+
     try{
-      const d = await fetch(`/api/epg/sync-tmdb?tipo=${tmdbTipo}&lote=${tmdbLote}`,{method:"POST"}).then(r=>r.json());
-      if(d.error) throw new Error(d.error);
-      if(d.processados === 0){
-        addTmdbLog("✅ Nada para processar — todos já enriquecidos!");
-      } else {
-        addTmdbLog(`✓ Processados: ${d.processados}`);
-        addTmdbLog(`✓ Encontrados no TMDB: ${d.encontrados}`);
-        addTmdbLog(`✓ Não encontrados: ${d.nao_encontrados}`);
-        addTmdbLog(`${d.proximo_lote ? "↻ Ainda há mais para processar" : "✅ Todos processados!"}`);
+      while(true){
+        const d = await fetch(`/api/epg/sync-tmdb?tipo=${tmdbTipo}&lote=${tmdbLote}`,{method:"POST"}).then(r=>r.json());
+
+        if(d.error) throw new Error(d.error);
+
+        if(d.processados === 0){
+          addTmdbLog("✅ Todos os títulos já foram processados!");
+          break;
+        }
+
+        totalProc += d.processados;
+        totalEnc  += d.encontrados;
+        totalNao  += d.nao_encontrados;
+        loteNum++;
+
+        // Atualiza a última linha em vez de empilhar
+        setTmdbLogs(p => {
+          const novo = [...p];
+          novo[novo.length - 1] = `↻ Lote ${loteNum - 1} · ${totalProc} processados · ${totalEnc} encontrados · ${totalNao} não encontrados`;
+          return novo;
+        });
+
+        if(!d.proximo_lote){
+          addTmdbLog(`✅ Concluído! ${totalProc} processados · ${totalEnc} encontrados · ${totalNao} não encontrados`);
+          break;
+        }
+
+        // 20 segundos entre lotes
+        // Atualiza contador do card em tempo real
+        const s = await fetch('/api/epg/sync-tmdb').then(r=>r.json());
+        if(s.filmes) setTmdbInfo(s);
+
+        // 10 segundos entre lotes
+        await new Promise(r => setTimeout(r, 20_000));
       }
-      // Atualiza status
+
       const s = await fetch('/api/epg/sync-tmdb').then(r=>r.json());
       if(s.filmes) setTmdbInfo(s);
       setTmdbStatus("ok");
+
     }catch(e:any){
-      addTmdbLog(`❌ ${e.message}`);
+      addTmdbLog(`❌ ${e.message} (processados até agora: ${totalProc})`);
       setTmdbStatus("error");
     }
   }

@@ -28,7 +28,7 @@ const supabaseAdmin = createAdmin(
 const TMDB_KEY     = process.env.TMDB_API_KEY || "";
 const TMDB_BASE    = "https://api.themoviedb.org/3";
 const TMDB_IMG     = "https://image.tmdb.org/t/p/w500";
-const SLEEP_MS     = 250; // respeita rate limit do TMDB (40 req/s)
+const SLEEP_MS = 100;
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
@@ -178,55 +178,47 @@ export async function POST(req: NextRequest) {
   let encontrados = 0;
   let nao_encontrados = 0;
 
-  for (const titulo of titulos) {
-    try {
-      await sleep(SLEEP_MS);
+// Processa em lotes de 5 em paralelo
+  const CONCORRENCIA = 5;
+  for (let i = 0; i < titulos.length; i += CONCORRENCIA) {
+    const grupo = titulos.slice(i, i + CONCORRENCIA);
+    await Promise.all(grupo.map(async (titulo) => {
+      try {
+        await sleep(SLEEP_MS);
+        const tmdbRes = await buscarTMDB(titulo.titulo_normalizado, tipo, titulo.ano);
 
-      const tmdbRes = await buscarTMDB(titulo.titulo_normalizado, tipo, titulo.ano);
+        if (!tmdbRes) {
+          await supabaseAdmin.from("catalog_master").update({ tmdb_buscado_em: agora }).eq("id", titulo.id);
+          nao_encontrados++;
+          return;
+        }
 
-      if (!tmdbRes) {
-        // Score muito baixo ou sem resultado — marca como tentado
+        const { resultado, score } = tmdbRes;
+        const detalhes = await buscarDetalhes(resultado.id, tipo);
+
+        const nomeResultado = tipo === "FILME" ? resultado.title : resultado.name;
+        const generosList   = (detalhes?.genres || []).map((g: any) => g.name) as string[];
+        const poster        = resultado.poster_path ? `${TMDB_IMG}${resultado.poster_path}` : null;
+        const sinopse       = detalhes?.overview || resultado.overview || null;
+        const avaliacao     = resultado.vote_average ? parseFloat(resultado.vote_average.toFixed(1)) : null;
+        const confirmado    = score >= 0.8;
+
+        await supabaseAdmin.from("catalog_master").update({
+          tmdb_id:         resultado.id,
+          sinopse:         sinopse || null,
+          avaliacao,
+          generos:         generosList.length > 0 ? generosList : null,
+          poster_tmdb_url: poster,
+          tmdb_confirmado: confirmado,
+          tmdb_buscado_em: agora,
+        }).eq("id", titulo.id);
+
+        encontrados++;
+      } catch (e: any) {
         await supabaseAdmin.from("catalog_master").update({ tmdb_buscado_em: agora }).eq("id", titulo.id);
         nao_encontrados++;
-        console.log(`[TMDB] ✗ "${titulo.titulo_normalizado}" — sem match confiável`);
-        continue;
       }
-
-      const { resultado, score } = tmdbRes;
-
-      // Busca detalhes completos para pegar sinopse e gêneros
-      const detalhes = await buscarDetalhes(resultado.id, tipo);
-      await sleep(SLEEP_MS);
-
-      const nomeResultado = tipo === "FILME" ? resultado.title : resultado.name;
-      const generosList   = (detalhes?.genres || []).map((g: any) => g.name) as string[];
-      const poster        = resultado.poster_path ? `${TMDB_IMG}${resultado.poster_path}` : null;
-      const sinopse       = detalhes?.overview || resultado.overview || null;
-      const avaliacao     = resultado.vote_average ? parseFloat(resultado.vote_average.toFixed(1)) : null;
-
-      // Score >= 0.8 → match confiável (confirmado automaticamente)
-      // Score 0.5–0.79 → match provável mas precisa revisão manual
-      const confirmado = score >= 0.8;
-
-      await supabaseAdmin.from("catalog_master").update({
-        tmdb_id:         resultado.id,
-        sinopse:         sinopse || null,
-        avaliacao:       avaliacao,
-        generos:         generosList.length > 0 ? generosList : null,
-        poster_tmdb_url: poster,
-        tmdb_confirmado: confirmado,
-        tmdb_buscado_em: agora,
-      }).eq("id", titulo.id);
-
-      encontrados++;
-      console.log(`[TMDB] ${confirmado ? "✓✓" : "✓?"} "${titulo.titulo_normalizado}" → "${nomeResultado}" score=${score.toFixed(2)} (${resultado.id})`);
-
-    } catch (e: any) {
-      console.error(`[TMDB] Erro em "${titulo.titulo_normalizado}":`, e.message);
-      // Marca como tentado mesmo com erro para não ficar em loop
-      await supabaseAdmin.from("catalog_master").update({ tmdb_buscado_em: agora }).eq("id", titulo.id);
-      nao_encontrados++;
-    }
+    }));
   }
 
   return NextResponse.json({
