@@ -1,26 +1,25 @@
 // app/api/epg/sync-catalog/fast/route.ts
 //
 // Sincronização do catálogo — Servidor FAST
-// Mesma estrutura da rota Elite — só filmes e séries, sem canais de TV.
 //
-// Fluxo:
-//   GET  → status do último sync (log no R2)
-//   POST → busca m3u_url do cliente Fast no banco → baixa → parseia → upsert
+// Diferente de Elite e NaTV, o Fast bloqueia IPs de datacenter.
+// A extensão do Chrome baixa o M3U com o IP do usuário, parseia e
+// envia os dados em lotes para esta rota via POST.
+//
+// POST body:
+//   { tipo: "master",    lote: EntradaMaster[]  }
+//   { tipo: "episodios", lote: EntradaEpisodio[] }
+//
+// GET → status do último sync (log no R2)
 
 import { NextRequest, NextResponse }   from "next/server";
 import { createClient }                from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { S3Client, PutObjectCommand }  from "@aws-sdk/client-s3";
-import {
-  parseM3U,
-  statsDoparse,
-  type EntradaCatalogo,
-} from "@/lib/catalog/catalog-parser";
 
 export const dynamic     = "force-dynamic";
 export const maxDuration = 60;
 
-// ─── R2 ───────────────────────────────────────────────────────────────────────
 const s3 = new S3Client({
   region:   "auto",
   endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
@@ -34,14 +33,11 @@ const R2_BUCKET = process.env.R2_BUCKET_NAME        || "unigestor-media";
 const R2_URL    = process.env.NEXT_PUBLIC_R2_DEV_URL || "";
 const LOG_KEY   = "epg/catalog_fast_log.json";
 const SERVIDOR  = "FAST" as const;
-const CLIENT_ID = "aefcff7a-9b8f-46be-9a1b-155a73a472de"; // cliente Fast
 
 const supabaseAdmin = createAdmin(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
-
-const BATCH = 500;
 
 // ─── GET — Status do último sync ──────────────────────────────────────────────
 export async function GET() {
@@ -58,198 +54,129 @@ export async function GET() {
   }
 }
 
-// ─── POST — Sync completo ─────────────────────────────────────────────────────
+// ─── POST — Recebe lotes da extensão e grava no Supabase ─────────────────────
 export async function POST(req: NextRequest) {
-  const inicio = Date.now();
-  const agora  = new Date().toISOString();
-
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-  const log: Record<string, any> = {
-    servidor: SERVIDOR, executado_em: agora,
-    etapas: {}, resultado: {}, erro: null,
-  };
+  const body = await req.json();
+  const { tipo, lote } = body as { tipo: "master" | "episodios" | "finalizar"; lote?: any[] };
 
-  try {
-    // ── 1. Busca m3u_url do cliente Fast no banco ─────────────────────────────
-    const { data: cliente, error: clienteErr } = await supabaseAdmin
-      .from("clients")
-      .select("m3u_url")
-      .eq("id", CLIENT_ID)
-      .single();
+  // ── Lote de master (filmes + séries) ─────────────────────────────────────
+  if (tipo === "master" && Array.isArray(lote) && lote.length > 0) {
+    const agora = new Date().toISOString();
 
-    if (clienteErr || !cliente?.m3u_url) {
-      log.erro = `m3u_url do cliente Fast não encontrado: ${clienteErr?.message}`;
-      await salvarLog(log);
-      return NextResponse.json({ error: log.erro }, { status: 500 });
+    // 1. Upsert catalog_master
+    const masterRows = lote.map(e => ({
+      titulo_normalizado: e.titulo_normalizado,
+      tipo:               e.tipo,
+      ...(e.cover_url ? { cover_url: e.cover_url } : {}),
+      ano:          e.ano ?? null,
+      atualizado_em: agora,
+    }));
+
+    const { error: masterErr } = await supabaseAdmin
+      .from("catalog_master")
+      .upsert(masterRows, { onConflict: "titulo_normalizado", ignoreDuplicates: false });
+
+    if (masterErr) {
+      console.error("[CATALOG-FAST] Erro master:", masterErr.message);
+      return NextResponse.json({ error: masterErr.message }, { status: 500 });
     }
 
-    const m3uUrl = cliente.m3u_url as string;
-    log.etapas.credenciais = {
-      ok: true,
-      m3u_url: m3uUrl.replace(/password=[^&]+/, "password=***"),
-    };
+    // 2. Busca IDs gerados
+    const titulos = lote.map(e => e.titulo_normalizado);
+    const { data: masterData } = await supabaseAdmin
+      .from("catalog_master")
+      .select("id, titulo_normalizado")
+      .in("titulo_normalizado", titulos);
 
-    // ── 2. Baixa o M3U ────────────────────────────────────────────────────────
-    console.log(`[CATALOG-FAST] Baixando M3U...`);
-    let m3uText = "";
-    try {
-      const resp = await fetch(m3uUrl, {
-        signal:  AbortSignal.timeout(55_000),
-        headers: { "User-Agent": "IPTVSmartersPro", "Accept": "*/*" },
-      });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      m3uText = await resp.text();
-    } catch (e: any) {
-      log.erro = `Falha ao baixar M3U Fast: ${e.message}`;
-      await salvarLog(log);
-      return NextResponse.json({ error: log.erro }, { status: 502 });
-    }
+    const idMap = new Map<string, string>();
+    for (const row of masterData || []) idMap.set(row.titulo_normalizado, row.id);
 
-    log.etapas.download = { ok: true, bytes: m3uText.length };
-    console.log(`[CATALOG-FAST] ${m3uText.length} bytes baixados`);
-
-    // ── 3. Parseia ────────────────────────────────────────────────────────────
-    const entradas = parseM3U(m3uText);
-    const stats    = statsDoparse(entradas);
-    log.etapas.parse = { ok: true, ...stats, total_entradas: entradas.length };
-    console.log(`[CATALOG-FAST] Parse:`, stats);
-
-    // ── 4. Separa — só filmes e séries ────────────────────────────────────────
-    const filmes       = entradas.filter(e => e.tipo === "FILME");
-    const series       = entradas.filter(e => e.tipo === "SERIE");
-    const filmesUnicos = deduplicarPorTitulo(filmes);
-    const seriesUnicas = agruparSeries(series);
-    const todasMaster  = [...filmesUnicos, ...seriesUnicas.master];
-
-    // ── 4a. Upsert catalog_master ─────────────────────────────────────────────
-    console.log(`[CATALOG-FAST] Upsert catalog_master: ${todasMaster.length}...`);
-    for (let i = 0; i < todasMaster.length; i += BATCH) {
-      const rows = todasMaster.slice(i, i + BATCH).map(e => ({
-        titulo_normalizado: e.titulo_normalizado,
-        tipo:               e.tipo,
-        ...(e.cover_url ? { cover_url: e.cover_url } : {}),
-        ano:          e.ano ?? null,
-        atualizado_em: agora,
-      }));
-      const { error } = await supabaseAdmin
-        .from("catalog_master")
-        .upsert(rows, { onConflict: "titulo_normalizado", ignoreDuplicates: false });
-      if (error) console.error(`[CATALOG-FAST] Erro master lote ${i}:`, error.message);
-    }
-
-    // ── 4b. Busca IDs ─────────────────────────────────────────────────────────
-    const masterIdMap = new Map<string, string>();
-    const titulos = todasMaster.map(e => e.titulo_normalizado);
-    for (let i = 0; i < titulos.length; i += 500) {
-      const { data } = await supabaseAdmin
-        .from("catalog_master")
-        .select("id, titulo_normalizado")
-        .in("titulo_normalizado", titulos.slice(i, i + 500));
-      for (const row of data || []) masterIdMap.set(row.titulo_normalizado, row.id);
-    }
-
-    log.etapas.master = {
-      ok: true,
-      titulos_processados: todasMaster.length,
-      ids_encontrados: masterIdMap.size,
-    };
-
-    // ── 4c. Upsert catalog_availability ──────────────────────────────────────
-    // ignoreDuplicates: true → preserva adicionado_em original
-    const availRows = [...filmesUnicos, ...seriesUnicas.master]
+    // 3. Upsert catalog_availability
+    const availRows = lote
       .map(e => {
-        const master_id = masterIdMap.get(e.titulo_normalizado);
+        const master_id = idMap.get(e.titulo_normalizado);
         return master_id
           ? { master_id, servidor: SERVIDOR, categoria_origem: e.categoria_origem }
           : null;
       })
       .filter(Boolean) as any[];
 
-    for (let i = 0; i < availRows.length; i += BATCH) {
-      const { error } = await supabaseAdmin
+    if (availRows.length > 0) {
+      await supabaseAdmin
         .from("catalog_availability")
-        .upsert(availRows.slice(i, i + BATCH), {
-          onConflict: "master_id,servidor",
-          ignoreDuplicates: true,
-        });
-      if (error) console.error(`[CATALOG-FAST] Erro availability lote ${i}:`, error.message);
+        .upsert(availRows, { onConflict: "master_id,servidor", ignoreDuplicates: true });
     }
 
-    // ── 4d. Upsert catalog_episodes ───────────────────────────────────────────
-    const epRows = seriesUnicas.episodios
-      .map(ep => {
-        const master_id = masterIdMap.get(ep.titulo_normalizado);
+    return NextResponse.json({ ok: true, processados: lote.length });
+  }
+
+  // ── Lote de episódios ─────────────────────────────────────────────────────
+  if (tipo === "episodios" && Array.isArray(lote) && lote.length > 0) {
+    const titulos = [...new Set(lote.map(e => e.titulo_normalizado))];
+
+    // Busca IDs das séries já inseridas
+    const { data: masterData } = await supabaseAdmin
+      .from("catalog_master")
+      .select("id, titulo_normalizado")
+      .in("titulo_normalizado", titulos);
+
+    const idMap = new Map<string, string>();
+    for (const row of masterData || []) idMap.set(row.titulo_normalizado, row.id);
+
+    const epRows = lote
+      .map(e => {
+        const master_id = idMap.get(e.titulo_normalizado);
         return master_id ? {
-          master_id, servidor: SERVIDOR,
-          temporada: ep.temporada!, episodio: ep.episodio!,
-          cover_url: ep.cover_url || null,
+          master_id,
+          servidor:  SERVIDOR,
+          temporada: e.temporada,
+          episodio:  e.episodio,
+          cover_url: e.cover_url || null,
         } : null;
       })
       .filter(Boolean) as any[];
 
-    for (let i = 0; i < epRows.length; i += BATCH) {
-      const { error } = await supabaseAdmin
+    if (epRows.length > 0) {
+      const { error: epErr } = await supabaseAdmin
         .from("catalog_episodes")
-        .upsert(epRows.slice(i, i + BATCH), {
-          onConflict: "master_id,servidor,temporada,episodio",
+        .upsert(epRows, {
+          onConflict:       "master_id,servidor,temporada,episodio",
           ignoreDuplicates: true,
         });
-      if (error) console.error(`[CATALOG-FAST] Erro episodes lote ${i}:`, error.message);
+
+      if (epErr) {
+        console.error("[CATALOG-FAST] Erro episodes:", epErr.message);
+        return NextResponse.json({ error: epErr.message }, { status: 500 });
+      }
     }
 
-    // ── 4e. Contadores ────────────────────────────────────────────────────────
+    return NextResponse.json({ ok: true, processados: epRows.length });
+  }
+
+  // ── Finalizar: atualiza contadores e salva log ────────────────────────────
+  if (tipo === "finalizar") {
     await supabaseAdmin.rpc("catalog_atualizar_contadores", { p_servidor: SERVIDOR });
 
-    // ── 5. Resultado ──────────────────────────────────────────────────────────
-    const duracao = Math.round((Date.now() - inicio) / 1000);
-    log.resultado = {
-      duracao_s:           duracao,
-      filmes:              filmesUnicos.length,
-      series_unicas:       seriesUnicas.master.length,
-      episodios:           epRows.length,
-      availability_upsert: availRows.length,
-      episodes_upsert:     epRows.length,
+    const log = {
+      servidor:     SERVIDOR,
+      executado_em: new Date().toISOString(),
+      resultado:    body.stats || {},
+      erro:         null,
     };
 
-    await salvarLog(log);
-    console.log(`[CATALOG-FAST] Concluído em ${duracao}s`, log.resultado);
-    return NextResponse.json({ ok: true, ...log.resultado });
+    try {
+      await s3.send(new PutObjectCommand({
+        Bucket: R2_BUCKET, Key: LOG_KEY,
+        Body: JSON.stringify(log, null, 2), ContentType: "application/json",
+      }));
+    } catch (e) { console.error("[CATALOG-FAST] Erro ao salvar log:", e); }
 
-  } catch (e: any) {
-    log.erro = e.message;
-    await salvarLog(log);
-    console.error(`[CATALOG-FAST] Erro fatal:`, e.message);
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ ok: true, finalizado: true });
   }
-}
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function deduplicarPorTitulo(filmes: EntradaCatalogo[]): EntradaCatalogo[] {
-  const mapa = new Map<string, EntradaCatalogo>();
-  for (const f of filmes) {
-    const ex = mapa.get(f.titulo_normalizado);
-    if (!ex || (!ex.cover_url && f.cover_url)) mapa.set(f.titulo_normalizado, f);
-  }
-  return [...mapa.values()];
-}
-
-function agruparSeries(series: EntradaCatalogo[]) {
-  const masterMap = new Map<string, EntradaCatalogo>();
-  for (const ep of series) {
-    const ex = masterMap.get(ep.titulo_normalizado);
-    if (!ex || (!ex.cover_url && ep.cover_url)) masterMap.set(ep.titulo_normalizado, ep);
-  }
-  return { master: [...masterMap.values()], episodios: series };
-}
-
-async function salvarLog(log: Record<string, any>) {
-  try {
-    await s3.send(new PutObjectCommand({
-      Bucket: R2_BUCKET, Key: LOG_KEY,
-      Body: JSON.stringify(log, null, 2), ContentType: "application/json",
-    }));
-  } catch (e) { console.error("[CATALOG-FAST] Erro ao salvar log:", e); }
+  return NextResponse.json({ error: "tipo inválido" }, { status: 400 });
 }
