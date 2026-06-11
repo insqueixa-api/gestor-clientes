@@ -413,6 +413,48 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
     {id:"fast",  label:"FastTV",   cor:"#f59e0b", onSync:syncFast},
   ];
 
+  // ─── TMDB ────────────────────────────────────────────────────────────────
+  const [tmdbStatus,   setTmdbStatus]   = useState<"idle"|"running"|"ok"|"error">("idle");
+  const [tmdbLogs,     setTmdbLogs]     = useState<string[]>([]);
+  const [tmdbLote,     setTmdbLote]     = useState<number>(100);
+  const [tmdbInfo,     setTmdbInfo]     = useState<{filmes:{sem_tmdb:number;com_tmdb:number};series:{sem_tmdb:number;com_tmdb:number}}|null>(null);
+  const [tmdbConfirm,  setTmdbConfirm]  = useState(false);
+  const [tmdbTipo,     setTmdbTipo]     = useState<"FILME"|"SERIE">("FILME");
+
+  const addTmdbLog = (msg:string) => setTmdbLogs(p=>[...p,msg]);
+
+  useEffect(()=>{
+    fetch('/api/epg/sync-tmdb').then(r=>r.json()).then(d=>{
+      if(d.filmes) setTmdbInfo(d);
+    }).catch(()=>{});
+  },[]);
+
+  async function syncTmdb(){
+    setTmdbStatus("running");
+    setTmdbLogs([]);
+    setTmdbConfirm(false);
+    addTmdbLog(`↑ Buscando ${tmdbLote} ${tmdbTipo === "FILME" ? "filmes" : "séries"} sem TMDB...`);
+    try{
+      const d = await fetch(`/api/epg/sync-tmdb?tipo=${tmdbTipo}&lote=${tmdbLote}`,{method:"POST"}).then(r=>r.json());
+      if(d.error) throw new Error(d.error);
+      if(d.processados === 0){
+        addTmdbLog("✅ Nada para processar — todos já enriquecidos!");
+      } else {
+        addTmdbLog(`✓ Processados: ${d.processados}`);
+        addTmdbLog(`✓ Encontrados no TMDB: ${d.encontrados}`);
+        addTmdbLog(`✓ Não encontrados: ${d.nao_encontrados}`);
+        addTmdbLog(`${d.proximo_lote ? "↻ Ainda há mais para processar" : "✅ Todos processados!"}`);
+      }
+      // Atualiza status
+      const s = await fetch('/api/epg/sync-tmdb').then(r=>r.json());
+      if(s.filmes) setTmdbInfo(s);
+      setTmdbStatus("ok");
+    }catch(e:any){
+      addTmdbLog(`❌ ${e.message}`);
+      setTmdbStatus("error");
+    }
+  }
+
   return (
     <div style={{position:"fixed",inset:0,zIndex:9998,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={onClose}>
       <div onClick={e=>e.stopPropagation()} style={{background:"#13151f",border:"1px solid #1e2130",borderRadius:14,width:"100%",maxWidth:520,boxShadow:"0 24px 64px rgba(0,0,0,0.9)",overflow:"hidden"}}>
@@ -461,6 +503,71 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
               </div>
             );
           })}
+        </div>
+
+        {/* Card TMDB */}
+        <div style={{padding:"0 16px 12px"}}>
+          <div style={{background:"#0f1117",border:`1px solid ${tmdbStatus==="ok"?"#f59e0b40":tmdbStatus==="error"?"#ef444430":"#1e2130"}`,borderRadius:10,padding:14}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{width:7,height:7,borderRadius:"50%",background:tmdbStatus==="ok"?"#f59e0b":tmdbStatus==="error"?"#ef4444":tmdbStatus==="running"?"#f59e0b":"#374151",animation:tmdbStatus==="running"?"pulse 1s infinite":undefined}}/>
+                  <span style={{fontSize:13,fontWeight:600,color:"#e2e8f0"}}>Enriquecimento TMDB</span>
+                </div>
+                {tmdbInfo && (
+                  <div style={{fontSize:11,color:"#374151",marginTop:4,paddingLeft:15}}>
+                    Filmes: {tmdbInfo.filmes.com_tmdb.toLocaleString()} com TMDB · {tmdbInfo.filmes.sem_tmdb.toLocaleString()} faltando
+                    {" · "}Séries: {tmdbInfo.series.com_tmdb.toLocaleString()} com TMDB · {tmdbInfo.series.sem_tmdb.toLocaleString()} faltando
+                  </div>
+                )}
+              </div>
+              <button onClick={()=>setTmdbConfirm(v=>!v)} disabled={tmdbStatus==="running"} style={{display:"flex",alignItems:"center",gap:5,padding:"6px 12px",background:tmdbStatus==="running"?"#1a1d2e":"#f59e0b20",border:`1px solid ${tmdbStatus==="running"?"#252840":"#f59e0b50"}`,borderRadius:7,color:tmdbStatus==="running"?"#374151":"#f59e0b",fontSize:12,fontWeight:600,cursor:tmdbStatus==="running"?"not-allowed":"pointer",flexShrink:0}}>
+                <RefreshCw style={{width:11,height:11,animation:tmdbStatus==="running"?"spin 1s linear infinite":"none"}}/>
+                {tmdbStatus==="running"?"Rodando...":"Enriquecer"}
+              </button>
+            </div>
+
+            {/* Painel de confirmação */}
+            {tmdbConfirm && tmdbStatus !== "running" && (
+              <div style={{marginTop:10,padding:"10px 12px",background:"#13151f",borderRadius:8,border:"1px solid #252840"}}>
+                <div style={{fontSize:12,color:"#94a3b8",marginBottom:8}}>Configurar lote:</div>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                  {/* Tipo */}
+                  <div style={{display:"flex",background:"#1a1d2e",padding:3,borderRadius:6,gap:3}}>
+                    <button onClick={()=>setTmdbTipo("FILME")} style={{padding:"4px 10px",background:tmdbTipo==="FILME"?"#f59e0b":"transparent",color:tmdbTipo==="FILME"?"#000":"#64748b",border:"none",borderRadius:5,fontSize:11,fontWeight:600,cursor:"pointer"}}>Filmes</button>
+                    <button onClick={()=>setTmdbTipo("SERIE")} style={{padding:"4px 10px",background:tmdbTipo==="SERIE"?"#f59e0b":"transparent",color:tmdbTipo==="SERIE"?"#000":"#64748b",border:"none",borderRadius:5,fontSize:11,fontWeight:600,cursor:"pointer"}}>Séries</button>
+                  </div>
+                  {/* Lote */}
+                  <div style={{display:"flex",alignItems:"center",gap:6}}>
+                    <span style={{fontSize:11,color:"#64748b"}}>Lote:</span>
+                    <input
+                      type="number" min={5} max={100} value={tmdbLote}
+                      onChange={e=>setTmdbLote(Math.min(100,Math.max(5,parseInt(e.target.value)||5)))}
+                      style={{width:60,padding:"3px 6px",background:"#0f1117",border:"1px solid #252840",borderRadius:5,color:"#e2e8f0",fontSize:12,textAlign:"center"}}
+                    />
+                    <span style={{fontSize:10,color:"#374151"}}>(máx 100)</span>
+                  </div>
+                  <button onClick={syncTmdb} style={{marginLeft:"auto",padding:"5px 14px",background:"#f59e0b",border:"none",borderRadius:6,color:"#000",fontSize:12,fontWeight:700,cursor:"pointer"}}>
+                    Confirmar
+                  </button>
+                </div>
+                {tmdbInfo && (
+                  <div style={{fontSize:11,color:"#475569"}}>
+                    {tmdbTipo==="FILME" ? tmdbInfo.filmes.sem_tmdb.toLocaleString() : tmdbInfo.series.sem_tmdb.toLocaleString()} {tmdbTipo === "FILME" ? "filmes" : "séries"} aguardando enriquecimento
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Logs */}
+            {tmdbLogs.length>0&&(
+              <div style={{marginTop:10,padding:"8px 10px",background:"#080808",borderRadius:6,border:"1px solid #141414"}}>
+                {tmdbLogs.map((l,i)=>(
+                  <div key={i} style={{fontSize:11,color:l.startsWith("❌")?"#ef4444":l.startsWith("✅")?"#10b981":l.startsWith("↻")?"#f59e0b":"#64748b",lineHeight:1.6}}>{l}</div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <div style={{padding:"10px 20px 16px",borderTop:"1px solid #1e2130"}}>
