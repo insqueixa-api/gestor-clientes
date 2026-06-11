@@ -303,9 +303,11 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
     try{
       const d = await fetch("/api/epg/sync-catalog/elite",{method:"POST"}).then(r=>r.json());
       if(d.error) throw new Error(d.error);
-      addLog("elite",`✓ Filmes novos: ${d.filmes ?? 0}`);
+      addLog("elite",`✓ Filmes: ${d.filmes ?? 0}`);
       addLog("elite",`✓ Séries únicas: ${d.series_unicas ?? 0}`);
       addLog("elite",`✓ Episódios: ${d.episodios ?? 0}`);
+      addLog("elite",`✓ Novos títulos: ${d.novos_titulos ?? 0}`);
+      addLog("elite",`✓ Novos episódios: ${d.novos_episodios ?? 0}`);
       addLog("elite",`✅ Concluído em ${d.duracao_s}s`);
       setInfo(p=>({...p,elite:{ultimo_sync:new Date().toISOString(),filmes:d.filmes??0,series_unicas:d.series_unicas??0,episodios:d.episodios??0}}));
       setStatus(p=>({...p,elite:"ok"}));
@@ -319,9 +321,11 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
     try{
       const d = await fetch("/api/epg/sync-catalog/natv",{method:"POST"}).then(r=>r.json());
       if(d.error) throw new Error(d.error);
-      addLog("natv",`✓ Filmes novos: ${d.filmes ?? 0}`);
+      addLog("natv",`✓ Filmes: ${d.filmes ?? 0}`);
       addLog("natv",`✓ Séries únicas: ${d.series_unicas ?? 0}`);
       addLog("natv",`✓ Episódios: ${d.episodios ?? 0}`);
+      addLog("natv",`✓ Novos títulos: ${d.novos_titulos ?? 0}`);
+      addLog("natv",`✓ Novos episódios: ${d.novos_episodios ?? 0}`);
       addLog("natv",`✅ Concluído em ${d.duracao_s}s`);
       setInfo(p=>({...p,natv:{ultimo_sync:new Date().toISOString(),filmes:d.filmes??0,series_unicas:d.series_unicas??0,episodios:d.episodios??0}}));
       setStatus(p=>({...p,natv:"ok"}));
@@ -334,7 +338,7 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
     addLog("fast","⬇ Buscando URL M3U do servidor Fast...");
 
     // Cole aqui o ID (UUID) exato que corresponde ao servidor Fast
-    const CLIENT_ID_FAST = "aefcff7a-9b8f-46be-9a1b-155a73a472de";
+    
 
     try {
       const res = await fetch(`/api/epg/sync-catalog/fast`);
@@ -360,11 +364,10 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
       }
       window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", onResult);
 
-      function onDone(e:Event){
+      async function onDone(e:Event){
         const detail = (e as CustomEvent).detail;
         if(detail?.action !== "FAST_VOD_SYNC_RESULT") return;
         window.removeEventListener("UNIGESTOR_BACKGROUND_MESSAGE", onDone as any);
-
         if(!detail.ok){
           addLog("fast",`❌ ${detail.error}`);
           setStatus(p=>({...p,fast:"error"}));
@@ -373,6 +376,14 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
         addLog("fast",`✓ Filmes processados: ${detail.filmes ?? 0}`);
         addLog("fast",`✓ Séries únicas: ${detail.series ?? 0}`);
         addLog("fast",`✓ Episódios: ${detail.episodios ?? 0}`);
+        // Busca novos do log salvo pelo finalizar
+        try {
+          const log = await fetch("/api/epg/sync-catalog/fast").then(r=>r.json());
+          if(log.resultado?.novos_titulos !== undefined){
+            addLog("fast",`✓ Novos títulos: ${log.resultado.novos_titulos}`);
+            addLog("fast",`✓ Novos episódios: ${log.resultado.novos_episodios}`);
+          }
+        } catch {}
         addLog("fast","✅ Concluído!");
         setInfo(p=>({...p,fast:{ultimo_sync:new Date().toISOString(),filmes:detail.filmes??0,series_unicas:detail.series??0,episodios:detail.episodios??0}}));
         setStatus(p=>({...p,fast:"ok"}));
