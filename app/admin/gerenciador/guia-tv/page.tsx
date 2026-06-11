@@ -328,48 +328,66 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
     }catch(e:any){addLog("natv",`❌ ${e.message}`);setStatus(p=>({...p,natv:"error"}));}
   }
 
-  function syncFast(){
+  async function syncFast(){
     setStatus(p=>({...p,fast:"running"}));
     setLogs(p=>({...p,fast:[]}));
-    addLog("fast","⬇ Baixando M3U via extensão...");
+    addLog("fast","⬇ Buscando URL M3U do servidor Fast...");
 
-    function onResult(e:Event){
-      const detail = (e as CustomEvent).detail;
-      window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", onResult);
-      if(!detail?.ok){
-        addLog("fast",`❌ ${detail?.error||"Erro desconhecido"}`);
-        setStatus(p=>({...p,fast:"error"}));
-        return;
+    try {
+      // 1. Busca a m3u_url na API
+      const res = await fetch("/api/epg/sync-catalog/fast");
+      const data = await res.json();
+      
+      if (!data.m3u_url) {
+        throw new Error("URL M3U não encontrada. Verifique o banco de dados.");
       }
-      addLog("fast","↑ Processando em background...");
+
+      addLog("fast","⬇ Baixando M3U via extensão...");
+
+      // 2. Prepara os listeners
+      function onResult(e:Event){
+        const detail = (e as CustomEvent).detail;
+        window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", onResult);
+        if(!detail?.ok){
+          addLog("fast",`❌ ${detail?.error||"Erro desconhecido"}`);
+          setStatus(p=>({...p,fast:"error"}));
+          return;
+        }
+        addLog("fast","↑ Processando em background...");
+      }
+      window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", onResult);
+
+      function onDone(e:Event){
+        const detail = (e as CustomEvent).detail;
+        if(detail?.action !== "FAST_VOD_SYNC_RESULT") return;
+        window.removeEventListener("UNIGESTOR_INTEGRATION_CALL", onDone as any);
+        if(!detail.ok){
+          addLog("fast",`❌ ${detail.error}`);
+          setStatus(p=>({...p,fast:"error"}));
+          return;
+        }
+        addLog("fast",`✓ Filmes processados: ${detail.filmes ?? 0}`);
+        addLog("fast",`✓ Séries únicas: ${detail.series ?? 0}`);
+        addLog("fast",`✓ Episódios: ${detail.episodios ?? 0}`);
+        addLog("fast","✅ Concluído!");
+        setInfo(p=>({...p,fast:{ultimo_sync:new Date().toISOString(),filmes:detail.filmes??0,series_unicas:detail.series??0,episodios:detail.episodios??0}}));
+        setStatus(p=>({...p,fast:"ok"}));
+      }
+      window.addEventListener("UNIGESTOR_INTEGRATION_CALL", onDone);
+
+      // 3. Dispara o evento passando a URL recebida
+      window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL",{
+        detail:{
+          action:"FAST_VOD_SYNC",
+          m3uUrl: data.m3u_url,
+          apiBase: window.location.origin,
+        }
+      }));
+
+    } catch(e:any) {
+      addLog("fast",`❌ ${e.message}`);
+      setStatus(p=>({...p,fast:"error"}));
     }
-    window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", onResult);
-
-    function onDone(e:Event){
-      const detail = (e as CustomEvent).detail;
-      if(detail?.action !== "FAST_VOD_SYNC_RESULT") return;
-      window.removeEventListener("message", onDone as any);
-      if(!detail.ok){
-        addLog("fast",`❌ ${detail.error}`);
-        setStatus(p=>({...p,fast:"error"}));
-        return;
-      }
-      addLog("fast",`✓ Filmes processados: ${detail.filmes ?? 0}`);
-      addLog("fast",`✓ Séries únicas: ${detail.series ?? 0}`);
-      addLog("fast",`✓ Episódios: ${detail.episodios ?? 0}`);
-      addLog("fast","✅ Concluído!");
-      setInfo(p=>({...p,fast:{ultimo_sync:new Date().toISOString(),filmes:detail.filmes??0,series_unicas:detail.series??0,episodios:detail.episodios??0}}));
-      setStatus(p=>({...p,fast:"ok"}));
-    }
-    window.addEventListener("UNIGESTOR_INTEGRATION_CALL", onDone);
-
-    window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL",{
-      detail:{
-        action:"FAST_VOD_SYNC",
-        m3uUrl: "",
-        apiBase: window.location.origin,
-      }
-    }));
   }
 
   const SERVIDORES: {id:SrvId;label:string;cor:string;onSync:()=>void}[] = [

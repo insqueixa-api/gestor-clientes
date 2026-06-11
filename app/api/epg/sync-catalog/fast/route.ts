@@ -39,19 +39,35 @@ const supabaseAdmin = createAdmin(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
-// ─── GET — Status do último sync ──────────────────────────────────────────────
+// ─── GET — Status do último sync e URL M3U ────────────────────────────────────
 export async function GET() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
+  // 1. Busca a URL M3U do cliente no banco (ajuste o nome da tabela/coluna se necessário)
+  const { data: cliente } = await supabaseAdmin
+    .from("clients") 
+    .select("m3u_url")
+    .eq("user_id", user.id) // Ajuste se a sua FK de relacionamento for diferente
+    .single();
+
+  // 2. Busca o log do R2
+  let logData = { status: "Log não encontrado" };
   try {
     const res = await fetch(`${R2_URL}/${LOG_KEY}`, { cache: "no-store" });
-    if (!res.ok) return NextResponse.json({ status: "Nenhum sync realizado ainda" });
-    return NextResponse.json(await res.json());
-  } catch {
-    return NextResponse.json({ status: "Log não encontrado" });
-  }
+    if (res.ok) {
+      logData = await res.json();
+    } else {
+      logData = { status: "Nenhum sync realizado ainda" };
+    }
+  } catch {}
+
+  // 3. Retorna o log consolidado com a URL
+  return NextResponse.json({
+    ...logData,
+    m3u_url: cliente?.m3u_url || null
+  });
 }
 
 // ─── POST — Recebe lotes da extensão e grava no Supabase ─────────────────────
