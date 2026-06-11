@@ -593,8 +593,8 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
         const s = await fetch('/api/epg/sync-tmdb').then(r=>r.json());
         if(s.filmes) setTmdbInfo(s);
 
-        // 10 segundos entre lotes
-        await new Promise(r => setTimeout(r, 15_000));
+        // 60 segundos entre lotes
+        await new Promise(r => setTimeout(r, 60_000));
       }
 
       const s = await fetch('/api/epg/sync-tmdb').then(r=>r.json());
