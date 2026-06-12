@@ -4,7 +4,49 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Search, RefreshCw, AlertTriangle, CheckCircle,
   X, ChevronDown, Database, Star, ChevronLeft, ChevronRight, Film,
+  Tv, Clapperboard, Swords, Laugh, Ghost, Heart, Eye, Rocket,
+  Shield, Sparkles, Globe, Music2, Crosshair, BookOpen, Users,
+  Baby, VideoIcon, Flame, Trophy, Clock, Compass, Sunset,
 } from "lucide-react";
+
+// ─── Ícone de categoria (slug → Lucide icon) ─────────────────────────────────
+function CatIcon({slug,size=16,color="#64748b"}:{slug:string;size?:number;color?:string}) {
+  const props={size,color,strokeWidth:1.8};
+  switch(slug){
+    case "anime":      return <Tv {...props}/>;
+    case "dorama":     return <Tv {...props}/>;
+    case "novela":     return <Heart {...props}/>;
+    case "kids":       return <Baby {...props}/>;
+    case "doc":        return <VideoIcon {...props}/>;
+    case "action":     return <Flame {...props}/>;
+    case "comedy":     return <Laugh {...props}/>;
+    case "drama":      return <Film {...props}/>;
+    case "horror":     return <Ghost {...props}/>;
+    case "romance":    return <Heart {...props}/>;
+    case "thriller":   return <Eye {...props}/>;
+    case "scifi":      return <Rocket {...props}/>;
+    case "superhero":  return <Shield {...props}/>;
+    case "new":        return <Sparkles {...props}/>;
+    case "national":   return <Globe {...props}/>;
+    case "4k":         return <Star {...props}/>;
+    case "war":        return <Swords {...props}/>;
+    case "western":    return <Compass {...props}/>;
+    case "family":     return <Users {...props}/>;
+    case "animation":  return <Clapperboard {...props}/>;
+    case "music":      return <Music2 {...props}/>;
+    case "crime":      return <Crosshair {...props}/>;
+    case "history":    return <BookOpen {...props}/>;
+    case "classic":    return <Clock {...props}/>;
+    case "reality":    return <Trophy {...props}/>;
+    case "adventure":  return <Sunset {...props}/>;
+    case "fantasy":    return <Sparkles {...props}/>;
+    case "mystery":    return <Eye {...props}/>;
+    case "religious":  return <BookOpen {...props}/>;
+    case "sport":      return <Trophy {...props}/>;
+    case "biography":  return <BookOpen {...props}/>;
+    default:           return <Film {...props}/>;
+  }
+}
 
 // ─── Tipos EPG ────────────────────────────────────────────────────────────────
 type Canal = { id: string; display_name: string; nome: string; categoria: string; icon: string; servidor: string; };
@@ -332,8 +374,8 @@ function ResultadoBuscaCatalogo({resultados,loading,onSelect}:{resultados:Titulo
 }
 
 // ─── Grid de miniaturas (tamanho fixo, alinhado) ──────────────────────────────
-function GradeMiniaturas({titulos,total,page,onSelect,onPage}:{titulos:TituloCard[];total:number;page:number;onSelect:(t:TituloCard)=>void;onPage:(p:number)=>void}) {
-  const totalPags=Math.ceil(total/25);
+function GradeMiniaturas({titulos,total,page,perPage=50,onSelect,onPage}:{titulos:TituloCard[];total:number;page:number;perPage?:number;onSelect:(t:TituloCard)=>void;onPage:(p:number)=>void}) {
+  const totalPags=Math.ceil(total/perPage);
   return (
     <div>
       {/* Grid com colunas de tamanho fixo para alinhar perfeitamente */}
@@ -368,6 +410,7 @@ function AbaCatalogo({tipo,servidorAdmin}:{tipo:TipoConteudo;servidorAdmin:Servi
   const [subCatSelecionada,setSubCatSelecionada]=useState<Categoria|null>(null);
   const [titulos,setTitulos]=useState<TituloCard[]>([]);
   const [totalTitulos,setTotalTitulos]=useState(0);
+  const [perPage,setPerPage]=useState(50);
   const [page,setPage]=useState(1);
   const [loadingNov,setLoadingNov]=useState(true);
   const [loadingCats,setLoadingCats]=useState(true);
@@ -427,7 +470,7 @@ function AbaCatalogo({tipo,servidorAdmin}:{tipo:TipoConteudo;servidorAdmin:Servi
     if(!cat)return;
     setLoadingTits(true);setTitulos([]);
     fetch(`/api/catalogo/titulos?servidor=${servidor}&tipo=${tipo}&categoria=${encodeURIComponent(cat.categoria_origem)}&page=${page}`)
-      .then(r=>r.json()).then(d=>{if(d.ok){setTitulos(d.data);setTotalTitulos(d.total);}}).finally(()=>setLoadingTits(false));
+      .then(r=>r.json()).then(d=>{if(d.ok){setTitulos(d.data);setTotalTitulos(d.total);setPerPage(d.per_page||50);}}).finally(()=>setLoadingTits(false));
   },[catSelecionada,subCatSelecionada,servidor,tipo,page]);
 
   // Busca
@@ -461,7 +504,7 @@ function AbaCatalogo({tipo,servidorAdmin}:{tipo:TipoConteudo;servidorAdmin:Servi
         <div ref={catDropRef} style={{position:"relative",flexShrink:0}}>
           <button onClick={()=>setCatDropOpen(o=>!o)}
             style={{display:"flex",alignItems:"center",gap:5,padding:"5px 12px",borderRadius:20,height:32,border:`1px solid ${catSelecionada?"#6366f1":"#252840"}`,background:catSelecionada?"#6366f120":"transparent",color:catSelecionada?"#818cf8":"#64748b",fontSize:12,cursor:"pointer",fontWeight:catSelecionada?700:400,whiteSpace:"nowrap"}}>
-            {catSelecionada?`${catSelecionada.emoji} ${catSelecionada.label}`:"📁 Categoria"}
+            {catSelecionada?<><CatIcon slug={catSelecionada.emoji} size={12} color="#818cf8"/><span style={{marginLeft:5}}>{catSelecionada.label}</span></>:<><Database size={11} style={{marginRight:4}}/> Categoria</>}
             <ChevronDown size={11} style={{opacity:0.6,transform:catDropOpen?"rotate(180deg)":"none",transition:"transform 0.15s"}}/>
           </button>
           {catDropOpen&&!loadingCats&&(
@@ -472,7 +515,7 @@ function AbaCatalogo({tipo,servidorAdmin}:{tipo:TipoConteudo;servidorAdmin:Servi
                 <button key={c.categoria_origem} onClick={()=>{setCatSelecionada(c);setSubCatSelecionada(null);setPage(1);setCatDropOpen(false);}}
                   style={{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"8px 14px",background:catSelecionada?.categoria_origem===c.categoria_origem?"#1e2130":"none",border:"none",textAlign:"left",cursor:"pointer",color:catSelecionada?.categoria_origem===c.categoria_origem?"#f1f5f9":"#94a3b8",fontSize:13,borderLeft:`3px solid ${catSelecionada?.categoria_origem===c.categoria_origem?"#6366f1":"transparent"}`}}
                   onMouseEnter={e=>(e.currentTarget.style.background="#1e2130")} onMouseLeave={e=>(e.currentTarget.style.background=catSelecionada?.categoria_origem===c.categoria_origem?"#1e2130":"none")}>
-                  <span>{c.emoji} {c.label}</span><span style={{fontSize:10,color:"#374151"}}>{c.total.toLocaleString()}</span>
+                  <span style={{display:"flex",alignItems:"center",gap:7}}><CatIcon slug={c.emoji} size={13} color="#64748b"/>{c.label}</span><span style={{fontSize:10,color:"#374151"}}>{c.total.toLocaleString()}</span>
                 </button>
               ))}
             </div>
@@ -484,7 +527,7 @@ function AbaCatalogo({tipo,servidorAdmin}:{tipo:TipoConteudo;servidorAdmin:Servi
           <div ref={subDropRef} style={{position:"relative",flexShrink:0}}>
             <button onClick={()=>setSubDropOpen(o=>!o)}
               style={{display:"flex",alignItems:"center",gap:5,padding:"5px 12px",borderRadius:20,height:32,border:`1px solid ${subCatSelecionada?"#10b981":"#252840"}`,background:subCatSelecionada?"#10b98120":"transparent",color:subCatSelecionada?"#10b981":"#64748b",fontSize:12,cursor:"pointer",fontWeight:subCatSelecionada?700:400,whiteSpace:"nowrap"}}>
-              {subCatSelecionada?`${subCatSelecionada.emoji} ${subCatSelecionada.label}`:"📂 Subcategoria"}
+              {subCatSelecionada?<><CatIcon slug={subCatSelecionada.emoji} size={12} color="#10b981"/><span style={{marginLeft:5}}>{subCatSelecionada.label}</span></>:<><ChevronDown size={11} style={{marginRight:3}}/> Subcategoria</>}
               <ChevronDown size={11} style={{opacity:0.6,transform:subDropOpen?"rotate(180deg)":"none",transition:"transform 0.15s"}}/>
             </button>
             {subDropOpen&&(
@@ -494,7 +537,7 @@ function AbaCatalogo({tipo,servidorAdmin}:{tipo:TipoConteudo;servidorAdmin:Servi
                   <button key={c.categoria_origem} onClick={()=>{setSubCatSelecionada(c);setPage(1);setSubDropOpen(false);}}
                     style={{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"8px 14px",background:subCatSelecionada?.categoria_origem===c.categoria_origem?"#1e2130":"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:13}}
                     onMouseEnter={e=>(e.currentTarget.style.background="#1e2130")} onMouseLeave={e=>(e.currentTarget.style.background=subCatSelecionada?.categoria_origem===c.categoria_origem?"#1e2130":"none")}>
-                    <span>{c.emoji} {c.label}</span><span style={{fontSize:10,color:"#374151"}}>{c.total.toLocaleString()}</span>
+                    <span style={{display:"flex",alignItems:"center",gap:7}}><CatIcon slug={c.emoji} size={13} color="#64748b"/>{c.label}</span><span style={{fontSize:10,color:"#374151"}}>{c.total.toLocaleString()}</span>
                   </button>
                 ))}
               </div>
@@ -532,11 +575,11 @@ function AbaCatalogo({tipo,servidorAdmin}:{tipo:TipoConteudo;servidorAdmin:Servi
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}>
               <button onClick={()=>{setCatSelecionada(null);setSubCatSelecionada(null);setPage(1);}}
                 style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",background:"#13151f",border:"1px solid #252840",borderRadius:7,color:"#94a3b8",fontSize:12,cursor:"pointer"}}>← Início</button>
-              <span style={{fontSize:13,color:"#e2e8f0",fontWeight:600}}>{catAtiva.emoji} {catAtiva.label}</span>
+              <span style={{fontSize:13,color:"#e2e8f0",fontWeight:600,display:"flex",alignItems:"center",gap:6}}><CatIcon slug={catAtiva.emoji} size={14} color="#818cf8"/>{catAtiva.label}</span>
               <span style={{fontSize:11,color:"#475569"}}>({totalTitulos.toLocaleString()} títulos)</span>
             </div>
             {loadingTits?<div style={{textAlign:"center",padding:40,color:"#475569"}}><RefreshCw size={20} style={{animation:"spin 1s linear infinite",margin:"0 auto 10px",display:"block"}}/></div>:
-              <GradeMiniaturas titulos={titulos} total={totalTitulos} page={page} onSelect={t=>setDetalhando(t.id)} onPage={p=>setPage(p)}/>}
+              <GradeMiniaturas titulos={titulos} total={totalTitulos} page={page} perPage={perPage} onSelect={t=>setDetalhando(t.id)} onPage={p=>setPage(p)}/>}
           </div>
         ):(
           <div style={{display:"flex",flexDirection:"column",gap:24}}>
@@ -545,32 +588,13 @@ function AbaCatalogo({tipo,servidorAdmin}:{tipo:TipoConteudo;servidorAdmin:Servi
               <div style={{height:220,background:"#13151f",borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center"}}><RefreshCw size={20} style={{animation:"spin 1s linear infinite",color:"#374151"}}/></div>
             ):novidades.length>0?(
               <div>
-                <div style={{fontSize:11,fontWeight:700,color:"#475569",textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>✨ Adicionados recentemente</div>
+                <div style={{fontSize:11,fontWeight:700,color:"#475569",textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>Adicionados recentemente</div>
                 <Carrossel itens={novidades} onSelect={t=>setDetalhando(t.id)}/>
               </div>
             ):(
               <div style={{height:80,display:"flex",alignItems:"center",justifyContent:"center",color:"#374151",fontSize:13,background:"#13151f",borderRadius:12}}>Nenhum título recente com dados do TMDB</div>
             )}
-            {/* Categorias em grid compacto, alfabética */}
-            {!loadingCats&&categorias.length>0&&(
-              <div>
-                <div style={{fontSize:11,fontWeight:700,color:"#475569",textTransform:"uppercase",letterSpacing:1,marginBottom:12}}>📂 Categorias</div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(170px,1fr))",gap:8}}>
-                  {categorias.map(cat=>(
-                    <button key={cat.categoria_origem} onClick={()=>{setCatSelecionada(cat);setSubCatSelecionada(null);setPage(1);}}
-                      style={{background:"#13151f",border:"1px solid #1e2130",borderRadius:10,padding:"12px 14px",cursor:"pointer",textAlign:"left",transition:"all 0.15s",display:"flex",alignItems:"center",gap:10}}
-                      onMouseEnter={e=>{(e.currentTarget as HTMLButtonElement).style.borderColor="#6366f150";(e.currentTarget as HTMLButtonElement).style.background="#1a1d2e";}}
-                      onMouseLeave={e=>{(e.currentTarget as HTMLButtonElement).style.borderColor="#1e2130";(e.currentTarget as HTMLButtonElement).style.background="#13151f";}}>
-                      <span style={{fontSize:20,flexShrink:0}}>{cat.emoji}</span>
-                      <div style={{minWidth:0}}>
-                        <div style={{fontSize:12,fontWeight:600,color:"#e2e8f0",lineHeight:1.3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{cat.label}</div>
-                        <div style={{fontSize:10,color:"#475569"}}>{cat.total.toLocaleString()} títulos</div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+
           </div>
         )}
       </div>
@@ -611,10 +635,10 @@ function AbaCanais({epg,progsPorCanal,syncing,onSync,syncMsg}:{epg:EpgData;progs
         <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",flexWrap:"wrap"}}>
           <div ref={catRef} style={{position:"relative"}}>
             <button onClick={()=>setCatOpen(o=>!o)} style={{display:"flex",alignItems:"center",gap:5,height:32,padding:"0 10px",background:catAtiva!=="Todos"?(CAT_COR[catAtiva]+"20"):"#1a1d2e",border:`1px solid ${catAtiva!=="Todos"?CAT_COR[catAtiva]+"50":"#252840"}`,borderRadius:20,cursor:"pointer",color:catAtiva!=="Todos"?CAT_COR[catAtiva]:"#94a3b8",fontSize:12,fontWeight:catAtiva!=="Todos"?600:400,whiteSpace:"nowrap"}}>
-              {catAtiva==="Todos"?"Categoria":`${CAT_EMOJI[catAtiva]} ${catAtiva}`}<ChevronDown size={12} style={{opacity:0.6,transform:catOpen?"rotate(180deg)":"none",transition:"transform 0.15s"}}/>
+              {catAtiva==="Todos"?"Categoria":catAtiva}<ChevronDown size={12} style={{opacity:0.6,transform:catOpen?"rotate(180deg)":"none",transition:"transform 0.15s"}}/>
             </button>
             {catOpen&&(<div onClick={()=>setCatOpen(false)} style={{position:"absolute",top:"calc(100% + 6px)",left:0,minWidth:200,background:"#13151f",border:"1px solid #1e2130",borderRadius:10,zIndex:200,overflow:"hidden",boxShadow:"0 12px 40px rgba(0,0,0,0.7)",maxHeight:280,overflowY:"auto"}}>
-              {[{value:"Todos",label:"📡 Todas as categorias"},...catsDisponiveis.map(c=>({value:c,label:`${CAT_EMOJI[c]} ${c}`}))].map(opt=>(<button key={opt.value} onClick={()=>{setCatAtiva(opt.value);setSubAtiva("Todos");}} style={{display:"block",width:"100%",padding:"8px 14px",background:catAtiva===opt.value?"#1e2130":"none",border:"none",textAlign:"left",cursor:"pointer",color:catAtiva===opt.value?"#f1f5f9":"#94a3b8",fontSize:13,borderLeft:`3px solid ${catAtiva===opt.value?(CAT_COR[opt.value]||"#6366f1"):"transparent"}`}} onMouseEnter={e=>(e.currentTarget.style.background="#1e2130")} onMouseLeave={e=>(e.currentTarget.style.background=catAtiva===opt.value?"#1e2130":"none")}>{opt.label}</button>))}
+              {[{value:"Todos",label:"Todas as categorias"},...catsDisponiveis.map(c=>({value:c,label:c}))].map(opt=>(<button key={opt.value} onClick={()=>{setCatAtiva(opt.value);setSubAtiva("Todos");}} style={{display:"block",width:"100%",padding:"8px 14px",background:catAtiva===opt.value?"#1e2130":"none",border:"none",textAlign:"left",cursor:"pointer",color:catAtiva===opt.value?"#f1f5f9":"#94a3b8",fontSize:13,borderLeft:`3px solid ${catAtiva===opt.value?(CAT_COR[opt.value]||"#6366f1"):"transparent"}`}} onMouseEnter={e=>(e.currentTarget.style.background="#1e2130")} onMouseLeave={e=>(e.currentTarget.style.background=catAtiva===opt.value?"#1e2130":"none")}>{opt.label}</button>))}
             </div>)}
           </div>
           {catAtiva!=="Todos"&&<button onClick={()=>{setCatAtiva("Todos");setSubAtiva("Todos");}} style={{display:"flex",alignItems:"center",gap:3,padding:"4px 8px",background:"#ef444415",border:"1px solid #ef444430",borderRadius:6,color:"#ef4444",fontSize:11,cursor:"pointer"}}><X size={10}/> Limpar</button>}
@@ -692,7 +716,7 @@ export default function GuiaTVPage() {
           {(["canais","filmes","series"] as GuiaTVTab[]).map(t=>(
             <button key={t} onClick={()=>setTab(t)}
               style={{display:"flex",alignItems:"center",gap:6,padding:"5px 18px",borderRadius:8,border:tab===t?"1px solid #6366f140":"1px solid transparent",background:tab===t?"#6366f115":"transparent",color:tab===t?"#818cf8":"#64748b",fontSize:13,fontWeight:tab===t?600:400,cursor:"pointer",transition:"all 0.15s",whiteSpace:"nowrap",textTransform:"capitalize"}}>
-              {t==="canais"?"📺 Canais":t==="filmes"?"🎬 Filmes":"📺 Séries"}
+              {t==="canais"?<><Tv size={14}/> Canais</>:t==="filmes"?<><Film size={14}/> Filmes</>:<><Clapperboard size={14}/> Séries</>}
             </button>
           ))}
           <div style={{flex:1}}/>

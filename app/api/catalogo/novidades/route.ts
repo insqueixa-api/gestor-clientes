@@ -1,5 +1,6 @@
 // app/api/catalogo/novidades/route.ts
-// Retorna até 20 títulos recentes com tmdb_confirmado=true para o carrossel
+// Usa vw_catalog_novidades diretamente (já tem todos os campos)
+// Sem filtro de tmdb_confirmado — poster_tmdb_url é fallback de cover_url no front
 // GET ?servidor=ELITE|NATV|FAST|TODOS&tipo=FILME|SERIE
 
 import { NextRequest, NextResponse } from "next/server";
@@ -18,8 +19,6 @@ export async function GET(req: NextRequest) {
   const tipo     = searchParams.get("tipo")     || "FILME";
 
   try {
-    // Busca os 20 mais recentes com TMDB confirmado
-    // Se servidor = TODOS, busca nos 3 mas deduplicado por titulo (usa o primeiro encontrado)
     let query = supabaseAdmin
       .from("vw_catalog_novidades")
       .select(`
@@ -30,9 +29,8 @@ export async function GET(req: NextRequest) {
         servidor, categoria_origem, adicionado_em
       `)
       .eq("tipo", tipo)
-      .eq("tmdb_confirmado", true)
       .order("adicionado_em", { ascending: false })
-      .limit(60); // pega mais para poder deduplicar
+      .limit(80); // pega mais para deduplicar
 
     if (servidor !== "TODOS") {
       query = query.eq("servidor", servidor);
@@ -41,18 +39,19 @@ export async function GET(req: NextRequest) {
     const { data, error } = await query;
     if (error) throw error;
 
-    // Deduplica por titulo_normalizado, mantém o mais recente
-    const seen = new Set<string>();
-    const deduped: typeof data = [];
+    // Deduplica por titulo_normalizado
+    // Prefere o que tem poster_tmdb_url não nulo
+    const seen = new Map<string, any>();
     for (const item of (data || [])) {
-      if (!seen.has(item.titulo_normalizado)) {
-        seen.add(item.titulo_normalizado);
-        deduped.push(item);
+      const key = item.titulo_normalizado;
+      const existing = seen.get(key);
+      if (!existing || (!existing.poster_tmdb_url && item.poster_tmdb_url)) {
+        seen.set(key, item);
       }
-      if (deduped.length >= 20) break;
+      if (seen.size >= 20) break;
     }
 
-    return NextResponse.json({ ok: true, data: deduped });
+    return NextResponse.json({ ok: true, data: [...seen.values()] });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e.message }, { status: 500 });
   }

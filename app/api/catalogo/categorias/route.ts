@@ -13,16 +13,12 @@ const supabaseAdmin = createAdmin(
 );
 
 // Limpa labels feias do NaTV ("FILMES: DRAMA" → "Drama")
-// e do Elite ("SERIES A" → já vai filtrado ou com label genérico)
-function limparLabel(cat: string, servidor: string): string {
+function limparLabel(cat: string): string {
   let label = cat;
-  // NaTV: remove prefixo "FILMES: " ou "SÉRIES: "
   label = label.replace(/^FILMES:\s*/i, "").replace(/^SÉRIES?:\s*/i, "");
-  // Capitaliza primeira letra de cada palavra
   label = label
     .toLowerCase()
     .replace(/\b\w/g, (c) => c.toUpperCase())
-    // corrige siglas conhecidas
     .replace(/\bHbo\b/g, "HBO")
     .replace(/\bHbo Max\b/g, "HBO Max")
     .replace(/\bTv\b/g, "TV")
@@ -35,53 +31,48 @@ function limparLabel(cat: string, servidor: string): string {
   return label;
 }
 
-// Filtra categorias espúrias (SERIES A, B, C... com poucos títulos no Elite)
+// Filtra categorias espúrias
 function isCategoriaPrincipal(cat: string, total: number): boolean {
-  // Elite usa "SERIES X" como categorias de séries por letra — filtra as com < 5 títulos
   if (/^SERIES [A-Z0-9]$/i.test(cat) && total < 10) return false;
   if (/^SERIES 0 a 9$/i.test(cat) && total < 10) return false;
   return true;
 }
 
-// Emoji por categoria
-function emojiCategoria(cat: string): string {
+// Ícone neutro por categoria — sem emojis de marca
+function iconeCategoria(cat: string): string {
   const c = cat.toUpperCase();
-  if (c.includes("NETFLIX"))          return "🔴";
-  if (c.includes("HBO"))              return "🟣";
-  if (c.includes("DISNEY"))           return "🔵";
-  if (c.includes("AMAZON") || c.includes("PRIME")) return "🟡";
-  if (c.includes("APPLE"))            return "⚪";
-  if (c.includes("GLOBO"))            return "🌐";
-  if (c.includes("PARAMOUNT"))        return "⭐";
-  if (c.includes("ANIME") || c.includes("CRUNCHYROLL")) return "🎌";
-  if (c.includes("DORAMA"))           return "🎎";
-  if (c.includes("NOVELA"))           return "💃";
-  if (c.includes("KIDS") || c.includes("INFANTIL")) return "🧒";
-  if (c.includes("DOCUMENT"))         return "🎥";
-  if (c.includes("ACAO") || c.includes("AÇÃO") || c.includes("ACTION")) return "💥";
-  if (c.includes("COMEDIA") || c.includes("COMÉDIA")) return "😂";
-  if (c.includes("DRAMA"))            return "🎭";
-  if (c.includes("TERROR"))           return "👻";
-  if (c.includes("ROMANCE"))          return "❤️";
-  if (c.includes("SUSPENSE"))         return "🔍";
-  if (c.includes("FICCAO") || c.includes("FICÇÃO")) return "🚀";
-  if (c.includes("MARVEL") || c.includes("DC"))     return "🦸";
-  if (c.includes("LANCAMENTO") || c.includes("LANÇAMENTO")) return "🆕";
-  if (c.includes("NACIONAL"))         return "🇧🇷";
-  if (c.includes("4K"))               return "4️⃣";
-  if (c.includes("LEGENDA"))          return "📝";
-  if (c.includes("NATALINO"))         return "🎄";
-  if (c.includes("GUERRA"))           return "⚔️";
-  if (c.includes("WESTERN") || c.includes("FAROESTE")) return "🤠";
-  if (c.includes("FAMILIA") || c.includes("FAMÍLIA")) return "👨‍👩‍👧";
-  if (c.includes("ANIMACAO") || c.includes("ANIMAÇÃO")) return "🎨";
-  if (c.includes("MUSIC") || c.includes("MÚSICA")) return "🎵";
-  if (c.includes("CRIME"))            return "🔫";
-  if (c.includes("HISTORY") || c.includes("HISTÓRIA")) return "📜";
-  if (c.includes("CLASSICO") || c.includes("CLÁSSICO")) return "🎞️";
-  if (c.includes("REALITY"))          return "📸";
-  if (c.includes("LEGENDA"))          return "📝";
-  return "🎬";
+  if (c.includes("ANIME") || c.includes("CRUNCHYROLL")) return "anime";
+  if (c.includes("DORAMA"))                              return "dorama";
+  if (c.includes("NOVELA"))                              return "novela";
+  if (c.includes("KIDS") || c.includes("INFANTIL"))     return "kids";
+  if (c.includes("DOCUMENT"))                            return "doc";
+  if (c.includes("ACAO") || c.includes("AÇÃO") || c.includes("ACTION")) return "action";
+  if (c.includes("COMEDIA") || c.includes("COMÉDIA"))   return "comedy";
+  if (c.includes("DRAMA"))                               return "drama";
+  if (c.includes("TERROR"))                              return "horror";
+  if (c.includes("ROMANCE"))                             return "romance";
+  if (c.includes("SUSPENSE"))                            return "thriller";
+  if (c.includes("FICCAO") || c.includes("FICÇÃO"))     return "scifi";
+  if (c.includes("MARVEL") || c.includes("DC"))         return "superhero";
+  if (c.includes("LANCAMENTO") || c.includes("LANÇAMENTO")) return "new";
+  if (c.includes("NACIONAL"))                            return "national";
+  if (c.includes("4K"))                                  return "4k";
+  if (c.includes("GUERRA"))                              return "war";
+  if (c.includes("WESTERN") || c.includes("FAROESTE"))  return "western";
+  if (c.includes("FAMILIA") || c.includes("FAMÍLIA"))   return "family";
+  if (c.includes("ANIMACAO") || c.includes("ANIMAÇÃO")) return "animation";
+  if (c.includes("MUSIC") || c.includes("MÚSICA"))      return "music";
+  if (c.includes("CRIME"))                               return "crime";
+  if (c.includes("HISTORY") || c.includes("HISTÓRIA"))  return "history";
+  if (c.includes("CLASSICO") || c.includes("CLÁSSICO")) return "classic";
+  if (c.includes("REALITY"))                             return "reality";
+  if (c.includes("AVENTURA"))                            return "adventure";
+  if (c.includes("FANTASIA"))                            return "fantasy";
+  if (c.includes("MISTERIO") || c.includes("MISTÉRIO")) return "mystery";
+  if (c.includes("RELIGIOSO"))                           return "religious";
+  if (c.includes("ESPORTE") || c.includes("SPORT"))     return "sport";
+  if (c.includes("BIOGRA"))                              return "biography";
+  return "general";
 }
 
 export async function GET(req: NextRequest) {
@@ -103,8 +94,8 @@ export async function GET(req: NextRequest) {
       .filter((c) => isCategoriaPrincipal(c.categoria_origem, c.total_titulos))
       .map((c) => ({
         categoria_origem: c.categoria_origem,
-        label:  limparLabel(c.categoria_origem, servidor),
-        emoji:  emojiCategoria(c.categoria_origem),
+        label:  limparLabel(c.categoria_origem),
+        emoji:  iconeCategoria(c.categoria_origem), // agora é um slug, não emoji
         total:  c.total_titulos,
       }));
 

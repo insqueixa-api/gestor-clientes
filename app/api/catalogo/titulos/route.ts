@@ -1,5 +1,6 @@
 // app/api/catalogo/titulos/route.ts
-// Retorna 25 títulos de uma categoria específica (paginado)
+// Retorna 50 títulos de uma categoria (paginado)
+// Usa poster_tmdb_url se disponível, fallback para cover_url
 // GET ?servidor=ELITE&tipo=FILME&categoria=DRAMA&page=1
 
 import { NextRequest, NextResponse } from "next/server";
@@ -7,7 +8,7 @@ import { createClient as createAdmin } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
-const PER_PAGE = 25;
+const PER_PAGE = 50;
 
 const supabaseAdmin = createAdmin(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,9 +22,7 @@ export async function GET(req: NextRequest) {
   const categoria = searchParams.get("categoria") || "";
   const page      = Math.max(1, parseInt(searchParams.get("page") || "1"));
 
-  if (!categoria) {
-    return NextResponse.json({ ok: false, error: "categoria obrigatória" }, { status: 400 });
-  }
+  if (!categoria) return NextResponse.json({ ok: false, error: "categoria obrigatória" }, { status: 400 });
 
   const offset = (page - 1) * PER_PAGE;
 
@@ -46,7 +45,6 @@ export async function GET(req: NextRequest) {
           generos,
           total_temporadas,
           total_episodios,
-          tmdb_id,
           tmdb_confirmado
         )
       `, { count: "exact" })
@@ -58,6 +56,7 @@ export async function GET(req: NextRequest) {
 
     if (error) throw error;
 
+    // poster_tmdb_url tem prioridade, cover_url é fallback
     const titulos = (data || []).map((row: any) => ({
       ...row.catalog_master,
       categoria_origem: row.categoria_origem,
@@ -65,11 +64,8 @@ export async function GET(req: NextRequest) {
     }));
 
     return NextResponse.json({
-      ok:       true,
-      data:     titulos,
-      total:    count || 0,
-      page,
-      per_page: PER_PAGE,
+      ok: true, data: titulos,
+      total: count || 0, page, per_page: PER_PAGE,
       has_more: (count || 0) > offset + PER_PAGE,
     });
   } catch (e: any) {

@@ -1,5 +1,6 @@
 // app/api/catalogo/busca/route.ts
 // Busca inteligente: ignora acentos, maiúsculas, pontuação
+// Filtra todas as palavras significativas no banco (não só a primeira)
 // GET ?q=the+walking+dead&servidor=TODOS&tipo=TODOS
 
 import { NextRequest, NextResponse } from "next/server";
@@ -12,16 +13,17 @@ const supabaseAdmin = createAdmin(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
-// Normaliza string para comparação: remove acentos, pontuação, lowercase
 function normalizar(s: string): string {
   return s
     .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // remove acentos
-    .replace(/[^a-z0-9\s]/g, " ")   // remove pontuação
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
+
+// Palavras que sozinhas não servem como filtro no banco
+const STOP_WORDS = new Set(["a","o","e","i","u","as","os","de","do","da","dos","das","em","na","no","nas","nos","the","and","of","to","in","is","it","for"]);
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -29,18 +31,21 @@ export async function GET(req: NextRequest) {
   const servidor = searchParams.get("servidor") || "TODOS";
   const tipo     = searchParams.get("tipo")     || "TODOS";
 
-  if (q.length < 2) {
-    return NextResponse.json({ ok: true, data: [] });
-  }
+  if (q.length < 2) return NextResponse.json({ ok: true, data: [] });
 
   const termoNorm = normalizar(q);
-  const palavras  = termoNorm.split(" ").filter(Boolean);
+  const todasPalavras = termoNorm.split(" ").filter(Boolean);
+  
+  // Palavras significativas para filtrar no banco (sem stop words, mínimo 2 chars)
+  const palavrasFiltro = todasPalavras.filter(p => p.length >= 2 && !STOP_WORDS.has(p));
+  // Se todas forem stop words, usa as originais
+  const palavras = palavrasFiltro.length > 0 ? palavrasFiltro : todasPalavras.filter(p => p.length >= 2);
+
+  if (palavras.length === 0) return NextResponse.json({ ok: true, data: [] });
 
   try {
-    // Busca no banco usando ilike (case-insensitive)
-    // Para acentos: usamos unaccent via ilike com o termo normalizado
-    // Supabase/Postgres: a extensão unaccent precisa estar instalada
-    // Fallback: buscamos por cada palavra separada e filtramos no JS
+    // Monta query com ilike para CADA palavra significativa no banco
+    // Isso garante que "the walking dead" filtre corretamente
     let query = supabaseAdmin
       .from("vw_catalog_full")
       .select(`
@@ -51,35 +56,28 @@ export async function GET(req: NextRequest) {
         tmdb_id, tmdb_confirmado,
         servidor, categoria_origem, adicionado_em
       `)
-      .limit(200); // pega bastante para filtrar no JS
+      .limit(500); // limite maior para garantir que não corta
 
     // Filtra por tipo se especificado
-    if (tipo !== "TODOS") {
-      query = query.eq("tipo", tipo);
-    }
+    if (tipo !== "TODOS") query = query.eq("tipo", tipo);
+    if (servidor !== "TODOS") query = query.eq("servidor", servidor);
 
-    // Filtra por servidor se especificado
-    if (servidor !== "TODOS") {
-      query = query.eq("servidor", servidor);
-    }
-
-    // Busca pela primeira palavra (PostgreSQL ilike é case-insensitive mas não ignora acentos)
-    // Usamos contains com a primeira palavra para reduzir o resultado
-    if (palavras.length > 0) {
-      query = query.ilike("titulo_normalizado", `%${palavras[0]}%`);
+    // Aplica ilike para cada palavra (todas devem estar no título)
+    // Máximo 4 palavras para não criar query muito pesada
+    for (const palavra of palavras.slice(0, 4)) {
+      query = query.ilike("titulo_normalizado", `%${palavra}%`);
     }
 
     const { data, error } = await query;
     if (error) throw error;
 
-    // Filtra no JS com normalização completa (acentos + pontuação)
+    // Filtra no JS com normalização completa (valida TODAS as palavras originais)
     const resultados = (data || []).filter((item) => {
       const tituloNorm = normalizar(item.titulo_normalizado);
-      return palavras.every((p) => tituloNorm.includes(p));
+      return todasPalavras.every((p) => tituloNorm.includes(p));
     });
 
-    // Deduplica por titulo_normalizado (pode aparecer em múltiplos servidores)
-    // Agrupa: id → lista de {servidor, categoria_origem}
+    // Agrupa por titulo_normalizado (mesmo título em múltiplos servidores)
     const agrupado = new Map<string, {
       item: typeof resultados[0];
       rotas: { servidor: string; categoria: string }[];
@@ -96,14 +94,17 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Ordena: tmdb_confirmado primeiro, depois por avaliação desc
+    // Ordena: com poster TMDB primeiro, depois por avaliação
     const lista = [...agrupado.values()]
       .sort((a, b) => {
-        if (a.item.tmdb_confirmado && !b.item.tmdb_confirmado) return -1;
-        if (!a.item.tmdb_confirmado && b.item.tmdb_confirmado) return 1;
+        // Prioriza quem tem poster_tmdb_url
+        const aPoster = a.item.poster_tmdb_url ? 1 : 0;
+        const bPoster = b.item.poster_tmdb_url ? 1 : 0;
+        if (bPoster !== aPoster) return bPoster - aPoster;
+        // Depois por avaliação
         return (b.item.avaliacao || 0) - (a.item.avaliacao || 0);
       })
-      .slice(0, 50) // máx 50 resultados
+      .slice(0, 60)
       .map(({ item, rotas }) => ({
         id:               item.id,
         titulo_normalizado: item.titulo_normalizado,
@@ -117,7 +118,7 @@ export async function GET(req: NextRequest) {
         total_temporadas: item.total_temporadas,
         total_episodios:  item.total_episodios,
         tmdb_confirmado:  item.tmdb_confirmado,
-        rotas,            // todos os servidores/categorias onde está disponível
+        rotas,
       }));
 
     return NextResponse.json({ ok: true, data: lista, total: lista.length });
