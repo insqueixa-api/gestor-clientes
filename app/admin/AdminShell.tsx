@@ -596,57 +596,38 @@ export default function AdminShell({
     <div className="min-h-screen bg-background text-foreground transition-colors duration-200">
       <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
         <div className="mx-auto flex w-full items-center gap-2 px-3 sm:px-4 py-2">
-          {/* ── Guia TV: logo compacto + badge. Resto: comportamento normal ── */}
-          {pathname === "/admin/gerenciador/guia-tv" ? (
-            <div className="flex items-center gap-2">
-              <Link href="/admin" className="relative flex items-center">
-                <Image
-                  src="/brand/logo-gestor-celular.png"
-                  alt="Gestor"
-                  width={36}
-                  height={36}
-                  className="h-9 w-9 object-contain"
-                  priority
-                />
-                {unreadCount > 0 && (
-                  <div
-                    onClick={(e) => { e.preventDefault(); setShowNotificationsModal(true); }}
-                    className="absolute -top-1 -right-1 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-500 border-2 border-[#050505] text-[9px] font-bold text-white shadow-sm cursor-pointer"
-                  >
-                    {unreadCount > 9 ? "9+" : unreadCount}
-                  </div>
-                )}
-              </Link>
-            </div>
-          ) : (
-            <div className="flex items-center gap-4">
-              <Link
-                href="/admin"
-                className="flex items-center gap-3 min-w-0 text-white hover:opacity-90 transition-opacity no-underline"
+          <div className="flex items-center gap-4">
+            <Link
+              href="/admin"
+              className="flex items-center gap-3 font-semibold min-w-0 hover:opacity-90 transition-opacity no-underline text-white"
+            >
+              <BrandUser
+                userLabel={userLabel}
+                tenantName={tenantName}
+                logoUrl={logoUrl}
+              />
+            </Link>
+
+            <div className="relative">
+              <button
+                onClick={() => setShowNotificationsModal(true)}
+                className={[
+                  "flex items-center justify-center w-8 h-8 rounded-full border border-white/10 shadow-sm transition-colors",
+                  unreadCount > 0
+                    ? "bg-rose-500 hover:bg-rose-600 text-white"
+                    : "bg-white/5 hover:bg-white/10 text-white/90",
+                ].join(" ")}
+                title="Notificações"
               >
-                <BrandUser userLabel={userLabel} tenantName={tenantName} logoUrl={logoUrl} />
-              </Link>
-              <div className="relative">
-                <button
-                  onClick={() => setShowNotificationsModal(true)}
-                  className={[
-                    "flex items-center justify-center w-8 h-8 rounded-full border border-white/10 shadow-sm transition-colors",
-                    unreadCount > 0
-                      ? "bg-rose-500 hover:bg-rose-600 text-white"
-                      : "bg-white/5 hover:bg-white/10 text-white/90",
-                  ].join(" ")}
-                  title="Notificações"
-                >
-                  <Bell className="w-5 h-5" />
-                </button>
-                {unreadCount > 0 && (
-                  <div className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-500 border-2 border-[#050505] text-[9px] font-bold text-white shadow-sm">
-                    {unreadCount}
-                  </div>
-                )}
-              </div>
+                <Bell className="w-5 h-5" />
+              </button>
+              {unreadCount > 0 && (
+                <div className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-500 border-2 border-[#050505] text-[9px] font-bold text-white shadow-sm">
+                  {unreadCount}
+                </div>
+              )}
             </div>
-          )}
+          </div>
 
           <div className="flex-1" />
 
