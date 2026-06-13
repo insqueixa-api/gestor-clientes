@@ -25,7 +25,7 @@ import {
 } from "@/lib/catalog/catalog-parser";
 
 export const dynamic     = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 // ─── R2 ───────────────────────────────────────────────────────────────────────
 const s3 = new S3Client({

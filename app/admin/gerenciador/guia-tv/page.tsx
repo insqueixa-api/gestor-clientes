@@ -320,11 +320,11 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
           </div>
           
           {/* Novo Bloco: Revisão TMDB Manual */}
-          <div style={{background:"#0f1117",border:"1px solid #f59e0b40",borderRadius:10,padding:14}}>
+          <div style={{background:"#0f1117",border:"1px solid #1e2130",borderRadius:10,padding:14}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
               <div>
                 <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <div style={{width:7,height:7,borderRadius:"50%",background:"#f59e0b"}}/>
+                  <div style={{width:7,height:7,borderRadius:"50%",background:"#374151"}}/>
                   <span style={{fontSize:13,fontWeight:600,color:"#e2e8f0"}}>Enriquecimento TMDB (Manual)</span>
                 </div>
                 <div style={{fontSize:11,color:"#374151",marginTop:4,paddingLeft:15}}>Revisão em lote de títulos sem informações</div>
