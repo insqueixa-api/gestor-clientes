@@ -67,7 +67,7 @@ type TituloBusca = TituloCard & { rotas: { servidor: string; categoria: string }
 type Categoria = { categoria_origem: string; label: string; emoji: string; total: number; };
 type Detalhe = TituloCard & {
   tmdb_id: number | null;
-  disponibilidade: { servidor: string; categoria_origem: string; adicionado_em: string }[];
+  disponibilidade: { servidor: string; categoria_origem: string; adicionado_em: string; sincronizado_em: string }[];
   temporadas: { temporada: number; total_episodios: number; servidores: string[] }[];
 };
 type SrvId = "elite" | "natv" | "fast";
@@ -242,6 +242,69 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
             {tmdbLogs.length>0&&<div style={{marginTop:10,padding:"8px 10px",background:"#080808",borderRadius:6,border:"1px solid #141414"}}>{tmdbLogs.map((l,i)=><div key={i} style={{fontSize:11,color:l.startsWith("❌")?"#ef4444":l.startsWith("✅")?"#10b981":l.startsWith("↻")?"#f59e0b":"#64748b",lineHeight:1.6}}>{l}</div>)}</div>}
           </div>
         </div>
+        {/* Bloco Limpar Catálogo */}
+        {(()=>{
+          const [limpando,setLimpando]=React.useState(false);
+          const [preview,setPreview]=React.useState<Record<string,number>|null>(null);
+          const [limpezaOk,setLimpezaOk]=React.useState<Record<string,number>|null>(null);
+          const [srvLimpar,setSrvLimpar]=React.useState<string>("TODOS");
+          const [showLimpar,setShowLimpar]=React.useState(false);
+
+          async function carregarPreview(){
+            setShowLimpar(true);setPreview(null);setLimpezaOk(null);
+            const d=await fetch("/api/catalogo/limpar").then(r=>r.json()).catch(()=>null);
+            if(d?.ok)setPreview(d.preview);
+          }
+
+          async function executarLimpeza(){
+            setLimpando(true);
+            const d=await fetch("/api/catalogo/limpar",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({servidor:srvLimpar})}).then(r=>r.json()).catch(()=>null);
+            if(d?.ok)setLimpezaOk(d.resultado);
+            setLimpando(false);setShowLimpar(false);
+          }
+
+          return(
+            <div style={{background:"#0f1117",border:`1px solid ${limpezaOk?"#10b98140":"#1e2130"}`,borderRadius:10,padding:14,marginTop:0}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <div>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:7,height:7,borderRadius:"50%",background:limpezaOk?"#10b981":"#374151"}}/><span style={{fontSize:13,fontWeight:600,color:"#e2e8f0"}}>Limpar Catálogo</span></div>
+                  <div style={{fontSize:11,color:"#374151",marginTop:4,paddingLeft:15}}>Remove títulos que saíram dos servidores desde o último sync</div>
+                  {limpezaOk&&<div style={{fontSize:11,color:"#10b981",marginTop:4,paddingLeft:15}}>✓ {Object.entries(limpezaOk).map(([s,n])=>`${s}: ${n} removidos`).join(" · ")}</div>}
+                </div>
+                <button onClick={showLimpar?()=>setShowLimpar(false):carregarPreview} disabled={limpando}
+                  style={{display:"flex",alignItems:"center",gap:5,padding:"6px 12px",background:limpando?"#1a1d2e":"#ef444420",border:`1px solid ${limpando?"#252840":"#ef444450"}`,borderRadius:7,color:limpando?"#374151":"#ef4444",fontSize:12,fontWeight:600,cursor:limpando?"not-allowed":"pointer",flexShrink:0}}>
+                  <X size={11}/>{limpando?"Limpando...":showLimpar?"Cancelar":"Limpar"}
+                </button>
+              </div>
+              {showLimpar&&(
+                <div style={{marginTop:10,padding:"10px 12px",background:"#13151f",borderRadius:8,border:"1px solid #252840"}}>
+                  <div style={{fontSize:12,color:"#94a3b8",marginBottom:8}}>Servidor alvo:</div>
+                  <div style={{display:"flex",background:"#1a1d2e",padding:3,borderRadius:6,gap:3,marginBottom:10}}>
+                    {["TODOS","ELITE","NATV","FAST"].map(s=>(
+                      <button key={s} onClick={()=>setSrvLimpar(s)}
+                        style={{padding:"4px 10px",background:srvLimpar===s?"#ef4444":"transparent",color:srvLimpar===s?"#fff":"#64748b",border:"none",borderRadius:5,fontSize:11,fontWeight:600,cursor:"pointer"}}>
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                  {preview&&(
+                    <div style={{fontSize:11,color:"#64748b",marginBottom:10}}>
+                      {srvLimpar==="TODOS"
+                        ?Object.entries(preview).map(([s,n])=>`${s}: ${n} títulos`).join(" · ")
+                        :`${srvLimpar}: ${preview[srvLimpar]||0} títulos serão removidos`}
+                    </div>
+                  )}
+                  {!preview&&<div style={{fontSize:11,color:"#374151",marginBottom:10}}>Carregando preview...</div>}
+                  <button onClick={executarLimpeza} disabled={limpando}
+                    style={{padding:"5px 16px",background:"#ef4444",border:"none",borderRadius:6,color:"#fff",fontSize:12,fontWeight:700,cursor:limpando?"not-allowed":"pointer"}}>
+                    Confirmar limpeza
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         <div style={{padding:"10px 20px 14px",borderTop:"1px solid #1e2130",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
           <div style={{fontSize:11,color:"#374151",display:"flex",alignItems:"center",gap:6}}><RefreshCw size={10}/> Títulos já existentes são ignorados — só novos são contabilizados</div>
           <button onClick={()=>{onClose();setTimeout(()=>window.dispatchEvent(new CustomEvent("OPEN_TMDB_LOTE")),100);}}
@@ -445,6 +508,9 @@ function ModalDetalhe({id,onClose}:{id:string;onClose:()=>void}) {
   const [tmdbLoading,setTmdbLoading]=useState(false);
   const [tmdbAplicando,setTmdbAplicando]=useState(false);
   const [tmdbOk,setTmdbOk]=useState(false);
+  const [deletando,setDeletando]=useState(false);
+  const [deleteOk,setDeleteOk]=useState(false);
+  const [showDeleteMenu,setShowDeleteMenu]=useState(false);
 
   useEffect(()=>{
     fetch(`/api/catalogo/detalhe?id=${id}`).then(r=>r.json()).then(d=>{
@@ -506,12 +572,60 @@ function ModalDetalhe({id,onClose}:{id:string;onClose:()=>void}) {
           {!loading&&detalhe&&(
             <div style={{display:"flex",flexDirection:"column",gap:16}}>
               {/* Botão Corrigir TMDB */}
-              <div style={{display:"flex",alignItems:"center",gap:8,justifyContent:"flex-end"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,justifyContent:"flex-end",flexWrap:"wrap"}}>
                 {tmdbOk&&<span style={{fontSize:11,color:"#10b981"}}>✓ TMDB atualizado</span>}
+                {deleteOk&&<span style={{fontSize:11,color:"#10b981"}}>✓ Removido</span>}
                 <button onClick={()=>setShowTmdb(v=>!v)}
                   style={{display:"flex",alignItems:"center",gap:6,padding:"5px 12px",background:showTmdb?"#6366f120":"#13151f",border:`1px solid ${showTmdb?"#6366f1":"#252840"}`,borderRadius:8,color:showTmdb?"#818cf8":"#64748b",fontSize:11,cursor:"pointer",fontWeight:500}}>
                   <RefreshCw size={11}/> {showTmdb?"Fechar busca":"Corrigir TMDB"}
                 </button>
+                {/* Botão deletar individual */}
+                <div style={{position:"relative"}}>
+                  <button onClick={()=>setShowDeleteMenu(v=>!v)} disabled={deletando}
+                    style={{display:"flex",alignItems:"center",gap:6,padding:"5px 12px",background:showDeleteMenu?"#ef444420":"#13151f",border:`1px solid ${showDeleteMenu?"#ef4444":"#252840"}`,borderRadius:8,color:showDeleteMenu?"#ef4444":"#64748b",fontSize:11,cursor:deletando?"wait":"pointer",fontWeight:500}}>
+                    <X size={11}/> Deletar título
+                  </button>
+                  {showDeleteMenu&&detalhe&&(
+                    <div style={{position:"absolute",top:"calc(100% + 6px)",right:0,background:"#13151f",border:"1px solid #ef444430",borderRadius:10,padding:12,zIndex:10,minWidth:200,boxShadow:"0 12px 40px rgba(0,0,0,0.7)"}}>
+                      <div style={{fontSize:11,color:"#ef4444",fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>Remover de qual servidor?</div>
+                      <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                        {detalhe.disponibilidade.map(d=>(
+                          <button key={d.servidor} onClick={async()=>{
+                            setDeletando(true);setShowDeleteMenu(false);
+                            const res=await fetch("/api/catalogo/titulo",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:detalhe.id,servidor:d.servidor})}).then(r=>r.json()).catch(()=>null);
+                            if(res?.ok){
+                              setDeleteOk(true);
+                              if(res.removido_master){setTimeout(()=>onClose(),1500);}
+                              else{setDetalhe(prev=>prev?{...prev,disponibilidade:prev.disponibilidade.filter(x=>x.servidor!==d.servidor)}:prev);}
+                            }
+                            setDeletando(false);
+                          }}
+                            style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",background:"#0f1117",border:"1px solid #1e2130",borderRadius:7,cursor:"pointer",color:"#e2e8f0",fontSize:12,textAlign:"left"}}
+                            onMouseEnter={e=>(e.currentTarget.style.borderColor="#ef4444")}
+                            onMouseLeave={e=>(e.currentTarget.style.borderColor="#1e2130")}>
+                            <div style={{width:7,height:7,borderRadius:"50%",background:COR_SERVIDOR[d.servidor]||"#6b7280",flexShrink:0}}/>
+                            {d.servidor}
+                            <span style={{fontSize:10,color:"#475569",marginLeft:"auto"}}>{d.categoria_origem}</span>
+                          </button>
+                        ))}
+                        {detalhe.disponibilidade.length>1&&(
+                          <button onClick={async()=>{
+                            setDeletando(true);setShowDeleteMenu(false);
+                            for(const d of detalhe.disponibilidade){
+                              await fetch("/api/catalogo/titulo",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:detalhe.id,servidor:d.servidor})}).then(r=>r.json()).catch(()=>null);
+                            }
+                            setDeleteOk(true);
+                            setDeletando(false);
+                            setTimeout(()=>onClose(),1500);
+                          }}
+                            style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",background:"#ef444415",border:"1px solid #ef444430",borderRadius:7,cursor:"pointer",color:"#ef4444",fontSize:12,fontWeight:600,marginTop:4}}>
+                            <X size={11}/> Remover de todos
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Painel de correção TMDB */}

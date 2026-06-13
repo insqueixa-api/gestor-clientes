@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
       .map(e => {
         const master_id = idMap.get(e.titulo_normalizado);
         return master_id
-          ? { master_id, servidor: SERVIDOR, categoria_origem: e.categoria_origem }
+          ? { master_id, servidor: SERVIDOR, categoria_origem: e.categoria_origem, sincronizado_em: agora }
           : null;
       })
       .filter(Boolean) as any[];
@@ -126,10 +126,10 @@ export async function POST(req: NextRequest) {
       for (let i = 0; i < availRows.length; i += BATCH) {
         await supabaseAdmin
           .from("catalog_availability")
-          .upsert(availRows.slice(i, i + BATCH), {
-            onConflict:       "master_id,servidor",
-            ignoreDuplicates: true,
-          });
+  .upsert(availRows.slice(i, i + BATCH), {
+          onConflict:       "master_id,servidor",
+          ignoreDuplicates: false,
+        });
       }
     }
 

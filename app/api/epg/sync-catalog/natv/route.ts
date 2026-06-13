@@ -210,7 +210,7 @@ export async function POST(req: NextRequest) {
       .map(e => {
         const master_id = masterIdMap.get(normalizarTituloBusca(e.titulo_normalizado));
         return master_id
-          ? { master_id, servidor: SERVIDOR, categoria_origem: e.categoria_origem }
+          ? { master_id, servidor: SERVIDOR, categoria_origem: e.categoria_origem, sincronizado_em: agora }
           : null;
       })
       .filter(Boolean) as any[];
@@ -218,9 +218,9 @@ export async function POST(req: NextRequest) {
     for (let i = 0; i < availRows.length; i += BATCH) {
       const { error } = await supabaseAdmin
         .from("catalog_availability")
-        .upsert(availRows.slice(i, i + BATCH), {
+.upsert(availRows.slice(i, i + BATCH), {
           onConflict: "master_id,servidor",
-          ignoreDuplicates: true,
+          ignoreDuplicates: false,
         });
       if (error) console.error(`[CATALOG-NATV] Erro availability lote ${i}:`, error.message);
     }

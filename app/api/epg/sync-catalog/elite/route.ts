@@ -231,7 +231,7 @@ const availabilityRows = [...filmesUnicos, ...seriesUnicas.master]
       .map(e => {
         const master_id = masterIdMap.get(normalizarTituloBusca(e.titulo_normalizado));
         if (!master_id) return null;
-        return { master_id, servidor: SERVIDOR, categoria_origem: e.categoria_origem };
+        return { master_id, servidor: SERVIDOR, categoria_origem: e.categoria_origem, sincronizado_em: agora };
       })
       .filter(Boolean) as Array<{ master_id: string; servidor: string; categoria_origem: string }>;
 
@@ -242,8 +242,8 @@ const availabilityRows = [...filmesUnicos, ...seriesUnicas.master]
       const { error } = await supabaseAdmin
         .from("catalog_availability")
         .upsert(lote, {
-          onConflict:       "master_id,servidor",  // string com vírgula, sem espaço
-          ignoreDuplicates: true,                  // preserva adicionado_em do registro original
+          onConflict:       "master_id,servidor",
+          ignoreDuplicates: false,
         });
 
       if (error) {
