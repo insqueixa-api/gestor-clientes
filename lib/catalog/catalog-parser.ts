@@ -59,9 +59,10 @@ function removerAcentos(s: string): string {
 // ─── Remove sufixos de qualidade de títulos ───────────────────────────────────
 function removerQualidade(titulo: string): string {
   return titulo
-    // formatos entre colchetes/parênteses: [4K], (4K), [HD], [HDR], [4K HDR], [BLU-RAY]
-    .replace(/\s*[\[(](4K[\s\w]*|FHD|HD|HDR|SDR|UHD|DV|HYBRID|BLU.?RAY|BLURAY|WEB.?DL|WEBRIP|HDRIP|DVDRIP|BDRIP|CAM|TS|HDTV|FULL|ULTRA)[\])]/gi, "")
-.replace(/\s+(4K|FHD|HDR|SDR|UHD|DV|HYBRID|FULL|ULTRA|BLURAY|BLU-RAY|WEB-DL|WEBRIP|HDRIP|DVDRIP|BDRIP|H265|H\.265|HEVC|REMUX)\s*$/gi, "")
+    // Entre colchetes/parênteses: [4K], [HDR], [DV], [HYBRID], [4K HDR], [DV][HDR], etc.
+    .replace(/\s*[\[(](4K[\s\w]*|FHD|HD|HDR|SDR|UHD|DV|HYBRID|HDCAM|CAM|BLU.?RAY|BLURAY|WEB.?DL|WEBRIP|HDRIP|DVDRIP|BDRIP|TS|HDTV|FULL|ULTRA)[\])]/gi, "")
+    // Sufixos soltos no final: "FILME 4K", "FILME HDR", "FILME DV", "FILME HYBRID"
+    .replace(/\s+(4K|FHD|HDR|SDR|UHD|DV|HYBRID|HDCAM|CAM|FULL|ULTRA|BLURAY|BLU-RAY|WEB-DL|WEBRIP|HDRIP|DVDRIP|BDRIP|H265|H\.265|HEVC|REMUX)\s*$/gi, "")
     .replace(/\s+/g, " ")
     .trim();
 }
