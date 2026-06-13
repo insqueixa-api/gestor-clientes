@@ -47,14 +47,32 @@ const BATCH = 500;
 // ─── Limpeza de título ────────────────────────────────────────────────────────
 // Remove sufixos de qualidade (4K, HD, HDR, BluRay...) e normaliza acentos
 // para evitar duplicatas como "1917 4K" vs "1917" e "PERMISSÃO" vs "PERMISSAO"
+// Espelha a função unaccent_immutable do banco (coluna gerada titulo_busca)
+function normalizarTituloBusca(titulo: string): string {
+  return titulo
+    .replace(/&amp;/gi, " e ")
+    .replace(/&/g, " e ")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function limparTitulo(titulo: string): string {
   return titulo
     .toUpperCase()
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s*[\[(](4K[\s\w]*|FHD|HD|HDR|SDR|UHD|DV|HYBRID|HDCAM|CAM|BLU.?RAY|BLURAY|WEB.?DL|WEBRIP|HDRIP|DVDRIP|BDRIP|TS|HDTV|FULL|ULTRA)[\])]/gi, "")
-    .replace(/\s*[\[(](4K[\s\w]*|FHD|HD|HDR|SDR|UHD|DV|HYBRID|HDCAM|CAM|BLU.?RAY|BLURAY|WEB.?DL|WEBRIP|HDRIP|DVDRIP|BDRIP|TS|HDTV|FULL|ULTRA)[\])]/gi, "")
-    .replace(/(4K|FHD|HDR|SDR|UHD|DV|HYBRID|HDCAM|CAM|FULL|ULTRA|BLURAY|WEB-DL|WEBRIP|H265|HEVC|REMUX)$/gi, "")
-    .replace(/\s+(4K|FHD|HDR|SDR|UHD|DV|HYBRID|HDCAM|CAM|FULL|ULTRA|BLURAY|BLU-RAY|WEB-DL|WEBRIP|HDRIP|DVDRIP|BDRIP|H265|H\.265|HEVC|REMUX)\s*$/gi, "")
+    // Entre colchetes/parênteses: [4K], [HDR], [4K][HDR]
+    .replace(/\s*[\[(](4K[\s\w]*|FHD|HD|HDRR|HDR|SDR|UHD|DV|HYBRID|HDCAM|CAM|BLU.?RAY|BLURAY|WEB.?DL|WEBRIP|HDRIP|DVDRIP|BDRIP|TS|HDTV|FULL|ULTRA)[\])]/gi, "")
+    .replace(/\s*[\[(](4K[\s\w]*|FHD|HD|HDRR|HDR|SDR|UHD|DV|HYBRID|HDCAM|CAM|BLU.?RAY|BLURAY|WEB.?DL|WEBRIP|HDRIP|DVDRIP|BDRIP|TS|HDTV|FULL|ULTRA)[\])]/gi, "")
+    // 4K no meio seguido de lixo: "TITULO 4K DIRECTORS CUT" → "TITULO"
+    .replace(/\s+4K\s+(DIRECTORS?.?CUT|HDRR|HDR|DV|HYBRID|HDCAM|CAM|REMUX|HEVC|H265).*$/gi, "")
+    // Sufixos grudados no final: "TITULO4K", "TITULOHDRR"
+    .replace(/(4K|FHD|HDRR|HDR|SDR|UHD|DV|HYBRID|HDCAM|CAM|FULL|ULTRA|BLURAY|WEB-DL|WEBRIP|H265|HEVC|REMUX|DIRECTORS?.?CUT)$/gi, "")
+    // Sufixos soltos no final: "FILME 4K", "FILME HDR"
+    .replace(/\s+(4K|FHD|HDRR|HDR|SDR|UHD|DV|HYBRID|HDCAM|CAM|FULL|ULTRA|BLURAY|BLU-RAY|WEB-DL|WEBRIP|HDRIP|DVDRIP|BDRIP|H265|H\.265|HEVC|REMUX|DIRECTORS?.?CUT)\s*$/gi, "")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -102,43 +120,79 @@ export async function POST(req: NextRequest) {
       titulo_normalizado: limparTitulo(e.titulo_normalizado),
     }));
 
-    // 2. Upsert catalog_master em lotes
+    // 2. Upsert catalog_master por titulo_busca (evita duplicatas)
+    const idMap = new Map<string, string>(); // titulo_busca → id
+
     for (let i = 0; i < loteNorm.length; i += BATCH) {
-      const batch = loteNorm.slice(i, i + BATCH);
-      const masterRows = batch.map(e => ({
-        titulo_normalizado: e.titulo_normalizado,
-        tipo:               e.tipo,
-        ...(e.cover_url ? { cover_url: e.cover_url } : {}),
-        ano:           e.ano ?? null,
-        atualizado_em: agora,
-      }));
+      const batch     = loteNorm.slice(i, i + BATCH);
+      const buscaKeys = batch.map(e => normalizarTituloBusca(e.titulo_normalizado));
 
-      const { error } = await supabaseAdmin
+      // Busca existentes por titulo_busca
+      const { data: existentes } = await supabaseAdmin
         .from("catalog_master")
-        .upsert(masterRows, { onConflict: "titulo_normalizado", ignoreDuplicates: false });
+        .select("id, titulo_busca, tipo")
+        .in("titulo_busca", buscaKeys);
 
-      if (error) {
-        console.error(`[CATALOG-FAST] Erro master lote ${i}:`, error.message);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+      const existenteMap = new Map<string, string>();
+      for (const row of existentes || []) {
+        existenteMap.set(`${row.titulo_busca}|${row.tipo}`, row.id);
       }
-    }
 
-    // 3. Busca IDs gerados — títulos já normalizados
-    const titulos = [...new Set(loteNorm.map(e => e.titulo_normalizado))];
-    const idMap   = new Map<string, string>();
+      const paraUpdate: Array<{ id: string; cover_url?: string; ano: number | null; atualizado_em: string }> = [];
+      const paraInsert: Array<{ titulo_normalizado: string; tipo: string; cover_url?: string; ano: number | null; atualizado_em: string }> = [];
 
-    for (let i = 0; i < titulos.length; i += 500) {
-      const { data } = await supabaseAdmin
-        .from("catalog_master")
-        .select("id, titulo_normalizado")
-        .in("titulo_normalizado", titulos.slice(i, i + 500));
-      for (const row of data || []) idMap.set(row.titulo_normalizado, row.id);
+      for (let j = 0; j < batch.length; j++) {
+        const e   = batch[j];
+        const key = `${buscaKeys[j]}|${e.tipo}`;
+        const id  = existenteMap.get(key);
+
+        if (id) {
+          idMap.set(buscaKeys[j], id);
+          paraUpdate.push({
+            id,
+            ...(e.cover_url ? { cover_url: e.cover_url } : {}),
+            ano:           e.ano ?? null,
+            atualizado_em: agora,
+          });
+        } else {
+          paraInsert.push({
+            titulo_normalizado: e.titulo_normalizado,
+            tipo:               e.tipo,
+            ...(e.cover_url ? { cover_url: e.cover_url } : {}),
+            ano:           e.ano ?? null,
+            atualizado_em: agora,
+          });
+        }
+      }
+
+      // Updates em lote por id (1 round-trip, sem timeout)
+      if (paraUpdate.length > 0) {
+        const { error } = await supabaseAdmin
+          .from("catalog_master")
+          .upsert(paraUpdate, { onConflict: "id", ignoreDuplicates: false });
+        if (error) console.error(`[CATALOG-FAST] Erro update master lote ${i}:`, error.message);
+      }
+
+      // Inserts com retorno do titulo_normalizado para montar o idMap
+      if (paraInsert.length > 0) {
+        const { data: inseridos, error } = await supabaseAdmin
+          .from("catalog_master")
+          .insert(paraInsert)
+          .select("id, titulo_normalizado");
+        if (error) {
+          console.error(`[CATALOG-FAST] Erro insert master lote ${i}:`, error.message);
+          return NextResponse.json({ error: error.message }, { status: 500 });
+        }
+        for (const row of inseridos || []) {
+          idMap.set(normalizarTituloBusca(row.titulo_normalizado), row.id);
+        }
+      }
     }
 
     // 4. Upsert catalog_availability
     const availRows = loteNorm
       .map(e => {
-        const master_id = idMap.get(e.titulo_normalizado);
+        const master_id = idMap.get(normalizarTituloBusca(e.titulo_normalizado));
         return master_id
           ? { master_id, servidor: SERVIDOR, categoria_origem: e.categoria_origem }
           : null;
@@ -168,21 +222,21 @@ export async function POST(req: NextRequest) {
     }));
 
     // 2. Busca IDs das séries (já gravadas com título limpo)
-    const titulos = [...new Set(loteNorm.map(e => e.titulo_normalizado))];
-    const idMap   = new Map<string, string>();
+    const buscaKeys = [...new Set(loteNorm.map(e => normalizarTituloBusca(e.titulo_normalizado)))];
+    const idMap     = new Map<string, string>();
 
-    for (let i = 0; i < titulos.length; i += 500) {
+    for (let i = 0; i < buscaKeys.length; i += 500) {
       const { data } = await supabaseAdmin
         .from("catalog_master")
-        .select("id, titulo_normalizado")
-        .in("titulo_normalizado", titulos.slice(i, i + 500));
-      for (const row of data || []) idMap.set(row.titulo_normalizado, row.id);
+        .select("id, titulo_busca")
+        .in("titulo_busca", buscaKeys.slice(i, i + 500));
+      for (const row of data || []) idMap.set(row.titulo_busca, row.id);
     }
 
     // 3. Monta e grava episódios
     const epRows = loteNorm
       .map(e => {
-        const master_id = idMap.get(e.titulo_normalizado);
+        const master_id = idMap.get(normalizarTituloBusca(e.titulo_normalizado));
         return master_id ? {
           master_id,
           servidor:  SERVIDOR,
