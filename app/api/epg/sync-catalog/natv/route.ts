@@ -14,6 +14,7 @@ import { S3Client, PutObjectCommand }  from "@aws-sdk/client-s3";
 import {
   parseM3U,
   statsDoparse,
+  normalizarTituloBusca,
   type EntradaCatalogo,
 } from "@/lib/catalog/catalog-parser";
 
@@ -124,44 +125,90 @@ export async function POST(req: NextRequest) {
     const seriesUnicas = agruparSeries(series);
     const todasMaster  = [...filmesUnicos, ...seriesUnicas.master];
 
-    // ── 4a. Upsert catalog_master ─────────────────────────────────────────────
+    // ── 4a. Upsert catalog_master por titulo_busca ────────────────────────────
     console.log(`[CATALOG-NATV] Upsert catalog_master: ${todasMaster.length}...`);
-    for (let i = 0; i < todasMaster.length; i += BATCH) {
-      const rows = todasMaster.slice(i, i + BATCH).map(e => ({
-        titulo_normalizado: e.titulo_normalizado,
-        tipo:               e.tipo,
-        ...(e.cover_url ? { cover_url: e.cover_url } : {}),
-        ano:          e.ano ?? null,
-        atualizado_em: agora,
-      }));
-      const { error } = await supabaseAdmin
-        .from("catalog_master")
-        .upsert(rows, { onConflict: "titulo_normalizado", ignoreDuplicates: false });
-      if (error) console.error(`[CATALOG-NATV] Erro master lote ${i}:`, error.message);
-    }
 
-    // ── 4b. Busca IDs ─────────────────────────────────────────────────────────
-    const masterIdMap = new Map<string, string>();
-    const titulos = todasMaster.map(e => e.titulo_normalizado);
-    for (let i = 0; i < titulos.length; i += 500) {
-      const { data } = await supabaseAdmin
+    const masterIdMap = new Map<string, string>(); // titulo_busca → id
+
+    for (let i = 0; i < todasMaster.length; i += BATCH) {
+      const lote     = todasMaster.slice(i, i + BATCH);
+      const buscaKeys = lote.map(e => normalizarTituloBusca(e.titulo_normalizado));
+
+      // Busca existentes por titulo_busca
+      const { data: existentes } = await supabaseAdmin
         .from("catalog_master")
-        .select("id, titulo_normalizado")
-        .in("titulo_normalizado", titulos.slice(i, i + 500));
-      for (const row of data || []) masterIdMap.set(row.titulo_normalizado, row.id);
+        .select("id, titulo_busca, tipo")
+        .in("titulo_busca", buscaKeys);
+
+      const existenteMap = new Map<string, string>();
+      for (const row of existentes || []) {
+        existenteMap.set(`${row.titulo_busca}|${row.tipo}`, row.id);
+      }
+
+      const agora2 = new Date().toISOString();
+      const paraUpdate: Array<{ id: string; cover_url?: string; ano: number | null; atualizado_em: string }> = [];
+      const paraInsert: Array<{ titulo_normalizado: string; tipo: string; cover_url?: string; ano: number | null; atualizado_em: string }> = [];
+
+      for (let j = 0; j < lote.length; j++) {
+        const e   = lote[j];
+        const key = `${buscaKeys[j]}|${e.tipo}`;
+        const id  = existenteMap.get(key);
+
+        if (id) {
+          masterIdMap.set(buscaKeys[j], id);
+          paraUpdate.push({
+            id,
+            ...(e.cover_url ? { cover_url: e.cover_url } : {}),
+            ano:           e.ano ?? null,
+            atualizado_em: agora2,
+          });
+        } else {
+          paraInsert.push({
+            titulo_normalizado: e.titulo_normalizado,
+            tipo:               e.tipo,
+            ...(e.cover_url ? { cover_url: e.cover_url } : {}),
+            ano:           e.ano ?? null,
+            atualizado_em: agora2,
+          });
+        }
+      }
+
+      for (const upd of paraUpdate) {
+        const { id, ...campos } = upd;
+        const { error } = await supabaseAdmin
+          .from("catalog_master")
+          .update(campos)
+          .eq("id", id);
+        if (error) console.error(`[CATALOG-NATV] Erro update master ${id}:`, error.message);
+      }
+
+      if (paraInsert.length > 0) {
+        const { data: inseridos, error } = await supabaseAdmin
+          .from("catalog_master")
+          .insert(paraInsert)
+          .select("id, titulo_busca");
+        if (error) {
+          console.error(`[CATALOG-NATV] Erro insert master lote ${i}:`, error.message);
+        } else {
+          for (const row of inseridos || []) {
+            masterIdMap.set(row.titulo_busca, row.id);
+          }
+        }
+      }
     }
 
     log.etapas.master = {
-      ok: true,
+      ok:                  true,
       titulos_processados: todasMaster.length,
-      ids_encontrados: masterIdMap.size,
+      ids_encontrados:     masterIdMap.size,
     };
+    console.log(`[CATALOG-NATV] IDs resolvidos: ${masterIdMap.size} de ${todasMaster.length}`);
 
     // ── 4c. Upsert catalog_availability ──────────────────────────────────────
     // ignoreDuplicates: true → preserva adicionado_em original
     const availRows = [...filmesUnicos, ...seriesUnicas.master]
       .map(e => {
-        const master_id = masterIdMap.get(e.titulo_normalizado);
+        const master_id = masterIdMap.get(normalizarTituloBusca(e.titulo_normalizado));
         return master_id
           ? { master_id, servidor: SERVIDOR, categoria_origem: e.categoria_origem }
           : null;
@@ -181,7 +228,7 @@ export async function POST(req: NextRequest) {
     // ── 4d. Upsert catalog_episodes ───────────────────────────────────────────
     const epRows = seriesUnicas.episodios
       .map(ep => {
-        const master_id = masterIdMap.get(ep.titulo_normalizado);
+const master_id = masterIdMap.get(normalizarTituloBusca(ep.titulo_normalizado));
         return master_id ? {
           master_id, servidor: SERVIDOR,
           temporada: ep.temporada!, episodio: ep.episodio!,

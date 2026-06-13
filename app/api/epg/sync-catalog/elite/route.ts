@@ -20,6 +20,7 @@ import { S3Client, PutObjectCommand }  from "@aws-sdk/client-s3";
 import {
   parseM3U,
   statsDoparse,
+  normalizarTituloBusca,
   type EntradaCatalogo,
 } from "@/lib/catalog/catalog-parser";
 
@@ -135,53 +136,90 @@ export async function POST(req: NextRequest) {
     const seriesUnicas = agruparSeries(series);
     const todasMaster  = [...filmesUnicos, ...seriesUnicas.master];
 
-    // ── 4a. Upsert catalog_master ─────────────────────────────────────────────
-    // ignoreDuplicates: false → atualiza atualizado_em mas NÃO sobrescreve cover_url
-    // (cover_url só é gravado no INSERT; no UPDATE mantemos o que já está)
-    // Para isso usamos uma RPC ou aceitamos que o upsert vai sobrescrever.
-    // Decisão: no upsert do master, cover_url só é enviado se não vier vazio,
-    // e o Supabase vai sobrescrever (aceitável — é sempre o dado mais recente do servidor)
+    // ── 4a. Upsert catalog_master por titulo_busca ────────────────────────────
+    // Fluxo: calcula titulo_busca local → busca ID existente → UPDATE ou INSERT
+    // Evita duplicatas quando titulo_normalizado mudou mas titulo_busca é igual
     console.log(`[CATALOG-ELITE] Upsert catalog_master: ${todasMaster.length} títulos...`);
+
+    const masterIdMap = new Map<string, string>(); // titulo_busca → id
+
     for (let i = 0; i < todasMaster.length; i += BATCH_MASTER) {
       const lote = todasMaster.slice(i, i + BATCH_MASTER);
-      const rows = lote.map(e => ({
-        titulo_normalizado: e.titulo_normalizado,
-        tipo:               e.tipo,
-        // cover_url: só inclui se existir, para não apagar uma capa que já tínhamos
-        ...(e.cover_url ? { cover_url: e.cover_url } : {}),
-        ano:          e.ano ?? null,
-        atualizado_em: new Date().toISOString(),
-      }));
 
-      const { error } = await supabaseAdmin
+      // 1. Calcula titulo_busca de cada entrada do lote
+      const buscaKeys = lote.map(e => normalizarTituloBusca(e.titulo_normalizado));
+
+      // 2. Busca registros existentes por titulo_busca + tipo
+      const { data: existentes } = await supabaseAdmin
         .from("catalog_master")
-        .upsert(rows, {
-          onConflict:       "titulo_normalizado",
-          ignoreDuplicates: false,
-        });
+        .select("id, titulo_busca, tipo")
+        .in("titulo_busca", buscaKeys);
 
-      if (error) console.error(`[CATALOG-ELITE] Erro master lote ${i}:`, error.message);
-    }
+      // Monta mapa: "titulo_busca|tipo" → id
+      const existenteMap = new Map<string, string>();
+      for (const row of existentes || []) {
+        existenteMap.set(`${row.titulo_busca}|${row.tipo}`, row.id);
+      }
 
-    // ── 4b. Buscar IDs gerados/existentes no catalog_master ───────────────────
-    console.log(`[CATALOG-ELITE] Buscando IDs do catalog_master...`);
-    const masterIdMap = new Map<string, string>(); // titulo_normalizado → id
+      // 3. Separa em updates e inserts
+      const agora = new Date().toISOString();
+      const paraUpdate: Array<{ id: string; cover_url?: string; ano: number | null; atualizado_em: string }> = [];
+      const paraInsert: Array<{ titulo_normalizado: string; tipo: string; cover_url?: string; ano: number | null; atualizado_em: string }> = [];
 
-    const titulos = todasMaster.map(e => e.titulo_normalizado);
-    for (let i = 0; i < titulos.length; i += 500) {
-      const { data, error } = await supabaseAdmin
-        .from("catalog_master")
-        .select("id, titulo_normalizado")
-        .in("titulo_normalizado", titulos.slice(i, i + 500));
+      for (let j = 0; j < lote.length; j++) {
+        const e   = lote[j];
+        const key = `${buscaKeys[j]}|${e.tipo}`;
+        const id  = existenteMap.get(key);
 
-      if (error) {
-        console.error(`[CATALOG-ELITE] Erro ao buscar IDs lote ${i}:`, error.message);
-      } else {
-        for (const row of data || []) {
-          masterIdMap.set(row.titulo_normalizado, row.id);
+        if (id) {
+          // Já existe — UPDATE preservando o ID
+          masterIdMap.set(buscaKeys[j], id);
+          paraUpdate.push({
+            id,
+            ...(e.cover_url ? { cover_url: e.cover_url } : {}),
+            ano:           e.ano ?? null,
+            atualizado_em: agora,
+          });
+        } else {
+          // Não existe — INSERT
+          paraInsert.push({
+            titulo_normalizado: e.titulo_normalizado,
+            tipo:               e.tipo,
+            ...(e.cover_url ? { cover_url: e.cover_url } : {}),
+            ano:           e.ano ?? null,
+            atualizado_em: agora,
+          });
+        }
+      }
+
+      // 4. Executa updates
+      for (const upd of paraUpdate) {
+        const { id, ...campos } = upd;
+        const { error } = await supabaseAdmin
+          .from("catalog_master")
+          .update(campos)
+          .eq("id", id);
+        if (error) console.error(`[CATALOG-ELITE] Erro update master ${id}:`, error.message);
+      }
+
+      // 5. Executa inserts e captura IDs gerados
+      if (paraInsert.length > 0) {
+        const { data: inseridos, error } = await supabaseAdmin
+          .from("catalog_master")
+          .insert(paraInsert)
+          .select("id, titulo_busca");
+        if (error) {
+          console.error(`[CATALOG-ELITE] Erro insert master lote ${i}:`, error.message);
+        } else {
+          for (const row of inseridos || []) {
+            masterIdMap.set(row.titulo_busca, row.id);
+          }
         }
       }
     }
+
+    // ── 4b. Log de IDs encontrados ────────────────────────────────────────────
+    console.log(`[CATALOG-ELITE] IDs resolvidos: ${masterIdMap.size} de ${todasMaster.length}`);
 
     log.etapas.master = {
       ok:                  true,
@@ -191,9 +229,9 @@ export async function POST(req: NextRequest) {
 
     // ── 4c. Upsert catalog_availability ──────────────────────────────────────
     // ignoreDuplicates: true → DO NOTHING se já existe (preserva adicionado_em original)
-    const availabilityRows = [...filmesUnicos, ...seriesUnicas.master]
+const availabilityRows = [...filmesUnicos, ...seriesUnicas.master]
       .map(e => {
-        const master_id = masterIdMap.get(e.titulo_normalizado);
+        const master_id = masterIdMap.get(normalizarTituloBusca(e.titulo_normalizado));
         if (!master_id) return null;
         return { master_id, servidor: SERVIDOR, categoria_origem: e.categoria_origem };
       })
@@ -221,7 +259,7 @@ export async function POST(req: NextRequest) {
     // ignoreDuplicates: true → DO NOTHING se episódio já existe (preserva adicionado_em)
     const episodeRows = seriesUnicas.episodios
       .map(ep => {
-        const master_id = masterIdMap.get(ep.titulo_normalizado);
+        const master_id = masterIdMap.get(normalizarTituloBusca(ep.titulo_normalizado));
         if (!master_id) return null;
         return {
           master_id,
@@ -289,8 +327,6 @@ export async function POST(req: NextRequest) {
 
     await salvarLog(log);
     console.log(`[CATALOG-ELITE] Concluído em ${duracao}s`, log.resultado);
-
-    return NextResponse.json({ ok: true, ...log.resultado });
 
     return NextResponse.json({ ok: true, ...log.resultado });
 

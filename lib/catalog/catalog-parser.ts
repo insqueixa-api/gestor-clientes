@@ -233,6 +233,20 @@ export function parseM3U(conteudo: string): EntradaCatalogo[] {
   return resultado;
 }
 
+// ─── Normaliza para comparação com titulo_busca do banco ──────────────────────
+// Deve ser idêntica à função unaccent_immutable do Supabase
+export function normalizarTituloBusca(titulo: string): string {
+  return titulo
+    .replace(/&amp;/gi, " e ")
+    .replace(/&/g, " e ")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 // ─── Constrói URL do M3U ──────────────────────────────────────────────────────
 export function buildM3UUrl(dns: string[], username: string, password: string): string {
   const base = dns[0].replace(/\/$/, "");
