@@ -114,6 +114,9 @@ function normalizarFilme(nome: string): { titulo: string; ano: number | null } {
   // Normaliza pontuação → "S.W.A.T." e "S W A T" viram "SWAT"
   titulo = normalizarPontuacao(titulo);
 
+  // Rejeita títulos não-latinos (chinês, árabe, hindi, etc.)
+  if (!titulo || titulo.replace(/[^A-Z0-9]/g, "").length < 2) return { titulo: "", ano };
+
   return { titulo, ano };
 }
 
@@ -152,6 +155,9 @@ function normalizarSerie(nome: string): {
 
   // Normaliza pontuação → "S.W.A.T." e "S W A T" viram "SWAT"
   titulo = normalizarPontuacao(titulo);
+
+  // Rejeita títulos não-latinos (chinês, árabe, hindi, etc.)
+  if (!titulo || titulo.replace(/[^A-Z0-9]/g, "").length < 2) return { titulo: "", ano, temporada, episodio };
 
   return { titulo, ano, temporada, episodio };
 }
