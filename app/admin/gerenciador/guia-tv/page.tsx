@@ -242,7 +242,13 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
             {tmdbLogs.length>0&&<div style={{marginTop:10,padding:"8px 10px",background:"#080808",borderRadius:6,border:"1px solid #141414"}}>{tmdbLogs.map((l,i)=><div key={i} style={{fontSize:11,color:l.startsWith("❌")?"#ef4444":l.startsWith("✅")?"#10b981":l.startsWith("↻")?"#f59e0b":"#64748b",lineHeight:1.6}}>{l}</div>)}</div>}
           </div>
         </div>
-        <div style={{padding:"10px 20px 14px",borderTop:"1px solid #1e2130",flexShrink:0}}><div style={{fontSize:11,color:"#374151",display:"flex",alignItems:"center",gap:6}}><RefreshCw size={10}/> Títulos já existentes são ignorados — só novos são contabilizados</div></div>
+        <div style={{padding:"10px 20px 14px",borderTop:"1px solid #1e2130",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+          <div style={{fontSize:11,color:"#374151",display:"flex",alignItems:"center",gap:6}}><RefreshCw size={10}/> Títulos já existentes são ignorados — só novos são contabilizados</div>
+          <button onClick={()=>{onClose();setTimeout(()=>window.dispatchEvent(new CustomEvent("OPEN_TMDB_LOTE")),100);}}
+            style={{display:"flex",alignItems:"center",gap:5,padding:"5px 12px",background:"#f59e0b15",border:"1px solid #f59e0b40",borderRadius:7,color:"#f59e0b",fontSize:11,fontWeight:600,cursor:"pointer",flexShrink:0}}>
+            <RefreshCw size={11}/> Revisão em Lote
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -424,14 +430,53 @@ function Carrossel({ itens, onSelect, tipo }: { itens: TituloCard[]; onSelect: (
 
 
 // ─── Modal Detalhe ────────────────────────────────────────────────────────────
+type TmdbResultado = {
+  tmdb_id: number; titulo: string; titulo_original: string;
+  ano: number | null; sinopse: string | null; avaliacao: number | null;
+  poster_url: string | null;
+};
+
 function ModalDetalhe({id,onClose}:{id:string;onClose:()=>void}) {
   const [detalhe,setDetalhe]=useState<Detalhe|null>(null);
   const [loading,setLoading]=useState(true);
-  useEffect(()=>{fetch(`/api/catalogo/detalhe?id=${id}`).then(r=>r.json()).then(d=>{if(d.ok)setDetalhe(d.data);}).finally(()=>setLoading(false));},[id]);
+  const [showTmdb,setShowTmdb]=useState(false);
+  const [tmdbQ,setTmdbQ]=useState("");
+  const [tmdbResultados,setTmdbResultados]=useState<TmdbResultado[]>([]);
+  const [tmdbLoading,setTmdbLoading]=useState(false);
+  const [tmdbAplicando,setTmdbAplicando]=useState(false);
+  const [tmdbOk,setTmdbOk]=useState(false);
+
+  useEffect(()=>{
+    fetch(`/api/catalogo/detalhe?id=${id}`).then(r=>r.json()).then(d=>{
+      if(d.ok){setDetalhe(d.data);setTmdbQ(d.data.titulo_normalizado);}
+    }).finally(()=>setLoading(false));
+  },[id]);
+
+  async function buscarTmdb(){
+    if(!tmdbQ.trim()||!detalhe)return;
+    setTmdbLoading(true);setTmdbResultados([]);
+    const d=await fetch(`/api/catalogo/tmdb-buscar?q=${encodeURIComponent(tmdbQ)}&tipo=${detalhe.tipo}`).then(r=>r.json()).catch(()=>null);
+    if(d?.ok)setTmdbResultados(d.data);
+    setTmdbLoading(false);
+  }
+
+  async function aplicarTmdb(resultado:TmdbResultado){
+    if(!detalhe)return;
+    setTmdbAplicando(true);
+    const d=await fetch("/api/catalogo/tmdb-aplicar",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({master_id:detalhe.id,tmdb_id:resultado.tmdb_id,tipo:detalhe.tipo})}).then(r=>r.json()).catch(()=>null);
+    if(d?.ok){
+      setDetalhe(prev=>prev?{...prev,tmdb_id:resultado.tmdb_id,tmdb_confirmado:true,poster_tmdb_url:resultado.poster_url,sinopse:resultado.sinopse,avaliacao:resultado.avaliacao,ano:resultado.ano||prev.ano}:prev);
+      setTmdbOk(true);setShowTmdb(false);setTimeout(()=>setTmdbOk(false),3000);
+    }
+    setTmdbAplicando(false);
+  }
+
   const backdrop=detalhe?.poster_tmdb_url||detalhe?.cover_url||"";
   return (
     <div style={{position:"fixed",inset:0,zIndex:9999,background:"rgba(0,0,0,0.88)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={onClose}>
-      <div onClick={e=>e.stopPropagation()} style={{background:"#0f1117",width:"100%",maxWidth:640,maxHeight:"88vh",borderRadius:16,overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 32px 80px rgba(0,0,0,0.95)"}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"#0f1117",width:"100%",maxWidth:680,maxHeight:"92vh",borderRadius:16,overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 32px 80px rgba(0,0,0,0.95)"}}>
+
+        {/* Header com backdrop */}
         <div style={{position:"relative",height:200,background:"#13151f",flexShrink:0}}>
           {backdrop&&<><img src={backdrop} alt="" style={{width:"100%",height:"100%",objectFit:"cover",opacity:0.4}}/><div style={{position:"absolute",inset:0,background:"linear-gradient(to top,#0f1117 0%,transparent 60%)"}}/></>}
           <button onClick={onClose} style={{position:"absolute",top:12,right:12,background:"rgba(0,0,0,0.7)",border:"none",borderRadius:"50%",width:34,height:34,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#94a3b8",zIndex:2}}><X size={16}/></button>
@@ -440,20 +485,79 @@ function ModalDetalhe({id,onClose}:{id:string;onClose:()=>void}) {
               <Poster titulo={detalhe.titulo_normalizado} posterUrl={detalhe.poster_tmdb_url} coverUrl={detalhe.cover_url}/>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,flexWrap:"wrap"}}>
-                  <span style={{fontSize:10,fontWeight:700,color:"#6366f1",background:"#6366f120",padding:"2px 8px",borderRadius:20,textTransform:"uppercase"}}>{detalhe.tipo==="FILME"?"🎬 Filme":"📺 Série"}</span>
+                  <span style={{fontSize:10,fontWeight:700,color:"#6366f1",background:"#6366f120",padding:"2px 8px",borderRadius:20,textTransform:"uppercase"}}>{detalhe.tipo==="FILME"?"Filme":"Série"}</span>
                   {detalhe.ano&&<span style={{fontSize:11,color:"#64748b"}}>{detalhe.ano}</span>}
                   {detalhe.avaliacao&&<span style={{fontSize:12,color:"#f59e0b",display:"flex",alignItems:"center",gap:3,fontWeight:600}}><Star size={12} fill="#f59e0b"/>{detalhe.avaliacao.toFixed(1)}</span>}
+                  {detalhe.tmdb_confirmado
+                    ?<span style={{fontSize:10,color:"#10b981",background:"#10b98115",padding:"2px 7px",borderRadius:20,border:"1px solid #10b98130"}}>TMDB ✓</span>
+                    :<span style={{fontSize:10,color:"#f59e0b",background:"#f59e0b15",padding:"2px 7px",borderRadius:20,border:"1px solid #f59e0b30"}}>Sem TMDB</span>
+                  }
                 </div>
                 <div style={{fontSize:18,fontWeight:700,color:"#f1f5f9",lineHeight:1.3}}>{detalhe.titulo_normalizado}</div>
               </div>
             </div>
           )}
         </div>
+
+        {/* Corpo */}
         <div style={{overflowY:"auto",flex:1,padding:16}}>
           {loading&&<div style={{textAlign:"center",padding:40,color:"#475569"}}>Carregando...</div>}
           {!loading&&!detalhe&&<div style={{textAlign:"center",padding:40,color:"#ef4444"}}>Título não encontrado.</div>}
           {!loading&&detalhe&&(
             <div style={{display:"flex",flexDirection:"column",gap:16}}>
+              {/* Botão Corrigir TMDB */}
+              <div style={{display:"flex",alignItems:"center",gap:8,justifyContent:"flex-end"}}>
+                {tmdbOk&&<span style={{fontSize:11,color:"#10b981"}}>✓ TMDB atualizado</span>}
+                <button onClick={()=>setShowTmdb(v=>!v)}
+                  style={{display:"flex",alignItems:"center",gap:6,padding:"5px 12px",background:showTmdb?"#6366f120":"#13151f",border:`1px solid ${showTmdb?"#6366f1":"#252840"}`,borderRadius:8,color:showTmdb?"#818cf8":"#64748b",fontSize:11,cursor:"pointer",fontWeight:500}}>
+                  <RefreshCw size={11}/> {showTmdb?"Fechar busca":"Corrigir TMDB"}
+                </button>
+              </div>
+
+              {/* Painel de correção TMDB */}
+              {showTmdb&&(
+                <div style={{background:"#13151f",border:"1px solid #1e2130",borderRadius:10,padding:14}}>
+                  <div style={{fontSize:11,fontWeight:700,color:"#475569",textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>Buscar no TMDB</div>
+                  <div style={{display:"flex",gap:8,marginBottom:12}}>
+                    <input value={tmdbQ} onChange={e=>setTmdbQ(e.target.value)}
+                      onKeyDown={e=>e.key==="Enter"&&buscarTmdb()}
+                      style={{flex:1,height:34,padding:"0 12px",background:"#0f1117",border:"1px solid #252840",borderRadius:8,color:"#e2e8f0",fontSize:13,outline:"none"}}
+                      placeholder="Nome para buscar no TMDB..."/>
+                    <button onClick={buscarTmdb} disabled={tmdbLoading}
+                      style={{height:34,padding:"0 14px",background:"#6366f1",border:"none",borderRadius:8,color:"#fff",fontSize:12,fontWeight:600,cursor:tmdbLoading?"wait":"pointer",flexShrink:0}}>
+                      {tmdbLoading?<RefreshCw size={12} style={{animation:"spin 1s linear infinite"}}/>:"Buscar"}
+                    </button>
+                  </div>
+                  {tmdbResultados.length>0&&(
+                    <div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:320,overflowY:"auto"}}>
+                      {tmdbResultados.map(r=>(
+                        <button key={r.tmdb_id} onClick={()=>aplicarTmdb(r)} disabled={tmdbAplicando}
+                          style={{display:"flex",gap:10,padding:10,background:"#0f1117",border:"1px solid #1e2130",borderRadius:8,cursor:"pointer",textAlign:"left",alignItems:"flex-start",transition:"all 0.15s"}}
+                          onMouseEnter={e=>{(e.currentTarget as HTMLButtonElement).style.borderColor="#6366f1";(e.currentTarget as HTMLButtonElement).style.background="#6366f108";}}
+                          onMouseLeave={e=>{(e.currentTarget as HTMLButtonElement).style.borderColor="#1e2130";(e.currentTarget as HTMLButtonElement).style.background="#0f1117";}}>
+                          {r.poster_url
+                            ?<img src={r.poster_url} alt={r.titulo} style={{width:44,height:66,objectFit:"cover",borderRadius:5,flexShrink:0}}/>
+                            :<div style={{width:44,height:66,background:"#1e2130",borderRadius:5,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}><Film size={16} color="#374151"/></div>
+                          }
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:13,fontWeight:600,color:"#f1f5f9",lineHeight:1.3,marginBottom:3}}>{r.titulo}</div>
+                            {r.titulo_original!==r.titulo&&<div style={{fontSize:10,color:"#475569",marginBottom:4}}>{r.titulo_original}</div>}
+                            <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:4}}>
+                              {r.ano&&<span style={{fontSize:11,color:"#64748b"}}>{r.ano}</span>}
+                              {r.avaliacao&&<span style={{fontSize:11,color:"#f59e0b",display:"flex",alignItems:"center",gap:2}}><Star size={9} fill="#f59e0b"/>{r.avaliacao}</span>}
+                              <span style={{fontSize:10,color:"#374151"}}>ID: {r.tmdb_id}</span>
+                            </div>
+                            {r.sinopse&&<div style={{fontSize:11,color:"#475569",overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",lineHeight:1.5}}>{r.sinopse}</div>}
+                          </div>
+                          <div style={{fontSize:10,color:"#6366f1",flexShrink:0,paddingTop:4}}>Aplicar →</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {tmdbResultados.length===0&&!tmdbLoading&&<div style={{fontSize:12,color:"#374151",textAlign:"center",padding:"8px 0"}}>Digite um nome e pressione Buscar</div>}
+                </div>
+              )}
+
               {detalhe.generos&&detalhe.generos.length>0&&<div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{detalhe.generos.map(g=><span key={g} style={{fontSize:11,color:"#94a3b8",background:"#1e2130",padding:"3px 10px",borderRadius:20,border:"1px solid #252840"}}>{g}</span>)}</div>}
               {detalhe.sinopse&&<div><div style={{fontSize:11,fontWeight:700,color:"#475569",textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Sinopse</div><div style={{fontSize:14,color:"#94a3b8",lineHeight:1.7}}>{detalhe.sinopse}</div></div>}
               {detalhe.disponibilidade.length>0&&(
@@ -740,6 +844,159 @@ function AbaCatalogo({tipo,servidorAdmin}:{tipo:TipoConteudo;servidorAdmin:Servi
   );
 }
 
+// ─── Modal TMDB Revisão em Lote ───────────────────────────────────────────────
+type LoteItem = {
+  id: string; titulo_normalizado: string; tipo: TipoConteudo;
+  tmdb_id: number|null; tmdb_confirmado: boolean;
+  poster_tmdb_url: string|null; cover_url: string|null;
+  candidatos: TmdbResultado[]; escolhido: number|null; ignorado: boolean;
+};
+
+function ModalTmdbLote({onClose}:{onClose:()=>void}) {
+  const [tipo,setTipo]=useState<TipoConteudo>("FILME");
+  const [lote,setLote]=useState(10);
+  const [soSemTmdb,setSoSemTmdb]=useState(true);
+  const [itens,setItens]=useState<LoteItem[]>([]);
+  const [loading,setLoading]=useState(false);
+  const [salvando,setSalvando]=useState(false);
+  const [totalSalvos,setTotalSalvos]=useState(0);
+
+  async function carregarLote(){
+    setLoading(true);setItens([]);
+    const filtro=soSemTmdb?"&sem_tmdb=true":"";
+    const data=await fetch(`/api/catalogo/tmdb-lote?tipo=${tipo}&lote=${lote}${filtro}`).then(r=>r.json()).catch(()=>null);
+    if(!data?.ok){setLoading(false);return;}
+
+    // Para cada título, busca candidatos no TMDB em paralelo
+    const com_candidatos:LoteItem[]=await Promise.all(
+      (data.data as any[]).map(async (t:any)=>{
+        const d=await fetch(`/api/catalogo/tmdb-buscar?q=${encodeURIComponent(t.titulo_normalizado)}&tipo=${tipo}`).then(r=>r.json()).catch(()=>null);
+        return{
+          id:t.id,titulo_normalizado:t.titulo_normalizado,tipo:t.tipo,
+          tmdb_id:t.tmdb_id,tmdb_confirmado:t.tmdb_confirmado,
+          poster_tmdb_url:t.poster_tmdb_url,cover_url:t.cover_url,
+          candidatos:(d?.ok?d.data:[]).slice(0,5),
+          // Pré-seleciona o primeiro candidato se confiante (título muito similar)
+          escolhido:d?.ok&&d.data.length>0?d.data[0].tmdb_id:null,
+          ignorado:false,
+        } as LoteItem;
+      })
+    );
+    setItens(com_candidatos);setLoading(false);
+  }
+
+  async function salvarEscolhas(){
+    setSalvando(true);let salvos=0;
+    for(const item of itens){
+      if(item.ignorado||!item.escolhido)continue;
+      const cand=item.candidatos.find(c=>c.tmdb_id===item.escolhido);
+      if(!cand)continue;
+      const d=await fetch("/api/catalogo/tmdb-aplicar",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({master_id:item.id,tmdb_id:item.escolhido,tipo:item.tipo})}).then(r=>r.json()).catch(()=>null);
+      if(d?.ok)salvos++;
+    }
+    setTotalSalvos(salvos);setSalvando(false);
+    setItens(p=>p.map(i=>({...i,ignorado:!i.ignorado&&i.escolhido?true:i.ignorado})));
+  }
+
+  const pendentes=itens.filter(i=>!i.ignorado&&i.escolhido).length;
+
+  return(
+    <div style={{position:"fixed",inset:0,zIndex:9998,background:"rgba(0,0,0,0.88)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"#0f1117",width:"100%",maxWidth:900,maxHeight:"92vh",borderRadius:16,display:"flex",flexDirection:"column",boxShadow:"0 32px 80px rgba(0,0,0,0.95)"}}>
+        {/* Header */}
+        <div style={{padding:"16px 20px",borderBottom:"1px solid #1e2130",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+          <div>
+            <div style={{fontSize:15,fontWeight:700,color:"#f1f5f9",display:"flex",alignItems:"center",gap:8}}><RefreshCw size={15} color="#f59e0b"/> Revisão TMDB em Lote</div>
+            <div style={{fontSize:11,color:"#475569",marginTop:3}}>Verifique e corrija os dados do TMDB em massa</div>
+          </div>
+          <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:"#475569"}}><X size={16}/></button>
+        </div>
+
+        {/* Configuração */}
+        <div style={{padding:"12px 20px",borderBottom:"1px solid #1e2130",display:"flex",gap:12,alignItems:"center",flexWrap:"wrap",flexShrink:0,background:"#0b0d14"}}>
+          <div style={{display:"flex",background:"#1a1d2e",padding:3,borderRadius:7,gap:3}}>
+            <button onClick={()=>setTipo("FILME")} style={{padding:"4px 14px",background:tipo==="FILME"?"#6366f1":"transparent",color:tipo==="FILME"?"#fff":"#64748b",border:"none",borderRadius:5,fontSize:12,fontWeight:600,cursor:"pointer"}}>Filmes</button>
+            <button onClick={()=>setTipo("SERIE")} style={{padding:"4px 14px",background:tipo==="SERIE"?"#6366f1":"transparent",color:tipo==="SERIE"?"#fff":"#64748b",border:"none",borderRadius:5,fontSize:12,fontWeight:600,cursor:"pointer"}}>Séries</button>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <span style={{fontSize:12,color:"#64748b"}}>Lote:</span>
+            <input type="number" min={5} max={30} value={lote} onChange={e=>setLote(Math.min(30,Math.max(5,parseInt(e.target.value)||10)))}
+              style={{width:55,padding:"4px 8px",background:"#0f1117",border:"1px solid #252840",borderRadius:6,color:"#e2e8f0",fontSize:12,textAlign:"center"}}/>
+          </div>
+          <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:12,color:"#64748b"}}>
+            <input type="checkbox" checked={soSemTmdb} onChange={e=>setSoSemTmdb(e.target.checked)}/>
+            Só sem TMDB
+          </label>
+          <button onClick={carregarLote} disabled={loading}
+            style={{padding:"6px 16px",background:"#6366f1",border:"none",borderRadius:7,color:"#fff",fontSize:12,fontWeight:600,cursor:loading?"wait":"pointer",display:"flex",alignItems:"center",gap:5}}>
+            {loading?<><RefreshCw size={11} style={{animation:"spin 1s linear infinite"}}/>Carregando...</>:"Carregar lote"}
+          </button>
+          {totalSalvos>0&&<span style={{fontSize:12,color:"#10b981"}}>✓ {totalSalvos} salvo(s)</span>}
+        </div>
+
+        {/* Lista */}
+        <div style={{flex:1,overflowY:"auto",padding:16}}>
+          {loading&&<div style={{textAlign:"center",padding:60,color:"#475569"}}><RefreshCw size={20} style={{animation:"spin 1s linear infinite",margin:"0 auto 12px",display:"block"}}/>Buscando candidatos no TMDB...</div>}
+          {!loading&&itens.length===0&&<div style={{textAlign:"center",padding:60,color:"#374151",fontSize:13}}>Configure e clique em "Carregar lote" para começar</div>}
+          {itens.map(item=>(
+            <div key={item.id} style={{marginBottom:16,background:item.ignorado?"#0b0d14":"#13151f",border:`1px solid ${item.ignorado?"#1a1a1a":"#1e2130"}`,borderRadius:10,padding:14,opacity:item.ignorado?0.4:1}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                {item.poster_tmdb_url||item.cover_url
+                  ?<img src={item.poster_tmdb_url||item.cover_url||""} alt="" style={{width:36,height:54,objectFit:"cover",borderRadius:5,flexShrink:0}}/>
+                  :<div style={{width:36,height:54,background:"#1e2130",borderRadius:5,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}><Film size={14} color="#374151"/></div>
+                }
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:13,fontWeight:600,color:"#f1f5f9"}}>{item.titulo_normalizado}</div>
+                  <div style={{display:"flex",gap:6,marginTop:3}}>
+                    <span style={{fontSize:10,color:item.tmdb_confirmado?"#10b981":"#f59e0b"}}>{item.tmdb_confirmado?"TMDB ✓":"Sem TMDB"}</span>
+                    {item.tmdb_id&&<span style={{fontSize:10,color:"#374151"}}>ID atual: {item.tmdb_id}</span>}
+                  </div>
+                </div>
+                <button onClick={()=>setItens(p=>p.map(i=>i.id===item.id?{...i,ignorado:!i.ignorado}:i))}
+                  style={{padding:"3px 10px",background:"#ef444415",border:"1px solid #ef444430",borderRadius:6,color:"#ef4444",fontSize:10,cursor:"pointer",flexShrink:0}}>
+                  {item.ignorado?"Reativar":"Ignorar"}
+                </button>
+              </div>
+              {/* Candidatos */}
+              {!item.ignorado&&item.candidatos.length>0&&(
+                <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:4}}>
+                  {item.candidatos.map(c=>{
+                    const sel=item.escolhido===c.tmdb_id;
+                    return(
+                      <button key={c.tmdb_id} onClick={()=>setItens(p=>p.map(i=>i.id===item.id?{...i,escolhido:sel?null:c.tmdb_id}:i))}
+                        style={{flexShrink:0,width:90,background:sel?"#6366f120":"#0f1117",border:`1.5px solid ${sel?"#6366f1":"#1e2130"}`,borderRadius:8,padding:6,cursor:"pointer",textAlign:"center",transition:"all 0.15s"}}>
+                        {c.poster_url
+                          ?<img src={c.poster_url} alt={c.titulo} style={{width:78,height:117,objectFit:"cover",borderRadius:5,marginBottom:5,display:"block"}}/>
+                          :<div style={{width:78,height:117,background:"#1e2130",borderRadius:5,marginBottom:5,display:"flex",alignItems:"center",justifyContent:"center"}}><Film size={16} color="#374151"/></div>
+                        }
+                        <div style={{fontSize:9,color:sel?"#818cf8":"#94a3b8",lineHeight:1.3,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>{c.titulo}</div>
+                        {c.ano&&<div style={{fontSize:9,color:"#475569",marginTop:2}}>{c.ano}</div>}
+                        {sel&&<div style={{fontSize:9,color:"#6366f1",marginTop:2,fontWeight:700}}>✓ Selecionado</div>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {!item.ignorado&&item.candidatos.length===0&&<div style={{fontSize:11,color:"#374151",padding:"4px 0"}}>Sem candidatos encontrados</div>}
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        {itens.length>0&&(
+          <div style={{padding:"12px 20px",borderTop:"1px solid #1e2130",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+            <div style={{fontSize:12,color:"#475569"}}>{pendentes} título(s) com seleção pronta</div>
+            <button onClick={salvarEscolhas} disabled={salvando||pendentes===0}
+              style={{padding:"7px 20px",background:pendentes>0?"#10b981":"#1a1d2e",border:"none",borderRadius:8,color:pendentes>0?"#fff":"#374151",fontSize:12,fontWeight:600,cursor:pendentes>0&&!salvando?"pointer":"not-allowed",display:"flex",alignItems:"center",gap:6}}>
+              {salvando?<><RefreshCw size={11} style={{animation:"spin 1s linear infinite"}}/>Salvando...</>:`Salvar ${pendentes} escolha(s)`}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Busca EPG canais ─────────────────────────────────────────────────────────
 function ResultadoBuscaEPG({epg,busca,progsPorCanal,onClear}:{epg:EpgData;busca:string;progsPorCanal:Map<string,Programa[]>;onClear:()=>void}) {
   const [detalhe,setDetalhe]=useState<null|{tipo:"canal";canal:Canal}|{tipo:"programa";titulo:string}>(null);
@@ -810,6 +1067,14 @@ export default function GuiaTVPage() {
   const [syncing,setSyncing]=useState(false);
   const [syncMsg,setSyncMsg]=useState<{tipo:"ok"|"err";texto:string}|null>(null);
   const [showCatalogo,setShowCatalogo]=useState(false);
+  const [showTmdbLote,setShowTmdbLote]=useState(false);
+
+  // Listener para abrir revisão em lote via evento (disparado pelo ModalCatalogo)
+  useEffect(()=>{
+    const h=()=>setShowTmdbLote(true);
+    window.addEventListener("OPEN_TMDB_LOTE",h);
+    return()=>window.removeEventListener("OPEN_TMDB_LOTE",h);
+  },[]);
 
   // Expõe tab e setter para o AdminShell via evento customizado
   useEffect(()=>{
@@ -873,6 +1138,7 @@ export default function GuiaTVPage() {
       {tab==="series"&&<AbaCatalogo tipo="SERIE" servidorAdmin={SERVIDOR_ADMIN}/>}
 
       {showCatalogo&&<ModalCatalogo onClose={()=>setShowCatalogo(false)}/>}
+      {showTmdbLote&&<ModalTmdbLote onClose={()=>setShowTmdbLote(false)}/>}
 
       <style>{`
         @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
