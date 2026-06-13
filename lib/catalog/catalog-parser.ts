@@ -59,9 +59,13 @@ function removerAcentos(s: string): string {
 // ─── Remove sufixos de qualidade de títulos ───────────────────────────────────
 function removerQualidade(titulo: string): string {
   return titulo
-    // Entre colchetes/parênteses: [4K], [HDR], [DV], [HYBRID], [4K HDR], [DV][HDR], etc.
+    // Entre colchetes/parênteses (com ou sem espaço antes): [4K], [HDR], [4K][HDR], [4KHDR]
     .replace(/\s*[\[(](4K[\s\w]*|FHD|HD|HDR|SDR|UHD|DV|HYBRID|HDCAM|CAM|BLU.?RAY|BLURAY|WEB.?DL|WEBRIP|HDRIP|DVDRIP|BDRIP|TS|HDTV|FULL|ULTRA)[\])]/gi, "")
-    // Sufixos soltos no final: "FILME 4K", "FILME HDR", "FILME DV", "FILME HYBRID"
+    // Múltiplos blocos colados: [4K][HDR], [4K][HYBRID] — roda de novo após o primeiro pass
+    .replace(/\s*[\[(](4K[\s\w]*|FHD|HD|HDR|SDR|UHD|DV|HYBRID|HDCAM|CAM|BLU.?RAY|BLURAY|WEB.?DL|WEBRIP|HDRIP|DVDRIP|BDRIP|TS|HDTV|FULL|ULTRA)[\])]/gi, "")
+    // Sufixos grudados sem espaço no final: "TITULO4K", "TITULO4KHDR"
+    .replace(/(4K|FHD|HDR|SDR|UHD|DV|HYBRID|HDCAM|CAM|FULL|ULTRA|BLURAY|WEB-DL|WEBRIP|H265|HEVC|REMUX)$/gi, "")
+    // Sufixos soltos no final com espaço: "FILME 4K", "FILME HDR"
     .replace(/\s+(4K|FHD|HDR|SDR|UHD|DV|HYBRID|HDCAM|CAM|FULL|ULTRA|BLURAY|BLU-RAY|WEB-DL|WEBRIP|HDRIP|DVDRIP|BDRIP|H265|H\.265|HEVC|REMUX)\s*$/gi, "")
     .replace(/\s+/g, " ")
     .trim();
