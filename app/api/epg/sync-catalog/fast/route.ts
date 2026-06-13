@@ -174,13 +174,13 @@ export async function POST(req: NextRequest) {
         const { data: inseridos, error } = await supabaseAdmin
           .from("catalog_master")
           .insert(paraInsert)
-          .select("id, titulo_busca");
+          .select("id, titulo_normalizado");
         if (error) {
           console.error(`[CATALOG-FAST] Erro insert master lote ${i}:`, error.message);
           return NextResponse.json({ error: error.message }, { status: 500 });
         }
         for (const row of inseridos || []) {
-          idMap.set(row.titulo_busca, row.id);
+          idMap.set(normalizarTituloBusca(row.titulo_normalizado), row.id);
         }
       }
     }
