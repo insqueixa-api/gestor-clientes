@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
       `)
       .eq("tipo", tipo)
       .order("adicionado_em", { ascending: false })
-      .limit(80); // pega mais para deduplicar
+      .limit(300); // pega bastante para deduplicar e atingir 60 únicos
 
     if (servidor !== "TODOS") {
       query = query.eq("servidor", servidor);
@@ -39,8 +39,7 @@ export async function GET(req: NextRequest) {
     const { data, error } = await query;
     if (error) throw error;
 
-    // Deduplica por titulo_normalizado
-    // Prefere o que tem poster_tmdb_url não nulo
+    // Deduplica por titulo_normalizado, prefere quem tem poster_tmdb_url
     const seen = new Map<string, any>();
     for (const item of (data || [])) {
       const key = item.titulo_normalizado;
@@ -48,7 +47,7 @@ export async function GET(req: NextRequest) {
       if (!existing || (!existing.poster_tmdb_url && item.poster_tmdb_url)) {
         seen.set(key, item);
       }
-      if (seen.size >= 20) break;
+      if (seen.size >= 60) break; // retorna até 60 únicos (5 linhas × 4 colunas × ~3 páginas)
     }
 
     return NextResponse.json({ ok: true, data: [...seen.values()] });

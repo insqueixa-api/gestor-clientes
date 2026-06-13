@@ -213,7 +213,7 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
   const [logs,setLogs]=useState<Record<SrvId,string[]>>({elite:[],natv:[],fast:[]});
   const [info,setInfo]=useState<Record<SrvId,CatalogInfo|null>>({elite:null,natv:null,fast:null});
   const addLog=(srv:SrvId,msg:string)=>setLogs(p=>({...p,[srv]:[...p[srv],msg]}));
-  useEffect(()=>{(["elite","natv","fast"] as SrvId[]).forEach(async srv=>{try{const d=await fetch(`/api/epg/sync-catalog/${srv}`).then(r=>r.json());if(d.resultado){setInfo(p=>({...p,[srv]:{ultimo_sync:d.executado_em||null,filmes:d.resultado.filmes||0,series_unicas:d.resultado.series_unicas||0,episodios:d.resultado.episodios||0}}));}}catch{}});},[]);
+  useEffect(()=>{(["elite","natv","fast"] as SrvId[]).forEach(async srv=>{try{const d=await fetch(`/api/epg/sync-catalog/${srv}`).then(r=>r.json());if(d.resultado){setInfo(p=>({...p,[srv]:{ultimo_sync:d.executado_em||null,filmes:d.resultado.filmes||0,series_unicas:d.resultado.series_unicas||d.resultado.series||0,episodios:d.resultado.episodios||0}}));}}catch{}});},[]);
   async function syncElite(){setStatus(p=>({...p,elite:"running"}));setLogs(p=>({...p,elite:[]}));addLog("elite","↑ Conectando ao servidor Elite...");try{const d=await fetch("/api/epg/sync-catalog/elite",{method:"POST"}).then(r=>r.json());if(d.error)throw new Error(d.error);addLog("elite",`✓ Filmes: ${d.filmes??0}`);addLog("elite",`✓ Séries únicas: ${d.series_unicas??0}`);addLog("elite",`✓ Episódios: ${d.episodios??0}`);addLog("elite",`✓ Novos títulos: ${d.novos_titulos??0}`);addLog("elite",`✓ Novos episódios: ${d.novos_episodios??0}`);addLog("elite",`✅ Concluído em ${d.duracao_s}s`);setInfo(p=>({...p,elite:{ultimo_sync:new Date().toISOString(),filmes:d.filmes??0,series_unicas:d.series_unicas??0,episodios:d.episodios??0}}));setStatus(p=>({...p,elite:"ok"}));}catch(e:any){addLog("elite",`❌ ${e.message}`);setStatus(p=>({...p,elite:"error"}));}}
   async function syncNaTV(){setStatus(p=>({...p,natv:"running"}));setLogs(p=>({...p,natv:[]}));addLog("natv","↑ Conectando ao servidor NaTV...");try{const d=await fetch("/api/epg/sync-catalog/natv",{method:"POST"}).then(r=>r.json());if(d.error)throw new Error(d.error);addLog("natv",`✓ Filmes: ${d.filmes??0}`);addLog("natv",`✓ Séries únicas: ${d.series_unicas??0}`);addLog("natv",`✓ Episódios: ${d.episodios??0}`);addLog("natv",`✓ Novos títulos: ${d.novos_titulos??0}`);addLog("natv",`✓ Novos episódios: ${d.novos_episodios??0}`);addLog("natv",`✅ Concluído em ${d.duracao_s}s`);setInfo(p=>({...p,natv:{ultimo_sync:new Date().toISOString(),filmes:d.filmes??0,series_unicas:d.series_unicas??0,episodios:d.episodios??0}}));setStatus(p=>({...p,natv:"ok"}));}catch(e:any){addLog("natv",`❌ ${e.message}`);setStatus(p=>({...p,natv:"error"}));}}
   async function syncFast(){setStatus(p=>({...p,fast:"running"}));setLogs(p=>({...p,fast:[]}));addLog("fast","⬇ Buscando URL M3U...");try{const res=await fetch("/api/epg/sync-catalog/fast");const data=await res.json();if(!data.m3u_url)throw new Error("URL M3U não encontrada.");addLog("fast","⬇ Baixando M3U via extensão...");function onResult(e:Event){const detail=(e as CustomEvent).detail;window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE",onResult);if(!detail?.ok){addLog("fast",`❌ ${detail?.error||"Erro desconhecido"}`);setStatus(p=>({...p,fast:"error"}));return;}addLog("fast","↑ Processando em background...");}window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE",onResult);async function onDone(e:Event){const detail=(e as CustomEvent).detail;if(detail?.action!=="FAST_VOD_SYNC_RESULT")return;window.removeEventListener("UNIGESTOR_BACKGROUND_MESSAGE",onDone as any);if(!detail.ok){addLog("fast",`❌ ${detail.error}`);setStatus(p=>({...p,fast:"error"}));return;}addLog("fast",`✓ Filmes: ${detail.filmes??0}`);addLog("fast",`✓ Séries: ${detail.series??0}`);addLog("fast",`✓ Episódios: ${detail.episodios??0}`);try{const log=await fetch("/api/epg/sync-catalog/fast").then(r=>r.json());if(log.resultado?.novos_titulos!==undefined){addLog("fast",`✓ Novos títulos: ${log.resultado.novos_titulos}`);addLog("fast",`✓ Novos episódios: ${log.resultado.novos_episodios}`);}}catch{}addLog("fast","✅ Concluído!");setInfo(p=>({...p,fast:{ultimo_sync:new Date().toISOString(),filmes:detail.filmes??0,series_unicas:detail.series??0,episodios:detail.episodios??0}}));setStatus(p=>({...p,fast:"ok"}));}window.addEventListener("UNIGESTOR_BACKGROUND_MESSAGE",onDone);window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL",{detail:{action:"FAST_VOD_SYNC",m3uUrl:data.m3u_url.replace(/&output=ts$/i,"").replace(/&output=ts&/i,"&"),apiBase:window.location.origin}}));}catch(e:any){addLog("fast",`❌ ${e.message}`);setStatus(p=>({...p,fast:"error"}));}}
@@ -260,44 +260,168 @@ function Poster({titulo,posterUrl,coverUrl}:{titulo:string;posterUrl:string|null
   return <img src={src} alt={titulo} onError={()=>setErr(true)} style={{width:POSTER_W,height:POSTER_H,objectFit:"cover",borderRadius:8,flexShrink:0,background:"#1a1d2e",display:"block"}}/>;
 }
 
-// ─── Carrossel ────────────────────────────────────────────────────────────────
-function Carrossel({itens,onSelect}:{itens:TituloCard[];onSelect:(t:TituloCard)=>void}) {
-  const [idx,setIdx]=useState(0);
-  const [pausado,setPausado]=useState(false);
-  const timer=useRef<ReturnType<typeof setTimeout>|null>(null);
-  useEffect(()=>{if(pausado||itens.length<=1)return;timer.current=setTimeout(()=>setIdx(i=>(i+1)%itens.length),4500);return()=>{if(timer.current)clearTimeout(timer.current);};},[idx,pausado,itens.length]);
-  if(itens.length===0)return null;
-  const item=itens[idx];
-  const bg=item.poster_tmdb_url||item.cover_url||"";
+// ─── Carrossel multi-linha ────────────────────────────────────────────────────
+// 5 linhas × 4 colunas no desktop = 20 visíveis por vez
+// Cada linha avança independentemente (15s), pausa no hover
+// No mobile: 1 coluna, avança tudo junto
+
+const COLS_DESKTOP = 4;
+const ROWS = 5;
+const AUTOPLAY_MS = 15000;
+
+// Divide array em chunks de N
+function chunks<T>(arr: T[], n: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
+  return out;
+}
+
+// Linha individual do carrossel
+function CarrosselLinha({
+  linhaIdx, paginas, onSelect, tipo,
+}: {
+  linhaIdx: number;
+  paginas: TituloCard[][];  // cada página tem COLS_DESKTOP itens
+  onSelect: (t: TituloCard) => void;
+  tipo: TipoConteudo;
+}) {
+  const [pg, setPg] = useState(0);
+  const [pausado, setPausado] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const totalPgs = paginas.length;
+
+  useEffect(() => {
+    if (pausado || totalPgs <= 1) return;
+    timer.current = setTimeout(() => setPg(i => (i + 1) % totalPgs), AUTOPLAY_MS);
+    return () => { if (timer.current) clearTimeout(timer.current); };
+  }, [pg, pausado, totalPgs]);
+
+  const itens = paginas[pg] || [];
+
   return (
-    <div style={{position:"relative",width:"100%",height:220,borderRadius:12,overflow:"hidden",cursor:"pointer",flexShrink:0}} onMouseEnter={()=>setPausado(true)} onMouseLeave={()=>setPausado(false)} onClick={()=>onSelect(item)}>
-      {bg&&<div style={{position:"absolute",inset:0,backgroundImage:`url(${bg})`,backgroundSize:"cover",backgroundPosition:"center",filter:"blur(20px) brightness(0.3)",transform:"scale(1.1)"}}/>}
-      <div style={{position:"absolute",inset:0,background:"linear-gradient(to right,rgba(0,0,0,0.92) 40%,transparent 100%)"}}/>
-      <div style={{position:"relative",display:"flex",gap:16,padding:16,height:"100%",alignItems:"center"}}>
-        <Poster titulo={item.titulo_normalizado} posterUrl={item.poster_tmdb_url} coverUrl={item.cover_url}/>
-        <div style={{flex:1,minWidth:0}}>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,flexWrap:"wrap"}}>
-            <span style={{fontSize:10,fontWeight:700,color:"#6366f1",background:"#6366f120",padding:"2px 8px",borderRadius:20,textTransform:"uppercase",letterSpacing:1}}>{item.tipo==="FILME"?"🎬 Filme":"📺 Série"}</span>
-            {item.ano&&<span style={{fontSize:11,color:"#64748b"}}>{item.ano}</span>}
-            {item.avaliacao&&<span style={{fontSize:11,color:"#f59e0b",display:"flex",alignItems:"center",gap:3}}><Star size={10} fill="#f59e0b"/>{item.avaliacao.toFixed(1)}</span>}
-          </div>
-          <div style={{fontSize:19,fontWeight:700,color:"#f1f5f9",lineHeight:1.3,marginBottom:8,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>{item.titulo_normalizado}</div>
-          {item.generos&&item.generos.length>0&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>{item.generos.slice(0,3).map(g=><span key={g} style={{fontSize:10,color:"#94a3b8",background:"#1e2130",padding:"2px 8px",borderRadius:20}}>{g}</span>)}</div>}
-          {item.sinopse&&<div style={{fontSize:12,color:"#64748b",lineHeight:1.5,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>{item.sinopse}</div>}
-        </div>
+    <div
+      onMouseEnter={() => setPausado(true)}
+      onMouseLeave={() => setPausado(false)}
+      style={{ display: "flex", flexDirection: "column", gap: 6 }}
+    >
+      {/* Grade de pósteres */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: `repeat(${COLS_DESKTOP}, 1fr)`,
+        gap: 8,
+      }}>
+        {itens.map(item => {
+          const src = item.poster_tmdb_url || item.cover_url;
+          const isNovo = item.adicionado_em
+            ? (Date.now() - new Date(item.adicionado_em).getTime()) < 7 * 86400000
+            : false;
+          return (
+            <button
+              key={item.id}
+              onClick={() => onSelect(item)}
+              style={{
+                position: "relative", background: "none", border: "none",
+                cursor: "pointer", padding: 0, borderRadius: 8, overflow: "hidden",
+                aspectRatio: "2/3",
+              }}
+            >
+              {src
+                ? <img src={src} alt={item.titulo_normalizado}
+                    style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 8, display: "block" }} />
+                : <div style={{
+                    width: "100%", height: "100%", background: "linear-gradient(135deg,#1e2130,#252840)",
+                    borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    <Film size={24} color="#374151" />
+                  </div>
+              }
+              {/* Gradiente inferior com título */}
+              <div style={{
+                position: "absolute", inset: 0,
+                background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 55%)",
+                borderRadius: 8,
+              }} />
+              <div style={{
+                position: "absolute", bottom: 6, left: 6, right: 6,
+                fontSize: 10, color: "#e2e8f0", fontWeight: 600,
+                lineHeight: 1.3, textShadow: "0 1px 3px rgba(0,0,0,0.8)",
+                overflow: "hidden", display: "-webkit-box",
+                WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+              }}>
+                {item.titulo_normalizado}
+              </div>
+              {/* Badge Novo / Atualização */}
+              {isNovo && (
+                <div style={{
+                  position: "absolute", top: 5, left: 5,
+                  fontSize: 9, fontWeight: 700, letterSpacing: 0.5,
+                  background: tipo === "SERIE" ? "#10b981" : "#6366f1",
+                  color: "#fff", padding: "2px 6px", borderRadius: 4,
+                }}>
+                  {tipo === "SERIE" ? "ATUALIZ." : "NOVO"}
+                </div>
+              )}
+              {/* Avaliação */}
+              {item.avaliacao && (
+                <div style={{
+                  position: "absolute", top: 5, right: 5,
+                  display: "flex", alignItems: "center", gap: 2,
+                  background: "rgba(0,0,0,0.75)", borderRadius: 4, padding: "2px 5px",
+                }}>
+                  <Star size={8} fill="#f59e0b" color="#f59e0b" />
+                  <span style={{ fontSize: 9, color: "#f59e0b", fontWeight: 700 }}>
+                    {item.avaliacao.toFixed(1)}
+                  </span>
+                </div>
+              )}
+            </button>
+          );
+        })}
       </div>
-      {itens.length>1&&(
-        <>
-          <button onClick={e=>{e.stopPropagation();setIdx(i=>(i-1+itens.length)%itens.length);}} style={{position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",background:"rgba(0,0,0,0.6)",border:"none",borderRadius:"50%",width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#fff"}}><ChevronLeft size={16}/></button>
-          <button onClick={e=>{e.stopPropagation();setIdx(i=>(i+1)%itens.length);}} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"rgba(0,0,0,0.6)",border:"none",borderRadius:"50%",width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#fff"}}><ChevronRight size={16}/></button>
-          <div style={{position:"absolute",bottom:10,left:"50%",transform:"translateX(-50%)",display:"flex",gap:5}}>
-            {itens.map((_,i)=><button key={i} onClick={e=>{e.stopPropagation();setIdx(i);}} style={{width:i===idx?18:6,height:6,borderRadius:3,background:i===idx?"#6366f1":"#374151",border:"none",cursor:"pointer",transition:"all 0.3s",padding:0}}/>)}
+      {/* Controles da linha */}
+      {totalPgs > 1 && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6 }}>
+          <button onClick={() => setPg(i => (i - 1 + totalPgs) % totalPgs)}
+            style={{ background: "#1a1d2e", border: "1px solid #252840", borderRadius: 6, width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#64748b" }}>
+            <ChevronLeft size={13} />
+          </button>
+          <div style={{ display: "flex", gap: 4 }}>
+            {paginas.map((_, i) => (
+              <button key={i} onClick={() => setPg(i)}
+                style={{ width: i === pg ? 16 : 5, height: 5, borderRadius: 3, background: i === pg ? "#6366f1" : "#252840", border: "none", cursor: "pointer", transition: "all 0.25s", padding: 0 }} />
+            ))}
           </div>
-        </>
+          <button onClick={() => setPg(i => (i + 1) % totalPgs)}
+            style={{ background: "#1a1d2e", border: "1px solid #252840", borderRadius: 6, width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#64748b" }}>
+            <ChevronRight size={13} />
+          </button>
+        </div>
       )}
     </div>
   );
 }
+
+function Carrossel({ itens, onSelect, tipo }: { itens: TituloCard[]; onSelect: (t: TituloCard) => void; tipo: TipoConteudo }) {
+  if (itens.length === 0) return null;
+
+  // Divide itens em linhas de COLS_DESKTOP, depois cada linha em páginas
+  const linhas: TituloCard[][][] = [];
+  for (let r = 0; r < ROWS; r++) {
+    const start = r * COLS_DESKTOP * 3; // até 3 páginas por linha
+    const slice = itens.slice(start, start + COLS_DESKTOP * 3);
+    if (slice.length === 0) break;
+    linhas.push(chunks(slice, COLS_DESKTOP));
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {linhas.map((paginas, i) => (
+        <CarrosselLinha key={i} linhaIdx={i} paginas={paginas} onSelect={onSelect} tipo={tipo} />
+      ))}
+    </div>
+  );
+}
+
 
 // ─── Modal Detalhe ────────────────────────────────────────────────────────────
 function ModalDetalhe({id,onClose}:{id:string;onClose:()=>void}) {
@@ -589,7 +713,7 @@ function AbaCatalogo({tipo,servidorAdmin}:{tipo:TipoConteudo;servidorAdmin:Servi
             ):novidades.length>0?(
               <div>
                 <div style={{fontSize:11,fontWeight:700,color:"#475569",textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>Adicionados recentemente</div>
-                <Carrossel itens={novidades} onSelect={t=>setDetalhando(t.id)}/>
+                <Carrossel itens={novidades} onSelect={t=>setDetalhando(t.id)} tipo={tipo}/>
               </div>
             ):(
               <div style={{height:80,display:"flex",alignItems:"center",justifyContent:"center",color:"#374151",fontSize:13,background:"#13151f",borderRadius:12}}>Nenhum título recente com dados do TMDB</div>
