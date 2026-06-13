@@ -208,6 +208,83 @@ function GradeEPG({canais,progsPorCanal}:{canais:Canal[];progsPorCanal:Map<strin
 }
 
 // ─── Modal Catálogo (idêntico ao original) ────────────────────────────────────
+function LimparCatalogo() {
+  const [limpando, setLimpando] = React.useState(false);
+  const [preview, setPreview] = React.useState<Record<string,number>|null>(null);
+  const [limpezaOk, setLimpezaOk] = React.useState<Record<string,number>|null>(null);
+  const [srvLimpar, setSrvLimpar] = React.useState<string>("TODOS");
+  const [showLimpar, setShowLimpar] = React.useState(false);
+
+  async function carregarPreview() {
+    setShowLimpar(true); setPreview(null); setLimpezaOk(null);
+    const d = await fetch("/api/catalogo/limpar").then(r=>r.json()).catch(()=>null);
+    if (d?.ok) setPreview(d.preview);
+  }
+
+  async function executarLimpeza() {
+    setLimpando(true);
+    const d = await fetch("/api/catalogo/limpar", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({servidor: srvLimpar})
+    }).then(r=>r.json()).catch(()=>null);
+    if (d?.ok) setLimpezaOk(d.resultado);
+    setLimpando(false); setShowLimpar(false);
+  }
+
+  return (
+    <div style={{background:"#0f1117",border:`1px solid ${limpezaOk?"#10b98140":"#1e2130"}`,borderRadius:10,padding:14}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <div style={{width:7,height:7,borderRadius:"50%",background:limpezaOk?"#10b981":"#374151"}}/>
+            <span style={{fontSize:13,fontWeight:600,color:"#e2e8f0"}}>Limpar Catálogo</span>
+          </div>
+          <div style={{fontSize:11,color:"#374151",marginTop:4,paddingLeft:15}}>
+            Remove títulos que saíram dos servidores desde o último sync
+          </div>
+          {limpezaOk&&(
+            <div style={{fontSize:11,color:"#10b981",marginTop:4,paddingLeft:15}}>
+              ✓ {Object.entries(limpezaOk).map(([s,n])=>`${s}: ${n} removidos`).join(" · ")}
+            </div>
+          )}
+        </div>
+        <button
+          onClick={showLimpar ? ()=>setShowLimpar(false) : carregarPreview}
+          disabled={limpando}
+          style={{display:"flex",alignItems:"center",gap:5,padding:"6px 12px",background:limpando?"#1a1d2e":"#ef444420",border:`1px solid ${limpando?"#252840":"#ef444450"}`,borderRadius:7,color:limpando?"#374151":"#ef4444",fontSize:12,fontWeight:600,cursor:limpando?"not-allowed":"pointer",flexShrink:0}}>
+          <X size={11}/>{limpando?"Limpando...":showLimpar?"Cancelar":"Limpar"}
+        </button>
+      </div>
+      {showLimpar&&(
+        <div style={{marginTop:10,padding:"10px 12px",background:"#080808",borderRadius:6,border:"1px solid #141414"}}>
+          <div style={{fontSize:11,color:"#64748b",marginBottom:8}}>Servidor alvo:</div>
+          <div style={{display:"flex",background:"#1a1d2e",padding:3,borderRadius:6,gap:3,marginBottom:10}}>
+            {["TODOS","ELITE","NATV","FAST"].map(s=>(
+              <button key={s} onClick={()=>setSrvLimpar(s)}
+                style={{padding:"4px 10px",background:srvLimpar===s?"#ef4444":"transparent",color:srvLimpar===s?"#fff":"#64748b",border:"none",borderRadius:5,fontSize:11,fontWeight:600,cursor:"pointer"}}>
+                {s}
+              </button>
+            ))}
+          </div>
+          {preview
+            ? <div style={{fontSize:11,color:"#64748b",marginBottom:10}}>
+                {srvLimpar==="TODOS"
+                  ? Object.entries(preview).map(([s,n])=>`${s}: ${n} títulos`).join(" · ")
+                  : `${srvLimpar}: ${preview[srvLimpar]||0} títulos serão removidos`}
+              </div>
+            : <div style={{fontSize:11,color:"#374151",marginBottom:10}}>Carregando preview...</div>
+          }
+          <button onClick={executarLimpeza} disabled={limpando}
+            style={{padding:"5px 16px",background:"#ef4444",border:"none",borderRadius:6,color:"#fff",fontSize:12,fontWeight:700,cursor:limpando?"not-allowed":"pointer"}}>
+            Confirmar limpeza
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ModalCatalogo({onClose}:{onClose:()=>void}) {
   const [status,setStatus]=useState<Record<SrvId,SrvStatus>>({elite:"idle",natv:"idle",fast:"idle"});
   const [logs,setLogs]=useState<Record<SrvId,string[]>>({elite:[],natv:[],fast:[]});
@@ -243,67 +320,7 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
           </div>
         </div>
         {/* Bloco Limpar Catálogo */}
-        {(()=>{
-          const [limpando,setLimpando]=React.useState(false);
-          const [preview,setPreview]=React.useState<Record<string,number>|null>(null);
-          const [limpezaOk,setLimpezaOk]=React.useState<Record<string,number>|null>(null);
-          const [srvLimpar,setSrvLimpar]=React.useState<string>("TODOS");
-          const [showLimpar,setShowLimpar]=React.useState(false);
-
-          async function carregarPreview(){
-            setShowLimpar(true);setPreview(null);setLimpezaOk(null);
-            const d=await fetch("/api/catalogo/limpar").then(r=>r.json()).catch(()=>null);
-            if(d?.ok)setPreview(d.preview);
-          }
-
-          async function executarLimpeza(){
-            setLimpando(true);
-            const d=await fetch("/api/catalogo/limpar",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({servidor:srvLimpar})}).then(r=>r.json()).catch(()=>null);
-            if(d?.ok)setLimpezaOk(d.resultado);
-            setLimpando(false);setShowLimpar(false);
-          }
-
-          return(
-            <div style={{background:"#0f1117",border:`1px solid ${limpezaOk?"#10b98140":"#1e2130"}`,borderRadius:10,padding:14,marginTop:0}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                <div>
-                  <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:7,height:7,borderRadius:"50%",background:limpezaOk?"#10b981":"#374151"}}/><span style={{fontSize:13,fontWeight:600,color:"#e2e8f0"}}>Limpar Catálogo</span></div>
-                  <div style={{fontSize:11,color:"#374151",marginTop:4,paddingLeft:15}}>Remove títulos que saíram dos servidores desde o último sync</div>
-                  {limpezaOk&&<div style={{fontSize:11,color:"#10b981",marginTop:4,paddingLeft:15}}>✓ {Object.entries(limpezaOk).map(([s,n])=>`${s}: ${n} removidos`).join(" · ")}</div>}
-                </div>
-                <button onClick={showLimpar?()=>setShowLimpar(false):carregarPreview} disabled={limpando}
-                  style={{display:"flex",alignItems:"center",gap:5,padding:"6px 12px",background:limpando?"#1a1d2e":"#ef444420",border:`1px solid ${limpando?"#252840":"#ef444450"}`,borderRadius:7,color:limpando?"#374151":"#ef4444",fontSize:12,fontWeight:600,cursor:limpando?"not-allowed":"pointer",flexShrink:0}}>
-                  <X size={11}/>{limpando?"Limpando...":showLimpar?"Cancelar":"Limpar"}
-                </button>
-              </div>
-              {showLimpar&&(
-                <div style={{marginTop:10,padding:"10px 12px",background:"#13151f",borderRadius:8,border:"1px solid #252840"}}>
-                  <div style={{fontSize:12,color:"#94a3b8",marginBottom:8}}>Servidor alvo:</div>
-                  <div style={{display:"flex",background:"#1a1d2e",padding:3,borderRadius:6,gap:3,marginBottom:10}}>
-                    {["TODOS","ELITE","NATV","FAST"].map(s=>(
-                      <button key={s} onClick={()=>setSrvLimpar(s)}
-                        style={{padding:"4px 10px",background:srvLimpar===s?"#ef4444":"transparent",color:srvLimpar===s?"#fff":"#64748b",border:"none",borderRadius:5,fontSize:11,fontWeight:600,cursor:"pointer"}}>
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                  {preview&&(
-                    <div style={{fontSize:11,color:"#64748b",marginBottom:10}}>
-                      {srvLimpar==="TODOS"
-                        ?Object.entries(preview).map(([s,n])=>`${s}: ${n} títulos`).join(" · ")
-                        :`${srvLimpar}: ${preview[srvLimpar]||0} títulos serão removidos`}
-                    </div>
-                  )}
-                  {!preview&&<div style={{fontSize:11,color:"#374151",marginBottom:10}}>Carregando preview...</div>}
-                  <button onClick={executarLimpeza} disabled={limpando}
-                    style={{padding:"5px 16px",background:"#ef4444",border:"none",borderRadius:6,color:"#fff",fontSize:12,fontWeight:700,cursor:limpando?"not-allowed":"pointer"}}>
-                    Confirmar limpeza
-                  </button>
-                </div>
-              )}
-            </div>
-          );
-        })()}
+        <LimparCatalogo />
 
         <div style={{padding:"10px 20px 14px",borderTop:"1px solid #1e2130",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
           <div style={{fontSize:11,color:"#374151",display:"flex",alignItems:"center",gap:6}}><RefreshCw size={10}/> Títulos já existentes são ignorados — só novos são contabilizados</div>
