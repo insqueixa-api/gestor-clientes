@@ -1004,6 +1004,7 @@ type LoteItem = {
   id: string; titulo_normalizado: string; tipo: TipoConteudo;
   tmdb_id: number|null; tmdb_confirmado: boolean;
   poster_tmdb_url: string|null; cover_url: string|null;
+  ano: number|null;
   candidatos: TmdbResultado[]; escolhido: number|null; ignorado: boolean;
 };
 
@@ -1030,6 +1031,7 @@ function ModalTmdbLote({onClose}:{onClose:()=>void}) {
           id:t.id,titulo_normalizado:t.titulo_normalizado,tipo:t.tipo,
           tmdb_id:t.tmdb_id,tmdb_confirmado:t.tmdb_confirmado,
           poster_tmdb_url:t.poster_tmdb_url,cover_url:t.cover_url,
+          ano:t.ano||null,
           candidatos:(d?.ok?d.data:[]).slice(0,5),
           // Pré-seleciona o primeiro candidato se confiante (título muito similar)
           escolhido:d?.ok&&d.data.length>0?d.data[0].tmdb_id:null,
@@ -1042,15 +1044,17 @@ function ModalTmdbLote({onClose}:{onClose:()=>void}) {
 
   async function salvarEscolhas(){
     setSalvando(true);let salvos=0;
+    const idsSalvos = new Set<string>();
     for(const item of itens){
       if(item.ignorado||!item.escolhido)continue;
       const cand=item.candidatos.find(c=>c.tmdb_id===item.escolhido);
       if(!cand)continue;
       const d=await fetch("/api/catalogo/tmdb-aplicar",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({master_id:item.id,tmdb_id:item.escolhido,tipo:item.tipo})}).then(r=>r.json()).catch(()=>null);
-      if(d?.ok)salvos++;
+      if(d?.ok){ salvos++; idsSalvos.add(item.id); }
     }
     setTotalSalvos(salvos);setSalvando(false);
-    setItens(p=>p.map(i=>({...i,ignorado:!i.ignorado&&i.escolhido?true:i.ignorado})));
+    // Remove da lista apenas os que foram salvos com sucesso
+    setItens(p=>p.filter(i=>!idsSalvos.has(i.id)));
   }
 
   const pendentes=itens.filter(i=>!i.ignorado&&i.escolhido).length;
@@ -1102,9 +1106,10 @@ function ModalTmdbLote({onClose}:{onClose:()=>void}) {
                 }
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontSize:13,fontWeight:600,color:"#f1f5f9"}}>{item.titulo_normalizado}</div>
-                  <div style={{display:"flex",gap:6,marginTop:3}}>
+                  <div style={{display:"flex",gap:6,marginTop:3,flexWrap:"wrap"}}>
                     <span style={{fontSize:10,color:item.tmdb_confirmado?"#10b981":"#f59e0b"}}>{item.tmdb_confirmado?"TMDB ✓":"Sem TMDB"}</span>
-                    {item.tmdb_id&&<span style={{fontSize:10,color:"#374151"}}>ID atual: {item.tmdb_id}</span>}
+                    {item.ano&&<span style={{fontSize:10,color:"#6366f1",background:"#6366f115",padding:"1px 6px",borderRadius:10}}>{item.ano}</span>}
+                    {item.tmdb_id&&<span style={{fontSize:10,color:"#374151"}}>ID: {item.tmdb_id}</span>}
                   </div>
                 </div>
                 <button onClick={()=>setItens(p=>p.map(i=>i.id===item.id?{...i,ignorado:!i.ignorado}:i))}
