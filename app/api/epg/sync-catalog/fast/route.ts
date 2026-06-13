@@ -63,12 +63,15 @@ function normalizarTituloBusca(titulo: string): string {
 function limparTitulo(titulo: string): string {
   return titulo
     .toUpperCase()
-    // Remove acentos — "PERMISSÃO" → "PERMISSAO"
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    // Remove sufixos de qualidade entre colchetes/parênteses: [4K], (HD), [WEB-DL]
-    .replace(/\s*[\[(](4K[\s\w]*|FHD|HD|HDR|SDR|UHD|BLU.?RAY|BLURAY|WEB.?DL|WEBRIP|HDRIP|DVDRIP)\s*[\])]/gi, "")
-    // Remove sufixos de qualidade soltos no final: "FILME 4K", "FILME HDR"
-    .replace(/\s+(4K|FHD|HDR|SDR|UHD|FULL|ULTRA|BLURAY|BLU-RAY|WEB-DL|WEBRIP|H265|HEVC|REMUX)\s*$/gi, "")
+    // Entre colchetes/parênteses (com ou sem espaço antes): [4K], [HDR], [4K][HDR]
+    .replace(/\s*[\[(](4K[\s\w]*|FHD|HD|HDR|SDR|UHD|DV|HYBRID|HDCAM|CAM|BLU.?RAY|BLURAY|WEB.?DL|WEBRIP|HDRIP|DVDRIP|BDRIP|TS|HDTV|FULL|ULTRA)[\])]/gi, "")
+    // Segunda passagem para blocos colados: [4K][HDR]
+    .replace(/\s*[\[(](4K[\s\w]*|FHD|HD|HDR|SDR|UHD|DV|HYBRID|HDCAM|CAM|BLU.?RAY|BLURAY|WEB.?DL|WEBRIP|HDRIP|DVDRIP|BDRIP|TS|HDTV|FULL|ULTRA)[\])]/gi, "")
+    // Sufixos grudados sem espaço: "TITULO4K"
+    .replace(/(4K|FHD|HDR|SDR|UHD|DV|HYBRID|HDCAM|CAM|FULL|ULTRA|BLURAY|WEB-DL|WEBRIP|H265|HEVC|REMUX)$/gi, "")
+    // Sufixos soltos no final: "FILME 4K"
+    .replace(/\s+(4K|FHD|HDR|SDR|UHD|DV|HYBRID|HDCAM|CAM|FULL|ULTRA|BLURAY|BLU-RAY|WEB-DL|WEBRIP|HDRIP|DVDRIP|BDRIP|H265|H\.265|HEVC|REMUX)\s*$/gi, "")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -160,7 +163,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-if (paraUpdate.length > 0) {
+      if (paraUpdate.length > 0) {
         const { error } = await supabaseAdmin
           .from("catalog_master")
           .upsert(paraUpdate, { onConflict: "id", ignoreDuplicates: false });
