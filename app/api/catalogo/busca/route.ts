@@ -44,54 +44,66 @@ export async function GET(req: NextRequest) {
   if (palavras.length === 0) return NextResponse.json({ ok: true, data: [] });
 
   try {
-    // Monta query com ilike para CADA palavra significativa no banco
-    // Isso garante que "the walking dead" filtre corretamente
-    let query = supabaseAdmin
-      .from("vw_catalog_full")
-      .select(`
-        id, titulo_normalizado, tipo,
-        cover_url, poster_tmdb_url,
-        ano, sinopse, avaliacao, generos,
-        total_temporadas, total_episodios,
-        tmdb_id, tmdb_confirmado,
-        servidor, categoria_origem, adicionado_em
-      `)
-      .limit(500); // limite maior para garantir que não corta
+    // Busca IDs em catalog_master usando titulo_busca (unaccent + lower, sem acentos)
+    let masterQuery = supabaseAdmin
+      .from("catalog_master")
+      .select("id, titulo_normalizado, tipo, cover_url, poster_tmdb_url, ano, sinopse, avaliacao, generos, total_temporadas, total_episodios, tmdb_confirmado")
+      .limit(500);
 
-    // Filtra por tipo se especificado
-    if (tipo !== "TODOS") query = query.eq("tipo", tipo);
-    if (servidor !== "TODOS") query = query.eq("servidor", servidor);
+    if (tipo !== "TODOS") masterQuery = masterQuery.eq("tipo", tipo);
 
-    // Aplica ilike para cada palavra (todas devem estar no título)
-    // Máximo 4 palavras para não criar query muito pesada
     for (const palavra of palavras.slice(0, 4)) {
-      query = query.ilike("titulo_normalizado", `%${palavra}%`);
+      masterQuery = masterQuery.ilike("titulo_busca", `%${palavra}%`);
     }
 
-    const { data, error } = await query;
-    if (error) throw error;
+    const { data: masterData, error: masterErr } = await masterQuery;
+    if (masterErr) throw masterErr;
 
-    // Filtra no JS com normalização completa (valida TODAS as palavras originais)
-    const resultados = (data || []).filter((item) => {
+    if (!masterData || masterData.length === 0) {
+      return NextResponse.json({ ok: true, data: [], total: 0 });
+    }
+
+    // Busca disponibilidade dos IDs encontrados
+    const ids = masterData.map((m: any) => m.id);
+    let availQuery = supabaseAdmin
+      .from("catalog_availability")
+      .select("master_id, servidor, categoria_origem")
+      .in("master_id", ids);
+
+    if (servidor !== "TODOS") availQuery = availQuery.eq("servidor", servidor);
+
+    const { data: availData } = await availQuery;
+
+    // Monta mapa de disponibilidade
+    const rotasPorId = new Map<string, { servidor: string; categoria: string }[]>();
+    for (const row of (availData || [])) {
+      const arr = rotasPorId.get(row.master_id) || [];
+      arr.push({ servidor: row.servidor, categoria: row.categoria_origem });
+      rotasPorId.set(row.master_id, arr);
+    }
+
+    // Filtra no JS com normalização completa
+    const resultados = masterData.filter((item: any) => {
+      if (servidor !== "TODOS" && !rotasPorId.has(item.id)) return false;
       const tituloNorm = normalizar(item.titulo_normalizado);
       return todasPalavras.every((p) => tituloNorm.includes(p));
     });
 
-    // Agrupa por titulo_normalizado (mesmo título em múltiplos servidores)
+    // Agrupa por titulo_normalizado
     const agrupado = new Map<string, {
-      item: typeof resultados[0];
+      item: any;
       rotas: { servidor: string; categoria: string }[];
     }>();
 
     for (const item of resultados) {
       const key = item.titulo_normalizado;
+      const rotas = rotasPorId.get(item.id) || [];
       if (!agrupado.has(key)) {
-        agrupado.set(key, { item, rotas: [] });
+        agrupado.set(key, { item, rotas });
+      } else {
+        // Acumula rotas de entradas duplicadas
+        agrupado.get(key)!.rotas.push(...rotas);
       }
-      agrupado.get(key)!.rotas.push({
-        servidor:  item.servidor,
-        categoria: item.categoria_origem,
-      });
     }
 
     // Ordena: com poster TMDB primeiro, depois por avaliação
