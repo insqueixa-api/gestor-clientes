@@ -116,9 +116,9 @@ export async function POST(req: NextRequest) {
         atualizado_em: agora,
       }));
 
-      const { error } = await supabaseAdmin
+const { error } = await supabaseAdmin
         .from("catalog_master")
-        .upsert(masterRows, { onConflict: "titulo_busca,tipo", ignoreDuplicates: false });
+        .upsert(masterRows, { onConflict: "titulo_busca,tipo", ignoreDuplicates: false, defaultToNull: false });
 
       if (error) {
         console.error(`[CATALOG-FAST] Erro master lote ${i}:`, error.message);
