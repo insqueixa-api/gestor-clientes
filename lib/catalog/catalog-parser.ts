@@ -67,7 +67,27 @@ function removerQualidade(titulo: string): string {
     .trim();
 }
 
-// ─── Normalização de nome de filme ────────────────────────────────────────────
+// ─── Normaliza pontuação de siglas e separadores ─────────────────────────────
+// "S.W.A.T." → "SWAT", "S.W.A.T.: OPERAÇÃO" → "SWAT OPERACAO"
+// "S W A T" → "SWAT" (espaços entre letras únicas)
+// " - ", ": ", " : " → " "
+function normalizarPontuacao(titulo: string): string {
+  return titulo
+    // "S.W.A.T." → "SWAT" — pontos entre letras únicas maiúsculas
+    .replace(/\b([A-Z])\.(?=[A-Z])/g, "$1")
+    .replace(/\b([A-Z])\.\b/g, "$1 ")
+    // "S W A T" → "SWAT" — letras únicas separadas por espaço (3+ consecutivas)
+    .replace(/(?<!\w)([A-Z]) (?=[A-Z] [A-Z])/g, "$1")
+    .replace(/(?<!\w)([A-Z]) (?=[A-Z]\b)/g, "$1")
+    // Normaliza separadores: " - ", ": ", " : " → " "
+    .replace(/\s*[-:]\s*/g, " ")
+    // Pontos soltos restantes
+    .replace(/\.\s+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+
 function normalizarFilme(nome: string): { titulo: string; ano: number | null } {
   // Extrai ano antes de limpar
   const anoMatch = nome.match(/[\[(](\d{4})[\])]/);
@@ -90,6 +110,9 @@ function normalizarFilme(nome: string): { titulo: string; ano: number | null } {
 
   // Normaliza acentos → "PERMISSÃO" e "PERMISSAO" viram o mesmo
   titulo = removerAcentos(titulo);
+
+  // Normaliza pontuação → "S.W.A.T." e "S W A T" viram "SWAT"
+  titulo = normalizarPontuacao(titulo);
 
   return { titulo, ano };
 }
@@ -126,6 +149,9 @@ function normalizarSerie(nome: string): {
 
   // Normaliza acentos
   titulo = removerAcentos(titulo);
+
+  // Normaliza pontuação → "S.W.A.T." e "S W A T" viram "SWAT"
+  titulo = normalizarPontuacao(titulo);
 
   return { titulo, ano, temporada, episodio };
 }
