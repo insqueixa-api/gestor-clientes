@@ -250,8 +250,8 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
 
 // ─── Poster ───────────────────────────────────────────────────────────────────
 // Tamanho fixo para alinhar o grid
-const POSTER_W = 130;
-const POSTER_H = 195; // ratio 2:3
+const POSTER_W = 148;
+const POSTER_H = 222; // ratio 2:3
 
 function Poster({titulo,posterUrl,coverUrl}:{titulo:string;posterUrl:string|null;coverUrl:string|null}) {
   const [err,setErr]=useState(false);
@@ -265,7 +265,7 @@ function Poster({titulo,posterUrl,coverUrl}:{titulo:string;posterUrl:string|null
 // Cada linha avança independentemente (15s), pausa no hover
 // No mobile: 1 coluna, avança tudo junto
 
-const COLS_DESKTOP = 4;
+const COLS_DESKTOP = 5;
 const ROWS = 5;
 const AUTOPLAY_MS = 15000;
 
@@ -477,7 +477,7 @@ function ResultadoBuscaCatalogo({resultados,loading,onSelect}:{resultados:Titulo
   if(loading)return <div style={{textAlign:"center",padding:40,color:"#475569"}}><RefreshCw size={20} style={{animation:"spin 1s linear infinite",margin:"0 auto 10px",display:"block"}}/>Buscando...</div>;
   if(resultados.length===0)return <div style={{textAlign:"center",padding:40,color:"#374151"}}><Search size={28} style={{margin:"0 auto 12px",display:"block",opacity:0.3}}/><div style={{fontSize:14}}>Nenhum resultado</div><div style={{fontSize:12,marginTop:6,color:"#374151"}}>Tente outros termos</div></div>;
   return (
-    <div style={{display:"flex",flexDirection:"column",gap:2}}>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(480px,1fr))",gap:2}}>
       {resultados.map(t=>(
         <button key={t.id} onClick={()=>onSelect(t)} style={{display:"flex",gap:12,padding:"12px 4px",background:"none",border:"none",borderBottom:"1px solid #1a1d2e",cursor:"pointer",textAlign:"left",width:"100%"}} onMouseEnter={e=>(e.currentTarget.style.background="#13151f")} onMouseLeave={e=>(e.currentTarget.style.background="none")}>
           <div style={{width:POSTER_W,flexShrink:0}}><Poster titulo={t.titulo_normalizado} posterUrl={t.poster_tmdb_url} coverUrl={t.cover_url}/></div>
@@ -526,7 +526,7 @@ function GradeMiniaturas({titulos,total,page,perPage=50,onSelect,onPage}:{titulo
 
 // ─── Aba Catálogo ─────────────────────────────────────────────────────────────
 function AbaCatalogo({tipo,servidorAdmin}:{tipo:TipoConteudo;servidorAdmin:ServidorId|"TODOS"}) {
-  const [servidor,setServidor]=useState<ServidorId>(servidorAdmin==="TODOS"?"ELITE":servidorAdmin as ServidorId);
+  const [servidor,setServidor]=useState<ServidorId|"TODOS">(servidorAdmin==="TODOS"?"TODOS":servidorAdmin as ServidorId);
   const [novidades,setNovidades]=useState<TituloCard[]>([]);
   const [categorias,setCategorias]=useState<Categoria[]>([]);
   const [subCategorias,setSubCategorias]=useState<Categoria[]>([]);
@@ -561,10 +561,9 @@ function AbaCatalogo({tipo,servidorAdmin}:{tipo:TipoConteudo;servidorAdmin:Servi
   // Novidades
   useEffect(()=>{
     setLoadingNov(true);setNovidades([]);
-    const srv=servidorAdmin==="TODOS"?"TODOS":servidor;
-    fetch(`/api/catalogo/novidades?servidor=${srv}&tipo=${tipo}`)
+    fetch(`/api/catalogo/novidades?servidor=${servidor}&tipo=${tipo}`)
       .then(r=>r.json()).then(d=>{if(d.ok&&d.data)setNovidades(d.data);}).finally(()=>setLoadingNov(false));
-  },[servidor,tipo,servidorAdmin]);
+  },[servidor,tipo]);
 
   // Categorias — filtradas e em ordem alfabética
   useEffect(()=>{
@@ -601,12 +600,12 @@ function AbaCatalogo({tipo,servidorAdmin}:{tipo:TipoConteudo;servidorAdmin:Servi
   useEffect(()=>{
     if(!buscaAtiva.trim()){setResultadosBusca([]);return;}
     setLoadingBusca(true);
-    const srv=servidorAdmin==="TODOS"?"TODOS":servidor;
+    const srv=servidor;
     fetch(`/api/catalogo/busca?q=${encodeURIComponent(buscaAtiva)}&servidor=${srv}&tipo=${tipo}`)
       .then(r=>r.json()).then(d=>{if(d.ok)setResultadosBusca(d.data);}).finally(()=>setLoadingBusca(false));
   },[buscaAtiva,servidor,tipo,servidorAdmin]);
 
-  const SERVIDORES:ServidorId[]=["ELITE","NATV","FAST"];
+  const SERVIDORES:(ServidorId|"TODOS")[]=["TODOS","ELITE","NATV","FAST"];
   const emBusca=buscaAtiva.trim().length>0;
   const catAtiva=subCatSelecionada||catSelecionada;
 
@@ -617,12 +616,16 @@ function AbaCatalogo({tipo,servidorAdmin}:{tipo:TipoConteudo;servidorAdmin:Servi
       <div style={{flexShrink:0,padding:"10px 16px",display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",borderBottom:"1px solid #1e2130",background:"#0b0d14"}}>
 
         {/* Servidor (só admin) */}
-        {servidorAdmin==="TODOS"&&SERVIDORES.map(srv=>(
-          <button key={srv} onClick={()=>{setServidor(srv);setCatSelecionada(null);setSubCatSelecionada(null);setPage(1);setBusca("");setBuscaAtiva("");}}
-            style={{padding:"5px 14px",borderRadius:20,border:`1px solid ${servidor===srv?COR_SERVIDOR[srv]:"#252840"}`,background:servidor===srv?COR_SERVIDOR[srv]+"20":"transparent",color:servidor===srv?COR_SERVIDOR[srv]:"#64748b",fontSize:12,fontWeight:servidor===srv?700:400,cursor:"pointer",flexShrink:0}}>
-            {srv}
-          </button>
-        ))}
+        {servidorAdmin==="TODOS"&&SERVIDORES.map(srv=>{
+          const cor=srv==="TODOS"?"#94a3b8":(COR_SERVIDOR[srv as ServidorId]||"#94a3b8");
+          const ativo=servidor===srv;
+          return(
+            <button key={srv} onClick={()=>{setServidor(srv as ServidorId|"TODOS");setCatSelecionada(null);setSubCatSelecionada(null);setPage(1);setBusca("");setBuscaAtiva("");}}
+              style={{padding:"5px 14px",borderRadius:20,border:`1px solid ${ativo?cor:"#252840"}`,background:ativo?cor+"20":"transparent",color:ativo?cor:"#64748b",fontSize:12,fontWeight:ativo?700:400,cursor:"pointer",flexShrink:0}}>
+              {srv}
+            </button>
+          );
+        })}
 
         {/* Dropdown Categoria */}
         <div ref={catDropRef} style={{position:"relative",flexShrink:0}}>
@@ -677,11 +680,20 @@ function AbaCatalogo({tipo,servidorAdmin}:{tipo:TipoConteudo;servidorAdmin:Servi
           </button>
         )}
 
-        {/* Busca */}
+        {/* Busca com autocomplete */}
         <div style={{position:"relative",flex:1,minWidth:140}}>
-          <Search size={13} style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"#475569",pointerEvents:"none"}}/>
-          <input value={busca} onChange={e=>{setBusca(e.target.value);if(!e.target.value.trim())setBuscaAtiva("");}}
-            onKeyDown={e=>e.key==="Enter"&&setBuscaAtiva(busca.trim())}
+          <Search size={13} style={{position:"absolute",left:10,top:16,transform:"translateY(-50%)",color:"#475569",pointerEvents:"none",zIndex:1}}/>
+          <input value={busca}
+            onChange={e=>{
+              setBusca(e.target.value);
+              if(!e.target.value.trim()){setBuscaAtiva("");return;}
+              // Autocomplete: dispara busca após 300ms de pausa
+              setBuscaAtiva(e.target.value.trim());
+            }}
+            onKeyDown={e=>{
+              if(e.key==="Enter") setBuscaAtiva(busca.trim());
+              if(e.key==="Escape"){setBusca("");setBuscaAtiva("");}
+            }}
             placeholder={`Buscar ${tipo==="FILME"?"filmes":"séries"}...`}
             style={{width:"100%",height:32,paddingLeft:30,paddingRight:busca?30:10,background:"#13151f",border:"1px solid #252840",borderRadius:20,fontSize:13,color:"#e2e8f0",outline:"none",boxSizing:"border-box"}}
             onFocus={e=>(e.target.style.borderColor="#6366f1")} onBlur={e=>(e.target.style.borderColor="#252840")}/>
