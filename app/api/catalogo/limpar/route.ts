@@ -1,12 +1,12 @@
 // app/api/catalogo/limpar/route.ts
 //
-// POST → limpa títulos que não apareceram no último sync de cada servidor
-//   body: { servidor: "ELITE" | "NATV" | "FAST" | "TODOS" }
+// GET  → preview: quantos seriam deletados por servidor
+// POST → executa limpeza: remove títulos que não apareceram no último sync
 //
-// Lógica:
-//   1. Para cada servidor, pega o MAX(sincronizado_em)
-//   2. Deleta catalog_availability onde sincronizado_em < max
-//   3. Deleta catalog_master sem nenhuma availability (órfãos)
+// Lógica D-1:
+//   - Pega o MAX(sincronizado_em) de cada servidor
+//   - Deleta tudo com sincronizado_em anterior à meia-noite do dia anterior ao último sync
+//   - Remove órfãos do catalog_master
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
@@ -20,8 +20,14 @@ const supabaseAdmin = createAdmin(
 const SERVIDORES = ["ELITE", "NATV", "FAST"] as const;
 type Servidor = typeof SERVIDORES[number];
 
+function calcularD1(ultimoSync: string): Date {
+  const d1 = new Date(ultimoSync);
+  d1.setDate(d1.getDate() - 1);
+  d1.setHours(0, 0, 0, 0);
+  return d1;
+}
+
 export async function GET() {
-  // Retorna preview: quantos seriam deletados por servidor
   const preview: Record<string, number> = {};
 
   for (const srv of SERVIDORES) {
@@ -35,11 +41,13 @@ export async function GET() {
 
     if (!maxRow?.sincronizado_em) { preview[srv] = 0; continue; }
 
+    const d1 = calcularD1(maxRow.sincronizado_em);
+
     const { count } = await supabaseAdmin
       .from("catalog_availability")
       .select("*", { count: "exact", head: true })
       .eq("servidor", srv)
-      .lt("sincronizado_em", maxRow.sincronizado_em);
+      .lt("sincronizado_em", d1.toISOString());
 
     preview[srv] = count || 0;
   }
@@ -70,24 +78,32 @@ export async function POST(req: NextRequest) {
 
     if (!maxRow?.sincronizado_em) { resultado[srv] = 0; continue; }
 
-    // 2. Deleta availability desatualizados
-    const { count } = await supabaseAdmin
+    // 2. Calcula D-1 (meia-noite do dia anterior ao último sync)
+    const d1 = calcularD1(maxRow.sincronizado_em);
+
+    // 3. Deleta availability anteriores a D-1
+    const { error } = await supabaseAdmin
       .from("catalog_availability")
       .delete()
       .eq("servidor", srv)
-      .lt("sincronizado_em", maxRow.sincronizado_em);
+      .lt("sincronizado_em", d1.toISOString());
 
-    resultado[srv] = count || 0;
+    if (error) {
+      console.error(`[LIMPAR] Erro ao deletar ${srv}:`, error.message);
+      resultado[srv] = 0;
+    } else {
+      resultado[srv] = 1; // deletou (count não disponível sem head:false)
+    }
   }
 
-  // 3. Deleta órfãos do catalog_master
-  const { data: orfaos } = await supabaseAdmin
+  // 4. Remove órfãos do catalog_master em lotes
+  let orfaosRemovidos = 0;
+  const { data: todos } = await supabaseAdmin
     .from("catalog_master")
     .select("id")
-    .limit(1000);
+    .limit(2000);
 
-  let orfaosRemovidos = 0;
-  for (const row of orfaos || []) {
+  for (const row of todos || []) {
     const { count } = await supabaseAdmin
       .from("catalog_availability")
       .select("*", { count: "exact", head: true })
