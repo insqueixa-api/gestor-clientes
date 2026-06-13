@@ -90,7 +90,7 @@ const CANAL_COL_W = 180;
 const LINHA_H = 72;
 const REGUA_H = 34;
 const TOTAL_HORAS = 48;
-const COR_SERVIDOR: Record<string, string> = { ELITE: "#6366f1", NATV: "#10b981", FAST: "#f59e0b" };
+const COR_SERVIDOR: Record<string, string> = { ELITE: "#6366f1", NATV: "#10b981", FAST: "#06b6d4" };
 
 // Filtra categorias lixo do Elite (SERIES A, SERIES B, etc com < 20 títulos)
 function isCategoriaPrincipal(cat: string, total: number): boolean {
@@ -238,7 +238,7 @@ function LimparCatalogo() {
         <div>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             <div style={{width:7,height:7,borderRadius:"50%",background:limpezaOk?"#10b981":"#374151"}}/>
-            <span style={{fontSize:13,fontWeight:600,color:"#e2e8f0"}}>Limpar Catálogo</span>
+            <span style={{fontSize:13,fontWeight:600,color:"#e2e8f0"}}>Limpar Removidos</span>
           </div>
           <div style={{fontSize:11,color:"#374151",marginTop:4,paddingLeft:15}}>
             Remove títulos que saíram dos servidores desde o último sync
@@ -294,7 +294,7 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
   async function syncElite(){setStatus(p=>({...p,elite:"running"}));setLogs(p=>({...p,elite:[]}));addLog("elite","↑ Conectando ao servidor Elite...");try{const d=await fetch("/api/epg/sync-catalog/elite",{method:"POST"}).then(r=>r.json());if(d.error)throw new Error(d.error);addLog("elite",`✓ Filmes: ${d.filmes??0}`);addLog("elite",`✓ Séries únicas: ${d.series_unicas??0}`);addLog("elite",`✓ Episódios: ${d.episodios??0}`);addLog("elite",`✓ Novos títulos: ${d.novos_titulos??0}`);addLog("elite",`✓ Novos episódios: ${d.novos_episodios??0}`);addLog("elite",`✅ Concluído em ${d.duracao_s}s`);setInfo(p=>({...p,elite:{ultimo_sync:new Date().toISOString(),filmes:d.filmes??0,series_unicas:d.series_unicas??0,episodios:d.episodios??0}}));setStatus(p=>({...p,elite:"ok"}));}catch(e:any){addLog("elite",`❌ ${e.message}`);setStatus(p=>({...p,elite:"error"}));}}
   async function syncNaTV(){setStatus(p=>({...p,natv:"running"}));setLogs(p=>({...p,natv:[]}));addLog("natv","↑ Conectando ao servidor NaTV...");try{const d=await fetch("/api/epg/sync-catalog/natv",{method:"POST"}).then(r=>r.json());if(d.error)throw new Error(d.error);addLog("natv",`✓ Filmes: ${d.filmes??0}`);addLog("natv",`✓ Séries únicas: ${d.series_unicas??0}`);addLog("natv",`✓ Episódios: ${d.episodios??0}`);addLog("natv",`✓ Novos títulos: ${d.novos_titulos??0}`);addLog("natv",`✓ Novos episódios: ${d.novos_episodios??0}`);addLog("natv",`✅ Concluído em ${d.duracao_s}s`);setInfo(p=>({...p,natv:{ultimo_sync:new Date().toISOString(),filmes:d.filmes??0,series_unicas:d.series_unicas??0,episodios:d.episodios??0}}));setStatus(p=>({...p,natv:"ok"}));}catch(e:any){addLog("natv",`❌ ${e.message}`);setStatus(p=>({...p,natv:"error"}));}}
   async function syncFast(){setStatus(p=>({...p,fast:"running"}));setLogs(p=>({...p,fast:[]}));addLog("fast","⬇ Buscando URL M3U...");try{const res=await fetch("/api/epg/sync-catalog/fast");const data=await res.json();if(!data.m3u_url)throw new Error("URL M3U não encontrada.");addLog("fast","⬇ Baixando M3U via extensão...");function onResult(e:Event){const detail=(e as CustomEvent).detail;window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE",onResult);if(!detail?.ok){addLog("fast",`❌ ${detail?.error||"Erro desconhecido"}`);setStatus(p=>({...p,fast:"error"}));return;}addLog("fast","↑ Processando em background...");}window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE",onResult);async function onDone(e:Event){const detail=(e as CustomEvent).detail;if(detail?.action!=="FAST_VOD_SYNC_RESULT")return;window.removeEventListener("UNIGESTOR_BACKGROUND_MESSAGE",onDone as any);if(!detail.ok){addLog("fast",`❌ ${detail.error}`);setStatus(p=>({...p,fast:"error"}));return;}addLog("fast",`✓ Filmes: ${detail.filmes??0}`);addLog("fast",`✓ Séries: ${detail.series??0}`);addLog("fast",`✓ Episódios: ${detail.episodios??0}`);try{const log=await fetch("/api/epg/sync-catalog/fast").then(r=>r.json());if(log.resultado?.novos_titulos!==undefined){addLog("fast",`✓ Novos títulos: ${log.resultado.novos_titulos}`);addLog("fast",`✓ Novos episódios: ${log.resultado.novos_episodios}`);}}catch{}addLog("fast","✅ Concluído!");setInfo(p=>({...p,fast:{ultimo_sync:new Date().toISOString(),filmes:detail.filmes??0,series_unicas:detail.series??0,episodios:detail.episodios??0}}));setStatus(p=>({...p,fast:"ok"}));}window.addEventListener("UNIGESTOR_BACKGROUND_MESSAGE",onDone);window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL",{detail:{action:"FAST_VOD_SYNC",m3uUrl:data.m3u_url.replace(/&output=ts$/i,"").replace(/&output=ts&/i,"&"),apiBase:window.location.origin}}));}catch(e:any){addLog("fast",`❌ ${e.message}`);setStatus(p=>({...p,fast:"error"}));}}
-  const SERVIDORES:{id:SrvId;label:string;cor:string;onSync:()=>void}[]=[{id:"elite",label:"EliteTV",cor:"#6366f1",onSync:syncElite},{id:"natv",label:"NaTV",cor:"#10b981",onSync:syncNaTV},{id:"fast",label:"FastTV",cor:"#f59e0b",onSync:syncFast}];
+  const SERVIDORES:{id:SrvId;label:string;cor:string;onSync:()=>void}[]=[{id:"elite",label:"EliteTV",cor:"#6366f1",onSync:syncElite},{id:"natv",label:"NaTV",cor:"#10b981",onSync:syncNaTV},{id:"fast",label:"FastTV",cor:"#06b6d4",onSync:syncFast}];
   const [tmdbStatus,setTmdbStatus]=useState<"idle"|"running"|"ok"|"error">("idle");
   const [tmdbLogs,setTmdbLogs]=useState<string[]>([]);
   const [tmdbLote,setTmdbLote]=useState<number>(50);
@@ -318,16 +318,31 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
             {tmdbConfirm&&tmdbStatus!=="running"&&<div style={{marginTop:10,padding:"10px 12px",background:"#13151f",borderRadius:8,border:"1px solid #252840"}}><div style={{fontSize:12,color:"#94a3b8",marginBottom:8}}>Configurar lote:</div><div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}><div style={{display:"flex",background:"#1a1d2e",padding:3,borderRadius:6,gap:3}}><button onClick={()=>setTmdbTipo("FILME")} style={{padding:"4px 10px",background:tmdbTipo==="FILME"?"#f59e0b":"transparent",color:tmdbTipo==="FILME"?"#000":"#64748b",border:"none",borderRadius:5,fontSize:11,fontWeight:600,cursor:"pointer"}}>Filmes</button><button onClick={()=>setTmdbTipo("SERIE")} style={{padding:"4px 10px",background:tmdbTipo==="SERIE"?"#f59e0b":"transparent",color:tmdbTipo==="SERIE"?"#000":"#64748b",border:"none",borderRadius:5,fontSize:11,fontWeight:600,cursor:"pointer"}}>Séries</button></div><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:11,color:"#64748b"}}>Lote:</span><input type="number" min={5} max={100} value={tmdbLote} onChange={e=>setTmdbLote(Math.min(100,Math.max(5,parseInt(e.target.value)||5)))} style={{width:60,padding:"3px 6px",background:"#0f1117",border:"1px solid #252840",borderRadius:5,color:"#e2e8f0",fontSize:12,textAlign:"center"}}/><span style={{fontSize:10,color:"#374151"}}>(máx 100)</span></div><button onClick={syncTmdb} style={{marginLeft:"auto",padding:"5px 14px",background:"#f59e0b",border:"none",borderRadius:6,color:"#000",fontSize:12,fontWeight:700,cursor:"pointer"}}>Confirmar</button></div>{tmdbInfo&&<div style={{fontSize:11,color:"#475569"}}>{tmdbTipo==="FILME"?tmdbInfo.filmes.sem_tmdb.toLocaleString():tmdbInfo.series.sem_tmdb.toLocaleString()} {tmdbTipo==="FILME"?"filmes":"séries"} aguardando</div>}</div>}
             {tmdbLogs.length>0&&<div style={{marginTop:10,padding:"8px 10px",background:"#080808",borderRadius:6,border:"1px solid #141414"}}>{tmdbLogs.map((l,i)=><div key={i} style={{fontSize:11,color:l.startsWith("❌")?"#ef4444":l.startsWith("✅")?"#10b981":l.startsWith("↻")?"#f59e0b":"#64748b",lineHeight:1.6}}>{l}</div>)}</div>}
           </div>
-        </div>
-        {/* Bloco Limpar Catálogo */}
-        <LimparCatalogo />
+          
+          {/* Bloco Limpar Catálogo (Movido para dentro e alinhado) */}
+          <LimparCatalogo />
+          
+          {/* Novo Bloco: Revisão TMDB Manual */}
+          <div style={{background:"#0f1117",border:"1px solid #f59e0b40",borderRadius:10,padding:14}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{width:7,height:7,borderRadius:"50%",background:"#f59e0b"}}/>
+                  <span style={{fontSize:13,fontWeight:600,color:"#e2e8f0"}}>Enriquecimento TMDB (Manual)</span>
+                </div>
+                <div style={{fontSize:11,color:"#374151",marginTop:4,paddingLeft:15}}>Revisão em lote de títulos sem informações</div>
+              </div>
+              <button onClick={()=>{onClose();setTimeout(()=>window.dispatchEvent(new CustomEvent("OPEN_TMDB_LOTE")),100);}}
+                style={{display:"flex",alignItems:"center",gap:5,padding:"6px 12px",background:"#f59e0b20",border:"1px solid #f59e0b50",borderRadius:7,color:"#f59e0b",fontSize:12,fontWeight:600,cursor:"pointer",flexShrink:0}}>
+                <RefreshCw size={11}/> Revisar Lote
+              </button>
+            </div>
+          </div>
 
-        <div style={{padding:"10px 20px 14px",borderTop:"1px solid #1e2130",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+        </div>
+
+        <div style={{padding:"12px 20px",borderTop:"1px solid #1e2130",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
           <div style={{fontSize:11,color:"#374151",display:"flex",alignItems:"center",gap:6}}><RefreshCw size={10}/> Títulos já existentes são ignorados — só novos são contabilizados</div>
-          <button onClick={()=>{onClose();setTimeout(()=>window.dispatchEvent(new CustomEvent("OPEN_TMDB_LOTE")),100);}}
-            style={{display:"flex",alignItems:"center",gap:5,padding:"5px 12px",background:"#f59e0b15",border:"1px solid #f59e0b40",borderRadius:7,color:"#f59e0b",fontSize:11,fontWeight:600,cursor:"pointer",flexShrink:0}}>
-            <RefreshCw size={11}/> Revisão em Lote
-          </button>
         </div>
       </div>
     </div>
@@ -1037,7 +1052,7 @@ function ModalTmdbLote({onClose}:{onClose:()=>void}) {
         {/* Header */}
         <div style={{padding:"16px 20px",borderBottom:"1px solid #1e2130",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
           <div>
-            <div style={{fontSize:15,fontWeight:700,color:"#f1f5f9",display:"flex",alignItems:"center",gap:8}}><RefreshCw size={15} color="#f59e0b"/> Revisão TMDB em Lote</div>
+            <div style={{fontSize:15,fontWeight:700,color:"#f1f5f9",display:"flex",alignItems:"center",gap:8}}><RefreshCw size={15} color="#f59e0b"/> Enriquecimento TMDB (Manual)</div>
             <div style={{fontSize:11,color:"#475569",marginTop:3}}>Verifique e corrija os dados do TMDB em massa</div>
           </div>
           <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:"#475569"}}><X size={16}/></button>
