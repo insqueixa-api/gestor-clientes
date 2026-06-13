@@ -67,57 +67,39 @@ function removerQualidade(titulo: string): string {
     .trim();
 }
 
-// ─── Normaliza pontuação de siglas e separadores ─────────────────────────────
-// "S.W.A.T." → "SWAT", "S.W.A.T.: OPERAÇÃO" → "SWAT OPERACAO"
-// "S W A T" → "SWAT" (espaços entre letras únicas)
-// " - ", ": ", " : " → " "
+// ─── Normaliza pontuação — remove TUDO que não é letra, número ou espaço ──────
+// Cobre: . , ; : - / \ | ? ! @ # $ % & * ( ) [ ] { } ~ ^ ' " + = _
+// Garante que "S.W.A.T." = "SWAT", "AMOR & GELATO" = "AMOR E GELATO" = "AMOR GELATO"
 function normalizarPontuacao(titulo: string): string {
   return titulo
-    // "S.W.A.T." → "SWAT" — pontos entre letras únicas maiúsculas
-    .replace(/\b([A-Z])\.(?=[A-Z])/g, "$1")
-    .replace(/\b([A-Z])\.\b/g, "$1 ")
-    // "S W A T" → "SWAT" — letras únicas separadas por espaço (3+ consecutivas)
-    .replace(/(?<!\w)([A-Z]) (?=[A-Z] [A-Z])/g, "$1")
-    .replace(/(?<!\w)([A-Z]) (?=[A-Z]\b)/g, "$1")
-    // Normaliza separadores: " - ", ": ", " : " → " "
-    .replace(/\s*[-:]\s*/g, " ")
-    // Pontos soltos restantes
-    .replace(/\.\s+/g, " ")
-    .replace(/\s+/g, " ")
+    .replace(/[^A-Z0-9 ]/g, " ")  // remove tudo que não é letra maiúscula, número ou espaço
+    .replace(/\s+/g, " ")          // colapsa espaços múltiplos
     .trim();
 }
-
-
+// ─── Normalização de nome de filme ────────────────────────────────────────────
 function normalizarFilme(nome: string): { titulo: string; ano: number | null } {
-  // Extrai ano antes de limpar
   const anoMatch = nome.match(/[\[(](\d{4})[\])]/);
   const ano      = anoMatch ? parseInt(anoMatch[1]) : null;
 
   let titulo = nome
-  .replace(/&/g, " E ")  // "&" → "E" antes de normalizar
-  .toUpperCase()
-    .replace(/[\[(]\d{4}[\])]/g, "")   // remove (ano) ou [ano]
-    .replace(/\s*\[L\]\s*/gi, " ")     // remove [L] legendado (Fast)
-    .replace(/\s*\[DUB\]\s*/gi, " ")   // remove [DUB]
-    .replace(/\s+LEG\b/gi, "")         // remove LEG (Elite)
+    .replace(/&amp;/gi, " E ")     // HTML entity → E
+    .replace(/&/g, " E ")           // & → E
+    .toUpperCase()
+    .replace(/[\[(]\d{4}[\])]/g, "")
+    .replace(/\s*\[L\]\s*/gi, " ")
+    .replace(/\s*\[DUB\]\s*/gi, " ")
+    .replace(/\s+LEG\b/gi, "")
     .replace(/\s+DUB\b/gi, "")
     .replace(/\s+DUBLADO\b/gi, "")
     .replace(/\s+LEGENDADO\b/gi, "")
     .replace(/\s+/g, " ")
     .trim();
 
-  // Remove sufixos de qualidade (4K, HD, BluRay, etc.)
   titulo = removerQualidade(titulo);
-
-  // Normaliza acentos → "PERMISSÃO" e "PERMISSAO" viram o mesmo
   titulo = removerAcentos(titulo);
+  titulo = normalizarPontuacao(titulo); // remove toda pontuação restante
 
-  // Normaliza pontuação → "S.W.A.T." e "S W A T" viram "SWAT"
-  titulo = normalizarPontuacao(titulo);
-
-  // Rejeita títulos não-latinos (chinês, árabe, hindi, etc.)
   if (!titulo || titulo.replace(/[^A-Z0-9]/g, "").length < 2) return { titulo: "", ano };
-
   return { titulo, ano };
 }
 
@@ -128,19 +110,19 @@ function normalizarSerie(nome: string): {
   temporada: number | null;
   episodio:  number | null;
 } {
-  // Extrai S/E — aceita "S01 E01" (Elite) e "S01E02" (Fast)
   const seMatch   = nome.match(/S(\d+)\s*E(\d+)/i);
   const temporada = seMatch ? parseInt(seMatch[1]) : null;
   const episodio  = seMatch ? parseInt(seMatch[2]) : null;
 
-  // Extrai ano
   const anoMatch = nome.match(/[\[(](\d{4})[\])]/);
   const ano      = anoMatch ? parseInt(anoMatch[1]) : null;
 
   let titulo = nome
-    .replace(/\s*S\d+\s*E\d+.*/i, "")   // remove S01E01 em diante
-    .replace(/[\[(]\d{4}[\])]\s*/g, "")  // remove [ano] / (ano)
-    .replace(/\s*\[L\]\s*/gi, " ")       // remove [L] legendado (Fast)
+    .replace(/&amp;/gi, " E ")     // HTML entity → E
+    .replace(/&/g, " E ")           // & → E
+    .replace(/\s*S\d+\s*E\d+.*/i, "")
+    .replace(/[\[(]\d{4}[\])]\s*/g, "")
+    .replace(/\s*\[L\]\s*/gi, " ")
     .replace(/\s*\[DUB\]\s*/gi, " ")
     .replace(/\s+LEG\b/gi, "")
     .replace(/\s+DUB\b/gi, "")
@@ -148,18 +130,11 @@ function normalizarSerie(nome: string): {
     .replace(/\s+/g, " ")
     .trim();
 
-  // Remove sufixos de qualidade
   titulo = removerQualidade(titulo);
-
-  // Normaliza acentos
   titulo = removerAcentos(titulo);
+  titulo = normalizarPontuacao(titulo); // remove toda pontuação restante
 
-  // Normaliza pontuação → "S.W.A.T." e "S W A T" viram "SWAT"
-  titulo = normalizarPontuacao(titulo);
-
-  // Rejeita títulos não-latinos (chinês, árabe, hindi, etc.)
   if (!titulo || titulo.replace(/[^A-Z0-9]/g, "").length < 2) return { titulo: "", ano, temporada, episodio };
-
   return { titulo, ano, temporada, episodio };
 }
 
