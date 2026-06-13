@@ -173,14 +173,14 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      for (const upd of paraUpdate) {
-        const { id, ...campos } = upd;
+      if (paraUpdate.length > 0) {
         const { error } = await supabaseAdmin
           .from("catalog_master")
-          .update(campos)
-          .eq("id", id);
-        if (error) console.error(`[CATALOG-NATV] Erro update master ${id}:`, error.message);
+          .upsert(paraUpdate, { onConflict: "id", ignoreDuplicates: false });
+        if (error) console.error(`[CATALOG-NATV] Erro update master lote ${i}:`, error.message);
       }
+
+
 
       if (paraInsert.length > 0) {
         const { data: inseridos, error } = await supabaseAdmin
