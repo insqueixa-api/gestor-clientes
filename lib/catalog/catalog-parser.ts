@@ -94,7 +94,8 @@ function normalizarFilme(nome: string): { titulo: string; ano: number | null } {
   const ano      = anoMatch ? parseInt(anoMatch[1]) : null;
 
   let titulo = nome
-    .toUpperCase()
+  .replace(/&/g, " E ")  // "&" → "E" antes de normalizar
+  .toUpperCase()
     .replace(/[\[(]\d{4}[\])]/g, "")   // remove (ano) ou [ano]
     .replace(/\s*\[L\]\s*/gi, " ")     // remove [L] legendado (Fast)
     .replace(/\s*\[DUB\]\s*/gi, " ")   // remove [DUB]
