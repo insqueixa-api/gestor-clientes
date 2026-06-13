@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
       for (const row of data || []) idMap.set(row.titulo_normalizado, row.id);
     }
 
-    const availRows = loteNorm
+const availRows = loteNorm
       .map(e => {
         const master_id = idMap.get(e.titulo_normalizado);
         return master_id
@@ -126,10 +126,10 @@ export async function POST(req: NextRequest) {
       for (let i = 0; i < availRows.length; i += BATCH) {
         await supabaseAdmin
           .from("catalog_availability")
-  .upsert(availRows.slice(i, i + BATCH), {
-          onConflict:       "master_id,servidor",
-          ignoreDuplicates: false,
-        });
+          .upsert(availRows.slice(i, i + BATCH), {
+            onConflict:       "master_id,servidor",
+            ignoreDuplicates: false,
+          });
       }
     }
 
