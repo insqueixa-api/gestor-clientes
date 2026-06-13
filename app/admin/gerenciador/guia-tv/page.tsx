@@ -228,7 +228,12 @@ function LimparCatalogo() {
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify({servidor: srvLimpar})
     }).then(r=>r.json()).catch(()=>null);
-    if (d?.ok) setLimpezaOk(d.resultado);
+    if (d?.ok) {
+      // Mostra resultado com órfãos incluídos
+      const res = {...(d.resultado||{})};
+      if (d.orfaos_removidos) res["Órfãos"] = d.orfaos_removidos;
+      setLimpezaOk(res);
+    }
     setLimpando(false); setShowLimpar(false);
   }
 
@@ -253,7 +258,10 @@ function LimparCatalogo() {
           onClick={showLimpar ? ()=>setShowLimpar(false) : carregarPreview}
           disabled={limpando}
           style={{display:"flex",alignItems:"center",justifyContent:"center",gap:5,padding:"6px 12px",width:130,background:limpando?"#1a1d2e":"#ef444420",border:`1px solid ${limpando?"#252840":"#ef444450"}`,borderRadius:7,color:limpando?"#374151":"#ef4444",fontSize:12,fontWeight:600,cursor:limpando?"not-allowed":"pointer",flexShrink:0}}>
-          <X size={11}/>{limpando?"Limpando...":showLimpar?"Cancelar":"Limpar"}
+          {limpando
+            ? <RefreshCw size={11} style={{animation:"spin 1s linear infinite"}}/>
+            : <X size={11}/>}
+          {limpando?"Limpando...":showLimpar?"Cancelar":"Limpar"}
         </button>
       </div>
       {showLimpar&&(
@@ -276,8 +284,9 @@ function LimparCatalogo() {
             : <div style={{fontSize:11,color:"#374151",marginBottom:10}}>Carregando preview...</div>
           }
           <button onClick={executarLimpeza} disabled={limpando}
-            style={{padding:"5px 16px",background:"#ef4444",border:"none",borderRadius:6,color:"#fff",fontSize:12,fontWeight:700,cursor:limpando?"not-allowed":"pointer"}}>
-            Confirmar limpeza
+            style={{display:"flex",alignItems:"center",gap:6,padding:"5px 16px",background:limpando?"#1a1d2e":"#ef4444",border:`1px solid ${limpando?"#252840":"#ef4444"}`,borderRadius:6,color:limpando?"#374151":"#fff",fontSize:12,fontWeight:700,cursor:limpando?"not-allowed":"pointer"}}>
+            <RefreshCw size={11} style={{animation:limpando?"spin 1s linear infinite":"none"}}/>
+            {limpando?"Limpando...":"Confirmar limpeza"}
           </button>
         </div>
       )}
