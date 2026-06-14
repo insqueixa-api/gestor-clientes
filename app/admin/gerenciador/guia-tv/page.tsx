@@ -1138,27 +1138,29 @@ function ResultadoBuscaEPG({epg,busca,progsPorCanal,onClear}:{epg:EpgData;busca:
   const progCanal=useMemo(()=>{if(detalhe?.tipo!=="canal")return[];const fim=agora+24*3600000;return(progsPorCanal.get(detalhe.canal.id)||[]).filter(p=>new Date(p.stop).getTime()>agora&&new Date(p.start).getTime()<fim).sort((a,b)=>new Date(a.start).getTime()-new Date(b.start).getTime());},[detalhe,progsPorCanal,agora]);
   
   const agoraMs = agora;
-  const agoraBrtMs = agoraMs - 3*3600000;
 
-  if(detalhe?.tipo==="canal")return(<div className="p-6 bg-background space-y-5"><div className="flex items-center gap-4 p-4 border border-border bg-card rounded-2xl shadow-sm"><button onClick={()=>setDetalhe(null)} className="h-8 px-4 rounded-lg bg-card border border-border text-foreground text-xs font-semibold hover:border-border-hover transition-colors shrink-0">← Voltar</button><Logo src={detalhe.canal.icon} nome={detalhe.canal.nome} categoria={detalhe.canal.categoria} size={40}/><div><div className="text-base font-bold text-foreground leading-snug">{detalhe.canal.nome}</div><div className="text-xs text-muted-foreground/90 mt-0.5">{detalhe.canal.categoria}</div></div><button onClick={onClear} className="ml-auto h-8 px-3.5 rounded-lg bg-muted text-muted-foreground hover:border-border-hover hover:text-foreground text-[11px] font-semibold transition-colors flex items-center gap-1.5"><X size={13}/> Nova busca</button></div><div className="space-y-3 p-4 border border-border bg-card rounded-2xl shadow-sm">{progCanal.map((p,i)=>{const sMs=new Date(p.start).getTime();const eMs=new Date(p.stop).getTime();const emAndamento=agoraBrtMs>=sMs&&agoraBrtMs<=eMs;const corCanal=CAT_COR[detalhe.canal.categoria]||"#6b7280";return(<div key={i} className={`flex items-start gap-4 p-4 rounded-lg border transition-all ${emAndamento ? 'border-sky-500/30 bg-sky-500/[0.01]' : 'border-border bg-card'}`}>{emAndamento&&<span className="shrink-0 text-[10px] font-bold text-sky-500 bg-sky-500/15 px-2 py-0.5 rounded-full tracking-wide uppercase mt-0.5">AO VIVO</span>}<span className="text-sm font-mono text-muted-foreground/90 font-medium shrink-0 pt-0.5 min-w-28">{formatHora(p.start)} – {formatHora(p.stop)}</span><div className="flex-1"><div className={`text-base font-semibold group-hover:text-sky-500 leading-snug tracking-tight mb-2 ${emAndamento ? 'text-sky-400' : 'text-foreground'}`}>{p.title}</div>{p.desc&&<div className="text-xs text-muted-foreground/80 leading-relaxed line-clamp-2 mt-2">{p.desc}</div>}</div><span className="text-xs text-muted-foreground/60 shrink-0 pt-0.5 ml-auto">{p.duracao_min} min</span></div>);})} {progCanal.length===0&&<div className="text-center py-10 text-muted-foreground text-sm italic">Nenhuma programação encontrada para este canal hoje.</div>}</div></div>);
+  if(detalhe?.tipo==="canal")return(<div className="p-6 bg-background space-y-5"><div className="flex items-center gap-4 p-4 border border-border bg-card rounded-2xl shadow-sm"><button onClick={()=>setDetalhe(null)} className="h-8 px-4 rounded-lg bg-card border border-border text-foreground text-xs font-semibold hover:border-border-hover transition-colors shrink-0">← Voltar</button><Logo src={detalhe.canal.icon} nome={detalhe.canal.nome} categoria={detalhe.canal.categoria} size={40}/><div><div className="text-base font-bold text-foreground leading-snug">{detalhe.canal.nome}</div><div className="text-xs text-muted-foreground/90 mt-0.5">{detalhe.canal.categoria}</div></div><button onClick={onClear} className="ml-auto h-8 px-3.5 rounded-lg bg-muted text-muted-foreground hover:border-border-hover hover:text-foreground text-[11px] font-semibold transition-colors flex items-center gap-1.5"><X size={13}/> Nova busca</button></div><div className="space-y-3 p-4 border border-border bg-card rounded-2xl shadow-sm">{progCanal.map((p,i)=>{const sMs=new Date(p.start).getTime();const eMs=new Date(p.stop).getTime();const emAndamento=agoraMs>=sMs&&agoraMs<eMs;const passou=agoraMs>=eMs;const corCanal=CAT_COR[detalhe.canal.categoria]||"#6b7280";return(<div key={i} className={`flex items-start gap-4 p-4 rounded-lg border transition-all ${emAndamento ? 'border-sky-500/30 bg-sky-500/[0.01]' : 'border-border bg-card'}`}>{emAndamento&&<span className="shrink-0 text-[10px] font-bold text-sky-500 bg-sky-500/15 px-2 py-0.5 rounded-full tracking-wide uppercase mt-0.5">AO VIVO</span>}<span className="text-sm font-mono text-muted-foreground/90 font-medium shrink-0 pt-0.5 min-w-28">{formatHora(p.start)} – {formatHora(p.stop)}</span><div className="flex-1"><div className={`text-base font-semibold group-hover:text-sky-500 leading-snug tracking-tight mb-2 ${emAndamento ? 'text-sky-400' : 'text-foreground'}`}>{p.title}</div>{p.desc&&<div className="text-xs text-muted-foreground/80 leading-relaxed line-clamp-2 mt-2">{p.desc}</div>}</div><span className="text-xs text-muted-foreground/60 shrink-0 pt-0.5 ml-auto">{p.duracao_min} min</span></div>);})} {progCanal.length===0&&<div className="text-center py-10 text-muted-foreground text-sm italic">Nenhuma programação encontrada para este canal hoje.</div>}</div></div>);
   
-  if(detalhe?.tipo==="programa"){const ocorrencias=programasMatch.find(p=>p.titulo===detalhe.titulo)?.items||[];return(<div className="p-6 bg-background space-y-5"><div className="flex items-center gap-4 p-4 border border-border bg-card rounded-2xl shadow-sm"><button onClick={()=>setDetalhe(null)} className="h-8 px-4 rounded-lg bg-card border border-border text-foreground text-xs font-semibold hover:border-border-hover transition-colors shrink-0">← Voltar</button><div className="flex-1 min-w-0"><div className="text-base font-bold text-foreground leading-snug">{detalhe.titulo}</div><div className="text-xs text-muted-foreground/90 mt-0.5">{ocorrencias.length} canal(is) exibindo</div></div><button onClick={onClear} className="h-8 px-3.5 rounded-lg bg-muted text-muted-foreground hover:border-border-hover hover:text-foreground text-[11px] font-semibold transition-colors flex items-center gap-1.5"><X size={13}/> Nova busca</button></div><div className="space-y-3 p-4 border border-border bg-card rounded-2xl shadow-sm">{ocorrencias.map((item,i)=>{const sMs=new Date(item.prog.start).getTime();const eMs=new Date(item.prog.stop).getTime();const emAndamento=agoraBrtMs>=sMs&&agoraBrtMs<=eMs;const passou=agoraBrtMs>eMs;const corCanal=CAT_COR[item.canal.categoria]||"#6b7280";return(<div key={i} className={`flex flex-col md:flex-row md:items-center gap-4 p-4 rounded-lg border transition-all ${emAndamento ? 'border-sky-500/30 bg-sky-500/[0.01]' : passou ? 'border-border bg-card opacity-50' : 'border-border bg-card'}`}>{passou&&<span className="shrink-0 text-[10px] font-bold text-muted-foreground/80 bg-muted px-2 py-0.5 rounded-full tracking-wide uppercase">Passou</span>}{emAndamento&&<span className="shrink-0 text-[10px] font-bold text-sky-500 bg-sky-500/15 px-2 py-0.5 rounded-full tracking-wide uppercase">AO VIVO</span>}<Logo src={item.canal.icon} nome={item.canal.nome} categoria={item.canal.categoria} size={40}/><div className="flex-1 min-w-0 md:border-l md:border-border md:pl-4"> <div className="text-base font-bold text-foreground leading-snug group-hover:text-sky-400 tracking-tight whitespace-normal">{item.canal.nome}</div> <div className="text-xs text-muted-foreground/90 mt-0.5">{item.canal.categoria}</div> </div> <span className="text-sm font-mono text-muted-foreground/90 font-medium shrink-0 min-w-28 text-right ml-auto">{formatHora(item.prog.start)} – {formatHora(item.prog.stop)}</span><span className="text-xs text-muted-foreground/60 shrink-0 ml-4 hidden md:block">{item.prog.duracao_min} min</span></div>);})}</div></div>);}
+  if(detalhe?.tipo==="programa"){const ocorrencias=programasMatch.find(p=>p.titulo===detalhe.titulo)?.items||[];return(<div className="p-6 bg-background space-y-5"><div className="flex items-center gap-4 p-4 border border-border bg-card rounded-2xl shadow-sm"><button onClick={()=>setDetalhe(null)} className="h-8 px-4 rounded-lg bg-card border border-border text-foreground text-xs font-semibold hover:border-border-hover transition-colors shrink-0">← Voltar</button><div className="flex-1 min-w-0"><div className="text-base font-bold text-foreground leading-snug">{detalhe.titulo}</div><div className="text-xs text-muted-foreground/90 mt-0.5">{ocorrencias.length} canal(is) exibindo</div></div><button onClick={onClear} className="h-8 px-3.5 rounded-lg bg-muted text-muted-foreground hover:border-border-hover hover:text-foreground text-[11px] font-semibold transition-colors flex items-center gap-1.5"><X size={13}/> Nova busca</button></div><div className="space-y-3 p-4 border border-border bg-card rounded-2xl shadow-sm">{ocorrencias.map((item,i)=>{const sMs=new Date(item.prog.start).getTime();const eMs=new Date(item.prog.stop).getTime();const emAndamento=agoraMs>=sMs&&agoraMs<eMs;const passou=agoraMs>=eMs;const corCanal=CAT_COR[item.canal.categoria]||"#6b7280";return(<div key={i} className={`flex flex-col md:flex-row md:items-center gap-4 p-4 rounded-lg border transition-all ${emAndamento ? 'border-sky-500/30 bg-sky-500/[0.01]' : passou ? 'border-border bg-card opacity-50' : 'border-border bg-card'}`}>{passou&&<span className="shrink-0 text-[10px] font-bold text-muted-foreground/80 bg-muted px-2 py-0.5 rounded-full tracking-wide uppercase">Passou</span>}{emAndamento&&<span className="shrink-0 text-[10px] font-bold text-sky-500 bg-sky-500/15 px-2 py-0.5 rounded-full tracking-wide uppercase">AO VIVO</span>}<Logo src={item.canal.icon} nome={item.canal.nome} categoria={item.canal.categoria} size={40}/><div className="flex-1 min-w-0 md:border-l md:border-border md:pl-4"> <div className="text-base font-bold text-foreground leading-snug group-hover:text-sky-400 tracking-tight whitespace-normal">{item.canal.nome}</div> <div className="text-xs text-muted-foreground/90 mt-0.5">{item.canal.categoria}</div> </div> <span className="text-sm font-mono text-muted-foreground/90 font-medium shrink-0 min-w-28 text-right ml-auto">{formatHora(item.prog.start)} – {formatHora(item.prog.stop)}</span><span className="text-xs text-muted-foreground/60 shrink-0 ml-4 hidden md:block">{item.prog.duracao_min} min</span></div>);})}</div></div>);}
   
-  return(<div className="p-6 bg-background space-y-6"><div className="flex items-center justify-between gap-4 p-4 border border-border bg-card rounded-xl shadow-sm"><div className="text-sm text-foreground/90 flex items-center gap-2"><Search size={14} className="text-muted-foreground/60"/> Resultados para pesquisa por: <span className="text-foreground font-semibold">"{busca}"</span></div><button onClick={onClear} className="h-8 px-3.5 rounded-lg bg-card border border-border text-foreground text-xs font-semibold hover:border-border-hover transition-colors flex items-center gap-1.5"><X size={13}/> Limpar Pesquisa</button></div>{canaisMatch.length>0&&(<div className="space-y-4 pt-1"><div className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest pl-1 flex items-center gap-2"><Tv size={13} className="text-muted-foreground/60"/> CANAIS ENCONTRADOS ({canaisMatch.length})</div><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">{canaisMatch.map(canal=>{const progsCanal=progsPorCanal.get(canal.id)||[];const atual=progsCanal.find(p=>{const sMs=new Date(p.start).getTime();const eMs=new Date(p.stop).getTime();return agoraBrtMs>=sMs&&agoraBrtMs<=eMs;});return(<div key={canal.id} onClick={()=>setDetalhe({tipo:"canal",canal})} className="flex items-center gap-3.5 p-3.5 rounded-xl border border-border bg-card hover:border-border-hover hover:bg-muted/30 transition-all cursor-pointer group"><Logo src={canal.icon} nome={canal.nome} categoria={canal.categoria} size={40}/><div className="flex-1 min-w-0"><div className="text-sm font-semibold text-foreground group-hover:text-sky-400 truncate">{canal.nome}</div><div className="text-[11px] text-muted-foreground/90 mt-1 flex flex-col gap-0.5">{canal.categoria}{atual?(<span className="text-foreground/70 truncate pt-0.5">• {atual.title}</span>):""}</div></div><ChevronRight className="w-5 h-5 text-border/70 group-hover:text-sky-500 shrink-0 ml-auto"/></div>);})}</div></div>)}{programasMatch.length>0&&(<div className="space-y-4 pt-3 border-t border-border/80"><div className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest pl-1 flex items-center gap-2"><Clapperboard size={13} className="text-muted-foreground/60"/> PROGRAMAS ENCONTRADOS ({programasMatch.length})</div><div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">{programasMatch.map(({titulo,items})=>{const emAr=items.some(i=>{const sMs=new Date(i.prog.start).getTime();const eMs=new Date(i.prog.stop).getTime();return agoraBrtMs>=sMs&&agoraBrtMs<=eMs;});return(<div key={titulo} onClick={()=>setDetalhe({tipo:"programa",titulo})} className={`flex items-center gap-3.5 p-3.5 rounded-xl border transition-all cursor-pointer group ${emAr ? 'border-sky-500/30 bg-sky-500/[0.01]' : 'border-border bg-card hover:border-border-hover hover:bg-muted/30'}`}><div className="flex-1 min-w-0"><div className="flex items-center gap-2 mb-1">{emAr&&<span className="shrink-0 text-[9px] font-bold text-sky-500 bg-sky-500/15 px-1.5 py-0.5 rounded uppercase">Passando</span>}<span className={`text-sm font-semibold group-hover:text-sky-400 truncate ${emAr ? 'text-sky-400' : 'text-foreground'}`}>{titulo}</span></div><div className="text-[11px] text-muted-foreground/90 mt-1">Exibindo em {items.length} canal(is) agora.</div></div><ChevronRight className="w-5 h-5 text-border/70 group-hover:text-sky-500 shrink-0 ml-auto"/></div>);})}</div></div>)}{canaisMatch.length===0&&programasMatch.length===0&&(<div className="text-center py-20 text-muted-foreground p-5 border border-border bg-card/60 rounded-xl flex flex-col items-center gap-3"><Search size={32} className="text-muted-foreground/40"/><div className="text-sm font-medium">Nenhum canal ou programa encontrado para "{busca}".</div><div className="text-xs text-muted-foreground/80">Tente buscar por termos mais genéricos.</div></div>)}</div>);
+  return(<div className="p-6 bg-background space-y-6"><div className="flex items-center justify-between gap-4 p-4 border border-border bg-card rounded-xl shadow-sm"><div className="text-sm text-foreground/90 flex items-center gap-2"><Search size={14} className="text-muted-foreground/60"/> Resultados para pesquisa por: <span className="text-foreground font-semibold">"{busca}"</span></div><button onClick={onClear} className="h-8 px-3.5 rounded-lg bg-card border border-border text-foreground text-xs font-semibold hover:border-border-hover transition-colors flex items-center gap-1.5"><X size={13}/> Limpar Pesquisa</button></div>{canaisMatch.length>0&&(<div className="space-y-4 pt-1"><div className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest pl-1 flex items-center gap-2"><Tv size={13} className="text-muted-foreground/60"/> CANAIS ENCONTRADOS ({canaisMatch.length})</div><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">{canaisMatch.map(canal=>{const progsCanal=progsPorCanal.get(canal.id)||[];const atual=progsCanal.find(p=>{const sMs=new Date(p.start).getTime();const eMs=new Date(p.stop).getTime();return agoraMs>=sMs&&agoraMs<eMs;});return(<div key={canal.id} onClick={()=>setDetalhe({tipo:"canal",canal})} className="flex items-center gap-3.5 p-3.5 rounded-xl border border-border bg-card hover:border-border-hover hover:bg-muted/30 transition-all cursor-pointer group"><Logo src={canal.icon} nome={canal.nome} categoria={canal.categoria} size={40}/><div className="flex-1 min-w-0"><div className="text-sm font-semibold text-foreground group-hover:text-sky-400 truncate">{canal.nome}</div><div className="text-[11px] text-muted-foreground/90 mt-1 flex flex-col gap-0.5">{canal.categoria}{atual?(<span className="text-foreground/70 truncate pt-0.5">• {atual.title}</span>):""}</div></div><ChevronRight className="w-5 h-5 text-border/70 group-hover:text-sky-500 shrink-0 ml-auto"/></div>);})}</div></div>)}{programasMatch.length>0&&(<div className="space-y-4 pt-3 border-t border-border/80"><div className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest pl-1 flex items-center gap-2"><Clapperboard size={13} className="text-muted-foreground/60"/> PROGRAMAS ENCONTRADOS ({programasMatch.length})</div><div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">{programasMatch.map(({titulo,items})=>{const emAr=items.some(i=>{const sMs=new Date(i.prog.start).getTime();const eMs=new Date(i.prog.stop).getTime();return agoraMs>=sMs&&agoraMs<eMs;});return(<div key={titulo} onClick={()=>setDetalhe({tipo:"programa",titulo})} className={`flex items-center gap-3.5 p-3.5 rounded-xl border transition-all cursor-pointer group ${emAr ? 'border-sky-500/30 bg-sky-500/[0.01]' : 'border-border bg-card hover:border-border-hover hover:bg-muted/30'}`}><div className="flex-1 min-w-0"><div className="flex items-center gap-2 mb-1">{emAr&&<span className="shrink-0 text-[9px] font-bold text-sky-500 bg-sky-500/15 px-1.5 py-0.5 rounded uppercase">Passando</span>}<span className={`text-sm font-semibold group-hover:text-sky-400 truncate ${emAr ? 'text-sky-400' : 'text-foreground'}`}>{titulo}</span></div><div className="text-[11px] text-muted-foreground/90 mt-1">Exibindo em {items.length} canal(is) agora.</div></div><ChevronRight className="w-5 h-5 text-border/70 group-hover:text-sky-500 shrink-0 ml-auto"/></div>);})}</div></div>)}{canaisMatch.length===0&&programasMatch.length===0&&(<div className="text-center py-20 text-muted-foreground p-5 border border-border bg-card/60 rounded-xl flex flex-col items-center gap-3"><Search size={32} className="text-muted-foreground/40"/><div className="text-sm font-medium">Nenhum canal ou programa encontrado para "{busca}".</div><div className="text-xs text-muted-foreground/80">Tente buscar por termos mais genéricos.</div></div>)}</div>);
 }
 
 // ─── Aba Canais Refatorada (Performance e Visual de Lista) ─────────────────────
 // ✅ Props de syncing removidas daqui
-function AbaCanais({epg,progsPorCanal,syncMsg}:{epg:EpgData;progsPorCanal:Map<string,Programa[]>;syncMsg:{tipo:"ok"|"err";texto:string}|null}) {
+function AbaCanais({epg,progsPorCanal,syncMsg,syncing,onSync,onOpenCatalogo}:{epg:EpgData;progsPorCanal:Map<string,Programa[]>;syncMsg:{tipo:"ok"|"err";texto:string}|null;syncing:boolean;onSync:()=>void;onOpenCatalogo:()=>void}) {
   const [catAtiva,setCatAtiva]=useState("Todos");
   const [subAtiva,setSubAtiva]=useState("Todos");
   const [busca,setBusca]=useState("");
   const [buscaAtiva,setBuscaAtiva]=useState("");
-  const [catOpen,setCatOpen]=useState(false);
+const [catOpen,setCatOpen]=useState(false);
   const catRef=useRef<HTMLDivElement>(null);
+  const [syncOpen,setSyncOpen]=useState(false);
+  const syncRef=useRef<HTMLDivElement>(null);
   
   // Lógica original preservada
   useEffect(()=>{ function h(e:MouseEvent){if(catRef.current&&!catRef.current.contains(e.target as Node))setCatOpen(false);} document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h); },[]);
+  useEffect(()=>{ function h(e:MouseEvent){if(syncRef.current&&!syncRef.current.contains(e.target as Node))setSyncOpen(false);} document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h); },[]);
   const catsDisponiveis=useMemo(()=>{const s=new Set(epg.canais.map(c=>c.categoria));return CATS_ORDEM.filter(c=>s.has(c));},[epg]);
   const canaisFiltrados=useMemo(()=>{let lista=epg.canais;if(catAtiva!=="Todos")lista=lista.filter(c=>c.categoria===catAtiva);if(subAtiva!=="Todos"){const sg=(SUBGRUPOS[catAtiva]||[]).find(s=>s.label===subAtiva);if(sg)lista=lista.filter(c=>sg.match.some(m=>c.display_name.toUpperCase().includes(m)));}return lista;},[epg,catAtiva,subAtiva]);
   const emBusca=buscaAtiva.trim().length>0;
@@ -1216,10 +1218,37 @@ function AbaCanais({epg,progsPorCanal,syncMsg}:{epg:EpgData;progsPorCanal:Map<st
           {busca&&<button onClick={()=>{setBusca("");setBuscaAtiva("");}} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground"><X size={14}/></button>}
         </div>
         <button onClick={()=>setBuscaAtiva(busca.trim())} className="h-9 px-5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs shadow-lg shadow-sky-900/20 flex-shrink-0">Buscar</button>
-        
-        {/* ✅ Botão de sync EPG removido daqui */}
-        
-        {/* Mensagem de status mantida, pois é útil aqui */}
+
+        {/* Dropdown Sincronizar — ao lado da busca, parte do fluxo da barra (não flutuante) */}
+        <div ref={syncRef} className="relative shrink-0">
+          <button onClick={() => setSyncOpen(o => !o)}
+            className={`flex items-center gap-2 h-9 px-4 rounded-full font-bold text-xs border transition-all ${syncOpen ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20 border-indigo-600' : 'bg-muted border-indigo-500/20 text-indigo-500 hover:border-indigo-500/40 hover:text-indigo-400'}`}>
+            <RefreshCw size={13} className={syncing ? "animate-spin text-indigo-500" : (syncOpen ? "text-white" : "text-indigo-500")} />
+            Sincronizar
+            <ChevronDown size={12} className={`opacity-60 transform ${syncOpen ? "rotate-180" : "none"} transition-transform duration-150`} />
+          </button>
+          {syncOpen && (
+            <div className="absolute top-[calc(100%+8px)] right-0 min-w-[240px] bg-card border border-border rounded-xl shadow-2xl z-50 p-2 animate-in slide-in-from-top-2 duration-150">
+              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-3 py-2">Opções de Sincronização</div>
+              <button onClick={() => { onOpenCatalogo(); setSyncOpen(false); }}
+                className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                <div className="w-8 h-8 rounded-full bg-indigo-500/10 flex items-center justify-center shrink-0">
+                  <Database size={15} className="text-indigo-500" />
+                </div>
+                Sincronizar Catálogo (VOD)
+              </button>
+              <div className="w-full h-px bg-border my-1"></div>
+              <button onClick={() => { onSync(); setSyncOpen(false); }} disabled={syncing}
+                className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${syncing ? 'opacity-50 cursor-not-allowed bg-muted' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+                <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
+                  <Tv size={15} className={syncing ? "animate-spin text-emerald-500" : "text-emerald-500"} />
+                </div>
+                {syncing ? "Sincronizando EPG..." : "Sincronizar Grade EPG"}
+              </button>
+            </div>
+          )}
+        </div>
+
         {syncMsg&&(<div className={`absolute bottom-full left-4 mb-2 p-2 px-3 rounded-lg border flex items-center gap-2 text-xs font-medium animate-in slide-in-from-bottom-2 ${syncMsg.tipo==="ok"?"bg-emerald-500/10 border-emerald-500/30 text-emerald-500":"bg-rose-500/10 border-rose-500/30 text-rose-500"}`}>{syncMsg.tipo==="ok"?<CheckCircle size={14}/>:<AlertTriangle size={14}/>}{syncMsg.texto}</div>)}
       </div>
       
@@ -1273,16 +1302,7 @@ export default function GuiaTVPage() {
   const [syncMsg,setSyncMsg]=useState<{tipo:"ok"|"err";texto:string}|null>(null);
   const [showCatalogo,setShowCatalogo]=useState(false);
 
-  // ✅ NOVOS ESTADOS PARA O DROPDOWN DE SINCRONIZAÇÃO
-  const [syncDropOpen, setSyncDropOpen] = useState(false);
-  const syncDropRef = useRef<HTMLDivElement>(null);
-
-  // ✅ Fechar o dropdown ao clicar fora
-  useEffect(()=>{
-      function h(e:MouseEvent){if(syncDropRef.current&&!syncDropRef.current.contains(e.target as Node))setSyncDropOpen(false);}
-      document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);
-  },[]);
-   
+     
   // ✅ Novos estados para Toasts da Página Principal
   const [toasts, setToasts] = useState<any[]>([]);
   const removeToast = (id: number) => setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -1364,44 +1384,7 @@ export default function GuiaTVPage() {
             </button>
           ))}
           <div className="flex-1"/>
-          
-          {/* ✅ NOVO MENU DROPDOWN UNIFICADO */}
-          <div ref={syncDropRef} className="relative">
-            <button onClick={() => setSyncDropOpen(o => !o)}
-                className={`flex items-center gap-2 h-9 px-4 rounded-full font-bold text-xs border transition-all ${syncDropOpen ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20 border-indigo-600' : 'bg-muted border-indigo-500/20 text-indigo-500 hover:border-indigo-500/40 hover:text-indigo-400'}`}>
-                <RefreshCw size={13} className={syncing && tab === "canais" ? "animate-spin text-indigo-500" : (syncDropOpen ? "text-white" : "text-indigo-500")} />
-                Sincronizar
-                <ChevronDown size={12} className={`opacity-60 transform ${syncDropOpen ? "rotate-180" : "none"} transition-transform duration-150`} />
-            </button>
-
-            {syncDropOpen && (
-                <div className="absolute top-[calc(100%+8px)] right-0 min-w-[240px] bg-card border border-border rounded-xl shadow-2xl z-50 p-2 animate-in slide-in-from-top-2 duration-150">
-                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-3 py-2">Opções de Sincronização</div>
                     
-                    {/* Opção 1: Catálogo VOD */}
-                    <button onClick={() => { setShowCatalogo(true); setSyncDropOpen(false); }}
-                        className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
-                        <div className="w-8 h-8 rounded-full bg-indigo-500/10 flex items-center justify-center shrink-0">
-                          <Database size={15} className="text-indigo-500" />
-                        </div>
-                        Sincronizar Catálogo (VOD)
-                    </button>
-                    
-                    <div className="w-full h-px bg-border my-1"></div>
-
-                    {/* Opção 2: EPG */}
-                        <button onClick={() => { handleSync(); setSyncDropOpen(false); }} disabled={syncing}
-                        className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${syncing ? 'opacity-50 cursor-not-allowed bg-muted' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
-                        <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
-                          <Tv size={15} className={syncing ? "animate-spin text-emerald-500" : "text-emerald-500"} />
-                        </div>
-                        {syncing ? "Sincronizando EPG..." : "Sincronizar Grade EPG"}
-                    </button>
-                </div>
-            )}
-          </div>
-          {/* FIM DO NOVO MENU */}
-
         </div>
       </div>
 
@@ -1410,7 +1393,7 @@ export default function GuiaTVPage() {
         loadingEpg?<div className="flex flex-col items-center justify-center flex-1 gap-4 text-center p-20 text-muted-foreground animate-pulse text-sm py-40 bg-muted/20 transition-colors"><RefreshCw size={24} className="animate-spin text-muted-foreground/60"/>Carregando grade de canais...</div>
         :erroEpg?<div className="flex flex-col items-center justify-center flex-1 gap-4 text-center p-20 text-muted-foreground animate-pulse text-sm py-40 bg-muted/20 transition-colors max-w-2xl mx-auto"><AlertTriangle size={32} className="text-amber-500"/><div className="text-sm font-medium text-foreground tracking-tight">{erroEpg}</div><button onClick={handleSync} disabled={syncing} className="h-9 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2"><RefreshCw size={13} className={syncing?"animate-spin":"none"}/> {syncing?"Sincronizando Grade...":"Tentar Sincronizar Grade Agora"}</button></div>
         // ✅ Removidas as props syncing e onSync da chamada
-        :epg&&<AbaCanais epg={epg} progsPorCanal={progsPorCanal} syncMsg={syncMsg}/>
+        :epg&&<AbaCanais epg={epg} progsPorCanal={progsPorCanal} syncMsg={syncMsg} syncing={syncing} onSync={handleSync} onOpenCatalogo={()=>setShowCatalogo(true)}/>
       )}
       {tab==="filmes"&&<AbaCatalogo tipo="FILME" servidorAdmin={SERVIDOR_ADMIN}/>}
       {tab==="series"&&<AbaCatalogo tipo="SERIE" servidorAdmin={SERVIDOR_ADMIN}/>}
