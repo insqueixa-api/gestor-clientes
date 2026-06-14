@@ -132,18 +132,21 @@ function Logo({src,nome,categoria,size=32}:{src?:string;nome:string;categoria?:s
       src={src} 
       alt={nome} 
       onError={()=>setErr(true)} 
-      className="shrink-0 object-contain rounded-lg border border-border bg-card"
+      // ✅ Fundo cinza escuro (slate-900) e um padding (p-1) para a logo respirar
+      className="shrink-0 object-contain rounded-lg border border-slate-700 bg-slate-900 p-1 shadow-sm"
       style={{width:size,height:size}}
     />
   );
 }
 
-// ✅ Refatorado: ProgressBar para o programa atual
-function ProgressBar({start, stop, nowMs}:{start:string; stop:string; nowMs:number}) {
+// ✅ Refatorado: ProgressBar para o programa atual (Usa UTC nativo agora)
+function ProgressBar({start, stop}:{start:string; stop:string}) {
+  const nowMs = Date.now(); // ✅ Usa o horário atual real (UTC)
   const sMs = new Date(start).getTime();
   const eMs = new Date(stop).getTime();
   const total = eMs - sMs;
   if(total <= 0) return null;
+  // ✅ Cálculo seguro usando UTC
   const progress = Math.max(0, Math.min(100, ((nowMs - sMs) / total) * 100));
 
   return (
@@ -201,7 +204,7 @@ function GradeListaPerformance({canais, progsPorCanal}:{canais:Canal[];progsPorC
   },[]);
 
   const agoraMs = agora.getTime();
-  const agoraBrtMs=agoraMs-3*3600000;
+  // REMOVIDO: const agoraBrtMs=agoraMs-3*3600000; // ✅ Hack de timezone removido
 
   return (
     <>
@@ -224,12 +227,12 @@ function GradeListaPerformance({canais, progsPorCanal}:{canais:Canal[];progsPorC
           {canais.map(canal => {
             const progs=(progsPorCanal.get(canal.id)||[]).sort((a,b)=>new Date(a.start).getTime()-new Date(b.start).getTime());
             
-            // Lógica original para encontrar o programa atual
-            const progAtualIndex = progs.findIndex(p => {
-              const sMs=new Date(p.start).getTime();
-              const eMs=new Date(p.stop).getTime();
-              return agoraBrtMs>=sMs&&agoraBrtMs<=eMs;
-            });
+          // ✅ Lógica corrigida para encontrar o programa atual usando UTC e comparação exclusiva no final (<)
+          const progAtualIndex = progs.findIndex(p => {
+            const sMs=new Date(p.start).getTime();
+            const eMs=new Date(p.stop).getTime();
+            return agoraMs >= sMs && agoraMs < eMs;
+          });
 
             const progAtual = progAtualIndex !== -1 ? progs[progAtualIndex] : null;
             const proximosProgs = progAtualIndex !== -1 ? progs.slice(progAtualIndex + 1, progAtualIndex + 3) : progs.slice(0, 2);
@@ -241,10 +244,10 @@ function GradeListaPerformance({canais, progsPorCanal}:{canais:Canal[];progsPorC
               <div 
                 key={canal.id} 
                 onClick={() => setCanalDetalheSel(canal)}
-                className="group flex flex-col md:flex-row md:items-center gap-3 md:gap-5 p-4 rounded-xl border border-border bg-card hover:border-emerald-500/20 hover:bg-emerald-500/[0.01] transition-all cursor-pointer shadow-sm"
+                className="group flex flex-col md:flex-row md:items-center gap-4 md:gap-6 p-4 rounded-2xl border border-border bg-card hover:border-sky-500/30 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-all cursor-pointer shadow-sm"
               >
                 {/* Coluna 1: Canal */}
-                <div className="flex items-center gap-3.5 w-full md:w-[260px] shrink-0">
+                <div className="flex items-center gap-4 w-full md:w-[280px] shrink-0">
                   <Logo src={canal.icon} nome={canal.nome} categoria={canal.categoria} size={44}/>
                   <div className="min-w-0">
                     <div className="font-semibold text-foreground text-base tracking-tight truncate">{canal.nome}</div>
@@ -260,15 +263,16 @@ function GradeListaPerformance({canais, progsPorCanal}:{canais:Canal[];progsPorC
                   
                   {/* Programa Atual (com barrinha) */}
                   {progAtual ? (
-                    <div className="min-w-0">
-                      <div className="text-[11px] font-medium text-muted-foreground tracking-wider uppercase mb-1">Passando agora</div>
-                      <div className="flex flex-col gap-0.5">
-                        <div className="text-sm font-medium text-foreground truncate group-hover:text-emerald-400">{progAtual.title}</div>
-                        <div className="text-xs text-muted-foreground/90 font-mono">
+                    <div className="min-w-0 pr-4">
+                      <div className="text-[10px] font-bold text-sky-600 bg-sky-100 dark:text-sky-300 dark:bg-sky-900/50 px-2 py-0.5 rounded uppercase w-max mb-2 tracking-wider">Passando</div>
+                      <div className="flex flex-col gap-1">
+                        <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate group-hover:text-sky-600">{progAtual.title}</div>
+                        <div className="text-xs text-slate-500 font-medium">
                           {formatHora(progAtual.start)} – {formatHora(progAtual.stop)}
-                          <span className="text-slate-600 dark:text-slate-700"> ({progAtual.duracao_min} min)</span>
                         </div>
-                        <ProgressBar start={progAtual.start} stop={progAtual.stop} nowMs={agoraBrtMs}/>
+                        <div className="w-16 mt-1">
+                        <ProgressBar start={progAtual.start} stop={progAtual.stop} />
+                      </div>
                       </div>
                     </div>
                   ) : (
@@ -316,10 +320,9 @@ function ModalDetalheCanal({canal, progsPorCanal, agoraMs, onProgSelect, onClose
     // Filtramos e preparamos a programação para exibir dia atual e próximo
     const progs = useMemo(() => {
         const all = (progsPorCanal.get(canal.id) || []);
-        // BRT offset original preservado
-        const agoraBrtMs = agoraMs - 3 * 3600000;
-        // Filtramos programas que ainda não terminaram
-        return all.filter(p => new Date(p.stop).getTime() > agoraBrtMs).sort((a,b)=>new Date(a.start).getTime()-new Date(b.start).getTime());
+        // REMOVIDO: const agoraBrtMs = agoraMs - 3 * 3600000; // ✅ Hack removido
+        // ✅ Filtramos programas que ainda não terminaram usando UTC real
+        return all.filter(p => new Date(p.stop).getTime() > agoraMs).sort((a,b)=>new Date(a.start).getTime()-new Date(b.start).getTime());
     }, [canal, progsPorCanal, agoraMs]);
 
     return (
@@ -352,8 +355,9 @@ function ModalDetalheCanal({canal, progsPorCanal, agoraMs, onProgSelect, onClose
                     ) : progs.map(p => {
                         const sMs = new Date(p.start).getTime();
                         const eMs = new Date(p.stop).getTime();
-                        const agoraBrtMs = agoraMs - 3 * 3600000;
-                        const emAndamento = agoraBrtMs >= sMs && agoraBrtMs <= eMs;
+                        // REMOVIDO: const agoraBrtMs = agoraMs - 3 * 3600000; // ✅ Redundância e hack removidos
+                        // ✅ Comparação corrigida usando UTC e < para o fim
+                        const emAndamento = agoraMs >= sMs && agoraMs < eMs;
                         const baseTwColor = CAT_COR_TW[canal.categoria] || "text-slate-500";
                         const corBase = CAT_COR[canal.categoria] || "#6b7280";
 
@@ -361,49 +365,44 @@ function ModalDetalheCanal({canal, progsPorCanal, agoraMs, onProgSelect, onClose
                             <div 
                                 key={p.start} 
                                 onClick={() => onProgSelect(p)}
-                                className={`flex items-start gap-4 p-4 rounded-xl border bg-card transition-all cursor-pointer group ${emAndamento ? 'border-sky-500/40 bg-sky-500/[0.02] shadow-sky-500/10 shadow-sm' : 'border-border hover:border-border-hover'}`}
+                                className={`flex items-start gap-4 p-5 rounded-xl border bg-card transition-all cursor-pointer group shadow-sm ${emAndamento ? 'border-sky-300 dark:border-sky-500/40 bg-sky-50/50 dark:bg-sky-500/[0.02]' : 'border-border hover:bg-muted/30'}`}
                             >
-                                {/* Imagem do Programa (Lazy Loaded via browser nativo) */}
+                                {/* ✅ Placeholder idêntico ao print (quadrado branco com borda e ícone) */}
                                 {p.prog_icon ? (
-                                    <img 
-                                        src={p.prog_icon} 
-                                        alt={p.title} 
-                                        loading="lazy"
-                                        className="w-16 h-16 rounded-lg object-cover shrink-0 border border-border"
-                                    />
+                                    <img src={p.prog_icon} alt={p.title} loading="lazy" className="w-14 h-14 rounded-lg object-cover shrink-0 border border-border bg-white" />
                                 ) : (
-                                    <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center shrink-0 border border-border">
-                                        <Film size={24} className="text-muted-foreground/60"/>
+                                    <div className="w-14 h-14 rounded-xl bg-card flex items-center justify-center shrink-0 border border-border shadow-sm">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground/50"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
                                     </div>
                                 )}
                                 
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2.5 mb-1.5">
                                         {emAndamento && (
-                                            <span className="shrink-0 text-[10px] font-bold text-sky-500 bg-sky-500/15 px-2 py-0.5 rounded-full tracking-wide uppercase">Passando</span>
+                                            <span className="shrink-0 text-[10px] font-bold text-sky-700 bg-sky-200 dark:text-sky-300 dark:bg-sky-900/50 px-2.5 py-0.5 rounded-full tracking-wider uppercase">Passando</span>
                                         )}
-                                        <span className="text-sm font-mono text-muted-foreground/90 font-medium">
+                                        <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
                                             {formatHora(p.start)} – {formatHora(p.stop)}
                                         </span>
-                                        <span className="text-xs text-muted-foreground/60 ml-auto">{p.duracao_min} min</span>
+                                        <span className="text-xs text-muted-foreground/60 ml-auto font-medium">{p.duracao_min} min</span>
                                     </div>
                                     
-                                    <div className={`text-base font-semibold group-hover:text-sky-500 leading-snug tracking-tight mb-2 ${emAndamento ? 'text-sky-400' : 'text-foreground'}`}>
+                                    <div className={`text-base font-semibold truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 tracking-tight ${emAndamento ? 'text-sky-700 dark:text-sky-400' : 'text-slate-800 dark:text-slate-100'}`}>
                                         {p.title}
                                     </div>
 
                                     {emAndamento && (
-                                        <div className="max-w-xs mt-3 mb-1">
-                                            <ProgressBar start={p.start} stop={p.stop} nowMs={agoraBrtMs}/>
+                                        <div className="w-10 mt-2 mb-2">
+                                            <ProgressBar start={p.start} stop={p.stop} />
                                         </div>
                                     )}
 
                                     {p.desc && (
-                                        <div className="text-xs text-muted-foreground/80 leading-relaxed line-clamp-2 mt-2">{p.desc}</div>
+                                        <div className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-2 mt-2">{p.desc}</div>
                                     )}
                                 </div>
-                                <div className="shrink-0 flex items-center justify-center pt-5">
-                                    <ChevronRight className="w-5 h-5 text-border/70 group-hover:text-sky-500"/>
+                                <div className="shrink-0 flex items-center justify-center pt-1">
+                                    <ChevronRight className="w-4 h-4 text-border group-hover:text-sky-500"/>
                                 </div>
                             </div>
                         );
@@ -1143,7 +1142,8 @@ function ResultadoBuscaEPG({epg,busca,progsPorCanal,onClear}:{epg:EpgData;busca:
 }
 
 // ─── Aba Canais Refatorada (Performance e Visual de Lista) ─────────────────────
-function AbaCanais({epg,progsPorCanal,syncing,onSync,syncMsg}:{epg:EpgData;progsPorCanal:Map<string,Programa[]>;syncing:boolean;onSync:()=>void;syncMsg:{tipo:"ok"|"err";texto:string}|null}) {
+// ✅ Props de syncing removidas daqui
+function AbaCanais({epg,progsPorCanal,syncMsg}:{epg:EpgData;progsPorCanal:Map<string,Programa[]>;syncMsg:{tipo:"ok"|"err";texto:string}|null}) {
   const [catAtiva,setCatAtiva]=useState("Todos");
   const [subAtiva,setSubAtiva]=useState("Todos");
   const [busca,setBusca]=useState("");
@@ -1160,29 +1160,49 @@ function AbaCanais({epg,progsPorCanal,syncing,onSync,syncMsg}:{epg:EpgData;progs
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-background overflow-hidden">
-      <div className="flex-shrink-0 px-4 sm:px-5 py-4 border-b border-border bg-card flex items-center gap-3.5 flex-wrap z-30 relative shadow-sm">
+      <div className="flex-shrink-0 px-4 sm:px-5 py-4 border-b border-border bg-card flex items-center gap-3 flex-wrap z-30 relative shadow-sm">
+        
+        {/* ✅ Botão de Categoria Principal (Azul) */}
         <div ref={catRef} className="relative">
           <button onClick={()=>setCatOpen(o=>!o)} 
-            className={`flex items-center gap-2 h-8 px-4 rounded-full font-semibold text-xs border transition-all ${catAtiva!=="Todos" ? 'bg-sky-600 text-white shadow shadow-sky-900/10' : 'bg-muted text-muted-foreground border-border/80 hover:border-border-hover hover:text-foreground'}`}
-            style={{borderColor: catAtiva!=="Todos" ? 'var(--sky-500)' : undefined}}>
-            <Database size={13} className={catAtiva!=="Todos" ? "text-white" : "text-muted-foreground/90"} />
-            {catAtiva==="Todos" ? "Todas as Categorias" : catAtiva}
-            <ChevronDown size={12} className={`opacity-60 transform ${catOpen?"rotate-180":"none"} transition-transform duration-150`}/>
+            className="flex items-center gap-2 h-9 px-4 rounded-full font-semibold text-sm transition-all bg-sky-600 hover:bg-sky-500 text-white shadow-sm">
+            <Database size={14} className="text-white/80" />
+            {catAtiva==="Todos" ? "Categorias" : catAtiva}
+            <ChevronDown size={14} className={`opacity-80 transform ${catOpen?"rotate-180":"none"} transition-transform duration-150`}/>
           </button>
-          {catOpen&&(<div className="absolute top-[calc(100%+8px)] left-0 min-w-56 max-h-80 overflow-y-auto bg-card border border-border rounded-2xl shadow-2xl z-50 p-2.5 animate-in slide-in-from-top-2 duration-150">
+          {catOpen&&(<div className="absolute top-[calc(100%+8px)] left-0 min-w-56 max-h-80 overflow-y-auto bg-card border border-border rounded-xl shadow-xl z-50 p-2 animate-in slide-in-from-top-2 duration-150">
             {[{value:"Todos",label:"Todas as categorias"},...catsDisponiveis.map(c=>({value:c,label:c}))].map(opt=>(
               <button key={opt.value} onClick={()=>{setCatAtiva(opt.value);setSubAtiva("Todos");setCatOpen(false);}}
-                className={`w-full text-left flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${catAtiva===opt.value ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
-                <span className="flex items-center gap-2.5 min-w-0"><span className="truncate">{opt.label}</span></span>
-                {opt.value!=="Todos" && <div className="w-2.5 h-2.5 rounded-full" style={{backgroundColor: CAT_COR[opt.value]}}/>}
+                className={`w-full text-left flex items-center justify-between gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${catAtiva===opt.value ? 'bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-400' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+                <span className="truncate">{opt.label}</span>
+                {opt.value!=="Todos" && <div className="w-2 h-2 rounded-full" style={{backgroundColor: CAT_COR[opt.value]}}/>}
               </button>
             ))}
           </div>)}
         </div>
         
-        {catAtiva!=="Todos"&&<button onClick={()=>{setCatAtiva("Todos");setSubAtiva("Todos");}} className="flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-muted text-muted-foreground border border-border hover:border-border-hover text-[11px] font-semibold transition-all"><X size={12} className="text-rose-400"/> {catAtiva}</button>}
+        {/* ✅ Botão Limpar (Branco com X vermelho) */}
+        {catAtiva!=="Todos"&& (
+          <button onClick={()=>{setCatAtiva("Todos");setSubAtiva("Todos");}} 
+            className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-card border border-border text-slate-600 dark:text-slate-300 hover:bg-muted text-sm font-medium transition-all shadow-sm">
+            <X size={14} className="text-rose-500"/> {catAtiva}
+          </button>
+        )}
         
-        {subgruposDisponiveis.length>0&&<div className="flex gap-2 flex-wrap border-l border-border/80 pl-3.5 ml-1.5">{subgruposDisponiveis.map(sg=><button key={sg.label} onClick={()=>setSubAtiva(s=>s===sg.label?"Todos":sg.label)} className={`h-8 px-4 rounded-full font-semibold text-xs border transition-all ${subAtiva===sg.label ? 'bg-emerald-600 text-white shadow shadow-emerald-900/10' : 'bg-muted/40 text-muted-foreground border-border/80 hover:border-border-hover hover:text-foreground'}`} style={{borderColor: subAtiva===sg.label ? CAT_COR[catAtiva] : undefined}}>{sg.label}</button>)}</div>}
+        {/* ✅ Divisor Vertical e Subcategorias (Pílulas brancas) */}
+        {subgruposDisponiveis.length>0&&(
+          <>
+            <div className="w-px h-6 bg-border mx-1 hidden md:block"></div>
+            <div className="flex gap-2 flex-wrap">
+              {subgruposDisponiveis.map(sg=>(
+                <button key={sg.label} onClick={()=>setSubAtiva(s=>s===sg.label?"Todos":sg.label)} 
+                  className={`h-9 px-5 rounded-full font-medium text-sm border transition-all shadow-sm ${subAtiva===sg.label ? 'bg-slate-800 text-white border-slate-800 dark:bg-slate-200 dark:text-slate-900' : 'bg-card text-slate-600 dark:text-slate-300 border-border hover:bg-muted'}`}>
+                  {sg.label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
         
         <div className="relative flex-1 min-w-[200px] md:max-w-xs md:ml-auto">
           <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/60 pointer-events-none"/>
@@ -1191,11 +1211,9 @@ function AbaCanais({epg,progsPorCanal,syncing,onSync,syncMsg}:{epg:EpgData;progs
         </div>
         <button onClick={()=>setBuscaAtiva(busca.trim())} className="h-9 px-5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs shadow-lg shadow-sky-900/20 flex-shrink-0">Buscar</button>
         
-        <button onClick={onSync} disabled={syncing} className={`h-9 px-4 rounded-lg font-bold text-xs flex items-center gap-2.5 transition-all disabled:opacity-70 disabled:cursor-wait shrink-0 ml-auto border border-border ${syncing ? 'bg-muted text-muted-foreground' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/20'}`}>
-          <RefreshCw size={13} className={syncing?"animate-spin":"none"}/>
-          {syncing?"Sincronizando...":"Sincronizar Grade EPG"}
-        </button>
+        {/* ✅ Botão de sync EPG removido daqui */}
         
+        {/* Mensagem de status mantida, pois é útil aqui */}
         {syncMsg&&(<div className={`absolute bottom-full left-4 mb-2 p-2 px-3 rounded-lg border flex items-center gap-2 text-xs font-medium animate-in slide-in-from-bottom-2 ${syncMsg.tipo==="ok"?"bg-emerald-500/10 border-emerald-500/30 text-emerald-500":"bg-rose-500/10 border-rose-500/30 text-rose-500"}`}>{syncMsg.tipo==="ok"?<CheckCircle size={14}/>:<AlertTriangle size={14}/>}{syncMsg.texto}</div>)}
       </div>
       
@@ -1248,7 +1266,17 @@ export default function GuiaTVPage() {
   // Mantendo o syncMsg original para o painel de canais
   const [syncMsg,setSyncMsg]=useState<{tipo:"ok"|"err";texto:string}|null>(null);
   const [showCatalogo,setShowCatalogo]=useState(false);
-  
+
+  // ✅ NOVOS ESTADOS PARA O DROPDOWN DE SINCRONIZAÇÃO
+  const [syncDropOpen, setSyncDropOpen] = useState(false);
+  const syncDropRef = useRef<HTMLDivElement>(null);
+
+  // ✅ Fechar o dropdown ao clicar fora
+  useEffect(()=>{
+      function h(e:MouseEvent){if(syncDropRef.current&&!syncDropRef.current.contains(e.target as Node))setSyncDropOpen(false);}
+      document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);
+  },[]);
+   
   // ✅ Novos estados para Toasts da Página Principal
   const [toasts, setToasts] = useState<any[]>([]);
   const removeToast = (id: number) => setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -1330,10 +1358,44 @@ export default function GuiaTVPage() {
             </button>
           ))}
           <div className="flex-1"/>
-          <button onClick={()=>setShowCatalogo(true)}
-            className="flex items-center gap-2 h-9 px-5 rounded-full font-bold text-xs transition-all bg-muted border border-indigo-500/20 text-indigo-500 hover:border-indigo-500/40 hover:text-indigo-400">
-            <Database size={13} className="text-indigo-500"/> Sincronizar Catálogo (VOD)
-          </button>
+          
+          {/* ✅ NOVO MENU DROPDOWN UNIFICADO */}
+          <div ref={syncDropRef} className="relative">
+            <button onClick={() => setSyncDropOpen(o => !o)}
+                className={`flex items-center gap-2 h-9 px-4 rounded-full font-bold text-xs border transition-all ${syncDropOpen ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20 border-indigo-600' : 'bg-muted border-indigo-500/20 text-indigo-500 hover:border-indigo-500/40 hover:text-indigo-400'}`}>
+                <RefreshCw size={13} className={syncing && tab === "canais" ? "animate-spin text-indigo-500" : (syncDropOpen ? "text-white" : "text-indigo-500")} />
+                Sincronizar
+                <ChevronDown size={12} className={`opacity-60 transform ${syncDropOpen ? "rotate-180" : "none"} transition-transform duration-150`} />
+            </button>
+
+            {syncDropOpen && (
+                <div className="absolute top-[calc(100%+8px)] right-0 min-w-[240px] bg-card border border-border rounded-xl shadow-2xl z-50 p-2 animate-in slide-in-from-top-2 duration-150">
+                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-3 py-2">Opções de Sincronização</div>
+                    
+                    {/* Opção 1: Catálogo VOD */}
+                    <button onClick={() => { setShowCatalogo(true); setSyncDropOpen(false); }}
+                        className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                        <div className="w-8 h-8 rounded-full bg-indigo-500/10 flex items-center justify-center shrink-0">
+                          <Database size={15} className="text-indigo-500" />
+                        </div>
+                        Sincronizar Catálogo (VOD)
+                    </button>
+                    
+                    <div className="w-full h-px bg-border my-1"></div>
+
+                    {/* Opção 2: EPG */}
+                        <button onClick={() => { handleSync(); setSyncDropOpen(false); }} disabled={syncing}
+                        className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${syncing ? 'opacity-50 cursor-not-allowed bg-muted' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+                        <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
+                          <Tv size={15} className={syncing ? "animate-spin text-emerald-500" : "text-emerald-500"} />
+                        </div>
+                        {syncing ? "Sincronizando EPG..." : "Sincronizar Grade EPG"}
+                    </button>
+                </div>
+            )}
+          </div>
+          {/* FIM DO NOVO MENU */}
+
         </div>
       </div>
 
@@ -1341,7 +1403,8 @@ export default function GuiaTVPage() {
       {tab==="canais"&&(
         loadingEpg?<div className="flex flex-col items-center justify-center flex-1 gap-4 text-center p-20 text-muted-foreground animate-pulse text-sm py-40 bg-muted/20 transition-colors"><RefreshCw size={24} className="animate-spin text-muted-foreground/60"/>Carregando grade de canais...</div>
         :erroEpg?<div className="flex flex-col items-center justify-center flex-1 gap-4 text-center p-20 text-muted-foreground animate-pulse text-sm py-40 bg-muted/20 transition-colors max-w-2xl mx-auto"><AlertTriangle size={32} className="text-amber-500"/><div className="text-sm font-medium text-foreground tracking-tight">{erroEpg}</div><button onClick={handleSync} disabled={syncing} className="h-9 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2"><RefreshCw size={13} className={syncing?"animate-spin":"none"}/> {syncing?"Sincronizando Grade...":"Tentar Sincronizar Grade Agora"}</button></div>
-        :epg&&<AbaCanais epg={epg} progsPorCanal={progsPorCanal} syncing={syncing} onSync={handleSync} syncMsg={syncMsg}/>
+        // ✅ Removidas as props syncing e onSync da chamada
+        :epg&&<AbaCanais epg={epg} progsPorCanal={progsPorCanal} syncMsg={syncMsg}/>
       )}
       {tab==="filmes"&&<AbaCatalogo tipo="FILME" servidorAdmin={SERVIDOR_ADMIN}/>}
       {tab==="series"&&<AbaCatalogo tipo="SERIE" servidorAdmin={SERVIDOR_ADMIN}/>}
