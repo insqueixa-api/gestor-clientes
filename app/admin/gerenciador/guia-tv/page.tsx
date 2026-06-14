@@ -240,14 +240,18 @@ function GradeListaPerformance({canais, progsPorCanal}:{canais:Canal[];progsPorC
             const catTwColor = CAT_COR_TW[canal.categoria] || "text-slate-500";
             const corBase = CAT_COR[canal.categoria] || "#6b7280";
 
+            // ✅ MUDANÇA 3: Ocultar canais sem programação
+            if (progs.length === 0) return null;
+
             return (
               <div 
                 key={canal.id} 
                 onClick={() => setCanalDetalheSel(canal)}
-                className="group flex flex-col md:flex-row md:items-center gap-4 md:gap-6 p-4 rounded-2xl border border-border bg-card hover:border-sky-500/30 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-all cursor-pointer shadow-sm"
+                // ✅ MUDANÇA 1 (Layout): Uso de 'md:grid' para definir 3 colunas + seta no desktop
+                className="group flex flex-col md:grid md:grid-cols-[280px_minmax(0,1.5fr)_minmax(0,1fr)_auto] items-center gap-4 md:gap-6 p-4 rounded-2xl border border-border bg-card hover:border-sky-500/30 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-all cursor-pointer shadow-sm"
               >
-                {/* Coluna 1: Canal */}
-                <div className="flex items-center gap-4 w-full md:w-[280px] shrink-0">
+                {/* Coluna 1: Canal (Largura fixa 280px no desktop via grid) */}
+                <div className="flex items-center gap-4 w-full shrink-0">
                   <Logo src={canal.icon} nome={canal.nome} categoria={canal.categoria} size={44}/>
                   <div className="min-w-0">
                     <div className="font-semibold text-foreground text-base tracking-tight truncate">{canal.nome}</div>
@@ -258,30 +262,32 @@ function GradeListaPerformance({canais, progsPorCanal}:{canais:Canal[];progsPorC
                   </div>
                 </div>
 
-                {/* Coluna 2: Prog Atual + Próximos */}
-                <div className="flex-1 grid grid-cols-1 md:grid-cols-[1.8fr,1fr,1fr] gap-3 md:gap-5 border-t md:border-t-0 border-border/60 pt-3 md:pt-0">
-                  
-                  {/* Programa Atual (com barrinha) */}
+                {/* ✅ MUDANÇA 1 (Layout): Coluna 2 isolada - Programa Atual */}
+                <div className="w-full border-t md:border-t-0 md:border-l border-border/60 pt-4 md:pt-0 md:pl-6">
                   {progAtual ? (
-                    <div className="min-w-0 pr-4">
-                      <div className="text-[10px] font-bold text-sky-600 bg-sky-100 dark:text-sky-300 dark:bg-sky-900/50 px-2 py-0.5 rounded uppercase w-max mb-2 tracking-wider">Passando</div>
+                    <div className="min-w-0">
+                      {/* ✅ MUDANÇA 2 (Wording): Alterado para "AO VIVO" */}
+                      <div className="text-[10px] font-bold text-sky-600 bg-sky-100 dark:text-sky-300 dark:bg-sky-900/50 px-2 py-0.5 rounded uppercase w-max mb-2 tracking-wider">AO VIVO</div>
                       <div className="flex flex-col gap-1">
                         <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate group-hover:text-sky-600">{progAtual.title}</div>
                         <div className="text-xs text-slate-500 font-medium">
                           {formatHora(progAtual.start)} – {formatHora(progAtual.stop)}
                         </div>
-                        <div className="w-16 mt-1">
-                        <ProgressBar start={progAtual.start} stop={progAtual.stop} />
-                      </div>
+                        {/* Barra de progresso um pouco maior agora que tem mais espaço */}
+                        <div className="w-full max-w-[220px] mt-1">
+                          <ProgressBar start={progAtual.start} stop={progAtual.stop} />
+                        </div>
                       </div>
                     </div>
                   ) : (
-                    <div className="min-w-0 text-muted-foreground/70 italic text-sm pt-3">Sem informação atual</div>
+                    <div className="min-w-0 text-muted-foreground/70 italic text-sm pt-1">Sem informação atual</div>
                   )}
+                </div>
 
-                  {/* Próximos 2 Programas */}
+                {/* ✅ MUDANÇA 1 (Layout): Coluna 3 isolada - Próximos Programas */}
+                <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2 gap-4 border-t md:border-t-0 md:border-l border-border/60 pt-4 md:pt-0 md:pl-6">
                   {proximosProgs.map((p, idx) => (
-                    <div key={idx} className="min-w-0 md:border-l md:border-border/60 md:pl-5 pt-1 md:pt-0">
+                    <div key={idx} className="min-w-0 pt-1 md:pt-0">
                       <div className="text-[11px] font-medium text-muted-foreground tracking-wider uppercase mb-1">
                         {idx === 0 ? "Em seguida" : "Depois"}
                       </div>
@@ -290,18 +296,17 @@ function GradeListaPerformance({canais, progsPorCanal}:{canais:Canal[];progsPorC
                     </div>
                   ))}
 
-                  {/* Placeholder se não houver próximos */}
                   {Array.from({length: 2 - proximosProgs.length}).map((_, idx) => (
-                    <div key={`empty-${idx}`} className="min-w-0 md:border-l md:border-border/60 md:pl-5 opacity-40">
+                    <div key={`empty-${idx}`} className="min-w-0 pt-1 md:pt-0 opacity-40">
                       <div className="text-[11px] font-medium text-muted-foreground tracking-wider uppercase mb-1">Em seguida</div>
                       <div className="text-xs text-muted-foreground/80">Sem informação</div>
                     </div>
                   ))}
                 </div>
                 
-                {/* Ícone seta indicando ação */}
-                <div className="flex md:items-center justify-end md:justify-center shrink-0 md:pl-2">
-                    <ChevronRight className="w-5 h-5 text-border group-hover:text-emerald-500 transition-colors" />
+                {/* Ícone seta (Coluna 'auto' no grid) */}
+                <div className="flex md:items-center justify-end md:justify-center shrink-0 hidden md:flex">
+                    <ChevronRight className="w-5 h-5 text-border group-hover:text-sky-500 transition-colors" />
                 </div>
               </div>
             );
