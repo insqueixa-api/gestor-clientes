@@ -398,12 +398,9 @@ export async function POST(req: NextRequest) {
     .order("priority", { ascending: true });
 
   // Deduplicação por sobreposição de período (bloqueia o intervalo inteiro do programa)
+  // Começa vazio: Elite e NaTV entram primeiro (sem concorrência do EPGBR),
+  // o EPGBR só preenche o que sobrar no final.
   const jaTemProg = new Map<string, { start: number; stop: number }[]>();
-  for (const p of progsMestre) {
-    const arr = jaTemProg.get(p.channel_id) || [];
-    arr.push({ start: new Date(p.start).getTime(), stop: new Date(p.stop).getTime() });
-    jaTemProg.set(p.channel_id, arr);
-  }
 
   function jaExiste(channelId: string, startIso: string, stopIso: string): boolean {
     const arr = jaTemProg.get(channelId);
