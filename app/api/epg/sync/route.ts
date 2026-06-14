@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { parseStringPromise } from "xml2js";
+import { createClient as createAdmin } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -25,6 +26,11 @@ const s3 = new S3Client({
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || "",
   },
 });
+
+const supabaseAdmin = createAdmin(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+);
 
 const R2_BUCKET = process.env.R2_BUCKET_NAME        || "unigestor-media";
 const R2_URL    = process.env.NEXT_PUBLIC_R2_DEV_URL || "";
@@ -374,9 +380,15 @@ export async function POST(req: NextRequest) {
   const inicio = Date.now();
   const agora  = new Date().toISOString();
 
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  // Permite chamada via cron (sem sessão de usuário) usando secret no header.
+  const cronAuth = req.headers.get("authorization");
+  const isCron = cronAuth === `Bearer ${process.env.EPG_SYNC_CRON_SECRET}`;
+
+  if (!isCron) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  }
 
   const log: Record<string, any> = { executado_em: agora, servidores: {}, resultado: {}, erro: null };
 
@@ -391,7 +403,8 @@ export async function POST(req: NextRequest) {
   }
 
   // 2. Elite e NaTV
-  const { data: configs } = await supabase
+    const { data: configs } = await supabaseAdmin
+
     .from("vw_epg_config")
     .select("*")
     .in("provider", ["ELITE", "NATV"])
