@@ -499,7 +499,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
             <div className="flex gap-2 sm:gap-3">
               <button
                 onClick={onClose}
-                className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-muted-foreground dark:text-white/60 hover:bg-transparent dark:hover:bg-card/10 text-xs sm:text-sm font-semibold transition-colors"
+                className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-muted-foreground hover:bg-muted text-xs sm:text-sm font-semibold transition-colors"
               >
                 Cancelar
               </button>
@@ -523,7 +523,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Ex: Tabela especial revenda"
                     disabled={plan?.is_system_default}
-                    className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50"
+                    className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 placeholder-muted-foreground outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50"
                   />
                 </div>
                 <div>
@@ -537,8 +537,8 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                         className={`flex-1 py-2 rounded-md text-xs font-medium transition-all uppercase tracking-wider
                           ${
                             currency === c
-                              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-sm"
-                              : "text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white"
+                              ? "bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 shadow-sm"
+                              : "text-muted-foreground hover:text-foreground"
                           }`}
                       >
                         {c}
@@ -588,7 +588,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                             className="bg-transparent border border-border rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 flex flex-col justify-center h-16 sm:h-20 relative focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/20 transition-all group"
                           >
                             <div className="flex justify-between items-center w-full mb-1">
-                              <span className="text-[10px] sm:text-[11px] font-medium text-muted-foreground/80 dark:text-white/20">
+<span className="text-[10px] sm:text-[11px] font-medium text-muted-foreground">
                                 {PERIOD_LABELS[period]}
                               </span>
                               <span className="text-[8px] sm:text-[9px] font-medium text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-lg border border-emerald-500/10">
@@ -597,7 +597,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                             </div>
 
                             <div className="relative">
-                              <span className="absolute left-0 top-1/2 -translate-y-1/2 text-muted-foreground/80 dark:text-white/20 text-xs font-medium">
+                              <span className="absolute left-0 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-medium">
                                 {formatCurrency(currency)}
                               </span>
                               <input
@@ -612,7 +612,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                                     e.target.value,
                                   )
                                 }
-                                className="w-full bg-transparent border-none p-0 pl-6 sm:pl-7 text-sm sm:text-base font-medium text-foreground focus:ring-0 outline-none placeholder-slate-300 dark:placeholder-white/5 transition-colors disabled:opacity-50"
+                                className="w-full bg-transparent border-none p-0 pl-6 sm:pl-7 text-sm sm:text-base font-medium text-foreground focus:ring-0 outline-none placeholder-muted-foreground/60 transition-colors disabled:opacity-50"
                                 placeholder="0,00"
                               />
                             </div>
@@ -633,7 +633,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                 ? "Altere o nome, moeda e valores conforme necessário"
                 : "Ajuste os valores clonados da tabela padrão"}
             </span>
-            <span className="text-[10px] text-muted-foreground/80 dark:text-white/30">
+            <span className="text-[10px] text-muted-foreground/80">
               A tabela será criada como <strong>ativa</strong> por padrão
             </span>
           </div>

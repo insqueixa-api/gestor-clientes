@@ -388,7 +388,7 @@ export default function PlanosPage() {
                                 </h2>
 
                                 <div className="flex items-center gap-2">
-                                  <span className="text-xs font-medium text-muted-foreground/80 dark:text-white/30 uppercase tracking-widest bg-transparent/50 dark:bg-card/5 px-2 py-0.5 rounded">
+                                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest bg-muted px-2 py-0.5 rounded">
                                     {plan.currency}
                                   </span>
 
@@ -399,11 +399,11 @@ export default function PlanosPage() {
                                     </span>
                                   ) : (
                                     <span
-                                      className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm-lg border shadow-sm
+                                      className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold tracking-tight border shadow-sm
                                     ${
                                       plan.is_active
-                                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                                        : "bg-transparent text-muted-foreground/80 border-border dark:bg-card/5 dark:border-border dark:text-white/20"
+                                        ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                                        : "bg-muted text-muted-foreground border-border"
                                     }`}
                                     >
                                       {plan.is_active ? "Ativa" : "Inativa"}

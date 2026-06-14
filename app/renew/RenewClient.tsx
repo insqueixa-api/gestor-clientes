@@ -1156,16 +1156,16 @@ export default function RenewClient() {
                   </div>
 
                   {/* Caixa Amarela - Instruções finais */}
-                  <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-3 sm:p-4 mb-5 text-left">
+                  <div className="bg-amber-500/10 border-2 border-amber-500/20 rounded-xl p-3 sm:p-4 mb-5 text-left">
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center shrink-0 mt-0.5">
                         <span className="text-base">⚠️</span>
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-bold text-amber-900 mb-0.5">
+                        <p className="text-sm font-bold text-amber-500 mb-0.5">
                           Tudo certo! Pode fechar esta janela.
                         </p>
-                        <p className="text-xs text-amber-800 leading-relaxed">
+                        <p className="text-xs text-amber-500/90 leading-relaxed">
                           <strong>
                             Não é necessário enviar o comprovante.
                           </strong>{" "}
@@ -1456,7 +1456,7 @@ export default function RenewClient() {
                               {paymentData.beneficiary_name}
                             </p>
                           )}
-                          <p className="text-xs text-foreground/70 dark:text-white/50">
+                          <p className="text-xs text-muted-foreground">
                             {paymentData.institution || "Stripe"}
                           </p>
                         </div>
@@ -1590,7 +1590,7 @@ export default function RenewClient() {
                       <p className="text-sm font-bold text-foreground">
                         Processando renovação...
                       </p>
-                      <p className="text-xs text-foreground/70 dark:text-white/50">
+                      <p className="text-xs text-muted-foreground">
                         Atualizando sua assinatura no servidor.
                       </p>
                     </div>
@@ -1761,7 +1761,7 @@ export default function RenewClient() {
                           {copiedKey ? "✅ Copiado" : "📋 Copiar"}
                         </button>
                       </div>
-                      <p className="text-xs text-foreground/70 dark:text-white/50 mt-1">
+<p className="text-xs text-muted-foreground mt-1">
                         Tipo: {paymentData.pix_key_type?.toUpperCase() || "—"}
                       </p>
                     </div>
@@ -2142,7 +2142,7 @@ export default function RenewClient() {
       <div className="min-h-screen bg-background p-4 py-8">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-muted-foreground dark:text-white/60">Carregando...</p>
+          <p className="text-muted-foreground">Carregando...</p>
         </div>
       </div>
     );
@@ -2320,7 +2320,7 @@ export default function RenewClient() {
                       <h3 className="text-base font-bold text-foreground truncate pr-2 flex items-center gap-2">
                         {account.display_name}
                         {account.is_trial && (
-                          <span className="px-1.5 py-0.5 bg-sky-100 dark:bg-sky-500/20 text-sky-700 dark:text-sky-300 text-[9px] font-bold rounded uppercase tracking-wider">
+<span className="px-1.5 py-0.5 bg-sky-500/10 text-sky-500 border border-sky-500/20 text-[9px] font-bold rounded uppercase tracking-wider">
                             TESTE
                           </span>
                         )}
@@ -2336,7 +2336,7 @@ export default function RenewClient() {
                         {account.server_name} • {account.screens} tela
                         {account.screens > 1 ? "s" : ""}
                       </p>
-                      <div className="inline-block px-2 py-0.5 bg-blue-500/10 text-blue-400 rounded text-[10px] font-bold uppercase tracking-wider border border-blue-100 dark:border-blue-500/20 shrink-0">
+                      <div className="inline-block px-2 py-0.5 bg-sky-500/10 text-sky-500 rounded text-[10px] font-bold uppercase tracking-wider border border-sky-500/20 shrink-0">
                         {account.plan_label}
                       </div>
                     </div>
@@ -2477,13 +2477,13 @@ export default function RenewClient() {
         <div
           className={`w-full text-center py-3 sm:py-4 rounded-xl shadow-sm border-2 animate-in fade-in zoom-in duration-500 ${
             timeRemaining?.expired
-              ? "bg-rose-500/10 border-rose-500/20  dark:border-rose-500/30"
+              ? "bg-rose-500/10 border-rose-500/20"
               : selectedAccount.is_trial
-                ? "bg-sky-50 border-sky-200 dark:bg-sky-500/10 dark:border-sky-500/30"
-                : "bg-emerald-500/10 border-emerald-500/20  dark:border-emerald-500/30"
+                ? "bg-sky-500/10 border-sky-500/20"
+                : "bg-emerald-500/10 border-emerald-500/20"
           }`}
         >
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground dark:text-white/50 mb-1">
+<p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">
             Status da Assinatura
           </p>
           <div className="flex items-center justify-center gap-2">
@@ -2499,10 +2499,10 @@ export default function RenewClient() {
             <span
               className={`text-lg sm:text-xl font-black tracking-tight ${
                 timeRemaining?.expired
-                  ? "text-rose-400"
+                  ? "text-rose-500"
                   : selectedAccount.is_trial
-                    ? "text-sky-600 dark:text-sky-400"
-                    : "text-emerald-400"
+                    ? "text-sky-500"
+                    : "text-emerald-500"
               }`}
             >
               {selectedAccount.is_trial && "Teste • "}
@@ -2582,15 +2582,15 @@ export default function RenewClient() {
                   }
                   className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
                     isSelected
-                      ? "border-blue-500 bg-blue-500/10"
-                      : "border-border hover:border-blue-300 dark:hover:border-blue-500/50"
+                      ? "border-sky-500 bg-sky-500/10"
+                      : "border-border hover:border-sky-500/50"
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <div
-                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? "border-blue-500 bg-blue-500" : "border-border border-white/30"}`}
+                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? "border-sky-500 bg-sky-500" : "border-border"}`}
                         >
                           {isSelected && (
                             <svg
@@ -2608,7 +2608,7 @@ export default function RenewClient() {
                         </div>
                         <span className="font-bold text-foreground">
                           {selectedAccount.plan_label}{" "}
-                          <span className="text-xs font-normal text-blue-400 uppercase tracking-wider ml-1">
+<span className="text-xs font-normal text-sky-500 uppercase tracking-wider ml-1">
                             (Atual)
                           </span>
                         </span>
@@ -2616,7 +2616,7 @@ export default function RenewClient() {
                     </div>
                     <div className="text-right ml-2">
                       <div
-                        className={`text-lg font-bold ${isSelected ? "text-blue-400" : "text-muted-foreground dark:text-white/60"}`}
+                        className={`text-lg font-bold ${isSelected ? "text-sky-500" : "text-muted-foreground"}`}
                       >
                         {currentPrice.price_amount > 0
                           ? formatMoney(
@@ -2795,7 +2795,7 @@ export default function RenewClient() {
                               </span>
                               {diffPercent !== 0 && price.price_amount > 0 && (
                                 <span
-                                  className={`px-2 py-0.5 text-[10px] font-bold rounded-md uppercase tracking-wider ${isCheaper ? "bg-emerald-500/20 text-emerald-300 dark:bg-emerald-500/20  " : "bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400"}`}
+                                  className={`px-2 py-0.5 text-[10px] font-bold rounded-md uppercase tracking-wider ${isCheaper ? "bg-emerald-500/20 text-emerald-500 border border-emerald-500/20" : "bg-amber-500/20 text-amber-500 border border-amber-500/20"}`}
                                 >
                                   {isCheaper
                                     ? `${Math.abs(diffPercent)}% off`
@@ -2803,7 +2803,7 @@ export default function RenewClient() {
                                 </span>
                               )}
                             </div>
-                            <p className="text-xs text-foreground/70 dark:text-white/50 mt-1 ml-7">
+                            <p className="text-xs text-muted-foreground mt-1 ml-7">
                               {price.price_amount > 0
                                 ? `${formatMoney(price.price_amount / months, selectedAccount.price_currency)}/mês`
                                 : "—"}
