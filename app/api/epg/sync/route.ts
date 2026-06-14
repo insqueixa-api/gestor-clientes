@@ -416,7 +416,7 @@ export async function POST(req: NextRequest) {
     return arr.some(existente => newStart < existente.stop && newStop > existente.start);
   }
 
-  let programasFinais = [...progsMestre];
+  let programasFinais: Programa[] = [];
 
   for (const cfg of (configs || []) as EpgConfigRow[]) {
     console.log(`[EPG] Complementando com ${cfg.provider}...`);
@@ -442,6 +442,22 @@ export async function POST(req: NextRequest) {
       log.servidores[cfg.provider].adicionados = adicionados;
       console.log(`[EPG] ${cfg.provider}: +${adicionados} programas complementares`);
     }
+  }
+
+  // EPGBR entra por último, só preenchendo buracos que Elite/NaTV não cobriram
+  {
+    let adicionadosEPGBR = 0;
+    for (const p of progsMestre) {
+      if (!jaExiste(p.channel_id, p.start, p.stop)) {
+        const arr = jaTemProg.get(p.channel_id) || [];
+        arr.push({ start: new Date(p.start).getTime(), stop: new Date(p.stop).getTime() });
+        jaTemProg.set(p.channel_id, arr);
+        programasFinais.push(p);
+        adicionadosEPGBR++;
+      }
+    }
+    log.servidores["EPGBR"].adicionados = adicionadosEPGBR;
+    console.log(`[EPG] EPGBR: +${adicionadosEPGBR} programas de preenchimento`);
   }
 
   // 3. Ordena e salva

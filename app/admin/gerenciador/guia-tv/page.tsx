@@ -328,24 +328,7 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
             {tmdbLogs.length>0&&<div style={{marginTop:10,padding:"8px 10px",background:"#080808",borderRadius:6,border:"1px solid #141414"}}>{tmdbLogs.map((l,i)=><div key={i} style={{fontSize:11,color:l.startsWith("❌")?"#ef4444":l.startsWith("✅")?"#10b981":l.startsWith("↻")?"#f59e0b":"#64748b",lineHeight:1.6}}>{l}</div>)}</div>}
           </div>
           
-          {/* Novo Bloco: Revisão TMDB Manual */}
-          <div style={{background:"#0f1117",border:"1px solid #1e2130",borderRadius:10,padding:14}}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <div>
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <div style={{width:7,height:7,borderRadius:"50%",background:"#374151"}}/>
-                  <span style={{fontSize:13,fontWeight:600,color:"#e2e8f0"}}>Enriquecimento TMDB (Manual)</span>
-                </div>
-                <div style={{fontSize:11,color:"#374151",marginTop:4,paddingLeft:15}}>Revisão em lote de títulos sem informações</div>
-              </div>
-              <button onClick={()=>{onClose();setTimeout(()=>window.dispatchEvent(new CustomEvent("OPEN_TMDB_LOTE")),100);}}
-                style={{display:"flex",alignItems:"center",justifyContent:"center",gap:5,padding:"6px 12px",width:130,background:"#f59e0b20",border:"1px solid #f59e0b50",borderRadius:7,color:"#f59e0b",fontSize:12,fontWeight:600,cursor:"pointer",flexShrink:0}}>
-                <RefreshCw size={11}/> Revisar Lote
-              </button>
-            </div>
-          </div>
-
-          {/* Bloco Limpar Catálogo (Movido para o final) */}
+          {/* Bloco Limpar Catálogo */}
           <LimparCatalogo />
 
         </div>
@@ -999,163 +982,7 @@ function AbaCatalogo({tipo,servidorAdmin}:{tipo:TipoConteudo;servidorAdmin:Servi
   );
 }
 
-// ─── Modal TMDB Revisão em Lote ───────────────────────────────────────────────
-type LoteItem = {
-  id: string; titulo_normalizado: string; tipo: TipoConteudo;
-  tmdb_id: number|null; tmdb_confirmado: boolean;
-  poster_tmdb_url: string|null; cover_url: string|null;
-  ano: number|null;
-  candidatos: TmdbResultado[]; escolhido: number|null; ignorado: boolean;
-};
 
-function ModalTmdbLote({onClose}:{onClose:()=>void}) {
-  const [tipo,setTipo]=useState<TipoConteudo>("FILME");
-  const [lote,setLote]=useState(10);
-  const [soSemTmdb,setSoSemTmdb]=useState(true);
-  const [itens,setItens]=useState<LoteItem[]>([]);
-  const [loading,setLoading]=useState(false);
-  const [salvando,setSalvando]=useState(false);
-  const [totalSalvos,setTotalSalvos]=useState(0);
-
-  async function carregarLote(){
-    setLoading(true);setItens([]);
-    const filtro=soSemTmdb?"&sem_tmdb=true":"";
-    const data=await fetch(`/api/catalogo/tmdb-lote?tipo=${tipo}&lote=${lote}${filtro}`).then(r=>r.json()).catch(()=>null);
-    if(!data?.ok){setLoading(false);return;}
-
-    // Para cada título, busca candidatos no TMDB em paralelo
-    const com_candidatos:LoteItem[]=await Promise.all(
-      (data.data as any[]).map(async (t:any)=>{
-        const d=await fetch(`/api/catalogo/tmdb-buscar?q=${encodeURIComponent(t.titulo_normalizado)}&tipo=${tipo}`).then(r=>r.json()).catch(()=>null);
-        return{
-          id:t.id,titulo_normalizado:t.titulo_normalizado,tipo:t.tipo,
-          tmdb_id:t.tmdb_id,tmdb_confirmado:t.tmdb_confirmado,
-          poster_tmdb_url:t.poster_tmdb_url,cover_url:t.cover_url,
-          ano:t.ano||null,
-          candidatos:(d?.ok?d.data:[]).slice(0,5),
-          // Pré-seleciona o primeiro candidato se confiante (título muito similar)
-          escolhido:d?.ok&&d.data.length>0?d.data[0].tmdb_id:null,
-          ignorado:false,
-        } as LoteItem;
-      })
-    );
-    setItens(com_candidatos);setLoading(false);
-  }
-
-  async function salvarEscolhas(){
-    setSalvando(true);let salvos=0;
-    const idsSalvos = new Set<string>();
-    for(const item of itens){
-      if(item.ignorado||!item.escolhido)continue;
-      const cand=item.candidatos.find(c=>c.tmdb_id===item.escolhido);
-      if(!cand)continue;
-      const d=await fetch("/api/catalogo/tmdb-aplicar",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({master_id:item.id,tmdb_id:item.escolhido,tipo:item.tipo})}).then(r=>r.json()).catch(()=>null);
-      if(d?.ok){ salvos++; idsSalvos.add(item.id); }
-    }
-    setTotalSalvos(salvos);setSalvando(false);
-    // Remove da lista apenas os que foram salvos com sucesso
-    setItens(p=>p.filter(i=>!idsSalvos.has(i.id)));
-  }
-
-  const pendentes=itens.filter(i=>!i.ignorado&&i.escolhido).length;
-
-  return(
-    <div style={{position:"fixed",inset:0,zIndex:9998,background:"rgba(0,0,0,0.88)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={onClose}>
-      <div onClick={e=>e.stopPropagation()} style={{background:"#0f1117",width:"100%",maxWidth:900,maxHeight:"92vh",borderRadius:16,display:"flex",flexDirection:"column",boxShadow:"0 32px 80px rgba(0,0,0,0.95)"}}>
-        {/* Header */}
-        <div style={{padding:"16px 20px",borderBottom:"1px solid #1e2130",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
-          <div>
-            <div style={{fontSize:15,fontWeight:700,color:"#f1f5f9",display:"flex",alignItems:"center",gap:8}}><RefreshCw size={15} color="#f59e0b"/> Enriquecimento TMDB (Manual)</div>
-            <div style={{fontSize:11,color:"#475569",marginTop:3}}>Verifique e corrija os dados do TMDB em massa</div>
-          </div>
-          <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:"#475569"}}><X size={16}/></button>
-        </div>
-
-        {/* Configuração */}
-        <div style={{padding:"12px 20px",borderBottom:"1px solid #1e2130",display:"flex",gap:12,alignItems:"center",flexWrap:"wrap",flexShrink:0,background:"#0b0d14"}}>
-          <div style={{display:"flex",background:"#1a1d2e",padding:3,borderRadius:7,gap:3}}>
-            <button onClick={()=>setTipo("FILME")} style={{padding:"4px 14px",background:tipo==="FILME"?"#6366f1":"transparent",color:tipo==="FILME"?"#fff":"#64748b",border:"none",borderRadius:5,fontSize:12,fontWeight:600,cursor:"pointer"}}>Filmes</button>
-            <button onClick={()=>setTipo("SERIE")} style={{padding:"4px 14px",background:tipo==="SERIE"?"#6366f1":"transparent",color:tipo==="SERIE"?"#fff":"#64748b",border:"none",borderRadius:5,fontSize:12,fontWeight:600,cursor:"pointer"}}>Séries</button>
-          </div>
-          <div style={{display:"flex",alignItems:"center",gap:6}}>
-            <span style={{fontSize:12,color:"#64748b"}}>Lote:</span>
-            <input type="number" min={5} max={30} value={lote} onChange={e=>setLote(Math.min(30,Math.max(5,parseInt(e.target.value)||10)))}
-              style={{width:55,padding:"4px 8px",background:"#0f1117",border:"1px solid #252840",borderRadius:6,color:"#e2e8f0",fontSize:12,textAlign:"center"}}/>
-          </div>
-          <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:12,color:"#64748b"}}>
-            <input type="checkbox" checked={soSemTmdb} onChange={e=>setSoSemTmdb(e.target.checked)}/>
-            Só sem TMDB
-          </label>
-          <button onClick={carregarLote} disabled={loading}
-            style={{padding:"6px 16px",background:"#6366f1",border:"none",borderRadius:7,color:"#fff",fontSize:12,fontWeight:600,cursor:loading?"wait":"pointer",display:"flex",alignItems:"center",gap:5}}>
-            {loading?<><RefreshCw size={11} style={{animation:"spin 1s linear infinite"}}/>Carregando...</>:"Carregar lote"}
-          </button>
-          {totalSalvos>0&&<span style={{fontSize:12,color:"#10b981"}}>✓ {totalSalvos} salvo(s)</span>}
-        </div>
-
-        {/* Lista */}
-        <div style={{flex:1,overflowY:"auto",padding:16}}>
-          {loading&&<div style={{textAlign:"center",padding:60,color:"#475569"}}><RefreshCw size={20} style={{animation:"spin 1s linear infinite",margin:"0 auto 12px",display:"block"}}/>Buscando candidatos no TMDB...</div>}
-          {!loading&&itens.length===0&&<div style={{textAlign:"center",padding:60,color:"#374151",fontSize:13}}>Configure e clique em "Carregar lote" para começar</div>}
-          {itens.map(item=>(
-            <div key={item.id} style={{marginBottom:16,background:item.ignorado?"#0b0d14":"#13151f",border:`1px solid ${item.ignorado?"#1a1a1a":"#1e2130"}`,borderRadius:10,padding:14,opacity:item.ignorado?0.4:1}}>
-              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-                {item.poster_tmdb_url||item.cover_url
-                  ?<img src={item.poster_tmdb_url||item.cover_url||""} alt="" style={{width:36,height:54,objectFit:"cover",borderRadius:5,flexShrink:0}}/>
-                  :<div style={{width:36,height:54,background:"#1e2130",borderRadius:5,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}><Film size={14} color="#374151"/></div>
-                }
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:13,fontWeight:600,color:"#f1f5f9"}}>{item.titulo_normalizado}</div>
-                  <div style={{display:"flex",gap:6,marginTop:3,flexWrap:"wrap"}}>
-                    <span style={{fontSize:10,color:item.tmdb_confirmado?"#10b981":"#f59e0b"}}>{item.tmdb_confirmado?"TMDB ✓":"Sem TMDB"}</span>
-                    {item.ano&&<span style={{fontSize:10,color:"#6366f1",background:"#6366f115",padding:"1px 6px",borderRadius:10}}>{item.ano}</span>}
-                    {item.tmdb_id&&<span style={{fontSize:10,color:"#374151"}}>ID: {item.tmdb_id}</span>}
-                  </div>
-                </div>
-                <button onClick={()=>setItens(p=>p.map(i=>i.id===item.id?{...i,ignorado:!i.ignorado}:i))}
-                  style={{padding:"3px 10px",background:"#ef444415",border:"1px solid #ef444430",borderRadius:6,color:"#ef4444",fontSize:10,cursor:"pointer",flexShrink:0}}>
-                  {item.ignorado?"Reativar":"Ignorar"}
-                </button>
-              </div>
-              {/* Candidatos */}
-              {!item.ignorado&&item.candidatos.length>0&&(
-                <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:4}}>
-                  {item.candidatos.map(c=>{
-                    const sel=item.escolhido===c.tmdb_id;
-                    return(
-                      <button key={c.tmdb_id} onClick={()=>setItens(p=>p.map(i=>i.id===item.id?{...i,escolhido:sel?null:c.tmdb_id}:i))}
-                        style={{flexShrink:0,width:90,background:sel?"#6366f120":"#0f1117",border:`1.5px solid ${sel?"#6366f1":"#1e2130"}`,borderRadius:8,padding:6,cursor:"pointer",textAlign:"center",transition:"all 0.15s"}}>
-                        {c.poster_url
-                          ?<img src={c.poster_url} alt={c.titulo} style={{width:78,height:117,objectFit:"cover",borderRadius:5,marginBottom:5,display:"block"}}/>
-                          :<div style={{width:78,height:117,background:"#1e2130",borderRadius:5,marginBottom:5,display:"flex",alignItems:"center",justifyContent:"center"}}><Film size={16} color="#374151"/></div>
-                        }
-                        <div style={{fontSize:9,color:sel?"#818cf8":"#94a3b8",lineHeight:1.3,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>{c.titulo}</div>
-                        {c.ano&&<div style={{fontSize:9,color:"#475569",marginTop:2}}>{c.ano}</div>}
-                        {sel&&<div style={{fontSize:9,color:"#6366f1",marginTop:2,fontWeight:700}}>✓ Selecionado</div>}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              {!item.ignorado&&item.candidatos.length===0&&<div style={{fontSize:11,color:"#374151",padding:"4px 0"}}>Sem candidatos encontrados</div>}
-            </div>
-          ))}
-        </div>
-
-        {/* Footer */}
-        {itens.length>0&&(
-          <div style={{padding:"12px 20px",borderTop:"1px solid #1e2130",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
-            <div style={{fontSize:12,color:"#475569"}}>{pendentes} título(s) com seleção pronta</div>
-            <button onClick={salvarEscolhas} disabled={salvando||pendentes===0}
-              style={{padding:"7px 20px",background:pendentes>0?"#10b981":"#1a1d2e",border:"none",borderRadius:8,color:pendentes>0?"#fff":"#374151",fontSize:12,fontWeight:600,cursor:pendentes>0&&!salvando?"pointer":"not-allowed",display:"flex",alignItems:"center",gap:6}}>
-              {salvando?<><RefreshCw size={11} style={{animation:"spin 1s linear infinite"}}/>Salvando...</>:`Salvar ${pendentes} escolha(s)`}
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 // ─── Busca EPG canais ─────────────────────────────────────────────────────────
 function ResultadoBuscaEPG({epg,busca,progsPorCanal,onClear}:{epg:EpgData;busca:string;progsPorCanal:Map<string,Programa[]>;onClear:()=>void}) {
@@ -1226,15 +1053,7 @@ export default function GuiaTVPage() {
   const [erroEpg,setErroEpg]=useState<string|null>(null);
   const [syncing,setSyncing]=useState(false);
   const [syncMsg,setSyncMsg]=useState<{tipo:"ok"|"err";texto:string}|null>(null);
-  const [showCatalogo,setShowCatalogo]=useState(false);
-  const [showTmdbLote,setShowTmdbLote]=useState(false);
-
-  // Listener para abrir revisão em lote via evento (disparado pelo ModalCatalogo)
-  useEffect(()=>{
-    const h=()=>setShowTmdbLote(true);
-    window.addEventListener("OPEN_TMDB_LOTE",h);
-    return()=>window.removeEventListener("OPEN_TMDB_LOTE",h);
-  },[]);
+const [showCatalogo,setShowCatalogo]=useState(false);
 
   // Expõe tab e setter para o AdminShell via evento customizado
   useEffect(()=>{
@@ -1297,8 +1116,7 @@ export default function GuiaTVPage() {
       {tab==="filmes"&&<AbaCatalogo tipo="FILME" servidorAdmin={SERVIDOR_ADMIN}/>}
       {tab==="series"&&<AbaCatalogo tipo="SERIE" servidorAdmin={SERVIDOR_ADMIN}/>}
 
-      {showCatalogo&&<ModalCatalogo onClose={()=>setShowCatalogo(false)}/>}
-      {showTmdbLote&&<ModalTmdbLote onClose={()=>setShowTmdbLote(false)}/>}
+{showCatalogo&&<ModalCatalogo onClose={()=>setShowCatalogo(false)}/>}
 
       <style>{`
         @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
