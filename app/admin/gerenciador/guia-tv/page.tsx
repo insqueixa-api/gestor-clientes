@@ -263,21 +263,28 @@ function GradeListaPerformance({canais, progsPorCanal}:{canais:Canal[];progsPorC
                   </div>
                 </div>
 
-                {/* ✅ Coluna 2 isolada - Programa Atual */}
-                <div className="w-full border-t md:border-t-0 md:border-l border-border/60 pt-4 md:pt-0 md:pl-6">
+                {/* Coluna 2 - Programa Atual */}
+                <div className="w-full border-t md:border-t-0 md:border-l border-border/60 pt-3 md:pt-0 md:pl-6">
                   {progAtual ? (
                     <div className="min-w-0 md:pr-10">
-                      {/* Badge AO VIVO */}
-                      <div className="text-[10px] font-bold text-sky-600 bg-sky-100 dark:text-sky-300 dark:bg-sky-900/50 px-2 py-0.5 rounded uppercase w-max mb-2 tracking-wider">AO VIVO</div>
-                      <div className="flex flex-col gap-1">
-                        <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate group-hover:text-sky-600">{progAtual.title}</div>
-                        <div className="text-xs text-slate-500 font-medium">
-                          {formatHora(progAtual.start)} – {formatHora(progAtual.stop)}
+                      {/* Mobile: badge + linha única (título à esquerda, horário fixo à direita) */}
+                      <div className="flex md:hidden items-center gap-2 mb-1">
+                        <span className="text-[10px] font-bold text-sky-600 bg-sky-100 dark:text-sky-300 dark:bg-sky-900/50 px-2 py-0.5 rounded uppercase tracking-wider shrink-0">AO VIVO</span>
+                        <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate flex-1 min-w-0">{progAtual.title}</span>
+                        <span className="text-xs text-slate-500 font-medium shrink-0 ml-auto">{formatHora(progAtual.start)} – {formatHora(progAtual.stop)}</span>
+                      </div>
+                      {/* Desktop: layout original em coluna */}
+                      <div className="hidden md:block">
+                        <div className="text-[10px] font-bold text-sky-600 bg-sky-100 dark:text-sky-300 dark:bg-sky-900/50 px-2 py-0.5 rounded uppercase w-max mb-2 tracking-wider">AO VIVO</div>
+                        <div className="flex flex-col gap-1">
+                          <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate group-hover:text-sky-600">{progAtual.title}</div>
+                          <div className="text-xs text-slate-500 font-medium">
+                            {formatHora(progAtual.start)} – {formatHora(progAtual.stop)}
+                          </div>
                         </div>
-                        {/* ✅ BARRA DE PROGRESSO: Estica totalmente na div agora */}
-                        <div className="w-full mt-1">
-                          <ProgressBar start={progAtual.start} stop={progAtual.stop} />
-                        </div>
+                      </div>
+                      <div className="w-full mt-1.5">
+                        <ProgressBar start={progAtual.start} stop={progAtual.stop} />
                       </div>
                     </div>
                   ) : (
@@ -285,21 +292,29 @@ function GradeListaPerformance({canais, progsPorCanal}:{canais:Canal[];progsPorC
                   )}
                 </div>
 
-                {/* ✅ MUDANÇA 1 (Layout): Coluna 3 isolada - Próximos Programas */}
-                <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2 gap-4 border-t md:border-t-0 md:border-l border-border/60 pt-4 md:pt-0 md:pl-6">
+                {/* Coluna 3 - Próximo programa */}
+                <div className="w-full grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 gap-2 md:gap-4 border-t md:border-t-0 md:border-l border-border/60 pt-3 md:pt-0 md:pl-6">
                   {proximosProgs.map((p, idx) => (
-                    <div key={idx} className="min-w-0 pt-1 md:pt-0">
-                      <div className="text-[11px] font-medium text-muted-foreground tracking-wider uppercase mb-1">
-                        {idx === 0 ? "Em seguida" : "Depois"}
+                    <div key={idx} className="min-w-0">
+                      {/* Mobile: horário + título na mesma linha, sem label */}
+                      <div className="flex md:hidden items-baseline gap-2">
+                        <span className="text-xs text-muted-foreground/80 font-mono shrink-0">{formatHora(p.start)}</span>
+                        <span className="text-sm font-medium text-foreground/90 truncate">{p.title}</span>
                       </div>
-                      <div className="text-sm font-medium text-foreground/90 truncate group-hover:text-foreground">{p.title}</div>
-                      <div className="text-xs text-muted-foreground/80 font-mono">{formatHora(p.start)}</div>
+                      {/* Desktop: layout original com label */}
+                      <div className="hidden md:block">
+                        <div className="text-[11px] font-medium text-muted-foreground tracking-wider uppercase mb-1">
+                          {idx === 0 ? "Em seguida" : "Depois"}
+                        </div>
+                        <div className="text-sm font-medium text-foreground/90 truncate group-hover:text-foreground">{p.title}</div>
+                        <div className="text-xs text-muted-foreground/80 font-mono">{formatHora(p.start)}</div>
+                      </div>
                     </div>
                   ))}
 
                   {Array.from({length: 2 - proximosProgs.length}).map((_, idx) => (
-                    <div key={`empty-${idx}`} className="min-w-0 pt-1 md:pt-0 opacity-40">
-                      <div className="text-[11px] font-medium text-muted-foreground tracking-wider uppercase mb-1">Em seguida</div>
+                    <div key={`empty-${idx}`} className="min-w-0 opacity-40">
+                      <div className="hidden md:block text-[11px] font-medium text-muted-foreground tracking-wider uppercase mb-1">Em seguida</div>
                       <div className="text-xs text-muted-foreground/80">Sem informação</div>
                     </div>
                   ))}
@@ -1155,12 +1170,15 @@ function AbaCanais({epg,progsPorCanal,syncMsg,syncing,onSync,onOpenCatalogo}:{ep
   const [buscaAtiva,setBuscaAtiva]=useState("");
 const [catOpen,setCatOpen]=useState(false);
   const catRef=useRef<HTMLDivElement>(null);
-  const [syncOpen,setSyncOpen]=useState(false);
+const [syncOpen,setSyncOpen]=useState(false);
   const syncRef=useRef<HTMLDivElement>(null);
+  const [subOpen,setSubOpen]=useState(false);
+  const subRef=useRef<HTMLDivElement>(null);
   
   // Lógica original preservada
   useEffect(()=>{ function h(e:MouseEvent){if(catRef.current&&!catRef.current.contains(e.target as Node))setCatOpen(false);} document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h); },[]);
   useEffect(()=>{ function h(e:MouseEvent){if(syncRef.current&&!syncRef.current.contains(e.target as Node))setSyncOpen(false);} document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h); },[]);
+  useEffect(()=>{ function h(e:MouseEvent){if(subRef.current&&!subRef.current.contains(e.target as Node))setSubOpen(false);} document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h); },[]);
   const catsDisponiveis=useMemo(()=>{const s=new Set(epg.canais.map(c=>c.categoria));return CATS_ORDEM.filter(c=>s.has(c));},[epg]);
   const canaisFiltrados=useMemo(()=>{let lista=epg.canais;if(catAtiva!=="Todos")lista=lista.filter(c=>c.categoria===catAtiva);if(subAtiva!=="Todos"){const sg=(SUBGRUPOS[catAtiva]||[]).find(s=>s.label===subAtiva);if(sg)lista=lista.filter(c=>sg.match.some(m=>c.display_name.toUpperCase().includes(m)));}return lista;},[epg,catAtiva,subAtiva]);
   const emBusca=buscaAtiva.trim().length>0;
@@ -1189,27 +1207,37 @@ const [catOpen,setCatOpen]=useState(false);
           </div>)}
         </div>
         
-        {/* ✅ Botão Limpar (Branco com X vermelho) */}
-        {catAtiva!=="Todos"&& (
-          <button onClick={()=>{setCatAtiva("Todos");setSubAtiva("Todos");}} 
-            className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-card border border-border text-slate-600 dark:text-slate-300 hover:bg-muted text-sm font-medium transition-all shadow-sm">
-            <X size={14} className="text-rose-500"/> {catAtiva}
-          </button>
-        )}
-        
-        {/* ✅ Divisor Vertical e Subcategorias (Pílulas brancas) */}
+        {/* Dropdown Subcategoria — mesmo padrão visual do Categoria */}
         {subgruposDisponiveis.length>0&&(
-          <>
-            <div className="w-px h-6 bg-border mx-1 hidden md:block"></div>
-            <div className="flex gap-2 flex-wrap">
-              {subgruposDisponiveis.map(sg=>(
-                <button key={sg.label} onClick={()=>setSubAtiva(s=>s===sg.label?"Todos":sg.label)} 
-                  className={`h-9 px-5 rounded-full font-medium text-sm border transition-all shadow-sm ${subAtiva===sg.label ? 'bg-slate-800 text-white border-slate-800 dark:bg-slate-200 dark:text-slate-900' : 'bg-card text-slate-600 dark:text-slate-300 border-border hover:bg-muted'}`}>
-                  {sg.label}
+          <div ref={subRef} className="relative">
+            <button onClick={()=>setSubOpen(o=>!o)}
+              className={`flex items-center gap-2 h-9 px-4 rounded-full font-semibold text-sm border transition-all ${subAtiva!=="Todos" ? 'bg-slate-800 text-white border-slate-800 dark:bg-slate-200 dark:text-slate-900 shadow-sm' : 'bg-card text-slate-600 dark:text-slate-300 border-border hover:bg-muted'}`}>
+              {subAtiva==="Todos" ? "Subcategoria" : subAtiva}
+              <ChevronDown size={12} className={`opacity-60 transform ${subOpen?"rotate-180":"none"} transition-transform duration-150`}/>
+            </button>
+            {subOpen&&(
+              <div className="absolute top-[calc(100%+8px)] left-0 min-w-48 max-h-80 overflow-y-auto bg-card border border-border rounded-xl shadow-xl z-50 p-2 animate-in slide-in-from-top-2 duration-150">
+                <button onClick={()=>{setSubAtiva("Todos");setSubOpen(false);}}
+                  className={`w-full text-left flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors ${subAtiva==="Todos" ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+                  Todas
                 </button>
-              ))}
-            </div>
-          </>
+                {subgruposDisponiveis.map(sg=>(
+                  <button key={sg.label} onClick={()=>{setSubAtiva(s=>s===sg.label?"Todos":sg.label);setSubOpen(false);}}
+                    className={`w-full text-left flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors ${subAtiva===sg.label ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+                    {sg.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Botão Limpar tudo — categoria, subcategoria e busca */}
+        {(catAtiva!=="Todos"||subAtiva!=="Todos"||busca.trim()!=="")&& (
+          <button onClick={()=>{setCatAtiva("Todos");setSubAtiva("Todos");setBusca("");setBuscaAtiva("");}}
+            className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-card border border-border text-slate-600 dark:text-slate-300 hover:bg-muted text-sm font-medium transition-all shadow-sm">
+            <X size={14} className="text-rose-500"/> Limpar
+          </button>
         )}
         
         <div className="relative flex-1 min-w-[200px] md:max-w-xs md:ml-auto">
