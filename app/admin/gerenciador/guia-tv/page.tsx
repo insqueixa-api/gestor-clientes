@@ -150,9 +150,10 @@ function ProgressBar({start, stop}:{start:string; stop:string}) {
   const progress = Math.max(0, Math.min(100, ((nowMs - sMs) / total) * 100));
 
   return (
-    <div className="w-full h-1 bg-muted/40 rounded-full overflow-hidden mt-1.5">
+    // ✅ Barra mais nítida: Altura h-1.5, fundo do trilho (slate-200/700) e verde mais escuro.
+    <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mt-1.5">
       <div 
-        className="h-full bg-emerald-500 transition-all duration-300 rounded-full"
+        className="h-full bg-emerald-600 dark:bg-emerald-500 transition-all duration-300 rounded-full"
         style={{width: `${progress}%`}}
       />
     </div>
@@ -247,10 +248,10 @@ function GradeListaPerformance({canais, progsPorCanal}:{canais:Canal[];progsPorC
               <div 
                 key={canal.id} 
                 onClick={() => setCanalDetalheSel(canal)}
-                // ✅ MUDANÇA 1 (Layout): Uso de 'md:grid' para definir 3 colunas + seta no desktop
-                className="group flex flex-col md:grid md:grid-cols-[280px_minmax(0,1.5fr)_minmax(0,1fr)_auto] items-center gap-4 md:gap-6 p-4 rounded-2xl border border-border bg-card hover:border-sky-500/30 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-all cursor-pointer shadow-sm"
+                // ✅ GRID CORRIGIDO: 3 colunas (1fr) de exato mesmo tamanho + seta
+                className="group flex flex-col md:grid md:grid-cols-[1fr_1fr_1fr_auto] items-center gap-4 md:gap-6 p-4 rounded-2xl border border-border bg-card hover:border-sky-500/30 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-all cursor-pointer shadow-sm"
               >
-                {/* Coluna 1: Canal (Largura fixa 280px no desktop via grid) */}
+                {/* Coluna 1: Canal */}
                 <div className="flex items-center gap-4 w-full shrink-0">
                   <Logo src={canal.icon} nome={canal.nome} categoria={canal.categoria} size={44}/>
                   <div className="min-w-0">
@@ -262,19 +263,19 @@ function GradeListaPerformance({canais, progsPorCanal}:{canais:Canal[];progsPorC
                   </div>
                 </div>
 
-                {/* ✅ MUDANÇA 1 (Layout): Coluna 2 isolada - Programa Atual */}
+                {/* ✅ Coluna 2 isolada - Programa Atual */}
                 <div className="w-full border-t md:border-t-0 md:border-l border-border/60 pt-4 md:pt-0 md:pl-6">
                   {progAtual ? (
-                    <div className="min-w-0">
-                      {/* ✅ MUDANÇA 2 (Wording): Alterado para "AO VIVO" */}
+                    <div className="min-w-0 md:pr-10">
+                      {/* Badge AO VIVO */}
                       <div className="text-[10px] font-bold text-sky-600 bg-sky-100 dark:text-sky-300 dark:bg-sky-900/50 px-2 py-0.5 rounded uppercase w-max mb-2 tracking-wider">AO VIVO</div>
                       <div className="flex flex-col gap-1">
                         <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate group-hover:text-sky-600">{progAtual.title}</div>
                         <div className="text-xs text-slate-500 font-medium">
                           {formatHora(progAtual.start)} – {formatHora(progAtual.stop)}
                         </div>
-                        {/* Barra de progresso um pouco maior agora que tem mais espaço */}
-                        <div className="w-full max-w-[220px] mt-1">
+                        {/* ✅ BARRA DE PROGRESSO: Estica totalmente na div agora */}
+                        <div className="w-full mt-1">
                           <ProgressBar start={progAtual.start} stop={progAtual.stop} />
                         </div>
                       </div>
@@ -397,7 +398,7 @@ function ModalDetalheCanal({canal, progsPorCanal, agoraMs, onProgSelect, onClose
                                     </div>
 
                                     {emAndamento && (
-                                        <div className="w-10 mt-2 mb-2">
+                                        <div className="w-full max-w-[200px] mt-2 mb-2">
                                             <ProgressBar start={p.start} stop={p.stop} />
                                         </div>
                                     )}
