@@ -72,7 +72,7 @@ type AppData = {
 // --- COMPONENTES UI ---
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1 uppercase tracking-wider">
+    <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1 uppercase tracking-wider">
       {children}
     </label>
   );
@@ -508,8 +508,8 @@ export default function AppManagerPage() {
                   alt=""
                   className="w-8 h-8 rounded-lg object-cover border border-border shrink-0"
                 />
-              ) : (
-                <div className="w-8 h-8 rounded-lg bg-transparent dark:bg-transparent flex items-center justify-center text-base shrink-0">
+             ) : (
+                <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-base shrink-0">
                   📱
                 </div>
               )}
@@ -518,15 +518,15 @@ export default function AppManagerPage() {
               </h3>
             </div>
             <div className="flex flex-wrap gap-1 pt-0.5">
-              {app.tenant_id !== myTenantId && (
-                <span className="inline-flex items-center text-[10px] font-medium bg-transparent dark:bg-transparent text-muted-foreground border border-border px-2 py-0.5 rounded-full">
+             {app.tenant_id !== myTenantId && (
+                <span className="inline-flex items-center text-[10px] font-medium bg-muted text-muted-foreground border border-border px-2 py-0.5 rounded-full">
                   🔒
                 </span>
               )}
 
               {app.integration_type && (
                 <span
-                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm ${needsConfiguration ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20" : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"}`}
+                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm ${needsConfiguration ? "bg-amber-500/10 text-amber-500 border border-amber-500/20" : "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"}`}
                 >
                   ⚡{" "}
                   {needsConfiguration
@@ -542,7 +542,7 @@ export default function AppManagerPage() {
               <>
                 <button
                   onClick={() => openEdit(app)}
-                  className="p-1.5 text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 dark:hover:bg-amber-500/20 rounded-lg transition-all"
+                  className="p-1.5 text-amber-500 bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 rounded-lg transition-all"
                   title="Editar"
                 >
                   <IconEdit />
@@ -550,7 +550,7 @@ export default function AppManagerPage() {
 
                 <button
                   onClick={() => handleDelete(app.id)}
-                  className="p-1.5 text-rose-400 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 dark:hover:bg-rose-500/20 rounded-lg transition-all"
+                  className="p-1.5 text-rose-500 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 rounded-lg transition-all"
                   title="Excluir"
                 >
                   <IconTrash />
@@ -565,7 +565,7 @@ export default function AppManagerPage() {
             href={app.info_url}
             target="_blank"
             rel="noreferrer"
-            className="text-xs text-blue-500 hover:underline truncate max-w-[200px] block mb-3"
+            className="text-xs text-sky-500 hover:underline truncate max-w-[200px] block mb-3"
           >
             🌐 {app.info_url}
           </a>
@@ -581,7 +581,7 @@ export default function AppManagerPage() {
               app.fields_config.map((field, idx) => (
                 <span
                   key={idx}
-                  className="px-2 py-1 bg-transparent dark:bg-transparent border border-border rounded text-[10px] text-muted-foreground dark:text-slate-300 font-medium flex items-center gap-1"
+                  className="px-2 py-1 bg-muted border border-border rounded text-[10px] text-muted-foreground font-medium flex items-center gap-1"
                 >
                   {FIELD_ICONS[field.type]} {FIELD_LABELS[field.type]}
                 </span>
@@ -629,7 +629,7 @@ export default function AppManagerPage() {
 
       {/* BARRA DE BUSCA */}
       <div className="px-3 sm:px-0">
-        <div className="md:p-4 md:bg-card dark:md:bg-card md:border md:border-border dark:md:border-white/10 md:rounded-xl md:sticky md:top-4 z-20">
+        <div className="md:p-4 md:bg-card md:border md:border-border md:rounded-xl md:sticky md:top-4 z-20">
           <div className="flex items-center gap-2">
             <Input
               placeholder="Buscar aplicativo por nome..."
@@ -640,7 +640,7 @@ export default function AppManagerPage() {
             {search.trim() ? (
               <button
                 onClick={() => setSearch("")}
-                className="h-10 px-3 rounded-lg border border-border bg-card dark:bg-black/5 dark:bg-transparent text-xs font-medium text-muted-foreground hover:bg-transparent/50 dark:hover:bg-card/5 transition-colors"
+                className="h-10 px-3 rounded-lg border border-border bg-card text-xs font-medium text-muted-foreground hover:bg-muted transition-colors"
                 title="Limpar busca"
               >
                 Limpar
@@ -652,11 +652,11 @@ export default function AppManagerPage() {
 
       {/* LISTAGEM */}
       {loading ? (
-        <div className="text-center py-10 text-muted-foreground/80 bg-transparent rounded-xl border border-dashed border-border dark:border-border">
+<div className="text-center py-10 text-muted-foreground/80 bg-transparent rounded-xl border border-dashed border-border">
           Carregando aplicativos...
         </div>
       ) : filteredApps.length === 0 ? (
-        <div className="text-center py-10 text-muted-foreground/80 bg-transparent rounded-xl border border-dashed border-border dark:border-border">
+<div className="text-center py-10 text-muted-foreground/80 bg-transparent rounded-xl border border-dashed border-border">
           {apps.length === 0
             ? 'Nenhum aplicativo cadastrado. Clique em "Novo Aplicativo" para começar.'
             : search.trim()
@@ -696,14 +696,14 @@ export default function AppManagerPage() {
                     <h2 className="text-sm font-bold text-foreground/90 uppercase tracking-wider">
                       Família: {familyName}
                     </h2>
-                    <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm">
+<span className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm">
                       {appsInFamily.length}{" "}
                       {appsInFamily.length > 1 ? "Apps" : "App"}
                     </span>
                   </div>
 
                   <button
-                    className="text-muted-foreground/80 group-hover:text-emerald-500 dark:group-hover:text-emerald-400 transition-colors p-1"
+                    className="text-muted-foreground/80 group-hover:text-emerald-500 transition-colors p-1"
                     title={isCollapsed ? "Expandir" : "Minimizar"}
                   >
                     <svg
@@ -737,7 +737,7 @@ export default function AppManagerPage() {
       {/* MODAL DE CRIAÇÃO / EDIÇÃO */}
       {isModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-transparent0 backdrop-blur-sm p-4 animate-in fade-in duration-200 overflow-hidden overscroll-contain"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200 overflow-hidden overscroll-contain"
           onClick={() => setIsModalOpen(false)}
         >
           <div
@@ -750,7 +750,7 @@ export default function AppManagerPage() {
               </h2>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-muted-foreground/80 hover:text-foreground dark:hover:text-foreground dark:text-white transition-colors"
+                className="text-muted-foreground/80 hover:text-foreground transition-colors"
               >
                 ✕
               </button>
@@ -780,7 +780,7 @@ export default function AppManagerPage() {
                     }
                   />
                   {isUrlLocked && (
-                    <p className="text-[10px] text-emerald-400 mt-1 font-medium">
+                    <p className="text-[10px] text-emerald-500 mt-1 font-medium">
                       URL gerenciada automaticamente pela integração.
                     </p>
                   )}
@@ -813,7 +813,7 @@ export default function AppManagerPage() {
                       className="w-12 h-12 rounded-lg object-cover border border-border shrink-0"
                     />
                   ) : (
-                    <div className="w-12 h-12 rounded-lg bg-transparent dark:bg-transparent flex items-center justify-center shrink-0 text-2xl">
+                    <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center shrink-0 text-2xl">
                       📱
                     </div>
                   )}
@@ -827,8 +827,8 @@ export default function AppManagerPage() {
                       PNG, JPG, WebP — funciona com figurinhas do WhatsApp
                     </p>
                   </div>
-                  <label className="cursor-pointer shrink-0">
-                    <span className="h-8 px-3 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-medium flex items-center hover:bg-emerald-500/20 transition-colors">
+<label className="cursor-pointer shrink-0">
+                    <span className="h-8 px-3 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-xs font-medium flex items-center hover:bg-emerald-500/20 transition-colors">
                       {uploadingIcon ? "..." : "Selecionar"}
                     </span>
                     <input
@@ -847,7 +847,7 @@ export default function AppManagerPage() {
                     <button
                       type="button"
                       onClick={() => setFormIconUrl("")}
-                      className="shrink-0 p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition-colors"
+                      className="shrink-0 p-1.5 rounded-lg text-rose-500 hover:bg-rose-500/10 transition-colors"
                       title="Remover logo"
                     >
                       <X className="w-4 h-4" />
@@ -889,7 +889,7 @@ export default function AppManagerPage() {
               {/* CONSTRUTOR DE CAMPOS */}
               <div className="bg-transparent border border-border rounded-xl p-4 space-y-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <h3 className="text-xs font-medium text-muted-foreground dark:text-white/60 uppercase tracking-wider">
+                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     Campos Personalizados
                   </h3>
                   <div className="flex flex-wrap gap-2 sm:justify-end">
@@ -905,8 +905,8 @@ export default function AppManagerPage() {
                           className={`text-xs px-2 py-1 border rounded font-medium transition-colors flex items-center gap-1
                             ${
                               alreadyAdded
-                                ? "opacity-30 cursor-not-allowed bg-transparent dark:bg-transparent border-border text-muted-foreground/80"
-                                : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
+                                ? "opacity-30 cursor-not-allowed bg-muted border-border text-muted-foreground/80"
+                                : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20"
                             }`}
                         >
                           {FIELD_ICONS[type]} + {FIELD_LABELS[type]}
@@ -917,8 +917,8 @@ export default function AppManagerPage() {
                 </div>
 
                 <div className="space-y-2">
-                  {formFields.length === 0 && (
-                    <div className="text-center py-4 text-muted-foreground/80 text-xs italic border border-dashed border-border dark:border-border rounded-lg">
+{formFields.length === 0 && (
+                    <div className="text-center py-4 text-muted-foreground/80 text-xs italic border border-dashed border-border rounded-lg">
                       Nenhum campo extra definido. O app usará apenas o campo
                       "Nome" ou "Usuário".
                     </div>
@@ -946,10 +946,10 @@ export default function AppManagerPage() {
                       onDragEnd={() => {
                         dragIndexRef.current = null;
                       }}
-                      className="flex items-center gap-3 px-3 py-2 bg-card dark:bg-black/5 dark:bg-transparent border border-border rounded-lg cursor-default select-none"
+                      className="flex items-center gap-3 px-3 py-2 bg-card border border-border rounded-lg cursor-default select-none"
                     >
                       <span
-                        className="text-slate-300 dark:text-white/20 hover:text-muted-foreground dark:hover:text-white/50 cursor-grab active:cursor-grabbing transition-colors text-sm px-0.5"
+                        className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab active:cursor-grabbing transition-colors text-sm px-0.5"
                         title="Arrastar para reordenar"
                       >
                         ⠿
@@ -957,15 +957,15 @@ export default function AppManagerPage() {
                       <span className="text-base">
                         {FIELD_ICONS[field.type]}
                       </span>
-                      <span className="flex-1 text-sm font-medium text-foreground/90/80">
+                      <span className="flex-1 text-sm font-medium text-foreground/90">
                         {FIELD_LABELS[field.type]}
                       </span>
- <span className="text-[10px] text-muted-foreground/80 bg-transparent dark:bg-transparent px-1.5 py-0.5 rounded">
+                      <span className="text-[10px] text-muted-foreground/80 bg-muted px-1.5 py-0.5 rounded">
                         #{index + 1}
                       </span>
                       <button
                         onClick={() => removeField(field.id)}
-                        className="w-8 h-8 flex items-center justify-center text-rose-400 hover:text-rose-400 hover:bg-rose-500/10 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
+                        className="w-8 h-8 flex items-center justify-center text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
                         title="Remover campo"
                       >
                         ✕
@@ -979,7 +979,7 @@ export default function AppManagerPage() {
             <div className="px-6 py-4 border-t border-border bg-transparent flex justify-end gap-2 rounded-b-xl">
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 text-muted-foreground dark:text-white/60 hover:bg-transparent dark:hover:bg-card/10 rounded-lg text-sm font-medium transition-colors"
+                className="px-4 py-2 text-muted-foreground hover:bg-muted rounded-lg text-sm font-medium transition-colors"
               >
                 Cancelar
               </button>

@@ -52,7 +52,7 @@ export default function ToastNotifications({ toasts, removeToast }: Props) {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed top-16 left-1/2 -translate-x-1/2 z-9999999 flex flex-col gap-2 w-full max-w-md pointer-events-none">
+    <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999999] flex flex-col gap-2 w-full max-w-md pointer-events-none">
       {toasts.map((t) => {
         const duration = Math.max(1000, Number(t.durationMs ?? 5000));
 
@@ -141,7 +141,7 @@ export default function ToastNotifications({ toasts, removeToast }: Props) {
                 }
                 removeToast(t.id);
               }}
-              className="text-muted-foreground dark:text-zinc-400 hover:text-muted-foreground dark:hover:text-muted-foreground dark:text-zinc-300 transition-colors"
+              className="text-muted-foreground/70 hover:text-muted-foreground transition-colors"
               aria-label="Fechar toast"
             >
               <svg
@@ -159,8 +159,8 @@ export default function ToastNotifications({ toasts, removeToast }: Props) {
               </svg>
             </button>
 
-            {/* Barra de tempo */}
-            <div className="absolute left-0 right-0 bottom-0 h-[3px] bg-card/10">
+{/* Barra de tempo */}
+            <div className="absolute left-0 right-0 bottom-0 h-[3px] bg-black/10 dark:bg-white/10">
               <div
                 className={`h-full ${
                   t.type === "success"

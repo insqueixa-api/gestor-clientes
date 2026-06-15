@@ -1261,7 +1261,7 @@ if (!res.ok) {
             <button
               onClick={() => setValuesHidden(v => !v)}
               title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-card/5 text-muted-foreground/80 hover:text-foreground/90 hover:border-slate-400 transition-all text-xs font-medium shadow-sm select-none"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground hover:text-foreground hover:border-border-hover transition-all text-xs font-medium shadow-sm select-none"
             >
               {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               <span className="hidden sm:inline text-[11px] tracking-wide">
@@ -1280,7 +1280,7 @@ if (!res.ok) {
           <button
             onClick={handleSilentSync}
             disabled={loading}
-            className="h-8 md:h-10 px-2.5 md:px-4 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium text-[11px] md:text-sm flex items-center gap-1.5 shadow-lg shadow-blue-900/20 transition-all disabled:opacity-50 whitespace-nowrap"
+            className="h-8 md:h-10 px-2.5 md:px-4 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-medium text-[11px] md:text-sm flex items-center gap-1.5 shadow-lg shadow-sky-900/20 transition-all disabled:opacity-50 whitespace-nowrap"
           >
             <IconSync /> Importar Google
           </button>
@@ -1299,7 +1299,7 @@ if (!res.ok) {
                 setPage(1);
               }}
               placeholder="Pesquisar por nome, telefone ou email..."
-              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none text-foreground/90 placeholder-slate-400 dark:placeholder-white/20"
+              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none text-foreground/90 placeholder-muted-foreground"
             />
           </div>
 
@@ -1311,7 +1311,7 @@ if (!res.ok) {
                 setLabelFilter(e.target.value);
                 setPage(1);
               }}
-              className="h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
+              className="h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground"
             >
               <option value="Todos">Grupo (Todos)</option>
               <option value="__SEM_GRUPO__">Sem grupo</option>
@@ -1388,10 +1388,10 @@ if (!res.ok) {
           {/* Botão filtros — só no mobile */}
           <button
             onClick={() => setShowMobileFilters((v) => !v)}
-            className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition-colors flex items-center gap-1.5 ${
+className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition-colors flex items-center gap-1.5 ${
               hasActiveFilters
                 ? "bg-amber-500 text-white border-amber-500"
-                : "bg-transparent border-border text-muted-foreground dark:text-white"
+                : "bg-transparent border-border text-muted-foreground"
             }`}
           >
             <svg
@@ -1497,16 +1497,16 @@ if (!res.ok) {
       {selectedIds.size > 0 && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="flex items-center justify-between p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-500/20 rounded-xl mb-4 animate-in slide-in-from-top-2 mx-3 sm:mx-0"
+          className="flex items-center justify-between p-3 bg-sky-500/10 border border-sky-500/20 rounded-xl mb-4 animate-in slide-in-from-top-2 mx-3 sm:mx-0"
         >
-          <span className="text-xs font-medium text-indigo-400">
+          <span className="text-xs font-medium text-sky-500">
             {selectedIds.size} contato(s) selecionado(s)
           </span>
           <div className="flex items-center gap-2">
             <button
               onClick={handleMassPushGoogle}
               disabled={isPushingGoogle}
-              className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5"
+              className="text-xs px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5"
             >
               {isPushingGoogle ? (
                 <>
@@ -1650,7 +1650,7 @@ if (!res.ok) {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[700px] table-fixed">
               <thead>
-                <tr className="border-b border-border text-xs font-medium uppercase text-muted-foreground dark:text-white/55">
+                <tr className="border-b border-border text-xs font-medium uppercase text-muted-foreground">
                   <Th width={36}>
                     <input
                       ref={selectAllRef}
@@ -1692,7 +1692,7 @@ if (!res.ok) {
                   return (
                     <tr
                       key={r.id}
-                      className={`transition-colors group cursor-pointer ${selectedIds.has(r.id) ? "bg-indigo-50/50 dark:bg-indigo-500/10" : "hover:bg-transparent/50 dark:hover:bg-card/5"}`}
+                      className={`transition-colors group cursor-pointer ${selectedIds.has(r.id) ? "bg-sky-500/10" : "hover:bg-muted/50"}`}
                       onClick={() =>
                         toggleSelected(r.id, !selectedIds.has(r.id))
                       }
@@ -1743,7 +1743,7 @@ if (!res.ok) {
                                     ? p.label
                                     : `${p.label}:`}{" "}
                                 </span>
-                                <span className="text-foreground/90/80">
+<span className="text-foreground/90">
                                   {displayPhone(p.value)}
                                 </span>
                               </div>
@@ -1790,13 +1790,13 @@ if (!res.ok) {
                               .map((l) => (
                                 <span
                                   key={l}
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border dark:border-slate-500/20 bg-transparent text-[10px] font-medium tracking-tight shadow-sm dark:bg-card/[0.08] text-muted-foreground dark:text-white/75 border border-border dark:border-white/15"
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border bg-muted text-[10px] font-medium tracking-tight shadow-sm text-muted-foreground"
                                 >
                                   {l}
                                 </span>
                               ))
                           ) : (
-                            <span className="text-slate-300 dark:text-white/20 text-xs italic">
+<span className="text-muted-foreground/60 text-xs italic">
                               —
                             </span>
                           )}
@@ -1891,7 +1891,7 @@ if (!res.ok) {
                       setPageSize(Number(e.target.value));
                       setPage(1);
                     }}
-                    className="h-7 px-2 bg-transparent border border-border rounded text-xs text-muted-foreground dark:text-white"
+                    className="h-7 px-2 bg-transparent border border-border rounded text-xs text-foreground"
                   >
                     <option value={30}>30 por página</option>
                     <option value={50}>50 por página</option>
@@ -1983,7 +1983,7 @@ if (!res.ok) {
               </span>
               <div className="text-sm text-emerald-900 dark:text-emerald-200">
                 Enviando para{" "}
- <strong className=" ">
+<strong>
                   {displayPhone(showSendNow.phone!)}
                 </strong>
               </div>
@@ -2059,14 +2059,14 @@ if (!res.ok) {
                     ""
                   }
                   alt="Foto"
-                  className="w-24 h-24 rounded-full object-cover border-2 border-border dark:border-white/20 group-hover:opacity-50 transition-opacity"
+                  className="w-24 h-24 rounded-full object-cover border-2 border-border group-hover:opacity-50 transition-opacity"
                 />
               ) : (
                 <div className="w-24 h-24 rounded-full bg-transparent flex items-center justify-center font-medium text-muted-foreground text-2xl group-hover:opacity-50 transition-opacity">
                   {editForm.display_name?.charAt(0) || "?"}
                 </div>
               )}
-              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-foreground dark:text-white drop-shadow-md text-sm font-medium">
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-foreground drop-shadow-md text-sm font-medium">
                 📸 Alterar
               </div>
             </div>
@@ -2329,7 +2329,7 @@ if (!res.ok) {
                   );
                 })}
                 {editForm.phones.length === 0 && (
-                  <div className="text-xs text-muted-foreground/80 dark:text-white/30 italic">
+<div className="text-xs text-muted-foreground/80 italic">
                     Nenhum telefone.
                   </div>
                 )}
@@ -2410,7 +2410,7 @@ if (!res.ok) {
                   </div>
                 ))}
                 {editForm.emails.length === 0 && (
-                  <div className="text-xs text-muted-foreground/80 dark:text-white/30 italic">
+                  <div className="text-xs text-muted-foreground/80 italic">
                     Nenhum e-mail.
                   </div>
                 )}

@@ -1600,7 +1600,7 @@ export default function RecargaCliente({
       {/* --- MODAL PRINCIPAL --- */}
       <div
         // ✅ LAYOUT: Items-end no mobile (sheet), center no desktop. Sem padding no mobile.
-        className="fixed inset-0 z-[99990] flex items-center justify-center bg-transparent0 backdrop-blur-sm p-4 animate-in fade-in duration-200 overflow-hidden overscroll-contain"
+        className="fixed inset-0 z-[99990] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200 overflow-hidden overscroll-contain"
         onPointerDown={(e) => {
           // Só fecha se começar o clique exatamente no fundo escuro
           if (e.target === e.currentTarget) onClose();
@@ -1616,7 +1616,7 @@ export default function RecargaCliente({
             {/* ... conteúdo do header ... */}
             <div className="flex items-center gap-3">
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center ${isFromTrial ? "bg-sky-500/20 text-sky-400" : "bg-emerald-500/20 text-emerald-400"} dark:bg-card/5`}
+                className={`w-8 h-8 rounded-full flex items-center justify-center ${isFromTrial ? "bg-sky-500/10 text-sky-500" : "bg-emerald-500/10 text-emerald-500"}`}
               >
                 {isFromTrial ? (
                   <svg
@@ -1660,7 +1660,7 @@ export default function RecargaCliente({
             </div>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-muted-foreground/80 hover:text-foreground hover:bg-transparent dark:hover:bg-card/10 transition-colors"
+              className="p-1.5 rounded-lg text-muted-foreground/80 hover:text-foreground hover:bg-muted transition-colors"
             >
               <IconX />
             </button>
@@ -1673,7 +1673,7 @@ export default function RecargaCliente({
               {/* ... (Conteúdo igual, inputs já estão bons) ... */}
               <div className="flex items-center gap-2 mb-3 border-b border-border pb-2">
                 <span className="text-emerald-500">📅</span>
-                <span className="text-xs font-medium uppercase text-muted-foreground dark:text-white/60 tracking-wider">
+<span className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
                   Novo Vencimento
                 </span>
               </div>
@@ -1694,7 +1694,7 @@ export default function RecargaCliente({
                     <button
                       type="button"
                       onClick={() => setDueTime("23:59")}
-                      className="px-3 h-10 rounded-lg bg-card/5 border border-border text-xs font-medium text-muted-foreground hover:text-emerald-400 hover:border-emerald-500/50 transition-all"
+                      className="px-3 h-10 rounded-lg bg-muted border border-border text-xs font-medium text-muted-foreground hover:text-emerald-500 hover:border-emerald-500/50 transition-all"
                     >
                       23:59
                     </button>
@@ -1704,7 +1704,7 @@ export default function RecargaCliente({
             </div>
 
             {/* 2. SEÇÃO PLANO & FINANCEIRO (Unificado Visualmente ou Estilo Card NovoCliente) */}
-            <div className="bg-card/5 border border-border rounded-xl p-3 sm:p-4 space-y-4">
+<div className="bg-muted/40 border border-border rounded-xl p-3 sm:p-4 space-y-4">
               {/* 3. SEÇÃO FINANCEIRO */}
               <div className="bg-card dark:bg-transparent border border-border rounded-xl p-3 sm:p-4 shadow-sm">
                 {/* HEADER FINANCEIRO - ✅ IGUAL NOVO CLIENTE */}
@@ -1713,7 +1713,7 @@ export default function RecargaCliente({
                     💰 Financeiro
                   </span>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-muted-foreground/80 dark:text-muted-foreground font-medium hidden sm:inline">
+<span className="text-[10px] text-muted-foreground/80 font-medium hidden sm:inline">
                       Tabela:
                     </span>
                     <select
@@ -1774,7 +1774,7 @@ export default function RecargaCliente({
                 </div>
                 <div>
                   <Label>Créditos</Label>
-                  <div className="h-10 w-full bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 rounded-lg flex items-center justify-center text-sm font-medium text-blue-400">
+                  <div className="h-10 w-full bg-sky-500/10 border border-sky-500/20 rounded-lg flex items-center justify-center text-sm font-medium text-sky-500">
                     {creditsInfo ? creditsInfo.used : "-"}
                   </div>
                 </div>
@@ -1812,12 +1812,12 @@ export default function RecargaCliente({
                       step="0.0001"
                       value={Number(fxRate || 0).toFixed(4)}
                       onChange={(e) => setFxRate(Number(e.target.value))}
-                      className="w-full h-9 px-3 bg-card dark:bg-transparent border border-sky-500/30 rounded text-sm outline-none dark:text-white"
+                      className="w-full h-9 px-3 bg-card dark:bg-transparent border border-sky-500/30 rounded text-sm outline-none text-foreground"
                     />
                   </div>
                   <div>
                     <Label>Total BRL</Label>
-                    <div className="w-full h-9 flex items-center justify-center bg-emerald-500/20 border border-emerald-500/20 rounded text-emerald-400 font-medium">
+                    <div className="w-full h-9 flex items-center justify-center bg-emerald-500/20 border border-emerald-500/20 rounded text-emerald-500 font-medium">
                       {fmtMoney("BRL", totalBrl)}
                     </div>
                   </div>
@@ -1828,10 +1828,10 @@ export default function RecargaCliente({
               {Boolean(allowConvertWithoutPayment) && (
                 <div
                   onClick={() => setRegisterPayment(!registerPayment)}
-                  className={`cursor-pointer p-2.5 rounded-lg border transition-all flex items-center justify-between ${registerPayment ? "bg-emerald-500/10 border-emerald-500/20 dark:bg-emerald-500/10 dark:border-emerald-500/20" : "bg-transparent border-border dark:bg-card/5 dark:border-border"}`}
+                  className={`cursor-pointer p-2.5 rounded-lg border transition-all flex items-center justify-between ${registerPayment ? "bg-emerald-500/10 border-emerald-500/20" : "bg-muted/50 border-border"}`}
                 >
                   <span
-                    className={`text-xs font-medium ${registerPayment ? "text-emerald-400" : "text-muted-foreground"}`}
+                    className={`text-xs font-medium ${registerPayment ? "text-emerald-500" : "text-muted-foreground"}`}
                   >
                     Registrar Pagamento?
                   </span>
@@ -1879,10 +1879,10 @@ export default function RecargaCliente({
                 onClick={() =>
                   hasIntegration && setRenewAutomatic(!renewAutomatic)
                 }
-                className={`p-3 rounded-xl border transition-all cursor-pointer ${
+className={`p-3 rounded-xl border transition-all cursor-pointer ${
                   renewAutomatic
-                    ? "bg-emerald-500/10 border-emerald-500/20 dark:bg-emerald-500/10 dark:border-emerald-500/20"
-                    : "bg-transparent border-border dark:bg-card/5 dark:border-border"
+                    ? "bg-emerald-500/10 border-emerald-500/20"
+                    : "bg-muted/50 border-border"
                 } ${!hasIntegration ? "opacity-50 cursor-not-allowed" : ""}`}
               >
                 <div className="flex items-center justify-between gap-3">
@@ -1892,11 +1892,11 @@ export default function RecargaCliente({
                     </span>
                     <div>
                       <span
-                        className={`text-xs font-medium block ${renewAutomatic ? "text-emerald-400" : "text-muted-foreground"}`}
+                        className={`text-xs font-medium block ${renewAutomatic ? "text-emerald-500" : "text-muted-foreground"}`}
                       >
                         Renovação Automática
                       </span>
-                      <span className="text-[9px] text-muted-foreground/80 dark:text-muted-foreground">
+                      <span className="text-[9px] text-muted-foreground/80">
                         {hasIntegration
                           ? "Sincronizar com servidor"
                           : "Servidor sem integração"}
@@ -1921,7 +1921,7 @@ export default function RecargaCliente({
                   {/* Botão de Ligar/Desligar Envio */}
                   <div
                     onClick={() => setSendWhats(!sendWhats)}
-                    className="h-10 px-3 bg-card/5 border border-border rounded-lg cursor-pointer hover:bg-transparent transition-colors flex items-center justify-between"
+                    className="h-10 px-3 bg-muted/50 border border-border rounded-lg cursor-pointer hover:bg-muted transition-colors flex items-center justify-between"
                   >
                     <span className="text-[11px] font-medium text-muted-foreground tracking-tight">
                       Enviar Mensagem?
@@ -2007,7 +2007,7 @@ export default function RecargaCliente({
           <div className="px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-border bg-transparent flex justify-end gap-3 rounded-b-xl shrink-0">
             <button
               onClick={onClose}
-              className="px-5 py-2.5 rounded-xl border border-border text-muted-foreground dark:text-white/60 font-medium text-sm hover:bg-card dark:hover:bg-card/10 transition-all"
+              className="px-5 py-2.5 rounded-xl border border-border text-muted-foreground font-medium text-sm hover:bg-muted transition-all"
             >
               Cancelar
             </button>
@@ -2067,7 +2067,7 @@ export default function RecargaCliente({
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-[9px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-0.5 uppercase tracking-wider">
+    <label className="block text-[9px] font-medium text-muted-foreground/80 mb-0.5 uppercase tracking-wider">
       {children}
     </label>
   );
@@ -2160,12 +2160,11 @@ function Switch({
 }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="text-xs text-foreground/90 dark:text-muted-foreground">
+      <span className="text-xs text-foreground/90">
         {label}
       </span>
       <button
         type="button"
-        // ✅ CORREÇÃO: Adicionado stopPropagation para evitar conflito com a div pai
         onClick={(e) => {
           e.stopPropagation();
           onChange(!checked);
@@ -2173,7 +2172,7 @@ function Switch({
         className={`relative w-12 h-7 rounded-full transition-colors border ${
           checked
             ? "bg-emerald-600 border-emerald-600"
-            : "bg-transparent border-border dark:border-border"
+            : "bg-muted border-border"
         }`}
         aria-pressed={checked}
       >

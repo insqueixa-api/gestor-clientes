@@ -46,7 +46,7 @@
   --bg-app: 15 20 27;             /* #0f141b */
   --bg-app-2: 11 15 20;           /* #0b0f14 */
   --bg-card: 22 27 34;            /* #161b22 - Fundo oficial dos cards */
-  --bg-card-2: 255 255 255;       /* via alpha 0.05 no util */
+  /* --bg-card-2 sobrescrito por [data-theme="dark"] .bg-card-2 abaixo (translúcido) */
 
   /* Bordas */
   --border: 255 255 255;          /* via alpha 0.10 */
@@ -84,10 +84,10 @@
 
 /* Sub-seções de cards (Header/Footer) */
 .bg-card-2 { 
-  background-color: var(--bg-card-2); 
+  background-color: rgb(var(--bg-card-2));
 }
 [data-theme="dark"] .bg-card-2 {
-  background-color: rgb(255 255 255 / 0.05); /* Padrão translúcido escuro */
+  background-color: rgb(255 255 255 / 0.05); /* Padrão translúcido escuro, sobrescreve --bg-card-2 */
 }
 
 .text-app { color: rgb(var(--text)); }

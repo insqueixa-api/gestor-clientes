@@ -492,7 +492,7 @@ export default function AdminServersPage() {
       details: validDns.map((dns, idx) => (
         <div
           key={idx}
-          className="flex items-center justify-between bg-card dark:bg-transparent border border-border p-2.5 rounded-lg border border-border mb-1.5 shadow-sm"
+          className="flex items-center justify-between bg-card border border-border p-2.5 rounded-lg mb-1.5 shadow-sm"
         >
           <span className="font-mono text-xs text-muted-foreground truncate mr-2 select-all">
             {dns}
@@ -504,7 +504,7 @@ export default function AdminServersPage() {
               navigator.clipboard.writeText(dns);
               addToast("success", "Copiado", "DNS copiada com sucesso!");
             }}
-            className="p-1.5 text-muted-foreground/80 dark:text-muted-foreground hover:text-sky-400 dark:hover:text-sky-400 hover:bg-transparent border border-border dark:hover:bg-card/10 rounded transition-colors shrink-0"
+            className="p-1.5 text-muted-foreground/60 hover:text-sky-500 hover:bg-muted rounded transition-colors shrink-0"
             title="Copiar"
           >
             <svg
@@ -626,7 +626,7 @@ export default function AdminServersPage() {
             <button
               onClick={() => setValuesHidden(v => !v)}
               title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-card/5 text-muted-foreground/80 hover:text-foreground/90 hover:border-slate-400 transition-all text-xs font-medium shadow-sm select-none"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground/80 hover:text-foreground/90 hover:border-border-hover transition-all text-xs font-medium shadow-sm select-none"
             >
               {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               <span className="hidden sm:inline text-[11px] tracking-wide">
@@ -644,7 +644,7 @@ export default function AdminServersPage() {
             className={`h-10 px-3 rounded-lg text-xs font-medium border transition-colors items-center justify-center ${
               showArchived
                 ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-                : "bg-card/5 border-border text-muted-foreground dark:text-white/60"
+                : "bg-muted border-border text-muted-foreground"
             }`}
           >
             {showArchived ? "Ocultar Lixeira" : "Ver Lixeira"}
@@ -661,13 +661,13 @@ export default function AdminServersPage() {
 
       <div className="space-y-6 pt-0 px-0">
         {loading && (
-          <div className="mx-3 sm:mx-0 p-12 text-center text-muted-foreground/80 dark:text-muted-foreground animate-pulse bg-card rounded-xl border border-border">
+          <div className="mx-3 sm:mx-0 p-12 text-center text-muted-foreground/80 animate-pulse bg-card rounded-xl border border-border">
             Carregando servidores...
           </div>
         )}
 
-        {!loading && servers.length === 0 && (
-          <div className="mx-3 sm:mx-0 p-12 text-center text-muted-foreground/80 dark:text-white/30 bg-card rounded-xl border border-dashed border-border">
+{!loading && servers.length === 0 && (
+          <div className="mx-3 sm:mx-0 p-12 text-center text-muted-foreground/40 bg-card rounded-xl border border-dashed border-border">
             Nenhum servidor encontrado {showArchived ? "na lixeira" : ""}.
           </div>
         )}
@@ -704,7 +704,7 @@ export default function AdminServersPage() {
                       </div>
                     )}
                     <h2
-                      className="text-base font-medium truncate text-foreground/90 group-hover:text-emerald-400 dark:group-hover:text-emerald-400 transition-colors tracking-tight flex items-center gap-2"
+                      className="text-base font-medium truncate text-foreground/90 group-hover:text-emerald-500 transition-colors tracking-tight flex items-center gap-2"
                       title={server.name}
                     >
                       {server.name}
@@ -712,7 +712,7 @@ export default function AdminServersPage() {
                       {server.panel_integration && (
                         <span
                           title="Servidor com integração"
-                          className="inline-flex items-center justify-center text-sky-400"
+                          className="inline-flex items-center justify-center text-sky-500"
                         >
                           <IconPlug />
                         </span>
@@ -721,7 +721,7 @@ export default function AdminServersPage() {
 
                     {server.is_archived && (
                       // Alterado: 'rounded' para 'rounded-full', ajustado px para 2.5 (padrão pílula)
-                      <span className="inline-flex items-center text-[10px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/20 px-2.5 py-0.5 rounded-full uppercase">
+                      <span className="inline-flex items-center text-[10px] font-medium bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2.5 py-0.5 rounded-full uppercase">
                         Arquivado
                       </span>
                     )}
@@ -800,7 +800,7 @@ export default function AdminServersPage() {
                       href={`/admin/gerenciador/servidor/${server.id}`}
                       onClick={(e) => e.stopPropagation()}
                       title="Detalhes"
-                      className="p-1.5 rounded-lg border transition-all text-sky-500 dark:text-sky-400 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20 dark:hover:bg-sky-500/20"
+                      className="p-1.5 rounded-lg border transition-all text-sky-500 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20"
                     >
                       <IconDetails />
                     </Link>
@@ -829,14 +829,14 @@ export default function AdminServersPage() {
                         </svg>
                         <span>Total de clientes</span>
                       </div>
-<span className={`font-normal text-foreground/90 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+                      <span className={`font-normal text-foreground/90 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                         {formatNumber(server.stats?.total)}
                       </span>
                     </div>
 
                     <div className="flex justify-between items-center text-xs">
-<div className="flex items-center gap-2.5 text-emerald-400 font-normal">           
-               <svg
+                      <div className="flex items-center gap-2.5 text-emerald-500 font-normal">
+                        <svg
                           width="16"
                           height="16"
                           viewBox="0 0 24 24"
@@ -859,8 +859,8 @@ export default function AdminServersPage() {
                     </div>
 
                     <div className="flex justify-between items-center text-xs">
-<div className="flex items-center gap-2.5 text-rose-500 dark:text-rose-400 font-normal">              
-            <svg
+                      <div className="flex items-center gap-2.5 text-rose-500 font-normal">
+                        <svg
                           className="w-4 h-4"
                           fill="none"
                           viewBox="0 0 24 24"
@@ -886,8 +886,8 @@ export default function AdminServersPage() {
                     <div className="border-t border-border my-1" />
 
                     <div className="flex justify-between items-center text-xs">
-<div className="flex items-center gap-2.5 text-amber-500 dark:text-amber-400 font-normal">                    
-      <svg
+                      <div className="flex items-center gap-2.5 text-amber-500 font-normal">
+                        <svg
                           width="16"
                           height="16"
                           viewBox="0 0 24 24"
@@ -912,13 +912,13 @@ export default function AdminServersPage() {
                     </div>
 
                     <div className="flex justify-between items-center text-xs">
-<div className="flex items-center gap-2.5 text-violet-500 dark:text-violet-400 font-normal">
-                          <Network className="w-4 h-4 text-violet-500 dark:text-violet-400" />
+                      <div className="flex items-center gap-2.5 text-violet-500 font-normal">
+                        <Network className="w-4 h-4 text-violet-500" />
                         <span>Revendas</span>
                       </div>
                       <Link
                         href={`/admin/revendedor?server_id=${server.id}`}
-                        className={`font-normal text-muted-foreground hover:text-amber-500 hover:underline cursor-pointer transition-all duration-300 ${valuesHidden ? "blur-sm select-none pointer-events-none" : ""}`}
+                        className={`font-normal text-muted-foreground hover:text-violet-500 hover:underline cursor-pointer transition-all duration-300 ${valuesHidden ? "blur-sm select-none pointer-events-none" : ""}`}
                       >
                         {formatNumber(server.stats?.resellers)}
                       </Link>
@@ -930,7 +930,7 @@ export default function AdminServersPage() {
                       <span className="flex items-center gap-2 text-muted-foreground">
                         <IconCardCusto /> Custo crédito
                       </span>
-<span className={`font-normal text-foreground/90 bg-transparent border border-border px-2 py-0.5 rounded-lg text-xs transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+                      <span className={`font-normal text-foreground/90 bg-transparent border border-border px-2 py-0.5 rounded-lg text-xs transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                         {formatMoney(
                           server.credit_unit_cost_brl ??
                             server.default_credit_unit_price,
@@ -943,7 +943,7 @@ export default function AdminServersPage() {
                       <span className="flex items-center gap-2 text-muted-foreground">
                         <IconCardSaldo /> Saldo atual
                       </span>
-                      <span className={`font-normal px-2 py-0.5 rounded-lg text-xs transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""} ${server.credits_available > 10 ? "text-emerald-400 bg-emerald-500/10" : "text-rose-500 bg-rose-500/10"}`}>
+<span className={`font-normal px-2 py-0.5 rounded-lg text-xs transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""} ${server.credits_available > 10 ? "text-emerald-500 bg-emerald-500/10" : "text-rose-500 bg-rose-500/10"}`}>
                         {formatNumber(server.credits_available)}
                       </span>
                     </div>
@@ -952,14 +952,14 @@ export default function AdminServersPage() {
                       <span className="text-muted-foreground flex items-center gap-2">
                         {server.panel_integration ? (
                           <span
-                            className="text-sky-400"
+                            className="text-sky-500"
                             title="Conectado"
                           >
                             <IconPlug />
                           </span>
                         ) : (
                           <span
-                            className="text-muted-foreground/80 dark:text-white/30"
+                            className="text-muted-foreground/40"
                             title="Sem integração"
                           >
                             <IconPlugOff />
@@ -1010,13 +1010,13 @@ export default function AdminServersPage() {
                       </span>
                       {(server.dns?.filter((d) => d.trim()).length || 0) > 0 ? (
                         <button
-  onClick={(e) => {
-    e.stopPropagation();
-    handleViewDns(server);
-  }}
-  className="font-normal px-2 py-0.5 rounded-lg text-xs text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 dark:hover:bg-sky-500/20 border border-sky-500/20 transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
-  title="Ver DNS configuradas"
->
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewDns(server);
+                          }}
+                          className="font-normal px-2 py-0.5 rounded-lg text-xs text-sky-500 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+                          title="Ver DNS configuradas"
+                        >
                           {server.dns.filter((d) => d.trim()).length}
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -1049,13 +1049,13 @@ export default function AdminServersPage() {
                   <div className={`bg-transparent p-3 border-t border-border text-[11px] space-y-2 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                     {server.panel_web_url && (
                       <div className="flex gap-2">
-                        <span className="font-medium text-muted-foreground/80 dark:text-white/30 uppercase tracking-tighter">
+                        <span className="font-medium text-muted-foreground/40 uppercase tracking-tighter">
                           Url:
                         </span>
                         <a
                           href={server.panel_web_url}
                           target="_blank"
-                          className="text-emerald-400 hover:underline truncate font-medium"
+                          className="text-emerald-500 hover:underline truncate font-medium"
                         >
                           {server.panel_web_url}
                         </a>
@@ -1063,7 +1063,7 @@ export default function AdminServersPage() {
                     )}
                     {server.panel_telegram_group && (
                       <div className="flex gap-2">
-                        <span className="font-medium text-muted-foreground/80 dark:text-white/30 uppercase tracking-tighter">
+                        <span className="font-medium text-muted-foreground/40 uppercase tracking-tighter">
                           Telegram:
                         </span>
                         <a
@@ -1074,15 +1074,14 @@ export default function AdminServersPage() {
                           }
                           target="_blank"
                           rel="noreferrer"
-                          // Usei 'text-sky-400' (Azul) para o Telegram, mantendo o estilo de fonte do link acima
-                          className="text-sky-400 hover:underline truncate font-medium"
+                          className="text-sky-500 hover:underline truncate font-medium"
                         >
                           {server.panel_telegram_group}
                         </a>
                       </div>
                     )}
                     {server.notes && (
-                      <div className="italic text-muted-foreground/80 dark:text-white/30 pt-1 border-t border-dashed border-border mt-2 line-clamp-1">
+                      <div className="italic text-muted-foreground/40 pt-1 border-t border-dashed border-border mt-2 line-clamp-1">
                         obs: {server.notes}
                       </div>
                     )}
@@ -1149,14 +1148,14 @@ function IconActionBtn({
   onClick: (e: MouseEvent<HTMLButtonElement>) => void;
 }) {
   const colors = {
-    blue: "text-sky-500 dark:text-sky-400 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20 dark:hover:bg-sky-500/20",
+    blue: "text-sky-500 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20",
     green:
-      "text-emerald-400 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20 dark:hover:bg-emerald-500/20",
+      "text-emerald-500 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20",
     amber:
-      "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20 dark:hover:bg-amber-500/20",
+      "text-amber-500 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20",
     purple:
-      "text-purple-400 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20 dark:hover:bg-purple-500/20",
-    red: "text-rose-400 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20 dark:hover:bg-rose-500/20",
+      "text-purple-500 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20",
+    red: "text-rose-500 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20",
   };
 
   return (

@@ -89,8 +89,8 @@ export default function LoginPage() {
       {/* Fundo com gradiente + glow */}
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-gradient-to-br from-[#0b2a4a] via-[#0f141a] to-[#0e6b5c] opacity-90 dark:opacity-100" />
-        <div className="absolute -top-40 -right-40 h-[520px] w-[520px] rounded-full bg-emerald-500/20 blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 h-[520px] w-[520px] rounded-full bg-blue-500/20 blur-3xl" />
+<div className="absolute -top-40 -right-40 h-[520px] w-[520px] rounded-full bg-emerald-500/20 blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 h-[520px] w-[520px] rounded-full bg-sky-500/20 blur-3xl" />
 
         {/* grain leve */}
         <div
@@ -169,7 +169,7 @@ export default function LoginPage() {
             {mode === "login" ? (
               <form action={formAction} className="space-y-3 sm:space-y-3">
                 <div>
-                  <label className="block text-sm font-medium text-foreground/90/80">
+                  <label className="block text-sm font-medium text-foreground/80">
                     E-mail
                   </label>
                   <input
@@ -184,7 +184,7 @@ export default function LoginPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground/90/80">
+                  <label className="block text-sm font-medium text-foreground/80">
                     Senha
                   </label>
                   <div className="relative mt-1">
@@ -203,7 +203,7 @@ export default function LoginPage() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/80 hover:text-muted-foreground dark:text-muted-foreground dark:hover:text-white/80 transition-colors"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/80 hover:text-foreground/80 transition-colors"
                       tabIndex={-1} // Impede que o 'Tab' pare no olho, indo direto para o Entrar
                     >
                       {showPassword ? (
@@ -274,7 +274,7 @@ export default function LoginPage() {
                   className={[
                     "w-full rounded-xl py-3 font-semibold transition",
                     !canSubmit || pending
-                      ? "bg-card/10 text-foreground/50 cursor-not-allowed"
+                      ? "bg-muted text-muted-foreground cursor-not-allowed"
                       : "bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800",
                   ].join(" ")}
                 >
@@ -288,9 +288,9 @@ export default function LoginPage() {
                 )}
               </form>
             ) : (
-              <form onSubmit={onReset} className="space-y-3">
+<form onSubmit={onReset} className="space-y-3">
                 <div>
-                  <label className="block text-sm font-medium text-foreground/90/80">
+                  <label className="block text-sm font-medium text-foreground/80">
                     E-mail
                   </label>
                   <input
@@ -323,7 +323,7 @@ export default function LoginPage() {
                   className={[
                     "w-full rounded-xl py-3 font-semibold transition",
                     !canSubmit || isResetting
-                      ? "bg-card/10 text-foreground/50 cursor-not-allowed"
+                      ? "bg-muted text-muted-foreground cursor-not-allowed"
                       : "bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800",
                   ].join(" ")}
                 >

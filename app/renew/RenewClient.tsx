@@ -980,9 +980,9 @@ export default function RenewClient() {
           <div className="p-4 space-y-3">
             <button
               onClick={() => handleMethodConfirmDirect("card")}
-              className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-border hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left"
+              className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-border hover:border-indigo-500 hover:bg-indigo-500/10 transition-all text-left"
             >
-              <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-xl shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-xl shrink-0">
                 💳
               </div>
               <div className="flex-1 min-w-0">
@@ -991,10 +991,10 @@ export default function RenewClient() {
                     Cartão de Crédito / Débito
                   </p>
                 </div>
-                <p className="text-xs text-foreground/70 dark:text-white/50 mb-1">
+                <p className="text-xs text-foreground/70 mb-1">
                   Somente Visa ou Mastercard
                 </p>
-                <span className="inline-block px-2 py-0.5 bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 text-[10px] font-bold rounded-full">
+                <span className="inline-block px-2 py-0.5 bg-emerald-500/10 text-emerald-500 text-[10px] font-bold rounded-full">
                   ✅ Renovação Automática
                 </span>
               </div>
@@ -1002,19 +1002,19 @@ export default function RenewClient() {
 
             <button
               onClick={() => handleMethodConfirmDirect("apple_google")}
-              className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-border hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left"
+              className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-border hover:border-indigo-500 hover:bg-indigo-500/10 transition-all text-left"
             >
-              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center text-xl shrink-0">
                 📱
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-foreground mb-0.5">
                   Apple Pay / Google Pay
                 </p>
-                <p className="text-xs text-foreground/70 dark:text-white/50 mb-1">
+                <p className="text-xs text-foreground/70 mb-1">
                   Utilize a carteira digital do seu dispositivo
                 </p>
-                <span className="inline-block px-2 py-0.5 bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 text-[10px] font-bold rounded-full">
+                <span className="inline-block px-2 py-0.5 bg-emerald-500/10 text-emerald-500 text-[10px] font-bold rounded-full">
                   ✅ Renovação Automática
                 </span>
               </div>
@@ -1022,19 +1022,19 @@ export default function RenewClient() {
 
             <button
               onClick={() => handleMethodConfirmDirect("manual")}
-              className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-border hover:border-amber-400 hover:bg-amber-50 transition-all text-left"
+              className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-border hover:border-amber-400 hover:bg-amber-500/10 transition-all text-left"
             >
-              <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-xl shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-xl shrink-0">
                 🏦
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-foreground mb-0.5">
                   Transferência Bancária
                 </p>
-                <p className="text-xs text-foreground/70 dark:text-white/50 mb-1">
+                <p className="text-xs text-foreground/70 mb-1">
                   IBAN / SEPA — confirmação via suporte
                 </p>
-                <span className="inline-block px-2 py-0.5 bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300 text-[10px] font-bold rounded-full">
+                <span className="inline-block px-2 py-0.5 bg-amber-500/10 text-amber-500 text-[10px] font-bold rounded-full">
                   ⚠️ Renovação Manual
                 </span>
               </div>
@@ -1089,7 +1089,7 @@ export default function RenewClient() {
                   {/* Icone de Sucesso (Substituindo a ampulheta) */}
                   <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
                     <svg
-                      className="w-10 h-10 text-emerald-400"
+                      className="w-10 h-10 text-emerald-500"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -1127,10 +1127,10 @@ export default function RenewClient() {
                         </svg>
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-bold text-emerald-300 mb-0.5">
+                        <p className="text-sm font-bold text-emerald-500 mb-0.5">
                           Pagamento recebido
                         </p>
-                        <p className="text-xs text-emerald-300 leading-relaxed">
+                        <p className="text-xs text-emerald-500 leading-relaxed">
                           Sua transação foi confirmada com sucesso.
                         </p>
                       </div>
@@ -1138,16 +1138,16 @@ export default function RenewClient() {
                   </div>
 
                   {/* Caixa Azul - Suporte notificado */}
-                  <div className="bg-blue-500/10 border-2 border-blue-500/20 rounded-xl p-3 sm:p-4 mb-3 text-left">
+                  <div className="bg-sky-500/10 border-2 border-sky-500/20 rounded-xl p-3 sm:p-4 mb-3 text-left">
                     <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center shrink-0 mt-0.5">
+                      <div className="w-8 h-8 rounded-full bg-sky-500 flex items-center justify-center shrink-0 mt-0.5">
                         <span className="text-base">🔔</span>
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-bold text-blue-300 mb-0.5">
+                        <p className="text-sm font-bold text-sky-500 mb-0.5">
                           Suporte já foi notificado
                         </p>
-                        <p className="text-xs text-blue-300 leading-relaxed">
+                        <p className="text-xs text-sky-500 leading-relaxed">
                           Nossa equipe já está processando sua renovação no
                           servidor.
                         </p>
@@ -1190,7 +1190,7 @@ export default function RenewClient() {
                         setPaymentPhase("awaiting_payment");
                       }, 300);
                     }}
-                    className="w-full py-3 sm:py-4 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl shadow-md transition-colors flex items-center justify-center gap-2"
+                    className="w-full py-3 sm:py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-md transition-colors flex items-center justify-center gap-2"
                   >
                     Clique aqui para fechar
                   </button>
@@ -1200,7 +1200,7 @@ export default function RenewClient() {
                   {/* Renovação automática (fluxo original) */}
                   <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
                     <svg
-                      className="w-10 h-10 text-emerald-400"
+                      className="w-10 h-10 text-emerald-500"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -1224,7 +1224,7 @@ export default function RenewClient() {
 
                   {paymentData?.new_vencimento && (
                     <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
-                      <p className="text-sm text-emerald-300 font-medium">
+                      <p className="text-sm text-emerald-500 font-medium">
                         Novo vencimento:{" "}
                         {formatDateTime(paymentData.new_vencimento)}
                       </p>
@@ -1242,9 +1242,9 @@ export default function RenewClient() {
           {/* Rejected */}
           {isRejected && (
             <div className="p-8 text-center">
-              <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-20 h-20 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg
-                  className="w-10 h-10 text-red-600"
+                  className="w-10 h-10 text-rose-500"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -1270,7 +1270,7 @@ export default function RenewClient() {
                   setPaymentData(null);
                   setPaymentStatus("pending");
                 }}
-                className="px-6 py-3 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-700 transition-colors"
+                className="px-6 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-500 transition-colors"
               >
                 Tentar Novamente
               </button>
@@ -1312,7 +1312,7 @@ export default function RenewClient() {
                         className="w-full max-w-[180px] sm:max-w-[220px] mx-auto"
                       />
                     ) : (
-                      <div className="w-48 h-48 sm:w-56 sm:h-56 bg-white/10 rounded-lg flex items-center justify-center mx-auto">
+                      <div className="w-48 h-48 sm:w-56 sm:h-56 bg-muted rounded-lg flex items-center justify-center mx-auto">
                         <p className="text-muted-foreground/80 text-sm text-center">
                           QR Code não disponível
                         </p>
@@ -1346,7 +1346,7 @@ export default function RenewClient() {
                         type="text"
                         value={paymentData.pix_qr_code}
                         readOnly
-                        className="w-full pr-28 pl-3 py-2.5 bg-card border-2 border-border rounded-lg text-xs font-mono text-foreground/90 outline-none focus:border-blue-500 transition-colors shadow-sm"
+                        className="w-full pr-28 pl-3 py-2.5 bg-card border-2 border-border rounded-lg text-xs font-mono text-foreground/90 outline-none focus:border-sky-500 transition-colors shadow-sm"
                       />
                       <button
                         onClick={() => {
@@ -1359,7 +1359,7 @@ export default function RenewClient() {
                         className={`absolute right-1 top-1 bottom-1 px-4 text-white font-bold text-xs rounded-md transition-all flex items-center justify-center gap-1.5 min-w-[90px] ${
                           copiedCode
                             ? "bg-emerald-500 hover:bg-emerald-600"
-                            : "bg-blue-500 hover:bg-blue-600 shadow-sm"
+                            : "bg-sky-500 hover:bg-sky-600 shadow-sm"
                         }`}
                       >
                         {copiedCode ? "✅ Copiado" : "📋 Copiar"}
@@ -1369,15 +1369,15 @@ export default function RenewClient() {
                 )}
 
                 {/* Status */}
-                <div className="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20 flex items-center gap-3">
-                  <div className="w-6 h-6 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                <div className="p-3 bg-sky-500/10 rounded-xl border border-sky-500/20 flex items-center gap-3">
+                  <div className="w-6 h-6 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
                   <div className="flex-1">
-                    <p className="text-sm font-bold text-blue-300">
+                    <p className="text-sm font-bold text-sky-500">
                       {paymentPhase === "renewing"
                         ? "Processando renovação..."
                         : "Aguardando pagamento..."}
                     </p>
-                    <p className="text-xs text-blue-400">
+                    <p className="text-xs text-sky-500/80">
                       {paymentPhase === "renewing"
                         ? "Estamos atualizando sua assinatura no servidor. Isso pode levar alguns segundos."
                         : "Detectaremos automaticamente quando você pagar"}
@@ -1448,7 +1448,7 @@ export default function RenewClient() {
                           🔒
                         </div>
                         <div className="min-w-0">
-                          <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">
+                          <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">
                             Pagamento para
                           </p>
                           {paymentData.beneficiary_name && (
@@ -1460,7 +1460,7 @@ export default function RenewClient() {
                             {paymentData.institution || "Stripe"}
                           </p>
                         </div>
-                        <span className="ml-auto shrink-0 px-2 py-0.5 bg-emerald-500/20 text-emerald-300 text-[10px] font-bold rounded-full">
+                        <span className="ml-auto shrink-0 px-2 py-0.5 bg-emerald-500/20 text-emerald-500 text-[10px] font-bold rounded-full">
                           ✅ Seguro
                         </span>
                       </div>
@@ -1582,10 +1582,10 @@ export default function RenewClient() {
                   </>
                 )}
 
-                {/* Renovando */}
+{/* Renovando */}
                 {paymentPhase === "renewing" && (
                   <div className="p-4 bg-muted/50 rounded-xl border border-border flex items-center gap-3">
-                    <div className="w-6 h-6 border-4 border-slate-600 border-t-transparent rounded-full animate-spin shrink-0" />
+                    <div className="w-6 h-6 border-4 border-muted-foreground/30 border-t-transparent rounded-full animate-spin shrink-0" />
                     <div>
                       <p className="text-sm font-bold text-foreground">
                         Processando renovação...
@@ -1640,7 +1640,7 @@ export default function RenewClient() {
                             🔒
                           </div>
                           <div className="min-w-0">
-                            <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">
+                            <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">
                               Pagamento para
                             </p>
                             {paymentData.beneficiary_name && (
@@ -1648,11 +1648,11 @@ export default function RenewClient() {
                                 {paymentData.beneficiary_name}
                               </p>
                             )}
-                            <p className="text-xs text-foreground/70 dark:text-white/50">
+                            <p className="text-xs text-foreground/70">
                               {paymentData.institution || "Stripe"}
                             </p>
                           </div>
-                          <span className="ml-auto shrink-0 px-2 py-0.5 bg-emerald-500/20 text-emerald-300 text-[10px] font-bold rounded-full">
+                          <span className="ml-auto shrink-0 px-2 py-0.5 bg-emerald-500/20 text-emerald-500 text-[10px] font-bold rounded-full">
                             ✅ Seguro
                           </span>
                         </div>
@@ -1665,7 +1665,7 @@ export default function RenewClient() {
                       />
                       {!paymentRequest && (
                         <div className="flex items-center justify-center py-4 gap-2 text-muted-foreground/80 text-sm">
-                          <div className="w-5 h-5 border-2 border-border border-t-slate-600 rounded-full animate-spin" />
+                          <div className="w-5 h-5 border-2 border-border border-t-muted-foreground rounded-full animate-spin" />
                           Verificando disponibilidade...
                         </div>
                       )}
@@ -1690,13 +1690,13 @@ export default function RenewClient() {
                   )}
 
                   {paymentPhase === "renewing" && (
-                    <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-200 flex items-center gap-3">
+                    <div className="p-4 bg-indigo-500/10 rounded-xl border border-indigo-500/20 flex items-center gap-3">
                       <div className="w-6 h-6 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin shrink-0" />
                       <div>
-                        <p className="text-sm font-bold text-indigo-800">
+                        <p className="text-sm font-bold text-indigo-500">
                           Processando renovação...
                         </p>
-                        <p className="text-xs text-indigo-600">
+                        <p className="text-xs text-indigo-500/80">
                           Atualizando sua assinatura no servidor.
                         </p>
                       </div>
@@ -1761,7 +1761,7 @@ export default function RenewClient() {
                           {copiedKey ? "✅ Copiado" : "📋 Copiar"}
                         </button>
                       </div>
-<p className="text-xs text-muted-foreground mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         Tipo: {paymentData.pix_key_type?.toUpperCase() || "—"}
                       </p>
                     </div>
@@ -1772,19 +1772,19 @@ export default function RenewClient() {
                       </p>
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-sm font-medium text-foreground/90">
-                        {paymentData.beneficiary_name ||
-                          paymentData.holder_name}
-                      </p>
-                      <button
-                        onClick={() =>
-                          copyField(
-                            "pix_name",
-                            paymentData.beneficiary_name ||
-                              paymentData.holder_name,
-                          )
-                        }
-                        className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "pix_name" ? "bg-emerald-500 text-white" : "bg-black/5 dark:bg-white/10 text-foreground hover:bg-black/10 dark:hover:bg-white/20"}`}
-                      >
+                          {paymentData.beneficiary_name ||
+                            paymentData.holder_name}
+                        </p>
+                        <button
+                          onClick={() =>
+                            copyField(
+                              "pix_name",
+                              paymentData.beneficiary_name ||
+                                paymentData.holder_name,
+                            )
+                          }
+                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "pix_name" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
+                        >
                           {copiedField === "pix_name"
                             ? "✅ Copiado"
                             : "📋 Copiar"}
@@ -1805,7 +1805,7 @@ export default function RenewClient() {
                             onClick={() =>
                               copyField("pix_inst", paymentData.institution)
                             }
-                            className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "pix_inst" ? "bg-emerald-500 text-white" : "bg-black/5 dark:bg-white/10 text-foreground hover:bg-black/10 dark:hover:bg-white/20"}`}
+                            className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "pix_inst" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
                           >
                             {copiedField === "pix_inst"
                               ? "✅ Copiado"
@@ -1819,7 +1819,7 @@ export default function RenewClient() {
 
                 {/* 2. DADOS PARA TRANSFERÊNCIA EUR */}
                 {effectiveGatewayType === "transfer_manual_eur" && (
-                  <div className="space-y-3 bg-muted/50 dark:bg-black/20 p-4 rounded-xl border border-border">
+                  <div className="space-y-3 bg-muted/50 p-4 rounded-xl border border-border">
                     <div>
                       <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider mb-0.5">
                         Nome do Favorecido
@@ -1832,7 +1832,7 @@ export default function RenewClient() {
                           onClick={() =>
                             copyField("eur_name", paymentData.beneficiary_name)
                           }
-                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_name" ? "bg-emerald-500 text-white" : "bg-white/10 text-foreground hover:bg-white/20"}`}
+                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_name" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
                         >
                           {copiedField === "eur_name"
                             ? "✅ Copiado"
@@ -1853,7 +1853,7 @@ export default function RenewClient() {
                             onClick={() =>
                               copyField("eur_bank", paymentData.bank_name)
                             }
-                            className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_bank" ? "bg-emerald-500 text-white" : "bg-white/10 text-foreground hover:bg-white/20"}`}
+                            className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_bank" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
                           >
                             {copiedField === "eur_bank"
                               ? "✅ Copiado"
@@ -1874,7 +1874,7 @@ export default function RenewClient() {
                           onClick={() =>
                             copyField("eur_iban", paymentData.iban)
                           }
-                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_iban" ? "bg-emerald-500 text-white" : "bg-white/10 text-foreground hover:bg-white/20"}`}
+                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_iban" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
                         >
                           {copiedField === "eur_iban"
                             ? "✅ Copiado"
@@ -1894,7 +1894,7 @@ export default function RenewClient() {
                           onClick={() =>
                             copyField("eur_swift", paymentData.swift_bic)
                           }
-                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_swift" ? "bg-emerald-500 text-white" : "bg-white/10 text-foreground hover:bg-white/20"}`}
+                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_swift" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
                         >
                           {copiedField === "eur_swift"
                             ? "✅ Copiado"
@@ -1908,14 +1908,14 @@ export default function RenewClient() {
                           Endereço do Banco
                         </p>
                         <div className="flex items-start justify-between gap-2">
-                          <p className="text-xs text-muted-foreground dark:text-muted-foreground leading-snug">
+                          <p className="text-xs text-muted-foreground leading-snug">
                             {paymentData.bank_address}
                           </p>
                           <button
                             onClick={() =>
                               copyField("eur_addr", paymentData.bank_address)
                             }
-                            className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_addr" ? "bg-emerald-500 text-white" : "bg-white/10 text-foreground hover:bg-white/20"}`}
+                            className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_addr" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
                           >
                             {copiedField === "eur_addr"
                               ? "✅ Copiado"
@@ -1929,7 +1929,7 @@ export default function RenewClient() {
 
                 {/* 3. DADOS PARA TRANSFERÊNCIA USD */}
                 {effectiveGatewayType === "transfer_manual_usd" && (
-                  <div className="space-y-3 bg-muted/50 dark:bg-black/20 p-4 rounded-xl border border-border">
+                  <div className="space-y-3 bg-muted/50 p-4 rounded-xl border border-border">
                     <div>
                       <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider mb-0.5">
                         Nome do Favorecido
@@ -1942,7 +1942,7 @@ export default function RenewClient() {
                           onClick={() =>
                             copyField("usd_name", paymentData.beneficiary_name)
                           }
-                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_name" ? "bg-emerald-500 text-white" : "bg-white/10 text-foreground hover:bg-white/20"}`}
+                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_name" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
                         >
                           {copiedField === "usd_name"
                             ? "✅ Copiado"
@@ -1963,7 +1963,7 @@ export default function RenewClient() {
                             onClick={() =>
                               copyField("usd_bank", paymentData.bank_name)
                             }
-                            className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_bank" ? "bg-emerald-500 text-white" : "bg-white/10 text-foreground hover:bg-white/20"}`}
+                            className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_bank" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
                           >
                             {copiedField === "usd_bank"
                               ? "✅ Copiado"
@@ -1984,7 +1984,7 @@ export default function RenewClient() {
                           onClick={() =>
                             copyField("usd_acc", paymentData.account_number)
                           }
-                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_acc" ? "bg-emerald-500 text-white" : "bg-white/10 text-foreground hover:bg-white/20"}`}
+                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_acc" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
                         >
                           {copiedField === "usd_acc"
                             ? "✅ Copiado"
@@ -2014,7 +2014,7 @@ export default function RenewClient() {
                           onClick={() =>
                             copyField("usd_routing", paymentData.routing_number)
                           }
-                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_routing" ? "bg-emerald-500 text-white" : "bg-white/10 text-foreground hover:bg-white/20"}`}
+                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_routing" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
                         >
                           {copiedField === "usd_routing"
                             ? "✅ Copiado"
@@ -2034,7 +2034,7 @@ export default function RenewClient() {
                           onClick={() =>
                             copyField("usd_swift", paymentData.swift_bic)
                           }
-                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_swift" ? "bg-emerald-500 text-white" : "bg-white/10 text-foreground hover:bg-white/20"}`}
+                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_swift" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
                         >
                           {copiedField === "usd_swift"
                             ? "✅ Copiado"
@@ -2048,14 +2048,14 @@ export default function RenewClient() {
                           Endereço do Banco
                         </p>
                         <div className="flex items-start justify-between gap-2">
-                          <p className="text-xs text-muted-foreground dark:text-muted-foreground leading-snug">
+                          <p className="text-xs text-muted-foreground leading-snug">
                             {paymentData.bank_address}
                           </p>
                           <button
                             onClick={() =>
                               copyField("usd_addr", paymentData.bank_address)
                             }
-                            className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_addr" ? "bg-emerald-500 text-white" : "bg-white/10 text-foreground hover:bg-white/20"}`}
+                            className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_addr" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
                           >
                             {copiedField === "usd_addr"
                               ? "✅ Copiado"
@@ -2067,9 +2067,9 @@ export default function RenewClient() {
                   </div>
                 )}
 
-                {/* AVISO IMPORTANTE (Piscando) */}
+{/* AVISO IMPORTANTE (Piscando) */}
                 <div className="pt-2 animate-pulse">
-                  <p className="text-xs font-bold text-rose-400 uppercase text-center bg-rose-500/10 p-2 rounded-lg border border-rose-500/30">
+                  <p className="text-xs font-bold text-rose-500 uppercase text-center bg-rose-500/10 p-2 rounded-lg border border-rose-500/20">
                     ⚠️ Importante: Favor não colocar observações na
                     transferência.
                   </p>
@@ -2090,8 +2090,8 @@ export default function RenewClient() {
 
                 {/* Instruções */}
                 {paymentData.instructions && (
-                  <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl">
-                    <p className="text-xs text-blue-300">
+                  <div className="p-3 bg-sky-500/10 border border-sky-500/20 rounded-xl">
+                    <p className="text-xs text-sky-500">
                       {paymentData.instructions}
                     </p>
                   </div>
@@ -2141,7 +2141,7 @@ export default function RenewClient() {
     return (
       <div className="min-h-screen bg-background p-4 py-8">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-16 h-16 border-4 border-sky-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-muted-foreground">Carregando...</p>
         </div>
       </div>
@@ -2152,10 +2152,10 @@ export default function RenewClient() {
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <div className="max-w-md w-full bg-card rounded-2xl shadow-2xl p-8 text-center border border-red-200 dark:border-red-500/20">
-          <div className="w-16 h-16 bg-red-100 dark:bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+        <div className="max-w-md w-full bg-card rounded-2xl shadow-2xl p-8 text-center border border-rose-500/20">
+          <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg
-              className="w-8 h-8 text-red-500"
+              className="w-8 h-8 text-rose-500"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -2168,7 +2168,7 @@ export default function RenewClient() {
               />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-red-500 mb-2">
+          <h1 className="text-2xl font-bold text-rose-500 mb-2">
             Sessão Expirada
           </h1>
           <p className="text-foreground/70 mb-6">{error}</p>
@@ -2177,7 +2177,7 @@ export default function RenewClient() {
               clearStoredSession();
               router.push("/");
             }}
-            className="px-6 py-3 w-full bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition-colors"
+            className="px-6 py-3 w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-colors"
           >
             Fazer Login Novamente
           </button>
@@ -2295,15 +2295,15 @@ export default function RenewClient() {
                 placeholder="Buscar conta..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-12 pl-12 pr-4 bg-card border border-border rounded-xl text-sm text-foreground outline-none focus:border-blue-500 transition-colors shadow-sm"
+                className="w-full h-12 pl-12 pr-4 bg-card border border-border rounded-xl text-sm text-foreground outline-none focus:border-sky-500 transition-colors shadow-sm"
               />
             </div>
           )}
 
           {/* --- CARDS DE CONTAS (Layout 3 Linhas) --- */}
-          <div className="space-y-4">
+<div className="space-y-4">
             {filteredAccounts.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground/80 bg-card/50 dark:bg-card/5 rounded-xl border border-dashed border-border dark:border-border">
+              <div className="text-center py-8 text-muted-foreground/80 bg-muted/40 rounded-xl border border-dashed border-border">
                 Nenhuma conta encontrada.
               </div>
             ) : (
@@ -2313,19 +2313,19 @@ export default function RenewClient() {
                   <button
                     key={account.id}
                     onClick={() => handleSelectAccount(account.id)}
-                    className="w-full text-left bg-card rounded-xl p-4 border border-border hover:border-blue-500 dark:border-border dark:hover:border-blue-500 transition-all shadow-sm hover:shadow-md group relative overflow-hidden"
+                    className="w-full text-left bg-card rounded-xl p-4 border border-border hover:border-sky-500 transition-all shadow-sm hover:shadow-md group relative overflow-hidden"
                   >
                     {/* Linha 1: Nome (Esq) | Username (Dir, preservando maiúsculas/minúsculas) */}
-                    <div className="flex items-center justify-between mb-2">
+<div className="flex items-center justify-between mb-2">
                       <h3 className="text-base font-bold text-foreground truncate pr-2 flex items-center gap-2">
                         {account.display_name}
                         {account.is_trial && (
-<span className="px-1.5 py-0.5 bg-sky-500/10 text-sky-500 border border-sky-500/20 text-[9px] font-bold rounded uppercase tracking-wider">
+                          <span className="px-1.5 py-0.5 bg-sky-500/10 text-sky-500 border border-sky-500/20 text-[9px] font-bold rounded uppercase tracking-wider">
                             TESTE
                           </span>
                         )}
                       </h3>
-                      <span className="text-xs font-mono font-medium text-muted-foreground dark:text-muted-foreground shrink-0 bg-muted/50 dark:bg-black/20 px-2 py-1 rounded border border-border">
+<span className="text-xs font-mono font-medium text-muted-foreground shrink-0 bg-muted px-2 py-1 rounded border border-border">
                         {account.server_username}
                       </span>
                     </div>
@@ -2345,8 +2345,8 @@ export default function RenewClient() {
                     <div
                       className={`w-full text-center py-2 rounded-lg border ${
                         time?.expired
-                          ? "bg-rose-500/10 border-rose-500/20 text-rose-400    "
-                          : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400    "
+                          ? "bg-rose-500/10 border-rose-500/20 text-rose-500"
+                          : "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
                       }`}
                     >
                       <span className="text-sm font-bold block tracking-tight">
@@ -2483,7 +2483,7 @@ export default function RenewClient() {
                 : "bg-emerald-500/10 border-emerald-500/20"
           }`}
         >
-<p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">
             Status da Assinatura
           </p>
           <div className="flex items-center justify-center gap-2">
@@ -2524,7 +2524,7 @@ export default function RenewClient() {
                 <label className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider block mb-1">
                   Usuário
                 </label>
-                <div className="text-sm font-mono text-foreground bg-muted/50 dark:bg-black/20 px-3 py-2 rounded-lg border border-border truncate">
+                <div className="text-sm font-mono text-foreground bg-muted px-3 py-2 rounded-lg border border-border truncate">
                   {selectedAccount.server_username}
                 </div>
               </div>
@@ -2532,7 +2532,7 @@ export default function RenewClient() {
                 <label className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider block mb-1">
                   Servidor
                 </label>
-                <div className="text-sm font-medium text-foreground bg-muted/50 dark:bg-black/20 px-3 py-2 rounded-lg border border-border truncate">
+                <div className="text-sm font-medium text-foreground bg-muted px-3 py-2 rounded-lg border border-border truncate">
                   {selectedAccount.server_name}
                 </div>
               </div>
@@ -2542,7 +2542,7 @@ export default function RenewClient() {
                 <label className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider block mb-1">
                   Vencimento em
                 </label>
-                <div className="text-sm font-medium text-foreground bg-muted/50 dark:bg-black/20 px-3 py-2 rounded-lg border border-border">
+                <div className="text-sm font-medium text-foreground bg-muted px-3 py-2 rounded-lg border border-border">
                   {formatDateTime(selectedAccount.vencimento)}
                 </div>
               </div>
@@ -2550,7 +2550,7 @@ export default function RenewClient() {
                 <label className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider block mb-1">
                   Telas
                 </label>
-                <div className="text-sm font-bold text-foreground bg-muted/50 dark:bg-black/20 px-3 py-2 rounded-lg border border-border">
+                <div className="text-sm font-bold text-foreground bg-muted px-3 py-2 rounded-lg border border-border">
                   {selectedAccount.screens}{" "}
                   {selectedAccount.screens > 1 ? "telas" : "tela"}
                 </div>
@@ -2606,9 +2606,9 @@ export default function RenewClient() {
                             </svg>
                           )}
                         </div>
-                        <span className="font-bold text-foreground">
+<span className="font-bold text-foreground">
                           {selectedAccount.plan_label}{" "}
-<span className="text-xs font-normal text-sky-500 uppercase tracking-wider ml-1">
+                          <span className="text-xs font-normal text-sky-500 uppercase tracking-wider ml-1">
                             (Atual)
                           </span>
                         </span>
@@ -2663,14 +2663,14 @@ export default function RenewClient() {
                           </div>
                           <span className="font-bold text-foreground">
                             {PERIOD_LABELS[selectedPrice.period]}{" "}
-                            <span className="text-xs font-normal text-emerald-400 tracking-wider ml-1">
+                            <span className="text-xs font-normal text-emerald-500 tracking-wider ml-1">
                               (Selecionado)
                             </span>
                           </span>
                         </div>
                       </div>
                       <div className="text-right ml-2">
-                        <div className="text-lg font-bold text-emerald-400">
+                        <div className="text-lg font-bold text-emerald-500">
                           {selectedPrice.price_amount > 0
                             ? formatMoney(
                                 selectedPrice.price_amount,
@@ -2692,7 +2692,7 @@ export default function RenewClient() {
             ).length > 0 && (
               <button
                 onClick={() => setShowOtherPlans(!showOtherPlans)}
-                className="w-full py-3 px-4 rounded-xl border-2 border-dashed border-border text-muted-foreground dark:text-muted-foreground font-bold flex items-center justify-center gap-2 hover:bg-muted/50 dark:hover:bg-card/5 transition-all"
+                className="w-full py-3 px-4 rounded-xl border-2 border-dashed border-border text-muted-foreground font-bold flex items-center justify-center gap-2 hover:bg-muted/50 transition-all"
               >
                 🏷️ {showOtherPlans ? "Ocultar Ofertas" : "Ver Mais Ofertas"}
                 <svg
@@ -2713,8 +2713,8 @@ export default function RenewClient() {
 
             {/* Expansível de Ofertas */}
             {showOtherPlans && (
-              <div className="space-y-2 animate-in slide-in-from-top-2 duration-200 mt-2">
-                <p className="text-[10px] font-bold text-muted-foreground/80 dark:text-muted-foreground uppercase tracking-wider px-1">
+<div className="space-y-2 animate-in slide-in-from-top-2 duration-200 mt-2">
+                <p className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-wider px-1">
                   Todas as Opções
                 </p>
                 {availablePrices
@@ -2767,14 +2767,14 @@ export default function RenewClient() {
                         className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
                           isSelected
                             ? "border-emerald-500 bg-emerald-500/10"
-                            : "border-border hover:border-emerald-300 dark:hover:border-emerald-500/50"
+                            : "border-border hover:border-emerald-500/50"
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
                               <div
-                                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? "border-emerald-500 bg-emerald-500" : "border-border border-white/30"}`}
+                                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? "border-emerald-500 bg-emerald-500" : "border-border"}`}
                               >
                                 {isSelected && (
                                   <svg

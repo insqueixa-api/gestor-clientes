@@ -384,18 +384,18 @@ function GlobalQueueMonitor({
           </div>
           <div>
             <h3
-              className={`font-medium text-xs uppercase tracking-wide ${isGlobalPaused ? "text-amber-800" : "text-emerald-400"}`}
+              className={`font-medium text-xs uppercase tracking-wide ${isGlobalPaused ? "text-amber-500" : "text-emerald-500"}`}
             >
               {isGlobalPaused ? "⏸️ PAUSADA" : "🚀 ENVIANDO"}
             </h3>
             <p
-              className={`text-[10px] mt-0.5 ${isGlobalPaused ? "text-amber-400" : "text-emerald-400"}`}
+              className={`text-[10px] mt-0.5 ${isGlobalPaused ? "text-amber-500" : "text-emerald-500"}`}
             >
               {queueData.length} na fila
             </p>
           </div>
         </div>
-        <button className="px-3 py-1.5 bg-slate-800 text-foreground dark:text-white border border-slate-700 rounded-lg text-xs font-medium uppercase hover:bg-slate-700 transition-colors">
+        <button className="px-3 py-1.5 bg-foreground text-background rounded-lg text-xs font-medium uppercase hover:bg-foreground/90 transition-colors">
           Abrir
         </button>
       </div>
@@ -403,15 +403,15 @@ function GlobalQueueMonitor({
       {/* 🔴 MODAL RAIO-X */}
       {showModal &&
         createPortal(
-          <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-transparent0 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
             <div className="w-full max-w-6xl bg-card rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
-              <div className="px-4 py-3 border-b border-gray-100 dark:border-border flex justify-between items-center bg-gray-50 dark:bg-card/5">
-                <h3 className="font-medium text-lg dark:text-white">
+              <div className="px-4 py-3 border-b border-border flex justify-between items-center bg-muted/40">
+                <h3 className="font-medium text-lg text-foreground">
                   Gerenciador de Fila
                 </h3>
                 <button
                   onClick={() => setShowModal(false)}
-                  className="text-muted-foreground dark:text-gray-400 hover:text-muted-foreground"
+                  className="text-muted-foreground hover:text-foreground"
                 >
                   ✕
                 </button>
@@ -419,7 +419,7 @@ function GlobalQueueMonitor({
 
               <div className="flex-1 overflow-y-auto p-0">
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-gray-50 dark:bg-card/5 text-muted-foreground font-medium text-xs uppercase sticky top-0">
+                  <thead className="bg-muted/40 text-muted-foreground font-medium text-xs uppercase sticky top-0">
                     <tr>
                       <th className="p-4">Quando</th>
                       <th className="p-4">Origem</th>
@@ -435,10 +435,10 @@ function GlobalQueueMonitor({
                     {queueData.map((job) => (
                       <tr
                         key={job.id}
-                        className="hover:bg-gray-50 dark:hover:bg-card/5 align-top"
+                        className="hover:bg-muted/30 align-top"
                       >
                         {/* QUANDO */}
- <td className="p-4 text-muted-foreground whitespace-nowrap">
+                        <td className="p-4 text-muted-foreground whitespace-nowrap">
                           {job.when_sp || "--"}
                         </td>
 
@@ -458,8 +458,8 @@ function GlobalQueueMonitor({
                           )}
                         </td>
 
-                        {/* WHATSAPP */}
- <td className="p-4 text-xs text-muted-foreground whitespace-nowrap">
+{/* WHATSAPP */}
+                        <td className="p-4 text-xs text-muted-foreground whitespace-nowrap">
                           {job.whatsapp_username || "--"}
                         </td>
 
@@ -479,7 +479,7 @@ function GlobalQueueMonitor({
                               <span className="font-medium text-foreground">
                                 Personalizada
                               </span>
-                              <span className="text-[11px] text-muted-foreground dark:text-white/60 line-clamp-2">
+                              <span className="text-[11px] text-muted-foreground/70 line-clamp-2">
                                 {job.message_preview || "--"}
                               </span>
                             </div>
@@ -489,14 +489,14 @@ function GlobalQueueMonitor({
                         {/* STATUS */}
                         <td className="p-4 whitespace-nowrap">
                           <span
-                            className={`gap-1 px-2 py-1 rounded-lg text-xs font-medium tracking-tight shadow-sm ${job.status === "PAUSED" ? "bg-amber-500/20 text-amber-800" : "bg-emerald-500/20 text-emerald-400"}`}
+                            className={`gap-1 px-2 py-1 rounded-lg text-xs font-medium tracking-tight shadow-sm ${job.status === "PAUSED" ? "bg-amber-500/10 text-amber-500" : "bg-emerald-500/10 text-emerald-500"}`}
                           >
                             {job.status}
                           </span>
                         </td>
 
                         {/* ID */}
- <td className="p-4 text-right text-xs text-muted-foreground dark:text-gray-400 whitespace-nowrap">
+                        <td className="p-4 text-right text-xs text-muted-foreground/70 whitespace-nowrap">
                           {job.id.slice(0, 8)}
                         </td>
                       </tr>
@@ -505,7 +505,7 @@ function GlobalQueueMonitor({
                 </table>
               </div>
 
-              <div className="p-3 border-t border-gray-100 dark:border-border flex gap-2 justify-end bg-gray-50 dark:bg-card/5 flex-wrap">
+              <div className="p-3 border-t border-border flex gap-2 justify-end bg-muted/40 flex-wrap">
                 {activeCount > 0 ? (
                   <button
                     onClick={handleGlobalPause}
@@ -1113,8 +1113,8 @@ export default function BillingPage() {
       </div>
       {/* Barra de busca (padrão admin: sticky no desktop) */}
       <div className="p-0 px-3 sm:px-0 md:px-4">
-        <div className="p-0 md:p-4 bg-transparent md:bg-card md:dark:bg-card border-0 md:border md:border-border md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm md:sticky md:top-4 z-20">
-          <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground/80 dark:text-muted-foreground tracking-wider mb-3">
+<div className="p-0 md:p-4 bg-transparent md:bg-card border-0 md:border md:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm md:sticky md:top-4 z-20">
+          <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground/60 tracking-wider mb-3">
             Busca
           </div>
 
@@ -1131,13 +1131,14 @@ export default function BillingPage() {
               </span>
             </div>
 
-            {search.trim() && (
+{search.trim() && (
               <button
                 onClick={() => setSearch("")}
-                className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors"
+                className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 text-sm font-medium hover:bg-rose-500/20 transition-colors"
               >
                 Limpar
               </button>
+            
             )}
           </div>
         </div>
@@ -1148,14 +1149,14 @@ export default function BillingPage() {
           Carregando automações...
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 bg-card border border-dashed border-border dark:border-border rounded-2xl">
+<div className="flex flex-col items-center justify-center py-20 bg-card border border-dashed border-border rounded-2xl">
           <div className="w-16 h-16 bg-transparent border border-border rounded-full flex items-center justify-center mb-4 text-3xl">
             🤖
           </div>
           <h3 className="text-lg font-medium text-foreground/90">
             Nenhuma regra ativa
           </h3>
-          <p className="text-sm text-foreground/70 dark:text-white/50 mt-1">
+          <p className="text-sm text-foreground/70 mt-1">
             Crie sua primeira automação de cobrança.
           </p>
         </div>
@@ -1264,7 +1265,7 @@ function AutomationCard({
 
   return (
     <div
-      className={`bg-card border rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-lg transition-all flex flex-col justify-between h-full relative overflow-hidden group ${data.is_active ? "border-t-4 border-t-emerald-500 border-x-slate-200 border-b-slate-200 dark:border-border" : "border-border opacity-75 grayscale-[0.8] hover:grayscale-0"}`}
+      className={`bg-card border rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-lg transition-all flex flex-col justify-between h-full relative overflow-hidden group ${data.is_active ? "border-t-4 border-t-emerald-500 border-x-border border-b-border" : "border-border opacity-75 grayscale-[0.8] hover:grayscale-0"}`}
     >
       {/* Header: Nome e Toggle */}
       <div className="flex justify-between items-start mb-3">
@@ -1300,7 +1301,7 @@ function AutomationCard({
         </div>
         <button
           onClick={onToggle}
-          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${data.is_active ? "bg-emerald-500" : "bg-transparent dark:bg-card/20"}`}
+          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${data.is_active ? "bg-emerald-500" : "bg-muted"}`}
         >
           <span
             className={`inline-block h-3.5 w-3.5 transform rounded-full bg-card transition ${data.is_active ? "translate-x-4.5" : "translate-x-1"}`}
@@ -1334,11 +1335,11 @@ function AutomationCard({
           </div>
         )}
         {/* ✅ SESSÃO DO WHATSAPP COM STATUS E NÚMERO REAIS */}
-        <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2 mt-1 border-t border-border">
+<div className="flex items-center gap-2 text-xs text-muted-foreground pt-2 mt-1 border-t border-border">
           <span className="text-base">📱</span>
           <span className="truncate" title={sessionLabel}>
             Sessão:{" "}
-            <strong className="text-foreground/90/90">
+            <strong className="text-foreground/90">
               {sessionLabel || "Carregando..."}
             </strong>
           </span>
@@ -1357,9 +1358,9 @@ function AutomationCard({
             <div className="text-[10px] text-muted-foreground/80 uppercase font-medium tracking-wider mb-0.5">
               Afetados Hoje
             </div>
-            <div className="text-xl font-medium text-foreground group-hover/impact:text-emerald-500 transition-colors flex items-center gap-1">
+<div className="text-xl font-medium text-foreground group-hover/impact:text-emerald-500 transition-colors flex items-center gap-1">
               {impactCount}
-              <span className="text-xs text-muted-foreground/80 font-medium group-hover/impact:text-emerald-400">
+              <span className="text-xs text-muted-foreground/80 font-medium group-hover/impact:text-emerald-500">
                 clientes
               </span>
             </div>
@@ -1376,7 +1377,7 @@ function AutomationCard({
                         ========================= */}
               {data.is_automatic && (
                 <>
-                  {status !== "RUNNING" ? (
+{status !== "RUNNING" ? (
                     <button
                       onClick={() => onControl("PLAY")}
                       disabled={!data.is_active}
@@ -1384,7 +1385,7 @@ function AutomationCard({
                                 ${
                                   data.is_active
                                     ? "bg-emerald-600 text-white hover:bg-emerald-500"
-                                    : "bg-transparent text-muted-foreground/80 cursor-not-allowed dark:bg-card/10 dark:text-white/30"
+                                    : "bg-muted text-muted-foreground/60 cursor-not-allowed"
                                 }`}
                       title="Ativa a execução automática (dias/horário configurados)"
                     >
@@ -1398,7 +1399,7 @@ function AutomationCard({
                                 ${
                                   data.is_active
                                     ? "bg-rose-600 text-white hover:bg-rose-500"
-                                    : "bg-transparent text-muted-foreground/80 cursor-not-allowed dark:bg-card/10 dark:text-white/30"
+                                    : "bg-muted text-muted-foreground/60 cursor-not-allowed"
                                 }`}
                       title="Cancela a execução automática (mantém a regra ativa no toggle)"
                     >
@@ -1419,7 +1420,7 @@ function AutomationCard({
                         ${
                           data.is_active
                             ? "bg-sky-600 text-white hover:bg-sky-500"
-                            : "bg-transparent text-muted-foreground/80 cursor-not-allowed dark:bg-card/10 dark:text-white/30"
+                            : "bg-muted text-muted-foreground/60 cursor-not-allowed"
                         }`}
                 title="Dispara agora (enfileira imediatamente)"
               >
@@ -1458,7 +1459,7 @@ function AutomationCard({
                             ${
                               data.is_active
                                 ? "bg-emerald-600 text-white hover:bg-emerald-500"
-                                : "bg-transparent text-muted-foreground/80 cursor-not-allowed dark:bg-card/10 dark:text-white/30"
+                                : "bg-muted text-muted-foreground/60 cursor-not-allowed"
                             }`}
                     title="Retomar envios"
                   >
@@ -1478,7 +1479,7 @@ function AutomationCard({
               {/* Secundários */}
               <button
                 onClick={onEdit}
-                className="px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 text-xs font-medium hover:bg-amber-500/20 dark:text-amber-300 transition"
+                className="px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-500 text-xs font-medium hover:bg-amber-500/20 transition"
                 title="Editar"
               >
                 Editar
@@ -1486,7 +1487,7 @@ function AutomationCard({
 
               <button
                 onClick={onShowLogs}
-                className="px-3 py-1.5 rounded-lg bg-transparent border border-border text-foreground/90 text-xs font-medium hover:bg-transparent dark:text-muted-foreground transition"
+                className="px-3 py-1.5 rounded-lg bg-transparent border border-border text-foreground/90 text-xs font-medium hover:bg-muted transition"
                 title="Logs"
               >
                 Logs
@@ -1494,7 +1495,7 @@ function AutomationCard({
 
               <button
                 onClick={onDelete}
-                className="px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-400 text-xs font-medium hover:bg-rose-500/20 dark:text-rose-300 transition"
+                className="px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-500 text-xs font-medium hover:bg-rose-500/20 transition"
                 title="Excluir"
               >
                 Excluir
@@ -1529,7 +1530,7 @@ function ImpactListModal({
     data.ruleDateField === "cadastro" || data.ruleDateField === "created_at";
 
   return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-transparent0 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="w-full max-w-4xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[80vh]">
         <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent">
           <div>
@@ -1543,7 +1544,7 @@ function ImpactListModal({
           </div>
           <button
             onClick={onClose}
-            className="text-muted-foreground/80 hover:text-foreground dark:hover:text-foreground dark:text-white text-xl leading-none"
+            className="text-muted-foreground/80 hover:text-foreground text-xl leading-none"
           >
             ✕
           </button>
@@ -1566,11 +1567,11 @@ function ImpactListModal({
                   <th className="p-3">Plano</th>
                 </tr>
               </thead>
-              <tbody className="text-sm text-foreground/90/80 divide-y divide-border">
+<tbody className="text-sm text-foreground/80 divide-y divide-border">
                 {data.clients.map((c) => (
                   <tr
                     key={c.id}
-                    className="hover:bg-transparent dark:hover:bg-card/5 transition-colors align-top"
+                    className="hover:bg-muted/30 transition-colors align-top"
                   >
                     {/* COLUNA 1: CLIENTES E WHATSAPP */}
                     <td className="p-3">
@@ -1578,11 +1579,11 @@ function ImpactListModal({
                       <div className="flex flex-col">
                         <span className="font-medium text-foreground flex items-center gap-1.5">
                           {c.display_name}
-                          <span className="text-[10px] bg-transparent text-muted-foreground px-1.5 py-0.5 rounded font-medium uppercase">
+                          <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded font-medium uppercase">
                             Titular
                           </span>
                         </span>
- <span className="text-xs text-muted-foreground">
+                        <span className="text-xs text-muted-foreground">
                           📞 {c.whatsapp_username || "--"}
                         </span>
                       </div>
@@ -1590,13 +1591,13 @@ function ImpactListModal({
                       {/* Secundário (só aparece se tiver) */}
                       {c.secondary_display_name && (
                         <div className="flex flex-col mt-2.5 pt-2 border-t border-border">
-                          <span className="font-medium text-foreground/90 dark:text-slate-300 text-xs flex items-center gap-1.5">
+                          <span className="font-medium text-foreground/90 text-xs flex items-center gap-1.5">
                             {c.secondary_display_name}
-                            <span className="text-[9px] bg-sky-500/10 text-sky-400 px-1.5 py-0.5 rounded font-medium uppercase">
+                            <span className="text-[9px] bg-sky-500/10 text-sky-500 px-1.5 py-0.5 rounded font-medium uppercase">
                               Secundário
                             </span>
                           </span>
- <span className="text-xs text-muted-foreground">
+                          <span className="text-xs text-muted-foreground">
                             📞 {c.secondary_whatsapp_username || "--"}
                           </span>
                         </div>
@@ -1634,7 +1635,7 @@ function ImpactListModal({
                           {formatTimeSP(
                             isCadastro ? c.created_at : c.vencimento,
                           ) && (
- <span className="text-xs text-muted-foreground mt-0.5">
+                            <span className="text-xs text-muted-foreground mt-0.5">
                               ⏰{" "}
                               {formatTimeSP(
                                 isCadastro ? c.created_at : c.vencimento,
@@ -1648,11 +1649,11 @@ function ImpactListModal({
                     {/* COLUNA 4: PLANO E VALOR */}
                     <td className="p-3">
                       <div className="flex flex-col items-start gap-1">
-                        <span className="px-2 py-0.5 rounded bg-transparent border border-border text-xs font-medium text-foreground/90 dark:text-slate-300">
+                        <span className="px-2 py-0.5 rounded bg-transparent border border-border text-xs font-medium text-foreground/90">
                           {c.plan_label || "Sem plano"}
                         </span>
                         {c.price_amount > 0 && (
-                          <span className="text-xs font-medium text-emerald-400 pl-1">
+                          <span className="text-xs font-medium text-emerald-500 pl-1">
                             {new Intl.NumberFormat("pt-BR", {
                               style: "currency",
                               currency: "BRL",
@@ -1668,10 +1669,10 @@ function ImpactListModal({
           )}
         </div>
 
-        <div className="px-6 py-4 border-t border-border flex justify-end">
+<div className="px-6 py-4 border-t border-border flex justify-end">
           <button
             onClick={onClose}
-            className="px-5 py-2.5 rounded-lg bg-slate-800 text-foreground dark:text-white font-medium text-xs uppercase hover:bg-slate-700 transition-colors shadow-md"
+            className="px-5 py-2.5 rounded-lg bg-foreground text-background font-medium text-xs uppercase hover:bg-foreground/90 transition-colors shadow-md"
           >
             Fechar
           </button>
@@ -1865,7 +1866,7 @@ function AutomationWizard({
               ✕
             </button>
           </div>
-          <div className="h-1.5 w-full bg-transparent rounded-full overflow-hidden flex">
+<div className="h-1.5 w-full bg-muted rounded-full overflow-hidden flex">
             <div
               className={`h-full bg-emerald-500 transition-all duration-300 ${step === 1 ? "w-1/3" : step === 2 ? "w-2/3" : "w-full"}`}
             />
@@ -1944,7 +1945,7 @@ function AutomationWizard({
                   <span className="text-xs text-muted-foreground">Entre</span>
                   <input
                     type="number"
-                    className="w-16 h-8 text-center rounded border border-border bg-card dark:bg-transparent border border-border text-sm"
+                    className="w-16 h-8 text-center rounded border border-border bg-card text-sm"
                     value={form.delay_min}
                     onChange={(e) =>
                       setForm({ ...form, delay_min: Number(e.target.value) })
@@ -1953,7 +1954,7 @@ function AutomationWizard({
                   <span className="text-xs text-muted-foreground">e</span>
                   <input
                     type="number"
-                    className="w-16 h-8 text-center rounded border border-border bg-card dark:bg-transparent border border-border text-sm"
+                    className="w-16 h-8 text-center rounded border border-border bg-card text-sm"
                     value={form.delay_max}
                     onChange={(e) =>
                       setForm({ ...form, delay_max: Number(e.target.value) })
@@ -1965,8 +1966,8 @@ function AutomationWizard({
 
               <div className="pt-2 border-t border-border">
                 <Label>Regra de Disparo</Label>
-                <div className="flex items-center gap-2 mt-2 bg-emerald-500/10/50 dark:bg-emerald-500/5 p-3 rounded-lg border border-emerald-100 dark:border-emerald-500/20">
-                  <span className="text-sm text-muted-foreground dark:text-white">
+                <div className="flex items-center gap-2 mt-2 bg-emerald-500/5 p-3 rounded-lg border border-emerald-500/20">
+                  <span className="text-sm text-muted-foreground">
                     Enviar
                   </span>
                   <div className="flex items-center">
@@ -1977,13 +1978,13 @@ function AutomationWizard({
                           rule_days_diff: -Math.abs(form.rule_days_diff || 1),
                         })
                       }
-                      className={`px-2 py-1 rounded-l border text-xs font-medium ${form.rule_days_diff < 0 ? "bg-rose-500/10 text-rose-400 dark:bg-rose-500/10 dark:text-rose-400 border-rose-500" : "bg-card dark:bg-transparent border border-border border-border text-muted-foreground"}`}
+                      className={`px-2 py-1 rounded-l border text-xs font-medium ${form.rule_days_diff < 0 ? "bg-rose-500/10 text-rose-500 border-rose-500" : "bg-card border-border text-muted-foreground"}`}
                     >
                       Antes
                     </button>
                     <button
                       onClick={() => setForm({ ...form, rule_days_diff: 0 })}
-                      className={`px-2 py-1 border-t border-b text-xs font-medium ${form.rule_days_diff === 0 ? "bg-sky-500 text-white border-sky-500" : "bg-card dark:bg-transparent border border-border border-border text-muted-foreground"}`}
+                      className={`px-2 py-1 border-t border-b text-xs font-medium ${form.rule_days_diff === 0 ? "bg-sky-500 text-white border-sky-500" : "bg-card border-border text-muted-foreground"}`}
                     >
                       No Dia
                     </button>
@@ -1994,7 +1995,7 @@ function AutomationWizard({
                           rule_days_diff: Math.abs(form.rule_days_diff || 1),
                         })
                       }
-                      className={`px-2 py-1 rounded-r border text-xs font-medium ${form.rule_days_diff > 0 ? "bg-emerald-500/10 text-emerald-400 dark:bg-emerald-500/10 dark:text-emerald-400 border-emerald-500" : "bg-card dark:bg-transparent border border-border border-border text-muted-foreground"}`}
+                      className={`px-2 py-1 rounded-r border text-xs font-medium ${form.rule_days_diff > 0 ? "bg-emerald-500/10 text-emerald-500 border-emerald-500" : "bg-card border-border text-muted-foreground"}`}
                     >
                       Depois
                     </button>
@@ -2002,7 +2003,7 @@ function AutomationWizard({
                   {form.rule_days_diff !== 0 && (
                     <input
                       type="number"
-                      className="w-14 h-8 text-center rounded border border-border bg-card dark:bg-transparent border border-border text-sm font-medium"
+                      className="w-14 h-8 text-center rounded border border-border bg-card text-sm font-medium"
                       value={Math.abs(form.rule_days_diff)}
                       onChange={(e) =>
                         setForm({
@@ -2014,11 +2015,11 @@ function AutomationWizard({
                       }
                     />
                   )}
-                  <span className="text-sm text-muted-foreground dark:text-white">
+                  <span className="text-sm text-muted-foreground">
                     {form.rule_days_diff !== 0 ? "dias do" : "do"}
                   </span>
                   <select
-                    className="h-8 rounded border border-border bg-card dark:bg-transparent border border-border text-sm px-2 outline-none"
+                    className="h-8 rounded border border-border bg-card text-sm px-2 outline-none"
                     value={form.rule_date_field}
                     onChange={(e) =>
                       setForm({ ...form, rule_date_field: e.target.value })
@@ -2073,19 +2074,19 @@ function AutomationWizard({
           {step === 3 && (
             <div className="space-y-8 py-4">
               <div className="flex flex-col items-center gap-4">
-                <span className="text-sm font-medium text-muted-foreground dark:text-white/60 uppercase tracking-widest">
+                <span className="text-sm font-medium text-muted-foreground/70 uppercase tracking-widest">
                   Modo de Operação
                 </span>
                 <div className="flex items-center gap-4 bg-transparent border border-border p-1 rounded-xl">
                   <button
                     onClick={() => setForm({ ...form, is_automatic: false })}
-                    className={`px-6 py-3 rounded-lg text-sm font-medium transition-all ${!form.is_automatic ? "bg-card dark:bg-slate-700 shadow-md text-foreground" : "text-muted-foreground/80 hover:text-muted-foreground"}`}
+                    className={`px-6 py-3 rounded-lg text-sm font-medium transition-all ${!form.is_automatic ? "bg-muted shadow-md text-foreground" : "text-muted-foreground/80 hover:text-muted-foreground"}`}
                   >
                     Manual
                   </button>
                   <button
                     onClick={() => setForm({ ...form, is_automatic: true })}
-                    className={`px-6 py-3 rounded-lg text-sm font-medium transition-all ${form.is_automatic ? "bg-card dark:bg-slate-700 shadow-md text-emerald-400" : "text-muted-foreground/80 hover:text-muted-foreground"}`}
+                    className={`px-6 py-3 rounded-lg text-sm font-medium transition-all ${form.is_automatic ? "bg-muted shadow-md text-emerald-500" : "text-muted-foreground/80 hover:text-muted-foreground"}`}
                   >
                     Automático
                   </button>
@@ -2123,7 +2124,7 @@ function AutomationWizard({
                                   : [...current, d.id],
                               });
                             }}
-                            className={`w-10 h-10 rounded-full font-medium text-xs transition-all border ${selected ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/30" : "bg-card/5 border-border text-muted-foreground/80"}`}
+                            className={`w-10 h-10 rounded-full font-medium text-xs transition-all border ${selected ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/30" : "bg-muted border-border text-muted-foreground/80"}`}
                           >
                             {d.label}
                           </button>
@@ -2142,13 +2143,13 @@ function AutomationWizard({
             <>
               <button
                 onClick={onClose}
-                className="text-muted-foreground font-medium text-xs uppercase hover:text-foreground dark:hover:text-foreground dark:text-white"
+                className="text-muted-foreground font-medium text-xs uppercase hover:text-foreground"
               >
                 Cancelar
               </button>
               <button
                 onClick={() => setStep(2)}
-                className="px-6 py-2.5 bg-card border border-border text-foreground hover:bg-transparent/50 font-medium rounded-xl shadow-lg hover:brightness-110 transition-all text-xs uppercase"
+                className="px-6 py-2.5 bg-card border border-border text-foreground hover:bg-muted font-medium rounded-xl shadow-lg hover:brightness-110 transition-all text-xs uppercase"
               >
                 Próximo: Filtros →
               </button>
@@ -2158,13 +2159,13 @@ function AutomationWizard({
             <>
               <button
                 onClick={() => setStep(1)}
-                className="text-muted-foreground font-medium text-xs uppercase hover:text-foreground dark:hover:text-foreground dark:text-white"
+                className="text-muted-foreground font-medium text-xs uppercase hover:text-foreground "
               >
                 ← Voltar
               </button>
               <button
                 onClick={() => setStep(3)}
-                className="px-6 py-2.5 bg-card border border-border text-foreground hover:bg-transparent/50 font-medium rounded-xl shadow-lg hover:brightness-110 transition-all text-xs uppercase"
+                className="px-6 py-2.5 bg-card border border-border text-foreground  font-medium rounded-xl shadow-lg hover:brightness-110 transition-all text-xs uppercase"
               >
                 Próximo: Automação →
               </button>
@@ -2174,7 +2175,7 @@ function AutomationWizard({
             <>
               <button
                 onClick={() => setStep(2)}
-                className="text-muted-foreground font-medium text-xs uppercase hover:text-foreground dark:hover:text-foreground dark:text-white"
+                className="text-muted-foreground font-medium text-xs uppercase hover:text-foreground "
               >
                 ← Voltar
               </button>
@@ -2196,7 +2197,7 @@ function AutomationWizard({
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+    <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1.5 uppercase tracking-wider">
       {children}
     </label>
   );
@@ -2208,7 +2209,7 @@ function Input({
   return (
     <input
       {...props}
-      className={`h-10 px-3 bg-card dark:bg-transparent border border-border border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500 transition-colors ${className}`}
+      className={`h-10 px-3 bg-card border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500 transition-colors ${className}`}
     />
   );
 }
@@ -2220,7 +2221,7 @@ function Select({
   return (
     <select
       {...props}
-      className={`h-10 px-3 bg-card dark:bg-transparent border border-border border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500 transition-colors ${className}`}
+      className={`h-10 px-3 bg-card border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500 transition-colors ${className}`}
     >
       {children}
     </select>
@@ -2267,7 +2268,7 @@ function MultiSelectDropdown({ label, options, selected, onChange }: any) {
       <Label>{label}</Label>
       <button
         onClick={() => setOpen(!open)}
-        className={`w-full h-10 px-3 text-left rounded-lg border text-sm flex justify-between items-center transition-all ${open ? "border-emerald-500 ring-1 ring-emerald-500/20" : "border-border bg-card dark:bg-transparent border border-border text-foreground/90"}`}
+        className={`w-full h-10 px-3 text-left rounded-lg border text-sm flex justify-between items-center transition-all ${open ? "border-emerald-500 ring-1 ring-emerald-500/20" : "border-border bg-card text-foreground/90"}`}
       >
         <span
           className={
@@ -2280,19 +2281,19 @@ function MultiSelectDropdown({ label, options, selected, onChange }: any) {
       </button>
 
       {open && (
-        <div className="absolute z-50 bottom-full mb-1 w-full bg-card dark:bg-[#1c2128] border border-border rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 flex flex-col">
+        <div className="absolute z-50 bottom-full mb-1 w-full bg-card border border-border rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 flex flex-col">
           <div className="max-h-48 overflow-y-auto custom-scrollbar p-1">
             {options.map((opt: any) => (
               <div
                 key={opt.id}
                 onClick={() => toggleOption(opt.id)}
-                className="px-3 py-2 hover:bg-transparent dark:hover:bg-card/5 cursor-pointer flex items-center gap-3 transition-colors rounded-lg"
+                className="px-3 py-2 hover:bg-muted cursor-pointer flex items-center gap-3 transition-colors rounded-lg"
               >
                 <div
                   className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${selected.includes(opt.id) ? "bg-emerald-500 border-emerald-500" : "border-border"}`}
                 >
                   {selected.includes(opt.id) && (
-                    <span className="text-[10px] text-foreground dark:text-white">✓</span>
+                    <span className="text-[10px] text-white">✓</span>
                   )}
                 </div>
                 <span className="text-sm text-foreground/90">
@@ -2320,7 +2321,7 @@ function MultiSelectDropdown({ label, options, selected, onChange }: any) {
             return (
               <span
                 key={id}
-                className="inline-flex items-center px-2 py-1 rounded bg-transparent border border-border text-xs font-medium text-muted-foreground dark:text-white border border-border"
+                className="inline-flex items-center px-2 py-1 rounded bg-transparent border border-border text-xs font-medium text-muted-foreground"
               >
                 {label}
                 <button
@@ -2571,7 +2572,7 @@ function LogsModal({
   const selectedArr = Array.from(selected);
 
   return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-transparent0 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="w-full max-w-3xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[80vh]">
         <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent">
           <div>
@@ -2579,7 +2580,7 @@ function LogsModal({
             <p className="text-xs text-foreground/70">
               Regra: <strong>{ruleName}</strong>
               {failedRows.length > 0 && (
-                <span className="ml-2 text-rose-400 font-medium">
+                <span className="ml-2 text-rose-500 font-medium">
                   • {failedRows.length} falha(s)
                 </span>
               )}
@@ -2587,7 +2588,7 @@ function LogsModal({
           </div>
           <button
             onClick={onClose}
-            className="text-muted-foreground/80 hover:text-foreground dark:hover:text-foreground dark:text-white"
+            className="text-muted-foreground/80 hover:text-foreground"
           >
             ✕
           </button>
@@ -2630,7 +2631,7 @@ function LogsModal({
                   return (
                     <tr
                       key={log.id}
-                      className="border-b border-slate-50 dark:border-border last:border-0 hover:bg-transparent dark:hover:bg-card/5"
+                      className="border-b border-border last:border-0 hover:bg-muted/30"
                     >
                       <td className="p-2">
                         {isFailed && (
@@ -2668,11 +2669,11 @@ function LogsModal({
                         <span
                           className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm uppercase ${
                             log.status === "SENT"
-                              ? "bg-emerald-500/20 text-emerald-500 dark:text-emerald-400"
+                              ? "bg-emerald-500/10 text-emerald-500"
                               : log.status === "FAILED"
-                                ? "bg-rose-500/20 text-rose-500 dark:text-rose-400"
+                                ? "bg-rose-500/10 text-rose-500"
                                 : log.status === "CANCELLED"
-                                  ? "bg-slate-500/20 text-slate-500 dark:text-slate-400"
+                                  ? "bg-muted text-muted-foreground"
                                   : "bg-transparent text-muted-foreground"
                           }`}
                         >
@@ -2711,7 +2712,7 @@ function LogsModal({
             <button
               onClick={() => cancelIds(selectedArr)}
               disabled={working || selectedArr.length === 0}
-              className="px-4 py-2 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 font-medium text-xs uppercase hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20 dark:hover:bg-rose-500/20 transition disabled:opacity-40 shadow-sm"
+              className="px-4 py-2 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 font-medium text-xs uppercase hover:bg-rose-500/20 transition disabled:opacity-40 shadow-sm"
               title="Cliente já recebeu — remove da lista de falhas sem reenviar"
             >
               Limpar selecionados
@@ -2719,7 +2720,7 @@ function LogsModal({
           </div>
           <button
             onClick={onClose}
-            className="px-5 py-2 rounded-lg bg-slate-800 text-white font-medium text-xs uppercase hover:bg-slate-700 shadow-sm"
+            className="px-5 py-2 rounded-lg text-white font-medium text-xs uppercase hover:bg-slate-700 shadow-sm"
           >
             Fechar
           </button>

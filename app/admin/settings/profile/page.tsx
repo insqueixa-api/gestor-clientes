@@ -174,7 +174,7 @@ function stringifyAllowedNumbers(rows: AllowedNumberRow[]): string[] {
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+    <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1.5 uppercase tracking-wider">
       {children}
     </label>
   );
@@ -475,10 +475,34 @@ export default function ProfileSettingsPage() {
     waValidateTimer.current = setTimeout(() => void validateWa(val), 800);
   };
 
-  async function handleSave() {
+async function handleSave() {
     if (!userId) return;
     setSaving(true);
-    
+    try {
+      const norm = applyPhoneNormalization(phoneRaw);
+      const { error } = await supabaseBrowser.from("profiles").upsert({
+        id: userId,
+        display_name: name,
+        phone: norm.e164 || null,
+        whatsapp_username: whatsappUsername || null,
+        whatsapp_sessions: whatsappSessions,
+        birth_date: birthDate || null,
+        gender: gender || null,
+        height: profileHeight ? parseFloat(profileHeight) : null,
+        updated_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+      if (norm.e164) {
+        setPhonePrettyPrefix(norm.prettyPrefix);
+        setPhoneRaw(norm.formattedNational || norm.nationalDigits || phoneRaw);
+      }
+      addToast("success", "Perfil salvo", "Dados cadastrais atualizados.");
+      setIsEditing(false);
+    } catch (e: any) {
+      addToast("error", "Erro ao salvar", e.message);
+    } finally {
+      setSaving(false);
+    }
   }
 
   // --- LÓGICA DE SAÚDE ---
@@ -521,26 +545,6 @@ export default function ProfileSettingsPage() {
       const { error } = await supabaseBrowser
         .from("profiles")
         .upsert({ id: userId, health_history: updatedHistory, updated_at: new Date().toISOString() });
-      if (error) throw error;
-      addToast("success", "Avaliação salva", "Registro sincronizado com o banco.");
-    } catch (e: any) {
-      addToast("error", "Erro ao salvar", e.message);
-    } finally {
-      setSaving(false);
-    }
-  
-    try {
-      const norm = applyPhoneNormalization(phoneRaw);
-      const updatedHistory = editingHealthId
-        ? healthHistory.map((r) =>
-            r.id === editingHealthId
-              ? { ...r, date: newHealthEntry.date, weight: parseFloat(newHealthEntry.weight), imc: parseFloat(profileHeight) > 0 ? parseFloat((parseFloat(newHealthEntry.weight) / (parseFloat(profileHeight) ** 2)).toFixed(1)) : 0 }
-              : r,
-          )
-        : [...healthHistory, { id: Date.now().toString(), date: newHealthEntry.date, weight: parseFloat(newHealthEntry.weight), imc: parseFloat(profileHeight) > 0 ? parseFloat((parseFloat(newHealthEntry.weight) / (parseFloat(profileHeight) ** 2)).toFixed(1)) : 0 }].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-      const { error } = await supabaseBrowser
-        .from("profiles")
-        .upsert({ id: userId!, health_history: updatedHistory, updated_at: new Date().toISOString() });
       if (error) throw error;
       addToast("success", "Avaliação salva", "Registro sincronizado com o banco.");
     } catch (e: any) {
@@ -1202,7 +1206,7 @@ export default function ProfileSettingsPage() {
           <div className="relative">
             <button
               onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
-              className="h-9 w-9 shrink-0 rounded-xl border font-medium text-xs flex items-center justify-center bg-card border-border text-muted-foreground hover:bg-transparent dark:hover:bg-card/5 transition-all shadow-sm"
+              className="h-9 w-9 shrink-0 rounded-xl border font-medium text-xs flex items-center justify-center bg-card border-border text-muted-foreground hover:bg-muted transition-all shadow-sm"
               title="Configurações"
             >
               <Settings className="w-4 h-4" />
@@ -1214,7 +1218,7 @@ export default function ProfileSettingsPage() {
                   className="fixed inset-0 z-40"
                   onClick={() => setShowSettingsDropdown(false)}
                 />
-                <div className="absolute right-0 top-full mt-2 w-56 bg-card dark:bg-[#1e2530] border border-border rounded-xl shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-200">
+                <div className="absolute right-0 top-full mt-2 w-56 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-200">
                   {/* Tema */}
                   <div className="px-3 py-2.5 border-b border-border">
                     <p className="text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-2">
@@ -1226,7 +1230,7 @@ export default function ProfileSettingsPage() {
                           setTheme("light");
                           setShowSettingsDropdown(false);
                         }}
-                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${theme !== "dark" ? "bg-transparent text-foreground" : "text-muted-foreground hover:bg-card/5"}`}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${theme !== "dark" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted"}`}
                       >
                         <svg
                           width="12"
@@ -1253,7 +1257,7 @@ export default function ProfileSettingsPage() {
                           setTheme("dark");
                           setShowSettingsDropdown(false);
                         }}
-                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${theme === "dark" ? "bg-card/10 text-foreground dark:text-white" : "text-muted-foreground hover:bg-transparent"}`}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${theme === "dark" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted"}`}
                       >
                         <svg
                           width="12"
@@ -1276,7 +1280,7 @@ export default function ProfileSettingsPage() {
                       setShowSettingsDropdown(false);
                       setIsEditing(true);
                     }}
-                    className="w-full text-left px-3 py-2.5 text-xs font-medium text-muted-foreground dark:text-white/80 hover:bg-transparent dark:hover:bg-card/5 flex items-center gap-2.5 transition-colors border-b border-border"
+                    className="w-full text-left px-3 py-2.5 text-xs font-medium text-muted-foreground hover:bg-muted flex items-center gap-2.5 transition-colors border-b border-border"
                   >
                     <Pencil className="w-4 h-4" />
                     Editar Perfil
@@ -1290,7 +1294,7 @@ export default function ProfileSettingsPage() {
                         setIsEditing(true);
                         setShowSettingsDropdown(false);
                       }}
-                      className="w-full text-left px-3 py-2.5 text-xs font-medium text-muted-foreground dark:text-white/80 hover:bg-transparent dark:hover:bg-card/5 flex items-center gap-2.5 transition-colors border-b border-border"
+                      className="w-full text-left px-3 py-2.5 text-xs font-medium text-muted-foreground hover:bg-muted flex items-center gap-2.5 transition-colors border-b border-border"
                     >
                       <svg
                         width="14"
@@ -1310,7 +1314,7 @@ export default function ProfileSettingsPage() {
                         setIsEditing(true);
                         setShowSettingsDropdown(false);
                       }}
-                      className="w-full text-left px-3 py-2.5 text-xs font-medium text-rose-500 hover:bg-rose-500/10 dark:hover:bg-rose-500/10 flex items-center gap-2.5 transition-colors border-b border-border"
+className="w-full text-left px-3 py-2.5 text-xs font-medium text-rose-500 hover:bg-rose-500/10 flex items-center gap-2.5 transition-colors border-b border-border"
                     >
                       <svg
                         width="14"
@@ -1331,7 +1335,7 @@ export default function ProfileSettingsPage() {
                       setShowSettingsDropdown(false);
                       handleResetPassword();
                     }}
-                    className="w-full text-left px-3 py-2.5 text-xs font-medium text-muted-foreground dark:text-white/80 hover:bg-transparent dark:hover:bg-card/5 flex items-center gap-2.5 transition-colors"
+                    className="w-full text-left px-3 py-2.5 text-xs font-medium text-muted-foreground hover:bg-muted flex items-center gap-2.5 transition-colors"
                   >
                     <svg
                       width="14"
@@ -1363,7 +1367,7 @@ export default function ProfileSettingsPage() {
             className={`bg-card border-y sm:border border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-6 transition-all ${isEditing ? "ring-1 ring-emerald-500/20" : ""}`}
           >
             <div className="flex items-center justify-between border-b border-border pb-3">
-              <h3 className="text-xs font-medium text-muted-foreground/80 dark:text-white/30 uppercase tracking-widest">
+<h3 className="text-xs font-medium text-muted-foreground/60 uppercase tracking-widest">
                 Dados Cadastrais
               </h3>
               <div className="flex items-center gap-2">
@@ -1403,7 +1407,7 @@ export default function ProfileSettingsPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
               <div>
                 <Label>País</Label>
-                <div className="h-11 px-3 bg-transparent dark:bg-transparent border border-border rounded-xl flex items-center text-xs font-medium text-foreground/90 truncate">
+<div className="h-11 px-3 bg-transparent border border-border rounded-xl flex items-center text-xs font-medium text-foreground/90 truncate">
                   {phonePrettyPrefix || "—"}
                 </div>
               </div>
@@ -1465,7 +1469,7 @@ export default function ProfileSettingsPage() {
                 </div>
                 {waValidation && (
                   <div
-                    className={`mt-1.5 flex items-center gap-1.5 text-[10px] font-medium ${waValidation.loading ? "text-muted-foreground/80" : waValidation.exists ? "text-emerald-400" : "text-rose-500"}`}
+                    className={`mt-1.5 flex items-center gap-1.5 text-[10px] font-medium ${waValidation.loading ? "text-muted-foreground/80" : waValidation.exists ? "text-emerald-500" : "text-rose-500"}`}
                   >
                     {waValidation.loading ? (
                       <>
@@ -1532,7 +1536,7 @@ export default function ProfileSettingsPage() {
           {/* CARD 2 DINÂMICO: SAÚDE OU PLANILHAS */}
           <div className="bg-card border-y sm:border border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-6 animate-in fade-in duration-300">
             <div className="flex items-center justify-between border-b border-border pb-3">
-              <h3 className="text-xs font-medium text-muted-foreground/80 dark:text-white/30 uppercase tracking-widest">
+<h3 className="text-xs font-medium text-muted-foreground/60 uppercase tracking-widest">
                 Saúde &amp; Avaliações
               </h3>
               <button
@@ -1558,7 +1562,7 @@ export default function ProfileSettingsPage() {
             {showHealthForm && (
               <div className="p-4 bg-transparent border border-border rounded-xl space-y-4">
                 {!profileHeight && (
-                  <p className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold">
+                  <p className="text-[11px] text-amber-500 font-semibold">
                     ⚠️ Informe sua altura nos Dados Pessoais para calcular o
                     IMC.
                   </p>
@@ -1605,7 +1609,7 @@ export default function ProfileSettingsPage() {
                         weight: "",
                       });
                     }}
-                    className="flex-1 h-10 border border-border text-muted-foreground font-medium rounded-xl text-xs hover:bg-transparent dark:hover:bg-card/5 transition-colors"
+className="flex-1 h-10 border border-border text-muted-foreground font-medium rounded-xl text-xs hover:bg-muted transition-colors"
                   >
                     Cancelar
                   </button>
@@ -1643,11 +1647,11 @@ export default function ProfileSettingsPage() {
                         return (
                           <div
                             key={record.id}
-                            className={`items-center gap-3 p-3 rounded-xl border transition-colors group ${isNewest ? "border-emerald-500/30 bg-emerald-500/5 shadow-[0_0_0_1px_rgba(16,185,129,0.15),0_2px_8px_rgba(16,185,129,0.08)]" : "border-border bg-transparent/50 dark:bg-transparent"} ${hideOnMobile ? "hidden xl:flex" : "flex"}`}
+                            className={`items-center gap-3 p-3 rounded-xl border transition-colors group ${isNewest ? "border-emerald-500/30 bg-emerald-500/5 shadow-[0_0_0_1px_rgba(16,185,129,0.15),0_2px_8px_rgba(16,185,129,0.08)]" : "border-border bg-muted/30"} ${hideOnMobile ? "hidden xl:flex" : "flex"}`}
                           >
                             {/* Data em bloco */}
                             <div className="shrink-0 text-center w-10">
-                              <p className="text-[9px] font-medium text-muted-foreground/80 dark:text-white/30 uppercase leading-none">
+                              <p className="text-[9px] font-medium text-muted-foreground/60 uppercase leading-none">
                                 {new Date(
                                   record.date + "T12:00:00",
                                 ).toLocaleDateString("pt-BR", {
@@ -1660,13 +1664,13 @@ export default function ProfileSettingsPage() {
                                   .toString()
                                   .padStart(2, "0")}
                               </p>
-                              <p className="text-[9px] text-muted-foreground/80 dark:text-white/30 leading-none">
+<p className="text-[9px] text-muted-foreground/60 leading-none">
                                 {new Date(
                                   record.date + "T12:00:00",
                                 ).getFullYear()}
                               </p>
                             </div>
-                            <div className="w-px h-9 bg-transparent shrink-0" />
+<div className="w-px h-9 bg-border shrink-0" />
 
                             {/* Métricas */}
                             <div className="flex-1 min-w-0 flex flex-wrap items-center gap-2">
@@ -1681,7 +1685,7 @@ export default function ProfileSettingsPage() {
                                 </span>
                               )}
                               {isNewest && (
-                                <span className="text-[10px] font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                                <span className="text-[10px] font-medium text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
                                   Mais recente
                                 </span>
                               )}
@@ -1735,7 +1739,7 @@ export default function ProfileSettingsPage() {
                       onClick={() =>
                         setShowAllHealthRecords(!showAllHealthRecords)
                       }
-                      className="w-full py-2.5 mt-2 text-[11px] font-medium text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white transition-colors bg-transparent rounded-xl border border-border"
+                      className="w-full py-2.5 mt-2 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors bg-transparent rounded-xl border border-border"
                     >
                       {showAllHealthRecords ? (
                         "↑ Ocultar avaliações anteriores"
@@ -1831,7 +1835,7 @@ export default function ProfileSettingsPage() {
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4">
                       <div>
                         <Label>Histórico de Composição</Label>
-                        <div className="flex items-center gap-3 text-[10px] text-muted-foreground/80 dark:text-white/50 mt-1">
+                        <div className="flex items-center gap-3 text-[10px] text-muted-foreground/70 mt-1">
                           <span className="flex items-center gap-1.5">
                             <span className="w-2.5 h-2.5 rounded-full bg-card border-2 border-[#10b981]" />
                             Caiu
@@ -1852,14 +1856,14 @@ export default function ProfileSettingsPage() {
                           )}
                         </div>
                       </div>
-                      {hasRef && idealWMin && (
-                        <span className="text-[10px] font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full shrink-0">
+{hasRef && idealWMin && (
+                        <span className="text-[10px] font-medium text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full shrink-0">
                           <Target className="w-4 h-4 inline-block mr-1.5 text-emerald-500" />{" "}
                           Peso ideal: {idealWMin}–{idealWMax} kg · IMC 18,5–24,9
                         </span>
                       )}
                     </div>
-                    <div className="w-full overflow-x-auto rounded-xl border border-border bg-card dark:bg-transparent">
+                    <div className="w-full overflow-x-auto rounded-xl border border-border bg-card">
                       <div className="relative" style={{ minWidth: `${W}px` }}>
                         {hoveredPt !== null &&
                           (() => {
@@ -1901,7 +1905,7 @@ export default function ProfileSettingsPage() {
                                     : "translate(8px, -100%)",
                                 }}
                               >
-                                <div className="bg-card dark:bg-[#1e2530] border border-border dark:border-white/15 rounded-xl shadow-xl px-3 py-2.5 space-y-1.5 min-w-[180px]">
+                                <div className="bg-card border border-border rounded-xl shadow-xl px-3 py-2.5 space-y-1.5 min-w-[180px]">
                                   <p className="text-[11px] font-black text-foreground">
                                     {fmtFull(d.date)} — {d.weight} kg
                                     {d.imc > 0 ? ` · IMC ${d.imc}` : ""}
@@ -1912,7 +1916,7 @@ export default function ProfileSettingsPage() {
                                       <b
                                         className={
                                           diffFirst < 0
-                                            ? "text-emerald-400"
+                                            ? "text-emerald-500"
                                             : diffFirst > 0
                                               ? "text-rose-500"
                                               : "text-muted-foreground/80"
@@ -1930,7 +1934,7 @@ export default function ProfileSettingsPage() {
                                       <b
                                         className={
                                           diffPrev < 0
-                                            ? "text-emerald-400"
+                                            ? "text-emerald-500"
                                             : diffPrev > 0
                                               ? "text-rose-500"
                                               : "text-muted-foreground/80"
@@ -2201,13 +2205,13 @@ export default function ProfileSettingsPage() {
           {/* PAINEL SESSÃO 1 */}
           <div className="bg-card border-y sm:border border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-border pb-2">
-              <h3 className="text-xs font-medium text-muted-foreground/80 dark:text-white/30 uppercase tracking-widest">
+<h3 className="text-xs font-medium text-muted-foreground/60 uppercase tracking-widest">
                 WhatsApp — Instância 1
               </h3>
             </div>
 
             {!canPairWhatsApp ? (
-              <div className="p-3 rounded-lg bg-amber-500/10 text-amber-600 border border-amber-500/20 dark:bg-amber-500/10 dark:border-amber-500/20 text-xs text-center font-medium">
+              <div className="p-3 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20 text-xs text-center font-medium">
                 Aguardando login estrutural.
               </div>
             ) : (
@@ -2231,7 +2235,7 @@ export default function ProfileSettingsPage() {
                           type="button"
                           onClick={() => void refreshWhatsAppPanel()}
                           disabled={waLoading}
-                          className="w-8 h-8 rounded-lg bg-card/5 border border-border flex items-center justify-center text-muted-foreground hover:text-emerald-400 transition-colors shadow-sm disabled:opacity-50"
+className="w-8 h-8 rounded-lg bg-muted border border-border flex items-center justify-center text-muted-foreground hover:text-emerald-500 transition-colors shadow-sm disabled:opacity-50"
                           title="Sincronizar"
                         >
                           {waLoading ? (
@@ -2253,7 +2257,7 @@ export default function ProfileSettingsPage() {
                           <button
                             type="button"
                             onClick={() => setShowWa1Settings(true)}
-                            className="w-8 h-8 rounded-lg bg-card/5 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white transition-colors shadow-sm"
+className="w-8 h-8 rounded-lg bg-muted border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shadow-sm"
                             title="Configurações de Chamada"
                           >
                             <svg
@@ -2280,7 +2284,7 @@ export default function ProfileSettingsPage() {
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <span className="text-xl font-medium text-slate-300 dark:text-white/20">
+                          <span className="text-xl font-medium text-muted-foreground/40">
                             WA
                           </span>
                         )}
@@ -2314,7 +2318,7 @@ export default function ProfileSettingsPage() {
                             Status:
                           </span>
                           <span
-                            className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm border ${waConnected ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400" : "bg-rose-500/10 text-rose-400 border-rose-500/20 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400"}`}
+                            className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm border ${waConnected ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-rose-500/10 text-rose-500 border-rose-500/20"}`}
                           >
                             {waConnected ? "On-line" : "Off-line"}
                           </span>
@@ -2330,7 +2334,7 @@ export default function ProfileSettingsPage() {
                           alt="QR Code WhatsApp"
                           className="w-52 h-52 rounded-xl object-contain"
                         />
-                        <p className="text-[11px] text-emerald-400 font-medium text-center">
+<p className="text-[11px] text-emerald-500 font-medium text-center">
                           📱 Escaneie com o WhatsApp
                         </p>
                       </div>
@@ -2341,7 +2345,7 @@ export default function ProfileSettingsPage() {
                         type="button"
                         onClick={() => void handleReconnectWhatsApp()}
                         disabled={waReconnecting}
-                        className="flex-1 py-2 rounded-xl bg-amber-500/10 text-amber-600 border border-amber-500/20 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400 font-medium text-xs hover:bg-amber-500/20 transition-colors shadow-sm"
+                        className="flex-1 py-2 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 font-medium text-xs hover:bg-amber-500/20 transition-colors shadow-sm"
                       >
                         <RefreshCcw className="w-4 h-4 mr-1.5 inline-block" />{" "}
                         Reiniciar
@@ -2350,7 +2354,7 @@ export default function ProfileSettingsPage() {
                         <button
                           type="button"
                           onClick={() => void handleDisconnectWhatsApp()}
-                          className="flex-1 py-2 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400 font-medium text-xs hover:bg-rose-500/20 transition-colors shadow-sm"
+                          className="flex-1 py-2 rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20 font-medium text-xs hover:bg-rose-500/20 transition-colors shadow-sm"
                         >
                           <Plug className="w-4 h-4 mr-1.5 inline-block" />{" "}
                           Desconectar
@@ -2379,14 +2383,14 @@ export default function ProfileSettingsPage() {
           {/* CARD IMPORT / EXPORT */}
           <div className="bg-card border-y sm:border border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-border pb-3">
-              <h3 className="text-xs font-medium text-muted-foreground/80 dark:text-white/30 uppercase tracking-widest">
+<h3 className="text-xs font-medium text-muted-foreground/60 uppercase tracking-widest">
                 Dados &amp; Planilhas
               </h3>
               <button
                 type="button"
                 onClick={() => setActionModal("template")}
                 disabled={!tenantId}
-                className="flex items-center gap-1.5 h-8 px-2 sm:px-3 rounded-xl border border-border bg-transparent text-muted-foreground hover:bg-transparent dark:hover:bg-card/10 transition-all"
+className="flex items-center gap-1.5 h-8 px-2 sm:px-3 rounded-xl border border-border bg-transparent text-muted-foreground hover:bg-muted transition-all"
                 title="Baixar Templates"
               >
                 <svg
@@ -2411,7 +2415,7 @@ export default function ProfileSettingsPage() {
                 type="button"
                 onClick={() => setActionModal("export")}
                 disabled={!tenantId || exporting}
-                className="flex-1 h-11 px-3 rounded-xl border border-border bg-transparent font-medium text-xs text-foreground/90 hover:bg-transparent dark:hover:bg-card/10 transition-all flex items-center justify-center gap-2"
+                className="flex-1 h-11 px-3 rounded-xl border border-border bg-transparent font-medium text-xs text-foreground/90 hover:bg-muted transition-all flex items-center justify-center gap-2"
               >
                 <svg
                   width="14"
@@ -2440,7 +2444,7 @@ export default function ProfileSettingsPage() {
                   importingMessage ||
                   importingServer
                 }
-                className="flex-1 h-11 px-3 rounded-xl border border-border bg-transparent font-medium text-xs text-foreground/90 hover:bg-transparent dark:hover:bg-card/10 transition-all flex items-center justify-center gap-2"
+                className="flex-1 h-11 px-3 rounded-xl border border-border bg-transparent font-medium text-xs text-foreground/90 hover:bg-muted transition-all flex items-center justify-center gap-2"
               >
                 <svg
                   width="14"
@@ -2626,7 +2630,7 @@ export default function ProfileSettingsPage() {
                     setActionModal(null);
                     item.act();
                   }}
-                  className="w-full text-left text-xs p-3 font-semibold rounded-lg border border-border bg-transparent hover:bg-transparent dark:hover:bg-card/10 text-foreground/90 transition-colors flex items-center gap-2"
+                  className="w-full text-left text-xs p-3 font-semibold rounded-lg border border-border bg-transparent hover:bg-muted text-foreground/90 transition-colors flex items-center gap-2"
                 >
                   <span>{item.icon}</span> {item.n}
                 </button>
@@ -2635,7 +2639,7 @@ export default function ProfileSettingsPage() {
             <button
               type="button"
               onClick={() => setActionModal(null)}
-              className="w-full text-center text-xs font-medium text-muted-foreground/80 mt-2 hover:text-muted-foreground dark:hover:text-white/80"
+              className="w-full text-center text-xs font-medium text-muted-foreground/80 mt-2 hover:text-foreground"
             >
               Fechar
             </button>
@@ -2656,14 +2660,14 @@ export default function ProfileSettingsPage() {
                   <h3 className="text-base font-medium text-foreground">
                     ⚙️ Instância 1 — Configurações
                   </h3>
-                  <p className="text-xs text-muted-foreground/80 dark:text-muted-foreground mt-0.5">
+                  <p className="text-xs text-muted-foreground/80 mt-0.5">
                     Controle de chamadas recebidas.
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowWa1Settings(false)}
-                  className="shrink-0 w-8 h-8 rounded-xl bg-transparent flex items-center justify-center text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white text-lg leading-none transition-colors"
+                  className="shrink-0 w-8 h-8 rounded-xl bg-transparent flex items-center justify-center text-muted-foreground hover:text-foreground text-lg leading-none transition-colors"
                 >
                   ×
                 </button>
@@ -2675,7 +2679,7 @@ export default function ProfileSettingsPage() {
                 <button
                   type="button"
                   onClick={() => setWaRejectCalls((v) => !v)}
-                  className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 overflow-hidden ${waRejectCalls ? "bg-emerald-500" : "bg-transparent dark:bg-card/20"}`}
+                  className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 overflow-hidden ${waRejectCalls ? "bg-emerald-500" : "bg-muted"}`}
                 >
                   <span
                     className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-card shadow-sm transition-transform duration-200 ${waRejectCalls ? "translate-x-5" : "translate-x-0"}`}
@@ -3147,7 +3151,7 @@ function WhatsAppSession2Panel({
                     className="w-full h-full object-cover p-1"
                   />
                 ) : (
-                  <span className="text-xl font-medium text-slate-300 dark:text-white/20">
+                  <span className="text-xl font-medium text-muted-foreground/40">
                     WA
                   </span>
                 )}
@@ -3181,10 +3185,10 @@ function WhatsAppSession2Panel({
                     Status:
                   </span>
                   <span
-                    className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm border ${waConnected ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400" : "bg-rose-500/10 text-rose-400 border-rose-500/20 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400"}`}
-                  >
-                    {waConnected ? "On-line" : "Off-line"}
-                  </span>
+                            className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm border ${waConnected ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-rose-500/10 text-rose-500 border-rose-500/20"}`}
+                          >
+                            {waConnected ? "On-line" : "Off-line"}
+                          </span>
                 </div>
               </div>
             </div>
@@ -3194,7 +3198,7 @@ function WhatsAppSession2Panel({
                 type="button"
                 onClick={() => void handleReconnect()}
                 disabled={isReconnecting}
-                className="flex-1 py-2 rounded-xl bg-amber-500/10 text-amber-600 border border-amber-500/20 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400 font-medium text-xs hover:bg-amber-500/20 transition-colors shadow-sm"
+                className="flex-1 py-2 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 font-medium text-xs hover:bg-amber-500/20 transition-colors shadow-sm"
               >
                 <RefreshCcw className="w-4 h-4 mr-1.5 inline-block" /> Reiniciar
               </button>
@@ -3202,7 +3206,7 @@ function WhatsAppSession2Panel({
                 <button
                   type="button"
                   onClick={() => void handleDisconnect()}
-                  className="flex-1 py-2 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400 font-medium text-xs hover:bg-rose-500/20 transition-colors shadow-sm"
+                  className="flex-1 py-2 rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20 font-medium text-xs hover:bg-rose-500/20 transition-colors shadow-sm"
                 >
                   <Plug className="w-4 h-4 mr-1.5 inline-block" /> Desligar
                 </button>
@@ -3241,7 +3245,7 @@ function WhatsAppSession2Panel({
                 <button
                   type="button"
                   onClick={() => setWaRejectCalls((v) => !v)}
-                  className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${waRejectCalls ? "bg-emerald-500" : "bg-transparent dark:bg-card/20"}`}
+                  className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 overflow-hidden ${waRejectCalls ? "bg-emerald-500" : "bg-muted"}`}
                 >
                   <span
                     className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-card shadow transition-transform ${waRejectCalls ? "translate-x-5" : "translate-x-0"}`}
@@ -3252,7 +3256,7 @@ function WhatsAppSession2Panel({
               {waRejectCalls && (
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground uppercase mb-1.5">
+<label className="block text-[10px] font-medium text-muted-foreground/80 uppercase mb-1.5">
                       Mensagem de Resposta
                     </label>
                     <div className="flex flex-wrap gap-1 mb-2">
@@ -3261,7 +3265,7 @@ function WhatsAppSession2Panel({
                           key={tag}
                           type="button"
                           onClick={() => setWaRejectMessage((v) => v + tag)}
- className="text-[10px] px-2 py-0.5 rounded border border-border bg-card/5 hover:bg-emerald-500/10 dark:hover:bg-emerald-900/20 text-muted-foreground dark:text-white transition-colors"
+ className="text-[10px] px-2 py-0.5 rounded border border-border bg-muted hover:bg-emerald-500/10 text-muted-foreground transition-colors"
                         >
                           {tag}
                         </button>
@@ -3278,7 +3282,7 @@ function WhatsAppSession2Panel({
 
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground uppercase">
+                      <label className="text-[10px] font-medium text-muted-foreground/80 uppercase">
                         Lista Branca (Exceções)
                       </label>
                       <button
@@ -3296,7 +3300,7 @@ function WhatsAppSession2Panel({
                             ...waAllowedList,
                           ])
                         }
-                        className="text-[10px] font-medium text-emerald-400 hover:underline"
+className="text-[10px] font-medium text-emerald-500 hover:underline"
                       >
                         + Adicionar
                       </button>
@@ -3326,7 +3330,7 @@ function WhatsAppSession2Panel({
                                   )
                                 }
                                 placeholder="Nome"
-                                className="w-1/3 h-8 px-2 text-xs bg-card border border-border rounded-lg outline-none focus:border-emerald-500/50 text-foreground placeholder-slate-400"
+                                className="w-1/3 h-8 px-2 text-xs bg-card border border-border rounded-lg outline-none focus:border-emerald-500/50 text-foreground placeholder-muted-foreground/60"
                               />
                               <input
                                 value={row.raw}
@@ -3345,7 +3349,7 @@ function WhatsAppSession2Panel({
                                 }
                                 onBlur={() => validateWaRow(row.id, row.raw)}
                                 placeholder="Número com DDI"
-                                className="flex-1 h-8 px-2 text-xs font-mono bg-card border border-border rounded-lg outline-none focus:border-emerald-500/50 text-foreground placeholder-slate-400"
+                                className="flex-1 h-8 px-2 text-xs font-mono bg-card border border-border rounded-lg outline-none focus:border-emerald-500/50 text-foreground placeholder-muted-foreground/60"
                               />
                               <button
                                 type="button"
@@ -3354,7 +3358,7 @@ function WhatsAppSession2Panel({
                                     prev.filter((r) => r.id !== row.id),
                                   )
                                 }
-                                className="w-8 h-8 flex items-center justify-center text-rose-500 bg-card border border-border rounded-lg hover:bg-rose-500/10 dark:hover:bg-rose-500/10 transition-colors"
+                                className="w-8 h-8 flex items-center justify-center text-rose-500 bg-card border border-border rounded-lg hover:bg-rose-500/10 transition-colors"
                               >
                                 <svg
                                   width="14"
@@ -3399,7 +3403,7 @@ function WhatsAppSession2Panel({
                 <button
                   type="button"
                   onClick={() => setShowWa2Settings(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-border text-muted-foreground/80 font-medium text-xs hover:bg-transparent dark:hover:bg-card/5 transition-colors"
+className="flex-1 py-2.5 rounded-xl border border-border text-muted-foreground/80 font-medium text-xs hover:bg-muted transition-colors"
                 >
                   Cancelar
                 </button>

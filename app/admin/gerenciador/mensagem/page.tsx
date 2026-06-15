@@ -91,8 +91,7 @@ function IconUpload() {
 const TAG_GROUPS = [
   {
     title: "🤖 Automação Inteligente & Prazos",
-    color:
-      "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400",
+    color: "bg-indigo-500/10 text-indigo-500",
     tags: [
       { label: "{saudacao_tempo}", desc: "Bom dia / Boa tarde / Boa noite" },
       {
@@ -108,7 +107,7 @@ const TAG_GROUPS = [
   },
   {
     title: "👤 Dados do Cliente",
-    color: "bg-blue-500/10 text-blue-400 dark:bg-blue-500/10 dark:text-blue-400",
+    color: "bg-sky-500/10 text-sky-500",
     tags: [
       { label: "{saudacao}", desc: "Sr., Sra. (name_prefix)" },
       { label: "{primeiro_nome}", desc: "Primeiro nome (Ex: João)" },
@@ -120,8 +119,7 @@ const TAG_GROUPS = [
   },
   {
     title: "🖥️ Acesso e Servidor",
-    color:
-      "bg-emerald-500/10 text-emerald-400 dark:bg-emerald-500/10 dark:text-emerald-400",
+    color: "bg-emerald-500/10 text-emerald-500",
     tags: [
       { label: "{usuario_app}", desc: "Usuário (server_username)" },
       { label: "{senha_app}", desc: "Senha (server_password)" },
@@ -133,7 +131,7 @@ const TAG_GROUPS = [
   },
   {
     title: "📅 Dados da Assinatura (Datas)",
-    color: "bg-rose-500/10 text-rose-400 dark:bg-rose-500/10 dark:text-rose-400",
+    color: "bg-rose-500/10 text-rose-500",
     tags: [
       { label: "{data_vencimento}", desc: "Data exata (DD/MM/AAAA)" },
       { label: "{hora_vencimento}", desc: "Hora exata (HH:MM)" },
@@ -142,8 +140,7 @@ const TAG_GROUPS = [
   },
   {
     title: "🏢 Dados da Revenda",
-    color:
-      "bg-purple-500/10 text-purple-400 dark:bg-purple-500/10 dark:text-purple-400",
+    color: "bg-purple-500/10 text-purple-500",
     tags: [
       { label: "{revenda_nome}", desc: "Nome do Revendedor" },
       {
@@ -157,8 +154,7 @@ const TAG_GROUPS = [
   },
   {
     title: "💰 Financeiro",
-    color:
-      "bg-amber-500/10 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400",
+    color: "bg-amber-500/10 text-amber-500",
     tags: [
       { label: "{venda_creditos}", desc: "Qtd. de Créditos da Última Recarga" },
       { label: "{link_pagamento}", desc: "Link Área do Cliente / Fatura" },
@@ -347,10 +343,10 @@ export default function MessagesPage() {
 
       {/* Barra de Busca (padrão admin) */}
       <div
-        className="p-0 px-3 sm:px-0 md:p-4 bg-transparent md:bg-card md:dark:bg-card border-0 md:border md:border-border md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-4 md:mb-6 md:sticky md:top-4 z-20"
+        className="p-0 px-3 sm:px-0 md:p-4 bg-transparent md:bg-card border-0 md:border md:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-4 md:mb-6 md:sticky md:top-4 z-20"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground/80 dark:text-muted-foreground tracking-wider">
+        <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground/60 tracking-wider">
           Busca
         </div>
 
@@ -377,7 +373,7 @@ export default function MessagesPage() {
 
           <button
             onClick={() => setSearch("")}
-            className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors items-center justify-center gap-2"
+            className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 text-sm font-medium hover:bg-rose-500/20 transition-colors items-center justify-center gap-2"
           >
             <IconX /> Limpar
           </button>
@@ -386,18 +382,18 @@ export default function MessagesPage() {
 
       {/* LISTA DE MENSAGENS (LISTA COM SELEÇÃO + AÇÕES À DIREITA) */}
       {loading ? (
-        <div className="p-12 text-center text-muted-foreground/80 dark:text-muted-foreground animate-pulse bg-card rounded-none sm:rounded-xl border border-border font-medium">
+        <div className="p-12 text-center text-muted-foreground/80 animate-pulse bg-card rounded-none sm:rounded-xl border border-border font-medium">
           Carregando modelos...
         </div>
       ) : filteredMessages.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 bg-card border border-dashed border-border dark:border-border rounded-none sm:rounded-2xl">
+        <div className="flex flex-col items-center justify-center py-20 bg-card border border-dashed border-border rounded-none sm:rounded-2xl">
           <div className="w-16 h-16 bg-transparent border border-border rounded-full flex items-center justify-center mb-4 text-3xl">
             <MessageCircle className="w-4 h-4" />
           </div>
           <h3 className="text-lg font-medium text-foreground/90">
             Nenhum modelo encontrado
           </h3>
-          <p className="text-sm text-foreground/70 dark:text-white/50 mt-1">
+          <p className="text-sm text-foreground/70 mt-1">
             Crie um novo modelo ou ajuste sua busca.
           </p>
         </div>
@@ -419,11 +415,11 @@ export default function MessagesPage() {
                       <h2 className="text-sm font-medium text-foreground/90 truncate">
                         {title}
                       </h2>
-                      <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-xs font-medium">
+<span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 text-xs font-medium">
                         {items.length}
                       </span>
                     </div>
-                    <div className="text-[10px] font-medium text-muted-foreground/80 dark:text-white/30 uppercase tracking-wider hidden sm:block">
+                    <div className="text-[10px] font-medium text-muted-foreground/40 uppercase tracking-wider hidden sm:block">
                       Selecione para destacar
                     </div>
                   </div>
@@ -447,7 +443,7 @@ export default function MessagesPage() {
                             "w-full flex items-center justify-between gap-2 px-3 sm:px-5 py-3 transition-colors cursor-pointer bg-card",
                             isSelected
                               ? "bg-emerald-500/10"
-                              : "hover:bg-transparent dark:hover:bg-card/5",
+                              : "hover:bg-muted/30",
                           ].join(" ")}
                         >
                           <div className="min-w-0 flex-1 pr-2">
@@ -457,7 +453,7 @@ export default function MessagesPage() {
                                   "inline-flex w-2 h-2 rounded-full shrink-0",
                                   isSelected
                                     ? "bg-emerald-500"
-                                    : "bg-transparent dark:bg-card/20",
+                                    : "bg-muted",
                                 ].join(" ")}
                               />
                               <h3
@@ -481,7 +477,7 @@ export default function MessagesPage() {
                                 setSelectedTemplate(msg);
                                 setShowPreview(true);
                               }}
-                              className="flex items-center justify-center w-8 h-8 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 dark:hover:bg-sky-500/20 transition-all"
+                              className="flex items-center justify-center w-8 h-8 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-500 hover:bg-sky-500/20 transition-all"
                               title="Ver"
                             >
                               <IconEye />
@@ -492,7 +488,7 @@ export default function MessagesPage() {
                                 setSelectedTemplate(msg);
                                 setShowEditor(true);
                               }}
-                              className="flex items-center justify-center w-8 h-8 rounded-lg border border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 dark:hover:bg-amber-500/20 transition-all"
+                              className="flex items-center justify-center w-8 h-8 rounded-lg border border-amber-500/20 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 transition-all"
                               title="Editar"
                             >
                               <IconEdit />
@@ -503,7 +499,7 @@ export default function MessagesPage() {
                                   e.stopPropagation();
                                   handleDelete(msg.id);
                                 }}
-                                className="flex items-center justify-center w-8 h-8 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-all"
+                                className="flex items-center justify-center w-8 h-8 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 transition-all"
                                 title="Excluir"
                               >
                                 <IconTrash />
@@ -603,7 +599,7 @@ function PreviewModal({
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-transparent0 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
       <div className="w-full h-full sm:h-auto max-w-lg bg-card border-0 sm:border border-border rounded-none sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[100dvh] sm:max-h-[80vh]">
         {/* Cabeçalho */}
         <div className="px-4 py-3 sm:px-5 sm:py-4 border-b border-border flex justify-between items-center bg-transparent shrink-0">
@@ -612,18 +608,18 @@ function PreviewModal({
           </h3>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:bg-transparent dark:hover:bg-card/10 hover:text-foreground dark:hover:text-foreground dark:text-white transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:bg-muted hover:text-foreground transition-colors"
           >
             ✕
           </button>
         </div>
 
-        {/* Conteúdo da Mensagem */}
-        <div className="flex-1 p-4 sm:p-6 overflow-y-auto custom-scrollbar bg-transparent/50 dark:bg-transparent border border-border">
-          <div className="flex flex-col gap-4 whitespace-pre-wrap text-sm text-muted-foreground dark:text-slate-300 font-mono leading-relaxed bg-card dark:bg-background p-3 sm:p-4 rounded-xl border border-border shadow-sm min-h-full">
+{/* Conteúdo da Mensagem */}
+        <div className="flex-1 p-4 sm:p-6 overflow-y-auto custom-scrollbar bg-transparent/50 border border-border">
+          <div className="flex flex-col gap-4 whitespace-pre-wrap text-sm text-muted-foreground font-mono leading-relaxed bg-card p-3 sm:p-4 rounded-xl border border-border shadow-sm min-h-full">
             {/* ✅ PREVIEW DA IMAGEM SE HOUVER */}
             {template.image_url && (
-              <div className="relative w-full max-w-sm mx-auto bg-transparent border border-border rounded-lg overflow-hidden border border-border">
+              <div className="relative w-full max-w-sm mx-auto bg-transparent border border-border rounded-lg overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={template.image_url}
@@ -645,10 +641,10 @@ function PreviewModal({
               setCopied(true);
               setTimeout(() => setCopied(false), 2000); // Volta ao normal após 2 segundos
             }}
-            className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-lg border font-medium text-xs transition-colors uppercase flex items-center justify-center gap-1.5 ${
+className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-lg border font-medium text-xs transition-colors uppercase flex items-center justify-center gap-1.5 ${
               copied
-                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                : "border-border text-foreground/90 hover:bg-transparent dark:hover:bg-card/5"
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
+                : "border-border text-foreground/90 hover:bg-muted"
             }`}
           >
             {copied ? (
@@ -689,7 +685,7 @@ function PreviewModal({
 
           <button
             onClick={onClose}
-            className="flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 font-medium text-xs hover:bg-transparent dark:hover:bg-card/5 transition-colors uppercase"
+            className="flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-lg border border-border text-muted-foreground font-medium text-xs hover:bg-muted transition-colors uppercase"
           >
             Fechar
           </button>
@@ -920,14 +916,14 @@ function EditorModal({
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-stretch sm:items-center justify-center bg-transparent0 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[99999] flex items-stretch sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
       <div
         className="w-full h-full sm:h-auto max-w-6xl bg-card border-0 sm:border border-border rounded-none sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[100dvh] sm:max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-border flex justify-between items-center bg-transparent">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-xl">
+            <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-xl">
               <Pencil className="w-4 h-4" />
             </div>
             <div>
@@ -938,7 +934,7 @@ function EditorModal({
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:text-foreground hover:bg-transparent dark:hover:bg-card/10 transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:text-foreground hover:bg-muted transition-colors"
           >
             ✕
           </button>
@@ -953,9 +949,9 @@ function EditorModal({
                 onClick={() => setMobileTagsOpen((v) => !v)}
                 className="w-full h-11 px-4 rounded-xl border border-border bg-transparent text-foreground/90 font-medium text-xs flex items-center justify-between"
               >
-                <span className="flex items-center gap-2">
+<span className="flex items-center gap-2">
                   🏷️ Variáveis
-                  <span className="text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground">
+                  <span className="text-[10px] font-medium text-muted-foreground/60">
                     (toque para {mobileTagsOpen ? "fechar" : "abrir"})
                   </span>
                 </span>
@@ -967,7 +963,7 @@ function EditorModal({
               {mobileTagsOpen && (
                 <div className="mt-3 rounded-xl border border-border bg-card overflow-hidden">
                   <div className="p-3 border-b border-border bg-transparent">
-                    <h3 className="text-xs font-medium text-muted-foreground dark:text-white uppercase tracking-widest flex items-center gap-2">
+                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-widest flex items-center gap-2">
                       🏷️ Variáveis Disponíveis
                     </h3>
                     <p className="text-[10px] text-muted-foreground/80 mt-1">
@@ -978,7 +974,7 @@ function EditorModal({
                       value={mobileTagsQuery}
                       onChange={(e) => setMobileTagsQuery(e.target.value)}
                       placeholder="Filtrar (ex: vencimento, pix, primeiro_nome...)"
-                      className="mt-3 w-full h-10 px-3 rounded-lg border border-border bg-card dark:bg-transparent border border-border text-sm text-foreground/90 outline-none focus:border-emerald-500 transition-colors"
+                      className="mt-3 w-full h-10 px-3 rounded-lg border border-border bg-card text-sm text-foreground/90 outline-none focus:border-emerald-500 transition-colors"
                     />
                   </div>
 
@@ -995,13 +991,13 @@ function EditorModal({
                             insertTag(tag.label);
                             setMobileTagsOpen(false);
                           }}
-                          className={`text-left px-3 py-2.5 rounded-lg border border-border hover:brightness-95 hover:shadow-sm active:scale-95 transition-all flex flex-col group ${tag.color} bg-card dark:bg-[#1c2128]`}
+                          className={`text-left px-3 py-2.5 rounded-lg border border-border hover:brightness-95 hover:shadow-sm active:scale-95 transition-all flex flex-col group ${tag.color} bg-card`}
                         >
                           <div className="flex items-center justify-between gap-3">
- <span className=" text-xs font-medium tracking-tight">
+                            <span className="text-xs font-medium tracking-tight">
                               {tag.label}
                             </span>
-                            <span className="text-[10px] text-muted-foreground/80 dark:text-white/30 font-medium truncate">
+                            <span className="text-[10px] text-muted-foreground/40 font-medium truncate">
                               {tag.groupTitle}
                             </span>
                           </div>
@@ -1028,15 +1024,15 @@ function EditorModal({
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ex: Cobrança 3 dias antes..."
                 readOnly={isProtected} // 🔒 Trava a edição do nome
-                className={`w-full h-12 px-4 border rounded-xl text-foreground outline-none focus:border-emerald-500 transition-colors font-medium ${
+className={`w-full h-12 px-4 border rounded-xl text-foreground outline-none focus:border-emerald-500 transition-colors font-medium ${
                   isProtected
-                    ? "bg-transparent border border-border border-dashed border-border text-muted-foreground cursor-not-allowed"
+                    ? "bg-transparent border-border border-dashed text-muted-foreground cursor-not-allowed"
                     : "bg-transparent border-border"
                 }`}
                 autoFocus={!isProtected}
               />
               {isProtected && (
-                <p className="text-[10px] text-sky-400 mt-2 font-medium flex items-center gap-1">
+                <p className="text-[10px] text-sky-500 mt-2 font-medium flex items-center gap-1">
                   🔒 Este é um modelo fundamental do sistema. O nome não pode
                   ser alterado, apenas o seu conteúdo.
                 </p>
@@ -1084,7 +1080,7 @@ function EditorModal({
                 {!previewUrl && (
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-400 text-[11px] font-medium hover:bg-sky-500/20 dark:hover:bg-sky-500/20 transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-500 text-[11px] font-medium hover:bg-sky-500/20 transition-colors"
                   >
                     <IconUpload /> Adicionar Imagem
                   </button>
@@ -1111,7 +1107,7 @@ function EditorModal({
                       setImageFile(null);
                       if (fileInputRef.current) fileInputRef.current.value = "";
                     }}
-                    className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-rose-500/10 text-rose-400 dark:bg-rose-500/10 dark:text-rose-400 shadow-md flex items-center justify-center hover:scale-110 transition-transform"
+                    className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-rose-500/10 text-rose-500 shadow-md flex items-center justify-center hover:scale-110 transition-transform"
                     title="Remover Imagem"
                   >
                     ✕
@@ -1134,7 +1130,7 @@ function EditorModal({
           {/* DESKTOP: Variáveis na lateral (sem mudar lógica) */}
           <div className="hidden lg:flex w-96 bg-card flex-col">
             <div className="p-4 border-b border-border bg-transparent">
-              <h3 className="text-xs font-medium text-muted-foreground dark:text-white uppercase tracking-widest flex items-center gap-2">
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-widest flex items-center gap-2">
                 🏷️ Variáveis Disponíveis
               </h3>
               <p className="text-[10px] text-muted-foreground/80 mt-1">
@@ -1148,12 +1144,12 @@ function EditorModal({
                 return (
                   <div
                     key={idx}
-                    className="bg-card dark:bg-[#1c2128] rounded-xl border border-border overflow-hidden transition-all shadow-sm"
+                    className="bg-card rounded-xl border border-border overflow-hidden transition-all shadow-sm"
                   >
                     <button
                       type="button"
                       onClick={() => toggleDesktopGroup(idx)}
-                      className={`w-full flex items-center justify-between p-3 text-left transition-colors ${isOpen ? "bg-transparent border-b border-border" : "hover:bg-transparent dark:hover:bg-card/5"}`}
+                      className={`w-full flex items-center justify-between p-3 text-left transition-colors ${isOpen ? "bg-transparent border-b border-border" : "hover:bg-muted/30"}`}
                     >
                       <h4 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
                         {group.title}
@@ -1165,13 +1161,13 @@ function EditorModal({
 
                     {isOpen && (
                       <div className="p-3 grid grid-cols-1 gap-2 bg-transparent">
-                        {group.tags.map((tag) => (
+{group.tags.map((tag) => (
                           <button
                             key={tag.label}
                             onClick={() => insertTag(tag.label)}
-                            className={`text-left px-3 py-2.5 rounded-lg border border-border hover:brightness-95 hover:shadow-sm active:scale-95 transition-all flex flex-col group ${group.color} bg-card dark:bg-[#1c2128]`}
+                            className={`text-left px-3 py-2.5 rounded-lg border border-border hover:brightness-95 hover:shadow-sm active:scale-95 transition-all flex flex-col group ${group.color} bg-card`}
                           >
- <span className=" text-xs font-medium tracking-tight">
+                            <span className="text-xs font-medium tracking-tight">
                               {tag.label}
                             </span>
                             <span className="text-[10px] opacity-60 group-hover:opacity-100 mt-0.5 font-medium">
@@ -1196,7 +1192,7 @@ function EditorModal({
           <div className="flex gap-3 w-full sm:w-auto justify-end">
             <button
               onClick={onClose}
-              className="flex-1 sm:flex-none px-6 py-3 rounded-xl border border-border text-muted-foreground font-medium text-xs hover:bg-card dark:hover:bg-card/10 transition-colors uppercase tracking-wider"
+              className="flex-1 sm:flex-none px-6 py-3 rounded-xl border border-border text-muted-foreground font-medium text-xs hover:bg-muted transition-colors uppercase tracking-wider"
             >
               Cancelar
             </button>

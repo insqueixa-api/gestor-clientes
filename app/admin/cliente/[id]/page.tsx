@@ -52,12 +52,12 @@ function tableLabelFromClient(
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
     ACTIVE:
-      "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+      "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
     OVERDUE:
-      "bg-rose-500/10 text-rose-400 border-rose-500/20",
-    TRIAL: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+      "bg-rose-500/10 text-rose-500 border-rose-500/20",
+    TRIAL: "bg-sky-500/10 text-sky-500 border-sky-500/20",
     ARCHIVED:
-      "bg-transparent0/10 text-muted-foreground border-slate-500/20",
+      "bg-muted text-muted-foreground border-border",
   };
   const labelMap: Record<string, string> = {
     ACTIVE: "Ativo",
@@ -660,7 +660,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
   if (!clientIdSafe) {
     return (
       <div className="p-10 text-center text-rose-500 font-medium">
- Rota inválida: não encontrei o <span className=" ">id</span> do
+        Rota inválida: não encontrei o <span className="font-mono">id</span> do
         cliente nos params.
       </div>
     );
@@ -682,7 +682,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
 
   if (loading)
     return (
-      <div className="p-10 text-center text-muted-foreground/80 dark:text-white/20 animate-pulse font-medium">
+<div className="p-10 text-center text-muted-foreground/60 animate-pulse font-medium">
         Carregando...
       </div>
     );
@@ -708,7 +708,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
             <button
               onClick={() => setValuesHidden(v => !v)}
               title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-card/5 text-muted-foreground/80 hover:text-foreground/90 hover:border-slate-400 transition-all text-xs font-medium shadow-sm select-none"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground hover:text-foreground hover:border-border-hover transition-all text-xs font-medium shadow-sm select-none"
             >
               {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               <span className="hidden sm:inline text-[11px] tracking-wide">
@@ -726,7 +726,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
           {/* Voltar (Só no Desktop) */}
           <Link
             href="/admin/cliente"
-            className="hidden sm:inline-flex h-9 px-3 rounded-lg border border-border text-muted-foreground dark:text-white/60 font-medium text-xs hover:bg-transparent dark:hover:bg-card/5 transition-all items-center justify-center"
+            className="hidden sm:inline-flex h-9 px-3 rounded-lg border border-border text-muted-foreground font-medium text-xs hover:bg-muted transition-all items-center justify-center"
           >
             Voltar
           </Link>
@@ -735,7 +735,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
           {client.client_is_archived && (
             <button
               onClick={handleDeleteForever}
-              className="h-9 sm:h-9 px-3 rounded-lg border border-red-500/20 bg-red-500/10 text-red-600 dark:text-red-400 font-medium text-xs hover:bg-red-500/20 transition-all shadow-sm inline-flex items-center justify-center gap-2"
+              className="h-9 sm:h-9 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 font-medium text-xs hover:bg-rose-500/20 transition-all shadow-sm inline-flex items-center justify-center gap-2"
               title="Excluir para sempre"
             >
               <IconTrash />
@@ -746,10 +746,10 @@ const [valuesHidden, setValuesHidden] = useState(false);
           {/* Botão Arquivar (Icone no Mobile, Texto no Desktop) */}
           <button
             onClick={handleArchiveToggle}
-            className={`h-9 sm:h-9 px-3 rounded-lg border font-medium text-xs transition-all shadow-sm inline-flex items-center justify-center gap-2 ${
+className={`h-9 sm:h-9 px-3 rounded-lg border font-medium text-xs transition-all shadow-sm inline-flex items-center justify-center gap-2 ${
               client.client_is_archived
-                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20"
-                : "bg-rose-500/10 border-rose-500/20 text-rose-400 hover:bg-rose-500/20"
+                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20"
+                : "bg-rose-500/10 border-rose-500/20 text-rose-500 hover:bg-rose-500/20"
             }`}
             title={client.client_is_archived ? "Restaurar" : "Arquivar"}
           >
@@ -797,7 +797,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
               setTimeout(() => setIsEditingLoading(false), 5000);
             }}
             disabled={isEditingLoading}
-            className="h-9 sm:h-9 px-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-medium text-xs hover:bg-amber-500/20 transition-all shadow-sm inline-flex items-center justify-center gap-2"
+className="h-9 sm:h-9 px-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 font-medium text-xs hover:bg-amber-500/20 transition-all shadow-sm inline-flex items-center justify-center gap-2"
             title="Editar"
           >
             {isEditingLoading ? <IconLoading /> : <IconEdit />}
@@ -812,7 +812,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
               setTimeout(() => setIsTrialLoading(false), 5000);
             }}
             disabled={client.client_is_archived || isTrialLoading}
-            className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-400 font-medium text-xs hover:bg-sky-500/20 transition-all shadow-sm inline-flex items-center gap-2 justify-center"
+className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-500 font-medium text-xs hover:bg-sky-500/20 transition-all shadow-sm inline-flex items-center gap-2 justify-center"
             title="Criar teste rápido com os dados deste cliente"
           >
             {isTrialLoading ? <IconLoading /> : <IconFastTimer />}
@@ -841,7 +841,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
         <div className="space-y-4">
           {/* 1. CARD ASSINATURA ATUAL */}
           <div className="bg-card border-y sm:border border-border sm:rounded-xl p-4 shadow-sm transition-colors">
-            <h3 className="text-[10px] font-medium text-muted-foreground/80 dark:text-white/20 uppercase mb-3 tracking-widest">
+<h3 className="text-[10px] font-medium text-muted-foreground/60 uppercase mb-3 tracking-widest">
               Assinatura atual
             </h3>
 
@@ -867,7 +867,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
                     ? "bg-sky-500/10 text-sky-500 border-sky-500/20" 
                     : t === "P2P" 
                     ? "bg-rose-500/10 text-rose-500 border-rose-500/20" 
-                    : "bg-transparent text-muted-foreground border-border dark:border-slate-500/20 dark:bg-card/5";
+                    : "bg-muted text-muted-foreground border-border";
                   return (
                     <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase ${colors}`}>
                       {client.technology || "—"}
@@ -915,7 +915,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
                             {label}
                           </span>
                           <span
-                            className={`text-xs text-right ${app.expiration ? (isExpiringSoon ? "text-rose-500 font-medium" : "text-muted-foreground font-medium") : "text-muted-foreground/80 dark:text-white/30 italic"}`}
+                            className={`text-xs text-right ${app.expiration ? (isExpiringSoon ? "text-rose-500 font-medium" : "text-muted-foreground font-medium") : "text-muted-foreground/60 italic"}`}
                           >
                             {app.expiration
                               ? `Vence: ${new Date(`${app.expiration}T12:00:00`).toLocaleDateString("pt-BR")}`
@@ -930,7 +930,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
               {/* DIVISOR FINANCEIRO (Com margem ajustada) */}
               <div className="pt-3 pb-1">
                 <div className="border-t border-border mb-3"></div>
-                <div className="text-[10px] font-medium text-muted-foreground/80 dark:text-white/20 uppercase tracking-widest">
+<div className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-widest">
                   Financeiro
                 </div>
               </div>
@@ -940,7 +940,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
                 <span className="text-muted-foreground font-medium">
                   Tabela
                 </span>
-                <span className="font-medium text-foreground/90/90 tracking-tight text-right">
+                <span className="font-medium text-foreground/90 tracking-tight text-right">
                   {tableLabelFromClient(client)}
                 </span>
               </div>
@@ -949,7 +949,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
                 <span className="text-muted-foreground font-medium">
                   Plano
                 </span>
-                <span className="font-medium text-emerald-400 tracking-tight">
+<span className="font-medium text-emerald-500 tracking-tight">
                   {extractPeriod(client.plan_name)}
                 </span>
               </div>
@@ -988,7 +988,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
 
           {/* 2. CARD CONTATOS E OBSERVAÇÕES */}
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm transition-colors">
-            <h3 className="text-[11px] font-medium text-muted-foreground/80 dark:text-white/20 uppercase mb-4 tracking-widest">
+<h3 className="text-[11px] font-medium text-muted-foreground/60 uppercase mb-4 tracking-widest">
               Contatos e observações
             </h3>
 
@@ -997,7 +997,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
                 <span className="text-muted-foreground font-medium">
                   Data do Cadastro
                 </span>
- <span className=" text-foreground text-right">
+                <span className="text-foreground text-right">
                   {client.created_at
                     ? new Date(client.created_at).toLocaleDateString("pt-BR")
                     : "—"}
@@ -1033,7 +1033,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
                       href={`https://wa.me/${client.whatsapp_e164?.replace(/\D/g, "")}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 text-emerald-400 font-medium hover:underline text-right"
+className="inline-flex items-center gap-1.5 text-emerald-500 font-medium hover:underline text-right"
                     >
                       <IconWhatsapp />@{client.whatsapp_username}
                     </a>
@@ -1042,7 +1042,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
                       href={`https://wa.me/${client.whatsapp_e164?.replace(/\D/g, "")}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 text-emerald-400 font-medium hover:underline text-right"
+                      className="inline-flex items-center gap-1.5 text-emerald-500 font-medium hover:underline text-right"
                     >
                       <IconWhatsapp />
                       {formatPhoneDisplay(client.whatsapp_e164)}
@@ -1060,7 +1060,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
                 client.secondary_phone_e164 ||
                 client.secondary_whatsapp_username) && (
                 <div className="bg-transparent p-3 rounded-lg border border-border mt-2 mb-2">
-                  <div className="text-[10px] font-medium text-muted-foreground/80 dark:text-white/30 uppercase mb-2 tracking-widest">
+                  <div className="text-[10px] font-medium text-muted-foreground/60 uppercase mb-2 tracking-widest">
                     Contato Secundário
                   </div>
 
@@ -1069,7 +1069,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
                       <span className="text-xs text-muted-foreground">
                         Nome Secundário
                       </span>
-                      <span className="text-xs font-medium text-foreground/90/90 text-right">
+                      <span className="text-xs font-medium text-foreground/90 text-right">
                         {client.secondary_display_name}
                       </span>
                     </div>
@@ -1084,7 +1084,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
                         href={`https://wa.me/${client.secondary_phone_e164.replace(/\D/g, "")}`}
                         target="_blank"
                         rel="noreferrer"
-                        className={`inline-flex items-center gap-1.5 text-emerald-400 font-medium text-xs hover:underline text-right transition-all duration-300 ${valuesHidden ? "blur-sm select-none pointer-events-none" : ""}`}
+                        className={`inline-flex items-center gap-1.5 text-emerald-500 font-medium text-xs hover:underline text-right transition-all duration-300 ${valuesHidden ? "blur-sm select-none pointer-events-none" : ""}`}
                       >
                         <IconWhatsapp />
                         {client.secondary_whatsapp_username
@@ -1102,12 +1102,12 @@ const [valuesHidden, setValuesHidden] = useState(false);
                   Receber Msg?
                 </span>
                 {client.whatsapp_opt_in ? (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-400 text-right">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-500 text-right">
                     <span className="w-2 h-2 rounded-full bg-emerald-500"></span>{" "}
                     Sim
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-rose-400 text-right">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-rose-500 text-right">
                     <span className="w-2 h-2 rounded-full bg-rose-500"></span>{" "}
                     Não
                   </span>
@@ -1127,10 +1127,10 @@ const [valuesHidden, setValuesHidden] = useState(false);
               )}
 
               <div className="pt-2">
-                <div className="text-[11px] font-medium text-muted-foreground dark:text-white/30 mb-1.5">
+                <div className="text-[11px] font-medium text-muted-foreground/60 mb-1.5">
                   Observações
                 </div>
-                <div className="text-foreground/90 dark:text-slate-300 bg-transparent p-3 rounded-xl text-xs leading-relaxed border border-border min-h-[80px] whitespace-pre-wrap">
+                <div className="text-foreground/90 bg-transparent p-3 rounded-xl text-xs leading-relaxed border border-border min-h-[80px] whitespace-pre-wrap">
                   {client.notes ? (
                     client.notes
                   ) : (
@@ -1146,14 +1146,14 @@ const [valuesHidden, setValuesHidden] = useState(false);
 
         {/* COLUNA DIREITA (TIMELINE) */}
         <div className="lg:col-span-2 bg-card border border-border rounded-xl p-5 shadow-sm h-fit transition-colors">
-          <h3 className="text-[11px] font-medium text-muted-foreground/80 dark:text-white/20 uppercase mb-6 tracking-widest flex items-center gap-2">
+<h3 className="text-[11px] font-medium text-muted-foreground/60 uppercase mb-6 tracking-widest flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
             Linha do tempo
           </h3>
 
           <div className="space-y-0 px-2">
             {timeline.length === 0 ? (
-              <div className="py-12 text-center text-muted-foreground/80 dark:text-white/20 text-sm italic border-2 border-dashed border-border rounded-xl">
+              <div className="py-12 text-center text-muted-foreground/60 text-sm italic border-2 border-dashed border-border rounded-xl">
                 Nenhum evento registrado até o momento.
               </div>
             ) : (
@@ -1162,9 +1162,9 @@ const [valuesHidden, setValuesHidden] = useState(false);
                   key={idx}
                   className="relative pl-8 pb-1.5 last:pb-0 border-l-2 border-border last:border-0 group"
                 >
-                  <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 border-white dark:border-[#161b22] bg-transparent dark:bg-card/20"></div>
+<div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 border-card bg-muted"></div>
 
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 bg-transparent/50 dark:bg-card/5 p-2 rounded-xl border border-transparent hover:border-border dark:hover:border-white/10 transition-all">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 bg-muted/50 p-2 rounded-xl border border-transparent hover:border-border transition-all">
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-foreground tracking-tight">
                         {EVENT_LABELS[item.event_type] ?? item.event_type}
@@ -1175,7 +1175,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
                       </div>
                     </div>
                     <div className="flex items-start gap-2 shrink-0">
- <div className="text-[10px] font-medium text-muted-foreground/80 dark:text-white/20 bg-card dark:bg-transparent px-2 py-1 rounded-md shadow-sm">
+<div className="text-[10px] font-medium text-muted-foreground/60 bg-card px-2 py-1 rounded-md shadow-sm">
                         {fmtDate(item.created_at)}
                       </div>
                       <button
@@ -1213,7 +1213,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
       {ConfirmUI} {/* ✅ AQUI ESTÁ ELE! Agora o modal vai aparecer */}
       {/* ✅ MODAL DE AVISO DE ALERTA */}
       {showRenewWarning && client && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-transparent0 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-md bg-card border border-border rounded-xl shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-200">
             <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-lg flex gap-3">
               <span className="text-2xl">📢</span>
@@ -1221,9 +1221,9 @@ const [valuesHidden, setValuesHidden] = useState(false);
                 <h3 className="text-sm font-medium text-foreground mb-1">
                   Cliente com Alertas
                 </h3>
-                <p className="text-sm text-foreground/90/90">
+                <p className="text-sm text-foreground/90">
                   O cliente{" "}
-                  <strong className="text-amber-400">
+                  <strong className="text-amber-500">
                     {client.client_name}
                   </strong>{" "}
                   possui pendências em aberto.
@@ -1237,7 +1237,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowRenewWarning(false)}
-                className="px-4 py-2 rounded-lg border border-border dark:border-border text-foreground/90 font-medium hover:bg-transparent dark:hover:bg-card/5 transition-colors text-xs uppercase"
+                className="px-4 py-2 rounded-lg border border-border text-foreground/90 font-medium hover:bg-muted transition-colors text-xs uppercase"
               >
                 Voltar
               </button>
@@ -1299,10 +1299,9 @@ const [valuesHidden, setValuesHidden] = useState(false);
             name_prefix: client.name_prefix ?? undefined,
             username: client.username,
             server_password: undefined, // ✅ Senha não vem preenchida
+            created_at: client.created_at ?? undefined, // ✅ Clona a data de cadastro do cliente
             whatsapp_e164: client.whatsapp_e164 ?? undefined,
-            whatsapp_username: client.whatsapp_username
-              ? `${client.whatsapp_username}teste` // ✅ Ex: 5583999teste
-              : undefined,
+            whatsapp_username: client.whatsapp_username ?? undefined,
             whatsapp_opt_in: client.whatsapp_opt_in ?? true,
             secondary_display_name: client.secondary_display_name ?? undefined,
             secondary_name_prefix: client.secondary_name_prefix ?? undefined,

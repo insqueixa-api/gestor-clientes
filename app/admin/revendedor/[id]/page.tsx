@@ -494,8 +494,8 @@ const { confirm, ConfirmUI } = useConfirm();
             <span
               className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase ${
                 reseller.is_archived
-                  ? "bg-transparent0/10 text-muted-foreground border-slate-500/20"
-                  : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                  ? "bg-muted text-muted-foreground border-border"
+                  : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
               }`}
             >
               {reseller.is_archived ? "Arquivado" : "Ativo"}
@@ -503,7 +503,7 @@ const { confirm, ConfirmUI } = useConfirm();
             <button
               onClick={() => setValuesHidden(v => !v)}
               title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-card/5 text-muted-foreground/80 hover:text-foreground/90 hover:border-slate-400 transition-all text-xs font-medium shadow-sm select-none"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground/80 hover:text-foreground/90 hover:border-border-hover transition-all text-xs font-medium shadow-sm select-none"
             >
               {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               <span className="hidden sm:inline text-[11px] tracking-wide">
@@ -522,7 +522,7 @@ const { confirm, ConfirmUI } = useConfirm();
           {/* Voltar (Só Desktop) */}
           <Link
             href="/admin/revendedor"
-            className="hidden sm:inline-flex h-9 px-3 rounded-lg border border-border text-muted-foreground dark:text-white/60 font-medium text-xs hover:bg-transparent dark:hover:bg-card/5 transition-all items-center justify-center"
+            className="hidden sm:inline-flex h-9 px-3 rounded-lg border border-border text-muted-foreground font-medium text-xs hover:bg-muted transition-all items-center justify-center"
           >
             Voltar
           </Link>
@@ -546,7 +546,7 @@ const { confirm, ConfirmUI } = useConfirm();
         <div className="space-y-4">
           {/* 1. CARD RESUMO */}
           <div className="bg-card border-y sm:border border-border sm:rounded-xl p-4 shadow-sm transition-colors">
-            <h3 className="text-[11px] font-medium text-muted-foreground/80 dark:text-white/20 uppercase mb-4 tracking-widest">
+            <h3 className="text-[11px] font-medium text-muted-foreground/40 uppercase mb-4 tracking-widest">
               Resumo da Conta
             </h3>
             <div className="space-y-3 text-sm">
@@ -554,7 +554,7 @@ const { confirm, ConfirmUI } = useConfirm();
                 <span className="text-muted-foreground font-medium">
                   Desde
                 </span>
-                <span className="font-medium text-foreground/90/90 text-right">
+                <span className="font-medium text-foreground/90 text-right">
                   {fmtDate(reseller.created_at)}
                 </span>
               </div>
@@ -572,7 +572,7 @@ const { confirm, ConfirmUI } = useConfirm();
                 <span className="text-muted-foreground font-medium text-[11px] uppercase tracking-tight">
                   Total Investido
                 </span>
-<div className={`text-right font-medium text-base text-emerald-400 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+                <div className={`text-right font-medium text-base text-emerald-500 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                   {fmtBRL(totalInvested)}
                 </div>
               </div>
@@ -580,8 +580,8 @@ const { confirm, ConfirmUI } = useConfirm();
           </div>
 
           {/* 2. CARD CONTATOS */}
-          <div className="bg-card border border-border rounded-xl p-5 shadow-sm transition-colors">
-            <h3 className="text-[11px] font-medium text-muted-foreground/80 dark:text-white/20 uppercase mb-4 tracking-widest">
+<div className="bg-card border border-border rounded-xl p-5 shadow-sm transition-colors">
+            <h3 className="text-[11px] font-medium text-muted-foreground/40 uppercase mb-4 tracking-widest">
               Contatos e Observações
             </h3>
             <div className="space-y-3 text-sm">
@@ -619,7 +619,7 @@ const { confirm, ConfirmUI } = useConfirm();
                       href={`https://wa.me/${reseller.whatsapp_e164?.replace(/\D/g, "")}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-emerald-400 hover:text-emerald-500 font-medium hover:underline"
+                      className="inline-flex items-center gap-1.5 text-emerald-500 hover:text-emerald-600 font-medium hover:underline"
                     >
                       <IconWhatsapp />@{reseller.whatsapp_username}
                     </a>
@@ -628,7 +628,7 @@ const { confirm, ConfirmUI } = useConfirm();
                       href={`https://wa.me/${reseller.whatsapp_e164?.replace(/\D/g, "")}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-emerald-400 hover:text-emerald-500 font-medium hover:underline"
+                      className="inline-flex items-center gap-1.5 text-emerald-500 hover:text-emerald-600 font-medium hover:underline"
                     >
                       <IconWhatsapp />
                       {formatPhoneDisplay(reseller.whatsapp_e164)}
@@ -641,28 +641,28 @@ const { confirm, ConfirmUI } = useConfirm();
 
               {/* Opt-in */}
               <div className="py-2 border-t border-b border-border">
-                <div className="text-[10px] font-medium text-muted-foreground/80 dark:text-white/30 uppercase mb-1">
+                <div className="text-[10px] font-medium text-muted-foreground/40 uppercase mb-1">
                   Receber mensagem?
                 </div>
                 {reseller.whatsapp_opt_in ? (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-400">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-500">
                     <span className="w-2 h-2 rounded-full bg-emerald-500"></span>{" "}
                     Sim
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-rose-400">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-rose-500">
                     <span className="w-2 h-2 rounded-full bg-rose-500"></span>{" "}
                     Não
                   </span>
                 )}
               </div>
 
-              {/* Notas */}
+{/* Notas */}
               <div>
-                <div className="text-[11px] font-medium text-muted-foreground dark:text-white/30 mb-1.5">
+                <div className="text-[11px] font-medium text-muted-foreground/40 mb-1.5">
                   Observações
                 </div>
-                <div className="text-foreground/90 dark:text-slate-300 bg-transparent p-3 rounded-xl text-xs leading-relaxed border border-border min-h-[80px] whitespace-pre-wrap">
+                <div className="text-foreground/90 bg-transparent p-3 rounded-xl text-xs leading-relaxed border border-border min-h-[80px] whitespace-pre-wrap">
                   {reseller.notes || "Sem observações registradas."}
                 </div>
               </div>
@@ -673,14 +673,14 @@ const { confirm, ConfirmUI } = useConfirm();
         {/* ================= COLUNA DIREITA (2 SPANS: SERVIDORES + TIMELINE) ================= */}
         <div className="lg:col-span-2 space-y-6">
           {/* BLOCO 1: SERVIDORES VINCULADOS */}
-          <div className="bg-card border border-border rounded-xl p-5 shadow-sm transition-colors">
-            <h3 className="text-[11px] font-medium text-muted-foreground/80 dark:text-white/20 uppercase mb-4 tracking-widest flex items-center gap-2">
+<div className="bg-card border border-border rounded-xl p-5 shadow-sm transition-colors">
+            <h3 className="text-[11px] font-medium text-muted-foreground/40 uppercase mb-4 tracking-widest flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
               Servidores Vinculados
             </h3>
 
             {servers.length === 0 ? (
-              <div className="p-8 text-center bg-transparent border border-dashed border-border rounded-xl text-muted-foreground/80 dark:text-white/30 italic">
+              <div className="p-8 text-center bg-transparent border border-dashed border-border rounded-xl text-muted-foreground/40 italic">
                 Nenhum servidor vinculado.
               </div>
             ) : (
@@ -692,7 +692,7 @@ const { confirm, ConfirmUI } = useConfirm();
                   >
                     {/* Info do Servidor */}
                     <div className="flex items-center gap-4 mb-3 sm:mb-0">
-                      <div className="w-10 h-10 rounded-lg bg-card dark:bg-transparent border border-border flex items-center justify-center font-medium text-muted-foreground dark:text-white">
+                      <div className="w-10 h-10 rounded-lg bg-card border border-border flex items-center justify-center font-medium text-muted-foreground">
                         {String(s.server_name || "?").charAt(0)}
                       </div>
                       <div>
@@ -718,7 +718,7 @@ const { confirm, ConfirmUI } = useConfirm();
                           setQrResellerServerId(s.reseller_server_id);
                           setQrOpen(true);
                         }}
-                        className="px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 text-xs font-medium border border-emerald-500/20 hover:bg-emerald-500/20 transition-all mr-1"
+                        className="px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-500 text-xs font-medium border border-emerald-500/20 hover:bg-emerald-500/20 transition-all mr-1"
                       >
                         + Recarga
                       </button>
@@ -759,14 +759,14 @@ const { confirm, ConfirmUI } = useConfirm();
 
           {/* BLOCO 2: HISTÓRICO */}
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm h-fit transition-colors">
-            <h3 className="text-[11px] font-medium text-muted-foreground/80 dark:text-white/20 uppercase mb-6 tracking-widest flex items-center gap-2">
+            <h3 className="text-[11px] font-medium text-muted-foreground/40 uppercase mb-6 tracking-widest flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
               Histórico de Compras
             </h3>
 
             <div className="space-y-0 px-2">
               {history.length === 0 ? (
-                <div className="py-12 text-center text-muted-foreground/80 dark:text-white/20 text-sm italic border-2 border-dashed border-border rounded-xl">
+                <div className="py-12 text-center text-muted-foreground/40 text-sm italic border-2 border-dashed border-border rounded-xl">
                   Nenhuma movimentação registrada.
                 </div>
               ) : (
@@ -787,16 +787,16 @@ const { confirm, ConfirmUI } = useConfirm();
                       key={String(h.id)}
                       className="relative pl-8 pb-1.5 last:pb-0 border-l-2 border-border last:border-0 group"
                     >
-                      <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 border-white dark:border-[#161b22] bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.4)] transition-transform group-hover:scale-125" />
+                      <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 border-background bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.4)] transition-transform group-hover:scale-125" />
 
-                      <div className="flex justify-between items-start gap-2 bg-transparent/50 dark:bg-card/5 p-2 rounded-xl border border-transparent hover:border-border dark:hover:border-white/10 transition-all">
+                      <div className="flex justify-between items-start gap-2 bg-muted/30 p-2 rounded-xl border border-transparent hover:border-border transition-all">
                         <div className="min-w-0">
                           {/* LINHA 1 — TÍTULO */}
                           <div className="text-sm font-medium text-foreground tracking-tight">
                             💳 Compra de Créditos
                           </div>
 
-<div className={`mt-1 text-xs font-medium text-muted-foreground dark:text-white/60 tracking-tight transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+<div className={`mt-1 text-xs font-medium text-muted-foreground/70 tracking-tight transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                             {h.notes
                               ? h.notes
                               : `${serverName} · ${num(h.qty_credits)} créditos · Unit: ${fmtMoney(String(h.currency || "BRL"), Number(h.unit_price || 0))} · Total: ${fmtBRL(total)}`}
@@ -804,7 +804,7 @@ const { confirm, ConfirmUI } = useConfirm();
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
- <div className="text-[10px] font-medium text-muted-foreground/80 dark:text-white/20 bg-card dark:bg-transparent px-2 py-1 rounded-md shadow-sm whitespace-nowrap">
+                          <div className="text-[10px] font-medium text-muted-foreground/40 bg-card px-2 py-1 rounded-md shadow-sm whitespace-nowrap">
                             {fmtDate(h.created_at ?? null)}
                           </div>
                           <button
@@ -924,14 +924,14 @@ function IconActionBtn({
   onClick: (e: React.MouseEvent) => void;
 }) {
   const colors = {
-    blue: "text-sky-500 dark:text-sky-400 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20 dark:hover:bg-sky-500/20",
+    blue: "text-sky-500 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20",
     green:
-      "text-emerald-400 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20 dark:hover:bg-emerald-500/20",
+      "text-emerald-500 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20",
     amber:
-      "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20 dark:hover:bg-amber-500/20",
+      "text-amber-500 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20",
     purple:
-      "text-purple-400 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20 dark:hover:bg-purple-500/20",
-    red: "text-rose-400 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20 dark:hover:bg-rose-500/20",
+      "text-purple-500 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20",
+    red: "text-rose-500 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20",
   };
 
   return (

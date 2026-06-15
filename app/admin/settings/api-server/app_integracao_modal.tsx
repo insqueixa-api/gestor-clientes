@@ -179,7 +179,7 @@ export default function AppIntegracaoModal({
   const modal = (
     <div className="fixed inset-0 z-[999999] flex items-center justify-center px-3">
       <div
-        className="absolute inset-0 bg-transparent0 backdrop-blur-sm transition-opacity"
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
         onClick={onCloseAction}
       />
       <div className="relative w-full max-w-lg rounded-2xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[90vh]">
@@ -189,13 +189,13 @@ export default function AppIntegracaoModal({
             <h2 className="text-lg font-medium text-foreground tracking-tight">
               {isEdit ? "Editar Integração" : "Nova Integração"}
             </h2>
-            <p className="text-xs text-foreground/70 dark:text-white/50 mt-0.5">
+            <p className="text-xs text-foreground/70 mt-0.5">
               Configure as credenciais para o robô atuar no painel.
             </p>
           </div>
           <button
             onClick={onCloseAction}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground/80 transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted text-muted-foreground/80 transition-colors"
             type="button"
           >
             <svg
@@ -219,14 +219,14 @@ export default function AppIntegracaoModal({
           {/* Upload Master Simplificado - Agora sempre visível */}
           <div className="flex items-center justify-between p-4 bg-sky-500/10 border border-sky-500/30 rounded-xl">
             <div>
-              <h3 className="text-xs font-medium text-sky-800 dark:text-sky-300">
+              <h3 className="text-xs font-medium text-sky-500">
                 Atualizar Robô (Extensão)
               </h3>
-              <p className="text-[10px] text-sky-400 mt-0.5">
+              <p className="text-[10px] text-sky-500/80 mt-0.5">
                 Substitua o arquivo .zip na nuvem.
               </p>
             </div>
-            <label className="cursor-pointer bg-sky-600 hover:bg-sky-500 text-white gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm-lg transition-colors shadow-sm whitespace-nowrap">
+            <label className="cursor-pointer bg-sky-600 hover:bg-sky-500 text-white gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight transition-colors shadow-sm whitespace-nowrap">
               {isUploading ? "A enviar..." : "Selecionar .zip"}
               <input
                 type="file"
@@ -253,7 +253,7 @@ export default function AppIntegracaoModal({
                   setPin("");
                   setApiUrl("");
                 }}
-                className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card dark:focus:bg-black/40 transition-colors cursor-pointer"
+                className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors cursor-pointer"
               >
                 <option value="GERENCIAAPP">
                   GerenciaApp (IBO Revenda, etc)
@@ -293,7 +293,7 @@ export default function AppIntegracaoModal({
                                   ? 'Ex: "FocoX Play"'
                                   : 'Ex: "Nome do aplicativo"'
                 }
-                className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card dark:focus:bg-black/40 transition-colors"
+                className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors"
               />
             </div>
 
@@ -319,7 +319,7 @@ export default function AppIntegracaoModal({
                               : "Ex: https://gerenciaapp.top"
                 }
                 type="url"
-                className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card dark:focus:bg-black/40 transition-colors font-mono text-xs"
+                className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors font-mono text-xs"
               />
             </div>
 
@@ -337,7 +337,7 @@ export default function AppIntegracaoModal({
                   }
                   type="text"
                   autoCapitalize="none"
-                  className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card dark:focus:bg-black/40 transition-colors"
+                  className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors"
                 />
               </div>
             )}
@@ -353,7 +353,7 @@ export default function AppIntegracaoModal({
                   onChange={(e) => setLoginPassword(e.target.value)}
                   placeholder="Senha de acesso"
                   type="text"
-                  className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card dark:focus:bg-black/40 transition-colors"
+                  className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors"
                 />
               </div>
             )}
@@ -361,7 +361,7 @@ export default function AppIntegracaoModal({
             {/* PIN (Exclusivo para Apps que Exigem) animado */}
             {needsPin && (
               <div className="sm:col-span-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                <label className="block text-[10px] font-medium text-emerald-400 mb-1.5 uppercase tracking-wider">
+                <label className="block text-[10px] font-medium text-emerald-500 mb-1.5 uppercase tracking-wider">
                   PIN Padrão (Criação de Teste)
                 </label>
                 <div className="relative">
@@ -374,7 +374,7 @@ export default function AppIntegracaoModal({
                     placeholder="Ex: 123456"
                     type="text"
                     maxLength={6}
-                    className="w-full h-11 rounded-xl border border-emerald-500/20 bg-emerald-500/10/50 dark:bg-emerald-500/5 px-10 text-sm text-foreground outline-none focus:border-emerald-500 focus:bg-card dark:focus:bg-black/40 transition-colors font-mono tracking-widest"
+                    className="w-full h-11 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-10 text-sm text-foreground outline-none focus:border-emerald-500 focus:bg-card transition-colors font-mono tracking-widest"
                   />
                 </div>
                 <p className="text-[10px] text-foreground/70 mt-1.5 ml-1">
@@ -400,7 +400,7 @@ export default function AppIntegracaoModal({
                   className={`relative w-12 h-6 rounded-full transition-colors border ${
                     isActive
                       ? "bg-emerald-500 border-emerald-500"
-                      : "bg-transparent dark:bg-card/10 border-transparent"
+                      : "bg-muted border-transparent"
                   }`}
                 >
                   <span
@@ -416,7 +416,7 @@ export default function AppIntegracaoModal({
         <div className="px-6 py-4 border-t border-border bg-transparent flex items-center justify-end gap-3 shrink-0">
           <button
             onClick={onCloseAction}
-            className="h-10 px-5 rounded-xl text-muted-foreground text-sm font-medium hover:bg-transparent dark:hover:bg-card/10 transition-colors"
+            className="h-10 px-5 rounded-xl text-muted-foreground text-sm font-medium hover:bg-muted transition-colors"
             type="button"
             disabled={saving}
           >
@@ -424,10 +424,10 @@ export default function AppIntegracaoModal({
           </button>
           <button
             onClick={handleSave}
-            className={`h-10 px-6 rounded-xl text-sm font-medium text-foreground dark:text-white transition-all transform active:scale-95 flex items-center gap-2 ${
+            className={`h-10 px-6 rounded-xl text-sm font-medium transition-all transform active:scale-95 flex items-center gap-2 ${
               canSave
-                ? "bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-600/20"
-                : "bg-transparent dark:bg-card/10 cursor-not-allowed opacity-70"
+                ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20"
+                : "bg-muted text-muted-foreground cursor-not-allowed opacity-70"
             }`}
             type="button"
             disabled={!canSave || saving}

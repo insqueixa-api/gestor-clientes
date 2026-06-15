@@ -773,9 +773,9 @@ export default function AdminShell({
             top={managerPos.top}
             onClose={() => setOpenMenu(null)}
           >
-            <div className="px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80 dark:text-white/30">
-  Gestão
-</div>
+<div className="px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/50">
+              Gestão
+            </div>
 <MenuLink
   href="/admin/gerenciador/guia-tv"
   label={
@@ -855,7 +855,7 @@ export default function AdminShell({
             top={mobilePos.top}
             onClose={() => setOpenMenu(null)}
           >
-            <div className="px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80 dark:text-white/30">
+<div className="px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/50">
               Navegação
             </div>
 
@@ -907,7 +907,7 @@ export default function AdminShell({
             />
             <Divider />
 
-            <div className="px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80 dark:text-white/30">
+            <div className="px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/50">
               Gerenciador
             </div>
             <MenuLink
@@ -977,7 +977,7 @@ export default function AdminShell({
             />
             <Divider />
 
-            <div className="px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80 dark:text-white/30">
+            <div className="px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/50">
               Conta
             </div>
             <MenuLink
@@ -1093,14 +1093,14 @@ export default function AdminShell({
                 <Link
                   href="/admin/auditoria"
                   onClick={() => setShowNotificationsModal(false)}
-                  className="px-3 py-1.5 rounded-lg border border-border dark:border-border text-foreground/90 font-medium hover:bg-transparent/50 dark:hover:bg-card/5 transition-colors text-xs uppercase flex items-center justify-center gap-1.5 whitespace-nowrap"
+                  className="px-3 py-1.5 rounded-lg border border-border text-foreground/90 font-medium hover:bg-muted transition-colors text-xs uppercase flex items-center justify-center gap-1.5 whitespace-nowrap"
                   title="Ver registros de auditoria"
                 >
-                  <ScrollText className="w-3.5 h-3.5 text-emerald-400" /> Log do Portal
+                  <ScrollText className="w-3.5 h-3.5 text-emerald-500" /> Log do Portal
                 </Link>
                 <button
                   onClick={handleSync}
-                  className="px-3 py-1.5 rounded-lg border border-border dark:border-border text-foreground/90 font-medium hover:bg-transparent/50 dark:hover:bg-card/5 transition-colors text-xs uppercase flex items-center justify-center gap-1.5 whitespace-nowrap"
+                  className="px-3 py-1.5 rounded-lg border border-border text-foreground/90 font-medium hover:bg-muted transition-colors text-xs uppercase flex items-center justify-center gap-1.5 whitespace-nowrap"
                   title="Recupera as notificações apagadas do navegador"
                 >
                   <RefreshCcw className="w-3.5 h-3.5" /> Sincronizar
@@ -1109,7 +1109,7 @@ export default function AdminShell({
               {notifications.length > 0 && (
                 <button
                   onClick={clearAllNotifications}
-                  className="shrink-0 px-3 py-1.5 rounded-lg border border-border dark:border-border text-foreground/90 font-medium hover:bg-rose-500/10 hover:text-rose-400 hover:border-rose-500/20 dark:hover:bg-rose-500/10 dark:hover:text-rose-400 transition-colors text-xs uppercase whitespace-nowrap"
+                  className="shrink-0 px-3 py-1.5 rounded-lg border border-border text-foreground/90 font-medium hover:bg-rose-500/10 hover:text-rose-500 hover:border-rose-500/20 transition-colors text-xs uppercase whitespace-nowrap"
                 >
                   Limpar todas
                 </button>
@@ -1117,7 +1117,7 @@ export default function AdminShell({
             </div>
 
             {notifications.length === 0 ? (
-              <div className="text-center text-muted-foreground dark:text-white/60 py-8">
+              <div className="text-center text-muted-foreground/70 py-8">
                 Você não tem notificações.
               </div>
             ) : (
@@ -1130,7 +1130,7 @@ export default function AdminShell({
                       "p-3 rounded-lg border cursor-pointer transition-colors flex items-start gap-3",
                       n.is_read
                         ? "bg-transparent border-border"
-                        : "bg-emerald-500/10 border-emerald-500/20 hover:border-emerald-300 dark:hover:border-emerald-500/30",
+                        : "bg-emerald-500/10 border-emerald-500/20 hover:border-emerald-500/30",
                     ].join(" ")}
                   >
                     <div className="text-xl flex-shrink-0 mt-0.5">
@@ -1157,10 +1157,10 @@ export default function AdminShell({
                       </p>
                     </div>
 
-                    <div className="flex flex-col items-center justify-start flex-shrink-0 pl-3 ml-1 border-l border-border min-h-[32px] gap-1">
+<div className="flex flex-col items-center justify-start flex-shrink-0 pl-3 ml-1 border-l border-border min-h-[32px] gap-1">
                       <button
                         onClick={(e) => handleDismiss(e, n.id)}
-                        className="p-1 text-muted-foreground/80 hover:text-rose-500 hover:bg-rose-500/10 dark:hover:bg-card/10 rounded-md transition-colors"
+                        className="p-1 text-muted-foreground/80 hover:text-rose-500 hover:bg-rose-500/10 rounded-md transition-colors"
                         title="Ocultar notificação"
                       >
                         <X className="w-4 h-4" />
@@ -1168,7 +1168,7 @@ export default function AdminShell({
                       {n.is_read && (
                         <button
                           onClick={(e) => handleMarkAsUnread(e, n.id)}
-                          className="p-1 text-muted-foreground/80 hover:text-emerald-500 hover:bg-emerald-500/10 dark:hover:bg-card/10 rounded-md transition-colors"
+                          className="p-1 text-muted-foreground/80 hover:text-emerald-500 hover:bg-emerald-500/10 rounded-md transition-colors"
                           title="Marcar como não lido"
                         >
                           <RotateCcw className="w-4 h-4" />
@@ -1192,7 +1192,7 @@ export default function AdminShell({
             <div className="bg-transparent border border-border p-4 rounded-lg flex gap-3">
               <span className="text-2xl mt-0.5">📢</span>
               <div>
-                <p className="text-foreground/90/90 text-sm font-medium">
+                <p className="text-foreground/90 text-sm font-medium">
                   {selectedNotification.title}
                 </p>
                 <p className="text-foreground/70 text-xs mt-1">
@@ -1203,7 +1203,7 @@ export default function AdminShell({
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setSelectedNotification(null)}
-                className="px-4 py-2 rounded-lg border border-border dark:border-border text-foreground/90 font-medium hover:bg-transparent/50 dark:hover:bg-card/5 transition-colors text-xs uppercase"
+                className="px-4 py-2 rounded-lg border border-border text-foreground/90 font-medium hover:bg-muted transition-colors text-xs uppercase"
               >
                 Fechar
               </button>
@@ -1228,7 +1228,7 @@ export default function AdminShell({
             <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-lg flex gap-3">
               <span className="text-2xl mt-0.5">📲</span>
               <div>
-                <p className="text-foreground/90/90 text-sm font-medium">
+                <p className="text-foreground/90 text-sm font-medium">
                   Nenhuma sessão do WhatsApp está conectada no momento.
                 </p>
                 <p className="text-foreground/70 text-xs mt-1">
@@ -1240,7 +1240,7 @@ export default function AdminShell({
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowWaModal(false)}
-                className="px-4 py-2 rounded-lg border border-border dark:border-border text-foreground/90 font-medium hover:bg-transparent/50 dark:hover:bg-card/5 transition-colors text-xs uppercase"
+                className="px-4 py-2 rounded-lg border border-border text-foreground/90 font-medium hover:bg-muted transition-colors text-xs uppercase"
               >
                 Fechar
               </button>
@@ -1286,7 +1286,7 @@ function Modal({
     >
       <div
         onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-lg bg-card dark:bg-background border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+        className="w-full max-w-lg bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent">
           <div className="font-medium text-foreground">
@@ -1294,7 +1294,7 @@ function Modal({
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white"
+            className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
           >
             <X className="w-4 h-4" />
           </button>
@@ -1333,7 +1333,7 @@ function DropdownPortal({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-9999" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-[9999]" onMouseDown={onClose}>
       <div
         className="absolute animate-in fade-in zoom-in-95 duration-200"
         style={{ top, right }}
@@ -1355,7 +1355,7 @@ function LogoutLink({ onLogout }: { onLogout?: () => void }) {
         onLogout?.();
         window.location.href = "/logout";
       }}
-      className="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-rose-400 hover:bg-rose-500/10 dark:hover:bg-rose-500/10 transition-all"
+      className="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-rose-500 hover:bg-rose-500/10 transition-all"
     >
       <svg
         width="16"
@@ -1414,8 +1414,8 @@ function MenuLink({
       className={[
         "block rounded-lg px-3 py-2.5 text-sm transition-all font-medium tracking-tight",
         isActive
-          ? "bg-emerald-500/10 text-emerald-400"
-          : "text-muted-foreground/80 hover:text-foreground dark:hover:text-foreground dark:text-white hover:bg-transparent/50 dark:hover:bg-card/5",
+          ? "bg-emerald-500/10 text-emerald-500"
+          : "text-muted-foreground/80 hover:text-foreground hover:bg-muted",
       ].join(" ")}
     >
       {label}

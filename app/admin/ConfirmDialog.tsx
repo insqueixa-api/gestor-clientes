@@ -10,35 +10,35 @@ function toneClasses(tone: Tone) {
     case "rose":
       return {
         ring: "shadow-rose-500/30",
-        iconBg: "bg-rose-500/20",
+        iconBg: "bg-rose-500/10",
         dot: "text-rose-500",
         confirm: "bg-rose-600 hover:bg-rose-500",
       };
     case "amber":
       return {
         ring: "shadow-amber-500/30",
-        iconBg: "bg-amber-500/20",
+        iconBg: "bg-amber-500/10",
         dot: "text-amber-500",
         confirm: "bg-amber-600 hover:bg-amber-500",
       };
     case "sky":
       return {
         ring: "shadow-sky-500/30",
-        iconBg: "bg-sky-500/20",
+        iconBg: "bg-sky-500/10",
         dot: "text-sky-500",
         confirm: "bg-sky-600 hover:bg-sky-500",
       };
     case "slate":
       return {
         ring: "shadow-slate-500/20",
-        iconBg: "bg-transparent",
+        iconBg: "bg-muted",
         dot: "text-muted-foreground",
-        confirm: "bg-slate-800 hover:bg-slate-700",
+        confirm: "bg-foreground text-background hover:bg-foreground/90",
       };
     default:
       return {
         ring: "shadow-emerald-500/30",
-        iconBg: "bg-emerald-500/20",
+        iconBg: "bg-emerald-500/10",
         dot: "text-emerald-500",
         confirm: "bg-emerald-600 hover:bg-emerald-500",
       };
@@ -91,7 +91,7 @@ export default function ConfirmDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100000] flex items-center justify-center bg-transparent0 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onCancel();
       }}
@@ -117,14 +117,14 @@ export default function ConfirmDialog({
         </div>
 
         {details.length > 0 && (
-          <div className="bg-transparent rounded-xl p-4 border border-border">
+          <div className="bg-muted/40 rounded-xl p-4 border border-border">
             <ul className="space-y-2">
               {details.map((line, i) => {
                 // Divisor
                 if (line === "---") {
                   return (
                     <li key={i} className="py-1">
-                      <div className="w-full h-px bg-transparent" />
+                      <div className="w-full h-px bg-border" />
                     </li>
                   );
                 }
@@ -142,7 +142,7 @@ export default function ConfirmDialog({
                 return (
                   <li
                     key={i}
-                    className="text-sm text-foreground/90 dark:text-slate-300 flex items-start gap-2"
+                    className="text-sm text-foreground/90 flex items-start gap-2"
                   >
                     <span className={`${t.dot} font-medium`}>•</span>
                     <span className="break-words whitespace-pre-wrap">
@@ -160,7 +160,7 @@ export default function ConfirmDialog({
             <button
               onClick={onCancel}
               disabled={loading}
-              className="flex-1 py-3 rounded-xl border border-border text-muted-foreground/80 font-medium text-sm hover:bg-transparent/50 dark:hover:bg-card/5 transition-colors disabled:opacity-60"
+              className="flex-1 py-3 rounded-xl border border-border text-muted-foreground/80 font-medium text-sm hover:bg-muted transition-colors disabled:opacity-60"
             >
               {cancelText}
             </button>
@@ -168,7 +168,7 @@ export default function ConfirmDialog({
           <button
             onClick={onConfirm}
             disabled={loading}
-            className={`flex-1 py-3 rounded-xl ${t.confirm} text-foreground dark:text-white font-medium text-sm shadow-lg ${t.ring} transition-all transform active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed`}
+            className={`flex-1 py-3 rounded-xl ${t.confirm} text-white font-medium text-sm shadow-lg ${t.ring} transition-all transform active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed`}
           >
             {loading ? "Confirmando..." : confirmText}
           </button>

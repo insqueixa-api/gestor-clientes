@@ -62,12 +62,12 @@ const accents: Record<
   },
   violet: {
     bar: "#5b21b6",
-    barBg: "bg-violet-100 dark:bg-violet-950/30",
-    rank: "text-violet-600 dark:text-violet-400",
-    rankBg: "bg-violet-50 dark:bg-violet-900/40",
+    barBg: "bg-violet-500/20",
+    rank: "text-violet-500",
+    rankBg: "bg-violet-500/10",
     dot: "bg-violet-400",
     label: "text-foreground/90",
-    value: "text-violet-700 dark:text-violet-300",
+    value: "text-violet-500",
     topBar: "linear-gradient(to right,rgba(139,92,246,0.3),rgba(139,92,246,0.5))",
   },
   rose: {
@@ -83,7 +83,7 @@ const accents: Record<
   amber: {
     bar: "#92400e",
     barBg: "bg-amber-500/20",
-    rank: "text-amber-600 dark:text-amber-500",
+    rank: "text-amber-500",
     rankBg: "bg-amber-500/10",
     dot: "bg-amber-400",
     label: "text-foreground/90",
@@ -93,8 +93,8 @@ const accents: Record<
   indigo: {
     bar: "linear-gradient(to right,#4338ca,#818cf8)",
     barBg: "bg-indigo-500/20",
-    rank: "text-indigo-600 dark:text-indigo-500",
-    rankBg: "bg-indigo-50 dark:bg-indigo-900/40",
+    rank: "text-indigo-500",
+    rankBg: "bg-indigo-500/10",
     dot: "bg-indigo-400",
     label: "text-foreground/90",
     value: "text-indigo-500",
@@ -136,11 +136,11 @@ export function RankingCard({
   const max = Math.max(...currentItems.map((i) => i.value), 1);
 
   return (
-    <div className="bg-card dark:bg-zinc-900 rounded-xl border border-border shadow-sm overflow-hidden">
+    <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
       {/* Header */}
       <div className="px-5 pt-5 pb-4 flex items-center justify-between border-b border-border">
         <div>
-          <h3 className="text-sm font-medium dark:font-medium text-foreground tracking-tight">
+<h3 className="text-sm font-medium text-foreground tracking-tight">
             {title}
           </h3>
           {subtitle && (
@@ -152,13 +152,13 @@ export function RankingCard({
 
         {/* ✅ SELETOR (Só aparece se você passar os itemsPrevisto/itemsExecutado lá no page.tsx) */}
         {hasToggle && (
-          <div className="flex bg-transparent dark:bg-transparent p-1 rounded-lg border border-border shrink-0">
+<div className="flex bg-transparent p-1 rounded-lg border border-border shrink-0">
             <button
               onClick={() => setView("previsto")}
               className={`px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider rounded-md transition-all ${
                 view === "previsto"
-                  ? "bg-card dark:bg-zinc-800 text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground/90 dark:hover:text-muted-foreground dark:text-zinc-300"
+                  ? "bg-muted text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground/90"
               }`}
             >
               Previsto
@@ -167,8 +167,8 @@ export function RankingCard({
               onClick={() => setView("executado")}
               className={`px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider rounded-md transition-all ${
                 view === "executado"
-                  ? "bg-card dark:bg-zinc-800 text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground/90 dark:hover:text-muted-foreground dark:text-zinc-300"
+                  ? "bg-muted text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground/90"
               }`}
             >
               Executado
@@ -231,7 +231,7 @@ export function RankingCard({
 
                 {/* Value */}
                 <span
-                  className={`text-[13px] font-medium dark:font-normal tabular-nums flex-shrink-0 ${c.value}`}
+                  className={`text-[13px] font-medium tabular-nums flex-shrink-0 ${c.value}`}
                 >
                   {fmt(item.value)}
                   {valueLabel && (

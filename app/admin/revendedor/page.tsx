@@ -1194,13 +1194,13 @@ export default function RevendaPage() {
         {/* Título */}
         <div className="min-w-0 text-left">
           <div className="flex items-center gap-3">
-<h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">
               Gestão de Revendas
             </h1>
             <button
               onClick={(e) => { e.stopPropagation(); setValuesHidden(v => !v); }}
               title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-card/5 text-muted-foreground/80 hover:text-foreground/90 hover:border-slate-400 transition-all text-xs font-medium shadow-sm select-none"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground/80 hover:text-foreground/90 hover:border-border-hover transition-all text-xs font-medium shadow-sm select-none"
             >
               {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               <span className="hidden sm:inline text-[11px] tracking-wide">
@@ -1219,7 +1219,7 @@ export default function RevendaPage() {
             className={`hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-medium border transition-colors items-center justify-center ${
               archivedFilter === "Sim"
                 ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-                : "bg-card/5 border-border text-muted-foreground dark:text-white/60"
+                : "bg-muted border-border text-muted-foreground"
             }`}
           >
             {archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
@@ -1239,10 +1239,10 @@ export default function RevendaPage() {
 
       {/* Barra de Filtros Completa */}
       <div
-        className="px-3 md:p-4 bg-transparent md:bg-card md:dark:bg-card border-0 md:border md:border-border md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
+        className="px-3 md:p-4 bg-transparent md:bg-card border-0 md:border md:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground/80 dark:text-muted-foreground tracking-wider mb-2">
+        <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground/60 tracking-wider mb-2">
           Filtros Rápidos
         </div>
 
@@ -1270,8 +1270,8 @@ export default function RevendaPage() {
               statusFilter !== "Todos" ||
               serverFilter !== "Todos" ||
               archivedFilter === "Sim"
-                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                : "border-border bg-card/5 text-muted-foreground hover:bg-transparent/50 dark:hover:bg-card/10"
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
+                : "border-border bg-muted text-muted-foreground hover:bg-muted/70"
             }`}
           >
             Filtros
@@ -1329,7 +1329,7 @@ export default function RevendaPage() {
               setServerFilter("Todos");
               setArchivedFilter("Não");
             }}
-            className="h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+            className="h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 text-sm font-medium hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
           >
             <IconX /> Limpar
           </button>
@@ -1344,8 +1344,8 @@ export default function RevendaPage() {
               }
               className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-colors flex items-center justify-between ${
                 archivedFilter === "Sim"
-                  ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-                  : "bg-card/5 border-border text-muted-foreground"
+                  ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
+                  : "bg-muted border-border text-muted-foreground"
               }`}
             >
               <span className="flex items-center gap-2">
@@ -1358,7 +1358,7 @@ export default function RevendaPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="w-full h-10 px-3 bg-card dark:bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+              className="w-full h-10 px-3 bg-card border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
             >
               <option value="Todos">Status (Todos)</option>
               <option value="Ativo">Ativo</option>
@@ -1368,7 +1368,7 @@ export default function RevendaPage() {
             <select
               value={serverFilter}
               onChange={(e) => setServerFilter(e.target.value)}
-              className="w-full h-10 px-3 bg-card dark:bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+              className="w-full h-10 px-3 bg-card border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
             >
               <option value="Todos">Servidor (Todos)</option>
               {(serversOptions || []).map((s) => (
@@ -1385,7 +1385,7 @@ export default function RevendaPage() {
                 setArchivedFilter("Não");
                 setMobileFiltersOpen(false);
               }}
-              className="w-full h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+              className="w-full h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 text-sm font-medium hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
             >
               <IconX /> Limpar
             </button>
@@ -1398,10 +1398,10 @@ export default function RevendaPage() {
           className="bg-card border border-border rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-transparent">
+<div className="flex items-center justify-between px-5 py-3 border-b border-border bg-transparent">
             <div className="text-sm font-medium text-foreground/90 whitespace-nowrap">
               Lista de Revendas{" "}
-              <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400/70 dark:text-emerald-500/70 text-xs">
+              <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500/70 text-xs">
                 {filtered.length}
               </span>
             </div>
@@ -1412,7 +1412,7 @@ export default function RevendaPage() {
                 <select
                   value={showCount}
                   onChange={(e) => setShowCount(Number(e.target.value))}
-                  className="bg-transparent border border-border dark:border-border rounded px-1 py-0.5 outline-none text-foreground/90 cursor-pointer hover:border-emerald-500/50 transition-colors"
+                  className="bg-transparent border border-border rounded px-1 py-0.5 outline-none text-foreground/90 cursor-pointer hover:border-emerald-500/50 transition-colors"
                 >
                   <option value={25}>25</option>
                   <option value={50}>50</option>
@@ -1476,15 +1476,15 @@ export default function RevendaPage() {
               </thead>
 
               <tbody className="text-sm divide-y divide-border">
-                {visible.map((r) => (
+{visible.map((r) => (
                   <tr
                     key={r.id}
-                    className="hover:bg-transparent/50 dark:hover:bg-card/5 transition-all group"
+                    className="hover:bg-muted/30 transition-all group"
                   >
                     <Td>
                       <input
                         type="checkbox"
-                        className="rounded border-border bg-card dark:bg-transparent text-emerald-500 focus:ring-emerald-500/30"
+                        className="rounded border-border bg-card text-emerald-500 focus:ring-emerald-500/30"
                       />
                     </Td>
 
@@ -1493,7 +1493,7 @@ export default function RevendaPage() {
                         <div className="flex items-center gap-2 whitespace-nowrap">
                           <Link
                             href={`/admin/revendedor/${r.id}`}
-                            className="font-semibold text-foreground/90 group-hover:text-emerald-400 dark:group-hover:text-emerald-400 transition-colors hover:underline decoration-emerald-500/30 underline-offset-2 cursor-pointer truncate"
+                            className="font-semibold text-foreground/90 group-hover:text-emerald-500 transition-colors hover:underline decoration-emerald-500/30 underline-offset-2 cursor-pointer truncate"
                             title={r.name}
                           >
                             {r.name}
@@ -1511,7 +1511,7 @@ export default function RevendaPage() {
                                   );
                                 }}
                                 title={`${r.alertsCount} alerta(s)`}
-                                className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-600 border border-amber-500/20 text-[10px] font-medium hover:bg-amber-200 transition-colors animate-pulse"
+                                className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px] font-medium hover:bg-amber-500/20 transition-colors animate-pulse"
                               >
                                 🔔 {r.alertsCount}
                               </button>
@@ -1529,7 +1529,7 @@ export default function RevendaPage() {
                                   });
                                 }}
                                 title={`${scheduledMap[r.id]?.length || 0} agendada(s)`}
-                                className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] font-medium hover:bg-purple-500/30 transition-colors animate-pulse"
+                                className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-500/10 text-purple-500 border border-purple-500/30 text-[10px] font-medium hover:bg-purple-500/20 transition-colors animate-pulse"
                               >
                                 🗓️ {scheduledMap[r.id]?.length || 0}
                               </button>
@@ -1537,7 +1537,7 @@ export default function RevendaPage() {
                           </div>
                         </div>
 
-                        <span className={`text-xs font-medium text-emerald-400/70 dark:text-emerald-500/70 truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+<span className={`text-xs font-medium text-emerald-500/70 truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                           {r.whatsapp_username
                             ? `@${r.whatsapp_username}`
                             : r.primary_phone}
@@ -1546,7 +1546,7 @@ export default function RevendaPage() {
                     </Td>
 
                     <Td>
-                      <span className="text-muted-foreground dark:text-white/80">
+                      <span className="text-muted-foreground/80">
                         {((serversByReseller[r.id] || []) as string[]).length === 0
                           ? "-"
                           : ((serversByReseller[r.id] || []) as string[]).join(", ")}
@@ -1564,7 +1564,7 @@ export default function RevendaPage() {
                       </span>
                     </Td>
                     <Td>
-                      <span className={`font-medium text-emerald-400/70 dark:text-emerald-500/70 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+                      <span className={`font-medium text-emerald-500/70 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                         {r.profitLabel}
                       </span>
                     </Td>
@@ -1701,11 +1701,11 @@ export default function RevendaPage() {
                   </tr>
                 ))}
 
-                {visible.length === 0 && (
+{visible.length === 0 && (
                   <tr>
                     <td
                       colSpan={8}
-                      className="p-12 text-center text-muted-foreground/80 dark:text-white/30 italic font-medium bg-transparent/30 dark:bg-card/5"
+                      className="p-12 text-center text-muted-foreground/40 italic font-medium bg-muted/30"
                     >
                       Nenhuma revenda encontrada com os filtros atuais.
                     </td>
@@ -1784,7 +1784,7 @@ export default function RevendaPage() {
           <textarea
             value={newAlertText}
             onChange={(e) => setNewAlertText(e.target.value)}
-            className="w-full bg-transparent border border-border dark:border-border rounded-xl p-3 text-foreground outline-none min-h-25 transition-colors focus:border-emerald-500/50"
+            className="w-full bg-transparent border border-border rounded-xl p-3 text-foreground outline-none min-h-25 transition-colors focus:border-emerald-500/50"
             placeholder="Digite o alerta..."
           />
           <div className="mt-4 flex justify-end gap-3">
@@ -1796,7 +1796,7 @@ export default function RevendaPage() {
                   targetName: undefined,
                 })
               }
-              className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-transparent dark:hover:bg-card/5 font-semibold text-sm transition-colors"
+              className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted font-semibold text-sm transition-colors"
             >
               Cancelar
             </button>
@@ -1825,13 +1825,13 @@ export default function RevendaPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Sessão */}
               <div>
-                <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+                <label className="block text-[10px] font-medium text-muted-foreground/60 mb-1.5 uppercase tracking-wider">
                   Sessão de Envio
                 </label>
                 <select
                   value={selectedSessionNow}
                   onChange={(e) => setSelectedSessionNow(e.target.value)}
-                  className="w-full h-11 px-3 bg-transparent border border-border dark:border-border rounded-lg text-sm font-medium text-foreground outline-none focus:border-emerald-500/50 transition-colors"
+                  className="w-full h-11 px-3 bg-transparent border border-border rounded-lg text-sm font-medium text-foreground outline-none focus:border-emerald-500/50 transition-colors"
                 >
                   {sessionOptions.map((s) => (
                     <option key={s.id} value={s.id}>
@@ -1843,7 +1843,7 @@ export default function RevendaPage() {
 
               {/* Template */}
               <div>
-                <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+                <label className="block text-[10px] font-medium text-muted-foreground/60 mb-1.5 uppercase tracking-wider">
                   Mensagem pronta (opcional)
                 </label>
                 <select
@@ -1855,7 +1855,7 @@ export default function RevendaPage() {
                     if (tpl) setMessageText(tpl.content);
                     else setMessageText("");
                   }}
-                  className="w-full h-11 px-3 bg-transparent border border-border dark:border-border rounded-lg text-foreground outline-none focus:border-emerald-500/50 transition-colors text-sm"
+                  className="w-full h-11 px-3 bg-transparent border border-border rounded-lg text-foreground outline-none focus:border-emerald-500/50 transition-colors text-sm"
                 >
                   <option value="">Selecionar...</option>
                   {messageTemplates
@@ -1882,7 +1882,7 @@ export default function RevendaPage() {
               if (!tpl?.image_url) return null;
               return (
                 <div className="animate-in fade-in zoom-in-95 duration-200">
-                  <span className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+                  <span className="block text-[10px] font-medium text-muted-foreground/60 mb-1.5 uppercase tracking-wider">
                     Imagem Anexada
                   </span>
                   <div className="w-24 h-24 rounded-lg overflow-hidden border border-border shadow-sm relative bg-transparent">
@@ -1901,7 +1901,7 @@ export default function RevendaPage() {
               value={messageText}
               disabled={!!selectedTemplateNowId}
               onChange={(e) => setMessageText(e.target.value)}
-              className="w-full bg-transparent border border-border dark:border-border rounded-xl p-3 text-foreground outline-none min-h-25 focus:border-emerald-500/50 transition-colors disabled:opacity-70"
+              className="w-full bg-transparent border border-border rounded-xl p-3 text-foreground outline-none min-h-25 focus:border-emerald-500/50 transition-colors disabled:opacity-70"
               placeholder="Digite a mensagem..."
             />
 
@@ -1910,7 +1910,7 @@ export default function RevendaPage() {
                 onClick={() =>
                   setShowSendNow({ open: false, resellerId: null })
                 }
-                className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 font-semibold text-sm transition-colors"
+                className="px-4 py-2 rounded-lg border border-border text-muted-foreground font-semibold text-sm transition-colors"
               >
                 Cancelar
               </button>
@@ -1942,13 +1942,13 @@ export default function RevendaPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Sessão */}
               <div>
-                <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+                <label className="block text-[10px] font-medium text-muted-foreground/60 mb-1.5 uppercase tracking-wider">
                   Sessão de Envio
                 </label>
                 <select
                   value={selectedSessionSchedule}
                   onChange={(e) => setSelectedSessionSchedule(e.target.value)}
-                  className="w-full h-11 px-3 bg-transparent border border-border dark:border-border rounded-lg text-sm font-medium text-foreground outline-none focus:border-emerald-500/50 transition-colors"
+                  className="w-full h-11 px-3 bg-transparent border border-border rounded-lg text-sm font-medium text-foreground outline-none focus:border-emerald-500/50 transition-colors"
                 >
                   {sessionOptions.map((s) => (
                     <option key={s.id} value={s.id}>
@@ -1960,7 +1960,7 @@ export default function RevendaPage() {
 
               {/* Template */}
               <div>
-                <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+                <label className="block text-[10px] font-medium text-muted-foreground/60 mb-1.5 uppercase tracking-wider">
                   Mensagem pronta (opcional)
                 </label>
                 <select
@@ -1972,7 +1972,7 @@ export default function RevendaPage() {
                     if (tpl) setScheduleText(tpl.content);
                     else setScheduleText("");
                   }}
-                  className="w-full h-11 px-3 bg-transparent border border-border dark:border-border rounded-lg text-foreground outline-none focus:border-emerald-500/50 transition-colors text-sm"
+                  className="w-full h-11 px-3 bg-transparent border border-border rounded-lg text-foreground outline-none focus:border-emerald-500/50 transition-colors text-sm"
                 >
                   <option value="">
                     Selecionar mensagem pronta (opcional)...
@@ -1994,7 +1994,7 @@ export default function RevendaPage() {
             </div>
 
             <div>
-              <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground/60 mb-1.5 uppercase tracking-wider">
                 Data e Hora do Envio
               </label>
 
@@ -2002,7 +2002,7 @@ export default function RevendaPage() {
                 type="datetime-local"
                 value={scheduleDate}
                 onChange={(e) => setScheduleDate(e.target.value)}
-                className="w-full h-11 px-3 bg-transparent border border-border dark:border-border rounded-lg text-foreground outline-none focus:border-emerald-500/50 transition-colors"
+                className="w-full h-11 px-3 bg-transparent border border-border rounded-lg text-foreground outline-none focus:border-emerald-500/50 transition-colors"
               />
             </div>
 
@@ -2014,7 +2014,7 @@ export default function RevendaPage() {
               if (!tpl?.image_url) return null;
               return (
                 <div className="animate-in fade-in zoom-in-95 duration-200">
-                  <span className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+                  <span className="block text-[10px] font-medium text-muted-foreground/60 mb-1.5 uppercase tracking-wider">
                     Imagem Anexada
                   </span>
                   <div className="w-24 h-24 rounded-lg overflow-hidden border border-border shadow-sm relative bg-transparent">
@@ -2037,7 +2037,7 @@ export default function RevendaPage() {
                 value={scheduleText}
                 disabled={!!selectedTemplateScheduleId}
                 onChange={(e) => setScheduleText(e.target.value)}
-                className="w-full bg-transparent border border-border dark:border-border rounded-xl p-3 text-foreground outline-none min-h-25 focus:border-emerald-500/50 transition-colors disabled:opacity-70"
+                className="w-full bg-transparent border border-border rounded-xl p-3 text-foreground outline-none min-h-25 focus:border-emerald-500/50 transition-colors disabled:opacity-70"
                 placeholder="Mensagem agendada..."
               />
             </div>
@@ -2047,7 +2047,7 @@ export default function RevendaPage() {
                 onClick={() =>
                   setShowScheduleMsg({ open: false, resellerId: null })
                 }
-                className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 font-semibold text-sm transition-colors"
+                className="px-4 py-2 rounded-lg border border-border text-muted-foreground font-semibold text-sm transition-colors"
               >
                 Cancelar
               </button>
@@ -2169,7 +2169,7 @@ export default function RevendaPage() {
                         </button>
                       </div>
 
-                      <div className="text-sm text-foreground/90/80 whitespace-pre-wrap">
+                      <div className="text-sm text-foreground/80 whitespace-pre-wrap">
                         {s.message}
                       </div>
                     </div>
@@ -2187,7 +2187,7 @@ export default function RevendaPage() {
                     resellerName: undefined,
                   })
                 }
-                className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-transparent dark:hover:bg-card/5 font-semibold text-sm transition-colors"
+                className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted font-semibold text-sm transition-colors"
               >
                 Fechar
               </button>
@@ -2220,12 +2220,12 @@ export default function RevendaPage() {
                     className="p-3 rounded-xl border border-border bg-transparent"
                   >
                     <div className="flex items-start gap-2">
-                      <div className="mt-0.5 text-amber-600 dark:text-amber-500">
+                      <div className="mt-0.5 text-amber-500">
                         <IconBell />
                       </div>
 
                       <div className="flex-1">
-                        <div className="text-sm text-foreground/90/80 whitespace-pre-wrap">
+                        <div className="text-sm text-foreground/80 whitespace-pre-wrap">
                           {String(
                             a.message ?? a.text ?? a.alert_text ?? "Alerta",
                           )}
@@ -2241,7 +2241,7 @@ export default function RevendaPage() {
 
                       <button
                         onClick={() => handleDeleteAlert(String(a.id))}
-                        className="shrink-0 px-2 py-1 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-[11px] font-extrabold hover:bg-rose-500/20 transition-colors"
+                        className="shrink-0 px-2 py-1 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 text-[11px] font-extrabold hover:bg-rose-500/20 transition-colors"
                         title="Excluir alerta"
                       >
                         Excluir
@@ -2261,7 +2261,7 @@ export default function RevendaPage() {
                     targetName: undefined,
                   })
                 }
-                className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-transparent dark:hover:bg-card/5 font-semibold text-sm transition-colors"
+                className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted font-semibold text-sm transition-colors"
               >
                 Fechar
               </button>
@@ -2283,7 +2283,7 @@ export default function RevendaPage() {
               <input
                 value={newTemplateName}
                 onChange={(e) => setNewTemplateName(e.target.value)}
-                className="w-full h-11 px-3 bg-transparent border border-border dark:border-border rounded-lg text-foreground outline-none focus:border-emerald-500/50 transition-colors"
+                className="w-full h-11 px-3 bg-transparent border border-border rounded-lg text-foreground outline-none focus:border-emerald-500/50 transition-colors"
                 placeholder="Ex: Cobrança educada"
               />
             </div>
@@ -2295,7 +2295,7 @@ export default function RevendaPage() {
               <textarea
                 value={newTemplateContent}
                 onChange={(e) => setNewTemplateContent(e.target.value)}
-                className="w-full bg-transparent border border-border dark:border-border rounded-xl p-3 text-foreground outline-none min-h-25 focus:border-emerald-500/50 transition-colors"
+                className="w-full bg-transparent border border-border rounded-xl p-3 text-foreground outline-none min-h-25 focus:border-emerald-500/50 transition-colors"
                 placeholder="Digite o conteúdo..."
               />
             </div>
@@ -2305,7 +2305,7 @@ export default function RevendaPage() {
                 onClick={() =>
                   setShowNewTemplate({ open: false, target: "now" })
                 }
-                className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 font-semibold text-sm transition-colors"
+                className="px-4 py-2 rounded-lg border border-border text-muted-foreground font-semibold text-sm transition-colors"
               >
                 Cancelar
               </button>
@@ -2398,12 +2398,12 @@ function ThSort({
     // Removido text-[11px] e tracking-widest. Mantido classes de hover e layout.
     <th
       onClick={onClick}
-      className="px-4 py-3 cursor-pointer select-none group hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors text-left"
+      className="px-4 py-3 cursor-pointer select-none group hover:text-emerald-500 transition-colors text-left"
     >
       <div className="flex items-center gap-1">
         {label}
         <span
-          className={`transition-opacity ${active ? "opacity-100 text-emerald-400" : "opacity-40 group-hover:opacity-70"}`}
+          className={`transition-opacity ${active ? "opacity-100 text-emerald-500" : "opacity-40 group-hover:opacity-70"}`}
         >
           {dir === "asc" ? <IconSortUp /> : <IconSortDown />}
         </span>
@@ -2433,18 +2433,18 @@ function StatusBadge({ status }: { status: ResellerStatus }) {
     status === "Ativo"
       ? {
           bg: "bg-emerald-500/10",
-          text: "text-emerald-400",
+          text: "text-emerald-500",
           border: "border-emerald-500/20",
         }
       : status === "Arquivado"
         ? {
             bg: "bg-rose-500/10",
-            text: "text-rose-400",
+            text: "text-rose-500",
             border: "border-rose-500/20",
           }
         : {
             bg: "bg-amber-500/10",
-            text: "text-amber-400",
+            text: "text-amber-500",
             border: "border-amber-500/20",
           };
 
@@ -2469,14 +2469,14 @@ function IconActionBtn({
   onClick: (e: React.MouseEvent) => void;
 }) {
   const colors = {
-    blue: "text-sky-500 dark:text-sky-400 bg-sky-500/10 border-sky-500/20 hover:bg-sky-500/20",
+    blue: "text-sky-500 bg-sky-500/10 border-sky-500/20 hover:bg-sky-500/20",
     green:
-      "text-emerald-400/70 dark:text-emerald-500/70 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20",
+      "text-emerald-500/70 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20",
     amber:
-      "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20",
+      "text-amber-500 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20",
     purple:
-      "text-purple-400 bg-purple-500/10 border-purple-500/20 hover:bg-purple-500/20",
-    red: "text-rose-400 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20",
+      "text-purple-500 bg-purple-500/10 border-purple-500/20 hover:bg-purple-500/20",
+    red: "text-rose-500 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20",
   };
   return (
     <button
@@ -2485,7 +2485,7 @@ function IconActionBtn({
         onClick(e);
       }}
       title={title}
-      className={`p-1.5 rounded-lg border border-transparent transition-all active:scale-95 shadow-sm ${colors[tone]} hover:bg-card/5`}
+      className={`p-1.5 rounded-lg border border-transparent transition-all active:scale-95 shadow-sm ${colors[tone]}`}
     >
       {children}
     </button>
@@ -2504,7 +2504,7 @@ function MenuItem({
   return (
     <button
       onClick={onClick}
-      className="group w-full px-4 py-2.5 flex items-center gap-3 text-muted-foreground hover:bg-emerald-500/10 dark:hover:bg-card/5 hover:text-emerald-400 dark:hover:text-emerald-400 transition-all text-left text-sm font-medium tracking-tight rounded-lg"
+      className="group w-full px-4 py-2.5 flex items-center gap-3 text-muted-foreground hover:bg-emerald-500/10 hover:text-emerald-500 transition-all text-left text-sm font-medium tracking-tight rounded-lg"
     >
       <span className="opacity-70 group-hover:scale-110 transition-transform">
         {icon}
@@ -2529,7 +2529,7 @@ function Modal({
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 bg-transparent0 backdrop-blur-sm grid place-items-center z-[99999] p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm grid place-items-center z-[99999] p-4 animate-in fade-in duration-200"
     >
       <div
         onMouseDown={(e) => e.stopPropagation()}
@@ -2541,7 +2541,7 @@ function Modal({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground/80 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground/80 transition-colors"
           >
             <IconX />
           </button>

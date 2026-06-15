@@ -640,7 +640,7 @@ const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
         <div className="min-w-0 text-left">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-bold dark:font-semibold text-foreground tracking-tight truncate">Dashboard</h1>
+<h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">Dashboard</h1>
             <EyeToggle />
           </div>
           <div className="flex items-center gap-3 mt-1">
@@ -996,11 +996,11 @@ const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
               )}
             </div>
           ) : (
-            <div className="rounded-xl border border-dashed border-border p-10 text-center text-muted-foreground/80 dark:text-white/30 text-sm">
+            <div className="rounded-xl border border-dashed border-border p-10 text-center text-muted-foreground/40 text-sm">
               Nenhuma transação registrada no mês.{" "}
               <Link
                 href="/admin/settings/financeiro_pessoal"
-                className="underline hover:text-muted-foreground dark:hover:text-white/60"
+                className="underline hover:text-muted-foreground"
               >
                 Adicionar transações →
               </Link>
@@ -1014,10 +1014,10 @@ const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
         <div
           className={`grid grid-cols-1 gap-3 sm:gap-6 ${showRankings ? "lg:grid-cols-2" : "lg:grid-cols-2 xl:grid-cols-2"}`}
         >
-          <div className="bg-card dark:bg-zinc-900 rounded-xl border border-border p-3 sm:p-6 shadow-sm">
+<div className="bg-card rounded-xl border border-border p-3 sm:p-6 shadow-sm">
             <div className="flex justify-between items-center mb-2 sm:mb-4">
               <div>
-                <h3 className="text-base sm:text-lg font-bold dark:font-medium text-foreground">
+                <h3 className="text-base sm:text-lg font-bold text-foreground">
                   Novos clientes
                 </h3>
               </div>
@@ -1037,10 +1037,10 @@ const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
             </div>
           </div>
 
-          <div className="bg-card dark:bg-zinc-900 rounded-xl border border-border p-3 sm:p-6 shadow-sm">
+<div className="bg-card rounded-xl border border-border p-3 sm:p-6 shadow-sm">
             <div className="flex justify-between items-center mb-2 sm:mb-4">
               <div>
-                <h3 className="text-base sm:text-lg font-bold dark:font-medium text-foreground">
+                <h3 className="text-base sm:text-lg font-bold text-foreground">
                   Pagamentos Recebidos
                 </h3>
               </div>
@@ -1100,7 +1100,7 @@ function SectionTitle({ title }: { title: string }) {
   return (
     <div className="flex items-center gap-4 py-2">
       <div className="h-px flex-1 bg-border" />
-      <span className="text-xs font-medium dark:font-semibold text-muted-foreground tracking-widest uppercase">
+      <span className="text-xs font-medium text-muted-foreground tracking-widest uppercase">
         {title}
       </span>
       <div className="h-px flex-1 bg-border" />
@@ -1160,18 +1160,18 @@ function MetricCardView({
   footer?: ReactNode;
   href?: string;
 }) {
-  const colors: Record<Accent, string> = {
-    green: "border-l-emerald-500 dark:border-l-emerald-500",
-    red: "border-l-rose-500 dark:border-l-rose-500",
-    amber: "border-l-amber-500 dark:border-l-amber-500",
-    yellow: "border-l-yellow-500 dark:border-l-yellow-500",
-    blue: "border-l-blue-500 dark:border-l-blue-500",
-    gray: "border-l-zinc-500 dark:border-l-zinc-500",
+const colors: Record<Accent, string> = {
+    green: "border-l-emerald-500",
+    red: "border-l-rose-500",
+    amber: "border-l-amber-500",
+    yellow: "border-l-yellow-500",
+    blue: "border-l-sky-500",
+    gray: "border-l-zinc-500",
   };
 
   const content = (
     <>
-      <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-border font-semibold dark:font-medium text-foreground text-[13px] sm:text-sm flex justify-between items-center">
+      <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-border font-semibold text-foreground text-[13px] sm:text-sm flex justify-between items-center">
         {title}
         {href && <span className="opacity-40 text-xs">↗</span>}
       </div>
@@ -1180,7 +1180,7 @@ function MetricCardView({
           <div className="text-[9px] sm:text-[10px] uppercase font-semibold tracking-wider text-muted-foreground mb-1">
             {leftLabel}
           </div>
-          <div className="sv text-[15px] sm:text-xl font-medium dark:font-normal text-foreground leading-tight whitespace-nowrap tabular-nums">
+          <div className="sv text-[15px] sm:text-xl font-medium text-foreground leading-tight whitespace-nowrap tabular-nums">
             {leftValue}
           </div>
         </div>
@@ -1190,7 +1190,7 @@ function MetricCardView({
             <div className="text-[9px] sm:text-[10px] uppercase font-semibold tracking-wider text-muted-foreground mb-1">
               {rightLabel}
             </div>
-            <div className="sv text-[15px] sm:text-xl font-medium dark:font-normal text-foreground leading-tight whitespace-nowrap tabular-nums">
+            <div className="sv text-[15px] sm:text-xl font-medium text-foreground leading-tight whitespace-nowrap tabular-nums">
               {rightValue}
             </div>
           </div>
@@ -1198,14 +1198,14 @@ function MetricCardView({
       </div>
 
       {footer && (
-        <div className="sv px-3 sm:px-4 py-2 text-[11px] sm:text-xs bg-transparent dark:bg-transparent text-muted-foreground">
+        <div className="sv px-3 sm:px-4 py-2 text-[11px] sm:text-xs bg-transparent text-muted-foreground">
           {footer}
         </div>
       )}
     </>
   );
 
-  const baseClass = `rounded-xl border border-border bg-card dark:bg-zinc-900 shadow-sm overflow-hidden flex flex-col border-l-4 ${colors[accent]}`;
+  const baseClass = `rounded-xl border border-border bg-card shadow-sm overflow-hidden flex flex-col border-l-4 ${colors[accent]}`;
 
   if (href) {
     return (

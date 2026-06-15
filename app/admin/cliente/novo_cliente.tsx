@@ -474,7 +474,7 @@ function pickCreditsUsed(
 // --- UI helpers ---
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1 uppercase tracking-wider">
+    <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1 uppercase tracking-wider">
       {children}
     </label>
   );
@@ -525,7 +525,7 @@ function ModalDatePicker({
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent">
           <span className="text-sm font-medium text-foreground/90">Selecionar Período</span>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground/80 transition-colors">
+<button onClick={onClose} className="p-1 rounded-lg hover:bg-muted text-muted-foreground/80 transition-colors">
             <IconX />
           </button>
         </div>
@@ -533,11 +533,11 @@ function ModalDatePicker({
           <div>
             <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-2">Ano</label>
             <div className="flex items-center justify-between bg-transparent border border-border rounded-lg p-1">
-              <button onClick={() => setAno((a) => a - 1)} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground dark:hover:text-white hover:bg-card dark:hover:bg-card/10 transition-colors">
+              <button onClick={() => setAno((a) => a - 1)}  className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
                 <IconChevronLeft />
               </button>
               <span className="text-sm font-medium text-foreground/90 w-16 text-center">{ano}</span>
-              <button onClick={() => setAno((a) => a + 1)} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground dark:hover:text-white hover:bg-card dark:hover:bg-card/10 transition-colors">
+              <button onClick={() => setAno((a) => a + 1)} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
                 <IconChevronRight />
               </button>
             </div>
@@ -556,8 +556,8 @@ function ModalDatePicker({
                       const ultimoDia = new Date(ano, idx + 1, 0).getDate();
                       onSelect(new Date(ano, idx, Math.min(hoje, ultimoDia)));
                     }}
-                    className={`py-2 rounded-lg text-xs font-medium transition-all ${
-                      isSelected ? "bg-emerald-600 text-white shadow-md shadow-emerald-900/20" : isCurrentMonth ? "border border-emerald-300 dark:border-emerald-500/40 text-emerald-500 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/10" : "text-muted-foreground hover:bg-transparent dark:hover:bg-card/5"
+className={`py-2 rounded-lg text-xs font-medium transition-all ${
+                      isSelected ? "bg-emerald-600 text-white shadow-md shadow-emerald-900/20" : isCurrentMonth ? "border border-emerald-500/40 text-emerald-500 hover:bg-emerald-500/10" : "text-muted-foreground hover:bg-muted"
                     }`}
                   >
                     {mes.slice(0, 3)}
@@ -611,13 +611,13 @@ function ModalDayPicker({
 
         <div className="p-4 space-y-4">
           <div className="flex items-center justify-between bg-transparent border border-border rounded-lg p-1">
-            <button onClick={() => setViewDate(new Date(ano, mes - 1, 1))} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground dark:hover:text-white hover:bg-card dark:hover:bg-card/10 transition-colors">
+            <button onClick={() => setViewDate(new Date(ano, mes - 1, 1))} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
               <IconChevronLeft />
             </button>
-            <button onClick={() => setShowMonthPicker(true)} className="px-3 py-1 text-sm font-medium text-foreground/90 text-center capitalize hover:text-emerald-500 dark:hover:text-emerald-500 hover:bg-transparent dark:hover:bg-card/10 rounded-md transition-colors">
+            <button onClick={() => setShowMonthPicker(true)} className="px-3 py-1 text-sm font-medium text-foreground/90 text-center capitalize hover:text-emerald-500 hover:bg-muted rounded-md transition-colors">
               {MESES_NOME[mes]} {ano}
             </button>
-            <button onClick={() => setViewDate(new Date(ano, mes + 1, 1))} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground dark:hover:text-white hover:bg-card dark:hover:bg-card/10 transition-colors">
+            <button onClick={() => setViewDate(new Date(ano, mes + 1, 1))} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
               <IconChevronRight />
             </button>
           </div>
@@ -637,8 +637,8 @@ function ModalDayPicker({
                   <button
                     key={idx}
                     onClick={() => onSelect(new Date(ano, mes, dia))}
-                    className={`h-8 rounded-lg text-xs font-medium transition-all ${
-                      isSelected ? "bg-emerald-600 text-white shadow-md shadow-emerald-900/20" : isToday ? "border border-emerald-300 dark:border-emerald-500/40 text-emerald-500 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/10" : "text-muted-foreground hover:bg-transparent dark:hover:bg-card/5"
+className={`h-8 rounded-lg text-xs font-medium transition-all ${
+                      isSelected ? "bg-emerald-600 text-white shadow-md shadow-emerald-900/20" : isToday ? "border border-emerald-500/40 text-emerald-500 hover:bg-emerald-500/10" : "text-muted-foreground hover:bg-muted"
                     }`}
                   >
                     {dia}
@@ -868,7 +868,7 @@ function Switch({
 }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="text-xs text-foreground/90 dark:text-muted-foreground">
+      <span className="text-xs text-foreground/90">
         {label}
       </span>
       <button
@@ -878,7 +878,7 @@ function Switch({
         className={`relative w-12 h-7 rounded-full transition-colors border ${
           checked
             ? "bg-emerald-600 border-emerald-600"
-            : "bg-transparent border-border dark:border-border"
+            : "bg-muted border-border"
         } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`} // ✅ NOVO
         aria-pressed={checked}
       >
@@ -928,7 +928,7 @@ function PhoneRow({
           <button
             type="button"
             onClick={onDone}
-            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 flex items-center justify-center"
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 flex items-center justify-center"
             title="Normalizar"
           >
             ✓
@@ -4473,7 +4473,7 @@ if (finalSecondaryE164 && clientId) {
         </div>
       </div>
       <div
-        className="fixed inset-0 z-[99990] flex items-center justify-center bg-transparent0 backdrop-blur-sm p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200"
+        className="fixed inset-0 z-[99990] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200"
         onPointerDown={(e) => {
           // ✅ CORREÇÃO: Só fecha se clicar (começar o clique) exatamente no fundo, não se arrastar pra fora.
           if (e.target === e.currentTarget) onClose();
@@ -4499,7 +4499,7 @@ if (finalSecondaryE164 && clientId) {
             <button
               onClick={onClose}
               type="button"
-              className="p-1.5 rounded-lg hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground/80 dark:text-muted-foreground transition-colors"
+              className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground/80 transition-colors"
             >
               <IconX />
             </button>
@@ -4507,8 +4507,8 @@ if (finalSecondaryE164 && clientId) {
 
           {/* ABAS */}
 
-          <div className="flex justify-center border-b border-border bg-transparent/50 dark:bg-card/5 px-4 py-2">
-            <div className="flex bg-transparent/50 dark:bg-transparent rounded-lg p-1 w-full sm:w-auto overflow-x-auto">
+          <div className="flex justify-center border-b border-border bg-muted/50 px-4 py-2">
+            <div className="flex rounded-lg p-1 w-full sm:w-auto overflow-x-auto">
               {(
                 [
                   { key: "dados", label: "DADOS" },
@@ -4526,8 +4526,8 @@ if (finalSecondaryE164 && clientId) {
                   onClick={() => setActiveTab(tab.key)}
                   className={`flex-1 sm:flex-none px-6 py-2 text-xs font-medium rounded-md transition-all uppercase tracking-wider whitespace-nowrap ${
                     activeTab === tab.key
-                      ? "bg-card/10 text-emerald-400 shadow-sm"
-                      : "text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white"
+                      ? "bg-card text-emerald-500 shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   {tab.label}
@@ -4615,7 +4615,7 @@ if (finalSecondaryE164 && clientId) {
                 confirmText: "Fechar",
                 cancelText: "",
                 details: lines.map((line, i) => (
-                  <div key={i} className="text-xs text-foreground/90/80 py-1 border-b border-border last:border-0">
+                  <div key={i} className="text-xs text-foreground/80 py-1 border-b border-border last:border-0">
                     {line}
                   </div>
                 )),
@@ -4674,7 +4674,7 @@ if (finalSecondaryE164 && clientId) {
                       )}
                     </div>
                     {waValidation && (
-  <div className={`mt-1 flex items-center gap-1.5 text-[11px] font-medium ${waValidation.loading ? "text-muted-foreground/80" : waValidation.exists ? "text-emerald-400" : "text-rose-500"}`}>
+  <div className={`mt-1 flex items-center gap-1.5 text-[11px] font-medium ${waValidation.loading ? "text-muted-foreground/80" : waValidation.exists ? "text-emerald-500" : "text-rose-500"}`}>
     {waValidation.loading ? (
       <><Loader2 className="w-4 h-4 animate-spin" /> Validando...</>
     ) : waValidation.exists ? (
@@ -4802,7 +4802,7 @@ if (finalSecondaryE164 && clientId) {
                         </div>
                         {secondaryWaValidation && (
                           <div
-                            className={`mt-1.5 flex items-center gap-1.5 text-[11px] font-medium ${secondaryWaValidation.loading ? "text-muted-foreground/80" : secondaryWaValidation.exists ? "text-emerald-400" : "text-rose-500"}`}
+                            className={`mt-1.5 flex items-center gap-1.5 text-[11px] font-medium ${secondaryWaValidation.loading ? "text-muted-foreground/80" : secondaryWaValidation.exists ? "text-emerald-500" : "text-rose-500"}`}
                           >
                             {secondaryWaValidation.loading ? (
                               <>
@@ -4891,7 +4891,7 @@ if (finalSecondaryE164 && clientId) {
             : "bg-transparent border-border"
         }`}
       >
-        <span className={`text-xs font-medium ${syncAgenda ? "text-emerald-400" : "text-muted-foreground"}`}>
+<span className={`text-xs font-medium ${syncAgenda ? "text-emerald-500" : "text-muted-foreground"}`}>
           Cadastro
         </span>
         <Switch checked={syncAgenda} onChange={setSyncAgenda} label="" />
@@ -4904,7 +4904,7 @@ if (finalSecondaryE164 && clientId) {
             : "bg-transparent border-border"
         }`}
       >
-        <span className={`text-xs font-medium ${syncOperadora ? "text-sky-400" : "text-muted-foreground"}`}>
+<span className={`text-xs font-medium ${syncOperadora ? "text-sky-500" : "text-muted-foreground"}`}>
           Operadora
         </span>
         <Switch checked={syncOperadora} onChange={setSyncOperadora} label="" />
@@ -4945,7 +4945,7 @@ if (finalSecondaryE164 && clientId) {
                     {/* Tecnologia */}
 
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-muted-foreground/80 dark:text-muted-foreground font-medium hidden sm:inline">
+<span className="text-[10px] text-muted-foreground/80 font-medium hidden sm:inline">
                         Tecnologia:
                       </span>
 
@@ -5082,7 +5082,7 @@ if (finalSecondaryE164 && clientId) {
                                 "Usuário copiado para a área de transferência.",
                               );
                             }}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground/80 dark:text-muted-foreground hover:text-emerald-400 dark:hover:text-emerald-400 hover:bg-transparent dark:hover:bg-card/10 rounded transition-colors"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground/80 hover:text-emerald-500 hover:bg-muted rounded transition-colors"
                             title="Copiar usuário"
                           >
                             <svg
@@ -5130,7 +5130,7 @@ if (finalSecondaryE164 && clientId) {
                                 "Senha copiada para a área de transferência.",
                               );
                             }}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground/80 dark:text-muted-foreground hover:text-emerald-400 dark:hover:text-emerald-400 hover:bg-transparent dark:hover:bg-card/10 rounded transition-colors"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground/80 hover:text-emerald-500 hover:bg-muted rounded transition-colors"
                             title="Copiar senha"
                           >
                             <svg
@@ -5240,7 +5240,7 @@ if (finalSecondaryE164 && clientId) {
                         </button>
                       </div>
 
-                      <p className="text-[9px] text-muted-foreground/80 dark:text-white/30 mt-1 italic">
+                      <p className="text-[9px] text-muted-foreground/60 mt-1 italic">
                         Gerado automaticamente com base nos domínios do servidor
                         selecionado.
                       </p>
@@ -5255,7 +5255,7 @@ if (finalSecondaryE164 && clientId) {
                     </span>
 
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-muted-foreground/80 dark:text-muted-foreground font-medium hidden sm:inline">
+<span className="text-[10px] text-muted-foreground/80 font-medium hidden sm:inline">
                         Tabela:
                       </span>
 
@@ -5331,7 +5331,7 @@ if (finalSecondaryE164 && clientId) {
                       <div className="col-span-2 sm:col-span-1">
                         <Label>Créditos</Label>
 
-                        <div className="h-10 w-full bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 rounded-lg flex items-center justify-center text-sm font-medium text-blue-400">
+                        <div className="h-10 w-full bg-sky-500/10 border border-sky-500/20 rounded-lg flex items-center justify-center text-sm font-medium text-sky-500">
                           {creditsInfo ? creditsInfo.used : "—"}
                         </div>
                       </div>
@@ -5375,14 +5375,14 @@ if (finalSecondaryE164 && clientId) {
                           step="0.0001"
                           value={Number(fxRate || 0).toFixed(4)}
                           onChange={(e) => setFxRate(Number(e.target.value))}
-                          className="w-full h-9 px-3 bg-card dark:bg-transparent border border-sky-500/30 rounded text-sm outline-none dark:text-white"
+                          className="w-full h-9 px-3 bg-card dark:bg-transparent border border-sky-500/30 rounded text-sm outline-none text-foreground"
                         />
                       </div>
 
                       <div>
                         <Label>Total BRL</Label>
 
-                        <div className="w-full h-9 flex items-center justify-center bg-emerald-500/20 border border-emerald-500/20 rounded text-emerald-400 font-medium">
+<div className="w-full h-9 flex items-center justify-center bg-emerald-500/20 border border-emerald-500/20 rounded text-emerald-500 font-medium">
                           {fmtMoney("BRL", totalBrl)}
                         </div>
                       </div>
@@ -5467,7 +5467,7 @@ if (finalSecondaryE164 && clientId) {
                         <button
                           type="button"
                           onClick={() => setDueTime("23:59")}
-                          className="px-2 rounded-lg bg-transparent text-[10px] font-medium text-muted-foreground hover:bg-transparent dark:hover:bg-card/20 border border-border whitespace-nowrap"
+                          className="px-2 rounded-lg bg-transparent text-[10px] font-medium text-muted-foreground hover:bg-muted border border-border whitespace-nowrap"
                           title="Fim do dia"
                         >
                           23:59
@@ -5493,10 +5493,10 @@ if (finalSecondaryE164 && clientId) {
                               hasIntegration &&
                               setSyncWithServer(!syncWithServer)
                             }
-                            className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col justify-center gap-3 ${
+className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col justify-center gap-3 ${
                               syncWithServer
-                                ? "bg-sky-500/10 border-sky-500/30 dark:bg-sky-500/10 dark:border-sky-500/20"
-                                : "bg-transparent border-border dark:bg-card/5 dark:border-border"
+                                ? "bg-sky-500/10 border-sky-500/30"
+                                : "bg-muted/50 border-border"
                             } ${!hasIntegration ? "opacity-50 cursor-not-allowed" : "h-full"}`}
                           >
                             <div className="flex items-center justify-between w-full">
@@ -5505,12 +5505,12 @@ if (finalSecondaryE164 && clientId) {
 
                                 <div>
                                   <span
-                                    className={`text-sm font-medium block ${syncWithServer ? "text-sky-400" : "text-muted-foreground"}`}
+                                    className={`text-sm font-medium block ${syncWithServer ? "text-sky-500" : "text-muted-foreground"}`}
                                   >
                                     Teste Automático
                                   </span>
 
-                                  <span className="text-[10px] text-muted-foreground/80 dark:text-muted-foreground">
+                                  <span className="text-[10px] text-muted-foreground/80">
                                     {hasIntegration
                                       ? "Criar direto no painel"
                                       : "Sem integração"}
@@ -5530,10 +5530,10 @@ if (finalSecondaryE164 && clientId) {
 
                           {/* COLUNA DIREITA: WhatsApp Empilhado */}
 
-                          <div className="p-3 rounded-xl border border-border bg-card/5 flex flex-col gap-3">
+                          <div className="p-3 rounded-xl border border-border bg-muted/40 flex flex-col gap-3">
                             <div
                               onClick={() => setSendTrialWhats(!sendTrialWhats)}
-                              className="h-10 px-3 rounded-lg border border-border bg-transparent cursor-pointer hover:bg-transparent dark:hover:bg-card/10 transition-colors flex items-center justify-between gap-3 shrink-0"
+                              className="h-10 px-3 rounded-lg border border-border bg-transparent cursor-pointer hover:bg-muted transition-colors flex items-center justify-between gap-3 shrink-0"
                             >
                               <span className="text-xs font-medium text-muted-foreground">
                                 Enviar msg teste?
@@ -5622,19 +5622,19 @@ if (finalSecondaryE164 && clientId) {
                                 }
                                 className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
                                   syncWithServer
-                                    ? "bg-sky-500/10 border-sky-500/30 dark:bg-sky-500/10 dark:border-sky-500/20"
-                                    : "bg-transparent border-border dark:bg-card/5 dark:border-border"
+                                    ? "bg-sky-500/10 border-sky-500/30"
+                                    : "bg-muted/50 border-border"
                                 } ${!hasIntegration ? "opacity-50 cursor-not-allowed" : ""}`}
                               >
                                 <div className="flex items-center gap-2">
                                   <span className="text-lg">☁️</span>
                                   <div>
                                     <span
-                                      className={`text-xs font-medium block ${syncWithServer ? "text-sky-400" : "text-muted-foreground"}`}
+                                      className={`text-xs font-medium block ${syncWithServer ? "text-sky-500" : "text-muted-foreground"}`}
                                     >
                                       Sincronizar Painel
                                     </span>
-                                    <span className="text-[9px] text-muted-foreground/80 dark:text-muted-foreground">
+                                    <span className="text-[9px] text-muted-foreground/80">
                                       {hasIntegration
                                         ? "Criar no servidor"
                                         : "Sem integração"}
@@ -5663,8 +5663,8 @@ if (finalSecondaryE164 && clientId) {
                               }}
                               className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
                                 registerRenewal
-                                  ? "bg-emerald-500/10 border-emerald-500/20 dark:bg-emerald-500/10 dark:border-emerald-500/20"
-                                  : "bg-transparent border-border dark:bg-card/5 dark:border-border"
+                                  ? "bg-emerald-500/10 border-emerald-500/20"
+                                  : "bg-muted/50 border-border"
                               }`}
                             >
                               <div className="flex items-center gap-2">
@@ -5672,12 +5672,12 @@ if (finalSecondaryE164 && clientId) {
 
                                 <div>
                                   <span
-                                    className={`text-xs font-medium block ${registerRenewal ? "text-emerald-400" : "text-muted-foreground"}`}
+                                    className={`text-xs font-medium block ${registerRenewal ? "text-emerald-500" : "text-muted-foreground"}`}
                                   >
                                     Registrar Financeiro
                                   </span>
 
-                                  <span className="text-[9px] text-muted-foreground/80 dark:text-muted-foreground">
+                                  <span className="text-[9px] text-muted-foreground/80">
                                     Gera log de pagamento local
                                   </span>
                                 </div>
@@ -5697,7 +5697,7 @@ if (finalSecondaryE164 && clientId) {
 
                           {/* LINHA 2: WhatsApp */}
 
-                          <div className="p-3 rounded-xl border border-border bg-card/5">
+                          <div className="p-3 rounded-xl border border-border bg-muted/40">
                             <div
                               className={`grid grid-cols-1 ${sendPaymentMsg ? "sm:grid-cols-2" : ""} gap-3 items-center`}
                             >
@@ -5705,7 +5705,7 @@ if (finalSecondaryE164 && clientId) {
                                 onClick={() =>
                                   setSendPaymentMsg(!sendPaymentMsg)
                                 }
-                                className="h-10 px-3 rounded-lg border border-border bg-transparent cursor-pointer hover:bg-transparent dark:hover:bg-card/10 transition-colors flex items-center justify-between gap-3"
+                                className="h-10 px-3 rounded-lg border border-border bg-transparent cursor-pointer hover:bg-muted transition-colors flex items-center justify-between gap-3"
                               >
                                 <span className="text-xs font-medium text-muted-foreground">
                                   Enviar msg pagto?
@@ -5915,7 +5915,7 @@ if (finalSecondaryE164 && clientId) {
                                 </span>
                               </span>
                             )}
-                            <span className="text-[10px] text-muted-foreground/80 font-medium transition-colors hover:text-muted-foreground dark:hover:text-white/60">
+                            <span className="text-[10px] text-muted-foreground/80 font-medium transition-colors hover:text-muted-foreground">
                               <span className="sm:hidden">
                                 {app.is_minimized ? "▼ Mostrar" : "▲ Ocultar"}
                               </span>
@@ -6009,7 +6009,7 @@ if (finalSecondaryE164 && clientId) {
                                             "Nenhum link configurado para esta integração.",
                                           );
                                       }}
-                                      className="h-10 rounded-lg bg-transparent border border-border text-muted-foreground hover:bg-transparent dark:hover:bg-card/20 transition-colors flex items-center justify-center gap-1.5"
+className="h-10 rounded-lg bg-transparent border border-border text-muted-foreground hover:bg-muted transition-colors flex items-center justify-center gap-1.5"
                                       title="Abrir painel no navegador"
                                     >
                                       <svg
@@ -6042,7 +6042,7 @@ if (finalSecondaryE164 && clientId) {
                                         if (ok)
                                           await handleDeleteApp(app.instanceId);
                                       }}
-                                      className="h-10 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-1.5"
+                                      className="h-10 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-1.5"
                                       title="Remover do painel oficial"
                                     >
                                       <svg
@@ -6074,15 +6074,15 @@ if (finalSecondaryE164 && clientId) {
                                         !(app.auto_configure !== false),
                                       )
                                     }
-                                    className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify-between gap-3 transition-colors ${
+className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify-between gap-3 transition-colors ${
                                       app.auto_configure !== false
-                                        ? "bg-sky-500/10 border-sky-500/30 dark:bg-sky-500/10 dark:border-sky-500/20"
-                                        : "bg-transparent border-border dark:bg-card/5 dark:border-border"
+                                        ? "bg-sky-500/10 border-sky-500/30"
+                                        : "bg-muted/50 border-border"
                                     }`}
                                   >
                                     <div className="flex items-center gap-2">
                                       <svg
-                                        className={`w-3.5 h-3.5 shrink-0 ${app.auto_configure !== false ? "text-sky-400" : "text-muted-foreground/80"}`}
+                                        className={`w-3.5 h-3.5 shrink-0 ${app.auto_configure !== false ? "text-sky-500" : "text-muted-foreground/80"}`}
                                         fill="none"
                                         viewBox="0 0 24 24"
                                         stroke="currentColor"
@@ -6094,8 +6094,8 @@ if (finalSecondaryE164 && clientId) {
                                           d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"
                                         />
                                       </svg>
-                                      <span
-                                        className={`text-xs font-medium ${app.auto_configure !== false ? "text-sky-400" : "text-muted-foreground"}`}
+                                     <span
+                                        className={`text-xs font-medium ${app.auto_configure !== false ? "text-sky-500" : "text-muted-foreground"}`}
                                       >
                                         Configurar {appLabel} automaticamente
                                       </span>
@@ -6329,7 +6329,7 @@ if (finalSecondaryE164 && clientId) {
                         setShowAppSelector(true);
                         setAppSearch("");
                       }}
-                      className="w-full h-14 border-2 border-dashed border-border dark:border-border rounded-xl text-muted-foreground dark:text-white/60 hover:text-emerald-400 hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all font-medium text-sm uppercase flex items-center justify-center gap-2"
+                      className="w-full h-14 border-2 border-dashed border-border rounded-xl text-muted-foreground hover:text-emerald-500 hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all font-medium text-sm uppercase flex items-center justify-center gap-2"
                     >
                       <span className="text-lg">+</span> Adicionar Aplicativo
                     </button>
@@ -6399,7 +6399,7 @@ if (finalSecondaryE164 && clientId) {
                               <button
                                 key={app.id}
                                 onClick={() => addAppToClient(app)}
-                                className="w-full text-left px-4 py-3 text-sm text-foreground/90 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/10 hover:text-emerald-400 dark:hover:text-emerald-400 border-b border-slate-50 dark:border-border last:border-0 transition-colors flex items-center justify-between group"
+                                className="w-full text-left px-4 py-3 text-sm text-foreground/90 hover:bg-emerald-500/10 hover:text-emerald-500 border-b border-border last:border-0 transition-colors flex items-center justify-between group"
                               >
                                 <div className="flex items-center gap-2">
                                   <span className="font-medium">
@@ -6428,7 +6428,7 @@ if (finalSecondaryE164 && clientId) {
                                     </span>
                                   )}
                                 </div>
-                                <span className="text-[10px] uppercase font-medium opacity-0 group-hover:opacity-100 transition-opacity text-emerald-400">
+                                <span className="text-[10px] uppercase font-medium opacity-0 group-hover:opacity-100 transition-opacity text-emerald-500">
                                   Selecionar
                                 </span>
                               </button>
@@ -6449,7 +6449,7 @@ if (finalSecondaryE164 && clientId) {
             <button
               onClick={onClose}
               type="button"
-              className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-transparent dark:hover:bg-card/10 text-xs font-medium transition-colors"
+              className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted text-xs font-medium transition-colors"
             >
               Cancelar
             </button>
@@ -6475,7 +6475,7 @@ if (finalSecondaryE164 && clientId) {
       {/* === MODAL DE CONFIRMAÇÃO (Padronizado) === */}
       {ConfirmUI} {/* ✅ Renderiza a caixa bonita sobre o modal */}
       {confirmModal && (
-        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-transparent0 backdrop-blur-sm p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200">
           <div className="w-full max-w-sm bg-card border border-border rounded-xl shadow-2xl p-6 flex flex-col gap-5 overflow-hidden min-h-0 max-h-[90vh] animate-in fade-in zoom-in-95 duration-200 max-h-[90dvh]">
             <div className="flex flex-col items-center text-center gap-3">
               <div className="w-14 h-14 rounded-full bg-emerald-500/20 flex items-center justify-center text-3xl">
@@ -6498,7 +6498,7 @@ if (finalSecondaryE164 && clientId) {
                 {confirmModal.details.map((line, i) => (
                   <li
                     key={i}
-                    className="text-sm text-foreground/90 dark:text-slate-300 flex items-start gap-2.5"
+                    className="text-sm text-foreground/90 flex items-start gap-2.5"
                   >
                     <span className="text-emerald-500 font-medium mt-0.5">•</span>
 
@@ -6511,7 +6511,7 @@ if (finalSecondaryE164 && clientId) {
             <div className="flex gap-3 pt-2">
               <button
                 onClick={() => setConfirmModal(null)}
-                className="flex-1 h-12 rounded-xl border border-border text-muted-foreground/80 font-medium text-sm hover:bg-transparent dark:hover:bg-card/5 transition-colors"
+                className="flex-1 h-12 rounded-xl border border-border text-muted-foreground/80 font-medium text-sm hover:bg-muted transition-colors"
               >
                 Voltar
               </button>

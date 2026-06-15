@@ -137,7 +137,7 @@ function Input({
   return (
     <input
       {...props}
-      className={`w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 placeholder-muted-foreground/40 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     />
   );
 }
@@ -698,7 +698,7 @@ export default function QuickRechargeModal({
 
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white transition-colors"
+            className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
             aria-label="Fechar"
             type="button"
           >
@@ -709,13 +709,13 @@ export default function QuickRechargeModal({
         {/* BODY */}
         <div className="p-6 space-y-6 overflow-y-auto bg-card">
           {loadErr && (
-            <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-sm font-medium animate-in slide-in-from-top-2">
+            <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-500 text-sm font-medium animate-in slide-in-from-top-2">
               <span className="font-medium">Erro:</span> {loadErr}
             </div>
           )}
 
           {loading ? (
-            <div className="py-12 text-center text-muted-foreground/80 dark:text-white/20 animate-pulse font-medium">
+            <div className="py-12 text-center text-muted-foreground/40 animate-pulse font-medium">
               Carregando servidores...
             </div>
           ) : (
@@ -744,7 +744,7 @@ export default function QuickRechargeModal({
                   ))}
                 </Select>
                 {lockServer && (
-                  <p className="text-[10px] text-muted-foreground/80 dark:text-white/20 mt-1 italic">
+                  <p className="text-[10px] text-muted-foreground/40 mt-1 italic">
                     * Servidor travado para este contexto.
                   </p>
                 )}
@@ -810,30 +810,29 @@ export default function QuickRechargeModal({
                             : ""
                         }
                         onChange={(e) => setFxRate(Number(e.target.value))}
- className="col-span-2 h-10 px-3 bg-card dark:bg-transparent border border-sky-500/30 rounded-lg text-foreground/90 font-medium outline-none"
+                        className="col-span-2 h-10 px-3 bg-card border border-sky-500/30 rounded-lg text-foreground/90 font-medium outline-none"
                       />
-                      <div className="h-10 flex items-center justify-center px-2 bg-card dark:bg-transparent border border-sky-500/30 rounded-lg text-[10px] text-muted-foreground font-semibold">
+                      <div className="h-10 flex items-center justify-center px-2 bg-card border border-sky-500/30 rounded-lg text-[10px] text-muted-foreground font-semibold">
                         {fxError ? "Erro" : fxAsOf ? "AUTO" : "—"}
                       </div>
                     </div>
 
                     {fxError && (
-                      <div className="text-[11px] text-rose-400 font-semibold">
+                      <div className="text-[11px] text-rose-500 font-semibold">
                         {fxError}
                       </div>
                     )}
 
                     {fxAsOf && !fxError && (
-                      <div className="text-[10px] text-muted-foreground/80 dark:text-white/30">
-                        Última taxa registrada:{" "}
- <span className=" ">{fxAsOf}</span>
+                      <div className="text-[10px] text-muted-foreground/40">
+                        Última taxa registrada: {fxAsOf}
                       </div>
                     )}
                   </div>
 
                   <div className="space-y-1">
                     <Label>Subtotal ({currency})</Label>
- <div className="h-10 flex items-center px-3 bg-card dark:bg-transparent border border-sky-500/30 rounded-lg text-foreground/90 font-medium ">
+                    <div className="h-10 flex items-center px-3 bg-card border border-sky-500/30 rounded-lg text-foreground/90 font-medium">
                       {Number.isFinite(totalCurrency)
                         ? fmtMoney(currency, totalCurrency)
                         : "—"}
@@ -845,16 +844,16 @@ export default function QuickRechargeModal({
               {/* Totais Finais */}
               <div className="bg-transparent p-4 rounded-xl border border-border flex justify-between items-center animate-in zoom-in-95 duration-500">
                 <div className="space-y-0.5">
-                  <span className="text-[10px] font-medium text-muted-foreground/80 dark:text-white/20 uppercase tracking-widest">
+                  <span className="text-[10px] font-medium text-muted-foreground/40 uppercase tracking-widest">
                     Valor contábil final
                   </span>
-                  <div className="text-2xl font-medium text-emerald-400 tracking-tight">
+                  <div className="text-2xl font-medium text-emerald-500 tracking-tight">
                     {Number.isFinite(totalBRL)
                       ? fmtMoney("BRL", totalBRL)
                       : "—"}
                   </div>
                 </div>
-                <div className="text-[10px] text-muted-foreground/80 dark:text-white/20 italic text-right max-w-[160px]">
+                <div className="text-[10px] text-muted-foreground/40 italic text-right max-w-[160px]">
                   Contabilidade processada em Reais (BRL).
                 </div>
               </div>
@@ -937,7 +936,7 @@ export default function QuickRechargeModal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-transparent dark:hover:bg-card/5 dark:hover:bg-card/5 transition-colors"
+                  className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors"
                 >
                   Cancelar
                 </button>
@@ -979,7 +978,7 @@ function Switch({
   return (
     <div className="flex items-center justify-between gap-3">
       {label && (
-        <span className="text-xs text-foreground/90 dark:text-muted-foreground">
+        <span className="text-xs text-foreground/90">
           {label}
         </span>
       )}
@@ -989,7 +988,7 @@ function Switch({
           e.stopPropagation();
           onChange(!checked);
         }}
-        className={`relative w-12 h-7 rounded-full transition-colors border ${checked ? "bg-emerald-600 border-emerald-600" : "bg-transparent border-border dark:border-border"}`}
+        className={`relative w-12 h-7 rounded-full transition-colors border ${checked ? "bg-emerald-600 border-emerald-600" : "bg-transparent border-border"}`}
         aria-pressed={checked}
       >
         <span

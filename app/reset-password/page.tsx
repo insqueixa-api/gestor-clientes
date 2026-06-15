@@ -80,10 +80,10 @@ export default function ResetPasswordPage() {
   }
 
   // Tela de carregamento enquanto valida o token
-  if (isValidating) {
+if (isValidating) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center bg-background">
-        <div className="text-muted-foreground dark:text-white/60 animate-pulse">
+        <div className="text-muted-foreground animate-pulse">
           Validando link de segurança...
         </div>
       </div>
@@ -95,8 +95,8 @@ export default function ResetPasswordPage() {
       {/* Fundo com gradiente + glow */}
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-gradient-to-br from-[#0b2a4a] via-[#0f141a] to-[#0e6b5c] opacity-90 dark:opacity-100" />
-        <div className="absolute -top-40 -right-40 h-[520px] w-[520px] rounded-full bg-emerald-500/20 blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 h-[520px] w-[520px] rounded-full bg-blue-500/20 blur-3xl" />
+<div className="absolute -top-40 -right-40 h-[520px] w-[520px] rounded-full bg-emerald-500/20 blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 h-[520px] w-[520px] rounded-full bg-sky-500/20 blur-3xl" />
         <div
           className="absolute inset-0 opacity-[0.06] mix-blend-overlay"
           style={{
@@ -130,7 +130,7 @@ export default function ResetPasswordPage() {
               </>
             ) : (
               <>
-                <h1 className="mt-4 text-xl sm:text-2xl font-semibold text-red-600 dark:text-red-400">
+                <h1 className="mt-4 text-xl sm:text-2xl font-semibold text-rose-500">
                   Link Inválido
                 </h1>
                 <p className="mt-2 text-sm text-foreground/70">
@@ -143,9 +143,9 @@ export default function ResetPasswordPage() {
 
           <div className="px-5 sm:px-8 pt-2 pb-6 sm:pb-8">
             {hasValidSession ? (
-              <form onSubmit={handleUpdatePassword} className="space-y-4">
+<form onSubmit={handleUpdatePassword} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-foreground/90/80">
+                  <label className="block text-sm font-medium text-foreground/80">
                     Nova Senha
                   </label>
                   <input
@@ -165,7 +165,7 @@ export default function ResetPasswordPage() {
                   className={[
                     "w-full rounded-xl py-3 font-semibold transition mt-2",
                     loading || password.length < 6
-                      ? "bg-card/10 text-foreground/50 cursor-not-allowed"
+                      ? "bg-muted text-muted-foreground cursor-not-allowed"
                       : "bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800",
                   ].join(" ")}
                 >
@@ -173,13 +173,13 @@ export default function ResetPasswordPage() {
                 </button>
 
                 {msg && (
-                  <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-400 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-400 text-center font-medium">
+                  <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-500 text-center font-medium">
                     {msg}
                   </div>
                 )}
 
                 {errorMsg && (
-                  <div className="mt-4 rounded-xl border border-red-200 bg-red-500/10 px-4 py-3 text-sm text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400 text-center font-medium">
+                  <div className="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-500 text-center font-medium">
                     {errorMsg}
                   </div>
                 )}
@@ -189,7 +189,7 @@ export default function ResetPasswordPage() {
                 onClick={() =>
                   (window.location.href = "https://unigestor.net.br/login")
                 }
-                className="w-full rounded-xl py-3 font-semibold transition bg-slate-800 text-white hover:bg-slate-900 dark:bg-card/10 dark:hover:bg-card/20"
+                className="w-full rounded-xl py-3 font-semibold transition bg-emerald-600 text-white hover:bg-emerald-700"
               >
                 Voltar ao Login
               </button>

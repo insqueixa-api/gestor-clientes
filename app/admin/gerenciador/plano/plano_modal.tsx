@@ -528,7 +528,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                 </div>
                 <div>
                   <Label>Moeda</Label>
-                  <div className="flex bg-transparent border border-border rounded-lg p-1 border border-border">
+                  <div className="flex bg-transparent border border-border rounded-lg p-1">
                     {(["BRL", "USD", "EUR"] as const).map((c) => (
                       <button
                         key={c}
@@ -588,10 +588,10 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                             className="bg-transparent border border-border rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 flex flex-col justify-center h-16 sm:h-20 relative focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/20 transition-all group"
                           >
                             <div className="flex justify-between items-center w-full mb-1">
-<span className="text-[10px] sm:text-[11px] font-medium text-muted-foreground">
+                              <span className="text-[10px] sm:text-[11px] font-medium text-muted-foreground">
                                 {PERIOD_LABELS[period]}
                               </span>
-                              <span className="text-[8px] sm:text-[9px] font-medium text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-lg border border-emerald-500/10">
+                              <span className="text-[8px] sm:text-[9px] font-medium text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded-lg border border-emerald-500/10">
                                 {currentCredits} cr
                               </span>
                             </div>

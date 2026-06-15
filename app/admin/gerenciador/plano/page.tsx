@@ -283,10 +283,10 @@ export default function PlanosPage() {
 
       {/* Barra de Busca */}
       <div
-        className={`p-0 px-3 sm:px-0 md:p-4 bg-transparent md:bg-card md:dark:bg-card border-0 md:border md:border-border md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 ${isNewOpen || editingPlan ? "z-0" : "z-20"}`}
+        className={`p-0 px-3 sm:px-0 md:p-4 bg-transparent md:bg-card border-0 md:border md:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 ${isNewOpen || editingPlan ? "z-0" : "z-20"}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground/80 dark:text-muted-foreground tracking-wider mb-2">
+        <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground/60 tracking-wider mb-2">
           Busca
         </div>
 
@@ -311,7 +311,7 @@ export default function PlanosPage() {
 
           <button
             onClick={() => setSearch("")}
-            className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors items-center justify-center gap-2"
+            className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 text-sm font-medium hover:bg-rose-500/20 transition-colors items-center justify-center gap-2"
           >
             <IconX /> Limpar
           </button>
@@ -319,7 +319,7 @@ export default function PlanosPage() {
       </div>
 
       {loading && (
-        <div className="p-12 text-center text-muted-foreground/80 dark:text-muted-foreground animate-pulse bg-card rounded-none sm:rounded-xl border border-border font-medium">
+        <div className="p-12 text-center text-muted-foreground/80 animate-pulse bg-card rounded-none sm:rounded-xl border border-border font-medium">
           Carregando tabelas de preço...
         </div>
       )}
@@ -342,7 +342,7 @@ export default function PlanosPage() {
                 className="bg-card border border-border rounded-none sm:rounded-xl shadow-sm transition-colors"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="p-8 text-center text-muted-foreground/80 dark:text-muted-foreground italic">
+                <div className="p-8 text-center text-muted-foreground/60 italic">
                   Nenhuma tabela encontrada.
                 </div>
               </div>
@@ -362,7 +362,7 @@ export default function PlanosPage() {
                     <span className="text-sm font-medium text-foreground/90 whitespace-nowrap">
                       {group.label}
                     </span>
-                    <span className="ml-1 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-xs font-medium">
+<span className="ml-1 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 text-xs font-medium">
                       {group.plans.length}
                     </span>
                   </div>
@@ -394,7 +394,7 @@ export default function PlanosPage() {
 
                                   {plan.is_system_default ||
                                   plan.name.startsWith("Padrão") ? (
-                                    <span className="gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm-lg bg-sky-500/10 text-sky-400 border border-sky-500/20 shadow-sm">
+                                    <span className="gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight bg-sky-500/10 text-sky-500 border border-sky-500/20 shadow-sm">
                                       Padrão do Sistema
                                     </span>
                                   ) : (
@@ -421,7 +421,7 @@ export default function PlanosPage() {
                                       [plan.id]: !prev[plan.id],
                                     }))
                                   }
-                                  className="p-1.5 rounded-lg bg-transparent0/10 border border-slate-500/20 text-muted-foreground hover:bg-transparent/500/20 transition-all shadow-sm"
+                                  className="p-1.5 rounded-lg bg-muted border border-border text-muted-foreground hover:bg-muted/70 transition-all shadow-sm"
                                   title={
                                     isExpanded
                                       ? "Minimizar tabela"
@@ -468,7 +468,7 @@ export default function PlanosPage() {
 
                                 <button
                                   onClick={() => setEditingPlan(plan)}
-                                  className="p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-all shadow-sm"
+                                  className="p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 hover:bg-amber-500/20 transition-all shadow-sm"
                                   title="Editar Preços"
                                 >
                                   <svg
@@ -490,7 +490,7 @@ export default function PlanosPage() {
                                   !plan.name.startsWith("Padrão") && (
                                     <button
                                       onClick={() => handleDelete(plan)}
-                                      className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 transition-all shadow-sm"
+                                      className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500/20 transition-all shadow-sm"
                                       title="Excluir Tabela"
                                     >
                                       <svg
@@ -538,12 +538,12 @@ export default function PlanosPage() {
                                             className="bg-transparent border border-border rounded-xl px-3 py-2.5 flex flex-col justify-center h-16 relative hover:border-emerald-500/30 transition-all group"
                                           >
                                             <div className="flex justify-between items-center w-full mb-1">
-                                              <span className="text-[10px] font-medium text-muted-foreground/80 dark:text-white/20">
+                                              <span className="text-[10px] font-medium text-muted-foreground/40">
                                                 {PERIOD_LABELS[period]}
                                               </span>
                                             </div>
 
-                                            <div className="text-sm font-medium text-foreground tracking-tight group-hover:text-emerald-400 dark:group-hover:text-emerald-400 transition-colors">
+                                            <div className="text-sm font-medium text-foreground tracking-tight group-hover:text-emerald-500 transition-colors">
                                               {formatMoney(
                                                 price,
                                                 plan.currency,

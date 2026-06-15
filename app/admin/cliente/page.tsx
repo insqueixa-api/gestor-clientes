@@ -1735,7 +1735,7 @@ function ClientePageContent() {
                 setValuesHidden((v) => !v);
               }}
               title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-card/5 text-muted-foreground/80 dark:text-muted-foreground hover:text-foreground/90 dark:hover:text-foreground dark:text-white hover:border-slate-400 dark:hover:border-white/30 transition-all text-xs font-medium shadow-sm select-none"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground hover:text-foreground hover:border-border-hover transition-all text-xs font-medium shadow-sm select-none"
             >
               {valuesHidden ? (
                 <EyeOff className="w-4 h-4" />
@@ -1760,7 +1760,7 @@ function ClientePageContent() {
             className={`hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-medium border transition-colors items-center justify-center ${
               archivedFilter === "Sim"
                 ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-                : "bg-card/5 border-border text-muted-foreground dark:text-white/60"
+                : "bg-muted border-border text-muted-foreground"
             }`}
           >
             {archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
@@ -1785,7 +1785,7 @@ function ClientePageContent() {
         className="px-3 md:p-4 bg-transparent md:bg-card md:dark:bg-card border-0 md:border md:border-border md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground/80 dark:text-muted-foreground tracking-wider mb-2">
+<div className="hidden md:block text-xs font-medium uppercase text-muted-foreground tracking-wider mb-2">
           Filtros Rápidos
         </div>
 
@@ -1810,14 +1810,14 @@ function ClientePageContent() {
 
           <button
             onClick={() => setMobileFiltersOpen((v) => !v)}
-            className={`h-10 px-3 rounded-lg border font-medium text-sm transition-colors ${
+className={`h-10 px-3 rounded-lg border font-medium text-sm transition-colors ${
               statusFilter !== "Todos" ||
               serverFilter !== "Todos" ||
               planFilter !== "Todos" ||
               dueFilter !== "Todos" ||
               archivedFilter === "Sim"
-                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                : "border-border bg-card/5 text-muted-foreground hover:bg-transparent/50 dark:hover:bg-card/10"
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
+                : "border-border bg-muted text-muted-foreground hover:bg-muted/80"
             }`}
             title="Filtros"
           >
@@ -1976,10 +1976,10 @@ function ClientePageContent() {
                 e.stopPropagation();
                 setArchivedFilter((cur) => (cur === "Não" ? "Sim" : "Não"));
               }}
-              className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-colors flex items-center justify-between ${
+className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-colors flex items-center justify-between ${
                 archivedFilter === "Sim"
-                  ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-                  : "bg-card/5 border-border text-muted-foreground"
+                  ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
+                  : "bg-muted border-border text-muted-foreground"
               }`}
               title="Filtrar Lixeira"
             >
@@ -2111,7 +2111,7 @@ function ClientePageContent() {
       </div>
 
       {loading && (
-        <div className="p-12 text-center text-muted-foreground/80 dark:text-muted-foreground animate-pulse bg-card rounded-none sm:rounded-xl border border-border">
+<div className="p-12 text-center text-muted-foreground/80 animate-pulse bg-card rounded-none sm:rounded-xl border border-border">
           Carregando dados...
         </div>
       )}
@@ -2169,7 +2169,7 @@ function ClientePageContent() {
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={safePage <= 1}
-                    className="h-8 w-8 rounded-lg border border-border bg-card/5 text-muted-foreground font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-transparent/50 dark:hover:bg-card/10 transition flex items-center justify-center"
+                    className="h-8 w-8 rounded-lg border border-border bg-muted text-muted-foreground font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted/60 transition flex items-center justify-center"
                     title="Página anterior"
                   >
                     ←
@@ -2199,7 +2199,7 @@ function ClientePageContent() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[250px]">
               <thead>
-                <tr className="border-b border-border text-xs font-medium uppercase text-muted-foreground dark:text-white/55">
+<tr className="border-b border-border text-xs font-medium uppercase text-muted-foreground">
                   <Th width={40}>
                     <input
                       ref={selectAllRef}
@@ -2293,8 +2293,8 @@ function ClientePageContent() {
                       key={r.id}
                       className={`transition-colors group ${
                         selectedIds.has(r.id)
-                          ? "bg-emerald-500/10/70 dark:bg-emerald-500/10"
-                          : "hover:bg-transparent/50 dark:hover:bg-card/5"
+                          ? "bg-emerald-500/10"
+                          : "hover:bg-muted/50"
                       }`}
                     >
                       <Td>
@@ -2321,7 +2321,7 @@ function ClientePageContent() {
                             >
                               {r.name.split(" ")[0]}
                               {r.secondary_display_name ? (
-                                <span className="text-muted-foreground/80 dark:text-white/30 font-medium">
+                                <span className="text-muted-foreground/60 font-medium">
                                   {" "}
                                   / {r.secondary_display_name.split(" ")[0]}
                                 </span>
@@ -2354,7 +2354,7 @@ function ClientePageContent() {
                                     });
                                   }}
                                   // Alterado: Adicionado 'animate-pulse' no final das classes
-                                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] font-medium hover:bg-purple-500/30 transition-colors animate-pulse"
+                                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-500 border border-purple-500/30 text-[10px] font-medium hover:bg-purple-500/30 transition-colors animate-pulse"
                                   title="Ver mensagens programadas"
                                 >
                                   🗓️ {scheduledMap[r.id].length}
@@ -2375,9 +2375,9 @@ function ClientePageContent() {
                               @{r.whatsapp_username}
                             </span>
                           )}
-                          {r.secondary_whatsapp_username && (
+{r.secondary_whatsapp_username && (
                             <span
-                              className={`text-xs font-medium text-muted-foreground/80 dark:text-white/45 truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                              className={`text-xs font-medium text-muted-foreground/60 truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
                             >
                               @{r.secondary_whatsapp_username}
                             </span>
@@ -2387,11 +2387,11 @@ function ClientePageContent() {
 
                       <Td>
                         <div className="flex flex-col">
- <span className=" font-medium text-muted-foreground dark:text-white/80">
+                          <span className="font-medium text-foreground/90">
                             {r.dueLabelDate}
                           </span>
 
-                          <span className="text-xs font-medium text-muted-foreground dark:text-white/60">
+                          <span className="text-xs font-medium text-muted-foreground">
                             {r.dueTime}
                           </span>
                         </div>
@@ -2450,7 +2450,7 @@ function ClientePageContent() {
                       </Td>
 
                       <Td align="center">
-                        <span className="text-muted-foreground dark:text-white/80">
+                        <span className="text-muted-foreground">
                           {r.server}
                         </span>
                       </Td>
@@ -2463,7 +2463,7 @@ function ClientePageContent() {
                             ? "bg-sky-500/10 text-sky-500 border-sky-500/20" 
                             : t === "P2P" 
                             ? "bg-rose-500/10 text-rose-500 border-rose-500/20" 
-                            : "bg-transparent text-foreground/90 border-border dark:border-slate-500/20 dark:text-muted-foreground/80";
+                            : "bg-muted text-muted-foreground border-border";
                           return (
                             <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase ${colors}`}>
                               {r.technology || "—"}
@@ -2473,20 +2473,20 @@ function ClientePageContent() {
                       </Td>
 
                       <Td align="center">
-                        <span className="text-muted-foreground dark:text-white/80">
+                        <span className="text-muted-foreground">
                           {r.screens}
                         </span>
                       </Td>
 
                       <Td align="center">
-                        <span className="text-muted-foreground dark:text-white/85">
+                        <span className="text-muted-foreground">
                           {r.planPeriod}
                         </span>
                       </Td>
 
                       <Td align="center">
                         <span
-                          className={`font-medium text-foreground/90/90 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                          className={`font-medium text-foreground/90 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
                         >
                           {r.valueLabel}
                         </span>
@@ -2590,8 +2590,8 @@ function ClientePageContent() {
                                 </button>
                               );
                             })
-                          ) : (
-                            <span className="text-slate-300 dark:text-white/20 text-xs italic">
+                         ) : (
+                            <span className="text-muted-foreground/60 text-xs italic">
                               —
                             </span>
                           )}
@@ -2725,7 +2725,7 @@ function ClientePageContent() {
                   <tr>
                     <td
                       colSpan={11}
-                      className="p-8 text-center text-muted-foreground/80 dark:text-muted-foreground italic"
+className="p-8 text-center text-muted-foreground/80 italic"
                     >
                       Nenhum cliente encontrado.
                     </td>
@@ -2765,7 +2765,7 @@ function ClientePageContent() {
             <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-lg flex gap-3">
               <span className="text-2xl">📢</span>
               <div>
-                <p className="text-foreground/90/90 text-sm font-medium">
+<p className="text-foreground/90 text-sm font-medium">
                   O cliente{" "}
                   <strong className="text-amber-400">
                     {showRenewWarning.clientName}
@@ -2791,7 +2791,7 @@ function ClientePageContent() {
                   // Abre a lista de alertas para checar
                   if (clientId) handleOpenAlertList(clientId, clientName);
                 }}
-                className="px-4 py-2 rounded-lg border border-border dark:border-border text-foreground/90 font-medium hover:bg-transparent/50 dark:hover:bg-card/5 transition-colors text-xs uppercase"
+                className="px-4 py-2 rounded-lg border border-border text-foreground/90 font-medium hover:bg-muted transition-colors text-xs uppercase"
               >
                 Ver Alertas
               </button>
@@ -2865,7 +2865,7 @@ function ClientePageContent() {
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowNewAlert({ open: false, clientId: null })}
-                className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-transparent/50 dark:hover:bg-card/5 text-sm font-medium transition-colors"
+                className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted text-sm font-medium transition-colors"
               >
                 Cancelar
               </button>
@@ -2913,7 +2913,7 @@ function ClientePageContent() {
             <div className="max-h-[60vh] overflow-y-auto pr-1 space-y-3">
               {(clientAlerts as { id: string; message?: string }[]).length ===
               0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground/80 dark:text-white/30 border-2 border-dashed border-border rounded-xl">
+<div className="flex flex-col items-center justify-center py-8 text-muted-foreground/60 border-2 border-dashed border-border rounded-xl">
                   <span className="text-2xl mb-2">✅</span>
                   <p className="text-sm">Nenhum alerta pendente.</p>
                 </div>
@@ -2922,11 +2922,11 @@ function ClientePageContent() {
                   (alert) => (
                     <div
                       key={alert.id}
-                      className="group p-4 bg-card/5 border border-border rounded-xl shadow-sm hover:border-rose-500/20 dark:hover:border-rose-500/30 transition-all flex justify-between items-start gap-4"
+                      className="group p-4 bg-muted/50 border border-border rounded-xl shadow-sm hover:border-rose-500/20 transition-all flex justify-between items-start gap-4"
                     >
                       <div className="flex gap-3">
                         <span className="text-rose-500 mt-0.5">⚠️</span>
-                        <p className="text-sm text-foreground/90/90 whitespace-pre-wrap leading-relaxed">
+                        <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
                           {alert.message || ""}
                         </p>
                       </div>
@@ -2948,7 +2948,7 @@ function ClientePageContent() {
                 onClick={() =>
                   setShowAlertList({ open: false, clientId: null })
                 }
-                className="px-6 py-2 rounded-lg bg-transparent text-foreground/90 font-medium hover:bg-transparent dark:hover:bg-card/20 transition-colors text-sm"
+                className="px-6 py-2 rounded-lg bg-transparent text-foreground/90 font-medium hover:bg-muted transition-colors text-sm"
               >
                 Fechar Lista
               </button>
@@ -2973,7 +2973,7 @@ function ClientePageContent() {
               <span className="text-xl">
                 <MessageCircle className="w-4 h-4" />
               </span>
-              <div className="text-sm text-sky-900 dark:text-sky-200">
+              <div className="text-sm text-purple-900 dark:text-purple-200">
                 Esta mensagem será enviada <strong>imediatamente</strong> via
                 WhatsApp.
               </div>
@@ -3484,7 +3484,7 @@ function ScheduledMessagesModal({
     <>
       <Modal title={`Mensagens Programadas • ${clientName}`} onClose={onClose}>
         {items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground/80 dark:text-white/30 border-2 border-dashed border-border rounded-xl">
+<div className="flex flex-col items-center justify-center py-8 text-muted-foreground/60 border-2 border-dashed border-border rounded-xl">
             <span className="text-2xl mb-2">🗓️</span>
             <p className="text-sm">Nenhum agendamento encontrado.</p>
           </div>
@@ -3493,12 +3493,12 @@ function ScheduledMessagesModal({
             {items.map((it) => (
               <div
                 key={it.id}
-                className="p-4 rounded-xl border border-border bg-transparent transition hover:border-purple-500/30 dark:hover:border-purple-500/30"
+                className="p-4 rounded-xl border border-border bg-muted/30 transition hover:border-purple-500/30"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <div className="text-[10px] font-medium text-muted-foreground dark:text-white/60 uppercase tracking-wider bg-card/10 px-2 py-0.5 rounded border border-border">
+                      <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider bg-muted px-2 py-0.5 rounded border border-border">
                         // ✅ PARA — extrai via formatToParts (mesma lógica)
                         {(() => {
                           const dt = new Date(it.send_at);
@@ -3518,13 +3518,13 @@ function ScheduledMessagesModal({
                       </div>
 
                       {it.status && (
-                        <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 text-[9px] font-medium uppercase tracking-wider">
+<span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-500 text-[9px] font-medium uppercase tracking-wider">
                           {it.status}
                         </span>
                       )}
                     </div>
 
-                    <div className="text-sm text-foreground/90/90 whitespace-pre-wrap break-words leading-relaxed border-l-2 border-border pl-3">
+<div className="text-sm text-foreground/90 whitespace-pre-wrap break-words leading-relaxed border-l-2 border-border pl-3">
                       {it.message}
                     </div>
                   </div>
@@ -3605,7 +3605,7 @@ function IconActionBtn({
   const colors = {
     blue: "text-sky-400 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20",
     green:
-      "text-emerald-400/90 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20",
+      "text-emerald-400 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20",
     amber:
       "text-amber-400 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20",
     purple:
@@ -3683,7 +3683,7 @@ function Modal({
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground dark:text-white/60 hover:text-foreground dark:hover:text-white"
+            className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
           >
             <IconX />
           </button>

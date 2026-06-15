@@ -567,8 +567,8 @@ const { confirm, ConfirmUI } = useConfirm();
             <span
               className={`px-2 py-0.5 rounded-lg text-xs font-medium border shadow-sm transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""} ${
                 server.credits_available > 10
-                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                  : "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                  ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                  : "bg-rose-500/10 text-rose-500 border-rose-500/20"
               }`}
             >
               {fmtInt(server.credits_available)} créditos disponíveis
@@ -576,7 +576,7 @@ const { confirm, ConfirmUI } = useConfirm();
             <button
               onClick={() => setValuesHidden(v => !v)}
               title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-card/5 text-muted-foreground/80 hover:text-foreground/90 hover:border-slate-400 transition-all text-xs font-medium shadow-sm select-none"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground/80 hover:text-foreground/90 hover:border-border-hover transition-all text-xs font-medium shadow-sm select-none"
             >
               {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               <span className="hidden sm:inline text-[11px] tracking-wide">
@@ -593,9 +593,9 @@ const { confirm, ConfirmUI } = useConfirm();
               Servidores
             </Link>
 
-            <span className="opacity-30">/</span>
+<span className="opacity-30">/</span>
 
-            <span className="text-muted-foreground/80">detalhes</span>
+            <span className="text-muted-foreground/40">detalhes</span>
           </div>
         </div>
 
@@ -603,7 +603,7 @@ const { confirm, ConfirmUI } = useConfirm();
         <div className="w-full md:w-auto flex justify-end items-center">
           <button
             onClick={handlePrevMonth}
-            className="p-2 hover:bg-card dark:hover:bg-card/10 rounded-md text-muted-foreground transition-all active:scale-95"
+            className="p-2 hover:bg-muted rounded-md text-muted-foreground transition-all active:scale-95"
           >
             <svg
               className="w-4 h-4"
@@ -624,7 +624,7 @@ const { confirm, ConfirmUI } = useConfirm();
           </span>
           <button
             onClick={handleNextMonth}
-            className="p-2 hover:bg-card dark:hover:bg-card/10 rounded-md text-muted-foreground transition-all active:scale-95"
+            className="p-2 hover:bg-muted rounded-md text-muted-foreground transition-all active:scale-95"
           >
             <svg
               className="w-4 h-4"
@@ -645,7 +645,7 @@ const { confirm, ConfirmUI } = useConfirm();
         <div className="flex gap-3 w-full md:w-auto justify-end">
           <Link
             href="/admin/gerenciador/servidor"
-            className="h-10 px-4 rounded-lg border border-border text-muted-foreground hover:bg-transparent/50 dark:hover:bg-card/10 text-sm font-medium transition-all shadow-sm inline-flex items-center justify-center"
+            className="h-10 px-4 rounded-lg border border-border text-muted-foreground hover:bg-muted text-sm font-medium transition-all shadow-sm inline-flex items-center justify-center"
           >
             Voltar
           </Link>
@@ -674,7 +674,7 @@ const { confirm, ConfirmUI } = useConfirm();
             <StatCard
               title="Lucro operacional"
               value={fmtMoney(metrics.estimatedProfit)}
-              className={metrics.estimatedProfit >= 0 ? "text-emerald-400" : "text-rose-500"}
+              className={metrics.estimatedProfit >= 0 ? "text-emerald-500" : "text-rose-500"}
               hidden={valuesHidden}
             />
             <StatCard title="Créditos vendidos" value={fmtInt(metrics.creditsSold)} hidden={valuesHidden} />
@@ -692,13 +692,13 @@ const { confirm, ConfirmUI } = useConfirm();
             <div className="p-5 space-y-6">
               <div className="grid grid-cols-3 gap-4 border-b border-border pb-6">
                 <DetailStat label="Total clientes" value={fmtInt(clientStats.total)} hidden={valuesHidden} />
-                <DetailStat label="Ativos" value={fmtInt(clientStats.active)} valueColor="text-emerald-400" hidden={valuesHidden} />
+                <DetailStat label="Ativos" value={fmtInt(clientStats.active)} valueColor="text-emerald-500" hidden={valuesHidden} />
                 <DetailStat label="Consumo" value={fmtInt(metrics.cliente.consumed) + " cr"} hidden={valuesHidden} />
               </div>
               <div className="grid grid-cols-3 gap-4">
                 <DetailStat label="Receita" value={fmtMoney(metrics.cliente.revenue)} hidden={valuesHidden} />
-                <DetailStat label="Custo" value={fmtMoney(metrics.cliente.cost)} valueColor="text-rose-500 dark:text-rose-400" hidden={valuesHidden} />
-                <DetailStat label="Lucro" value={fmtMoney(metrics.cliente.profit)} valueColor="text-emerald-400" hidden={valuesHidden} />
+                <DetailStat label="Custo" value={fmtMoney(metrics.cliente.cost)} valueColor="text-rose-500" hidden={valuesHidden} />
+                <DetailStat label="Lucro" value={fmtMoney(metrics.cliente.profit)} valueColor="text-emerald-500" hidden={valuesHidden} />
               </div>
             </div>
           </div>
@@ -714,10 +714,10 @@ const { confirm, ConfirmUI } = useConfirm();
                 <DetailStat label="Total revendas" value={fmtInt(resellerCount)} hidden={valuesHidden} />
                 <DetailStat label="Consumo" value={fmtInt(metrics.resellers.consumed) + " cr"} hidden={valuesHidden} />
               </div>
-              <div className="grid grid-cols-3 gap-4">
+<div className="grid grid-cols-3 gap-4">
                 <DetailStat label="Receita" value={fmtMoney(metrics.resellers.revenue)} hidden={valuesHidden} />
-                <DetailStat label="Custo" value={fmtMoney(metrics.resellers.cost)} valueColor="text-rose-500 dark:text-rose-400" hidden={valuesHidden} />
-                <DetailStat label="Lucro" value={fmtMoney(metrics.resellers.profit)} valueColor="text-emerald-400" hidden={valuesHidden} />
+                <DetailStat label="Custo" value={fmtMoney(metrics.resellers.cost)} valueColor="text-rose-500" hidden={valuesHidden} />
+                <DetailStat label="Lucro" value={fmtMoney(metrics.resellers.profit)} valueColor="text-emerald-500" hidden={valuesHidden} />
               </div>
             </div>
           </div>
@@ -742,13 +742,13 @@ const { confirm, ConfirmUI } = useConfirm();
                   placeholder="Buscar cliente, obs, data..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full h-9 pl-8 pr-3 bg-card dark:bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500 transition-colors"
+                  className="w-full h-9 pl-8 pr-3 bg-card border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
               <select
                 value={filterKind}
                 onChange={(e) => setFilterKind(e.target.value)}
-                className="h-9 px-2 bg-card dark:bg-transparent border border-border rounded-lg text-xs font-medium text-foreground/90 outline-none focus:border-emerald-500 transition-colors cursor-pointer"
+                className="h-9 px-2 bg-card border border-border rounded-lg text-xs font-medium text-foreground/90 outline-none focus:border-emerald-500 transition-colors cursor-pointer"
               >
                 <option value="ALL">Todos os Tipos</option>
                 <optgroup label="Clientes">
@@ -792,28 +792,28 @@ const { confirm, ConfirmUI } = useConfirm();
                   <tr>
                     <td
                       colSpan={5}
-                      className="px-5 py-12 text-center text-muted-foreground/80 dark:text-white/20 italic"
+                      className="px-5 py-12 text-center text-muted-foreground/40 italic"
                     >
                       Nenhum registro encontrado.
                     </td>
                   </tr>
                 ) : (
-                  filteredMovements.map((m) => (
+filteredMovements.map((m) => (
                     <tr
                       key={m.id}
-                      className="hover:bg-transparent/50 dark:hover:bg-card/5 transition-all text-foreground/90/80 group"
+                      className="hover:bg-muted/30 transition-all text-foreground/80 group"
                     >
                       <td className="px-5 py-3 whitespace-nowrap font-mono text-[11px] opacity-60">
                         {fmtDate(m.happened_at)}
                       </td>
                       <td className="px-5 py-3">
                         <span
-                          className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm-lg border shadow-sm whitespace-nowrap ${
+                          className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight border shadow-sm whitespace-nowrap ${
                             m.kind === "PURCHASE"
-                              ? "bg-sky-500/20 text-sky-400 border-sky-400/30"
+                              ? "bg-sky-500/10 text-sky-500 border-sky-500/30"
                               : m.kind === "RESELLER_SALE"
-                                ? "bg-orange-500/20 text-orange-700 dark:text-orange-200 border-orange-400/30"
-                                : "bg-emerald-500/20 text-emerald-400 border-emerald-400/30"
+                                ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
+                                : "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
                           }`}
                         >
                           {m.kind === "PURCHASE"
@@ -823,16 +823,16 @@ const { confirm, ConfirmUI } = useConfirm();
                               : "Cliente"}
                         </span>
                       </td>
-                      <td className="px-5 py-3 font-medium text-center group-hover:text-emerald-500 transition-colors">
+<td className="px-5 py-3 font-medium text-center group-hover:text-emerald-500 transition-colors">
                         {m.qty_credits}
                       </td>
- <td className={`px-5 py-3 font-medium transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+                      <td className={`px-5 py-3 font-medium transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                         {m.total_brl !== null ? fmtMoney(m.total_brl) : "--"}
                       </td>
                       {/* ✅ Nova formatação da Descrição */}
-                      <td className={`px-5 py-3 text-xs leading-relaxed max-w-[300px] transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+<td className={`px-5 py-3 text-xs leading-relaxed max-w-[300px] transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                         {m.kind === "CLIENT_RENEWAL" ? (
-                          <span className="font-medium text-foreground dark:text-slate-200">
+                          <span className="font-medium text-foreground">
                             {m.label}
                           </span>
                         ) : (
@@ -914,8 +914,8 @@ function StatCard({
   hidden?: boolean;
 }) {
   return (
-    <div className="bg-transparent/50 dark:bg-transparent p-4 rounded-xl border border-border flex flex-col justify-between h-24 transition-all hover:border-emerald-500/30">
-      <div className="text-[10px] uppercase font-medium text-muted-foreground/80 dark:text-white/20 tracking-widest">
+    <div className="bg-transparent p-4 rounded-xl border border-border flex flex-col justify-between h-24 transition-all hover:border-emerald-500/30">
+      <div className="text-[10px] uppercase font-medium text-muted-foreground/40 tracking-widest">
         {title}
       </div>
       <div
@@ -942,7 +942,7 @@ function DetailStat({
 }) {
   return (
     <div className="group">
-      <div className="text-[11px] font-medium text-muted-foreground/80 dark:text-white/30 mb-1 tracking-tight">
+      <div className="text-[11px] font-medium text-muted-foreground/40 mb-1 tracking-tight">
         {label}
       </div>
       <div
@@ -951,7 +951,7 @@ function DetailStat({
         {value}
       </div>
       {sub && (
-        <div className="text-[10px] text-muted-foreground/80 dark:text-white/20 font-medium">
+        <div className="text-[10px] text-muted-foreground/40 font-medium">
           {sub}
         </div>
       )}

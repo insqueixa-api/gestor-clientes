@@ -351,7 +351,7 @@ export default function ApiServerPage() {
                     setEditingIntegration(null);
                     setIsModalOpen(true);
                   }}
-                  className="w-full px-4 py-3 text-left text-sm font-medium text-foreground/90 hover:bg-transparent/50 dark:hover:bg-card/5 flex items-center gap-2 border-b border-border"
+                  className="w-full px-4 py-3 text-left text-sm font-medium text-foreground/90 hover:bg-muted/50 flex items-center gap-2 border-b border-border"
                 >
                   🖥️ Servidor
                 </button>
@@ -361,7 +361,7 @@ export default function ApiServerPage() {
                     setEditingApp(null);
                     setIsModalAppOpen(true);
                   }}
-                  className="w-full px-4 py-3 text-left text-sm font-medium text-foreground/90 hover:bg-transparent/50 dark:hover:bg-card/5 flex items-center gap-2"
+                  className="w-full px-4 py-3 text-left text-sm font-medium text-foreground/90 hover:bg-muted/50 flex items-center gap-2"
                 >
                   📱 Aplicativo
                 </button>
@@ -379,7 +379,7 @@ export default function ApiServerPage() {
             className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wider transition-all ${
               activeTab === tab
                 ? "bg-emerald-600 text-white shadow"
-                : "text-muted-foreground hover:text-foreground/90 dark:hover:text-foreground dark:text-white"
+                : "text-muted-foreground hover:text-foreground/90"
             }`}
           >
             {tab === "servidores"
@@ -390,15 +390,15 @@ export default function ApiServerPage() {
       </div>
 
       {loading && (
-        <div className="p-12 text-center text-muted-foreground/80 dark:text-muted-foreground animate-pulse bg-card rounded-xl border border-border">
+        <div className="p-12 text-center text-muted-foreground/80 animate-pulse bg-card rounded-xl border border-border">
           Carregando integrações...
         </div>
       )}
 
       {activeTab === "servidores" && (
         <>
-          {!loading && integrations.length === 0 && (
-            <div className="p-12 text-center text-muted-foreground/80 dark:text-white/30 bg-card rounded-xl border border-dashed border-border">
+{!loading && integrations.length === 0 && (
+            <div className="p-12 text-center text-muted-foreground/40 bg-card rounded-xl border border-dashed border-border">
               Nenhuma integração de servidor cadastrada.
             </div>
           )}
@@ -419,12 +419,12 @@ export default function ApiServerPage() {
                           {row.integration_name}
                         </h2>
 
-                        <span className="inline-flex items-center text-[10px] font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20 px-2.5 py-0.5 rounded-full uppercase">
+<span className="inline-flex items-center text-[10px] font-medium bg-sky-500/10 text-sky-500 border border-sky-500/20 px-2.5 py-0.5 rounded-full uppercase">
                           {providerLabel(row.provider)}
                         </span>
 
                         {!row.is_active && (
-                          <span className="inline-flex items-center text-[10px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/20 px-2.5 py-0.5 rounded-full uppercase">
+                          <span className="inline-flex items-center text-[10px] font-medium bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2.5 py-0.5 rounded-full uppercase">
                             Inativa
                           </span>
                         )}
@@ -502,7 +502,7 @@ export default function ApiServerPage() {
                         <span
                           className={`font-medium px-2 py-0.5 rounded-lg text-xs ${
                             (row.credits_last_known ?? 0) > 10
-                              ? "text-emerald-400 bg-emerald-500/10"
+                              ? "text-emerald-500 bg-emerald-500/10"
                               : "text-rose-500 bg-rose-500/10"
                           }`}
                         >
@@ -553,7 +553,7 @@ export default function ApiServerPage() {
       {activeTab === "aplicativos" && (
         <>
           {!loading && appList.length === 0 && (
-            <div className="p-12 text-center text-muted-foreground/80 dark:text-white/30 bg-card rounded-xl border border-dashed border-border">
+            <div className="p-12 text-center text-muted-foreground/40 bg-card rounded-xl border border-dashed border-border">
               Nenhuma integração de aplicativo cadastrada.
             </div>
           )}
@@ -569,11 +569,11 @@ export default function ApiServerPage() {
                       <h2 className="text-base font-medium truncate text-foreground/90 tracking-tight">
                         {row.label}
                       </h2>
-                      <span className="inline-flex items-center text-[10px] font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2.5 py-0.5 rounded-full uppercase">
+<span className="inline-flex items-center text-[10px] font-medium bg-purple-500/10 text-purple-500 border border-purple-500/20 px-2.5 py-0.5 rounded-full uppercase">
                         {appLabel(row.app_name)}
                       </span>
                       {!row.is_active && (
-                        <span className="inline-flex items-center text-[10px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/20 px-2.5 py-0.5 rounded-full uppercase">
+                        <span className="inline-flex items-center text-[10px] font-medium bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2.5 py-0.5 rounded-full uppercase">
                           Inativa
                         </span>
                       )}
@@ -623,7 +623,7 @@ export default function ApiServerPage() {
                             href={row.api_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="font-mono text-xs text-sky-400 hover:underline truncate max-w-[180px]"
+                            className="font-mono text-xs text-sky-500 hover:underline truncate max-w-[180px]"
                             title={row.api_url}
                           >
                             {row.api_url.replace(/^https?:\/\//, "")}
@@ -633,7 +633,7 @@ export default function ApiServerPage() {
                             onClick={() =>
                               navigator.clipboard.writeText(row.api_url!)
                             }
-                            className="shrink-0 p-1 rounded hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground/80 hover:text-sky-500 transition-colors"
+                            className="shrink-0 p-1 rounded hover:bg-muted text-muted-foreground/80 hover:text-sky-500 transition-colors"
                             title="Copiar URL"
                           >
                             <svg
@@ -710,14 +710,14 @@ function IconActionBtn({
   onClick: (e: MouseEvent<HTMLButtonElement>) => void;
 }) {
   const colors = {
-    blue: "text-sky-500 dark:text-sky-400 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20 dark:hover:bg-sky-500/20",
+    blue: "text-sky-500 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20",
     green:
-      "text-emerald-400 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20 dark:hover:bg-emerald-500/20",
+      "text-emerald-500 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20",
     amber:
-      "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20 dark:hover:bg-amber-500/20",
+      "text-amber-500 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20",
     purple:
-      "text-purple-400 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20 dark:hover:bg-purple-500/20",
-    red: "text-rose-400 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20 dark:hover:bg-rose-500/20",
+      "text-purple-500 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20",
+    red: "text-rose-500 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20",
   };
 
   return (

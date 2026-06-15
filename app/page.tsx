@@ -2,11 +2,9 @@
 
 import { Suspense, useEffect, useState } from "react";
 import LoginClient from "./LoginClient";
-import { useRouter } from "next/navigation";
 
 function HomeRouter() {
   const [hasToken, setHasToken] = useState<boolean | null>(null);
-  const router = useRouter();
 
   useEffect(() => {
     // 1. Verifica token via QueryString (?t=123)
@@ -26,13 +24,12 @@ function HomeRouter() {
     } catch {}
 
     // Roteamento
-    // Roteamento
     if (fromQuery || fromHash || stored) {
       setHasToken(true);
     } else {
       setHasToken(false);
     }
-  }, []); // Removemos o router daqui
+  }, []);
 
   // Tela preta rápida apenas enquanto carrega
   if (hasToken === null) {

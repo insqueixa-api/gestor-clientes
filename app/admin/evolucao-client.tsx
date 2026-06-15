@@ -202,18 +202,18 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
   return (
     <div
       ref={containerRef}
-      className="bg-card dark:bg-zinc-900 rounded-xl border border-border shadow-sm overflow-hidden"
+      className="bg-card rounded-xl border border-border shadow-sm overflow-hidden"
     >
       {/* Header */}
       <div className="px-4 sm:px-5 pt-4 pb-3 border-b border-border">
-        <h3 className="text-sm sm:text-base font-medium dark:font-medium text-foreground">
+        <h3 className="text-sm sm:text-base font-medium text-foreground">
           Evolução Consolidada{" "}
-          <span className="font-medium text-muted-foreground dark:text-zinc-400 dark:text-muted-foreground text-xs">
+          <span className="font-medium text-muted-foreground text-xs">
             ({n} meses)
           </span>
         </h3>
         <div className="flex items-center gap-5 mt-1.5">
-          <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground dark:text-zinc-400 dark:text-muted-foreground">
+          <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
             <span
               className="w-2.5 h-2.5 rounded-sm inline-block"
               style={{
@@ -230,7 +230,7 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
             />
             Barras: Previsto
           </span>
-          <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground dark:text-zinc-400 dark:text-muted-foreground">
+          <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
             <svg width="20" height="7" viewBox="0 0 20 7">
               <path
                 d="M0 3.5 L20 3.5"

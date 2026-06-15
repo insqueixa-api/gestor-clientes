@@ -37,14 +37,12 @@ export function ThemeProvider({
   defaultTheme?: AppTheme;
 }) {
   const [theme, setThemeState] = useState<AppTheme>(defaultTheme);
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem("app_theme") as AppTheme;
     const initial = stored || defaultTheme;
     setThemeState(initial);
     applyTheme(initial);
-    setMounted(true);
   }, [defaultTheme]);
 
   const api = useMemo<ThemeCtx>(() => {

@@ -478,7 +478,7 @@ function AuditoriaPageContent() {
         </span>
       );
     return (
-      <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-transparent text-foreground/90 dark:text-slate-300 text-[10px] font-medium uppercase border border-border dark:border-white/20">
+      <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-muted text-muted-foreground text-[10px] font-medium uppercase border border-border">
         {status}
       </span>
     );
@@ -508,7 +508,7 @@ function AuditoriaPageContent() {
     // 3. Se o pagamento ainda está pendente, mostra o traço aguardando
     if (paymentStatus !== "approved" && paymentStatus !== "PAGO") {
       return (
-        <span className="text-slate-300 dark:text-white/20 font-medium">—</span>
+<span className="text-muted-foreground/60 font-medium">—</span>
       );
     }
 
@@ -646,7 +646,7 @@ function AuditoriaPageContent() {
             </div>
             <button
               onClick={() => loadData(search)}
-              className="h-10 px-4 bg-card border border-border hover:bg-transparent/50 text-foreground/90 rounded-lg text-sm font-medium transition-colors shadow-sm"
+              className="h-10 px-4 bg-card border border-border hover:bg-muted text-foreground/90 rounded-lg text-sm font-medium transition-colors shadow-sm"
             >
               Buscar
             </button>
@@ -716,12 +716,12 @@ function AuditoriaPageContent() {
                     return (
                       <tr
                         key={r.id}
-                        className="hover:bg-transparent/50 dark:hover:bg-card/5 transition-colors group"
+                        className="hover:bg-muted/50 transition-colors group"
                       >
                         {/* Data e Hora */}
                         <td className="px-4 py-3">
                           <div className="flex flex-col">
- <span className=" text-foreground/90/90">
+<span className="text-foreground/90">
                               {dateObj.toLocaleDateString("pt-BR", {
                                 timeZone: "America/Sao_Paulo",
                               })}
@@ -743,10 +743,10 @@ function AuditoriaPageContent() {
                               {r.client_name}
                             </span>
                             <div className="flex items-center gap-1.5 mt-0.5">
- <span className="text-xs text-muted-foreground dark:text-white/60">
+<span className="text-xs text-muted-foreground">
                                 {r.server_username}
                               </span>
-                              <span className="text-slate-300 dark:text-white/20">
+<span className="text-muted-foreground/40">
                                 •
                               </span>
                               <span className="text-[11px] text-muted-foreground/80">
@@ -759,7 +759,7 @@ function AuditoriaPageContent() {
                         {/* Plano / Telas */}
                         <td className="px-4 py-3 text-center">
                           <div className="flex flex-col gap-0.5 items-center">
-                            <span className="text-xs font-medium text-muted-foreground dark:text-white/80">
+<span className="text-xs font-medium text-foreground/80">
                               {r.plan_label ||
                                 PERIOD_LABELS[r.period] ||
                                 r.period}
@@ -794,7 +794,7 @@ function AuditoriaPageContent() {
                                     "Código da transação copiado!",
                                   );
                                 }}
- className="text-[9px] text-muted-foreground/80 dark:text-muted-foreground bg-transparent px-1.5 py-0.5 rounded border border-border hover:border-emerald-500 hover:text-emerald-500 dark:hover:text-emerald-500 transition-colors"
+ className="text-[9px] text-muted-foreground bg-transparent px-1.5 py-0.5 rounded border border-border hover:border-emerald-500 hover:text-emerald-500 transition-colors"
                                 title="Clique para copiar a referência"
                               >
                                 Ref: {String(r.mp_payment_id).slice(-8)}
@@ -871,7 +871,7 @@ function AuditoriaPageContent() {
                                       clientName: r.client_name,
                                     })
                                   }
-                                  className="gap-1 px-3 py-1.5 bg--500/15 dark:bg--500/20 hover:bg-purple-500/30 text-purple-500 dark:bg-purple-500/10 hover:bg-purple-500/20 dark:hover:bg-purple-500/30 dark:text-purple-500 text-[10px] font-medium uppercase rounded-lg transition-colors border border-purple-500/30 shadow-sm flex items-center justify-center gap-1"
+                                  className="gap-1 px-3 py-1.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-500 text-[10px] font-medium uppercase rounded-lg transition-colors border border-purple-500/30 shadow-sm flex items-center justify-center gap-1"
                                   title="Abrir painel de renovação"
                                 >
                                   <IconCheckCircle /> Concluir
@@ -880,7 +880,7 @@ function AuditoriaPageContent() {
                                 {/* ✅ Botão Cancelar (Vermelho suave) */}
                                 <button
                                   onClick={() => handleCancelarAcao(r)}
-                                  className="gap-1 px-3 py-1.5 bg--500/15 dark:bg--500/20 hover:bg-rose-500/10 text-rose-500  dark:hover:bg--500/15 dark:bg--500/20 dark:text-rose-500 text-[10px] font-medium uppercase rounded-lg transition-colors border border-rose-500/20 shadow-sm flex items-center justify-center gap-1"
+                                  className="gap-1 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 text-[10px] font-medium uppercase rounded-lg transition-colors border border-rose-500/20 shadow-sm flex items-center justify-center gap-1"
                                   title="Encerrar esta pendência sem renovar"
                                 >
                                   <IconX />
@@ -892,7 +892,7 @@ function AuditoriaPageContent() {
                             {isWhatsappError && (
                               <button
                                 onClick={() => handleReenviarWhatsapp(r)}
-                                className="gap-1 px-3 py-1.5 bg-sky-500/20 hover:bg-sky-500/30 text-sky-500 dark:bg-sky-500/20 dark:hover:bg-sky-500/30 dark:text-sky-300 text-[10px] font-medium uppercase rounded-lg transition-colors border border-sky-500/30 shadow-sm flex items-center justify-center gap-1"
+                                className="gap-1 px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-500 text-[10px] font-medium uppercase rounded-lg transition-colors border border-sky-500/30 shadow-sm flex items-center justify-center gap-1"
                                 title="Reenviar comprovante via WhatsApp"
                               >
                                 💬 Reenviar Zap
@@ -900,7 +900,7 @@ function AuditoriaPageContent() {
                             )}
 
                             {!canShowAction && (
-                              <span className="text-slate-300 dark:text-white/20 text-xs font-medium">
+<span className="text-muted-foreground/60 text-xs font-medium">
                                 —
                               </span>
                             )}
@@ -922,14 +922,14 @@ function AuditoriaPageContent() {
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={safePage <= 1}
-                className="px-3 py-1 rounded border border-border text-xs font-medium disabled:opacity-40 bg-card dark:bg-black/5 text-muted-foreground"
+                className="px-3 py-1 rounded border border-border text-xs font-medium disabled:opacity-40 bg-card hover:bg-muted text-muted-foreground transition-colors"
               >
                 Anterior
               </button>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={safePage >= totalPages}
-                className="px-3 py-1 rounded border border-border text-xs font-medium disabled:opacity-40 bg-card dark:bg-black/5 text-muted-foreground"
+                className="px-3 py-1 rounded border border-border text-xs font-medium disabled:opacity-40 bg-card hover:bg-muted text-muted-foreground transition-colors"
               >
                 Próxima
               </button>

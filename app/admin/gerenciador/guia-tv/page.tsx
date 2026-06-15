@@ -127,13 +127,12 @@ function Logo({src,nome,categoria,size=32}:{src?:string;nome:string;categoria?:s
     </div>
   );
 
-  return (
+ return (
     <img 
       src={src} 
       alt={nome} 
       onError={()=>setErr(true)} 
-      // ✅ Fundo cinza escuro (slate-900) e um padding (p-1) para a logo respirar
-      className="shrink-0 object-contain rounded-lg border border-slate-700 bg-slate-900 p-1 shadow-sm"
+      className="shrink-0 object-contain rounded-lg border border-border bg-muted p-1 shadow-sm"
       style={{width:size,height:size}}
     />
   );
@@ -151,9 +150,9 @@ function ProgressBar({start, stop}:{start:string; stop:string}) {
 
   return (
     // ✅ Barra mais nítida: Altura h-1.5, fundo do trilho (slate-200/700) e verde mais escuro.
-    <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mt-1.5">
+    <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden mt-1.5">
       <div 
-        className="h-full bg-emerald-600 dark:bg-emerald-500 transition-all duration-300 rounded-full"
+        className="h-full bg-emerald-500 transition-all duration-300 rounded-full"
         style={{width: `${progress}%`}}
       />
     </div>
@@ -249,7 +248,7 @@ function GradeListaPerformance({canais, progsPorCanal}:{canais:Canal[];progsPorC
                 key={canal.id} 
                 onClick={() => setCanalDetalheSel(canal)}
                 // ✅ GRID CORRIGIDO: 3 colunas (1fr) de exato mesmo tamanho + seta
-                className="group flex flex-col md:grid md:grid-cols-[1fr_1fr_1fr_auto] items-center gap-4 md:gap-6 p-4 rounded-2xl border border-border bg-card hover:border-sky-500/30 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-all cursor-pointer shadow-sm"
+                className="group flex flex-col md:grid md:grid-cols-[1fr_1fr_1fr_auto] items-center gap-4 md:gap-6 p-4 rounded-2xl border border-border bg-card hover:border-sky-500/30 hover:bg-muted/50 transition-all cursor-pointer shadow-sm"
               >
                 {/* Coluna 1: Canal */}
                 <div className="flex items-center gap-4 w-full shrink-0">
@@ -269,16 +268,17 @@ function GradeListaPerformance({canais, progsPorCanal}:{canais:Canal[];progsPorC
                     <div className="min-w-0 md:pr-10">
                       {/* Mobile: badge + linha única (título à esquerda, horário fixo à direita) */}
                       <div className="flex md:hidden items-center gap-2 mb-1">
-                        <span className="text-[10px] font-bold text-sky-600 bg-sky-100 dark:text-sky-300 dark:bg-sky-900/50 px-2 py-0.5 rounded uppercase tracking-wider shrink-0">AO VIVO</span>
-                        <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate flex-1 min-w-0">{progAtual.title}</span>
-                        <span className="text-xs text-slate-500 font-medium shrink-0 ml-auto">{formatHora(progAtual.start)} – {formatHora(progAtual.stop)}</span>
+                                                <span className="text-[10px] font-bold text-sky-600 bg-sky-100 dark:text-sky-300 dark:bg-sky-900/50 px-2 py-0.5 rounded uppercase tracking-wider shrink-0">AO VIVO</span>
+
+                        <span className="text-sm font-semibold text-foreground truncate flex-1 min-w-0">{progAtual.title}</span>
+                        <span className="text-xs text-muted-foreground font-medium shrink-0 ml-auto">{formatHora(progAtual.start)} – {formatHora(progAtual.stop)}</span>
                       </div>
                       {/* Desktop: layout original em coluna */}
                       <div className="hidden md:block">
-                        <div className="text-[10px] font-bold text-sky-600 bg-sky-100 dark:text-sky-300 dark:bg-sky-900/50 px-2 py-0.5 rounded uppercase w-max mb-2 tracking-wider">AO VIVO</div>
+                        <div className="text-[10px] font-bold text-sky-500 bg-sky-500/10 px-2 py-0.5 rounded uppercase w-max mb-2 tracking-wider">AO VIVO</div>
                         <div className="flex flex-col gap-1">
-                          <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate group-hover:text-sky-600">{progAtual.title}</div>
-                          <div className="text-xs text-slate-500 font-medium">
+                          <div className="text-sm font-semibold text-foreground truncate group-hover:text-sky-500">{progAtual.title}</div>
+<div className="text-xs text-muted-foreground font-medium">
                             {formatHora(progAtual.start)} – {formatHora(progAtual.stop)}
                           </div>
                         </div>
@@ -386,7 +386,7 @@ function ModalDetalheCanal({canal, progsPorCanal, agoraMs, onProgSelect, onClose
                             <div 
                                 key={p.start} 
                                 onClick={() => onProgSelect(p)}
-                                className={`flex items-start gap-4 p-5 rounded-xl border bg-card transition-all cursor-pointer group shadow-sm ${emAndamento ? 'border-sky-300 dark:border-sky-500/40 bg-sky-50/50 dark:bg-sky-500/[0.02]' : 'border-border hover:bg-muted/30'}`}
+                                className={`flex items-start gap-4 p-5 rounded-xl border bg-card transition-all cursor-pointer group shadow-sm ${emAndamento ? 'border-sky-500/30 bg-sky-500/[0.05]' : 'border-border hover:bg-muted/30'}`}
                             >
                                 {/* ✅ Placeholder idêntico ao print (quadrado branco com borda e ícone) */}
                                 {p.prog_icon ? (
@@ -400,15 +400,15 @@ function ModalDetalheCanal({canal, progsPorCanal, agoraMs, onProgSelect, onClose
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2.5 mb-1.5">
                                         {emAndamento && (
-                                            <span className="shrink-0 text-[10px] font-bold text-sky-700 bg-sky-200 dark:text-sky-300 dark:bg-sky-900/50 px-2.5 py-0.5 rounded-full tracking-wider uppercase">Passando</span>
+                                            <span className="shrink-0 text-[10px] font-bold text-sky-500 bg-sky-500/10 px-2.5 py-0.5 rounded-full tracking-wider uppercase">Passando</span>
                                         )}
-                                        <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
+<span className="text-sm font-medium text-muted-foreground">
                                             {formatHora(p.start)} – {formatHora(p.stop)}
                                         </span>
                                         <span className="text-xs text-muted-foreground/60 ml-auto font-medium">{p.duracao_min} min</span>
                                     </div>
                                     
-                                    <div className={`text-base font-semibold truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 tracking-tight ${emAndamento ? 'text-sky-700 dark:text-sky-400' : 'text-slate-800 dark:text-slate-100'}`}>
+<div className={`text-base font-semibold truncate group-hover:text-sky-500 tracking-tight ${emAndamento ? 'text-sky-500' : 'text-foreground'}`}>
                                         {p.title}
                                     </div>
 
@@ -419,7 +419,7 @@ function ModalDetalheCanal({canal, progsPorCanal, agoraMs, onProgSelect, onClose
                                     )}
 
                                     {p.desc && (
-                                        <div className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-2 mt-2">{p.desc}</div>
+                                        <div className="text-sm text-muted-foreground leading-relaxed line-clamp-2 mt-2">{p.desc}</div>
                                     )}
                                 </div>
                                 <div className="shrink-0 flex items-center justify-center pt-1">
@@ -535,21 +535,22 @@ function LimparCatalogo() {
 // ✅ Refatorado visivelmente para Tailwind e temas claro/escuro
 function ModalCatalogo({onClose}:{onClose:()=>void}) {
   const [status,setStatus]=useState<Record<SrvId,SrvStatus>>({elite:"idle",natv:"idle",fast:"idle"});
-  const [logs,setLogs]=useState<Record<SrvId,string[]>>({elite:[],natv:[],fast:[]});
   const [info,setInfo]=useState<Record<SrvId,CatalogInfo|null>>({elite:null,natv:null,fast:null});
-  const addLog=(srv:SrvId,msg:string)=>setLogs(p=>({...p,[srv]:[...p[srv],msg]}));
+  const [toasts,setToasts]=useState<any[]>([]);
+  const removeToast=(id:number)=>setToasts(p=>p.filter(t=>t.id!==id));
+  const addToast=(type:"success"|"error"|"warning",title:string,message:string)=>setToasts(p=>[...p,{id:Date.now(),type,title,message,durationMs:5000}]);
   
   // Lógica original preservada
   useEffect(()=>{(["elite","natv","fast"] as SrvId[]).forEach(async srv=>{try{const d=await fetch(`/api/epg/sync-catalog/${srv}`).then(r=>r.json());if(d.resultado){setInfo(p=>({...p,[srv]:{ultimo_sync:d.executado_em||null,filmes:d.resultado.filmes||0,series_unicas:d.resultado.series_unicas||d.resultado.series||0,episodios:d.resultado.episodios||0}}));}}catch{}});},[]);
   
   // Lógica original preservada
-  async function syncElite(){setStatus(p=>({...p,elite:"running"}));setLogs(p=>({...p,elite:[]}));addLog("elite","↑ Conectando ao servidor Elite...");try{const d=await fetch("/api/epg/sync-catalog/elite",{method:"POST"}).then(r=>r.json());if(d.error)throw new Error(d.error);addLog("elite",`✓ Filmes: ${d.filmes??0}`);addLog("elite",`✓ Séries únicas: ${d.series_unicas??0}`);addLog("elite",`✓ Episódios: ${d.episodios??0}`);addLog("elite",`✓ Novos títulos: ${d.novos_titulos??0}`);addLog("elite",`✓ Novos episódios: ${d.novos_episodios??0}`);addLog("elite",`✅ Concluído em ${d.duracao_s}s`);setInfo(p=>({...p,elite:{ultimo_sync:new Date().toISOString(),filmes:d.filmes??0,series_unicas:d.series_unicas??0,episodios:d.episodios??0}}));setStatus(p=>({...p,elite:"ok"}));}catch(e:any){addLog("elite",`❌ ${e.message}`);setStatus(p=>({...p,elite:"error"}));}}
+  async function syncElite(){setStatus(p=>({...p,elite:"running"}));try{const d=await fetch("/api/epg/sync-catalog/elite",{method:"POST"}).then(r=>r.json());if(d.error)throw new Error(d.error);setInfo(p=>({...p,elite:{ultimo_sync:new Date().toISOString(),filmes:d.filmes??0,series_unicas:d.series_unicas??0,episodios:d.episodios??0}}));setStatus(p=>({...p,elite:"ok"}));addToast("success","EliteTV sincronizado",`Filmes: ${d.filmes??0} · Séries: ${d.series_unicas??0} · Episódios: ${d.episodios??0} · Novos títulos: ${d.novos_titulos??0} · Concluído em ${d.duracao_s}s`);}catch(e:any){setStatus(p=>({...p,elite:"error"}));addToast("error","Falha ao sincronizar EliteTV",e.message);}}
   
   // Lógica original preservada
-  async function syncNaTV(){setStatus(p=>({...p,natv:"running"}));setLogs(p=>({...p,natv:[]}));addLog("natv","↑ Conectando ao servidor NaTV...");try{const d=await fetch("/api/epg/sync-catalog/natv",{method:"POST"}).then(r=>r.json());if(d.error)throw new Error(d.error);addLog("natv",`✓ Filmes: ${d.filmes??0}`);addLog("natv",`✓ Séries únicas: ${d.series_unicas??0}`);addLog("natv",`✓ Episódios: ${d.episodios??0}`);addLog("natv",`✓ Novos títulos: ${d.novos_titulos??0}`);addLog("natv",`✓ Novos episódios: ${d.novos_episodios??0}`);addLog("natv",`✅ Concluído em ${d.duracao_s}s`);setInfo(p=>({...p,natv:{ultimo_sync:new Date().toISOString(),filmes:d.filmes??0,series_unicas:d.series_unicas??0,episodios:d.episodios??0}}));setStatus(p=>({...p,natv:"ok"}));}catch(e:any){addLog("natv",`❌ ${e.message}`);setStatus(p=>({...p,natv:"error"}));}}
+  async function syncNaTV(){setStatus(p=>({...p,natv:"running"}));try{const d=await fetch("/api/epg/sync-catalog/natv",{method:"POST"}).then(r=>r.json());if(d.error)throw new Error(d.error);setInfo(p=>({...p,natv:{ultimo_sync:new Date().toISOString(),filmes:d.filmes??0,series_unicas:d.series_unicas??0,episodios:d.episodios??0}}));setStatus(p=>({...p,natv:"ok"}));addToast("success","NaTV sincronizado",`Filmes: ${d.filmes??0} · Séries: ${d.series_unicas??0} · Episódios: ${d.episodios??0} · Novos títulos: ${d.novos_titulos??0} · Concluído em ${d.duracao_s}s`);}catch(e:any){setStatus(p=>({...p,natv:"error"}));addToast("error","Falha ao sincronizar NaTV",e.message);}}
   
   // Lógica original preservada
-  async function syncFast(){setStatus(p=>({...p,fast:"running"}));setLogs(p=>({...p,fast:[]}));addLog("fast","⬇ Buscando URL M3U...");try{const res=await fetch("/api/epg/sync-catalog/fast");const data=await res.json();if(!data.m3u_url)throw new Error("URL M3U não encontrada.");addLog("fast","⬇ Baixando M3U via extensão...");function onResult(e:Event){const detail=(e as CustomEvent).detail;window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE",onResult);if(!detail?.ok){addLog("fast",`❌ ${detail?.error||"Erro desconhecido"}`);setStatus(p=>({...p,fast:"error"}));return;}addLog("fast","↑ Processando em background...");}window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE",onResult);async function onDone(e:Event){const detail=(e as CustomEvent).detail;if(detail?.action!=="FAST_VOD_SYNC_RESULT")return;window.removeEventListener("UNIGESTOR_BACKGROUND_MESSAGE",onDone as any);if(!detail.ok){addLog("fast",`❌ ${detail.error}`);setStatus(p=>({...p,fast:"error"}));return;}addLog("fast",`✓ Filmes: ${detail.filmes??0}`);addLog("fast",`✓ Séries: ${detail.series??0}`);addLog("fast",`✓ Episódios: ${detail.episodios??0}`);try{const log=await fetch("/api/epg/sync-catalog/fast").then(r=>r.json());if(log.resultado?.novos_titulos!==undefined){addLog("fast",`✓ Novos títulos: ${log.resultado.novos_titulos}`);addLog("fast",`✓ Novos episódios: ${log.resultado.novos_episodios}`);}}catch{}addLog("fast","✅ Concluído!");setInfo(p=>({...p,fast:{ultimo_sync:new Date().toISOString(),filmes:detail.filmes??0,series_unicas:detail.series??0,episodios:detail.episodios??0}}));setStatus(p=>({...p,fast:"ok"}));}window.addEventListener("UNIGESTOR_BACKGROUND_MESSAGE",onDone);window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL",{detail:{action:"FAST_VOD_SYNC",m3uUrl:data.m3u_url.replace(/&output=ts$/i,"").replace(/&output=ts&/i,"&"),apiBase:window.location.origin}}));}catch(e:any){addLog("fast",`❌ ${e.message}`);setStatus(p=>({...p,fast:"error"}));}}
+  async function syncFast(){setStatus(p=>({...p,fast:"running"}));try{const res=await fetch("/api/epg/sync-catalog/fast");const data=await res.json();if(!data.m3u_url)throw new Error("URL M3U não encontrada.");function onResult(e:Event){const detail=(e as CustomEvent).detail;window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE",onResult);if(!detail?.ok){setStatus(p=>({...p,fast:"error"}));addToast("error","Falha ao sincronizar FastTV",detail?.error||"Erro desconhecido");return;}}window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE",onResult);async function onDone(e:Event){const detail=(e as CustomEvent).detail;if(detail?.action!=="FAST_VOD_SYNC_RESULT")return;window.removeEventListener("UNIGESTOR_BACKGROUND_MESSAGE",onDone as any);if(!detail.ok){setStatus(p=>({...p,fast:"error"}));addToast("error","Falha ao sincronizar FastTV",detail.error);return;}let novosTitulos:number|undefined,novosEpisodios:number|undefined;try{const log=await fetch("/api/epg/sync-catalog/fast").then(r=>r.json());novosTitulos=log.resultado?.novos_titulos;novosEpisodios=log.resultado?.novos_episodios;}catch{}setInfo(p=>({...p,fast:{ultimo_sync:new Date().toISOString(),filmes:detail.filmes??0,series_unicas:detail.series??0,episodios:detail.episodios??0}}));setStatus(p=>({...p,fast:"ok"}));addToast("success","FastTV sincronizado",`Filmes: ${detail.filmes??0} · Séries: ${detail.series??0} · Episódios: ${detail.episodios??0}${novosTitulos!==undefined?` · Novos títulos: ${novosTitulos} · Novos episódios: ${novosEpisodios}`:""}`);}window.addEventListener("UNIGESTOR_BACKGROUND_MESSAGE",onDone);window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL",{detail:{action:"FAST_VOD_SYNC",m3uUrl:data.m3u_url.replace(/&output=ts$/i,"").replace(/&output=ts&/i,"&"),apiBase:window.location.origin}}));}catch(e:any){setStatus(p=>({...p,fast:"error"}));addToast("error","Falha ao sincronizar FastTV",e.message);}}
   
   const SERVIDORES:{id:SrvId;label:string;cor:string;onSync:()=>void}[]=[{id:"elite",label:"EliteTV",cor:"#6366f1",onSync:syncElite},{id:"natv",label:"NaTV",cor:"#10b981",onSync:syncNaTV},{id:"fast",label:"FastTV",cor:"#06b6d4",onSync:syncFast}];
   const [tmdbStatus,setTmdbStatus]=useState<"idle"|"running"|"ok"|"error">("idle");
@@ -564,7 +565,7 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
   useEffect(()=>{fetch("/api/epg/sync-tmdb").then(r=>r.json()).then(d=>{if(d.filmes)setTmdbInfo(d);}).catch(()=>{});},[]);
   
   // Lógica original preservada
-  async function syncTmdb(){setTmdbStatus("running");setTmdbLogs([]);setTmdbConfirm(false);let loteNum=1,totalProc=0,totalEnc=0,totalNao=0;addTmdbLog(`↑ Iniciando — ${tmdbTipo==="FILME"?"Filmes":"Séries"} · lote ${tmdbLote}`);try{while(true){const d=await fetch(`/api/epg/sync-tmdb?tipo=${tmdbTipo}&lote=${tmdbLote}`,{method:"POST"}).then(r=>r.json());if(d.error)throw new Error(d.error);if(d.processados===0){addTmdbLog("✅ Todos os títulos já foram processados!");break;}totalProc+=d.processados;totalEnc+=d.encontrados;totalNao+=d.nao_encontrados;loteNum++;setTmdbLogs(p=>{const n=[...p];n[n.length-1]=`↻ Lote ${loteNum-1} · ${totalProc} processados · ${totalEnc} encontrados · ${totalNao} não encontrados`;return n;});if(!d.proximo_lote){addTmdbLog(`✅ Concluído! ${totalProc} processados · ${totalEnc} encontrados · ${totalNao} não encontrados`);break;}const s=await fetch("/api/epg/sync-tmdb").then(r=>r.json());if(s.filmes)setTmdbInfo(s);await new Promise(r=>setTimeout(r,60_000));}const s=await fetch("/api/epg/sync-tmdb").then(r=>r.json());if(s.filmes)setTmdbInfo(s);setTmdbStatus("ok");}catch(e:any){addTmdbLog(`❌ ${e.message}`);setTmdbStatus("error");}}
+  async function syncTmdb(){setTmdbStatus("running");setTmdbConfirm(false);let totalProc=0,totalEnc=0,totalNao=0;try{while(true){const d=await fetch(`/api/epg/sync-tmdb?tipo=${tmdbTipo}&lote=${tmdbLote}`,{method:"POST"}).then(r=>r.json());if(d.error)throw new Error(d.error);if(d.processados===0){if(totalProc===0){addToast("success","Enriquecimento TMDB","Todos os títulos já foram processados.");}break;}totalProc+=d.processados;totalEnc+=d.encontrados;totalNao+=d.nao_encontrados;if(!d.proximo_lote){break;}const s=await fetch("/api/epg/sync-tmdb").then(r=>r.json());if(s.filmes)setTmdbInfo(s);await new Promise(r=>setTimeout(r,60_000));}const s=await fetch("/api/epg/sync-tmdb").then(r=>r.json());if(s.filmes)setTmdbInfo(s);setTmdbStatus("ok");if(totalProc>0){addToast("success","Enriquecimento TMDB concluído",`${totalProc} processados · ${totalEnc} encontrados · ${totalNao} não encontrados`);}}catch(e:any){setTmdbStatus("error");addToast("error","Falha no enriquecimento TMDB",e.message);}}
   
   return (
     <div className="fixed inset-0 z-[9990] bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
@@ -587,9 +588,8 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
         </div>
         
         <div className="overflow-y-auto flex-1 p-5 space-y-3.5 bg-muted/20">
-          {SERVIDORES.map(({id,label,cor,onSync})=>{
+{SERVIDORES.map(({id,label,cor,onSync})=>{
             const st=status[id];
-            const lg=logs[id];
             const inf=info[id];
             const running=st==="running";
             const borderCol = st==="ok"? cor + "40" : st==="error"? "#ef444430" : running ? cor + "30" : "#2a2a2a30";
@@ -624,8 +624,7 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
                     {running?"Rodando...":"Sincronizar"}
                   </button>
                 </div>
-                {lg.length>0&&<div className="mt-4 p-3 rounded-lg bg-background border border-border font-mono leading-relaxed">{lg.map((l,i)=><div key={i} className={`text-[11px] ${l.startsWith("❌")?"text-rose-500":l.startsWith("✅")?"text-emerald-500":l.startsWith("✓")?"text-emerald-400":"text-muted-foreground"}`}>{l}</div>)}</div>}
-              </div>
+                </div>
             );
           })}
           
@@ -650,8 +649,7 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
               </button>
             </div>
             {tmdbConfirm&&tmdbStatus!=="running"&&<div className="mt-4 p-4 rounded-xl bg-background border border-border animate-in slide-in-from-top-2"><div className="text-xs font-semibold text-muted-foreground tracking-wider uppercase mb-3">Configurar lote:</div><div className="flex flex-wrap items-center gap-3.5 mb-3.5"><div className="flex bg-muted/60 p-1.5 rounded-lg border border-border/60 gap-1.5"><button onClick={()=>setTmdbTipo("FILME")} className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-colors ${tmdbTipo==="FILME"?"bg-amber-600 text-white shadow":"text-muted-foreground hover:bg-muted hover:text-foreground"}`}>Filmes</button><button onClick={()=>setTmdbTipo("SERIE")} className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-colors ${tmdbTipo==="SERIE"?"bg-amber-600 text-white shadow":"text-muted-foreground hover:bg-muted hover:text-foreground"}`}>Séries</button></div><div className="flex items-center gap-2.5 bg-muted/40 border border-border rounded-lg px-3 py-1.5"><span className="text-xs text-muted-foreground">Tamanho Lote:</span><input type="number" min={5} max={100} value={tmdbLote} onChange={e=>setTmdbLote(Math.min(100,Math.max(5,parseInt(e.target.value)||5)))} className="w-16 h-7 px-2 bg-card border border-border rounded-md text-foreground text-sm font-semibold text-center outline-none focus:border-amber-500/40"/><span className="text-xs text-muted-foreground/60">(máx 100)</span></div></div><div className="flex items-center justify-between gap-3 border-t border-border/60 pt-3.5">{tmdbInfo&&<div className="text-xs font-medium text-foreground">{tmdbTipo==="FILME"?tmdbInfo.filmes.sem_tmdb.toLocaleString():tmdbInfo.series.sem_tmdb.toLocaleString()} {tmdbTipo==="FILME"?"filmes":"séries"} aguardando enriquecimento.</div>}<button onClick={syncTmdb} className="h-8 px-4 rounded-md bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow">Confirmar e Iniciar</button></div></div>}
-            {tmdbLogs.length>0&&<div className="mt-4 p-3 rounded-lg bg-background border border-border font-mono leading-relaxed">{tmdbLogs.map((l,i)=><div key={i} className={`text-[11px] ${l.startsWith("❌")?"text-rose-500":l.startsWith("✅")?"text-emerald-500":l.startsWith("↻")?"text-amber-500":"text-muted-foreground"}`}>{l}</div>)}</div>}
-          </div>
+</div>
           
           <LimparCatalogo />
 
@@ -659,6 +657,11 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
 
         <div className="p-4 border-t border-border shrink-0 bg-muted/40">
           <div className="text-[11px] text-muted-foreground flex items-center justify-center gap-2 leading-relaxed"><RefreshCw size={10} className="text-muted-foreground/60"/> Títulos já existentes são ignorados — apenas novos registros são contabilizados.</div>
+        </div>
+      </div>
+      <div className="fixed inset-x-0 top-3 z-[999999] px-4 sm:px-6 pointer-events-none">
+        <div className="pointer-events-auto max-w-sm ml-auto">
+          <ToastNotifications toasts={toasts} removeToast={removeToast} />
         </div>
       </div>
     </div>
@@ -1154,11 +1157,11 @@ function ResultadoBuscaEPG({epg,busca,progsPorCanal,onClear}:{epg:EpgData;busca:
   
   const agoraMs = agora;
 
-  if(detalhe?.tipo==="canal")return(<div className="p-6 bg-background space-y-5"><div className="flex items-center gap-4 p-4 border border-border bg-card rounded-2xl shadow-sm"><button onClick={()=>setDetalhe(null)} className="h-8 px-4 rounded-lg bg-card border border-border text-foreground text-xs font-semibold hover:border-border-hover transition-colors shrink-0">← Voltar</button><Logo src={detalhe.canal.icon} nome={detalhe.canal.nome} categoria={detalhe.canal.categoria} size={40}/><div><div className="text-base font-bold text-foreground leading-snug">{detalhe.canal.nome}</div><div className="text-xs text-muted-foreground/90 mt-0.5">{detalhe.canal.categoria}</div></div><button onClick={onClear} className="ml-auto h-8 px-3.5 rounded-lg bg-muted text-muted-foreground hover:border-border-hover hover:text-foreground text-[11px] font-semibold transition-colors flex items-center gap-1.5"><X size={13}/> Nova busca</button></div><div className="space-y-3 p-4 border border-border bg-card rounded-2xl shadow-sm">{progCanal.map((p,i)=>{const sMs=new Date(p.start).getTime();const eMs=new Date(p.stop).getTime();const emAndamento=agoraMs>=sMs&&agoraMs<eMs;const passou=agoraMs>=eMs;const corCanal=CAT_COR[detalhe.canal.categoria]||"#6b7280";return(<div key={i} className={`flex items-start gap-4 p-4 rounded-lg border transition-all ${emAndamento ? 'border-sky-500/30 bg-sky-500/[0.01]' : 'border-border bg-card'}`}>{emAndamento&&<span className="shrink-0 text-[10px] font-bold text-sky-500 bg-sky-500/15 px-2 py-0.5 rounded-full tracking-wide uppercase mt-0.5">AO VIVO</span>}<span className="text-sm font-mono text-muted-foreground/90 font-medium shrink-0 pt-0.5 min-w-28">{formatHora(p.start)} – {formatHora(p.stop)}</span><div className="flex-1"><div className={`text-base font-semibold group-hover:text-sky-500 leading-snug tracking-tight mb-2 ${emAndamento ? 'text-sky-400' : 'text-foreground'}`}>{p.title}</div>{p.desc&&<div className="text-xs text-muted-foreground/80 leading-relaxed line-clamp-2 mt-2">{p.desc}</div>}</div><span className="text-xs text-muted-foreground/60 shrink-0 pt-0.5 ml-auto">{p.duracao_min} min</span></div>);})} {progCanal.length===0&&<div className="text-center py-10 text-muted-foreground text-sm italic">Nenhuma programação encontrada para este canal hoje.</div>}</div></div>);
+  if(detalhe?.tipo==="canal")return(<div className="p-6 bg-background space-y-5"><div className="flex items-center gap-4 p-4 border border-border bg-card rounded-2xl shadow-sm"><button onClick={()=>setDetalhe(null)} className="h-8 px-4 rounded-lg bg-card border border-border text-foreground text-xs font-semibold hover:border-border-hover transition-colors shrink-0">← Voltar</button><Logo src={detalhe.canal.icon} nome={detalhe.canal.nome} categoria={detalhe.canal.categoria} size={40}/><div><div className="text-base font-bold text-foreground leading-snug">{detalhe.canal.nome}</div><div className="text-xs text-muted-foreground/90 mt-0.5">{detalhe.canal.categoria}</div></div><button onClick={onClear} className="ml-auto h-8 px-3.5 rounded-lg bg-muted text-muted-foreground hover:border-border-hover hover:text-foreground text-[11px] font-semibold transition-colors flex items-center gap-1.5"><X size={13}/> Nova busca</button></div><div className="space-y-3 p-4 border border-border bg-card rounded-2xl shadow-sm">{progCanal.map((p,i)=>{const sMs=new Date(p.start).getTime();const eMs=new Date(p.stop).getTime();const emAndamento=agoraMs>=sMs&&agoraMs<eMs;const passou=agoraMs>=eMs;const corCanal=CAT_COR[detalhe.canal.categoria]||"#6b7280";return(<div key={i} className={`flex items-start gap-4 p-4 rounded-lg border transition-all ${emAndamento ? 'border-sky-500/30 bg-sky-500/[0.01]' : 'border-border bg-card'}`}>{emAndamento&&<span className="shrink-0 text-[10px] font-bold text-sky-500 bg-sky-500/15 px-2 py-0.5 rounded-full tracking-wide uppercase mt-0.5">AO VIVO</span>}<span className="text-sm font-mono text-muted-foreground/90 font-medium shrink-0 pt-0.5 min-w-28">{formatHora(p.start)} – {formatHora(p.stop)}</span><div className="flex-1"><div className={`text-base font-semibold group-hover:text-sky-500 leading-snug tracking-tight mb-2 ${emAndamento ? 'text-sky-500' : 'text-foreground'}`}>{p.title}</div>{p.desc&&<div className="text-xs text-muted-foreground/80 leading-relaxed line-clamp-2 mt-2">{p.desc}</div>}</div><span className="text-xs text-muted-foreground/60 shrink-0 pt-0.5 ml-auto">{p.duracao_min} min</span></div>);})} {progCanal.length===0&&<div className="text-center py-10 text-muted-foreground text-sm italic">Nenhuma programação encontrada para este canal hoje.</div>}</div></div>);
   
-  if(detalhe?.tipo==="programa"){const ocorrencias=programasMatch.find(p=>p.titulo===detalhe.titulo)?.items||[];return(<div className="p-6 bg-background space-y-5"><div className="flex items-center gap-4 p-4 border border-border bg-card rounded-2xl shadow-sm"><button onClick={()=>setDetalhe(null)} className="h-8 px-4 rounded-lg bg-card border border-border text-foreground text-xs font-semibold hover:border-border-hover transition-colors shrink-0">← Voltar</button><div className="flex-1 min-w-0"><div className="text-base font-bold text-foreground leading-snug">{detalhe.titulo}</div><div className="text-xs text-muted-foreground/90 mt-0.5">{ocorrencias.length} canal(is) exibindo</div></div><button onClick={onClear} className="h-8 px-3.5 rounded-lg bg-muted text-muted-foreground hover:border-border-hover hover:text-foreground text-[11px] font-semibold transition-colors flex items-center gap-1.5"><X size={13}/> Nova busca</button></div><div className="space-y-3 p-4 border border-border bg-card rounded-2xl shadow-sm">{ocorrencias.map((item,i)=>{const sMs=new Date(item.prog.start).getTime();const eMs=new Date(item.prog.stop).getTime();const emAndamento=agoraMs>=sMs&&agoraMs<eMs;const passou=agoraMs>=eMs;const corCanal=CAT_COR[item.canal.categoria]||"#6b7280";return(<div key={i} className={`flex flex-col md:flex-row md:items-center gap-4 p-4 rounded-lg border transition-all ${emAndamento ? 'border-sky-500/30 bg-sky-500/[0.01]' : passou ? 'border-border bg-card opacity-50' : 'border-border bg-card'}`}>{passou&&<span className="shrink-0 text-[10px] font-bold text-muted-foreground/80 bg-muted px-2 py-0.5 rounded-full tracking-wide uppercase">Passou</span>}{emAndamento&&<span className="shrink-0 text-[10px] font-bold text-sky-500 bg-sky-500/15 px-2 py-0.5 rounded-full tracking-wide uppercase">AO VIVO</span>}<Logo src={item.canal.icon} nome={item.canal.nome} categoria={item.canal.categoria} size={40}/><div className="flex-1 min-w-0 md:border-l md:border-border md:pl-4"> <div className="text-base font-bold text-foreground leading-snug group-hover:text-sky-400 tracking-tight whitespace-normal">{item.canal.nome}</div> <div className="text-xs text-muted-foreground/90 mt-0.5">{item.canal.categoria}</div> </div> <span className="text-sm font-mono text-muted-foreground/90 font-medium shrink-0 min-w-28 text-right ml-auto">{formatHora(item.prog.start)} – {formatHora(item.prog.stop)}</span><span className="text-xs text-muted-foreground/60 shrink-0 ml-4 hidden md:block">{item.prog.duracao_min} min</span></div>);})}</div></div>);}
+  if(detalhe?.tipo==="programa"){const ocorrencias=programasMatch.find(p=>p.titulo===detalhe.titulo)?.items||[];return(<div className="p-6 bg-background space-y-5"><div className="flex items-center gap-4 p-4 border border-border bg-card rounded-2xl shadow-sm"><button onClick={()=>setDetalhe(null)} className="h-8 px-4 rounded-lg bg-card border border-border text-foreground text-xs font-semibold hover:border-border-hover transition-colors shrink-0">← Voltar</button><div className="flex-1 min-w-0"><div className="text-base font-bold text-foreground leading-snug">{detalhe.titulo}</div><div className="text-xs text-muted-foreground/90 mt-0.5">{ocorrencias.length} canal(is) exibindo</div></div><button onClick={onClear} className="h-8 px-3.5 rounded-lg bg-muted text-muted-foreground hover:border-border-hover hover:text-foreground text-[11px] font-semibold transition-colors flex items-center gap-1.5"><X size={13}/> Nova busca</button></div><div className="space-y-3 p-4 border border-border bg-card rounded-2xl shadow-sm">{ocorrencias.map((item,i)=>{const sMs=new Date(item.prog.start).getTime();const eMs=new Date(item.prog.stop).getTime();const emAndamento=agoraMs>=sMs&&agoraMs<eMs;const passou=agoraMs>=eMs;const corCanal=CAT_COR[item.canal.categoria]||"#6b7280";return(<div key={i} className={`flex flex-col md:flex-row md:items-center gap-4 p-4 rounded-lg border transition-all ${emAndamento ? 'border-sky-500/30 bg-sky-500/[0.01]' : passou ? 'border-border bg-card opacity-50' : 'border-border bg-card'}`}>{passou&&<span className="shrink-0 text-[10px] font-bold text-muted-foreground/80 bg-muted px-2 py-0.5 rounded-full tracking-wide uppercase">Passou</span>}{emAndamento&&<span className="shrink-0 text-[10px] font-bold text-sky-500 bg-sky-500/15 px-2 py-0.5 rounded-full tracking-wide uppercase">AO VIVO</span>}<Logo src={item.canal.icon} nome={item.canal.nome} categoria={item.canal.categoria} size={40}/><div className="flex-1 min-w-0 md:border-l md:border-border md:pl-4"> <div className="text-base font-bold text-foreground leading-snug group-hover:text-sky-500 tracking-tight whitespace-normal">{item.canal.nome}</div> <div className="text-xs text-muted-foreground/90 mt-0.5">{item.canal.categoria}</div> </div> <span className="text-sm font-mono text-muted-foreground/90 font-medium shrink-0 min-w-28 text-right ml-auto">{formatHora(item.prog.start)} – {formatHora(item.prog.stop)}</span><span className="text-xs text-muted-foreground/60 shrink-0 ml-4 hidden md:block">{item.prog.duracao_min} min</span></div>);})}</div></div>);}
   
-  return(<div className="p-6 bg-background space-y-6"><div className="flex items-center justify-between gap-4 p-4 border border-border bg-card rounded-xl shadow-sm"><div className="text-sm text-foreground/90 flex items-center gap-2"><Search size={14} className="text-muted-foreground/60"/> Resultados para pesquisa por: <span className="text-foreground font-semibold">"{busca}"</span></div><button onClick={onClear} className="h-8 px-3.5 rounded-lg bg-card border border-border text-foreground text-xs font-semibold hover:border-border-hover transition-colors flex items-center gap-1.5"><X size={13}/> Limpar Pesquisa</button></div>{canaisMatch.length>0&&(<div className="space-y-4 pt-1"><div className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest pl-1 flex items-center gap-2"><Tv size={13} className="text-muted-foreground/60"/> CANAIS ENCONTRADOS ({canaisMatch.length})</div><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">{canaisMatch.map(canal=>{const progsCanal=progsPorCanal.get(canal.id)||[];const atual=progsCanal.find(p=>{const sMs=new Date(p.start).getTime();const eMs=new Date(p.stop).getTime();return agoraMs>=sMs&&agoraMs<eMs;});return(<div key={canal.id} onClick={()=>setDetalhe({tipo:"canal",canal})} className="flex items-center gap-3.5 p-3.5 rounded-xl border border-border bg-card hover:border-border-hover hover:bg-muted/30 transition-all cursor-pointer group"><Logo src={canal.icon} nome={canal.nome} categoria={canal.categoria} size={40}/><div className="flex-1 min-w-0"><div className="text-sm font-semibold text-foreground group-hover:text-sky-400 truncate">{canal.nome}</div><div className="text-[11px] text-muted-foreground/90 mt-1 flex flex-col gap-0.5">{canal.categoria}{atual?(<span className="text-foreground/70 truncate pt-0.5">• {atual.title}</span>):""}</div></div><ChevronRight className="w-5 h-5 text-border/70 group-hover:text-sky-500 shrink-0 ml-auto"/></div>);})}</div></div>)}{programasMatch.length>0&&(<div className="space-y-4 pt-3 border-t border-border/80"><div className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest pl-1 flex items-center gap-2"><Clapperboard size={13} className="text-muted-foreground/60"/> PROGRAMAS ENCONTRADOS ({programasMatch.length})</div><div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">{programasMatch.map(({titulo,items})=>{const emAr=items.some(i=>{const sMs=new Date(i.prog.start).getTime();const eMs=new Date(i.prog.stop).getTime();return agoraMs>=sMs&&agoraMs<eMs;});return(<div key={titulo} onClick={()=>setDetalhe({tipo:"programa",titulo})} className={`flex items-center gap-3.5 p-3.5 rounded-xl border transition-all cursor-pointer group ${emAr ? 'border-sky-500/30 bg-sky-500/[0.01]' : 'border-border bg-card hover:border-border-hover hover:bg-muted/30'}`}><div className="flex-1 min-w-0"><div className="flex items-center gap-2 mb-1">{emAr&&<span className="shrink-0 text-[9px] font-bold text-sky-500 bg-sky-500/15 px-1.5 py-0.5 rounded uppercase">Passando</span>}<span className={`text-sm font-semibold group-hover:text-sky-400 truncate ${emAr ? 'text-sky-400' : 'text-foreground'}`}>{titulo}</span></div><div className="text-[11px] text-muted-foreground/90 mt-1">Exibindo em {items.length} canal(is) agora.</div></div><ChevronRight className="w-5 h-5 text-border/70 group-hover:text-sky-500 shrink-0 ml-auto"/></div>);})}</div></div>)}{canaisMatch.length===0&&programasMatch.length===0&&(<div className="text-center py-20 text-muted-foreground p-5 border border-border bg-card/60 rounded-xl flex flex-col items-center gap-3"><Search size={32} className="text-muted-foreground/40"/><div className="text-sm font-medium">Nenhum canal ou programa encontrado para "{busca}".</div><div className="text-xs text-muted-foreground/80">Tente buscar por termos mais genéricos.</div></div>)}</div>);
+  return(<div className="p-6 bg-background space-y-6"><div className="flex items-center justify-between gap-4 p-4 border border-border bg-card rounded-xl shadow-sm"><div className="text-sm text-foreground/90 flex items-center gap-2"><Search size={14} className="text-muted-foreground/60"/> Resultados para pesquisa por: <span className="text-foreground font-semibold">"{busca}"</span></div><button onClick={onClear} className="h-8 px-3.5 rounded-lg bg-card border border-border text-foreground text-xs font-semibold hover:border-border-hover transition-colors flex items-center gap-1.5"><X size={13}/> Limpar Pesquisa</button></div>{canaisMatch.length>0&&(<div className="space-y-4 pt-1"><div className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest pl-1 flex items-center gap-2"><Tv size={13} className="text-muted-foreground/60"/> CANAIS ENCONTRADOS ({canaisMatch.length})</div><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">{canaisMatch.map(canal=>{const progsCanal=progsPorCanal.get(canal.id)||[];const atual=progsCanal.find(p=>{const sMs=new Date(p.start).getTime();const eMs=new Date(p.stop).getTime();return agoraMs>=sMs&&agoraMs<eMs;});return(<div key={canal.id} onClick={()=>setDetalhe({tipo:"canal",canal})} className="flex items-center gap-3.5 p-3.5 rounded-xl border border-border bg-card hover:border-border-hover hover:bg-muted/30 transition-all cursor-pointer group"><Logo src={canal.icon} nome={canal.nome} categoria={canal.categoria} size={40}/><div className="flex-1 min-w-0"><div className="text-sm font-semibold text-foreground group-hover:text-sky-500 truncate">{canal.nome}</div><div className="text-[11px] text-muted-foreground/90 mt-1 flex flex-col gap-0.5">{canal.categoria}{atual?(<span className="text-foreground/70 truncate pt-0.5">• {atual.title}</span>):""}</div></div><ChevronRight className="w-5 h-5 text-border/70 group-hover:text-sky-500 shrink-0 ml-auto"/></div>);})}</div></div>)}{programasMatch.length>0&&(<div className="space-y-4 pt-3 border-t border-border/80"><div className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest pl-1 flex items-center gap-2"><Clapperboard size={13} className="text-muted-foreground/60"/> PROGRAMAS ENCONTRADOS ({programasMatch.length})</div><div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">{programasMatch.map(({titulo,items})=>{const emAr=items.some(i=>{const sMs=new Date(i.prog.start).getTime();const eMs=new Date(i.prog.stop).getTime();return agoraMs>=sMs&&agoraMs<eMs;});return(<div key={titulo} onClick={()=>setDetalhe({tipo:"programa",titulo})} className={`flex items-center gap-3.5 p-3.5 rounded-xl border transition-all cursor-pointer group ${emAr ? 'border-sky-500/30 bg-sky-500/[0.01]' : 'border-border bg-card hover:border-border-hover hover:bg-muted/30'}`}><div className="flex-1 min-w-0"><div className="flex items-center gap-2 mb-1">{emAr&&<span className="shrink-0 text-[9px] font-bold text-sky-500 bg-sky-500/15 px-1.5 py-0.5 rounded uppercase">Passando</span>}<span className={`text-sm font-semibold group-hover:text-sky-500 truncate ${emAr ? 'text-sky-500' : 'text-foreground'}`}>{titulo}</span></div><div className="text-[11px] text-muted-foreground/90 mt-1">Exibindo em {items.length} canal(is) agora.</div></div><ChevronRight className="w-5 h-5 text-border/70 group-hover:text-sky-500 shrink-0 ml-auto"/></div>);})}</div></div>)}{canaisMatch.length===0&&programasMatch.length===0&&(<div className="text-center py-20 text-muted-foreground p-5 border border-border bg-card/60 rounded-xl flex flex-col items-center gap-3"><Search size={32} className="text-muted-foreground/40"/><div className="text-sm font-medium">Nenhum canal ou programa encontrado para "{busca}".</div><div className="text-xs text-muted-foreground/80">Tente buscar por termos mais genéricos.</div></div>)}</div>);
 }
 
 // ─── Aba Canais Refatorada (Performance e Visual de Lista) ─────────────────────
@@ -1180,7 +1183,82 @@ const [syncOpen,setSyncOpen]=useState(false);
   useEffect(()=>{ function h(e:MouseEvent){if(syncRef.current&&!syncRef.current.contains(e.target as Node))setSyncOpen(false);} document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h); },[]);
   useEffect(()=>{ function h(e:MouseEvent){if(subRef.current&&!subRef.current.contains(e.target as Node))setSubOpen(false);} document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h); },[]);
   const catsDisponiveis=useMemo(()=>{const s=new Set(epg.canais.map(c=>c.categoria));return CATS_ORDEM.filter(c=>s.has(c));},[epg]);
-  const canaisFiltrados=useMemo(()=>{let lista=epg.canais;if(catAtiva!=="Todos")lista=lista.filter(c=>c.categoria===catAtiva);if(subAtiva!=="Todos"){const sg=(SUBGRUPOS[catAtiva]||[]).find(s=>s.label===subAtiva);if(sg)lista=lista.filter(c=>sg.match.some(m=>c.display_name.toUpperCase().includes(m)));}return lista;},[epg,catAtiva,subAtiva]);
+  
+  
+  const canaisFiltrados = useMemo(() => {
+    // Lista de bloqueio em letras minúsculas para garantir a correspondência exata sem falhas de case
+    const bloqueados = [
+      "bandhdb", 
+      "globo anhanguera", 
+      "record tv goiás", 
+      "recordtvalt", 
+      "recordtvbelem", 
+      "sbttvaratubahia", 
+      "idinvestigacaodiscovery", 
+      "gbrbsportoalegre", 
+      "tntsries", 
+      "jovenpannews", 
+      "gb", 
+      "gbbrasilia", 
+      "gbminas", 
+      "gbnordeste",
+      "gbnscflorianopolis",
+      "gbrpccuritiba",
+      "gbtvanhanguera",
+      "gbtvbahia",
+      "gbtvcentroamerica",
+      "gbtvgazetaalagoas",
+      "gbtvliberalbelem",
+      "gbtvredeamazonicaboavista",
+      "gbtvredeamazonicamacapa",
+      "gbtvredeamazonicariobranco",
+      "gbtvsergipe",
+      "gbtvverdesmares",
+      "intertvcabuginatal",
+      "intertvgrandeminas",
+      "nscblumenau",
+      "nscjoinville",
+      "playboy",
+      "sextreme",
+      "sexyhot",
+      "tcaction",
+      "tccult",
+      "tcfun",
+      "tcpipoca",
+      "tcpremium",
+      "tctouch",
+      "tvclubeteresina",
+      "tvgazetasules",
+      "tvmirantesaoluis",
+      "tvmorenacampogrande",
+      "tvriosul",
+      "tvtemsjriopreto",
+      "venus",
+      "eptvsuldeminas",
+      "eptv ribeirão preto",
+      "eptv campinas",
+      "usa"
+    ];
+
+    // Inicia a lista já filtrando e removendo os canais indesejados
+    let lista = epg.canais.filter(c => {
+      const nomeNormalizado = (c.nome || "").toLowerCase().trim();
+      const displayNormalizado = (c.display_name || "").toLowerCase().trim();
+      const idNormalizado = (c.id || "").toLowerCase().trim();
+      
+      return !bloqueados.includes(nomeNormalizado) && 
+             !bloqueados.includes(displayNormalizado) && 
+             !bloqueados.includes(idNormalizado);
+    });
+
+    if (catAtiva !== "Todos") lista = lista.filter(c => c.categoria === catAtiva);
+    if (subAtiva !== "Todos") {
+      const sg = (SUBGRUPOS[catAtiva] || []).find(s => s.label === subAtiva);
+      if (sg) lista = lista.filter(c => sg.match.some(m => c.display_name.toUpperCase().includes(m)));
+    }
+    return lista;
+  }, [epg, catAtiva, subAtiva]);
+
   const emBusca=buscaAtiva.trim().length>0;
   const subgruposDisponiveis=SUBGRUPOS[catAtiva]||[];
 
@@ -1199,7 +1277,7 @@ const [syncOpen,setSyncOpen]=useState(false);
           {catOpen&&(<div className="absolute top-[calc(100%+8px)] left-0 min-w-56 max-h-80 overflow-y-auto bg-card border border-border rounded-xl shadow-xl z-50 p-2 animate-in slide-in-from-top-2 duration-150">
             {[{value:"Todos",label:"Todas as categorias"},...catsDisponiveis.map(c=>({value:c,label:c}))].map(opt=>(
               <button key={opt.value} onClick={()=>{setCatAtiva(opt.value);setSubAtiva("Todos");setCatOpen(false);}}
-                className={`w-full text-left flex items-center justify-between gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${catAtiva===opt.value ? 'bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-400' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+                className={`w-full text-left flex items-center justify-between gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${catAtiva===opt.value ? 'bg-sky-500/10 text-sky-500' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
                 <span className="truncate">{opt.label}</span>
                 {opt.value!=="Todos" && <div className="w-2 h-2 rounded-full" style={{backgroundColor: CAT_COR[opt.value]}}/>}
               </button>
@@ -1211,7 +1289,7 @@ const [syncOpen,setSyncOpen]=useState(false);
         {subgruposDisponiveis.length>0&&(
           <div ref={subRef} className="relative">
             <button onClick={()=>setSubOpen(o=>!o)}
-              className={`flex items-center gap-2 h-9 px-4 rounded-full font-semibold text-sm border transition-all ${subAtiva!=="Todos" ? 'bg-slate-800 text-white border-slate-800 dark:bg-slate-200 dark:text-slate-900 shadow-sm' : 'bg-card text-slate-600 dark:text-slate-300 border-border hover:bg-muted'}`}>
+              className={`flex items-center gap-2 h-9 px-4 rounded-full font-semibold text-sm border transition-all ${subAtiva!=="Todos" ? 'bg-foreground text-background border-foreground shadow-sm' : 'bg-card text-muted-foreground border-border hover:bg-muted'}`}>
               {subAtiva==="Todos" ? "Subcategoria" : subAtiva}
               <ChevronDown size={12} className={`opacity-60 transform ${subOpen?"rotate-180":"none"} transition-transform duration-150`}/>
             </button>
@@ -1235,7 +1313,7 @@ const [syncOpen,setSyncOpen]=useState(false);
         {/* Botão Limpar tudo — categoria, subcategoria e busca */}
         {(catAtiva!=="Todos"||subAtiva!=="Todos"||busca.trim()!=="")&& (
           <button onClick={()=>{setCatAtiva("Todos");setSubAtiva("Todos");setBusca("");setBuscaAtiva("");}}
-            className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-card border border-border text-slate-600 dark:text-slate-300 hover:bg-muted text-sm font-medium transition-all shadow-sm">
+            className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-card border border-border text-muted-foreground hover:bg-muted text-sm font-medium transition-all shadow-sm">
             <X size={14} className="text-rose-500"/> Limpar
           </button>
         )}
@@ -1353,11 +1431,47 @@ export default function GuiaTVPage() {
   },[]);
   useEffect(()=>{window.dispatchEvent(new CustomEvent("GUIA_TV_TAB_CHANGED",{detail:tab}));},[tab]);
 
-  // Lógica de fetch EPG original preservada
+  // Lógica de fetch EPG com interceptação para Renomeios e Recategorizações
   useEffect(()=>{
     setLoadingEpg(true);setErroEpg(null);
     fetch(`${process.env.NEXT_PUBLIC_R2_DEV_URL}/epg/epg_br.json?t=${Date.now()}`,{cache:"no-store"})
-      .then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json();}).then(setEpg)
+      .then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json();})
+      .then(data => {
+        // 1. Dicionário de Renomeios
+        const RENOMES: Record<string, string> = {
+          "+ Globosat": "Globosat",
+          "Tvcultura": "TV Cultura",
+          "Discoverychannel": "Discovery Channel",
+          "film&arts": "Film & Arts",
+          "BandSports": "Band Sports",
+          "Tntnovelas": "TNT Novelas",
+          "GloboNews": "Globo News",
+          "Boavontade": "Boa Vontade",
+          "Canalsony": "Canal Sony",
+          "Modoviagem": "Modo Viagem",
+          "Redesuper": "Rede Super",
+          "Tvpaieterno": "TV Pai Eterno"
+        };
+
+        // 2. Dicionário de Recategorizações (Mapeado pelo nome já corrigido ou original)
+        const RECLASSIFICAR: Record<string, string> = {
+          "Rede Super": "Religioso",
+          "TV Pai Eterno": "Religioso"
+        };
+
+        // 3. Aplica as mutações nos canais antes de salvar no estado
+        if (data && Array.isArray(data.canais)) {
+          data.canais = data.canais.map((c: any) => {
+            let novoNome = RENOMES[c.nome] || c.nome;
+            let novoDisplay = RENOMES[c.display_name] || c.display_name;
+            let novaCat = RECLASSIFICAR[novoNome] || RECLASSIFICAR[c.nome] || c.categoria;
+
+            return { ...c, nome: novoNome, display_name: novoDisplay, categoria: novaCat };
+          });
+        }
+        
+        setEpg(data);
+      })
       .catch(()=>setErroEpg("Grade de canais não encontrada localmente. Rode o botão 'Sync EPG Grade' para gerar.")).finally(()=>setLoadingEpg(false));
   },[]);
 
@@ -1376,18 +1490,13 @@ export default function GuiaTVPage() {
   async function handleSync(){
     setSyncing(true);setSyncMsg(null);
     try{
-        // ✅ Novo: Adicionar toast de info no início do sync
-        addToast("info", "Sincronização Iniciada", "Atualizando grade de canais (EPG)...");
         const d=await fetch("/api/epg/sync",{method:"POST"}).then(r=>r.json());
         if(d.ok){
-            // ✅ Novo: Toast de sucesso
             addToast("success", "Sincronização Concluída", `A grade EPG foi atualizada com sucesso em ${d.duracao_s}s. Recarregando grade...`);
             setSyncMsg({tipo:"ok",texto:`EPG sincronizado em ${d.duracao_s}s`});
-            // Recarregamento original preservado
             setTimeout(()=>window.location.reload(),2000);
         } else {
-            // ✅ Novo: Toast de erro
-            addToast("error", "Salha na Sincronização", d.error || "Ocorreu um erro desconhecido ao sincronizar.");
+            addToast("error", "Falha na Sincronização", d.error || "Ocorreu um erro desconhecido ao sincronizar.");
             setSyncMsg({tipo:"err",texto:d.error||"Sync falhou"});
         }
     }

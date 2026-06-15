@@ -22,10 +22,10 @@ export function EyeToggle() {
         group flex items-center gap-1.5
         px-2.5 py-1.5 rounded-lg
         border border-border
-        bg-card dark:bg-zinc-900
-        text-muted-foreground dark:text-zinc-400 dark:text-muted-foreground
-        hover:text-foreground/90 dark:hover:text-foreground dark:text-zinc-200
-        hover:border-zinc-400 dark:hover:border-zinc-500
+        bg-muted
+        text-muted-foreground/80
+        hover:text-foreground/90
+        hover:border-border-hover
         transition-all duration-200 text-xs font-medium shadow-sm
         select-none
       "
