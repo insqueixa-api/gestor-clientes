@@ -1377,17 +1377,16 @@ function AutomationCard({
                         ========================= */}
               {data.is_automatic && (
                 <>
-{status !== "RUNNING" ? (
+                  {status !== "RUNNING" ? (
                     <button
                       onClick={() => onControl("PLAY")}
                       disabled={!data.is_active}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors
-                                ${
-                                  data.is_active
-                                    ? "bg-emerald-600 text-white hover:bg-emerald-500"
-                                    : "bg-muted text-muted-foreground/60 cursor-not-allowed"
-                                }`}
-                      title="Ativa a execução automática (dias/horário configurados)"
+                      className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                        data.is_active
+                          ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20"
+                          : "bg-muted text-muted-foreground border-transparent cursor-not-allowed"
+                      }`}
+                      title="Ativa a execução automática"
                     >
                       Ativar automático
                     </button>
@@ -1395,13 +1394,12 @@ function AutomationCard({
                     <button
                       onClick={() => onControl("STOP")}
                       disabled={!data.is_active}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors
-                                ${
-                                  data.is_active
-                                    ? "bg-rose-600 text-white hover:bg-rose-500"
-                                    : "bg-muted text-muted-foreground/60 cursor-not-allowed"
-                                }`}
-                      title="Cancela a execução automática (mantém a regra ativa no toggle)"
+                      className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                        data.is_active
+                          ? "bg-rose-500/10 text-rose-500 border-rose-500/20 hover:bg-rose-500/20"
+                          : "bg-muted text-muted-foreground border-transparent cursor-not-allowed"
+                      }`}
+                      title="Cancela a execução automática"
                     >
                       Cancelar automático
                     </button>
@@ -1409,41 +1407,32 @@ function AutomationCard({
                 </>
               )}
 
-              {/* =========================
-                        2) MANUAL: sempre disponível (se toggle ON)
-                            (mesmo se AUTO estiver RUNNING)
-                        ========================= */}
+              {/* MANUAL */}
               <button
                 onClick={onRun}
                 disabled={!data.is_active}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors
-                        ${
-                          data.is_active
-                            ? "bg-sky-600 text-white hover:bg-sky-500"
-                            : "bg-muted text-muted-foreground/60 cursor-not-allowed"
-                        }`}
-                title="Dispara agora (enfileira imediatamente)"
+                className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                  data.is_active
+                    ? "bg-sky-500/10 text-sky-500 border-sky-500/20 hover:bg-sky-500/20"
+                    : "bg-muted text-muted-foreground border-transparent cursor-not-allowed"
+                }`}
+                title="Dispara agora"
               >
                 Envio Manual
               </button>
 
-              {/* =========================
-                        3) CONTROLES DE PAUSA/STOP: só para MANUAL (não para AUTO)
-                        ========================= */}
+              {/* CONTROLES DE PAUSA/STOP */}
               {!data.is_automatic && status === "RUNNING" && (
                 <>
                   <button
                     onClick={() => onControl("PAUSE")}
-                    className="px-3 py-1.5 rounded-lg bg-amber-500 text-white text-xs font-medium hover:brightness-110 transition"
-                    title="Pausar envios imediatamente"
+                    className="px-3 py-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 text-amber-500 text-xs font-medium hover:bg-amber-500/20 transition-colors"
                   >
                     Pausar
                   </button>
-
                   <button
                     onClick={() => onControl("STOP")}
-                    className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-medium hover:bg-rose-500 transition"
-                    title="Parar agora e cancelar fila pendente"
+                    className="px-3 py-1.5 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 text-xs font-medium hover:bg-rose-500/20 transition-colors"
                   >
                     Parar agora
                   </button>
@@ -1455,31 +1444,27 @@ function AutomationCard({
                   <button
                     onClick={() => onControl("PLAY")}
                     disabled={!data.is_active}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors
-                            ${
-                              data.is_active
-                                ? "bg-emerald-600 text-white hover:bg-emerald-500"
-                                : "bg-muted text-muted-foreground/60 cursor-not-allowed"
-                            }`}
-                    title="Retomar envios"
+                    className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                      data.is_active
+                        ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20"
+                        : "bg-muted text-muted-foreground border-transparent cursor-not-allowed"
+                    }`}
                   >
                     Retomar
                   </button>
-
                   <button
                     onClick={() => onControl("STOP")}
-                    className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-medium hover:bg-rose-500 transition"
-                    title="Cancelar pendências e parar"
+                    className="px-3 py-1.5 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 text-xs font-medium hover:bg-rose-500/20 transition-colors"
                   >
                     Parar agora
                   </button>
                 </>
               )}
 
-              {/* Secundários */}
+              {/* SECUNDÁRIOS */}
               <button
                 onClick={onEdit}
-                className="px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-500 text-xs font-medium hover:bg-amber-500/20 transition"
+                className="px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-medium hover:bg-amber-500/20 transition-colors"
                 title="Editar"
               >
                 Editar
@@ -1487,7 +1472,7 @@ function AutomationCard({
 
               <button
                 onClick={onShowLogs}
-                className="px-3 py-1.5 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-500 text-xs font-medium hover:bg-sky-500/20 transition"
+                className="px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-500 text-xs font-medium hover:bg-purple-500/20 transition-colors"
                 title="Logs"
               >
                 Logs
@@ -1495,7 +1480,7 @@ function AutomationCard({
 
               <button
                 onClick={onDelete}
-                className="px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-500 text-xs font-medium hover:bg-rose-500/20 transition"
+                className="px-3 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs font-medium hover:bg-rose-500/20 transition-colors"
                 title="Excluir"
               >
                 Excluir
@@ -1531,7 +1516,7 @@ function ImpactListModal({
 
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-4xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[80vh]">
+      <div className="w-full max-w-2xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
         <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent">
           <div>
             <h3 className="text-lg font-medium text-foreground">
@@ -2003,7 +1988,7 @@ function AutomationWizard({
                   {form.rule_days_diff !== 0 && (
                     <input
                       type="number"
-                      className="w-16 h-8 text-center rounded-lg border border-border bg-transparent text-sm font-medium focus:border-emerald-500/50 outline-none"
+                      className="w-16 h-8 text-center rounded-lg border border-border bg-transparent text-sm font-medium focus:border-emerald-500/50 outline-none transition-colors"
                       value={Math.abs(form.rule_days_diff)}
                       onChange={(e) =>
                         setForm({
@@ -2019,7 +2004,7 @@ function AutomationWizard({
                     {form.rule_days_diff !== 0 ? "dias do" : "do"}
                   </span>
                   <select
-                    className="h-8 px-2 rounded-lg border border-border bg-transparent text-sm font-medium focus:border-emerald-500/50 outline-none"
+                    className="h-8 px-2 rounded-lg border border-border bg-transparent text-sm font-medium focus:border-emerald-500/50 outline-none transition-colors"
                     value={form.rule_date_field}
                     onChange={(e) =>
                       setForm({ ...form, rule_date_field: e.target.value })
@@ -2143,7 +2128,7 @@ function AutomationWizard({
             <>
               <button
                 onClick={onClose}
-                className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted text-xs font-medium uppercase transition-colors"
+                className="px-4 py-2.5 rounded-lg border border-border text-muted-foreground hover:bg-muted text-xs font-medium uppercase transition-colors"
               >
                 Cancelar
               </button>
@@ -2159,7 +2144,7 @@ function AutomationWizard({
             <>
               <button
                 onClick={() => setStep(1)}
-                className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted text-xs font-medium uppercase transition-colors"
+                className="px-4 py-2.5 rounded-lg border border-border text-muted-foreground hover:bg-muted text-xs font-medium uppercase transition-colors"
               >
                 ← Voltar
               </button>
@@ -2175,7 +2160,7 @@ function AutomationWizard({
             <>
               <button
                 onClick={() => setStep(2)}
-                className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted text-xs font-medium uppercase transition-colors"
+                className="px-4 py-2.5 rounded-lg border border-border text-muted-foreground hover:bg-muted text-xs font-medium uppercase transition-colors"
               >
                 ← Voltar
               </button>
@@ -2698,21 +2683,21 @@ function LogsModal({
             <button
               onClick={() => requeueIds(selectedArr)}
               disabled={working || selectedArr.length === 0}
-              className="px-4 py-2 rounded-lg bg-sky-600 text-white font-medium text-xs uppercase hover:bg-sky-500 transition disabled:opacity-40 shadow-sm"
+              className="px-4 py-2 rounded-lg bg-sky-500/10 text-sky-500 border border-sky-500/20 font-medium text-xs uppercase hover:bg-sky-500/20 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
             >
               Reenviar selecionados ({selectedArr.length})
             </button>
             <button
               onClick={() => requeueIds(failedRows.map((r) => r.id))}
               disabled={working || failedRows.length === 0}
-              className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium text-xs uppercase hover:bg-emerald-500 transition disabled:opacity-40 shadow-sm"
+              className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium text-xs uppercase hover:bg-emerald-500 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-emerald-900/20"
             >
               Reenviar todas as falhas ({failedRows.length})
             </button>
             <button
               onClick={() => cancelIds(selectedArr)}
               disabled={working || selectedArr.length === 0}
-              className="px-4 py-2 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 font-medium text-xs uppercase hover:bg-rose-500/20 transition disabled:opacity-40 shadow-sm"
+              className="px-4 py-2 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 font-medium text-xs uppercase hover:bg-rose-500/20 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
               title="Cliente já recebeu — remove da lista de falhas sem reenviar"
             >
               Limpar selecionados
@@ -2720,7 +2705,7 @@ function LogsModal({
           </div>
           <button
             onClick={onClose}
-            className="px-5 py-2.5 rounded-lg border border-border text-muted-foreground font-medium text-xs uppercase hover:bg-muted transition-colors shadow-sm"
+            className="px-5 py-2.5 rounded-lg border border-border bg-muted text-foreground/80 font-medium text-xs uppercase hover:bg-muted/80 hover:text-foreground transition-colors shadow-sm"
           >
             Fechar
           </button>
