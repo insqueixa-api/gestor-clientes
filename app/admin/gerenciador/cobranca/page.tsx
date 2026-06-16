@@ -1,5 +1,5 @@
 "use client";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, X } from "lucide-react";
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -1114,7 +1114,7 @@ export default function BillingPage() {
       {/* Barra de busca (padrão admin: sticky no desktop) */}
       <div className="p-0 px-3 sm:px-0 md:px-4">
 <div className="p-0 md:p-4 bg-transparent md:bg-card border-0 md:border md:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm md:sticky md:top-4 z-20">
-          <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground/60 tracking-wider mb-3">
+          <div className="hidden md:block text-xs font-medium uppercase text-foreground/80 tracking-wider mb-3">
             Busca
           </div>
 
@@ -1487,7 +1487,7 @@ function AutomationCard({
 
               <button
                 onClick={onShowLogs}
-                className="px-3 py-1.5 rounded-lg bg-transparent border border-border text-foreground/90 text-xs font-medium hover:bg-muted transition"
+                className="px-3 py-1.5 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-500 text-xs font-medium hover:bg-sky-500/20 transition"
                 title="Logs"
               >
                 Logs
@@ -1544,9 +1544,9 @@ function ImpactListModal({
           </div>
           <button
             onClick={onClose}
-            className="text-muted-foreground/80 hover:text-foreground text-xl leading-none"
+            className="p-1.5 rounded-lg text-muted-foreground/80 hover:bg-muted hover:text-foreground transition-colors flex items-center justify-center"
           >
-            ✕
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -1557,7 +1557,7 @@ function ImpactListModal({
             </div>
           ) : (
             <table className="w-full text-left border-collapse min-w-[700px]">
-              <thead className="bg-transparent sticky top-0 z-10 text-xs uppercase text-muted-foreground font-medium">
+              <thead className="bg-muted/40 sticky top-0 z-10 text-xs uppercase text-muted-foreground font-medium">
                 <tr>
                   <th className="p-3">Cliente / Contato</th>
                   <th className="p-3">Acesso / Servidor</th>
@@ -1846,7 +1846,7 @@ function AutomationWizard({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-transparent0 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="w-full max-w-2xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
         <div className="px-6 py-5 border-b border-border bg-transparent">
           <div className="flex justify-between items-center mb-4">
@@ -1861,9 +1861,9 @@ function AutomationWizard({
             </h2>
             <button
               onClick={onClose}
-              className="text-muted-foreground/80 hover:text-foreground transition-colors"
+              className="p-1.5 rounded-lg text-muted-foreground/80 hover:bg-muted hover:text-foreground transition-colors flex items-center justify-center"
             >
-              ✕
+              <X className="w-4 h-4" />
             </button>
           </div>
 <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden flex">
@@ -1966,11 +1966,11 @@ function AutomationWizard({
 
               <div className="pt-2 border-t border-border">
                 <Label>Regra de Disparo</Label>
-                <div className="flex items-center gap-2 mt-2 bg-emerald-500/5 p-3 rounded-lg border border-emerald-500/20">
-                  <span className="text-sm text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-3 mt-2 bg-transparent p-3 rounded-xl border border-border">
+                  <span className="text-sm font-medium text-foreground/80">
                     Enviar
                   </span>
-                  <div className="flex items-center">
+                  <div className="flex items-center shadow-sm rounded-lg overflow-hidden">
                     <button
                       onClick={() =>
                         setForm({
@@ -1978,13 +1978,13 @@ function AutomationWizard({
                           rule_days_diff: -Math.abs(form.rule_days_diff || 1),
                         })
                       }
-                      className={`px-2 py-1 rounded-l border text-xs font-medium ${form.rule_days_diff < 0 ? "bg-rose-500/10 text-rose-500 border-rose-500" : "bg-card border-border text-muted-foreground"}`}
+                      className={`px-3 py-1.5 border text-xs font-medium transition-colors ${form.rule_days_diff < 0 ? "bg-rose-500/10 text-rose-500 border-rose-500/30" : "bg-muted border-border text-muted-foreground hover:bg-muted/80"}`}
                     >
                       Antes
                     </button>
                     <button
                       onClick={() => setForm({ ...form, rule_days_diff: 0 })}
-                      className={`px-2 py-1 border-t border-b text-xs font-medium ${form.rule_days_diff === 0 ? "bg-sky-500 text-white border-sky-500" : "bg-card border-border text-muted-foreground"}`}
+                      className={`px-3 py-1.5 border-y text-xs font-medium transition-colors ${form.rule_days_diff === 0 ? "bg-sky-500/10 text-sky-500 border-sky-500/30" : "bg-muted border-transparent text-muted-foreground hover:bg-muted/80"}`}
                     >
                       No Dia
                     </button>
@@ -1995,7 +1995,7 @@ function AutomationWizard({
                           rule_days_diff: Math.abs(form.rule_days_diff || 1),
                         })
                       }
-                      className={`px-2 py-1 rounded-r border text-xs font-medium ${form.rule_days_diff > 0 ? "bg-emerald-500/10 text-emerald-500 border-emerald-500" : "bg-card border-border text-muted-foreground"}`}
+                      className={`px-3 py-1.5 border text-xs font-medium transition-colors ${form.rule_days_diff > 0 ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30" : "bg-muted border-border text-muted-foreground hover:bg-muted/80"}`}
                     >
                       Depois
                     </button>
@@ -2003,7 +2003,7 @@ function AutomationWizard({
                   {form.rule_days_diff !== 0 && (
                     <input
                       type="number"
-                      className="w-14 h-8 text-center rounded border border-border bg-card text-sm font-medium"
+                      className="w-16 h-8 text-center rounded-lg border border-border bg-transparent text-sm font-medium focus:border-emerald-500/50 outline-none"
                       value={Math.abs(form.rule_days_diff)}
                       onChange={(e) =>
                         setForm({
@@ -2015,11 +2015,11 @@ function AutomationWizard({
                       }
                     />
                   )}
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-sm font-medium text-foreground/80">
                     {form.rule_days_diff !== 0 ? "dias do" : "do"}
                   </span>
                   <select
-                    className="h-8 rounded border border-border bg-card text-sm px-2 outline-none"
+                    className="h-8 px-2 rounded-lg border border-border bg-transparent text-sm font-medium focus:border-emerald-500/50 outline-none"
                     value={form.rule_date_field}
                     onChange={(e) =>
                       setForm({ ...form, rule_date_field: e.target.value })
@@ -2143,13 +2143,13 @@ function AutomationWizard({
             <>
               <button
                 onClick={onClose}
-                className="text-muted-foreground font-medium text-xs uppercase hover:text-foreground"
+                className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted text-xs font-medium uppercase transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={() => setStep(2)}
-                className="px-6 py-2.5 bg-card border border-border text-foreground hover:bg-muted font-medium rounded-xl shadow-lg hover:brightness-110 transition-all text-xs uppercase"
+                className="px-6 py-2.5 bg-emerald-600 text-white hover:bg-emerald-500 font-medium rounded-xl shadow-lg shadow-emerald-900/20 transition-all text-xs uppercase"
               >
                 Próximo: Filtros →
               </button>
@@ -2159,13 +2159,13 @@ function AutomationWizard({
             <>
               <button
                 onClick={() => setStep(1)}
-                className="text-muted-foreground font-medium text-xs uppercase hover:text-foreground "
+                className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted text-xs font-medium uppercase transition-colors"
               >
                 ← Voltar
               </button>
               <button
                 onClick={() => setStep(3)}
-                className="px-6 py-2.5 bg-card border border-border text-foreground  font-medium rounded-xl shadow-lg hover:brightness-110 transition-all text-xs uppercase"
+                className="px-6 py-2.5 bg-emerald-600 text-white hover:bg-emerald-500 font-medium rounded-xl shadow-lg shadow-emerald-900/20 transition-all text-xs uppercase"
               >
                 Próximo: Automação →
               </button>
@@ -2175,7 +2175,7 @@ function AutomationWizard({
             <>
               <button
                 onClick={() => setStep(2)}
-                className="text-muted-foreground font-medium text-xs uppercase hover:text-foreground "
+                className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted text-xs font-medium uppercase transition-colors"
               >
                 ← Voltar
               </button>
@@ -2588,9 +2588,9 @@ function LogsModal({
           </div>
           <button
             onClick={onClose}
-            className="text-muted-foreground/80 hover:text-foreground"
+            className="p-1.5 rounded-lg text-muted-foreground/80 hover:bg-muted hover:text-foreground transition-colors flex items-center justify-center"
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -2603,7 +2603,7 @@ function LogsModal({
             </div>
           ) : (
             <table className="w-full text-left text-sm">
-              <thead className="text-xs uppercase text-muted-foreground border-b border-border">
+              <thead className="bg-muted/40 text-xs uppercase text-muted-foreground border-b border-border">
                 <tr>
                   <th className="p-2 w-8">
                     {failedRows.length > 0 && (
@@ -2720,7 +2720,7 @@ function LogsModal({
           </div>
           <button
             onClick={onClose}
-            className="px-5 py-2 rounded-lg text-white font-medium text-xs uppercase hover:bg-slate-700 shadow-sm"
+            className="px-5 py-2.5 rounded-lg border border-border text-muted-foreground font-medium text-xs uppercase hover:bg-muted transition-colors shadow-sm"
           >
             Fechar
           </button>
