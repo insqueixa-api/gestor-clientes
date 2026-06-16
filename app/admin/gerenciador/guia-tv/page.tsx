@@ -568,7 +568,7 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
   async function syncTmdb(){setTmdbStatus("running");setTmdbConfirm(false);setTmdbMessage(null);let totalProc=0,totalEnc=0,totalNao=0;try{while(true){const d=await fetch(`/api/epg/sync-tmdb?tipo=${tmdbTipo}&lote=${tmdbLote}`,{method:"POST"}).then(r=>r.json());if(d.error)throw new Error(d.error);if(d.processados===0){if(totalProc===0){const msg="Todos os títulos já foram processados.";setTmdbMessage({text:msg,type:"success"});addToast("success","Enriquecimento TMDB",msg);}break;}totalProc+=d.processados;totalEnc+=d.encontrados;totalNao+=d.nao_encontrados;if(!d.proximo_lote){break;}const s=await fetch("/api/epg/sync-tmdb").then(r=>r.json());if(s.filmes)setTmdbInfo(s);await new Promise(r=>setTimeout(r,60_000));}const s=await fetch("/api/epg/sync-tmdb").then(r=>r.json());if(s.filmes)setTmdbInfo(s);setTmdbStatus("ok");if(totalProc>0){const msg=`${totalProc} processados · ${totalEnc} encontrados · ${totalNao} não encontrados`;setTmdbMessage({text:msg,type:"success"});addToast("success","Enriquecimento TMDB concluído",msg);}}catch(e:any){setTmdbStatus("error");setTmdbMessage({text:e.message||"Erro desconhecido",type:"error"});addToast("error","Falha no enriquecimento TMDB",e.message);}}
   
   return (
-    <div className="fixed inset-0 z-[9990] bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[9990] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
       <div 
         onClick={e=>e.stopPropagation()} 
         className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-in fade-in-0 zoom-in-95 duration-300"
@@ -630,31 +630,7 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
             );
           })}
           
-          <div className={`p-5 rounded-xl border bg-card transition-all ${tmdbStatus==="ok"?"border-amber-500/30":tmdbStatus==="error"?"border-rose-500/30":tmdbStatus==="running"?"border-amber-500/30 shadow-lg shadow-amber-900/10":"border-border"}`}>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2.5">
-                  <div className={`w-2.5 h-2.5 rounded-full ${tmdbStatus==="ok"?"bg-amber-500":tmdbStatus==="error"?"bg-rose-500":tmdbStatus==="running"?"bg-amber-500 animate-pulse":"bg-muted"}`}/>
-                  <span className="text-sm font-semibold text-foreground tracking-tight">Enriquecimento TMDB</span>
-                </div>
-                {tmdbInfo&&<div className="text-xs text-muted-foreground/90 mt-2 pl-5 tracking-tight leading-relaxed">
-                  F: {tmdbInfo.filmes.com_tmdb.toLocaleString()} com · {tmdbInfo.filmes.sem_tmdb.toLocaleString()} faltam · S: {tmdbInfo.series.com_tmdb.toLocaleString()} com · {tmdbInfo.series.sem_tmdb.toLocaleString()} faltam
-                </div>}
-              </div>
-              <button 
-                onClick={()=>setTmdbConfirm(v=>!v)} 
-                disabled={tmdbStatus==="running"} 
-                className={`shrink-0 h-9 px-4 rounded-lg font-bold text-xs flex items-center gap-2 transition-all bg-amber-600 hover:bg-amber-500 text-white disabled:opacity-50 disabled:cursor-not-allowed shadow-md`}
-              >
-                <RefreshCw size={12} className={tmdbStatus==="running"?"animate-spin":"none"}/>
-                {tmdbStatus==="running"?"Rodando...":"Enriquecer"}
-              </button>
-            </div>
-            {tmdbConfirm&&<div className="mt-4 p-4 rounded-xl bg-background border border-border animate-in slide-in-from-top-2"><div className="text-xs font-semibold text-muted-foreground tracking-wider uppercase mb-3">Configurar lote:</div><div className="flex flex-wrap items-center gap-3.5 mb-3.5"><div className="flex bg-muted/40 p-1.5 rounded-lg border border-border gap-1.5"><button onClick={()=>setTmdbTipo("FILME")} disabled={tmdbStatus==="running"} className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-colors ${tmdbTipo==="FILME"?"bg-amber-500/10 border border-amber-500/20 text-amber-500":"text-muted-foreground hover:bg-muted hover:text-foreground"} disabled:opacity-50`}>Filmes</button><button onClick={()=>setTmdbTipo("SERIE")} disabled={tmdbStatus==="running"} className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-colors ${tmdbTipo==="SERIE"?"bg-amber-500/10 border border-amber-500/20 text-amber-500":"text-muted-foreground hover:bg-muted hover:text-foreground"} disabled:opacity-50`}>Séries</button></div><div className="flex items-center gap-2.5 bg-muted/40 border border-border rounded-lg px-3 py-1.5"><span className="text-xs text-muted-foreground">Tamanho Lote:</span><input type="number" min={5} max={100} value={tmdbLote} disabled={tmdbStatus==="running"} onChange={e=>setTmdbLote(Math.min(100,Math.max(5,parseInt(e.target.value)||5)))} className="w-16 h-7 px-2 bg-transparent border border-border rounded-md text-foreground text-sm font-semibold text-center outline-none focus:border-amber-500/50 disabled:opacity-50"/><span className="text-xs text-muted-foreground/60">(máx 100)</span></div></div><div className="flex items-center justify-between gap-3 border-t border-border/60 pt-3.5">{tmdbInfo&&<div className="text-xs font-medium text-foreground">{tmdbTipo==="FILME"?tmdbInfo.filmes.sem_tmdb.toLocaleString():tmdbInfo.series.sem_tmdb.toLocaleString()} {tmdbTipo==="FILME"?"filmes":"séries"} aguardando enriquecimento.</div>}<button onClick={syncTmdb} disabled={tmdbStatus==="running"} className="h-8 px-4 rounded-md bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow disabled:opacity-50 disabled:cursor-wait">Confirmar e Iniciar</button></div></div>}
-</div>
-PARA:
-
-TypeScript
+          
           <div className={`p-5 rounded-xl border bg-card transition-all ${tmdbStatus==="ok"?"border-amber-500/30":tmdbStatus==="error"?"border-rose-500/30":tmdbStatus==="running"?"border-amber-500/30 shadow-lg shadow-amber-900/10":"border-border"}`}>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
@@ -1142,8 +1118,8 @@ function AbaCatalogo({tipo,servidorAdmin}:{tipo:TipoConteudo;servidorAdmin:Servi
             )}
           </div>
         )}
-        {catAtiva&&( <button onClick={()=>{setCatSelecionada(null);setSubCatSelecionada(null);setPage(1);}} className="flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-muted text-muted-foreground border border-border hover:border-border-hover text-[11px] font-semibold transition-all"><X size={12} className="text-rose-400"/> {catAtiva.label}</button> )}
-        <div className="relative flex-1 min-w-[200px]">
+        {(catAtiva || busca.trim() !== "") && ( <button onClick={()=>{setCatSelecionada(null);setSubCatSelecionada(null);setBusca("");setBuscaAtiva("");setPage(1);}} className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-card border border-border text-muted-foreground hover:bg-muted text-sm font-medium transition-all shadow-sm"><X size={14} className="text-rose-500"/> Limpar</button> )}
+        <div className="relative flex-1 min-w-[200px] ml-auto">
           <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/60 pointer-events-none"/>
           <input value={busca} onChange={e=>{setBusca(e.target.value);if(!e.target.value.trim()){setBuscaAtiva("");return;} setBuscaAtiva(e.target.value.trim()); }} onKeyDown={e=>{ if(e.key==="Enter") setBuscaAtiva(busca.trim()); if(e.key==="Escape"){setBusca("");setBuscaAtiva("");} }} placeholder={`Pesquisar ${tipo==="FILME"?"filmes":"séries"} por título...`} className="w-full h-9 pl-10 pr-10 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors" />
           {busca&&<button onClick={()=>{setBusca("");setBuscaAtiva("");setResultadosBusca([])}} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"><X size={14}/></button>}
@@ -1535,7 +1511,7 @@ export default function GuiaTVPage() {
             >
               <RefreshCw size={13} className={syncing ? "animate-spin text-sky-500" : (syncOpen ? "text-white" : "text-muted-foreground")} />
               <span className="hidden sm:inline">Sincronizar</span>
-              <span className="sm:hidden">Sync</span>
+              <span className="sm:hidden">Syncronizar</span>
               <ChevronDown size={12} className={`opacity-60 transform ${syncOpen ? "rotate-180" : "none"} transition-transform duration-150`} />
             </button>
             {syncOpen && (
@@ -1546,7 +1522,7 @@ export default function GuiaTVPage() {
                   <div className="w-8 h-8 rounded-full bg-sky-500/10 flex items-center justify-center shrink-0">
                     <Database size={15} className="text-sky-500" />
                   </div>
-                  Sincronizar Catálogo (VOD)
+                  Sincronizar Catálogo
                 </button>
                 <div className="w-full h-px bg-border my-1"></div>
                 <button onClick={() => { handleSync(); setSyncOpen(false); }} disabled={syncing}
