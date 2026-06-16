@@ -457,7 +457,8 @@ function LimparCatalogo() {
 
   // Lógica original preservada
   async function executarLimpeza() {
-    setLimpando(true);
+  setLimpando(true);
+  setShowLimpar(false);
     const d = await fetch("/api/catalogo/limpar", {
       method: "POST",
       headers: {"Content-Type":"application/json"},
@@ -476,7 +477,8 @@ function LimparCatalogo() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <div className={`w-2.5 h-2.5 rounded-full ${limpezaOk ? 'bg-emerald-500 animate-pulse' : 'bg-muted'}`}/>
+            <div className={`w-2.5 h-2.5 rounded-full ${limpezaOk ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}/>
+
             <span className="text-sm font-semibold text-foreground tracking-tight">Limpar Títulos Removidos</span>
           </div>
           <div className="text-xs text-muted-foreground/90 mt-1.5 pl-5.5 leading-relaxed">
@@ -490,15 +492,14 @@ function LimparCatalogo() {
           )}
         </div>
         <button 
-          onClick={showLimpar ? ()=>setShowLimpar(false) : carregarPreview}
-          disabled={limpando}
-          className={`shrink-0 h-9 px-4 rounded-lg font-bold text-xs flex items-center gap-2 transition-all ${showLimpar ? 'bg-muted hover:bg-muted/80 text-foreground' : 'bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-900/20'}`}
-        >
-          {limpando
-            ? <RefreshCw size={12} className="animate-spin"/>
-            : showLimpar ? <X size={13}/> : <X size={13}/>}
-          {limpando?"Limpando...":showLimpar?"Cancelar Limpeza":"Limpar Agora"}
-        </button>
+  onClick={limpando ? undefined : showLimpar ? ()=>setShowLimpar(false) : carregarPreview}
+  disabled={limpando}
+  className={`shrink-0 h-9 w-32 justify-center rounded-lg font-bold text-xs flex items-center gap-2 transition-all ${limpando ? 'bg-rose-600 text-white shadow-lg shadow-rose-900/20' : showLimpar ? 'bg-muted hover:bg-muted/80 text-foreground' : 'bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-900/20'}`}
+>
+  <RefreshCw size={12} className={limpando ? "animate-spin" : "hidden"}/>
+  {!limpando && (showLimpar ? <X size={13}/> : <X size={13}/>)}
+  {limpando ? "Limpando..." : showLimpar ? "Cancelar" : "Limpar Agora"}
+</button>
       </div>
       {showLimpar&&(
         <div className="mt-5 p-4 rounded-xl bg-muted/40 border border-border animate-in slide-in-from-top-2">
@@ -523,11 +524,11 @@ function LimparCatalogo() {
                 Carregando preview...
               </div>
           }
-          <button onClick={executarLimpeza} disabled={limpando}
-            className={`h-9 px-5 rounded-lg font-bold text-xs flex items-center gap-2 transition-all bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-900/20 disabled:opacity-60`}>
-            <RefreshCw size={12} className={limpando?"animate-spin":"none"}/>
-            {limpando?"Executando limpeza de banco...":"Confirmar Limpeza"}
-          </button>
+          <button onClick={executarLimpeza}
+  className={`h-9 px-5 rounded-lg font-bold text-xs flex items-center gap-2 transition-all bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-900/20`}>
+  <RefreshCw size={12}/>
+  Confirmar Limpeza
+</button>
         </div>
       )}
     </div>
@@ -620,7 +621,8 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
                   <button 
                     onClick={onSync} 
                     disabled={running} 
-                    className={`shrink-0 h-9 px-4 rounded-lg font-bold text-xs flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-wait shadow-sm text-white ${bgClass}`}
+                    className={`shrink-0 h-9 w-32 justify-center rounded-lg font-bold text-xs flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-wait shadow-sm text-white ${bgClass}`}
+
                   >
                     <RefreshCw size={12} className={running?"animate-spin":"none"}/>
                     {running?"Rodando...":"Sincronizar"}
@@ -635,7 +637,7 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2.5">
-                  <div className={`w-2.5 h-2.5 rounded-full ${tmdbStatus==="ok"?"bg-amber-500":tmdbStatus==="error"?"bg-rose-500":tmdbStatus==="running"?"bg-amber-500 animate-pulse":"bg-muted"}`}/>
+                  <div className={`w-2.5 h-2.5 rounded-full ${tmdbStatus==="ok"?"bg-amber-500":tmdbStatus==="error"?"bg-rose-500":tmdbStatus==="running"?"bg-amber-500 animate-pulse":"bg-amber-500"}`}/>
                   <span className="text-sm font-semibold text-foreground tracking-tight">Enriquecimento TMDB</span>
                 </div>
                 {tmdbInfo&&<div className="text-xs text-muted-foreground/90 mt-2 pl-5 tracking-tight leading-relaxed">
@@ -651,7 +653,8 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
               <button 
                 onClick={()=>setTmdbConfirm(v=>!v)} 
                 disabled={tmdbStatus==="running"} 
-                className={`shrink-0 h-9 px-4 rounded-lg font-bold text-xs flex items-center gap-2 transition-all bg-amber-600 hover:bg-amber-500 text-white disabled:opacity-50 disabled:cursor-not-allowed shadow-md`}
+                className={`shrink-0 h-9 w-32 justify-center rounded-lg font-bold text-xs flex items-center gap-2 transition-all bg-amber-600 hover:bg-amber-500 text-white disabled:opacity-50 disabled:cursor-not-allowed shadow-md`}
+
               >
                 <RefreshCw size={12} className={tmdbStatus==="running"?"animate-spin":"none"}/>
                 {tmdbStatus==="running"?"Rodando...":"Enriquecer"}
