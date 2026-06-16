@@ -72,7 +72,7 @@ type AppData = {
 // --- COMPONENTES UI ---
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1 uppercase tracking-wider">
+    <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
       {children}
     </label>
   );
@@ -85,7 +85,7 @@ function Input({
   return (
     <input
       {...props}
-      className={`w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 ${className}`}
     />
   );
 }
@@ -97,7 +97,7 @@ function Select({
   return (
     <select
       {...props}
-      className={`w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 ${className}`}
     />
   );
 }
@@ -741,7 +741,7 @@ export default function AppManagerPage() {
           onClick={() => setIsModalOpen(false)}
         >
           <div
-            className="w-full max-w-lg sm:max-w-2xl bg-card border border-border rounded-xl shadow-2xl flex flex-col max-h-[90vh]"
+            className="w-full max-w-lg sm:max-w-2xl bg-card border border-border rounded-xl shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent rounded-t-xl">
@@ -818,12 +818,12 @@ export default function AppManagerPage() {
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-muted-foreground">
+                    <p className="text-xs font-medium text-foreground/90">
                       {uploadingIcon
                         ? "Enviando..."
                         : "Arraste, cole (Ctrl+V) ou clique para selecionar"}
                     </p>
-                    <p className="text-[10px] text-muted-foreground/80 mt-0.5">
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
                       PNG, JPG, WebP — funciona com figurinhas do WhatsApp
                     </p>
                   </div>
@@ -847,7 +847,7 @@ export default function AppManagerPage() {
                     <button
                       type="button"
                       onClick={() => setFormIconUrl("")}
-                      className="shrink-0 p-1.5 rounded-lg text-rose-500 hover:bg-rose-500/10 transition-colors"
+                      className="shrink-0 p-1.5 rounded-lg text-rose-500 hover:bg-rose-500/20 transition-colors"
                       title="Remover logo"
                     >
                       <X className="w-4 h-4" />
@@ -866,7 +866,7 @@ export default function AppManagerPage() {
                     <select
                       value={formIntegration}
                       onChange={(e) => setFormIntegration(e.target.value)}
-                      className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors"
+                      className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
                     >
                       <option value="">Sem integração</option>
                       <option value="GERENCIAAPP">
@@ -880,7 +880,7 @@ export default function AppManagerPage() {
                       <option value="FUNPLAY">Fun Play</option>
                       <option value="FOCOXPLAY">FocoX Play</option>
                     </select>
-                    <p className="text-[11px] text-foreground/70 mt-1">
+                    <p className="text-[11px] text-muted-foreground mt-1">
                       Quando configurado, habilita automação ao criar clientes.
                     </p>
                   </div>
@@ -918,7 +918,7 @@ export default function AppManagerPage() {
 
                 <div className="space-y-2">
 {formFields.length === 0 && (
-                    <div className="text-center py-4 text-muted-foreground/80 text-xs italic border border-dashed border-border rounded-lg">
+                    <div className="text-center py-4 text-muted-foreground text-xs italic border border-dashed border-border rounded-lg">
                       Nenhum campo extra definido. O app usará apenas o campo
                       "Nome" ou "Usuário".
                     </div>
@@ -965,7 +965,7 @@ export default function AppManagerPage() {
                       </span>
                       <button
                         onClick={() => removeField(field.id)}
-                        className="w-8 h-8 flex items-center justify-center text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
+                        className="w-8 h-8 flex items-center justify-center text-rose-500 hover:bg-rose-500/20 rounded-lg transition-colors"
                         title="Remover campo"
                       >
                         ✕
