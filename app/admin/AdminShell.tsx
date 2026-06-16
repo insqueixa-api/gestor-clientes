@@ -773,7 +773,7 @@ export default function AdminShell({
             top={managerPos.top}
             onClose={() => setOpenMenu(null)}
           >
-<div className="px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/50">
+<div className="px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
               Gestão
             </div>
 <MenuLink
@@ -855,7 +855,7 @@ export default function AdminShell({
             top={mobilePos.top}
             onClose={() => setOpenMenu(null)}
           >
-<div className="px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/50">
+<div className="px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
               Navegação
             </div>
 
@@ -907,7 +907,7 @@ export default function AdminShell({
             />
             <Divider />
 
-            <div className="px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/50">
+            <div className="px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
               Gerenciador
             </div>
             <MenuLink
@@ -977,7 +977,7 @@ export default function AdminShell({
             />
             <Divider />
 
-            <div className="px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/50">
+            <div className="px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
               Conta
             </div>
             <MenuLink
@@ -1160,7 +1160,7 @@ export default function AdminShell({
 <div className="flex flex-col items-center justify-start flex-shrink-0 pl-3 ml-1 border-l border-border min-h-[32px] gap-1">
                       <button
                         onClick={(e) => handleDismiss(e, n.id)}
-                        className="p-1 text-muted-foreground/80 hover:text-rose-500 hover:bg-rose-500/10 rounded-md transition-colors"
+                        className="p-1 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-500 rounded-md transition-colors"
                         title="Ocultar notificação"
                       >
                         <X className="w-4 h-4" />
@@ -1168,7 +1168,7 @@ export default function AdminShell({
                       {n.is_read && (
                         <button
                           onClick={(e) => handleMarkAsUnread(e, n.id)}
-                          className="p-1 text-muted-foreground/80 hover:text-emerald-500 hover:bg-emerald-500/10 rounded-md transition-colors"
+                          className="p-1 text-muted-foreground hover:bg-emerald-500/10 hover:text-emerald-500 rounded-md transition-colors"
                           title="Marcar como não lido"
                         >
                           <RotateCcw className="w-4 h-4" />
@@ -1274,15 +1274,7 @@ function Modal({
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.60)",
-        display: "grid",
-        placeItems: "center",
-        zIndex: 99999,
-        padding: 16,
-      }}
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm grid place-items-center p-4 z-[99999]"
     >
       <div
         onMouseDown={(e) => e.stopPropagation()}
@@ -1294,7 +1286,7 @@ function Modal({
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
+            className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -1415,7 +1407,7 @@ function MenuLink({
         "block rounded-lg px-3 py-2.5 text-sm transition-all font-medium tracking-tight",
         isActive
           ? "bg-emerald-500/10 text-emerald-500"
-          : "text-muted-foreground/80 hover:text-foreground hover:bg-muted",
+          : "text-muted-foreground hover:text-foreground hover:bg-muted",
       ].join(" ")}
     >
       {label}
