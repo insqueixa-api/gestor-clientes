@@ -120,10 +120,8 @@ function formatBRPhoneFromDigits(digits: string): string {
 }
 
 function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
-  if (!profile?.connected) return `${sessionName} (não conectado)`;
-  const digits = extractWaNumberFromJid(profile?.jid);
-  const pretty = formatBRPhoneFromDigits(digits);
-  return `${sessionName} • ${pretty || "Conectado"}`;
+  if (!profile?.connected) return `${sessionName} (Não conectado)`;
+  return sessionName;
 }
 
 // Helpers
@@ -1689,7 +1687,7 @@ export default function RecargaCliente({
                       type="time"
                       value={dueTime}
                       onChange={(e) => setDueTime(e.target.value)}
-                      className="flex-1 h-10 px-3 bg-card dark:bg-transparent border border-border rounded-lg text-foreground outline-none focus:border-emerald-500 transition-colors text-sm font-medium dark:[color-scheme:dark]"
+                      className="flex-1 h-10 px-3 bg-transparent border border-border rounded-lg text-foreground outline-none focus:border-emerald-500/50 transition-colors text-sm font-medium dark:[color-scheme:dark]"
                     />
                     <button
                       type="button"
@@ -1706,7 +1704,7 @@ export default function RecargaCliente({
             {/* 2. SEÇÃO PLANO & FINANCEIRO (Unificado Visualmente ou Estilo Card NovoCliente) */}
 <div className="bg-muted/40 border border-border rounded-xl p-3 sm:p-4 space-y-4">
               {/* 3. SEÇÃO FINANCEIRO */}
-              <div className="bg-card dark:bg-transparent border border-border rounded-xl p-3 sm:p-4 shadow-sm">
+              <div className="bg-card border border-border rounded-xl p-3 sm:p-4 shadow-sm">
                 {/* HEADER FINANCEIRO - ✅ IGUAL NOVO CLIENTE */}
                 <div className="flex justify-between items-center gap-3 border-b border-border pb-3 mb-3">
                   <span className="text-xs font-medium uppercase text-emerald-400 flex items-center gap-1">
@@ -1784,7 +1782,7 @@ export default function RecargaCliente({
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <Label>Moeda</Label>
-                  <div className="h-10 w-full bg-transparent dark:bg-transparent border border-border rounded-lg flex items-center justify-center text-sm font-medium text-foreground/90">
+                  <div className="h-10 w-full bg-transparent border border-border rounded-lg flex items-center justify-center text-sm font-medium text-foreground/90">
                     {currency}
                   </div>
                 </div>
@@ -1812,7 +1810,7 @@ export default function RecargaCliente({
                       step="0.0001"
                       value={Number(fxRate || 0).toFixed(4)}
                       onChange={(e) => setFxRate(Number(e.target.value))}
-                      className="w-full h-9 px-3 bg-card dark:bg-transparent border border-sky-500/30 rounded text-sm outline-none text-foreground"
+                      className="w-full h-9 px-3 bg-transparent border border-sky-500/20 rounded text-sm outline-none focus:border-sky-500/50 text-foreground transition-colors"
                     />
                   </div>
                   <div>
@@ -2129,7 +2127,7 @@ function DateInputBR({
         const iso = toISO(v);
         if (iso) onChange(iso);
       }}
-      className="w-full h-10 px-3 bg-card dark:bg-transparent border border-border rounded-lg text-foreground outline-none focus:border-emerald-500 transition-colors text-sm font-medium"
+      className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-foreground outline-none focus:border-emerald-500/50 transition-colors text-sm font-medium"
     />
   );
 }

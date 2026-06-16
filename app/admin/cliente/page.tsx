@@ -1782,7 +1782,7 @@ function ClientePageContent() {
 
       {/* --- BARRA DE FILTROS COMPLETA --- */}
       <div
-        className="px-3 md:p-4 bg-transparent md:bg-card md:dark:bg-card border-0 md:border md:border-border md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
+        className="px-3 md:p-4 bg-transparent md:bg-card border-0 md:border md:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
         onClick={(e) => e.stopPropagation()}
       >
 <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground tracking-wider mb-2">
@@ -1961,7 +1961,7 @@ className={`h-10 px-3 rounded-lg border font-medium text-sm transition-colors ${
               setSortDir("asc");
               setIsDefaultSort(true);
             }}
-            className="h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+            className="h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
           >
             <IconX /> Limpar
           </button>
@@ -2102,7 +2102,7 @@ className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-co
 
                 setMobileFiltersOpen(false);
               }}
-              className="w-full h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+              className="w-full h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
             >
               <IconX /> Limpar
             </button>
@@ -2157,7 +2157,7 @@ className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-co
                       setPageSize(Number(e.target.value));
                       setPage(1);
                     }}
-                    className="bg-transparent border border-border dark:border-border rounded px-1 py-0.5 outline-none text-foreground/90 cursor-pointer hover:border-emerald-500/50 transition-colors"
+                    className="bg-transparent border border-border rounded px-1 py-0.5 outline-none text-foreground/90 cursor-pointer hover:border-emerald-500/50 transition-colors"
                   >
                     <option value={25}>25</option>
                     <option value={50}>50</option>
@@ -2186,7 +2186,7 @@ className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-co
                   <button
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={safePage >= totalPages}
-                    className="h-8 w-8 rounded-lg border border-border bg-card/5 text-muted-foreground font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-transparent/50 dark:hover:bg-card/10 transition flex items-center justify-center"
+                    className="h-8 w-8 rounded-lg border border-border bg-muted text-muted-foreground font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted/80 transition flex items-center justify-center"
                     title="Próxima página"
                   >
                     →
@@ -2370,7 +2370,7 @@ className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-co
                           </span>
                           {r.whatsapp_username && (
                             <span
-                              className={`text-xs font-medium text-emerald-400/70 dark:text-emerald-500/70 truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                              className={`text-xs font-medium text-emerald-500/80 truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
                             >
                               @{r.whatsapp_username}
                             </span>
@@ -2528,7 +2528,7 @@ className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-co
                                     e.stopPropagation();
                                     openEditById(r.id, "apps");
                                   }}
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-[10px] font-medium tracking-tight shadow-sm hover:bg-emerald-500/20 dark:hover:bg-emerald-500/20 active:scale-95 transition-all max-w-[170px] truncate"
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-[10px] font-medium tracking-tight shadow-sm hover:bg-emerald-500/20 active:scale-95 transition-all max-w-[170px] truncate"
                                   title={`Configurar aplicativo: ${app}`}
                                 >
                                   <span className="truncate flex-1 min-w-0 text-left">
@@ -2848,7 +2848,7 @@ className="p-8 text-center text-muted-foreground/80 italic"
           <div className="space-y-4">
             <div className="bg-purple-500/10 border border-purple-500/20 p-3 rounded-lg flex items-center gap-3">
               <span className="text-xl">🔔</span>
-              <div className="text-sm text-purple-900 dark:text-purple-200">
+              <div className="text-sm text-foreground/90">
                 Adicionando alerta para{" "}
                 <strong>{showNewAlert.clientName}</strong>
               </div>
@@ -2857,7 +2857,7 @@ className="p-8 text-center text-muted-foreground/80 italic"
             <textarea
               value={newAlertText}
               onChange={(e) => setNewAlertText(e.target.value)}
-              className="w-full bg-transparent border border-border dark:border-border rounded-xl p-4 text-foreground outline-none focus:border-purple-500 transition-colors min-h-[120px] text-sm resize-none"
+              className="w-full bg-transparent border border-border rounded-xl p-4 text-foreground outline-none focus:border-purple-500 transition-colors min-h-[120px] text-sm resize-none"
               placeholder="Descreva o alerta ou pendência deste cliente..."
               autoFocus
             />
@@ -2932,7 +2932,7 @@ className="p-8 text-center text-muted-foreground/80 italic"
                       </div>
                       <button
                         onClick={() => handleDeleteAlert(alert.id)}
-                        className="p-2 text-muted-foreground/80 hover:text-rose-400 hover:bg-rose-500/10 dark:hover:bg-rose-500/10 rounded-lg transition-colors"
+                        className="p-2 text-muted-foreground/80 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
                         title="Resolver / Excluir"
                       >
                         <IconTrash />
@@ -2973,7 +2973,7 @@ className="p-8 text-center text-muted-foreground/80 italic"
               <span className="text-xl">
                 <MessageCircle className="w-4 h-4" />
               </span>
-              <div className="text-sm text-purple-900 dark:text-purple-200">
+              <div className="text-sm text-foreground/90">
                 Esta mensagem será enviada <strong>imediatamente</strong> via
                 WhatsApp.
               </div>
@@ -2981,13 +2981,13 @@ className="p-8 text-center text-muted-foreground/80 italic"
 
             {/* ✅ Select da Sessão WhatsApp */}
             <div>
-              <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Sessão de Envio
               </label>
               <select
                 value={selectedSessionNow}
                 onChange={(e) => setSelectedSessionNow(e.target.value)}
-                className="w-full h-11 px-3 bg-transparent border border-border dark:border-border rounded-xl text-foreground outline-none focus:border-sky-500 transition-colors text-sm font-medium"
+                className="w-full h-11 px-3 bg-transparent border border-border rounded-xl text-foreground outline-none focus:border-sky-500 transition-colors text-sm font-medium"
               >
                 {sessionOptions.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -2999,7 +2999,7 @@ className="p-8 text-center text-muted-foreground/80 italic"
 
             {/* ✅ Select de template (opcional) */}
             <div>
-              <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Mensagem pronta (opcional)
               </label>
 
@@ -3016,7 +3016,7 @@ className="p-8 text-center text-muted-foreground/80 italic"
                     setMessageText("");
                   }
                 }}
-                className="w-full h-11 px-3 bg-transparent border border-border dark:border-border rounded-xl text-foreground outline-none focus:border-sky-500 transition-colors text-sm"
+                className="w-full h-11 px-3 bg-transparent border border-border rounded-xl text-foreground outline-none focus:border-sky-500 transition-colors text-sm"
               >
                 <option value="">Selecionar...</option>
                 {Object.entries(
@@ -3052,7 +3052,7 @@ className="p-8 text-center text-muted-foreground/80 italic"
               if (!tpl?.image_url) return null;
               return (
                 <div className="mb-2 animate-in fade-in zoom-in-95 duration-200">
-                  <span className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+                  <span className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                     Imagem Anexada
                   </span>
                   <div className="w-24 h-24 rounded-lg overflow-hidden border border-border shadow-sm relative bg-transparent">
@@ -3075,7 +3075,7 @@ className="p-8 text-center text-muted-foreground/80 italic"
                 if (selectedTemplateNowId) setSelectedTemplateNowId("");
                 setMessageText(e.target.value);
               }}
-              className="w-full bg-transparent border border-border dark:border-border rounded-xl p-4 text-foreground outline-none focus:border-sky-500 transition-colors min-h-[120px] text-sm resize-none disabled:opacity-70"
+              className="w-full bg-transparent border border-border rounded-xl p-4 text-foreground outline-none focus:border-sky-500 transition-colors min-h-[120px] text-sm resize-none disabled:opacity-70"
               placeholder="Olá, gostaria de informar que..."
               autoFocus
             />
@@ -3083,7 +3083,7 @@ className="p-8 text-center text-muted-foreground/80 italic"
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowSendNow({ open: false, clientId: null })}
-                className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-transparent/50 dark:hover:bg-card/5 text-sm font-medium transition-colors"
+                className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted text-sm font-medium transition-colors"
               >
                 Cancelar
               </button>
@@ -3114,20 +3114,20 @@ className="p-8 text-center text-muted-foreground/80 italic"
           <div className="space-y-5">
             <div className="bg-purple-500/10 border border-purple-500/20 p-3 rounded-lg flex items-center gap-3">
               <span className="text-xl">📅</span>
-              <div className="text-sm text-purple-900 dark:text-purple-200">
+              <div className="text-sm text-foreground/90">
                 Programe avisos ou cobranças para o futuro.
               </div>
             </div>
 
             {/* ✅ Select da Sessão WhatsApp */}
             <div>
-              <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Sessão de Envio
               </label>
               <select
                 value={selectedSessionSchedule}
                 onChange={(e) => setSelectedSessionSchedule(e.target.value)}
-                className="w-full h-11 px-3 bg-transparent border border-border dark:border-border rounded-xl text-foreground outline-none focus:border-purple-500 transition-colors text-sm font-medium"
+                className="w-full h-11 px-3 bg-transparent border border-border rounded-xl text-foreground outline-none focus:border-purple-500 transition-colors text-sm font-medium"
               >
                 {sessionOptions.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -3138,24 +3138,24 @@ className="p-8 text-center text-muted-foreground/80 italic"
             </div>
 
             <div>
-              <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Data e Hora do Envio
               </label>
               <input
                 type="datetime-local"
                 value={scheduleDate}
                 onChange={(e) => setScheduleDate(e.target.value)}
-                className="w-full h-11 px-3 bg-transparent border border-border dark:border-border rounded-xl text-foreground outline-none focus:border-purple-500 transition-colors text-sm"
+                className="w-full h-11 px-3 bg-transparent border border-border rounded-xl text-foreground outline-none focus:border-purple-500 transition-colors text-sm"
               />
             </div>
 
             <div>
-              <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Conteúdo da Mensagem
               </label>
               {/* ✅ Select de template (opcional) */}
               <div>
-                <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+                <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                   Mensagem pronta (opcional)
                 </label>
 
@@ -3172,7 +3172,7 @@ className="p-8 text-center text-muted-foreground/80 italic"
                       setScheduleText("");
                     }
                   }}
-                  className="w-full h-11 px-3 bg-transparent border border-border dark:border-border rounded-xl text-foreground outline-none focus:border-purple-500 transition-colors text-sm mb-3"
+                  className="w-full h-11 px-3 bg-transparent border border-border rounded-xl text-foreground outline-none focus:border-purple-500 transition-colors text-sm mb-3"
                 >
                   <option value="">
                     Selecionar mensagem pronta (opcional)...
@@ -3211,7 +3211,7 @@ className="p-8 text-center text-muted-foreground/80 italic"
                 if (!tpl?.image_url) return null;
                 return (
                   <div className="mb-2 animate-in fade-in zoom-in-95 duration-200">
-                    <span className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+                    <span className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                       Imagem Anexada
                     </span>
                     <div className="w-24 h-24 rounded-lg overflow-hidden border border-border shadow-sm relative bg-transparent">
@@ -3234,7 +3234,7 @@ className="p-8 text-center text-muted-foreground/80 italic"
                     setSelectedTemplateScheduleId("");
                   setScheduleText(e.target.value);
                 }}
-                className="w-full bg-transparent border border-border dark:border-border rounded-xl p-4 text-foreground outline-none focus:border-purple-500 transition-colors min-h-[120px] text-sm resize-none disabled:opacity-70"
+                className="w-full bg-transparent border border-border rounded-xl p-4 text-foreground outline-none focus:border-purple-500 transition-colors min-h-[120px] text-sm resize-none disabled:opacity-70"
                 placeholder="Ex: Olá, seu plano vence amanhã..."
               />
             </div>
@@ -3244,7 +3244,7 @@ className="p-8 text-center text-muted-foreground/80 italic"
                 onClick={() =>
                   setShowScheduleMsg({ open: false, clientId: null })
                 }
-                className="px-4 py-2 rounded-lg border border-border text-muted-foreground dark:text-white/60 hover:bg-transparent/50 dark:hover:bg-card/5 text-sm font-medium transition-colors"
+                className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted text-sm font-medium transition-colors"
               >
                 Cancelar
               </button>
@@ -3349,12 +3349,12 @@ function ThSort({
   return (
     <th
       onClick={onClick}
-      className="px-3 py-2 cursor-pointer select-none group hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors text-left"
+      className="px-3 py-2 cursor-pointer select-none group hover:text-emerald-500 transition-colors text-left"
     >
       <div className="flex items-center gap-1">
         {label}
         <span
-          className={`transition-opacity ${active ? "opacity-100 text-emerald-400" : "opacity-40 group-hover:opacity-70"}`}
+          className={`transition-opacity ${active ? "opacity-100 text-emerald-500" : "opacity-40 group-hover:opacity-70"}`}
         >
           {dir === "asc" ? <IconSortUp /> : <IconSortDown />}
         </span>
@@ -3532,7 +3532,7 @@ function ScheduledMessagesModal({
                   <button
                     onClick={() => handleDelete(it.id)}
                     disabled={deletingId === it.id}
-                    className="shrink-0 p-2 rounded-lg text-muted-foreground/80 hover:text-rose-400 hover:bg-rose-500/10 dark:hover:bg-rose-500/10 transition-colors"
+                    className="shrink-0 p-2 rounded-lg text-muted-foreground/80 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
                     title="Excluir agendamento"
                   >
                     {deletingId === it.id ? (
@@ -3594,23 +3594,20 @@ function IconActionBtn({
   title,
   tone,
   onClick,
-  loading = false, // ✅ NOVO
+  loading = false,
 }: {
   children: React.ReactNode;
   title: string;
   tone: "blue" | "green" | "amber" | "purple" | "red";
   onClick: (e: React.MouseEvent) => void;
-  loading?: boolean; // ✅ NOVO
+  loading?: boolean;
 }) {
   const colors = {
-    blue: "text-sky-400 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20",
-    green:
-      "text-emerald-400 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20",
-    amber:
-      "text-amber-400 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20",
-    purple:
-      "text-purple-400 bg-purple-500/10 border-purple-500/20 hover:bg-purple-500/20",
-    red: "text-rose-400 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20",
+    blue: "text-sky-500 bg-sky-500/10 border-sky-500/20 hover:bg-sky-500/20",
+    green: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20",
+    amber: "text-amber-500 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20",
+    purple: "text-purple-500 bg-purple-500/10 border-purple-500/20 hover:bg-purple-500/20",
+    red: "text-rose-500 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20",
   };
   return (
     <button
@@ -3638,7 +3635,7 @@ function MenuItem({
   return (
     <button
       onClick={onClick}
-      className="group w-full px-4 py-2.5 flex items-center gap-3 text-muted-foreground hover:bg-emerald-500/10 dark:hover:bg-card/5 hover:text-emerald-400 dark:hover:text-emerald-400 transition-all text-left text-sm font-medium tracking-tight rounded-lg"
+      className="group w-full px-4 py-2.5 flex items-center gap-3 text-muted-foreground hover:bg-muted hover:text-emerald-500 transition-all text-left text-sm font-medium tracking-tight rounded-lg"
     >
       <span className="opacity-70 group-hover:scale-110 transition-transform">
         {icon}
@@ -3663,19 +3660,11 @@ function Modal({
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.60)",
-        display: "grid",
-        placeItems: "center",
-        zIndex: 99999,
-        padding: 16,
-      }}
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm grid place-items-center p-4 z-[99999]"
     >
       <div
         onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-lg bg-card dark:bg-background border border-border rounded-xl shadow-2xl overflow-hidden"
+        className="w-full max-w-lg bg-card border border-border rounded-xl shadow-2xl overflow-hidden"
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent">
           <div className="font-medium text-foreground">
@@ -3683,10 +3672,11 @@ function Modal({
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
+            className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
           >
             <IconX />
           </button>
+        
         </div>
         <div className="p-4">{children}</div>
       </div>

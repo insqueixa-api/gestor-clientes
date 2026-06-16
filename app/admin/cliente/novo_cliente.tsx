@@ -140,10 +140,8 @@ function formatBRPhoneFromDigits(digits: string): string {
 }
 
 function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
-  if (!profile?.connected) return `${sessionName} (não conectado)`;
-  const digits = extractWaNumberFromJid(profile?.jid);
-  const pretty = formatBRPhoneFromDigits(digits);
-  return `${sessionName} • ${pretty || "Conectado"}`;
+  if (!profile?.connected) return `${sessionName} (Não conectado)`;
+  return sessionName;
 }
 
 // --- HELPERS ---
@@ -604,7 +602,7 @@ function ModalDayPicker({
       <div onMouseDown={(e) => e.stopPropagation()} className="w-full max-w-xs bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent">
           <span className="text-sm font-medium text-foreground/90">Selecionar Data</span>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground/80 transition-colors">
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-muted text-muted-foreground/80 transition-colors">
             <IconX />
           </button>
         </div>
@@ -1052,7 +1050,7 @@ export default function NovoCliente({
   const [servers, setServers] = useState<SelectOption[]>([]);
   const [allApps, setAllApps] = useState<SelectOption[]>([]);
 
-  const [syncAgenda, setSyncAgenda] = useState(false); // Habilita e desabilita Toggle de Sincronização com Agenda (true)
+  const [syncAgenda, setSyncAgenda] = useState(true); // Habilita e desabilita Toggle de Sincronização com Agenda
   const [syncOperadora, setSyncOperadora] = useState(false);
 
   // plan tables
@@ -2970,14 +2968,16 @@ for (let attempt = 0; attempt < 3; attempt++) {
 
 if (!newContactData) return;
 
-      // Operadora (só Brasil)
-      try {
-        await fetch("/api/auth/google/sync-operadora", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contact_ids: [newContactData.id] }),
-        });
-      } catch {}
+      // Operadora (só Brasil e se marcado na UI)
+      if (syncOperadora) {
+        try {
+          await fetch("/api/auth/google/sync-operadora", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contact_ids: [newContactData.id] }),
+          });
+        } catch {}
+      }
 
       // Foto do WhatsApp
       try {
@@ -4123,8 +4123,8 @@ if (clientId) {
           }
         }
 
-        // Agenda Google (só na criação, onde apiUsername existe)
-if (finalPrimaryE164 && clientId) {
+        // Agenda Google (só na criação, onde apiUsername existe e se marcado)
+if (syncAgenda && finalPrimaryE164 && clientId) {
   setLoadingStep("Agenda Google...");
   await syncToGoogleAgenda(
     clientId,
@@ -4135,7 +4135,7 @@ if (finalPrimaryE164 && clientId) {
 }
 
 // Secundário: sincroniza agenda também se tiver número
-if (finalSecondaryE164 && clientId) {
+if (syncAgenda && finalSecondaryE164 && clientId) {
   await syncToGoogleAgenda(
     clientId,
     finalSecondaryE164,
@@ -4327,7 +4327,7 @@ if (finalSecondaryE164 && clientId) {
               navigator.clipboard.writeText(dns);
               addToast("success", "Copiado", "DNS copiada com sucesso!");
             }}
-            className="p-1.5 text-muted-foreground/80 dark:text-muted-foreground hover:text-sky-400 dark:hover:text-sky-400 hover:bg-transparent dark:hover:bg-card/10 rounded transition-colors shrink-0"
+            className="p-1.5 text-muted-foreground hover:text-sky-400 dark:hover:text-sky-400 hover:bg-muted rounded transition-colors shrink-0"
             title="Copiar"
           >
             <svg
@@ -4702,7 +4702,7 @@ if (finalSecondaryE164 && clientId) {
                 ) : (
                   <div className="pt-2 mt-4 border-t border-border space-y-4 animate-in slide-in-from-top-2 duration-300">
                     <div className="flex justify-between items-center">
-                      <h3 className="text-xs font-medium text-muted-foreground/80 uppercase tracking-wider">
+                      <h3 className="text-xs font-medium text-foreground/80 uppercase tracking-wider">
                         Contato Secundário
                       </h3>
                       <button
@@ -4875,11 +4875,9 @@ if (finalSecondaryE164 && clientId) {
         </option>
       ))}
     </Select>
-    
   </div>
 
-  {/* Coluna 2: Atualizar Agenda (só na edição) */}
-{isEditing && (
+  {/* Coluna 2: Atualizar Agenda (Em todos os fluxos) */}
   <div>
     <Label>Atualizar Agenda</Label>
     <div className="grid grid-cols-2 gap-2">
@@ -4910,9 +4908,7 @@ if (finalSecondaryE164 && clientId) {
         <Switch checked={syncOperadora} onChange={setSyncOperadora} label="" />
       </div>
     </div>
-    
   </div>
-)}
 </div>
 
                 {/* ✅ CAMPO DE OBSERVAÇÕES (Adicionado aqui conforme pedido) */}
@@ -4938,7 +4934,7 @@ if (finalSecondaryE164 && clientId) {
 
                 <div className="p-3 bg-transparent rounded-xl border border-border space-y-3">
                   <div className="flex justify-between items-center gap-3">
-                    <span className="text-xs font-medium text-muted-foreground/80 uppercase tracking-wider">
+                    <span className="text-xs font-medium text-foreground/80 uppercase tracking-wider">
                       Acesso
                     </span>
 
@@ -5033,7 +5029,7 @@ if (finalSecondaryE164 && clientId) {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="sm:col-span-2">
                       <div className="flex justify-between items-center mb-1">
-                        <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground uppercase tracking-wider">
+                        <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
                           Servidor *
                         </label>
                         {serverDomains.length > 0 && (
@@ -5250,7 +5246,7 @@ if (finalSecondaryE164 && clientId) {
 
                 <div className="p-3 bg-transparent rounded-xl border border-border space-y-3">
                   <div className="flex justify-between items-center gap-3">
-                    <span className="text-xs font-medium text-muted-foreground/80 uppercase tracking-wider">
+                    <span className="text-xs font-medium text-foreground/80 uppercase tracking-wider">
                       Plano
                     </span>
 
@@ -5313,6 +5309,7 @@ if (finalSecondaryE164 && clientId) {
                           type="number"
                           min={1}
                           value={screens}
+                          className="text-center"
                           onChange={(e) => {
                             const val = e.target.value;
 
@@ -5396,13 +5393,13 @@ if (finalSecondaryE164 && clientId) {
                   {/* ✅ NOVO: Header com Período ao lado direito (só para teste) */}
 
                   <div className="flex justify-between items-center gap-3">
-                    <span className="text-xs font-medium text-muted-foreground/80 uppercase tracking-wider">
+                    <span className="text-xs font-medium text-foreground/80 uppercase tracking-wider">
                       Vencimento
                     </span>
 
                     {isTrialMode && (
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-muted-foreground/80 dark:text-muted-foreground font-medium hidden sm:inline">
+                        <span className="text-[10px] text-muted-foreground font-medium hidden sm:inline">
                           Período:
                         </span>
 

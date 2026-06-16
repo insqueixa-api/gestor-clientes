@@ -92,9 +92,9 @@ function fmtDate(d: string) {
   const dt = new Date(d);
   if (Number.isNaN(dt.getTime())) return "--";
   return (
-    dt.toLocaleDateString("pt-BR") +
+    dt.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) +
     " " +
-    dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+    dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })
   );
 }
 
@@ -102,7 +102,7 @@ function fmtDateTime(d: string) {
   if (!d) return "--";
   const dt = new Date(d);
   if (Number.isNaN(dt.getTime())) return "--";
-  return `${dt.toLocaleDateString("pt-BR")} às ${dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+  return `${dt.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} às ${dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}`;
 }
 
 // --- TIPOS (ALINHADO COM AS VIEWS vw_clients_list_*) ---
@@ -841,7 +841,7 @@ className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 tex
         <div className="space-y-4">
           {/* 1. CARD ASSINATURA ATUAL */}
           <div className="bg-card border-y sm:border border-border sm:rounded-xl p-4 shadow-sm transition-colors">
-<h3 className="text-[10px] font-medium text-muted-foreground/60 uppercase mb-3 tracking-widest">
+<h3 className="text-[10px] font-medium text-foreground/80 uppercase mb-3 tracking-widest">
               Assinatura atual
             </h3>
 
@@ -915,10 +915,10 @@ className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 tex
                             {label}
                           </span>
                           <span
-                            className={`text-xs text-right ${app.expiration ? (isExpiringSoon ? "text-rose-500 font-medium" : "text-muted-foreground font-medium") : "text-muted-foreground/60 italic"}`}
+                            className={`text-xs text-right ${app.expiration ? (isExpiringSoon ? "text-rose-500 font-medium" : "text-emerald-500 font-medium") : "text-muted-foreground/60 italic"}`}
                           >
                             {app.expiration
-                              ? `Vence: ${new Date(`${app.expiration}T12:00:00`).toLocaleDateString("pt-BR")}`
+                              ? `Vence: ${new Date(`${app.expiration}T12:00:00-03:00`).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}`
                               : "Vencimento: Não definido"}
                           </span>
                         </div>
@@ -988,7 +988,7 @@ className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 tex
 
           {/* 2. CARD CONTATOS E OBSERVAÇÕES */}
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm transition-colors">
-<h3 className="text-[11px] font-medium text-muted-foreground/60 uppercase mb-4 tracking-widest">
+<h3 className="text-[11px] font-medium text-foreground/80 uppercase mb-4 tracking-widest">
               Contatos e observações
             </h3>
 
@@ -997,9 +997,9 @@ className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 tex
                 <span className="text-muted-foreground font-medium">
                   Data do Cadastro
                 </span>
-                <span className="text-foreground text-right">
+                <span className="font-medium text-foreground text-right">
                   {client.created_at
-                    ? new Date(client.created_at).toLocaleDateString("pt-BR")
+                    ? new Date(client.created_at).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })
                     : "—"}
                 </span>
               </div>
@@ -1146,7 +1146,7 @@ className="inline-flex items-center gap-1.5 text-emerald-500 font-medium hover:u
 
         {/* COLUNA DIREITA (TIMELINE) */}
         <div className="lg:col-span-2 bg-card border border-border rounded-xl p-5 shadow-sm h-fit transition-colors">
-<h3 className="text-[11px] font-medium text-muted-foreground/60 uppercase mb-6 tracking-widest flex items-center gap-2">
+<h3 className="text-[11px] font-medium text-foreground/80 uppercase mb-6 tracking-widest flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
             Linha do tempo
           </h3>
@@ -1181,7 +1181,7 @@ className="inline-flex items-center gap-1.5 text-emerald-500 font-medium hover:u
                       <button
                         onClick={() => handleDeleteEvent(item)}
                         disabled={deletingEventId === item.id}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-rose-500/10 text-muted-foreground/80 hover:text-rose-500 disabled:opacity-30"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-rose-500/20 text-rose-500/80 hover:text-rose-500 disabled:opacity-30"
                         title="Apagar evento"
                       >
                         {deletingEventId === item.id ? (
