@@ -1166,22 +1166,18 @@ function ResultadoBuscaEPG({epg,busca,progsPorCanal,onClear}:{epg:EpgData;busca:
 }
 
 // ─── Aba Canais Refatorada (Performance e Visual de Lista) ─────────────────────
-// ✅ Props de syncing removidas daqui
-function AbaCanais({epg,progsPorCanal,syncMsg,syncing,onSync,onOpenCatalogo}:{epg:EpgData;progsPorCanal:Map<string,Programa[]>;syncMsg:{tipo:"ok"|"err";texto:string}|null;syncing:boolean;onSync:()=>void;onOpenCatalogo:()=>void}) {
+function AbaCanais({epg,progsPorCanal}:{epg:EpgData;progsPorCanal:Map<string,Programa[]>}) {
   const [catAtiva,setCatAtiva]=useState("Todos");
   const [subAtiva,setSubAtiva]=useState("Todos");
   const [busca,setBusca]=useState("");
   const [buscaAtiva,setBuscaAtiva]=useState("");
-const [catOpen,setCatOpen]=useState(false);
+  const [catOpen,setCatOpen]=useState(false);
   const catRef=useRef<HTMLDivElement>(null);
-const [syncOpen,setSyncOpen]=useState(false);
-  const syncRef=useRef<HTMLDivElement>(null);
   const [subOpen,setSubOpen]=useState(false);
   const subRef=useRef<HTMLDivElement>(null);
   
   // Lógica original preservada
   useEffect(()=>{ function h(e:MouseEvent){if(catRef.current&&!catRef.current.contains(e.target as Node))setCatOpen(false);} document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h); },[]);
-  useEffect(()=>{ function h(e:MouseEvent){if(syncRef.current&&!syncRef.current.contains(e.target as Node))setSyncOpen(false);} document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h); },[]);
   useEffect(()=>{ function h(e:MouseEvent){if(subRef.current&&!subRef.current.contains(e.target as Node))setSubOpen(false);} document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h); },[]);
   const catsDisponiveis=useMemo(()=>{const s=new Set(epg.canais.map(c=>c.categoria));return CATS_ORDEM.filter(c=>s.has(c));},[epg]);
   
@@ -1321,42 +1317,10 @@ const [syncOpen,setSyncOpen]=useState(false);
         
         <div className="relative flex-1 min-w-[200px] md:max-w-xs md:ml-auto">
           <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/60 pointer-events-none"/>
-          <input value={busca} onChange={e=>{setBusca(e.target.value);if(!e.target.value.trim()){setBuscaAtiva("");return;} setBuscaAtiva(e.target.value.trim());}} onKeyDown={e=>e.key==="Enter"&&setBuscaAtiva(busca.trim())} placeholder="Pesquisar canais por nome..." className="w-full h-9 pl-10 pr-10 bg-muted/40 border border-border rounded-lg text-sm text-foreground outline-none focus:border-sky-500/50" />
-          {busca&&<button onClick={()=>{setBusca("");setBuscaAtiva("");}} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground"><X size={14}/></button>}
+          <input value={busca} onChange={e=>{setBusca(e.target.value);if(!e.target.value.trim()){setBuscaAtiva("");return;} setBuscaAtiva(e.target.value.trim());}} onKeyDown={e=>e.key==="Enter"&&setBuscaAtiva(busca.trim())} placeholder="Pesquisar canais por nome..." className="w-full h-9 pl-10 pr-10 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors" />
+          {busca&&<button onClick={()=>{setBusca("");setBuscaAtiva("");}} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"><X size={14}/></button>}
         </div>
-        <button onClick={()=>setBuscaAtiva(busca.trim())} className="h-9 px-5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs shadow-lg shadow-sky-900/20 flex-shrink-0">Buscar</button>
-
-        {/* Dropdown Sincronizar — ao lado da busca, parte do fluxo da barra (não flutuante) */}
-        <div ref={syncRef} className="relative shrink-0">
-          <button onClick={() => setSyncOpen(o => !o)}
-            className={`flex items-center gap-2 h-9 px-4 rounded-full font-bold text-xs border transition-all ${syncOpen ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20 border-indigo-600' : 'bg-muted border-indigo-500/20 text-indigo-500 hover:border-indigo-500/40 hover:text-indigo-400'}`}>
-            <RefreshCw size={13} className={syncing ? "animate-spin text-indigo-500" : (syncOpen ? "text-white" : "text-indigo-500")} />
-            Sincronizar
-            <ChevronDown size={12} className={`opacity-60 transform ${syncOpen ? "rotate-180" : "none"} transition-transform duration-150`} />
-          </button>
-          {syncOpen && (
-            <div className="absolute top-[calc(100%+8px)] right-0 min-w-[240px] bg-card border border-border rounded-xl shadow-2xl z-50 p-2 animate-in slide-in-from-top-2 duration-150">
-              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-3 py-2">Opções de Sincronização</div>
-              <button onClick={() => { onOpenCatalogo(); setSyncOpen(false); }}
-                className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
-                <div className="w-8 h-8 rounded-full bg-indigo-500/10 flex items-center justify-center shrink-0">
-                  <Database size={15} className="text-indigo-500" />
-                </div>
-                Sincronizar Catálogo (VOD)
-              </button>
-              <div className="w-full h-px bg-border my-1"></div>
-              <button onClick={() => { onSync(); setSyncOpen(false); }} disabled={syncing}
-                className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${syncing ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
-                <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
-                  <Tv size={15} className={syncing ? "animate-spin text-emerald-500" : "text-emerald-500"} />
-                </div>
-                {syncing ? "Sincronizando EPG..." : "Sincronizar Grade EPG"}
-              </button>
-            </div>
-          )}
-        </div>
-
-        {syncMsg&&(<div className={`absolute bottom-full left-4 mb-2 p-2 px-3 rounded-lg border flex items-center gap-2 text-xs font-medium animate-in slide-in-from-bottom-2 ${syncMsg.tipo==="ok"?"bg-emerald-500/10 border-emerald-500/30 text-emerald-500":"bg-rose-500/10 border-rose-500/30 text-rose-500"}`}>{syncMsg.tipo==="ok"?<CheckCircle size={14}/>:<AlertTriangle size={14}/>}{syncMsg.texto}</div>)}
+        <button onClick={()=>setBuscaAtiva(busca.trim())} className="h-9 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-900/20 flex-shrink-0 transition-colors">Buscar</button>
       </div>
       
       {emBusca ? (
@@ -1405,11 +1369,19 @@ export default function GuiaTVPage() {
   const [loadingEpg,setLoadingEpg]=useState(true);
   const [erroEpg,setErroEpg]=useState<string|null>(null);
   const [syncing,setSyncing]=useState(false);
-  // Mantendo o syncMsg original para o painel de canais
-  const [syncMsg,setSyncMsg]=useState<{tipo:"ok"|"err";texto:string}|null>(null);
   const [showCatalogo,setShowCatalogo]=useState(false);
 
-     
+  // ✅ Controle do Dropdown Sincronizar na Top Bar
+  const [syncOpen, setSyncOpen] = useState(false);
+  const syncRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function h(e: MouseEvent) {
+      if (syncRef.current && !syncRef.current.contains(e.target as Node)) setSyncOpen(false);
+    }
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+
   // ✅ Novos estados para Toasts da Página Principal
   const [toasts, setToasts] = useState<any[]>([]);
   const removeToast = (id: number) => setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -1489,21 +1461,18 @@ export default function GuiaTVPage() {
 
   // Lógica original de sync preservada, mas com Toasts adicionados
   async function handleSync(){
-    setSyncing(true);setSyncMsg(null);
+    setSyncing(true);
     try{
         const d=await fetch("/api/epg/sync",{method:"POST"}).then(r=>r.json());
         if(d.ok){
             addToast("success", "Sincronização Concluída", `A grade EPG foi atualizada com sucesso em ${d.duracao_s}s. Recarregando grade...`);
-            setSyncMsg({tipo:"ok",texto:`EPG sincronizado em ${d.duracao_s}s`});
             setTimeout(()=>window.location.reload(),2000);
         } else {
             addToast("error", "Falha na Sincronização", d.error || "Ocorreu um erro desconhecido ao sincronizar.");
-            setSyncMsg({tipo:"err",texto:d.error||"Sync falhou"});
         }
     }
     catch(e:any){
         addToast("error", "Erro na Sincronização", e.message || "Erro de conexão com o servidor.");
-        setSyncMsg({tipo:"err",texto:e.message});
     }finally{setSyncing(false);}
   }
 
@@ -1512,17 +1481,49 @@ export default function GuiaTVPage() {
     <div className="flex flex-col h-[calc(100vh-57px)] bg-background text-foreground overflow-hidden transition-colors">
 
       {/* Barra de sub-navegação refatorada visivelmente com padrão PlansPage */}
-      <div className="flex-shrink-0 bg-muted/60 border-b border-border transition-colors relative z-40 shadow-inner">
-        <div className="flex items-center px-4 sm:px-5 h-12 gap-3 flex-wrap">
+      <div className="flex-shrink-0 bg-muted/40 border-b border-border transition-colors relative z-40">
+        <div className="flex items-center px-4 sm:px-5 h-14 gap-2 sm:gap-3 overflow-x-auto custom-scrollbar">
           {(["canais","filmes","series"] as GuiaTVTab[]).map(t=>(
             <button key={t} onClick={()=>setTab(t)}
-              className={`flex items-center gap-2.5 h-9 px-5 rounded-full transition-all text-sm whitespace-nowrap focus:outline-none focus:ring-0 ${tab===t ? 'bg-indigo-600 text-white font-bold shadow-lg shadow-indigo-900/20' : 'bg-muted border border-border/80 text-muted-foreground font-semibold hover:border-border-hover hover:text-foreground'}`}
+              className={`flex items-center gap-2 h-9 px-4 sm:px-5 rounded-full transition-all text-xs sm:text-sm whitespace-nowrap focus:outline-none focus:ring-0 shrink-0 ${tab===t ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-900/20' : 'bg-transparent border border-border text-muted-foreground font-medium hover:bg-muted hover:text-foreground'}`}
             >
-              {t==="canais"?<><Tv size={16}/> Canais de TV</>:t==="filmes"?<><Film size={16}/> Filmes Vod</>:<><Clapperboard size={16}/> Séries Vod</>}
+              {t==="canais"?<><Tv size={14}/> Canais</>:t==="filmes"?<><Film size={14}/> Filmes</>:<><Clapperboard size={14}/> Séries</>}
             </button>
           ))}
-          <div className="flex-1"/>
-                    
+          
+          <div className="flex-1 min-w-[20px]" />
+          
+          {/* ✅ Botão Sincronizar unificado e sempre visível */}
+          <div ref={syncRef} className="relative shrink-0">
+            <button onClick={() => setSyncOpen(o => !o)}
+              className={`flex items-center gap-2 h-9 px-4 rounded-full font-bold text-xs border transition-all ${syncOpen ? 'bg-sky-600 text-white shadow-md shadow-sky-900/20 border-sky-600' : 'bg-transparent border-border text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+            >
+              <RefreshCw size={13} className={syncing ? "animate-spin text-sky-500" : (syncOpen ? "text-white" : "text-muted-foreground")} />
+              <span className="hidden sm:inline">Sincronizar</span>
+              <span className="sm:hidden">Sync</span>
+              <ChevronDown size={12} className={`opacity-60 transform ${syncOpen ? "rotate-180" : "none"} transition-transform duration-150`} />
+            </button>
+            {syncOpen && (
+              <div className="absolute top-[calc(100%+8px)] right-0 min-w-[240px] bg-card border border-border rounded-xl shadow-2xl z-50 p-2 animate-in slide-in-from-top-2 duration-150">
+                <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-3 py-2">Opções de Sincronização</div>
+                <button onClick={() => { setShowCatalogo(true); setSyncOpen(false); }}
+                  className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                  <div className="w-8 h-8 rounded-full bg-sky-500/10 flex items-center justify-center shrink-0">
+                    <Database size={15} className="text-sky-500" />
+                  </div>
+                  Sincronizar Catálogo (VOD)
+                </button>
+                <div className="w-full h-px bg-border my-1"></div>
+                <button onClick={() => { handleSync(); setSyncOpen(false); }} disabled={syncing}
+                  className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${syncing ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+                  <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
+                    <Tv size={15} className={syncing ? "animate-spin text-emerald-500" : "text-emerald-500"} />
+                  </div>
+                  {syncing ? "Sincronizando EPG..." : "Sincronizar Grade EPG"}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1530,8 +1531,7 @@ export default function GuiaTVPage() {
       {tab==="canais"&&(
         loadingEpg?<div className="flex flex-col items-center justify-center flex-1 gap-4 text-center p-20 text-muted-foreground animate-pulse text-sm py-40 bg-muted/20 transition-colors"><RefreshCw size={24} className="animate-spin text-muted-foreground/60"/>Carregando grade de canais...</div>
         :erroEpg?<div className="flex flex-col items-center justify-center flex-1 gap-4 text-center p-20 text-muted-foreground animate-pulse text-sm py-40 bg-muted/20 transition-colors max-w-2xl mx-auto"><AlertTriangle size={32} className="text-amber-500"/><div className="text-sm font-medium text-foreground tracking-tight">{erroEpg}</div><button onClick={handleSync} disabled={syncing} className="h-9 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 disabled:opacity-50 disabled:cursor-wait"><RefreshCw size={13} className={syncing?"animate-spin":"none"}/> {syncing?"Sincronizando Grade...":"Tentar Sincronizar Grade Agora"}</button></div>
-        // ✅ Removidas as props syncing e onSync da chamada
-        :epg&&<AbaCanais epg={epg} progsPorCanal={progsPorCanal} syncMsg={syncMsg} syncing={syncing} onSync={handleSync} onOpenCatalogo={()=>setShowCatalogo(true)}/>
+        :epg&&<AbaCanais epg={epg} progsPorCanal={progsPorCanal} />
       )}
       {tab==="filmes"&&<AbaCatalogo tipo="FILME" servidorAdmin={SERVIDOR_ADMIN}/>}
       {tab==="series"&&<AbaCatalogo tipo="SERIE" servidorAdmin={SERVIDOR_ADMIN}/>}
