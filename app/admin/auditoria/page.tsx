@@ -527,7 +527,7 @@ function AuditoriaPageContent() {
       );
     if (status === "manual_pending")
       return (
-        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-purple-500/10 text-purple-500 text-[10px] font-medium uppercase border border-purple-500/30 animate-pulse">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-purple-500/10 text-purple-500 text-[10px] font-medium uppercase border border-purple-500/20 animate-pulse">
           Ação Manual
         </span>
       );
@@ -539,7 +539,7 @@ function AuditoriaPageContent() {
       );
 
     return (
-      <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-transparent text-foreground/90 dark:text-slate-300 text-[10px] font-medium uppercase border border-border dark:border-white/20">
+      <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-transparent text-muted-foreground text-[10px] font-medium uppercase border border-border">
         Processando
       </span>
     );
@@ -553,7 +553,7 @@ function AuditoriaPageContent() {
     // 1. Se o pagamento NÃO foi aprovado, a mensagem nunca é enviada.
     if (paymentStatus !== "approved" && paymentStatus !== "PAGO") {
       return (
-        <span className="text-slate-300 dark:text-white/20 font-medium">—</span>
+        <span className="text-muted-foreground/40 font-medium">—</span>
       );
     }
 
@@ -563,14 +563,14 @@ function AuditoriaPageContent() {
       fulfillmentStatus === "cancelled"
     ) {
       return (
-        <span className="text-slate-300 dark:text-white/20 font-medium">—</span>
+        <span className="text-muted-foreground/40 font-medium">—</span>
       );
     }
 
     // 3. Se a renovação ainda não terminou (processando ou erro), o zap ainda não "nasceu" no fluxo.
     if (fulfillmentStatus !== "done" && fulfillmentStatus !== "manual_done") {
       return (
-        <span className="text-slate-300 dark:text-white/20 font-medium">—</span>
+        <span className="text-muted-foreground/40 font-medium">—</span>
       );
     }
 
@@ -620,7 +620,7 @@ function AuditoriaPageContent() {
       </div>
 
       {/* FILTROS */}
-      <div className="px-3 md:p-4 bg-transparent md:bg-card md:dark:bg-card border-0 md:border md:border-border md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20">
+      <div className="px-3 md:p-4 bg-transparent md:bg-card border-0 md:border md:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20">
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex-1 min-w-[200px] flex gap-2">
             <div className="relative flex-1">
@@ -669,7 +669,7 @@ function AuditoriaPageContent() {
 
       {/* TABELA */}
       {loading ? (
-        <div className="p-12 text-center text-muted-foreground/80 dark:text-muted-foreground animate-pulse bg-card rounded-none sm:rounded-xl border border-border">
+        <div className="p-12 text-center text-muted-foreground/80 animate-pulse bg-card rounded-none sm:rounded-xl border border-border">
           Carregando logs de auditoria...
         </div>
       ) : (
@@ -694,7 +694,7 @@ function AuditoriaPageContent() {
                   <tr>
                     <td
                       colSpan={9}
-                      className="p-8 text-center text-muted-foreground/80 dark:text-muted-foreground italic"
+                      className="p-8 text-center text-muted-foreground/80 italic"
                     >
                       Nenhum registro encontrado.
                     </td>
