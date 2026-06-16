@@ -45,6 +45,26 @@ export default function RootLayout({
   return (
     // 2. IMPORTANTE: suppressHydrationWarning evita erros no console quando o tema carrega
     <html lang="pt-BR" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var storedTheme = localStorage.getItem('app_theme');
+                  var theme = storedTheme || 'light';
+                  document.documentElement.dataset.theme = theme;
+                  if (theme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                  } else {
+                    document.documentElement.classList.remove('dark');
+                  }
+                } catch (e) {}
+              })();
+            `
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
