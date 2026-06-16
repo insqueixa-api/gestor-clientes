@@ -1288,7 +1288,7 @@ if (!res.ok) {
       </div>
 
       {/* FILTROS */}
-      <div className="px-3 md:p-4 bg-transparent md:bg-card md:dark:bg-card border-0 md:border md:border-border md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm mb-4 z-20">
+      <div className="px-3 md:p-4 bg-transparent md:bg-card border-0 md:border md:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm mb-4 z-20">
         {/* UMA linha no desktop, busca + botão filtros no mobile */}
         <div className="flex gap-2 items-center">
           <div className="flex-1">
@@ -1328,7 +1328,7 @@ if (!res.ok) {
                 setEmailLabelFilter(e.target.value);
                 setPage(1);
               }}
-              className="h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
+              className="h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90"
             >
               <option value="Todos">📧 E-mail (Todos)</option>
               {uniqueEmailLabels.map((lbl) => (
@@ -1378,7 +1378,7 @@ if (!res.ok) {
                   setPhotoFilter("Todos");
                   setPage(1);
                 }} // <--- ATUALIZADO
-                className="h-10 px-3 rounded-lg text-xs font-medium text-rose-500 border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors whitespace-nowrap"
+                className="h-10 px-3 rounded-lg text-xs font-medium text-rose-500 border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500/20 transition-colors whitespace-nowrap"
               >
                 ✕ Limpar
               </button>
@@ -1484,7 +1484,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                   setPhotoFilter("Todos");
                   setPage(1);
                 }} // <--- ATUALIZADO
-                className="h-10 px-3 rounded-lg text-sm font-medium text-rose-500 border border-rose-500/20 bg-rose-500/10"
+                className="h-10 px-3 rounded-lg text-xs font-medium text-rose-500 border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500/20 transition-colors whitespace-nowrap"
               >
                 ✕ Limpar filtros
               </button>
@@ -1641,7 +1641,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
           <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-border bg-transparent">
             <div className="text-sm font-medium tracking-tight text-foreground whitespace-nowrap">
               Lista de Contatos{" "}
-              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-xs font-medium">
+              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 text-xs font-medium">
                 {filtered.length}
               </span>
             </div>
@@ -1768,7 +1768,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                                 <span className="font-medium text-muted-foreground">
                                   {e.label}:{" "}
                                 </span>
-                                <span className="text-sky-400">
+                                <span className="text-sky-500">
                                   {e.value}
                                 </span>
                               </div>
@@ -1904,14 +1904,14 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                   <button
                     onClick={() => setPage(1)}
                     disabled={safePage === 1}
-                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-transparent dark:hover:bg-card/10 disabled:opacity-30 transition-colors text-xs font-medium"
+                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30 transition-colors text-xs font-medium"
                   >
                     «
                   </button>
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={safePage === 1}
-                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-transparent dark:hover:bg-card/10 disabled:opacity-30 transition-colors text-xs font-medium"
+                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30 transition-colors text-xs font-medium"
                   >
                     ‹
                   </button>
@@ -1977,7 +1977,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
           }
         >
           <div className="space-y-4">
-            <div className="bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 p-3 rounded-lg flex items-center gap-3">
+            <div className="bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-lg flex items-center gap-3">
               <span className="text-xl">
                 <MessageCircle className="w-4 h-4" />
               </span>
@@ -1995,7 +1995,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
               <select
                 value={selectedSessionNow}
                 onChange={(e) => setSelectedSessionNow(e.target.value)}
-                className="w-full h-11 px-3 bg-transparent border border-border dark:border-border rounded-xl text-foreground outline-none text-sm font-medium"
+                className="w-full h-11 px-3 bg-transparent border border-border rounded-xl text-foreground outline-none text-sm font-medium"
               >
                 {sessionOptions.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -2144,7 +2144,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                               return { ...prev, phones };
                             })
                           }
-                          className="w-20 p-2 border border-border rounded-lg bg-card dark:bg-transparent text-foreground text-xs font-medium"
+                          className="w-20 p-2 border border-border rounded-lg bg-transparent text-foreground text-xs font-medium"
                         />
                         {/* DDI */}
                         <select
@@ -2202,7 +2202,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                               return n;
                             });
                           }}
-                          className="p-2 text-rose-500 hover:bg-rose-500/10 dark:hover:bg-rose-500/10 rounded-lg"
+                          className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-lg"
                         >
                           <IconTrash />
                         </button>
@@ -2221,9 +2221,9 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                             wa?.loading
                               ? "bg-transparent text-muted-foreground border-border"
                               : wa?.exists
-                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                                : wa?.exists === false
-                                  ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                                ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                              : wa?.exists === false
+                                ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
                                   : "bg-transparent text-muted-foreground border-border hover:bg-transparent dark:hover:bg-card/10"
                           }`}
                         >
@@ -2276,9 +2276,9 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                             wa?.photoStatus === "loading"
                               ? "bg-transparent text-muted-foreground border-border"
                               : wa?.photoStatus === "synced"
-                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                                : wa?.photoStatus === "protected"
-                                  ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                                ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                              : wa?.photoStatus === "protected"
+                                ? "bg-amber-500/10 text-amber-500 border-amber-500/20"
                                   : "bg-transparent text-muted-foreground border-border hover:bg-transparent dark:hover:bg-card/10"
                           }`}
                         >
@@ -2303,9 +2303,9 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                               wa?.opLoading
                                 ? "bg-transparent text-muted-foreground border-border"
                                 : wa?.opName
-                                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                                  : wa?.opError
-                                    ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                                  ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                                : wa?.opError
+                                  ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
                                     : "bg-transparent text-muted-foreground border-border hover:bg-transparent dark:hover:bg-card/10"
                             }`}
                           >
@@ -2587,12 +2587,12 @@ function ThSort({
     <th
       onClick={onClick}
       style={{ width }}
-      className="px-3 py-2 cursor-pointer select-none group hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors text-left"
+      className="px-3 py-2 cursor-pointer select-none group hover:text-emerald-500 transition-colors text-left"
     >
       <div className="flex items-center gap-1">
         {label}{" "}
         <span
-          className={`transition-opacity ${active ? "opacity-100 text-emerald-400" : "opacity-40 group-hover:opacity-70"}`}
+          className={`transition-opacity ${active ? "opacity-100 text-emerald-500" : "opacity-40 group-hover:opacity-70"}`}
         >
           {dir === "asc" ? <IconSortUp /> : <IconSortDown />}
         </span>
@@ -2653,14 +2653,11 @@ function IconActionBtn({
   onClick: (e: React.MouseEvent) => void;
 }) {
   const colors = {
-    blue: "text-sky-500 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20 dark:border-sky-500/20",
-    green:
-      "text-emerald-400 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20 dark:border-emerald-500/20",
-    amber:
-      "text-amber-600 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20 dark:border-amber-500/20",
-    purple:
-      "text-purple-400 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20",
-    red: "text-rose-400 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20 dark:border-rose-500/20",
+    blue: "text-sky-500 bg-sky-500/10 border-sky-500/20 hover:bg-sky-500/20",
+    green: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20",
+    amber: "text-amber-500 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20",
+    purple: "text-purple-500 bg-purple-500/10 border-purple-500/20 hover:bg-purple-500/20",
+    red: "text-rose-500 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20",
   };
   return (
     <button
@@ -2714,30 +2711,23 @@ function Modal({
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.65)",
-        display: "grid",
-        placeItems: "center",
-        zIndex: 99999,
-        padding: 16,
-      }}
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm grid place-items-center p-4 z-[99999]"
     >
       <div
         onMouseDown={(e) => e.stopPropagation()}
         className="w-full max-w-lg bg-card border border-border rounded-xl shadow-2xl overflow-hidden"
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent dark:bg-transparent">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent">
           <div className="font-medium text-foreground">
             {title}
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground"
+            className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
           >
             <IconX />
           </button>
+        
         </div>
         <div className="p-4 bg-card">{children}</div>
       </div>
