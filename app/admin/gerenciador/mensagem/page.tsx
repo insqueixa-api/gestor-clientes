@@ -615,7 +615,7 @@ function PreviewModal({
         </div>
 
 {/* Conteúdo da Mensagem */}
-        <div className="flex-1 p-4 sm:p-6 overflow-y-auto custom-scrollbar bg-transparent/50 border border-border">
+        <div className="flex-1 p-4 sm:p-6 overflow-y-auto custom-scrollbar bg-muted/20 border border-border">
           <div className="flex flex-col gap-4 whitespace-pre-wrap text-sm text-muted-foreground font-mono leading-relaxed bg-card p-3 sm:p-4 rounded-xl border border-border shadow-sm min-h-full">
             {/* ✅ PREVIEW DA IMAGEM SE HOUVER */}
             {template.image_url && (
@@ -692,7 +692,7 @@ className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-lg border font-mediu
 
           <button
             onClick={onEdit}
-            className="flex-1 sm:flex-none px-6 py-2.5 sm:py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-medium text-xs shadow-lg shadow-amber-500/20 transition-transform active:scale-95 uppercase flex items-center justify-center gap-2"
+            className="flex-1 sm:flex-none px-6 py-2.5 sm:py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-medium text-xs shadow-lg shadow-amber-900/20 transition-transform active:scale-95 uppercase flex items-center justify-center gap-2"
           >
             ✏️ Editar Modelo
           </button>

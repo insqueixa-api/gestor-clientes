@@ -911,7 +911,7 @@ function GatewayModal({
                       className={`relative w-12 h-6 rounded-full transition-colors ${
                         isManualFallback
                           ? "bg-violet-600"
-                          : "bg-muted"
+                          : "bg-foreground/20"
                       }`}
                     >
                       <span
@@ -944,7 +944,7 @@ function GatewayModal({
           <button
             onClick={handleSave}
             disabled={saving || !selectedType}
-            className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-bold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-bold shadow-lg shadow-emerald-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
             {saving
               ? "Salvando..."
@@ -1021,7 +1021,7 @@ function GatewayCard({
           className={`relative w-11 h-6 rounded-full transition-colors ${
             gateway.is_active
               ? "bg-emerald-600"
-              : "bg-muted"
+              : "bg-foreground/20"
           }`}
           title={gateway.is_active ? "Desativar" : "Ativar"}
         >
@@ -1088,7 +1088,7 @@ function GatewayCard({
           <button
             onClick={onDelete}
             disabled={isDeleting}
-            className="h-9 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 text-xs font-medium hover:bg-rose-500/15 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            className="h-9 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 text-xs font-medium hover:bg-rose-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
             title="Excluir"
           >
             {isDeleting ? "..." : <IconTrash />}
