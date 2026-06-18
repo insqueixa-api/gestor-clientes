@@ -1261,7 +1261,7 @@ if (!res.ok) {
             <button
               onClick={() => setValuesHidden(v => !v)}
               title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground hover:text-foreground hover:border-border-hover transition-all text-xs font-medium shadow-sm select-none"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all text-xs font-medium shadow-sm select-none"
             >
               {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               <span className="hidden sm:inline text-[11px] tracking-wide">
@@ -1345,7 +1345,7 @@ if (!res.ok) {
                 setPhoneLabelFilter(e.target.value);
                 setPage(1);
               }}
-              className="h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
+              className="h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90"
             >
               <option value="Todos">📱 Operadora (Todas)</option>
               {uniquePhoneLabels.map((lbl) => (
@@ -1362,7 +1362,7 @@ if (!res.ok) {
                 setPhotoFilter(e.target.value);
                 setPage(1);
               }}
-              className="h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
+              className="h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90"
             >
               <option value="Todos">📷 Foto (Todas)</option>
               <option value="ComFoto">Com foto</option>
@@ -1417,7 +1417,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                 setLabelFilter(e.target.value);
                 setPage(1);
               }}
-              className="h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
+              className="h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90"
             >
               <option value="Todos">Grupo (Todos)</option>
               <option value="__SEM_GRUPO__">Sem grupo</option>
@@ -1434,7 +1434,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                 setEmailLabelFilter(e.target.value);
                 setPage(1);
               }}
-              className="h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
+              className="h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90"
             >
               <option value="Todos">📧 E-mail (Todos)</option>
               {uniqueEmailLabels.map((lbl) => (
@@ -1451,7 +1451,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                 setPhoneLabelFilter(e.target.value);
                 setPage(1);
               }}
-              className="h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
+              className="h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90"
             >
               <option value="Todos">📱 Operadora (Todas)</option>
               {uniquePhoneLabels.map((lbl) => (
@@ -1468,7 +1468,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                 setPhotoFilter(e.target.value);
                 setPage(1);
               }}
-              className="h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-muted-foreground dark:text-white"
+              className="h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90"
             >
               <option value="Todos">📷 Foto (Todas)</option>
               <option value="ComFoto">Com foto</option>
@@ -2007,7 +2007,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
             <textarea
               value={messageText}
               onChange={(e) => setMessageText(e.target.value)}
-              className="w-full bg-transparent border border-border dark:border-border rounded-xl p-4 text-foreground outline-none min-h-[120px] text-sm resize-none"
+              className="w-full bg-transparent border border-border rounded-xl p-4 text-foreground outline-none min-h-[120px] text-sm resize-none"
               placeholder="Digite a sua mensagem..."
               autoFocus
             />
@@ -2109,7 +2109,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                       ],
                     }))
                   }
-                  className="text-xs text-amber-600 hover:text-amber-400 font-medium flex items-center gap-1"
+                  className="text-xs text-amber-500 hover:text-amber-600 font-medium flex items-center gap-1"
                 >
                   + Add Telefone
                 </button>
@@ -2358,7 +2358,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                       ],
                     }))
                   }
-                  className="text-xs text-amber-600 hover:text-amber-400 font-medium"
+                  className="text-xs text-amber-500 hover:text-amber-600 font-medium"
                 >
                   + Add E-mail
                 </button>

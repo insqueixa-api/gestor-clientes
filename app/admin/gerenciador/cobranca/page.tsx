@@ -369,7 +369,7 @@ function GlobalQueueMonitor({
       <div
         onClick={() => setShowModal(true)}
         className={`mb-4 border rounded-xl p-3 flex items-center justify-between cursor-pointer hover:shadow-md transition-all
-    ${isGlobalPaused ? "bg-amber-500/20 border-amber-300" : "bg-emerald-500/10 border-emerald-500/20"}`}
+    ${isGlobalPaused ? "bg-amber-500/20 border-amber-500/30" : "bg-emerald-500/10 border-emerald-500/20"}`}
       >
         <div className="flex items-center gap-3">
           <div className="relative flex items-center justify-center w-5 h-5">
@@ -404,7 +404,7 @@ function GlobalQueueMonitor({
       {showModal &&
         createPortal(
           <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="w-full max-w-6xl bg-card rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+            <div className="w-full max-w-6xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
               <div className="px-4 py-3 border-b border-border flex justify-between items-center bg-muted/40">
                 <h3 className="font-medium text-lg text-foreground">
                   Gerenciador de Fila

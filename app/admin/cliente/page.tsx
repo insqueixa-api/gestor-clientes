@@ -1735,7 +1735,7 @@ function ClientePageContent() {
                 setValuesHidden((v) => !v);
               }}
               title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground hover:text-foreground hover:border-border-hover transition-all text-xs font-medium shadow-sm select-none"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all text-xs font-medium shadow-sm select-none"
             >
               {valuesHidden ? (
                 <EyeOff className="w-4 h-4" />
@@ -2317,7 +2317,7 @@ className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-co
                           <div className="flex items-center gap-2 whitespace-nowrap">
                             <Link
                               href={`/admin/cliente/${r.id}`}
-                              className="font-semibold text-foreground/90 group-hover:text-emerald-400 dark:group-hover:text-emerald-400 transition-colors hover:underline decoration-emerald-500/30 underline-offset-2 cursor-pointer truncate"
+                              className="font-semibold text-foreground/90 group-hover:text-emerald-400 transition-colors hover:underline decoration-emerald-500/30 underline-offset-2 cursor-pointer truncate"
                             >
                               {r.name.split(" ")[0]}
                               {r.secondary_display_name ? (
@@ -2336,7 +2336,7 @@ className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-co
                                     e.stopPropagation();
                                     handleOpenAlertList(r.id, r.name);
                                   }}
-                                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-600 border border-amber-500/20 text-[10px] font-medium hover:bg-amber-200 transition-colors animate-pulse"
+                                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-500 border border-amber-500/20 text-[10px] font-medium hover:bg-amber-500/30 transition-colors animate-pulse"
                                   title="Ver alertas pendentes"
                                 >
                                   🔔 {r.alertsCount}
@@ -3580,9 +3580,16 @@ function StatusBadge({
     if (status === "Vencido") color = "rose";
   }
 
+  const colorMap: Record<string, string> = {
+    emerald: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+    rose: "bg-rose-500/10 text-rose-400 border-rose-500/20",
+    amber: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+    sky: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+  };
+
   return (
     <span
-      className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium uppercase tracking-tight shadow-sm bg-${color}-500/10 text-${color}-400 border-${color}-500/20 whitespace-nowrap`}
+      className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium uppercase tracking-tight shadow-sm whitespace-nowrap ${colorMap[color] ?? colorMap.sky}`}
     >
       {customLabel || status}
     </span>

@@ -1120,7 +1120,7 @@ className="inline-flex items-center gap-1.5 text-emerald-500 font-medium hover:u
                   <span className="text-muted-foreground font-medium">
                     Bloqueado até
                   </span>
-                  <span className="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-500/20 px-2 py-0.5 rounded text-right">
+                  <span className="text-xs font-medium text-amber-500 bg-amber-500/20 px-2 py-0.5 rounded text-right">
                     {fmtDateTime(client.dont_message_until!)}
                   </span>
                 </div>
