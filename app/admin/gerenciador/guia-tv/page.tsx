@@ -132,7 +132,7 @@ function Logo({src,nome,categoria,size=32}:{src?:string;nome:string;categoria?:s
       src={src} 
       alt={nome} 
       onError={()=>setErr(true)} 
-      className="shrink-0 object-contain rounded-lg border border-border bg-topbar p-1 shadow-sm"
+      className="shrink-0 object-contain rounded-lg border border-border bg-dark-surface p-1 shadow-sm"
 
 
       style={{width:size,height:size}}

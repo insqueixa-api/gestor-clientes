@@ -29,6 +29,8 @@
   --color-purple-500: #7e22ce;  /* purple-700 */
   --color-rose-400: #e11d48;    /* rose-600 */
   --color-rose-500: #be123c;    /* rose-700 */
+
+  --dark-surface: #18181b;      /* zinc-900 – fundo sempre escuro (logos transparentes) */
 }
 
 /* === MODO ESCURO === */
@@ -55,6 +57,8 @@
   --color-purple-500: #a855f7;
   --color-rose-400: #fb7185;
   --color-rose-500: #f43f5e;
+
+  --dark-surface: #18181b;      /* zinc-900 – fundo sempre escuro (logos transparentes) */
 }
 
 /* ── CONECTA AO TAILWIND ── */
@@ -66,7 +70,8 @@
   --color-border: var(--border);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
-  
+  --color-dark-surface: var(--dark-surface);
+
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
 }
