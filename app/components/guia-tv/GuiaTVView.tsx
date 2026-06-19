@@ -783,7 +783,7 @@ function Carrossel({ itens, onSelect, tipo }: { itens: TituloCard[]; onSelect: (
 type TmdbResultado = { tmdb_id: number; titulo: string; titulo_original: string; ano: number | null; sinopse: string | null; avaliacao: number | null; poster_url: string | null; };
 
 // ✅ Refatorado visivelmente para Tailwind e temas claro/escuro
-function ModalDetalhe({id,onClose}:{id:string;onClose:()=>void}) {
+function ModalDetalhe({id,onClose,modoCliente}:{id:string;onClose:()=>void;modoCliente?:boolean}) {
   const [detalhe,setDetalhe]=useState<Detalhe|null>(null);
   const [loading,setLoading]=useState(true);
   const [showTmdb,setShowTmdb]=useState(false);
@@ -796,8 +796,10 @@ function ModalDetalhe({id,onClose}:{id:string;onClose:()=>void}) {
   const [deleteOk,setDeleteOk]=useState(false);
   const [showDeleteMenu,setShowDeleteMenu]=useState(false);
 
-  // ✅ Novo: Hook de confirmação padrão da sua página de Planos
-  const { confirm, ConfirmUI } = useConfirm();
+  // ✅ Hook só chamado no modo admin — evita crash fora do ConfirmProvider
+  const adminConfirm = !modoCliente ? useConfirm() : null;
+  const confirm = adminConfirm?.confirm;
+  const ConfirmUI = adminConfirm?.ConfirmUI ?? null;
 
   // Lógica original preservada
   useEffect(()=>{
@@ -1033,7 +1035,7 @@ function GradeMiniaturas({titulos,total,page,perPage=50,onSelect,onPage}:{titulo
 }
 
 // ─── Aba Catálogo Refatorada (Tailwind e Temas Claro/Escuro) ──────────────────
-function AbaCatalogo({tipo,servidorAdmin}:{tipo:TipoConteudo;servidorAdmin:ServidorId|"TODOS"}) {
+function AbaCatalogo({tipo,servidorAdmin,modoCliente}:{tipo:TipoConteudo;servidorAdmin:ServidorId|"TODOS";modoCliente?:boolean}) {
   const [servidor,setServidor]=useState<ServidorId|"TODOS">(servidorAdmin==="TODOS"?"TODOS":servidorAdmin as ServidorId);
   const [novidades,setNovidades]=useState<TituloCard[]>([]);
   const [categorias,setCategorias]=useState<Categoria[]>([]);
@@ -1073,22 +1075,31 @@ function AbaCatalogo({tipo,servidorAdmin}:{tipo:TipoConteudo;servidorAdmin:Servi
   const catAtiva=subCatSelecionada||catSelecionada;
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-background overflow-hidden">
-      <div className="flex-shrink-0 px-4 sm:px-5 py-4 border-b border-border bg-card flex items-center gap-3.5 flex-wrap z-30 relative shadow-sm">
-        {servidorAdmin==="TODOS"&&SERVIDORES.map(srv=>{
-          const cor = srv==="TODOS" ? "var(--muted-foreground)" : (COR_SERVIDOR[srv as ServidorId]||"#94a3b8");
-          const ativo = servidor===srv;
-          return(
-            <button key={srv} onClick={()=>{setServidor(srv as ServidorId|"TODOS");setCatSelecionada(null);setSubCatSelecionada(null);setPage(1);setBusca("");setBuscaAtiva("");}}
-              className={`h-8 px-4 rounded-full font-bold text-xs border transition-all ${ativo ? 'bg-indigo-600 text-white shadow shadow-indigo-900/10' : 'bg-muted/40 border-border/80 text-muted-foreground hover:border-foreground/20 hover:text-foreground'}`}>
-              {srv}
-            </button>
-          );
-        })}
-        <div ref={catDropRef} className="relative">
+  <div className="flex-1 flex flex-col min-h-0 bg-background overflow-hidden">
+    <div className="flex-shrink-0 px-4 sm:px-5 py-3 border-b border-border bg-card z-30 relative shadow-sm space-y-2">
+      
+      {/* Linha 1: Servidores (só admin) */}
+      {servidorAdmin==="TODOS" && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {SERVIDORES.map(srv=>{
+            const cor = srv==="TODOS" ? "var(--muted-foreground)" : (COR_SERVIDOR[srv as ServidorId]||"#94a3b8");
+            const ativo = servidor===srv;
+            return(
+              <button key={srv} onClick={()=>{setServidor(srv as ServidorId|"TODOS");setCatSelecionada(null);setSubCatSelecionada(null);setPage(1);setBusca("");setBuscaAtiva("");}}
+                className={`h-8 px-4 rounded-full font-bold text-xs border transition-all ${ativo ? 'bg-indigo-600 text-white shadow shadow-indigo-900/10' : 'bg-muted/40 border-border/80 text-muted-foreground hover:border-foreground/20 hover:text-foreground'}`}>
+                {srv}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Linha 2: Categoria + Subcategoria + Limpar + Busca na mesma linha */}
+      <div className="flex items-center gap-2">
+        <div ref={catDropRef} className="relative shrink-0">
           <button onClick={()=>setCatDropOpen(o=>!o)} className={`flex items-center gap-2 h-8 px-4 rounded-full font-semibold text-xs border transition-all ${catSelecionada ? 'bg-sky-600 text-white shadow shadow-sky-900/10' : 'bg-muted text-muted-foreground border-border/80 hover:border-foreground/20 hover:text-foreground'}`}>
             <CatIcon slug={catSelecionada?.emoji || "default"} size={13} color={catSelecionada ? "text-white" : "text-muted-foreground/90"} />
-            {catSelecionada?.label || "Todas as Categorias"}
+            {catSelecionada?.label || "Categorias"}
             <ChevronDown size={12} className={`opacity-60 transform ${catDropOpen?"rotate-180":"none"} transition-transform duration-150`}/>
           </button>
           {catDropOpen&&!loadingCats&&(
@@ -1100,14 +1111,16 @@ function AbaCatalogo({tipo,servidorAdmin}:{tipo:TipoConteudo;servidorAdmin:Servi
               {categorias.map(c=>(
                 <button key={c.categoria_origem} onClick={()=>{setCatSelecionada(c);setSubCatSelecionada(null);setPage(1);setCatDropOpen(false);}}
                   className={`w-full text-left flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${catSelecionada?.categoria_origem===c.categoria_origem ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
-                  <span className="flex items-center gap-2.5 min-w-0"><CatIcon slug={c.emoji} size={15} color="text-muted-foreground/90"/><span className="truncate">{c.label}</span></span><span className="text-[11px] font-bold text-muted-foreground/70 bg-background border border-border px-1.5 py-0.5 rounded">{c.total.toLocaleString()}</span>
+                  <span className="flex items-center gap-2.5 min-w-0"><CatIcon slug={c.emoji} size={15} color="text-muted-foreground/90"/><span className="truncate">{c.label}</span></span>
+                  <span className="text-[11px] font-bold text-muted-foreground/70 bg-background border border-border px-1.5 py-0.5 rounded">{c.total.toLocaleString()}</span>
                 </button>
               ))}
             </div>
           )}
         </div>
+
         {catSelecionada&&subCategorias.length>0&&(
-          <div ref={subDropRef} className="relative">
+          <div ref={subDropRef} className="relative shrink-0">
             <button onClick={()=>setSubDropOpen(o=>!o)} className={`flex items-center gap-2 h-8 px-4 rounded-full font-semibold text-xs border transition-all ${subCatSelecionada ? 'bg-emerald-600 text-white shadow shadow-emerald-900/10' : 'bg-muted text-muted-foreground border-border/80 hover:border-foreground/20 hover:text-foreground'}`}>
               <CatIcon slug={subCatSelecionada?.emoji || "default"} size={13} color={subCatSelecionada ? "text-white" : "text-muted-foreground/90"} />
               {subCatSelecionada?.label || "Subcategoria"}
@@ -1120,51 +1133,61 @@ function AbaCatalogo({tipo,servidorAdmin}:{tipo:TipoConteudo;servidorAdmin:Servi
                 {subCategorias.map(c=>(
                   <button key={c.categoria_origem} onClick={()=>{setSubCatSelecionada(c);setPage(1);setSubDropOpen(false);}}
                     className={`w-full text-left flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${subCatSelecionada?.categoria_origem===c.categoria_origem ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
-                    <span className="flex items-center gap-2.5 min-w-0"><CatIcon slug={c.emoji} size={15} color="text-muted-foreground/90"/><span className="truncate">{c.label}</span></span><span className="text-[11px] font-bold text-muted-foreground/70 bg-background border border-border px-1.5 py-0.5 rounded">{c.total.toLocaleString()}</span>
+                    <span className="flex items-center gap-2.5 min-w-0"><CatIcon slug={c.emoji} size={15} color="text-muted-foreground/90"/><span className="truncate">{c.label}</span></span>
+                    <span className="text-[11px] font-bold text-muted-foreground/70 bg-background border border-border px-1.5 py-0.5 rounded">{c.total.toLocaleString()}</span>
                   </button>
                 ))}
               </div>
             )}
           </div>
         )}
-        {(catAtiva || busca.trim() !== "") && ( <button onClick={()=>{setCatSelecionada(null);setSubCatSelecionada(null);setBusca("");setBuscaAtiva("");setPage(1);}} className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-card border border-border text-muted-foreground hover:bg-muted text-sm font-medium transition-all shadow-sm"><X size={14} className="text-rose-500"/> Limpar</button> )}
-        <div className="relative flex-1 min-w-[200px] ml-auto">
-          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/60 pointer-events-none"/>
-          <input value={busca} onChange={e=>{setBusca(e.target.value);if(!e.target.value.trim()){setBuscaAtiva("");return;} setBuscaAtiva(e.target.value.trim()); }} onKeyDown={e=>{ if(e.key==="Enter") setBuscaAtiva(busca.trim()); if(e.key==="Escape"){setBusca("");setBuscaAtiva("");} }} placeholder={`Pesquisar ${tipo==="FILME"?"filmes":"séries"} por título...`} className="w-full h-9 pl-10 pr-10 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors" />
-          {busca&&<button onClick={()=>{setBusca("");setBuscaAtiva("");setResultadosBusca([])}} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"><X size={14}/></button>}
+
+        {(catAtiva || busca.trim() !== "") && (
+          <button onClick={()=>{setCatSelecionada(null);setSubCatSelecionada(null);setBusca("");setBuscaAtiva("");setPage(1);}}
+            className="shrink-0 flex items-center gap-1 h-8 px-3 rounded-full bg-card border border-border text-muted-foreground hover:bg-muted text-xs font-medium transition-all">
+            <X size={12} className="text-rose-500"/> Limpar
+          </button>
+        )}
+
+        <div className="relative flex-1 min-w-0">
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 pointer-events-none"/>
+          <input value={busca} onChange={e=>{setBusca(e.target.value);if(!e.target.value.trim()){setBuscaAtiva("");return;} setBuscaAtiva(e.target.value.trim());}} onKeyDown={e=>{ if(e.key==="Enter") setBuscaAtiva(busca.trim()); if(e.key==="Escape"){setBusca("");setBuscaAtiva("");} }} placeholder={`Pesquisar ${tipo==="FILME"?"filmes":"séries"}...`} className="w-full h-8 pl-9 pr-8 bg-transparent border border-border rounded-full text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors" />
+          {busca&&<button onClick={()=>{setBusca("");setBuscaAtiva("");setResultadosBusca([])}} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"><X size={13}/></button>}
         </div>
       </div>
-      <div className="flex-1 px-4 sm:px-5 py-5 overflow-y-auto z-10 relative">
-        {emBusca?(
-          <ResultadoBuscaCatalogo resultados={resultadosBusca} loading={loadingBusca} onSelect={t=>setDetalhando(t.id)}/>
-        ):catAtiva?(
-          <div>
-            <div className="flex items-center gap-2 mb-6 p-4 rounded-xl border border-border bg-card/60">
-              <span className="text-base font-semibold text-foreground flex items-center gap-2.5 min-w-0"><CatIcon slug={catAtiva.emoji} size={16} color="text-sky-500"/>{catAtiva.label}</span>
-              <span className="text-xs font-medium text-muted-foreground/90 ml-1">({totalTitulos.toLocaleString()} títulos cadastrados)</span>
-              <button onClick={()=>{setCatSelecionada(null);setSubCatSelecionada(null);setPage(1);}} className="ml-auto h-8 px-4 rounded-lg bg-card border border-border text-foreground text-xs font-semibold hover:border-foreground/20 transition-colors">← Voltar</button>
-            </div>
-            {loadingTits?<div className="text-center py-20 text-muted-foreground animate-pulse flex flex-col items-center gap-4"><RefreshCw size={24} className="animate-spin text-muted-foreground/60"/> Carregando títulos...</div>:
-              <GradeMiniaturas titulos={titulos} total={totalTitulos} page={page} perPage={perPage} onSelect={t=>setDetalhando(t.id)} onPage={p=>setPage(p)}/>}
-          </div>
-        ):(
-          <div className="flex flex-col gap-6">
-            {loadingNov?(
-              <div className="h-60 bg-card rounded-xl border border-border animate-pulse flex items-center justify-center"><RefreshCw size={24} className="animate-spin text-muted-foreground/50"/></div>
-            ):novidades.length>0?(
-              <div className="space-y-4">
-                <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest pl-1">Adicionados recentemente (Capas TMDB)</div>
-                <Carrossel itens={novidades} onSelect={t=>setDetalhando(t.id)} tipo={tipo}/>
-              </div>
-            ):(
-              <div className="text-center py-12 p-5 text-muted-foreground/70 italic text-sm bg-card border border-border rounded-xl">Nenhum título recente com dados TMDB encontrados no banco. Rode o Sync TMDB no Catálogo.</div>
-            )}
-          </div>
-        )}
-      </div>
-      {detalhando&&<ModalDetalhe id={detalhando} onClose={()=>setDetalhando(null)}/>}
     </div>
-  );
+
+    <div className="flex-1 px-4 sm:px-5 py-5 overflow-y-auto z-10 relative">
+      {emBusca?(
+        <ResultadoBuscaCatalogo resultados={resultadosBusca} loading={loadingBusca} onSelect={t=>setDetalhando(t.id)}/>
+      ):catAtiva?(
+        <div>
+          <div className="flex items-center gap-2 mb-6 p-4 rounded-xl border border-border bg-card/60">
+            <span className="text-base font-semibold text-foreground flex items-center gap-2.5 min-w-0"><CatIcon slug={catAtiva.emoji} size={16} color="text-sky-500"/>{catAtiva.label}</span>
+            <span className="text-xs font-medium text-muted-foreground/90 ml-1">({totalTitulos.toLocaleString()} títulos cadastrados)</span>
+            <button onClick={()=>{setCatSelecionada(null);setSubCatSelecionada(null);setPage(1);}} className="ml-auto h-8 px-4 rounded-lg bg-card border border-border text-foreground text-xs font-semibold hover:border-foreground/20 transition-colors">← Voltar</button>
+          </div>
+          {loadingTits?<div className="text-center py-20 text-muted-foreground animate-pulse flex flex-col items-center gap-4"><RefreshCw size={24} className="animate-spin text-muted-foreground/60"/> Carregando títulos...</div>:
+            <GradeMiniaturas titulos={titulos} total={totalTitulos} page={page} perPage={perPage} onSelect={t=>setDetalhando(t.id)} onPage={p=>setPage(p)}/>}
+        </div>
+      ):(
+        <div className="flex flex-col gap-6">
+          {loadingNov?(
+            <div className="h-60 bg-card rounded-xl border border-border animate-pulse flex items-center justify-center"><RefreshCw size={24} className="animate-spin text-muted-foreground/50"/></div>
+          ):novidades.length>0?(
+            <div className="space-y-4">
+              <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest pl-1">Adicionados recentemente (Capas TMDB)</div>
+              <Carrossel itens={novidades} onSelect={t=>setDetalhando(t.id)} tipo={tipo}/>
+            </div>
+          ):(
+            <div className="text-center py-12 p-5 text-muted-foreground/70 italic text-sm bg-card border border-border rounded-xl">Nenhum título recente com dados TMDB encontrados no banco. Rode o Sync TMDB no Catálogo.</div>
+          )}
+        </div>
+      )}
+    </div>
+    {detalhando&&<ModalDetalhe id={detalhando} onClose={()=>setDetalhando(null)} modoCliente={modoCliente}/>}
+  </div>
+);
 }
 
 // ─── Busca EPG (Original e Refatorada Visivelmente) ───────────────────────────
@@ -1556,8 +1579,8 @@ export default function GuiaTVView({ servidorFiltro, modoCliente }: GuiaTVViewPr
         :erroEpg?<div className="flex flex-col items-center justify-center flex-1 gap-4 text-center p-20 text-muted-foreground animate-pulse text-sm py-40 bg-muted/20 transition-colors max-w-2xl mx-auto"><AlertTriangle size={32} className="text-amber-500"/><div className="text-sm font-medium text-foreground tracking-tight">{erroEpg}</div><button onClick={handleSync} disabled={syncing} className="h-9 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 disabled:opacity-50 disabled:cursor-wait"><RefreshCw size={13} className={syncing?"animate-spin":"none"}/> {syncing?"Sincronizando Grade...":"Tentar Sincronizar Grade Agora"}</button></div>
         :epg&&<AbaCanais epg={epg} progsPorCanal={progsPorCanal} />
       )}
-      {tab==="filmes"&&<AbaCatalogo tipo="FILME" servidorAdmin={SERVIDOR_ADMIN}/>}
-      {tab==="series"&&<AbaCatalogo tipo="SERIE" servidorAdmin={SERVIDOR_ADMIN}/>}
+      {tab==="filmes"&&<AbaCatalogo tipo="FILME" servidorAdmin={SERVIDOR_ADMIN} modoCliente={modoCliente}/>}
+{tab==="series"&&<AbaCatalogo tipo="SERIE" servidorAdmin={SERVIDOR_ADMIN} modoCliente={modoCliente}/>}
 
       {showCatalogo&&<ModalCatalogo onClose={()=>setShowCatalogo(false)}/>}
       
