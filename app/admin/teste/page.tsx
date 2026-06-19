@@ -1125,7 +1125,7 @@ export default function TrialsPage() {
             <button
               onClick={(e) => { e.stopPropagation(); setValuesHidden(v => !v); }}
               title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground/80 hover:text-foreground/90 hover:border-border-hover transition-all text-xs font-medium shadow-sm select-none"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground hover:text-foreground/90 hover:border-foreground/20 transition-all text-xs font-medium shadow-sm select-none"
             >
               {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               <span className="hidden sm:inline text-[11px] tracking-wide">
@@ -1178,7 +1178,7 @@ export default function TrialsPage() {
         className="p-0 px-3 sm:px-0 md:p-4 bg-transparent md:bg-card border-0 md:border md:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground/60 tracking-wider mb-2">
+        <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground tracking-wider mb-2">
           Filtros Rápidos
         </div>
 
@@ -1193,7 +1193,7 @@ export default function TrialsPage() {
             {search && (
               <button
                 onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/80 hover:text-rose-500"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-rose-500"
                 title="Limpar pesquisa"
               >
                 <IconX />
@@ -1227,7 +1227,7 @@ export default function TrialsPage() {
             {search && (
               <button
                 onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/80 hover:text-rose-500"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-rose-500"
                 title="Limpar pesquisa"
               >
                 <IconX />
@@ -1425,7 +1425,7 @@ export default function TrialsPage() {
       </div>
 
       {loading && (
-        <div className="p-12 text-center text-muted-foreground/80 animate-pulse bg-card rounded-xl border border-border">
+        <div className="p-12 text-center text-muted-foreground animate-pulse bg-card rounded-xl border border-border">
           Carregando dados...
         </div>
       )}
@@ -1514,7 +1514,7 @@ export default function TrialsPage() {
 >
   {r.name.split(" ")[0]}
   {r.secondary_display_name && (
-    <span className="text-muted-foreground/60 font-medium">
+    <span className="text-muted-foreground font-medium">
       {" / "}
       {r.secondary_display_name.split(" ")[0]}
     </span>
@@ -1550,7 +1550,7 @@ export default function TrialsPage() {
                             </span>
                           )}
                           {r.secondary_whatsapp_username && (
-                            <span className={`text-xs font-medium text-muted-foreground/60 truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+                            <span className={`text-xs font-medium text-muted-foreground truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                               @{r.secondary_whatsapp_username}
                             </span>
                           )}
@@ -1627,7 +1627,7 @@ export default function TrialsPage() {
                           className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase ${
                             r.converted
                               ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                              : "bg-transparent text-muted-foreground/60 border-border"
+                              : "bg-transparent text-muted-foreground border-border"
                           }`}
                           title={
                             r.converted
@@ -1726,7 +1726,7 @@ export default function TrialsPage() {
                             })}
                           </div>
                         ) : (
-                          <span className="text-xs text-muted-foreground/40 italic">
+                          <span className="text-xs text-muted-foreground/60 italic">
                             —
                           </span>
                         )}
@@ -1844,7 +1844,7 @@ export default function TrialsPage() {
                   <tr>
                     <td
                       colSpan={8}
-                      className="p-8 text-center text-muted-foreground/80 dark:text-muted-foreground italic"
+                      className="p-8 text-center text-muted-foreground italic"
                     >
                       Nenhum teste encontrado.
                     </td>
@@ -2017,7 +2017,7 @@ export default function TrialsPage() {
         >
           <div className="space-y-4">
             <div>
-              <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Sessão de Envio
               </label>
               <select
@@ -2034,7 +2034,7 @@ export default function TrialsPage() {
             </div>
 
             <div>
-              <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Mensagem pronta (opcional)
               </label>
               <select
@@ -2081,7 +2081,7 @@ export default function TrialsPage() {
               if (!tpl?.image_url) return null;
               return (
                 <div className="animate-in fade-in zoom-in-95 duration-200">
-                  <span className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+                  <span className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                     Imagem Anexada
                   </span>
                   <div className="w-24 h-24 rounded-lg overflow-hidden border border-border shadow-sm relative bg-transparent">
@@ -2139,13 +2139,13 @@ export default function TrialsPage() {
         >
           <div className="space-y-4">
             <div>
-              <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Sessão de Envio
               </label>
               <select
                 value={selectedSessionSchedule}
                 onChange={(e) => setSelectedSessionSchedule(e.target.value)}
-                className="w-full h-10 px-3 bg-transparent border border-border dark:border-border rounded-lg text-sm font-medium text-foreground outline-none focus:border-purple-500 transition-colors"
+                className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm font-medium text-foreground outline-none focus:border-purple-500 transition-colors"
               >
                 {sessionOptions.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -2168,7 +2168,7 @@ export default function TrialsPage() {
             </div>
 
             <div>
-              <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Mensagem pronta (opcional)
               </label>
               <select
@@ -2215,7 +2215,7 @@ export default function TrialsPage() {
               if (!tpl?.image_url) return null;
               return (
                 <div className="animate-in fade-in zoom-in-95 duration-200">
-                  <span className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+                  <span className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                     Imagem Anexada
                   </span>
                   <div className="w-24 h-24 rounded-lg overflow-hidden border border-border shadow-sm relative bg-transparent">
@@ -2376,7 +2376,7 @@ function StatusBadge({ status }: { status: TrialStatus }) {
           }
         : {
             bg: "bg-transparent",
-            text: "text-muted-foreground/60",
+            text: "text-muted-foreground",
             border: "border-border",
           };
 
@@ -2649,7 +2649,7 @@ function PapaTestesModal({
                 {records.length} registro{records.length !== 1 ? "s" : ""}
               </span>
             </h2>
-            <p className="text-xs text-muted-foreground/80 mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5">
               Histórico de todos os testes e clientes cadastrados.
             </p>
           </div>
@@ -2673,7 +2673,7 @@ function PapaTestesModal({
             {search && (
               <button
                 onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/80 hover:text-rose-500"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-rose-500"
               >
                 <IconX />
               </button>
@@ -2706,11 +2706,11 @@ function PapaTestesModal({
         {/* Lista */}
         <div className="overflow-y-auto flex-1 px-5 py-4 space-y-3">
           {loading ? (
-            <div className="text-center text-muted-foreground/80 dark:text-muted-foreground animate-pulse py-8">
+            <div className="text-center text-muted-foreground animate-pulse py-8">
               Carregando...
             </div>
           ) : Object.keys(grouped).length === 0 ? (
-            <div className="text-center text-muted-foreground/80 dark:text-muted-foreground py-8 border-2 border-dashed border-border rounded-xl">
+            <div className="text-center text-muted-foreground py-8 border-2 border-dashed border-border rounded-xl">
               Nenhum registro encontrado.
             </div>
           ) : (
@@ -2736,7 +2736,7 @@ function PapaTestesModal({
                     )}
                   </div>
                   {recs[0]?.phone_e164 && (
-                    <span className="text-xs text-muted-foreground/80">
+                    <span className="text-xs text-muted-foreground">
                       {recs[0].phone_e164}
                     </span>
                   )}
@@ -2783,7 +2783,7 @@ function PapaTestesModal({
                       <button
                         onClick={() => handleDelete(r.id, r.client_name || "—")}
                         disabled={deletingId === r.id}
-                        className="p-1.5 text-muted-foreground/80 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors shrink-0 ml-2"
+                        className="p-1.5 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors shrink-0 ml-2"
                         title="Excluir registro"
                       >
                         {deletingId === r.id ? (
@@ -2802,7 +2802,7 @@ function PapaTestesModal({
 
         {/* Footer */}
         <div className="px-5 py-3 border-t border-border bg-transparent shrink-0 flex justify-between items-center">
-          <span className="text-xs text-muted-foreground/80">
+          <span className="text-xs text-muted-foreground">
             {filtered.length} de {records.length} registro
             {records.length !== 1 ? "s" : ""}
           </span>

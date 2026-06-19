@@ -23,9 +23,9 @@ export function EyeToggle() {
         px-2.5 py-1.5 rounded-lg
         border border-border
         bg-muted
-        text-muted-foreground/80
+        text-muted-foreground
         hover:text-foreground/90
-        hover:border-border-hover
+        hover:border-foreground/20
         transition-all duration-200 text-xs font-medium shadow-sm
         select-none
       "

@@ -137,9 +137,9 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
   const BG = "transparent";
   const GRID = isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.08)";
   const TICK = isDark ? "rgba(255,255,255,0.5)" : "rgba(15,23,42,0.6)";
-  const BAR1 = "rgba(16,185,129,0.2)";
-  const BAR2 = "rgba(244,63,94,0.2)";
-  const L1 = isDark ? "#10b981" : "#10b981";
+  const BAR1 = isDark ? "rgba(16,185,129,0.28)" : "rgba(16,185,129,0.18)";
+  const BAR2 = isDark ? "rgba(244,63,94,0.28)"  : "rgba(244,63,94,0.18)";
+  const L1 = isDark ? "#10b981" : "#059669";
   const L2 = isDark ? "#f43f5e" : "#e11d48";
   const BAR_W = Math.min(COL_W * 0.27, 20);
 
@@ -218,14 +218,14 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
               className="w-2.5 h-2.5 rounded-sm inline-block"
               style={{
                 background: BAR1,
-                border: "1px solid rgba(16,185,129,0.5)",
+                border: `1px solid ${L1}80`,
               }}
             />
             <span
               className="w-2.5 h-2.5 rounded-sm inline-block -ml-1.5"
               style={{
                 background: BAR2,
-                border: "1px solid rgba(244,63,94,0.5)",
+                border: `1px solid ${L2}80`,
               }}
             />
             Barras: Previsto

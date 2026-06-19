@@ -996,7 +996,7 @@ const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
               )}
             </div>
           ) : (
-            <div className="rounded-xl border border-dashed border-border p-10 text-center text-muted-foreground/40 text-sm">
+            <div className="rounded-xl border border-dashed border-border p-10 text-center text-muted-foreground text-sm">
               Nenhuma transação registrada no mês.{" "}
               <Link
                 href="/admin/settings/financeiro_pessoal"
