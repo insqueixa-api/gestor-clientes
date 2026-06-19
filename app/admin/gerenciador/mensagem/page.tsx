@@ -346,7 +346,7 @@ export default function MessagesPage() {
         className="p-0 px-3 sm:px-0 md:p-4 bg-transparent md:bg-card border-0 md:border md:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-4 md:mb-6 md:sticky md:top-4 z-20"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground/60 tracking-wider">
+        <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground tracking-wider">
           Busca
         </div>
 
@@ -419,7 +419,7 @@ export default function MessagesPage() {
                         {items.length}
                       </span>
                     </div>
-                    <div className="text-[10px] font-medium text-muted-foreground/40 uppercase tracking-wider hidden sm:block">
+                    <div className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider hidden sm:block">
                       Selecione para destacar
                     </div>
                   </div>

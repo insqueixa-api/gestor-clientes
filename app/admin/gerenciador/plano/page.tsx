@@ -286,7 +286,7 @@ export default function PlanosPage() {
         className={`p-0 px-3 sm:px-0 md:p-4 bg-transparent md:bg-card border-0 md:border md:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 ${isNewOpen || editingPlan ? "z-0" : "z-20"}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground/60 tracking-wider mb-2">
+        <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground tracking-wider mb-2">
           Busca
         </div>
 
@@ -538,7 +538,7 @@ export default function PlanosPage() {
                                             className="bg-transparent border border-border rounded-xl px-3 py-2.5 flex flex-col justify-center h-16 relative hover:border-emerald-500/30 transition-all group"
                                           >
                                             <div className="flex justify-between items-center w-full mb-1">
-                                              <span className="text-[10px] font-medium text-muted-foreground/40">
+                                              <span className="text-[10px] font-medium text-muted-foreground/70">
                                                 {PERIOD_LABELS[period]}
                                               </span>
                                             </div>

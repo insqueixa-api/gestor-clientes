@@ -479,7 +479,7 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
 // ─── UI (padrão Admin) ────────────────────────────────────────────────────────
 function Label({ children }: { children: ReactNode }) {
   return (
-    <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1 uppercase tracking-wider">
+    <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
       {children}
     </label>
   );
