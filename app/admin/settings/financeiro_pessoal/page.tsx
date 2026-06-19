@@ -3369,16 +3369,16 @@ function ModalTransacao({
         onClose={onClose}
       >
         <div className="max-h-[75vh] overflow-y-auto pr-1 space-y-3 sm:space-y-4">
-          <div className="flex p-1 bg-transparent rounded-lg border border-border">
+          <div className="flex gap-1 p-1 bg-transparent rounded-lg border border-border">
             <button
               onClick={() => setTipo("DESPESA")}
-              className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${tipo === "DESPESA" ? "bg-card text-rose-500 shadow-sm" : "text-muted-foreground hover:text-foreground/90"}`}
+              className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${tipo === "DESPESA" ? "bg-rose-500/20 text-rose-500 shadow-sm" : "bg-rose-500/10 text-rose-400 hover:bg-rose-500/15"}`}
             >
               📉 Despesa
             </button>
             <button
               onClick={() => setTipo("RECEITA")}
-              className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${tipo === "RECEITA" ? "bg-card text-emerald-500 shadow-sm" : "text-muted-foreground hover:text-foreground/90"}`}
+              className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${tipo === "RECEITA" ? "bg-emerald-500/20 text-emerald-500 shadow-sm" : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/15"}`}
             >
               📈 Receita
             </button>

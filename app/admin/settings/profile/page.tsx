@@ -174,7 +174,7 @@ function stringifyAllowedNumbers(rows: AllowedNumberRow[]): string[] {
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1.5 uppercase tracking-wider">
+    <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
       {children}
     </label>
   );
@@ -1182,7 +1182,7 @@ async function handleSave() {
 
   if (loading) {
     return (
-      <div className="p-10 text-center text-muted-foreground/80 dark:text-muted-foreground animate-pulse bg-card border-border rounded-xl border m-6">
+      <div className="p-10 text-center text-muted-foreground animate-pulse bg-card border-border rounded-xl border m-6">
         Carregando painel...
       </div>
     );
@@ -1221,7 +1221,7 @@ async function handleSave() {
                 <div className="absolute right-0 top-full mt-2 w-56 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-200">
                   {/* Tema */}
                   <div className="px-3 py-2.5 border-b border-border">
-                    <p className="text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-2">
+                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
                       Tema do Sistema
                     </p>
                     <div className="flex items-center gap-1">
@@ -1344,7 +1344,7 @@ className="w-full text-left px-3 py-2.5 text-xs font-medium text-rose-500 hover:
                       fill="none"
                       stroke="currentColor"
                       strokeWidth="2.5"
-                      className="shrink-0 text-muted-foreground/80"
+                      className="shrink-0 text-muted-foreground"
                     >
                       <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                       <path d="M7 11V7a5 5 0 0 1 10 0v4" />
@@ -1367,7 +1367,7 @@ className="w-full text-left px-3 py-2.5 text-xs font-medium text-rose-500 hover:
             className={`bg-card border-y sm:border border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-6 transition-all ${isEditing ? "ring-1 ring-emerald-500/20" : ""}`}
           >
             <div className="flex items-center justify-between border-b border-border pb-3">
-<h3 className="text-xs font-medium text-muted-foreground/60 uppercase tracking-widest">
+<h3 className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
                 Dados Cadastrais
               </h3>
               <div className="flex items-center gap-2">
@@ -1437,7 +1437,7 @@ className="w-full text-left px-3 py-2.5 text-xs font-medium text-rose-500 hover:
               <div>
                 <Label>WhatsApp Username</Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/80 text-sm font-medium">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">
                     @
                   </span>
                   <Input
@@ -1469,7 +1469,7 @@ className="w-full text-left px-3 py-2.5 text-xs font-medium text-rose-500 hover:
                 </div>
                 {waValidation && (
                   <div
-                    className={`mt-1.5 flex items-center gap-1.5 text-[10px] font-medium ${waValidation.loading ? "text-muted-foreground/80" : waValidation.exists ? "text-emerald-500" : "text-rose-500"}`}
+                    className={`mt-1.5 flex items-center gap-1.5 text-[10px] font-medium ${waValidation.loading ? "text-muted-foreground" : waValidation.exists ? "text-emerald-500" : "text-rose-500"}`}
                   >
                     {waValidation.loading ? (
                       <>
@@ -1536,7 +1536,7 @@ className="w-full text-left px-3 py-2.5 text-xs font-medium text-rose-500 hover:
           {/* CARD 2 DINÂMICO: SAÚDE OU PLANILHAS */}
           <div className="bg-card border-y sm:border border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-6 animate-in fade-in duration-300">
             <div className="flex items-center justify-between border-b border-border pb-3">
-<h3 className="text-xs font-medium text-muted-foreground/60 uppercase tracking-widest">
+<h3 className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
                 Saúde &amp; Avaliações
               </h3>
               <button
@@ -1627,7 +1627,7 @@ className="flex-1 h-10 border border-border text-muted-foreground font-medium ro
 
             <div className="space-y-2">
               {sortedHistory.length === 0 ? (
-                <div className="text-xs text-muted-foreground/80 text-center py-6 bg-transparent rounded-xl border border-dashed border-border">
+                <div className="text-xs text-muted-foreground text-center py-6 bg-transparent rounded-xl border border-dashed border-border">
                   Nenhuma avaliação registrada ainda.
                 </div>
               ) : (
@@ -1651,7 +1651,7 @@ className="flex-1 h-10 border border-border text-muted-foreground font-medium ro
                           >
                             {/* Data em bloco */}
                             <div className="shrink-0 text-center w-10">
-                              <p className="text-[9px] font-medium text-muted-foreground/60 uppercase leading-none">
+                              <p className="text-[9px] font-medium text-muted-foreground uppercase leading-none">
                                 {new Date(
                                   record.date + "T12:00:00",
                                 ).toLocaleDateString("pt-BR", {
@@ -1664,7 +1664,7 @@ className="flex-1 h-10 border border-border text-muted-foreground font-medium ro
                                   .toString()
                                   .padStart(2, "0")}
                               </p>
-<p className="text-[9px] text-muted-foreground/60 leading-none">
+<p className="text-[9px] text-muted-foreground leading-none">
                                 {new Date(
                                   record.date + "T12:00:00",
                                 ).getFullYear()}
@@ -1703,7 +1703,7 @@ className="flex-1 h-10 border border-border text-muted-foreground font-medium ro
                                   });
                                   setShowHealthForm(true);
                                 }}
-                                className="w-7 h-7 rounded-lg bg-card/5 border border-border flex items-center justify-center text-muted-foreground/80 hover:text-amber-500 transition-colors"
+                                className="w-7 h-7 rounded-lg bg-card/5 border border-border flex items-center justify-center text-muted-foreground hover:text-amber-500 transition-colors"
                               >
                                 <Pencil className="w-4 h-4" />
                               </button>
@@ -1712,7 +1712,7 @@ className="flex-1 h-10 border border-border text-muted-foreground font-medium ro
                                 onClick={() =>
                                   void handleDeleteHealthRecord(record.id)
                                 }
-                                className="w-7 h-7 rounded-lg bg-card/5 border border-border flex items-center justify-center text-muted-foreground/80 hover:text-rose-500 transition-colors"
+                                className="w-7 h-7 rounded-lg bg-card/5 border border-border flex items-center justify-center text-muted-foreground hover:text-rose-500 transition-colors"
                               >
                                 <svg
                                   width="11"
@@ -1890,7 +1890,7 @@ className="flex-1 h-10 border border-border text-muted-foreground font-medium ro
                               ) : v > 0 ? (
                                 <TrendingUp className="w-4 h-4 inline-block text-rose-500" />
                               ) : (
-                                <ArrowRight className="w-4 h-4 inline-block text-muted-foreground/80" />
+                                <ArrowRight className="w-4 h-4 inline-block text-muted-foreground" />
                               );
                             const pxX = (hoveredPt.x / W) * 100;
                             const flipLeft = pxX > 60;
@@ -1919,7 +1919,7 @@ className="flex-1 h-10 border border-border text-muted-foreground font-medium ro
                                             ? "text-emerald-500"
                                             : diffFirst > 0
                                               ? "text-rose-500"
-                                              : "text-muted-foreground/80"
+                                              : "text-muted-foreground"
                                         }
                                       >
                                         {diffFirst > 0 ? "+" : ""}
@@ -1937,7 +1937,7 @@ className="flex-1 h-10 border border-border text-muted-foreground font-medium ro
                                             ? "text-emerald-500"
                                             : diffPrev > 0
                                               ? "text-rose-500"
-                                              : "text-muted-foreground/80"
+                                              : "text-muted-foreground"
                                         }
                                       >
                                         {diffPrev > 0 ? "+" : ""}
@@ -1947,7 +1947,7 @@ className="flex-1 h-10 border border-border text-muted-foreground font-medium ro
                                     </p>
                                   )}
                                   {hoveredPt.i === 0 && (
-                                    <p className="text-[10px] text-muted-foreground/80 dark:text-muted-foreground italic">
+                                    <p className="text-[10px] text-muted-foreground italic">
                                       Primeiro registro
                                     </p>
                                   )}
@@ -2205,7 +2205,7 @@ className="flex-1 h-10 border border-border text-muted-foreground font-medium ro
           {/* PAINEL SESSÃO 1 */}
           <div className="bg-card border-y sm:border border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-border pb-2">
-<h3 className="text-xs font-medium text-muted-foreground/60 uppercase tracking-widest">
+<h3 className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
                 WhatsApp — Instância 1
               </h3>
             </div>
@@ -2284,7 +2284,7 @@ className="w-8 h-8 rounded-lg bg-muted border border-border flex items-center ju
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <span className="text-xl font-medium text-muted-foreground/40">
+                          <span className="text-xl font-medium text-muted-foreground/60">
                             WA
                           </span>
                         )}
@@ -2383,7 +2383,7 @@ className="w-8 h-8 rounded-lg bg-muted border border-border flex items-center ju
           {/* CARD IMPORT / EXPORT */}
           <div className="bg-card border-y sm:border border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-border pb-3">
-<h3 className="text-xs font-medium text-muted-foreground/60 uppercase tracking-widest">
+<h3 className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
                 Dados &amp; Planilhas
               </h3>
               <button
@@ -2639,7 +2639,7 @@ className="flex items-center gap-1.5 h-8 px-2 sm:px-3 rounded-xl border border-b
             <button
               type="button"
               onClick={() => setActionModal(null)}
-              className="w-full text-center text-xs font-medium text-muted-foreground/80 mt-2 hover:text-foreground"
+              className="w-full text-center text-xs font-medium text-muted-foreground mt-2 hover:text-foreground"
             >
               Fechar
             </button>
@@ -2660,7 +2660,7 @@ className="flex items-center gap-1.5 h-8 px-2 sm:px-3 rounded-xl border border-b
                   <h3 className="text-base font-medium text-foreground">
                     ⚙️ Instância 1 — Configurações
                   </h3>
-                  <p className="text-xs text-muted-foreground/80 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     Controle de chamadas recebidas.
                   </p>
                 </div>
@@ -2691,7 +2691,7 @@ className="flex items-center gap-1.5 h-8 px-2 sm:px-3 rounded-xl border border-b
                 <div className="space-y-4">
                   {/* MENSAGEM */}
                   <div>
-                    <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground uppercase mb-1.5">
+                    <label className="block text-[10px] font-medium text-muted-foreground uppercase mb-1.5">
                       Mensagem de Resposta
                     </label>
                     <div className="flex flex-wrap gap-1 mb-2">
@@ -2700,7 +2700,7 @@ className="flex items-center gap-1.5 h-8 px-2 sm:px-3 rounded-xl border border-b
                           key={tag}
                           type="button"
                           onClick={() => setWaRejectMessage((v) => v + tag)}
- className="text-[10px] px-2 py-0.5 rounded border border-border bg-card/5 hover:bg-emerald-500/10 dark:hover:bg-emerald-900/20 text-muted-foreground dark:text-white transition-colors"
+ className="text-[10px] px-2 py-0.5 rounded border border-border bg-card/5 hover:bg-emerald-500/10 text-muted-foreground transition-colors"
                         >
                           {tag}
                         </button>
@@ -2718,7 +2718,7 @@ className="flex items-center gap-1.5 h-8 px-2 sm:px-3 rounded-xl border border-b
                   {/* LISTA BRANCA */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground uppercase">
+                      <label className="text-[10px] font-medium text-muted-foreground uppercase">
                         Lista Branca (Exceções)
                       </label>
                       <button
@@ -2744,7 +2744,7 @@ className="flex items-center gap-1.5 h-8 px-2 sm:px-3 rounded-xl border border-b
 
                     <div className="max-h-40 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                       {waAllowedList.length === 0 ? (
-                        <div className="text-xs text-center text-muted-foreground/80 py-4 bg-transparent rounded-xl border border-dashed border-border">
+                        <div className="text-xs text-center text-muted-foreground py-4 bg-transparent rounded-xl border border-dashed border-border">
                           Nenhum número liberado.
                         </div>
                       ) : (
@@ -2794,7 +2794,7 @@ className="flex items-center gap-1.5 h-8 px-2 sm:px-3 rounded-xl border border-b
                                     prev.filter((r) => r.id !== row.id),
                                   )
                                 }
-                                className="w-8 h-8 flex items-center justify-center text-rose-500 bg-card border border-border rounded-lg hover:bg-rose-500/10 dark:hover:bg-rose-500/10 transition-colors"
+                                className="w-8 h-8 flex items-center justify-center text-rose-500 bg-card border border-border rounded-lg hover:bg-rose-500/10 transition-colors"
                               >
                                 <svg
                                   width="14"
@@ -2810,7 +2810,7 @@ className="flex items-center gap-1.5 h-8 px-2 sm:px-3 rounded-xl border border-b
                             </div>
                             <div className="text-[9px] font-medium px-1">
                               {row.loading ? (
-                                <span className="text-muted-foreground/80">
+                                <span className="text-muted-foreground">
                                   Validando...
                                 </span>
                               ) : row.exists === true ? (
@@ -2822,7 +2822,7 @@ className="flex items-center gap-1.5 h-8 px-2 sm:px-3 rounded-xl border border-b
                                   ❌ Não tem WhatsApp
                                 </span>
                               ) : (
-                                <span className="text-muted-foreground/80">
+                                <span className="text-muted-foreground">
                                   Termine para validar
                                 </span>
                               )}
@@ -2839,7 +2839,7 @@ className="flex items-center gap-1.5 h-8 px-2 sm:px-3 rounded-xl border border-b
                 <button
                   type="button"
                   onClick={() => setShowWa1Settings(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-border text-muted-foreground/80 font-medium text-xs hover:bg-transparent dark:hover:bg-card/5 transition-colors"
+                  className="flex-1 py-2.5 rounded-xl border border-border text-muted-foreground font-medium text-xs hover:bg-muted transition-colors"
                 >
                   Cancelar
                 </button>
@@ -3065,7 +3065,7 @@ function WhatsAppSession2Panel({
   return (
     <div className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-4 animate-in fade-in">
       <div className="flex items-center justify-between border-b border-border pb-2">
-        <h3 className="text-xs font-medium text-muted-foreground/80 dark:text-white/30 uppercase tracking-widest">
+        <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
           WhatsApp — Instância 2
         </h3>
         <button
@@ -3119,7 +3119,7 @@ function WhatsAppSession2Panel({
                   <button
                     type="button"
                     onClick={() => setShowWa2Settings(true)}
-                    className="w-8 h-8 rounded-lg bg-card/5 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white transition-colors shadow-sm"
+                    className="w-8 h-8 rounded-lg bg-card/5 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shadow-sm"
                     title="Configurações"
                   >
                     <svg
@@ -3151,7 +3151,7 @@ function WhatsAppSession2Panel({
                     className="w-full h-full object-cover p-1"
                   />
                 ) : (
-                  <span className="text-xl font-medium text-muted-foreground/40">
+                  <span className="text-xl font-medium text-muted-foreground/60">
                     WA
                   </span>
                 )}
@@ -3226,14 +3226,14 @@ function WhatsAppSession2Panel({
                   <h3 className="text-base font-medium text-foreground">
                     ⚙️ Instância 2 — Configurações
                   </h3>
-                  <p className="text-xs text-muted-foreground/80 dark:text-muted-foreground mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     Controle de chamadas recebidas.
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowWa2Settings(false)}
-                  className="shrink-0 w-8 h-8 rounded-xl bg-transparent flex items-center justify-center text-muted-foreground hover:text-foreground dark:hover:text-foreground dark:text-white text-lg leading-none transition-colors"
+                  className="shrink-0 w-8 h-8 rounded-xl bg-transparent flex items-center justify-center text-muted-foreground hover:text-foreground text-lg leading-none transition-colors"
                 >
                   ×
                 </button>
@@ -3256,7 +3256,7 @@ function WhatsAppSession2Panel({
               {waRejectCalls && (
                 <div className="space-y-4">
                   <div>
-<label className="block text-[10px] font-medium text-muted-foreground/80 uppercase mb-1.5">
+<label className="block text-[10px] font-medium text-muted-foreground uppercase mb-1.5">
                       Mensagem de Resposta
                     </label>
                     <div className="flex flex-wrap gap-1 mb-2">
@@ -3282,7 +3282,7 @@ function WhatsAppSession2Panel({
 
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-[10px] font-medium text-muted-foreground/80 uppercase">
+                      <label className="text-[10px] font-medium text-muted-foreground uppercase">
                         Lista Branca (Exceções)
                       </label>
                       <button
@@ -3308,7 +3308,7 @@ className="text-[10px] font-medium text-emerald-500 hover:underline"
 
                     <div className="max-h-40 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                       {waAllowedList.length === 0 ? (
-                        <div className="text-xs text-center text-muted-foreground/80 py-4 bg-transparent rounded-xl border border-dashed border-border">
+                        <div className="text-xs text-center text-muted-foreground py-4 bg-transparent rounded-xl border border-dashed border-border">
                           Nenhum número liberado.
                         </div>
                       ) : (
@@ -3374,7 +3374,7 @@ className="text-[10px] font-medium text-emerald-500 hover:underline"
                             </div>
                             <div className="text-[9px] font-medium px-1">
                               {row.loading ? (
-                                <span className="text-muted-foreground/80">
+                                <span className="text-muted-foreground">
                                   Validando...
                                 </span>
                               ) : row.exists === true ? (
@@ -3386,7 +3386,7 @@ className="text-[10px] font-medium text-emerald-500 hover:underline"
                                   ❌ Não tem WhatsApp
                                 </span>
                               ) : (
-                                <span className="text-muted-foreground/80">
+                                <span className="text-muted-foreground">
                                   Termine para validar
                                 </span>
                               )}
@@ -3403,7 +3403,7 @@ className="text-[10px] font-medium text-emerald-500 hover:underline"
                 <button
                   type="button"
                   onClick={() => setShowWa2Settings(false)}
-className="flex-1 py-2.5 rounded-xl border border-border text-muted-foreground/80 font-medium text-xs hover:bg-muted transition-colors"
+className="flex-1 py-2.5 rounded-xl border border-border text-muted-foreground font-medium text-xs hover:bg-muted transition-colors"
                 >
                   Cancelar
                 </button>
