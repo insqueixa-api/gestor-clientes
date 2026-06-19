@@ -687,95 +687,68 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
 }
 
 // ─── Componente Poster Refatorado (Original e Preservado visivelmente) ───────────
-const POSTER_W = 148;
-const POSTER_H = 222; 
+const POSTER_W = 148; // mantido apenas para uso em telas fixas (ex: ResultadoBuscaCatalogo)
+const POSTER_H = 222;
 
-function Poster({titulo,posterUrl,coverUrl}:{titulo:string;posterUrl:string|null;coverUrl:string|null}) {
+function Poster({titulo,posterUrl,coverUrl,fill}:{titulo:string;posterUrl:string|null;coverUrl:string|null;fill?:boolean}) {
   const [err,setErr]=useState(false);
   const src=(!err&&(posterUrl||coverUrl))||null;
+  if(fill){
+    if(!src) return <div className="w-full aspect-[2/3] rounded-lg flex flex-col items-center justify-center gap-2 border border-border bg-muted/40"><Film size={28} className="text-muted-foreground/60"/><span className="text-[10px] text-muted-foreground/60 text-center px-2 line-clamp-2 leading-snug">{titulo}</span></div>;
+    return <img src={src} alt={titulo} onError={()=>setErr(true)} className="w-full aspect-[2/3] rounded-lg object-cover border border-border shadow-sm bg-card"/>;
+  }
   if(!src) return <div className="rounded-lg flex flex-col items-center justify-center gap-2.5 shrink-0 border border-border bg-muted/40" style={{width:POSTER_W,height:POSTER_H}}><Film size={32} className="text-muted-foreground/60"/><span className="text-[10px] text-muted-foreground/60 text-center px-2 line-clamp-2 leading-snug">{titulo}</span></div>;
   return <img src={src} alt={titulo} onError={()=>setErr(true)} className="rounded-lg object-cover shrink-0 border border-border shadow-sm bg-card" style={{width:POSTER_W,height:POSTER_H}}/>;
 }
 
 // ─── Carrossel Visivelmente Refatorado (Tailwind e Temas Claro/Escuro) ──────────
 const COLS_DESKTOP = 5;
-const ROWS = 5;
-const AUTOPLAY_MS = 15000;
+const ROWS = 4;
+const ITENS_POR_LINHA = 12; // quantos títulos cada fileira carrega para o swipe
 
 function chunks<T>(arr: T[], n: number): T[][] { const out: T[][] = []; for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n)); return out; }
 
-function CarrosselLinha({ paginas, onSelect, tipo } : { paginas: TituloCard[][]; onSelect: (t: TituloCard) => void; tipo: TipoConteudo; }) {
-  const [pg, setPg] = useState(0);
-  const [pausado, setPausado] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const totalPgs = paginas.length;
-
-  // Lógica original preservada
-  useEffect(() => {
-    if (pausado || totalPgs <= 1) return;
-    timer.current = setTimeout(() => setPg(i => (i + 1) % totalPgs), AUTOPLAY_MS);
-    return () => { if (timer.current) clearTimeout(timer.current); };
-  }, [pg, pausado, totalPgs]);
-
-  const itens = paginas[pg] || [];
-
+// ✅ Fileira única de pôsteres com scroll horizontal nativo por swipe (sem setas/paginação)
+function CarrosselLinha({ itens, onSelect, tipo } : { itens: TituloCard[]; onSelect: (t: TituloCard) => void; tipo: TipoConteudo; }) {
   return (
-    <div onMouseEnter={() => setPausado(true)} onMouseLeave={() => setPausado(false)} className="flex flex-col gap-2">
-      <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${COLS_DESKTOP}, 1fr)` }}>
-        {itens.map(item => {
-          const src = item.poster_tmdb_url || item.cover_url;
-          const isNovo = item.adicionado_em ? (Date.now() - new Date(item.adicionado_em).getTime()) < 7 * 86400000 : false;
-          return (
-            <button key={item.id} onClick={() => onSelect(item)} className="group relative rounded-lg overflow-hidden aspect-[2/3] focus:ring-2 focus:ring-sky-500 outline-none border border-border/80">
-              {src ? <img src={src} alt={item.titulo_normalizado} className="w-full h-full object-cover rounded-lg group-hover:scale-105 transition-transform duration-300"/> : <div className="w-full h-full rounded-lg bg-muted flex items-center justify-center"><Film size={24} className="text-muted-foreground/50" /></div>}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent group-hover:via-black/40" />
-              <div className="absolute bottom-2 left-2 right-2 text-left text-[11px] text-white font-semibold leading-tight line-clamp-2 tracking-tight group-hover:text-sky-300">
-                {item.titulo_normalizado}
+    <div className="no-scrollbar flex gap-3 overflow-x-auto snap-x snap-mandatory scroll-px-4 pb-1 -mx-4 px-4 sm:mx-0 sm:px-0">
+      {itens.map(item => {
+        const src = item.poster_tmdb_url || item.cover_url;
+        const isNovo = item.adicionado_em ? (Date.now() - new Date(item.adicionado_em).getTime()) < 7 * 86400000 : false;
+        return (
+          <button
+            key={item.id}
+            onClick={() => onSelect(item)}
+            className="group relative shrink-0 snap-start rounded-lg overflow-hidden aspect-[2/3] focus:ring-2 focus:ring-sky-500 outline-none border border-border/80 w-[calc(50%-6px)] sm:w-[160px] md:w-[180px]"
+          >
+            {src ? <img src={src} alt={item.titulo_normalizado} loading="lazy" className="w-full h-full object-cover rounded-lg group-hover:scale-105 transition-transform duration-300"/> : <div className="w-full h-full rounded-lg bg-muted flex items-center justify-center"><Film size={24} className="text-muted-foreground/50" /></div>}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent group-hover:via-black/40" />
+            <div className="absolute bottom-2 left-2 right-2 text-left text-[10px] text-white font-semibold leading-tight line-clamp-2 tracking-tight group-hover:text-sky-300">
+              {item.titulo_normalizado}
+            </div>
+            {isNovo && (
+              <div className={`absolute top-1.5 left-1.5 text-[9px] font-bold letter-spacing-0.5 text-white px-1.5 py-0.5 rounded ${tipo === "SERIE" ? "bg-emerald-600" : "bg-sky-600"}`}>
+                {tipo === "SERIE" ? "ATUALIZ." : "NOVO"}
               </div>
-              {isNovo && (
-                <div className={`absolute top-1.5 left-1.5 text-[9px] font-bold letter-spacing-0.5 text-white px-1.5 py-0.5 rounded ${tipo === "SERIE" ? "bg-emerald-600" : "bg-sky-600"}`}>
-                  {tipo === "SERIE" ? "ATUALIZ." : "NOVO"}
-                </div>
-              )}
-              {item.avaliacao && (
-                <div className="absolute top-1.5 right-1.5 flex items-center gap-1 bg-black/60 rounded px-1.5 py-0.5">
-                  <Star size={9} className="fill-amber-400 text-amber-400" />
-                  <span className="text-[10px] text-amber-400 font-bold">{item.avaliacao.toFixed(1)}</span>
-                </div>
-              )}
-            </button>
-          );
-        })}
-      </div>
-      {totalPgs > 1 && (
-        <div className="flex items-center justify-end gap-2.5 pt-1">
-          <button onClick={() => setPg(i => (i - 1 + totalPgs) % totalPgs)} className="w-6 h-6 rounded flex items-center justify-center bg-card border border-border text-muted-foreground hover:border-foreground/20 hover:text-foreground">
-            <ChevronLeft size={14} />
+            )}
+            {item.avaliacao && (
+              <div className="absolute top-1.5 right-1.5 flex items-center gap-1 bg-black/60 rounded px-1.5 py-0.5">
+                <Star size={9} className="fill-amber-400 text-amber-400" />
+                <span className="text-[10px] text-amber-400 font-bold">{item.avaliacao.toFixed(1)}</span>
+              </div>
+            )}
           </button>
-          <div className="flex gap-1.5">
-            {paginas.map((_, i) => (
-              <button key={i} onClick={() => setPg(i)} className={`w-1.5 h-1.5 rounded-full transition-all ${i === pg ? "bg-sky-500 w-4" : "bg-muted-foreground hover:bg-muted"}`} />
-            ))}
-          </div>
-          <button onClick={() => setPg(i => (i + 1) % totalPgs)} className="w-6 h-6 rounded flex items-center justify-center bg-card border border-border text-muted-foreground hover:border-foreground/20 hover:text-foreground">
-            <ChevronRight size={14} />
-          </button>
-        </div>
-      )}
+        );
+      })}
     </div>
   );
 }
 
+// ✅ Mantém 4 fileiras empilhadas, cada uma é um carrossel de swipe independente
 function Carrossel({ itens, onSelect, tipo }: { itens: TituloCard[]; onSelect: (t: TituloCard) => void; tipo: TipoConteudo }) {
   if (itens.length === 0) return null;
-  const linhas: TituloCard[][][] = [];
-  for (let r = 0; r < ROWS; r++) {
-    const start = r * COLS_DESKTOP * 3; 
-    const slice = itens.slice(start, start + COLS_DESKTOP * 3);
-    if (slice.length === 0) break;
-    linhas.push(chunks(slice, COLS_DESKTOP));
-  }
-  return <div className="flex flex-col gap-5">{linhas.map((paginas, i) => <CarrosselLinha key={i} paginas={paginas} onSelect={onSelect} tipo={tipo} />)}</div>;
+  const linhas = chunks(itens.slice(0, ROWS * ITENS_POR_LINHA), ITENS_POR_LINHA);
+  return <div className="flex flex-col gap-5">{linhas.map((linha, i) => <CarrosselLinha key={i} itens={linha} onSelect={onSelect} tipo={tipo} />)}</div>;
 }
 
 
@@ -783,7 +756,7 @@ function Carrossel({ itens, onSelect, tipo }: { itens: TituloCard[]; onSelect: (
 type TmdbResultado = { tmdb_id: number; titulo: string; titulo_original: string; ano: number | null; sinopse: string | null; avaliacao: number | null; poster_url: string | null; };
 
 // ✅ Refatorado visivelmente para Tailwind e temas claro/escuro
-function ModalDetalhe({id,onClose,modoCliente}:{id:string;onClose:()=>void;modoCliente?:boolean}) {
+function ModalDetalhe({id,onClose,modoCliente,servidorFiltro}:{id:string;onClose:()=>void;modoCliente?:boolean;servidorFiltro?:string}) {
   const [detalhe,setDetalhe]=useState<Detalhe|null>(null);
   const [loading,setLoading]=useState(true);
   const [showTmdb,setShowTmdb]=useState(false);
@@ -864,7 +837,12 @@ function ModalDetalhe({id,onClose,modoCliente}:{id:string;onClose:()=>void;modoC
     setDeletando(false);
   }
 
-  const backdrop=detalhe?.poster_tmdb_url||detalhe?.cover_url||"";
+const backdrop=detalhe?.poster_tmdb_url||detalhe?.cover_url||"";
+
+  // ✅ Cliente só vê a disponibilidade do seu próprio servidor
+  const disponibilidadeFiltrada = (modoCliente && servidorFiltro && servidorFiltro !== "TODOS")
+    ? (detalhe?.disponibilidade || []).filter(d => d.servidor === servidorFiltro)
+    : (detalhe?.disponibilidade || []);
   
   return (
     <div className="fixed inset-0 z-[9990] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
@@ -878,16 +856,21 @@ function ModalDetalhe({id,onClose,modoCliente}:{id:string;onClose:()=>void;modoC
           {!loading&&detalhe&&(
             <div className="absolute bottom-0 left-0 right-0 p-6 flex gap-6 items-end">
               <Poster titulo={detalhe.titulo_normalizado} posterUrl={detalhe.poster_tmdb_url} coverUrl={detalhe.cover_url}/>
-              <div className="flex-1 min-w-0 pb-1">
+<div className="flex-1 min-w-0 pb-1">
                 <div className="flex items-center gap-2.5 mb-2.5 flex-wrap">
                   <span className={`text-[10px] font-bold text-white px-2.5 py-0.5 rounded-full uppercase tracking-wide ${detalhe.tipo==="FILME"?"bg-amber-600":"bg-sky-600"}`}>{detalhe.tipo==="FILME"?"Filme":"Série"}</span>
                   {detalhe.ano&&<span className="text-sm font-medium text-muted-foreground">{detalhe.ano}</span>}
                   {detalhe.avaliacao&&<span className="text-sm text-amber-500 flex items-center gap-1.5 font-semibold"><Star size={14} className="fill-amber-500"/>{detalhe.avaliacao.toFixed(1)}</span>}
-                  {detalhe.tmdb_confirmado
+                  {!modoCliente && (detalhe.tmdb_confirmado
                     ?<span className="text-xs font-medium text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">TMDB ✓</span>
                     :<span className="text-xs font-medium text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/30">Falta TMDB</span>
-                  }
+                  )}
                 </div>
+                {modoCliente && disponibilidadeFiltrada.length>0 && (
+                  <div className="text-xs text-muted-foreground/80 mb-1.5">
+                    Disponível em: <span className="text-foreground/80">{disponibilidadeFiltrada.map(d=>d.categoria_origem).join(", ")}</span>
+                  </div>
+                )}
                 <div className="text-2xl font-extrabold text-foreground leading-tight tracking-tight whitespace-normal">{detalhe.titulo_normalizado}</div>
               </div>
             </div>
@@ -899,6 +882,7 @@ function ModalDetalhe({id,onClose,modoCliente}:{id:string;onClose:()=>void;modoC
           {!loading&&!detalhe&&<div className="text-center p-12 text-rose-500 font-medium">Título não encontrado no banco de dados.</div>}
           {!loading&&detalhe&&(
             <>
+{!modoCliente && (
               <div className="flex items-center gap-3 justify-end flex-wrap border-b border-border/80 pb-5">
                 {tmdbOk&&<span className="text-sm text-emerald-500 flex items-center gap-1.5 font-medium"><CheckCircle size={14}/> TMDB atualizado</span>}
                 {deleteOk&&<span className="text-sm text-emerald-500 flex items-center gap-1.5 font-medium"><CheckCircle size={14}/> Removido com sucesso</span>}
@@ -927,8 +911,9 @@ function ModalDetalhe({id,onClose,modoCliente}:{id:string;onClose:()=>void;modoC
                   </div>}
                 </div>
               </div>
+              )}
 
-              {showTmdb&&(
+              {!modoCliente && showTmdb&&(
                 <div className="p-5 rounded-xl border border-indigo-500/30 bg-indigo-500/[0.01] animate-in slide-in-from-top-2">
                   <div className="text-sm font-semibold text-foreground flex items-center gap-2 mb-4"><Search size={16} className="text-indigo-500"/> Buscar no banco TMDB</div>
                   <div className="flex gap-2.5 mb-5">
@@ -962,8 +947,8 @@ function ModalDetalhe({id,onClose,modoCliente}:{id:string;onClose:()=>void;modoC
               {detalhe.generos&&detalhe.generos.length>0&&<div className="flex gap-2.5 flex-wrap pt-1">{detalhe.generos.map(g=><span key={g} className="text-[11px] font-semibold text-muted-foreground bg-muted border border-border px-3 py-1 rounded-full uppercase tracking-wide">{g}</span>)}</div>}
               {detalhe.sinopse&&<div className="bg-muted/20 p-5 rounded-xl border border-border"><div className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-3.5">Sinopse</div><div className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">{detalhe.sinopse}</div></div>}
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-1">
-                {detalhe.disponibilidade.length>0&&(
+<div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-1">
+                {!modoCliente && detalhe.disponibilidade.length>0&&(
                   <div className="space-y-3.5"><div className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-4">Disponível em ({detalhe.disponibilidade.length})</div>
                   {detalhe.disponibilidade.map((d,i)=>(<div key={i} className="flex items-center gap-3.5 p-3.5 rounded-xl border border-border bg-card/60"><div className="w-2 h-2 rounded-full flex-shrink-0" style={{background:COR_SERVIDOR[d.servidor]||"#6b7280"}}/><div><div className="text-sm font-semibold text-foreground tracking-tight">{d.servidor}</div><div className="text-xs text-muted-foreground/90 mt-0.5">{d.categoria_origem}</div></div></div>))}</div>
                 )}
@@ -1012,16 +997,16 @@ function GradeMiniaturas({titulos,total,page,perPage=50,onSelect,onPage}:{titulo
   const totalPags=Math.ceil(total/perPage);
   return (
     <div className="pb-10">
-      <div className="grid gap-4 sm:gap-5" style={{display:"grid", gridTemplateColumns:`repeat(auto-fill, ${POSTER_W}px)`, justifyItems:"center", justifyContent:"start"}}>
+      <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 sm:gap-5">
         {titulos.map(t=>(
-          <button key={t.id} onClick={()=>onSelect(t)} className="flex flex-col gap-2 p-0 bg-transparent border-none focus:ring-0 group w-[148px]" title={t.titulo_normalizado}>
-            <div className="relative rounded-lg overflow-hidden border border-border aspect-[POSTER_W/POSTER_H] bg-muted/30">
-              <Poster titulo={t.titulo_normalizado} posterUrl={t.poster_tmdb_url} coverUrl={t.cover_url}/>
-              {t.avaliacao&&<div className="absolute top-1.5 left-1.5 bg-black/70 rounded px-2 py-0.5 flex items-center gap-1"><Star size={10} className="fill-amber-400 text-amber-400"/><span className="text-[11px] text-amber-400 font-bold">{t.avaliacao.toFixed(1)}</span></div>}
+          <button key={t.id} onClick={()=>onSelect(t)} className="flex flex-col gap-2 p-0 bg-transparent border-none focus:ring-0 group w-full" title={t.titulo_normalizado}>
+            <div className="relative rounded-lg overflow-hidden border border-border bg-muted/30">
+              <Poster titulo={t.titulo_normalizado} posterUrl={t.poster_tmdb_url} coverUrl={t.cover_url} fill/>
+              {t.avaliacao&&<div className="absolute top-1.5 left-1.5 bg-black/70 rounded px-1.5 py-0.5 flex items-center gap-1"><Star size={9} className="fill-amber-400 text-amber-400"/><span className="text-[10px] text-amber-400 font-bold">{t.avaliacao.toFixed(1)}</span></div>}
               <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors rounded-lg flex items-center justify-center"><ChevronRight className="w-8 h-8 text-white/0 group-hover:text-white transition-opacity scale-50 group-hover:scale-100"/></div>
             </div>
-            <div className="text-xs font-semibold text-foreground leading-snug truncate group-hover:text-sky-400 whitespace-nowrap overflow-hidden text-ellipsis w-full px-1">{t.titulo_normalizado}</div>
-            {t.ano&&<div className="text-[11px] text-muted-foreground -mt-1 px-1">{t.ano}</div>}
+            <div className="text-[11px] font-semibold text-foreground leading-tight line-clamp-2 group-hover:text-sky-400 w-full px-0.5">{t.titulo_normalizado}</div>
+            {t.ano&&<div className="text-[10px] text-muted-foreground px-0.5">{t.ano}</div>}
           </button>
         ))}
       </div>
@@ -1036,6 +1021,7 @@ function GradeMiniaturas({titulos,total,page,perPage=50,onSelect,onPage}:{titulo
 
 // ─── Aba Catálogo Refatorada (Tailwind e Temas Claro/Escuro) ──────────────────
 function AbaCatalogo({tipo,servidorAdmin,modoCliente}:{tipo:TipoConteudo;servidorAdmin:ServidorId|"TODOS";modoCliente?:boolean}) {
+  // servidorAdmin já É o servidor do cliente quando modoCliente=true e servidorAdmin !== "TODOS"
   const [servidor,setServidor]=useState<ServidorId|"TODOS">(servidorAdmin==="TODOS"?"TODOS":servidorAdmin as ServidorId);
   const [novidades,setNovidades]=useState<TituloCard[]>([]);
   const [categorias,setCategorias]=useState<Categoria[]>([]);
@@ -1185,7 +1171,7 @@ function AbaCatalogo({tipo,servidorAdmin,modoCliente}:{tipo:TipoConteudo;servido
         </div>
       )}
     </div>
-    {detalhando&&<ModalDetalhe id={detalhando} onClose={()=>setDetalhando(null)} modoCliente={modoCliente}/>}
+    {detalhando&&<ModalDetalhe id={detalhando} onClose={()=>setDetalhando(null)} modoCliente={modoCliente} servidorFiltro={servidorAdmin}/>}
   </div>
 );
 }
@@ -1591,6 +1577,8 @@ export default function GuiaTVView({ servidorFiltro, modoCliente }: GuiaTVViewPr
         ::-webkit-scrollbar-thumb{background:var(--muted-foreground/30);border-radius:3px}
         ::-webkit-scrollbar-thumb:hover{background:var(--muted-foreground/50)}
         *{-webkit-tap-highlight-color:transparent}
+        .no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}
+        .no-scrollbar::-webkit-scrollbar{display:none}
       `}</style>
       
       {/* ✅ NOVO: Exibir Toasts na tela seguindo padrão da PlansPage */}
