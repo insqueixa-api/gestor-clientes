@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { X } from "lucide-react";
 
 import { useEffect, useMemo, useState, Suspense } from "react";
@@ -553,7 +553,7 @@ function AuditoriaPageContent() {
     // 1. Se o pagamento NÃO foi aprovado, a mensagem nunca é enviada.
     if (paymentStatus !== "approved" && paymentStatus !== "PAGO") {
       return (
-        <span className="text-muted-foreground/40 font-medium">—</span>
+        <span className="text-muted-foreground/60 font-medium">—</span>
       );
     }
 
@@ -563,14 +563,14 @@ function AuditoriaPageContent() {
       fulfillmentStatus === "cancelled"
     ) {
       return (
-        <span className="text-muted-foreground/40 font-medium">—</span>
+        <span className="text-muted-foreground/60 font-medium">—</span>
       );
     }
 
     // 3. Se a renovação ainda não terminou (processando ou erro), o zap ainda não "nasceu" no fluxo.
     if (fulfillmentStatus !== "done" && fulfillmentStatus !== "manual_done") {
       return (
-        <span className="text-muted-foreground/40 font-medium">—</span>
+        <span className="text-muted-foreground/60 font-medium">—</span>
       );
     }
 
@@ -588,7 +588,7 @@ function AuditoriaPageContent() {
         </span>
       );
     return (
-      <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-transparent text-muted-foreground/80 text-[10px] font-medium uppercase border border-border">
+      <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-transparent text-muted-foreground text-[10px] font-medium uppercase border border-border">
         Aguardando
       </span>
     );
@@ -637,7 +637,7 @@ function AuditoriaPageContent() {
                     setSearch("");
                     loadData("");
                   }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/80 hover:text-rose-500"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-rose-500"
                   title="Limpar busca"
                 >
                   <IconX />
@@ -669,7 +669,7 @@ function AuditoriaPageContent() {
 
       {/* TABELA */}
       {loading ? (
-        <div className="p-12 text-center text-muted-foreground/80 animate-pulse bg-card rounded-none sm:rounded-xl border border-border">
+        <div className="p-12 text-center text-muted-foreground animate-pulse bg-card rounded-none sm:rounded-xl border border-border">
           Carregando logs de auditoria...
         </div>
       ) : (
@@ -694,7 +694,7 @@ function AuditoriaPageContent() {
                   <tr>
                     <td
                       colSpan={9}
-                      className="p-8 text-center text-muted-foreground/80 italic"
+                      className="p-8 text-center text-muted-foreground italic"
                     >
                       Nenhum registro encontrado.
                     </td>
@@ -746,10 +746,10 @@ function AuditoriaPageContent() {
 <span className="text-xs text-muted-foreground">
                                 {r.server_username}
                               </span>
-<span className="text-muted-foreground/40">
+<span className="text-muted-foreground/60">
                                 •
                               </span>
-                              <span className="text-[11px] text-muted-foreground/80">
+                              <span className="text-[11px] text-muted-foreground">
                                 {r.server_name}
                               </span>
                             </div>
@@ -764,7 +764,7 @@ function AuditoriaPageContent() {
                                 PERIOD_LABELS[r.period] ||
                                 r.period}
                             </span>
-                            <span className="text-[10px] text-muted-foreground/80">
+                            <span className="text-[10px] text-muted-foreground">
                               {r.screens} {r.screens === 1 ? "tela" : "telas"}
                             </span>
                           </div>
@@ -1001,7 +1001,7 @@ export default function AuditoriaPage() {
   return (
     <Suspense
       fallback={
-        <div className="p-12 text-center text-muted-foreground/80 animate-pulse">
+        <div className="p-12 text-center text-muted-foreground animate-pulse">
           Carregando Auditoria...
         </div>
       }

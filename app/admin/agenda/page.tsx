@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import {
   Loader2,
   X,
@@ -1749,7 +1749,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                               </div>
                             ))
                           ) : (
-                            <span className="italic text-muted-foreground/80 text-xs">
+                            <span className="italic text-muted-foreground text-xs">
                               Sem telefone
                             </span>
                           )}
@@ -1774,7 +1774,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                               </div>
                             ))
                           ) : (
-                            <span className="italic text-muted-foreground/80 text-xs">
+                            <span className="italic text-muted-foreground text-xs">
                               —
                             </span>
                           )}
@@ -1827,7 +1827,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                             {msgMenuForId === r.id && (
                               <div
                                 onClick={(e) => e.stopPropagation()}
-                                className="absolute right-0 mt-2 w-64 rounded-xl border border-border bg-card dark:bg-background z-50 shadow-2xl overflow-hidden"
+                                className="absolute right-0 mt-2 w-64 rounded-xl border border-border bg-card z-50 shadow-2xl overflow-hidden"
                               >
                                 {rPhones.map((p) => (
                                   <MenuItem
@@ -1932,7 +1932,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                       p === "..." ? (
                         <span
                           key={`ellipsis-${i}`}
-                          className="h-7 w-7 flex items-center justify-center text-muted-foreground/80 text-xs"
+                          className="h-7 w-7 flex items-center justify-center text-muted-foreground text-xs"
                         >
                           …
                         </span>
@@ -1940,7 +1940,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                         <button
                           key={p}
                           onClick={() => setPage(p as number)}
-                          className={`h-7 w-7 rounded flex items-center justify-center text-xs font-bold transition-colors ${safePage === p ? "bg-emerald-600 text-white" : "text-muted-foreground hover:bg-transparent dark:hover:bg-card/10"}`}
+                          className={`h-7 w-7 rounded flex items-center justify-center text-xs font-bold transition-colors ${safePage === p ? "bg-emerald-600 text-white" : "text-muted-foreground hover:bg-muted"}`}
                         >
                           {p}
                         </button>
@@ -1949,14 +1949,14 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                   <button
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={safePage === totalPages}
-                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-transparent dark:hover:bg-card/10 disabled:opacity-30 transition-colors text-xs font-medium"
+                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30 transition-colors text-xs font-medium"
                   >
                     ›
                   </button>
                   <button
                     onClick={() => setPage(totalPages)}
                     disabled={safePage === totalPages}
-                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-transparent dark:hover:bg-card/10 disabled:opacity-30 transition-colors text-xs font-medium"
+                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30 transition-colors text-xs font-medium"
                   >
                     »
                   </button>
@@ -1981,7 +1981,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
               <span className="text-xl">
                 <MessageCircle className="w-4 h-4" />
               </span>
-              <div className="text-sm text-emerald-900 dark:text-emerald-200">
+              <div className="text-sm text-emerald-700">
                 Enviando para{" "}
 <strong>
                   {displayPhone(showSendNow.phone!)}
@@ -1989,7 +1989,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
               </div>
             </div>
             <div>
-              <label className="block text-[10px] font-medium text-muted-foreground/80 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Sessão de Envio
               </label>
               <select
@@ -2126,7 +2126,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                   return (
                     <div
                       key={p.id}
-                      className="space-y-2 p-3 rounded-lg border border-border bg-transparent/50 dark:bg-transparent"
+                      className="space-y-2 p-3 rounded-lg border border-border bg-transparent/50"
                     >
                       {/* Linha 1: rótulo + DDI + número + confirmar + remover */}
                       <div className="flex gap-2 items-center">
@@ -2160,7 +2160,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                               return { ...prev, phones };
                             })
                           }
-                          className="h-9 px-2 bg-card dark:bg-transparent border border-border rounded-lg text-xs text-foreground/90"
+                          className="h-9 px-2 bg-transparent border border-border rounded-lg text-xs text-foreground/90"
                         >
                           {DDI_OPTIONS.map((o) => (
                             <option key={o.code} value={o.code}>
@@ -2186,7 +2186,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                             })
                           }
                           onBlur={() => confirmPhone(idx)}
- className="flex-1 p-2 border border-border rounded-lg bg-card dark:bg-transparent text-foreground text-sm min-w-0"
+ className="flex-1 p-2 border border-border rounded-lg bg-transparent text-foreground text-sm min-w-0"
                         />
 
                         {/* Remover */}
@@ -2224,7 +2224,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                                 ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
                               : wa?.exists === false
                                 ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
-                                  : "bg-transparent text-muted-foreground border-border hover:bg-transparent dark:hover:bg-card/10"
+                                  : "bg-transparent text-muted-foreground border-border hover:bg-muted"
                           }`}
                         >
                           {wa?.loading
@@ -2279,7 +2279,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                                 ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
                               : wa?.photoStatus === "protected"
                                 ? "bg-amber-500/10 text-amber-500 border-amber-500/20"
-                                  : "bg-transparent text-muted-foreground border-border hover:bg-transparent dark:hover:bg-card/10"
+                                  : "bg-transparent text-muted-foreground border-border hover:bg-muted"
                           }`}
                         >
                           {wa?.photoStatus === "loading"
@@ -2306,7 +2306,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                                   ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
                                 : wa?.opError
                                   ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
-                                    : "bg-transparent text-muted-foreground border-border hover:bg-transparent dark:hover:bg-card/10"
+                                    : "bg-transparent text-muted-foreground border-border hover:bg-muted"
                             }`}
                           >
                             {wa?.opLoading
@@ -2329,7 +2329,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                   );
                 })}
                 {editForm.phones.length === 0 && (
-<div className="text-xs text-muted-foreground/80 italic">
+<div className="text-xs text-muted-foreground italic">
                     Nenhum telefone.
                   </div>
                 )}
@@ -2379,7 +2379,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                           return { ...prev, emails };
                         })
                       }
-                      className="w-20 p-2 border border-border rounded-lg bg-card dark:bg-transparent text-foreground text-xs font-medium"
+                      className="w-20 p-2 border border-border rounded-lg bg-transparent text-foreground text-xs font-medium"
                     />
                     <input
                       placeholder="email@exemplo.com"
@@ -2403,14 +2403,14 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                           emails: prev.emails.filter((x) => x.id !== e.id),
                         }))
                       }
-                      className="p-2 text-rose-500 hover:bg-rose-500/10 dark:hover:bg-rose-500/10 rounded-lg"
+                      className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-lg"
                     >
                       <IconTrash />
                     </button>
                   </div>
                 ))}
                 {editForm.emails.length === 0 && (
-                  <div className="text-xs text-muted-foreground/80 italic">
+                  <div className="text-xs text-muted-foreground italic">
                     Nenhum e-mail.
                   </div>
                 )}
@@ -2454,7 +2454,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                               : [...prev.labels, lbl],
                           }))
                         }
-                        className={`text-[10px] px-2 py-0.5 rounded font-medium border transition-colors ${active ? "bg-amber-500 text-white border-amber-500" : "bg-transparent text-muted-foreground border-border hover:bg-transparent dark:hover:bg-card/10"}`}
+                        className={`text-[10px] px-2 py-0.5 rounded font-medium border transition-colors ${active ? "bg-amber-500 text-white border-amber-500" : "bg-transparent text-muted-foreground border-border hover:bg-muted"}`}
                       >
                         {lbl}
                       </button>
@@ -2502,7 +2502,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                 onChange={(e) => setDeleteFromGoogle(e.target.checked)}
                 className="w-5 h-5 rounded border-rose-300 text-rose-400 focus:ring-rose-500"
               />
-              <span className="text-sm font-medium text-rose-900 dark:text-rose-200">
+              <span className="text-sm font-medium text-rose-700">
                 Excluir também da agenda do celular (Google Contacts)
               </span>
             </label>
@@ -2539,7 +2539,7 @@ export default function AgendaPage() {
   return (
     <Suspense
       fallback={
-        <div className="p-12 text-center text-muted-foreground/80 animate-pulse">
+        <div className="p-12 text-center text-muted-foreground animate-pulse">
           Carregando Agenda...
         </div>
       }

@@ -959,7 +959,7 @@ export default function AdminServersPage() {
                           </span>
                         ) : (
                           <span
-                            className="text-muted-foreground/40"
+                            className="text-muted-foreground/60"
                             title="Sem integração"
                           >
                             <IconPlugOff />

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { MessageCircle, X } from "lucide-react";
 
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -452,7 +452,7 @@ function GlobalQueueMonitor({
                         {/* CLIENTE */}
                         <td className="p-4 font-medium text-foreground">
                           {job.client_name || (
-                            <span className="text-muted-foreground/80 font-medium">
+                            <span className="text-muted-foreground font-medium">
                               (cliente não encontrado)
                             </span>
                           )}
@@ -470,7 +470,7 @@ function GlobalQueueMonitor({
                               <span className="font-medium text-foreground">
                                 {job.template_name}
                               </span>
-                              <span className="text-[10px] text-muted-foreground/80">
+                              <span className="text-[10px] text-muted-foreground">
                                 Template
                               </span>
                             </div>
@@ -1126,7 +1126,7 @@ export default function BillingPage() {
                 placeholder="Buscar regra..."
                 className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors"
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/80 text-xs">
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">
                 🔍
               </span>
             </div>
@@ -1145,7 +1145,7 @@ export default function BillingPage() {
       </div>
       {/* LISTA (GRID 3 COLUNAS) */}
       {loading ? (
-        <div className="text-center py-10 text-muted-foreground/80 animate-pulse">
+        <div className="text-center py-10 text-muted-foreground animate-pulse">
           Carregando automações...
         </div>
       ) : filtered.length === 0 ? (
@@ -1355,19 +1355,19 @@ function AutomationCard({
             className="cursor-pointer group/impact"
             title="Clique para ver os clientes"
           >
-            <div className="text-[10px] text-muted-foreground/80 uppercase font-medium tracking-wider mb-0.5">
+            <div className="text-[10px] text-muted-foreground uppercase font-medium tracking-wider mb-0.5">
               Afetados Hoje
             </div>
 <div className="text-xl font-medium text-foreground group-hover/impact:text-emerald-500 transition-colors flex items-center gap-1">
               {impactCount}
-              <span className="text-xs text-muted-foreground/80 font-medium group-hover/impact:text-emerald-500">
+              <span className="text-xs text-muted-foreground font-medium group-hover/impact:text-emerald-500">
                 clientes
               </span>
             </div>
           </div>
 
           <div className="text-right">
-            <div className="text-[10px] text-muted-foreground/80 uppercase font-medium tracking-wider mb-1">
+            <div className="text-[10px] text-muted-foreground uppercase font-medium tracking-wider mb-1">
               Ações
             </div>
 
@@ -1490,7 +1490,7 @@ function AutomationCard({
         </div>
 
         {/* Data Ultimo Envio */}
-        <div className="mt-2 text-[9px] text-center text-muted-foreground/80">
+        <div className="mt-2 text-[9px] text-center text-muted-foreground">
           Último envio: {formatDateTimeSP(data.last_run_at)}
         </div>
       </div>
@@ -1529,7 +1529,7 @@ function ImpactListModal({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-muted-foreground/80 hover:bg-muted hover:text-foreground transition-colors flex items-center justify-center"
+            className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors flex items-center justify-center"
           >
             <X className="w-5 h-5" />
           </button>
@@ -1537,7 +1537,7 @@ function ImpactListModal({
 
         <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
           {data.clients.length === 0 ? (
-            <div className="p-10 text-center text-muted-foreground/80 italic">
+            <div className="p-10 text-center text-muted-foreground italic">
               Nenhum cliente atende a esta regra hoje.
             </div>
           ) : (
@@ -1594,7 +1594,7 @@ function ImpactListModal({
                       <div className="flex flex-col">
                         <span className="font-medium text-foreground text-sm">
                           {c.username || (
-                            <span className="text-muted-foreground/80 italic font-medium">
+                            <span className="text-muted-foreground italic font-medium">
                               Sem usuário
                             </span>
                           )}
@@ -1846,7 +1846,7 @@ function AutomationWizard({
             </h2>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-muted-foreground/80 hover:bg-muted hover:text-foreground transition-colors flex items-center justify-center"
+              className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors flex items-center justify-center"
             >
               <X className="w-4 h-4" />
             </button>
@@ -2065,13 +2065,13 @@ function AutomationWizard({
                 <div className="flex items-center gap-4 bg-transparent border border-border p-1 rounded-xl">
                   <button
                     onClick={() => setForm({ ...form, is_automatic: false })}
-                    className={`px-6 py-3 rounded-lg text-sm font-medium transition-all ${!form.is_automatic ? "bg-muted shadow-md text-foreground" : "text-muted-foreground/80 hover:text-muted-foreground"}`}
+                    className={`px-6 py-3 rounded-lg text-sm font-medium transition-all ${!form.is_automatic ? "bg-muted shadow-md text-foreground" : "text-muted-foreground hover:text-foreground"}`}
                   >
                     Manual
                   </button>
                   <button
                     onClick={() => setForm({ ...form, is_automatic: true })}
-                    className={`px-6 py-3 rounded-lg text-sm font-medium transition-all ${form.is_automatic ? "bg-muted shadow-md text-emerald-500" : "text-muted-foreground/80 hover:text-muted-foreground"}`}
+                    className={`px-6 py-3 rounded-lg text-sm font-medium transition-all ${form.is_automatic ? "bg-muted shadow-md text-emerald-500" : "text-muted-foreground hover:text-foreground"}`}
                   >
                     Automático
                   </button>
@@ -2109,7 +2109,7 @@ function AutomationWizard({
                                   : [...current, d.id],
                               });
                             }}
-                            className={`w-10 h-10 rounded-full font-medium text-xs transition-all border ${selected ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/30" : "bg-muted border-border text-muted-foreground/80"}`}
+                            className={`w-10 h-10 rounded-full font-medium text-xs transition-all border ${selected ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/30" : "bg-muted border-border text-muted-foreground"}`}
                           >
                             {d.label}
                           </button>
@@ -2182,7 +2182,7 @@ function AutomationWizard({
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1.5 uppercase tracking-wider">
+    <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
       {children}
     </label>
   );
@@ -2257,12 +2257,12 @@ function MultiSelectDropdown({ label, options, selected, onChange }: any) {
       >
         <span
           className={
-            selected.length === 0 ? "text-muted-foreground/80 italic" : "font-medium"
+            selected.length === 0 ? "text-muted-foreground italic" : "font-medium"
           }
         >
           {getLabel()}
         </span>
-        <span className="text-xs text-muted-foreground/80">▼</span>
+        <span className="text-xs text-muted-foreground">▼</span>
       </button>
 
       {open && (
@@ -2311,7 +2311,7 @@ function MultiSelectDropdown({ label, options, selected, onChange }: any) {
                 {label}
                 <button
                   onClick={() => toggleOption(id)}
-                  className="ml-1.5 text-muted-foreground/80 hover:text-rose-500 text-[10px]"
+                  className="ml-1.5 text-muted-foreground hover:text-rose-500 text-[10px]"
                 >
                   ✕
                 </button>
@@ -2573,7 +2573,7 @@ function LogsModal({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-muted-foreground/80 hover:bg-muted hover:text-foreground transition-colors flex items-center justify-center"
+            className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors flex items-center justify-center"
           >
             <X className="w-4 h-4" />
           </button>
@@ -2581,9 +2581,9 @@ function LogsModal({
 
         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
           {loading ? (
-            <div className="text-center py-10 text-muted-foreground/80">Carregando...</div>
+            <div className="text-center py-10 text-muted-foreground">Carregando...</div>
           ) : logs.length === 0 ? (
-            <div className="text-center py-10 text-muted-foreground/80">
+            <div className="text-center py-10 text-muted-foreground">
               Nenhum registro encontrado.
             </div>
           ) : (
@@ -2632,7 +2632,7 @@ function LogsModal({
                       </td>
 <td className="p-2 font-medium text-foreground/90">
                         {log.client_name || (
-                          <span className="text-muted-foreground/80 italic">
+                          <span className="text-muted-foreground italic">
                             (sem nome)
                           </span>
                         )}
@@ -2642,7 +2642,7 @@ function LogsModal({
                           <span className="font-medium text-foreground/90 text-xs">
                             {log.server_username || "--"}
                           </span>
-                          <span className="text-[10px] text-muted-foreground/80">
+                          <span className="text-[10px] text-muted-foreground">
                             {log.server_name || "--"}
                           </span>
                         </div>

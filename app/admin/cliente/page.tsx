@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import {
   EyeOff,
   Eye,
@@ -1801,7 +1801,7 @@ function ClientePageContent() {
             {search && (
               <button
                 onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/80 hover:text-rose-500"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-rose-500"
               >
                 <IconX />
               </button>
@@ -1837,7 +1837,7 @@ className={`h-10 px-3 rounded-lg border font-medium text-sm transition-colors ${
             {search && (
               <button
                 onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/80 hover:text-rose-500"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-rose-500"
               >
                 <IconX />
               </button>
@@ -2111,7 +2111,7 @@ className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-co
       </div>
 
       {loading && (
-<div className="p-12 text-center text-muted-foreground/80 animate-pulse bg-card rounded-none sm:rounded-xl border border-border">
+<div className="p-12 text-center text-muted-foreground animate-pulse bg-card rounded-none sm:rounded-xl border border-border">
           Carregando dados...
         </div>
       )}
@@ -2617,7 +2617,7 @@ className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-co
                             {msgMenuForId === r.id && (
                               <div
                                 onClick={(e) => e.stopPropagation()}
-                                className="absolute right-0 mt-2 w-48 rounded-xl border border-border bg-card dark:bg-background z-50 shadow-2xl overflow-hidden"
+                                className="absolute right-0 mt-2 w-48 rounded-xl border border-border bg-card z-50 shadow-2xl overflow-hidden"
                               >
                                 <MenuItem
                                   icon={<IconSend />}
@@ -2725,7 +2725,7 @@ className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-co
                   <tr>
                     <td
                       colSpan={11}
-className="p-8 text-center text-muted-foreground/80 italic"
+className="p-8 text-center text-muted-foreground italic"
                     >
                       Nenhum cliente encontrado.
                     </td>
@@ -2932,7 +2932,7 @@ className="p-8 text-center text-muted-foreground/80 italic"
                       </div>
                       <button
                         onClick={() => handleDeleteAlert(alert.id)}
-                        className="p-2 text-muted-foreground/80 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+                        className="p-2 text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
                         title="Resolver / Excluir"
                       >
                         <IconTrash />
@@ -3281,7 +3281,7 @@ export default function ClientePage() {
   return (
     <Suspense
       fallback={
-        <div className="p-12 text-center text-muted-foreground/80 animate-pulse">
+        <div className="p-12 text-center text-muted-foreground animate-pulse">
           Carregando...
         </div>
       }
@@ -3379,7 +3379,7 @@ function SortClick({
     // ✅ Alterado: 'justify-center' puro e gap menor para garantir alinhamento visual com a coluna
     <div
       onClick={onClick}
-      className="inline-flex items-center justify-center gap-1 cursor-pointer select-none hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors"
+      className="inline-flex items-center justify-center gap-1 cursor-pointer select-none hover:text-emerald-500 transition-colors"
     >
       <span className="font-medium uppercase text-xs tracking-wide">{label}</span>
       {/* Ícone condicional para não empurrar o texto quando inativo (opcional, mas ajuda na centralização visual exata) */}
@@ -3532,7 +3532,7 @@ function ScheduledMessagesModal({
                   <button
                     onClick={() => handleDelete(it.id)}
                     disabled={deletingId === it.id}
-                    className="shrink-0 p-2 rounded-lg text-muted-foreground/80 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                    className="shrink-0 p-2 rounded-lg text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
                     title="Excluir agendamento"
                   >
                     {deletingId === it.id ? (

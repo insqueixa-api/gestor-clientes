@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -556,7 +556,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
 
             <div className="p-4 sm:p-6 space-y-8">
               {loading ? (
-                <div className="text-center py-20 text-muted-foreground/80 animate-pulse font-medium">
+                <div className="text-center py-20 text-muted-foreground animate-pulse font-medium">
                   {isEditing ? "Carregando dados..." : "Preparando tabela..."}
                 </div>
               ) : (
@@ -627,13 +627,13 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
           </div>
 
           <div className="px-4 sm:px-6 py-3 sm:py-4 bg-transparent border-t border-border flex justify-between items-center transition-colors">
-            <span className="text-[10px] text-muted-foreground/80 italic">
+            <span className="text-[10px] text-muted-foreground italic">
               *{" "}
               {isEditing
                 ? "Altere o nome, moeda e valores conforme necessário"
                 : "Ajuste os valores clonados da tabela padrão"}
             </span>
-            <span className="text-[10px] text-muted-foreground/80">
+            <span className="text-[10px] text-muted-foreground">
               A tabela será criada como <strong>ativa</strong> por padrão
             </span>
           </div>

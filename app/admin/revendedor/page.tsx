@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import {
   X,
   ChevronUp,
@@ -1258,7 +1258,7 @@ export default function RevendaPage() {
             {search && (
               <button
                 onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/80 hover:text-rose-500 transition-colors"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-rose-500 transition-colors"
               >
                 <IconX />
               </button>
@@ -1290,7 +1290,7 @@ export default function RevendaPage() {
             {search && (
               <button
                 onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/80 hover:text-rose-500"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-rose-500"
               >
                 <IconX />
               </button>

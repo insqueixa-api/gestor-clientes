@@ -708,7 +708,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
             <button
               onClick={() => setValuesHidden(v => !v)}
               title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground hover:text-foreground hover:border-border-hover transition-all text-xs font-medium shadow-sm select-none"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all text-xs font-medium shadow-sm select-none"
             >
               {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               <span className="hidden sm:inline text-[11px] tracking-wide">
@@ -1048,7 +1048,7 @@ className="inline-flex items-center gap-1.5 text-emerald-500 font-medium hover:u
                       {formatPhoneDisplay(client.whatsapp_e164)}
                     </a>
                   ) : (
-                    <span className="text-muted-foreground/80 italic text-sm text-right">
+                    <span className="text-muted-foreground italic text-sm text-right">
                       Não informado
                     </span>
                   )}
@@ -1134,7 +1134,7 @@ className="inline-flex items-center gap-1.5 text-emerald-500 font-medium hover:u
                   {client.notes ? (
                     client.notes
                   ) : (
-                    <span className="italic text-muted-foreground/80">
+                    <span className="italic text-muted-foreground">
                       Sem observações registradas.
                     </span>
                   )}

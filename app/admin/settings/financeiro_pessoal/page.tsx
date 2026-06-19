@@ -1917,7 +1917,7 @@ function FinanceiroPageContent() {
               </button>
               <button
                 onClick={() => setDeleteData({ open: false, transacao: null })}
-                className="px-4 py-2 mt-2 text-sm font-medium text-muted-foreground hover:text-muted-foreground"
+                className="px-4 py-2 mt-2 text-sm font-medium text-muted-foreground hover:text-foreground"
               >
                 Cancelar
               </button>
@@ -3523,13 +3523,13 @@ function ModalTransacao({
               <div className="flex bg-transparent rounded-lg border border-border p-1 h-10">
                 <button
                   onClick={() => setStatus("PENDENTE")}
-                  className={`flex-1 rounded-md text-xs font-medium transition-colors ${status === "PENDENTE" ? "bg-amber-500/10 text-amber-500" : "text-muted-foreground hover:text-muted-foreground"}`}
+                  className={`flex-1 rounded-md text-xs font-medium transition-colors ${status === "PENDENTE" ? "bg-amber-500/10 text-amber-500" : "text-muted-foreground hover:text-foreground"}`}
                 >
                   ⏳ Pendente
                 </button>
                 <button
                   onClick={() => setStatus("PAGO")}
-                  className={`flex-1 rounded-md text-xs font-medium transition-colors ${status === "PAGO" ? "bg-emerald-500/10 text-emerald-500" : "text-muted-foreground hover:text-muted-foreground"}`}
+                  className={`flex-1 rounded-md text-xs font-medium transition-colors ${status === "PAGO" ? "bg-emerald-500/10 text-emerald-500" : "text-muted-foreground hover:text-foreground"}`}
                 >
                   ✅ Pago
                 </button>
@@ -3641,14 +3641,14 @@ function ModalTransacao({
                     <button
                       type="button"
                       onClick={() => setEscopoEdicao("UNICA")}
-                      className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopoEdicao === "UNICA" ? "bg-amber-500/10 text-amber-500 shadow-sm" : "text-muted-foreground hover:text-muted-foreground"}`}
+                      className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopoEdicao === "UNICA" ? "bg-amber-500/10 text-amber-500 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                     >
                       📅 Apenas nesta
                     </button>
                     <button
                       type="button"
                       onClick={() => setEscopoEdicao("TODAS")}
-                      className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopoEdicao === "TODAS" ? "bg-sky-500/10 text-sky-500 shadow-sm" : "text-muted-foreground hover:text-muted-foreground"}`}
+                      className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopoEdicao === "TODAS" ? "bg-sky-500/10 text-sky-500 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                     >
                       🔁 Nesta e nas futuras
                     </button>
@@ -4031,14 +4031,14 @@ function ModalBaixa({
               <button
                 type="button"
                 onClick={() => setEscopo("UNICA")}
-                className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopo === "UNICA" ? "bg-amber-500/10 text-amber-500 shadow-sm" : "text-muted-foreground hover:text-muted-foreground"}`}
+                className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopo === "UNICA" ? "bg-amber-500/10 text-amber-500 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                     >
                       📅 Apenas nesta
                     </button>
               <button
                 type="button"
                 onClick={() => setEscopo("TODAS")}
-                className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopo === "TODAS" ? "bg-sky-500/10 text-sky-500 shadow-sm" : "text-muted-foreground hover:text-muted-foreground"}`}
+                className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopo === "TODAS" ? "bg-sky-500/10 text-sky-500 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                     >
                       🔁 Nesta e nas futuras
                     </button>

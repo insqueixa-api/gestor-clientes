@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { X, Pencil, MessageCircle } from "lucide-react";
 
 import { useState, useRef, useEffect, useMemo } from "react";
@@ -362,7 +362,7 @@ export default function MessagesPage() {
             {search && (
               <button
                 onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/80 hover:text-rose-500"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-rose-500"
                 title="Limpar busca"
                 aria-label="Limpar busca"
               >
@@ -382,7 +382,7 @@ export default function MessagesPage() {
 
       {/* LISTA DE MENSAGENS (LISTA COM SELEÇÃO + AÇÕES À DIREITA) */}
       {loading ? (
-        <div className="p-12 text-center text-muted-foreground/80 animate-pulse bg-card rounded-none sm:rounded-xl border border-border font-medium">
+        <div className="p-12 text-center text-muted-foreground animate-pulse bg-card rounded-none sm:rounded-xl border border-border font-medium">
           Carregando modelos...
         </div>
       ) : filteredMessages.length === 0 ? (
@@ -608,7 +608,7 @@ function PreviewModal({
           </h3>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:bg-muted hover:text-foreground transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           >
             ✕
           </button>
@@ -934,7 +934,7 @@ function EditorModal({
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:text-foreground hover:bg-muted transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           >
             ✕
           </button>
@@ -955,7 +955,7 @@ function EditorModal({
                     (toque para {mobileTagsOpen ? "fechar" : "abrir"})
                   </span>
                 </span>
-                <span className="text-muted-foreground/80">
+                <span className="text-muted-foreground">
                   {mobileTagsOpen ? "▲" : "▼"}
                 </span>
               </button>
@@ -966,7 +966,7 @@ function EditorModal({
                     <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-widest flex items-center gap-2">
                       🏷️ Variáveis Disponíveis
                     </h3>
-                    <p className="text-[10px] text-muted-foreground/80 mt-1">
+                    <p className="text-[10px] text-muted-foreground mt-1">
                       Toque para inserir no texto
                     </p>
 
@@ -980,7 +980,7 @@ function EditorModal({
 
                   <div className="max-h-[38vh] overflow-y-auto p-3 space-y-2 custom-scrollbar bg-transparent">
                     {filteredMobileTags.length === 0 ? (
-                      <div className="text-xs text-muted-foreground/80 py-6 text-center">
+                      <div className="text-xs text-muted-foreground py-6 text-center">
                         Nenhuma variável encontrada.
                       </div>
                     ) : (
@@ -997,7 +997,7 @@ function EditorModal({
                             <span className="text-xs font-medium tracking-tight">
                               {tag.label}
                             </span>
-                            <span className="text-[10px] text-muted-foreground/40 font-medium truncate">
+                            <span className="text-[10px] text-muted-foreground/60 font-medium truncate">
                               {tag.groupTitle}
                             </span>
                           </div>
@@ -1133,7 +1133,7 @@ className={`w-full h-12 px-4 border rounded-xl text-foreground outline-none focu
               <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-widest flex items-center gap-2">
                 🏷️ Variáveis Disponíveis
               </h3>
-              <p className="text-[10px] text-muted-foreground/80 mt-1">
+              <p className="text-[10px] text-muted-foreground mt-1">
                 Clique para inserir no texto
               </p>
             </div>
@@ -1154,7 +1154,7 @@ className={`w-full h-12 px-4 border rounded-xl text-foreground outline-none focu
                       <h4 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
                         {group.title}
                       </h4>
-                      <span className="text-muted-foreground/80 text-xs">
+                      <span className="text-muted-foreground text-xs">
                         {isOpen ? "▲" : "▼"}
                       </span>
                     </button>
@@ -1185,7 +1185,7 @@ className={`w-full h-12 px-4 border rounded-xl text-foreground outline-none focu
         </div>
 
         <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-border bg-transparent flex justify-between items-center">
-          <div className="text-xs text-muted-foreground/80 hidden sm:block">
+          <div className="text-xs text-muted-foreground hidden sm:block">
             💡 Dica: Use <strong>{`{saudacao_tempo}`}</strong> para enviar "Bom
             dia" automático.
           </div>

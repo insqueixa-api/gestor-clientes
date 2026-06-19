@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { X, Pencil } from "lucide-react";
 
 import {
@@ -428,7 +428,7 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:text-foreground hover:bg-muted transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           >
             <IconX />
           </button>
@@ -651,7 +651,7 @@ function GatewayModal({
           </div>
           <button
             onClick={onClose}
-            className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:text-foreground hover:bg-muted transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           >
             <IconX />
           </button>
@@ -841,7 +841,7 @@ function GatewayModal({
                                 [field.key]: !prev[field.key],
                               }))
                             }
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/80 hover:text-foreground/90 text-xs"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground/90 text-xs"
                             title={
                               showSecrets[field.key] ? "Ocultar" : "Mostrar"
                             }
@@ -1278,7 +1278,7 @@ export default function PagamentosPage() {
       {/* CONTEÚDO */} 
       <div className="px-3 sm:px-0 space-y-6 pt-3 sm:pt-4">
         {loading ? (
-          <div className="flex items-center justify-center py-16 text-muted-foreground/80">
+          <div className="flex items-center justify-center py-16 text-muted-foreground">
             <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
           </div>
 ) : gateways.length === 0 ? (

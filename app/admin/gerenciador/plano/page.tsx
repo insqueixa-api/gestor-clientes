@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { X } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
@@ -301,7 +301,7 @@ export default function PlanosPage() {
             {search && (
               <button
                 onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/80 hover:text-rose-500"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-rose-500"
                 title="Limpar busca"
               >
                 <IconX />
@@ -319,7 +319,7 @@ export default function PlanosPage() {
       </div>
 
       {loading && (
-        <div className="p-12 text-center text-muted-foreground/80 animate-pulse bg-card rounded-none sm:rounded-xl border border-border font-medium">
+        <div className="p-12 text-center text-muted-foreground animate-pulse bg-card rounded-none sm:rounded-xl border border-border font-medium">
           Carregando tabelas de preço...
         </div>
       )}

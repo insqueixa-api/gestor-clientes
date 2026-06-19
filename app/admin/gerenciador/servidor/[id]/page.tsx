@@ -734,7 +734,7 @@ const { confirm, ConfirmUI } = useConfirm();
             {/* Controles de Filtro */}
             <div className="flex w-full sm:w-auto items-center gap-2">
               <div className="relative flex-1 sm:w-64">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/80 text-xs">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">
                   🔍
                 </span>
                 <input
@@ -843,7 +843,7 @@ filteredMovements.map((m) => (
                         <button
                           onClick={() => handleDeleteMovement(m)}
                           disabled={deletingId === m.id}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-rose-500/10 text-muted-foreground/80 hover:text-rose-500 disabled:opacity-30"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-rose-500/10 text-muted-foreground hover:text-rose-500 disabled:opacity-30"
                           title="Apagar registro"
                         >
                           {deletingId === m.id ? (

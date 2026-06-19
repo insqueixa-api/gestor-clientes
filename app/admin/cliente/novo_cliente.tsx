@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { Loader2, X } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -472,7 +472,7 @@ function pickCreditsUsed(
 // --- UI helpers ---
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1 uppercase tracking-wider">
+    <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
       {children}
     </label>
   );
@@ -523,13 +523,13 @@ function ModalDatePicker({
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent">
           <span className="text-sm font-medium text-foreground/90">Selecionar Período</span>
-<button onClick={onClose} className="p-1 rounded-lg hover:bg-muted text-muted-foreground/80 transition-colors">
+<button onClick={onClose} className="p-1 rounded-lg hover:bg-muted text-muted-foreground transition-colors">
             <IconX />
           </button>
         </div>
         <div className="p-4 space-y-4">
           <div>
-            <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-2">Ano</label>
+            <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Ano</label>
             <div className="flex items-center justify-between bg-transparent border border-border rounded-lg p-1">
               <button onClick={() => setAno((a) => a - 1)}  className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
                 <IconChevronLeft />
@@ -541,7 +541,7 @@ function ModalDatePicker({
             </div>
           </div>
           <div>
-            <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-2">Mês</label>
+            <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Mês</label>
             <div className="grid grid-cols-3 gap-1.5">
               {MESES_NOME.map((mes, idx) => {
                 const isSelected = idx === mesSelecionado && ano === currentDate.getFullYear();
@@ -602,7 +602,7 @@ function ModalDayPicker({
       <div onMouseDown={(e) => e.stopPropagation()} className="w-full max-w-xs bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent">
           <span className="text-sm font-medium text-foreground/90">Selecionar Data</span>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-muted text-muted-foreground/80 transition-colors">
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-muted text-muted-foreground transition-colors">
             <IconX />
           </button>
         </div>
@@ -623,7 +623,7 @@ function ModalDayPicker({
           <div>
             <div className="grid grid-cols-7 gap-1 mb-1">
               {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => (
-                <div key={i} className="text-center text-[10px] font-medium text-muted-foreground/80 py-1">{d}</div>
+                <div key={i} className="text-center text-[10px] font-medium text-muted-foreground py-1">{d}</div>
               ))}
             </div>
             <div className="grid grid-cols-7 gap-1">
@@ -4315,7 +4315,7 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
       details: serverDomains.map((dns, idx) => (
         <div
           key={idx}
-          className="flex items-center justify-between bg-card dark:bg-transparent p-2.5 rounded-lg border border-border mb-1.5 shadow-sm"
+          className="flex items-center justify-between bg-transparent p-2.5 rounded-lg border border-border mb-1.5 shadow-sm"
         >
  <span className=" text-xs text-muted-foreground truncate mr-2 select-all">
             {dns}
@@ -4327,7 +4327,7 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
               navigator.clipboard.writeText(dns);
               addToast("success", "Copiado", "DNS copiada com sucesso!");
             }}
-            className="p-1.5 text-muted-foreground hover:text-sky-400 dark:hover:text-sky-400 hover:bg-muted rounded transition-colors shrink-0"
+            className="p-1.5 text-muted-foreground hover:text-sky-400 hover:bg-muted rounded transition-colors shrink-0"
             title="Copiar"
           >
             <svg
@@ -4499,7 +4499,7 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
             <button
               onClick={onClose}
               type="button"
-              className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground/80 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground transition-colors"
             >
               <IconX />
             </button>
@@ -4592,7 +4592,7 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
     {(papaTesteLoading || papaTesteInfo) && (
       <div className="mt-1 flex items-center gap-1.5">
         {papaTesteLoading ? (
-          <span className="text-[10px] text-muted-foreground/80 flex items-center gap-1">
+          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
             <Loader2 className="w-3 h-3 animate-spin" />
             Verificando...
           </span>
@@ -4633,7 +4633,7 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
   <div>
     <Label>WhatsApp username</Label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/80">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                         @
                       </span>
 
@@ -4674,7 +4674,7 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
                       )}
                     </div>
                     {waValidation && (
-  <div className={`mt-1 flex items-center gap-1.5 text-[11px] font-medium ${waValidation.loading ? "text-muted-foreground/80" : waValidation.exists ? "text-emerald-500" : "text-rose-500"}`}>
+  <div className={`mt-1 flex items-center gap-1.5 text-[11px] font-medium ${waValidation.loading ? "text-muted-foreground" : waValidation.exists ? "text-emerald-500" : "text-rose-500"}`}>
     {waValidation.loading ? (
       <><Loader2 className="w-4 h-4 animate-spin" /> Validando...</>
     ) : waValidation.exists ? (
@@ -4761,7 +4761,7 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
                       <div>
                         <Label>WhatsApp username</Label>
                         <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/80">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                             @
                           </span>
                           <Input
@@ -4802,7 +4802,7 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
                         </div>
                         {secondaryWaValidation && (
                           <div
-                            className={`mt-1.5 flex items-center gap-1.5 text-[11px] font-medium ${secondaryWaValidation.loading ? "text-muted-foreground/80" : secondaryWaValidation.exists ? "text-emerald-500" : "text-rose-500"}`}
+                            className={`mt-1.5 flex items-center gap-1.5 text-[11px] font-medium ${secondaryWaValidation.loading ? "text-muted-foreground" : secondaryWaValidation.exists ? "text-emerald-500" : "text-rose-500"}`}
                           >
                             {secondaryWaValidation.loading ? (
                               <>
@@ -4941,7 +4941,7 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
                     {/* Tecnologia */}
 
                     <div className="flex items-center gap-2">
-<span className="text-[10px] text-muted-foreground/80 font-medium hidden sm:inline">
+<span className="text-[10px] text-muted-foreground font-medium hidden sm:inline">
                         Tecnologia:
                       </span>
 
@@ -4952,7 +4952,7 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
                             onChange={(e) =>
                               setCustomTechnology(e.target.value)
                             }
-                            className="h-8 w-[140px] sm:w-[180px] pl-2 pr-8 text-xs font-medium text-foreground/90 bg-card dark:bg-transparent border border-border rounded outline-none focus:border-emerald-500/50 transition-all"
+                            className="h-8 w-[140px] sm:w-[180px] pl-2 pr-8 text-xs font-medium text-foreground/90 bg-transparent border border-border rounded outline-none focus:border-emerald-500/50 transition-all"
                             placeholder="Digite..."
                             autoFocus
                           />
@@ -4963,7 +4963,7 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
                               setTechnology("IPTV");
                               setCustomTechnology("");
                             }}
-                            className="absolute right-1 h-6 w-6 flex items-center justify-center rounded text-muted-foreground/80 hover:text-rose-500 transition-colors"
+                            className="absolute right-1 h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-rose-500 transition-colors"
                           >
                             ✕
                           </button>
@@ -4985,7 +4985,7 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
                           disabled={
                             trialProvider === "FAST" || trialProvider === "NATV"
                           }
-                          className={`h-8 w-[100px] px-2 bg-card dark:bg-transparent border border-border rounded text-xs font-medium text-foreground/90 outline-none transition-all ${
+                          className={`h-8 w-[100px] px-2 bg-transparent border border-border rounded text-xs font-medium text-foreground/90 outline-none transition-all ${
                             trialProvider === "FAST" || trialProvider === "NATV"
                               ? "opacity-60 cursor-not-allowed"
                               : "cursor-pointer hover:border-emerald-500/50"
@@ -5036,7 +5036,7 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
                           <button
                             type="button"
                             onClick={handleViewDns}
-                            className="text-[10px] px-2 py-0.5 rounded text-sky-400 bg-sky-500/10 font-medium border border-sky-500/20 hover:bg-sky-500/20 dark:hover:bg-sky-500/20 transition-colors flex items-center gap-1 shadow-sm"
+                            className="text-[10px] px-2 py-0.5 rounded text-sky-400 bg-sky-500/10 font-medium border border-sky-500/20 hover:bg-sky-500/20 transition-colors flex items-center gap-1 shadow-sm"
                           >
                             DNS{" "}
                             <span className="bg-sky-500/20 px-1 rounded-sm">
@@ -5078,7 +5078,7 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
                                 "Usuário copiado para a área de transferência.",
                               );
                             }}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground/80 hover:text-emerald-500 hover:bg-muted rounded transition-colors"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-emerald-500 hover:bg-muted rounded transition-colors"
                             title="Copiar usuário"
                           >
                             <svg
@@ -5126,7 +5126,7 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
                                 "Senha copiada para a área de transferência.",
                               );
                             }}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground/80 hover:text-emerald-500 hover:bg-muted rounded transition-colors"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-emerald-500 hover:bg-muted rounded transition-colors"
                             title="Copiar senha"
                           >
                             <svg
@@ -5251,7 +5251,7 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
                     </span>
 
                     <div className="flex items-center gap-2">
-<span className="text-[10px] text-muted-foreground/80 font-medium hidden sm:inline">
+<span className="text-[10px] text-muted-foreground font-medium hidden sm:inline">
                         Tabela:
                       </span>
 
@@ -5261,7 +5261,7 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
                           setSelectedTableId(e.target.value);
                           setPriceTouched(false); // ✅ FORÇA O RECÁLCULO IMEDIATO
                         }}
-                        className="h-8 w-[120px] px-2 bg-card dark:bg-transparent border border-border rounded text-xs font-medium text-foreground/90 outline-none cursor-pointer hover:border-emerald-500/50 transition-all truncate"
+                        className="h-8 w-[120px] px-2 bg-transparent border border-border rounded text-xs font-medium text-foreground/90 outline-none cursor-pointer hover:border-emerald-500/50 transition-all truncate"
                       >
                         {tables.map((t) => (
                           <option key={t.id} value={t.id}>
@@ -5372,7 +5372,7 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
                           step="0.0001"
                           value={Number(fxRate || 0).toFixed(4)}
                           onChange={(e) => setFxRate(Number(e.target.value))}
-                          className="w-full h-9 px-3 bg-card dark:bg-transparent border border-sky-500/30 rounded text-sm outline-none text-foreground"
+                          className="w-full h-9 px-3 bg-transparent border border-sky-500/30 rounded text-sm outline-none text-foreground"
                         />
                       </div>
 
@@ -5418,7 +5418,7 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
                                   ? "NATV: padrão 6h (editável)"
                                   : "Período do teste"
                           }
-                          className={`h-7 w-[70px] px-2 bg-card dark:bg-transparent border border-border rounded text-xs font-medium text-foreground/90 outline-none transition-all ${
+                          className={`h-7 w-[70px] px-2 bg-transparent border border-border rounded text-xs font-medium text-foreground/90 outline-none transition-all ${
                             trialHoursLocked
                               ? "opacity-70 cursor-not-allowed"
                               : "cursor-pointer hover:border-emerald-500/50"
@@ -5507,7 +5507,7 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                                     Teste Automático
                                   </span>
 
-                                  <span className="text-[10px] text-muted-foreground/80">
+                                  <span className="text-[10px] text-muted-foreground">
                                     {hasIntegration
                                       ? "Criar direto no painel"
                                       : "Sem integração"}
@@ -5631,7 +5631,7 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                                     >
                                       Sincronizar Painel
                                     </span>
-                                    <span className="text-[9px] text-muted-foreground/80">
+                                    <span className="text-[9px] text-muted-foreground">
                                       {hasIntegration
                                         ? "Criar no servidor"
                                         : "Sem integração"}
@@ -5674,7 +5674,7 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                                     Registrar Financeiro
                                   </span>
 
-                                  <span className="text-[9px] text-muted-foreground/80">
+                                  <span className="text-[9px] text-muted-foreground">
                                     Gera log de pagamento local
                                   </span>
                                 </div>
@@ -5912,7 +5912,7 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                                 </span>
                               </span>
                             )}
-                            <span className="text-[10px] text-muted-foreground/80 font-medium transition-colors hover:text-muted-foreground">
+                            <span className="text-[10px] text-muted-foreground font-medium transition-colors hover:text-foreground">
                               <span className="sm:hidden">
                                 {app.is_minimized ? "▼ Mostrar" : "▲ Ocultar"}
                               </span>
@@ -6079,7 +6079,7 @@ className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify
                                   >
                                     <div className="flex items-center gap-2">
                                       <svg
-                                        className={`w-3.5 h-3.5 shrink-0 ${app.auto_configure !== false ? "text-sky-500" : "text-muted-foreground/80"}`}
+                                        className={`w-3.5 h-3.5 shrink-0 ${app.auto_configure !== false ? "text-sky-500" : "text-muted-foreground"}`}
                                         fill="none"
                                         viewBox="0 0 24 24"
                                         stroke="currentColor"
@@ -6217,7 +6217,7 @@ className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify
                                                 );
                                               }}
                                               // Se for senha, empurra o botão de copiar pro lado para não sobrepor o olho
-                                              className={`absolute top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground/80 hover:text-sky-500 dark:hover:text-sky-400 transition-colors ${isPasswordField ? "right-9" : "right-2"}`}
+                                              className={`absolute top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-sky-500 transition-colors ${isPasswordField ? "right-9" : "right-2"}`}
                                               title="Copiar conteúdo"
                                               tabIndex={-1}
                                             >
@@ -6257,7 +6257,7 @@ className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify
                                                   }),
                                                 );
                                               }}
-                                              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/80 hover:text-muted-foreground dark:hover:text-white/80 transition-colors"
+                                              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors"
                                               tabIndex={-1}
                                             >
                                               {isVisible ? (
@@ -6304,7 +6304,7 @@ className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify
                                   },
                                 )
                               ) : (
-                                <p className="text-[10px] text-muted-foreground/80 italic col-span-2 py-1">
+                                <p className="text-[10px] text-muted-foreground italic col-span-2 py-1">
                                   Este aplicativo não requer configuração
                                   adicional.
                                 </p>
@@ -6333,7 +6333,7 @@ className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify
                   ) : (
                     <div className="relative animate-in fade-in zoom-in-95 duration-200">
                       <div className="relative">
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/80 pointer-events-none">
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
                           🔍
                         </div>
 
@@ -6342,18 +6342,18 @@ className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify
                           placeholder="Digite para buscar o aplicativo..."
                           value={appSearch}
                           onChange={(e) => setAppSearch(e.target.value)}
-                          className="w-full h-10 pl-9 pr-10 bg-card dark:bg-background border border-emerald-500 ring-1 ring-emerald-500/20 rounded-lg text-sm text-foreground outline-none shadow-lg"
+                          className="w-full h-10 pl-9 pr-10 bg-card border border-emerald-500 ring-1 ring-emerald-500/20 rounded-lg text-sm text-foreground outline-none shadow-lg"
                         />
 
                         <button
                           onClick={() => setShowAppSelector(false)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-muted-foreground/80 hover:text-rose-500 hover:bg-rose-500/10 rounded transition-colors"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 rounded transition-colors"
                         >
                           ✕
                         </button>
                       </div>
 
-                      <div className="mt-2 w-full bg-card dark:bg-[#1c2128] border border-border rounded-xl shadow-xl min-h-[280px] max-h-[50vh] overflow-y-auto custom-scrollbar">
+                      <div className="mt-2 w-full bg-card border border-border rounded-xl shadow-xl min-h-[280px] max-h-[50vh] overflow-y-auto custom-scrollbar">
                                                {" "}
                         {(() => {
                           const filtered = catalog
@@ -6365,7 +6365,7 @@ className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify
 
                           if (filtered.length === 0) {
                             return (
-                              <div className="p-4 text-center text-xs text-muted-foreground/80 italic">
+                              <div className="p-4 text-center text-xs text-muted-foreground italic">
                                 Nenhum aplicativo encontrado para &quot;
                                 {appSearch}&quot;.
                               </div>
@@ -6508,7 +6508,7 @@ className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify
             <div className="flex gap-3 pt-2">
               <button
                 onClick={() => setConfirmModal(null)}
-                className="flex-1 h-12 rounded-xl border border-border text-muted-foreground/80 font-medium text-sm hover:bg-muted transition-colors"
+                className="flex-1 h-12 rounded-xl border border-border text-muted-foreground font-medium text-sm hover:bg-muted transition-colors"
               >
                 Voltar
               </button>

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { Loader2, X } from "lucide-react";
 
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -1658,7 +1658,7 @@ export default function RecargaCliente({
             </div>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-muted-foreground/80 hover:text-foreground hover:bg-muted transition-colors"
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             >
               <IconX />
             </button>
@@ -1711,7 +1711,7 @@ export default function RecargaCliente({
                     💰 Financeiro
                   </span>
                   <div className="flex items-center gap-2">
-<span className="text-[10px] text-muted-foreground/80 font-medium hidden sm:inline">
+<span className="text-[10px] text-muted-foreground font-medium hidden sm:inline">
                       Tabela:
                     </span>
                     <select
@@ -1894,7 +1894,7 @@ className={`p-3 rounded-xl border transition-all cursor-pointer ${
                       >
                         Renovação Automática
                       </span>
-                      <span className="text-[9px] text-muted-foreground/80">
+                      <span className="text-[9px] text-muted-foreground">
                         {hasIntegration
                           ? "Sincronizar com servidor"
                           : "Servidor sem integração"}
@@ -2065,7 +2065,7 @@ className={`p-3 rounded-xl border transition-all cursor-pointer ${
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-[9px] font-medium text-muted-foreground/80 mb-0.5 uppercase tracking-wider">
+    <label className="block text-[9px] font-medium text-muted-foreground mb-0.5 uppercase tracking-wider">
       {children}
     </label>
   );

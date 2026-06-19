@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -865,7 +865,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
                     ? "Enviando..."
                     : "Arraste, cole (Ctrl+V) ou clique para selecionar"}
                 </p>
-                <p className="text-[10px] text-muted-foreground/80 mt-0.5">
+                <p className="text-[10px] text-muted-foreground mt-0.5">
                   PNG, JPG, WebP
                 </p>
               </div>
@@ -1017,7 +1017,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {dnsList.map((dns, idx) => (
                 <div key={idx} className="relative group">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40 text-[10px] font-mono font-medium">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 text-[10px] font-mono font-medium">
                     {idx + 1}.
                   </span>
                   <Input

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { X, Pencil } from "lucide-react";
 
 import React, { useEffect, useState, useRef } from "react";
@@ -572,7 +572,7 @@ export default function AppManagerPage() {
         )}
 
         <div className="pt-3 border-t border-border space-y-1">
-          <p className="text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider">
+          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
             Campos exigidos:
           </p>
 
@@ -587,7 +587,7 @@ export default function AppManagerPage() {
                 </span>
               ))
             ) : (
-              <span className="text-[10px] text-muted-foreground/80 italic">
+              <span className="text-[10px] text-muted-foreground italic">
                 Apenas nome (padrão)
               </span>
             )}
@@ -652,11 +652,11 @@ export default function AppManagerPage() {
 
       {/* LISTAGEM */}
       {loading ? (
-<div className="text-center py-10 text-muted-foreground/80 bg-transparent rounded-xl border border-dashed border-border">
+<div className="text-center py-10 text-muted-foreground bg-transparent rounded-xl border border-dashed border-border">
           Carregando aplicativos...
         </div>
       ) : filteredApps.length === 0 ? (
-<div className="text-center py-10 text-muted-foreground/80 bg-transparent rounded-xl border border-dashed border-border">
+<div className="text-center py-10 text-muted-foreground bg-transparent rounded-xl border border-dashed border-border">
           {apps.length === 0
             ? 'Nenhum aplicativo cadastrado. Clique em "Novo Aplicativo" para começar.'
             : search.trim()
@@ -703,7 +703,7 @@ export default function AppManagerPage() {
                   </div>
 
                   <button
-                    className="text-muted-foreground/80 group-hover:text-emerald-500 transition-colors p-1"
+                    className="text-muted-foreground group-hover:text-emerald-500 transition-colors p-1"
                     title={isCollapsed ? "Expandir" : "Minimizar"}
                   >
                     <svg
@@ -750,7 +750,7 @@ export default function AppManagerPage() {
               </h2>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-muted-foreground/80 hover:text-foreground transition-colors"
+                className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 ✕
               </button>
@@ -905,7 +905,7 @@ export default function AppManagerPage() {
                           className={`text-xs px-2 py-1 border rounded font-medium transition-colors flex items-center gap-1
                             ${
                               alreadyAdded
-                                ? "opacity-30 cursor-not-allowed bg-muted border-border text-muted-foreground/80"
+                                ? "opacity-30 cursor-not-allowed bg-muted border-border text-muted-foreground"
                                 : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20"
                             }`}
                         >
@@ -949,7 +949,7 @@ export default function AppManagerPage() {
                       className="flex items-center gap-3 px-3 py-2 bg-card border border-border rounded-lg cursor-default select-none"
                     >
                       <span
-                        className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab active:cursor-grabbing transition-colors text-sm px-0.5"
+                        className="text-muted-foreground/60 hover:text-foreground cursor-grab active:cursor-grabbing transition-colors text-sm px-0.5"
                         title="Arrastar para reordenar"
                       >
                         ⠿
@@ -960,7 +960,7 @@ export default function AppManagerPage() {
                       <span className="flex-1 text-sm font-medium text-foreground/90">
                         {FIELD_LABELS[field.type]}
                       </span>
-                      <span className="text-[10px] text-muted-foreground/80 bg-muted px-1.5 py-0.5 rounded">
+                      <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                         #{index + 1}
                       </span>
                       <button
