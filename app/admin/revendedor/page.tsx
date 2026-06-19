@@ -1200,7 +1200,7 @@ export default function RevendaPage() {
             <button
               onClick={(e) => { e.stopPropagation(); setValuesHidden(v => !v); }}
               title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground/80 hover:text-foreground/90 hover:border-border-hover transition-all text-xs font-medium shadow-sm select-none"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground hover:text-foreground/90 hover:border-foreground/20 transition-all text-xs font-medium shadow-sm select-none"
             >
               {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               <span className="hidden sm:inline text-[11px] tracking-wide">
@@ -1242,7 +1242,7 @@ export default function RevendaPage() {
         className="px-3 md:p-4 bg-transparent md:bg-card border-0 md:border md:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground/60 tracking-wider mb-2">
+        <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground tracking-wider mb-2">
           Filtros Rápidos
         </div>
 
@@ -1401,7 +1401,7 @@ export default function RevendaPage() {
 <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-transparent">
             <div className="text-sm font-medium text-foreground/90 whitespace-nowrap">
               Lista de Revendas{" "}
-              <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500/70 text-xs">
+              <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 text-xs">
                 {filtered.length}
               </span>
             </div>
@@ -1546,7 +1546,7 @@ export default function RevendaPage() {
                     </Td>
 
                     <Td>
-                      <span className="text-muted-foreground/80">
+                      <span className="text-muted-foreground">
                         {((serversByReseller[r.id] || []) as string[]).length === 0
                           ? "-"
                           : ((serversByReseller[r.id] || []) as string[]).join(", ")}
@@ -1564,7 +1564,7 @@ export default function RevendaPage() {
                       </span>
                     </Td>
                     <Td>
-                      <span className={`font-medium text-emerald-500/70 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+                      <span className={`font-medium text-emerald-500 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                         {r.profitLabel}
                       </span>
                     </Td>
@@ -1705,7 +1705,7 @@ export default function RevendaPage() {
                   <tr>
                     <td
                       colSpan={8}
-                      className="p-12 text-center text-muted-foreground/40 italic font-medium bg-muted/30"
+                      className="p-12 text-center text-muted-foreground italic font-medium bg-muted/30"
                     >
                       Nenhuma revenda encontrada com os filtros atuais.
                     </td>
@@ -1825,7 +1825,7 @@ export default function RevendaPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Sessão */}
               <div>
-                <label className="block text-[10px] font-medium text-muted-foreground/60 mb-1.5 uppercase tracking-wider">
+                <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                   Sessão de Envio
                 </label>
                 <select
@@ -1843,7 +1843,7 @@ export default function RevendaPage() {
 
               {/* Template */}
               <div>
-                <label className="block text-[10px] font-medium text-muted-foreground/60 mb-1.5 uppercase tracking-wider">
+                <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                   Mensagem pronta (opcional)
                 </label>
                 <select
@@ -1882,7 +1882,7 @@ export default function RevendaPage() {
               if (!tpl?.image_url) return null;
               return (
                 <div className="animate-in fade-in zoom-in-95 duration-200">
-                  <span className="block text-[10px] font-medium text-muted-foreground/60 mb-1.5 uppercase tracking-wider">
+                  <span className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                     Imagem Anexada
                   </span>
                   <div className="w-24 h-24 rounded-lg overflow-hidden border border-border shadow-sm relative bg-transparent">
@@ -1942,7 +1942,7 @@ export default function RevendaPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Sessão */}
               <div>
-                <label className="block text-[10px] font-medium text-muted-foreground/60 mb-1.5 uppercase tracking-wider">
+                <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                   Sessão de Envio
                 </label>
                 <select
@@ -1960,7 +1960,7 @@ export default function RevendaPage() {
 
               {/* Template */}
               <div>
-                <label className="block text-[10px] font-medium text-muted-foreground/60 mb-1.5 uppercase tracking-wider">
+                <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                   Mensagem pronta (opcional)
                 </label>
                 <select
@@ -1994,7 +1994,7 @@ export default function RevendaPage() {
             </div>
 
             <div>
-              <label className="block text-[10px] font-medium text-muted-foreground/60 mb-1.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Data e Hora do Envio
               </label>
 
@@ -2014,7 +2014,7 @@ export default function RevendaPage() {
               if (!tpl?.image_url) return null;
               return (
                 <div className="animate-in fade-in zoom-in-95 duration-200">
-                  <span className="block text-[10px] font-medium text-muted-foreground/60 mb-1.5 uppercase tracking-wider">
+                  <span className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                     Imagem Anexada
                   </span>
                   <div className="w-24 h-24 rounded-lg overflow-hidden border border-border shadow-sm relative bg-transparent">
@@ -2471,7 +2471,7 @@ function IconActionBtn({
   const colors = {
     blue: "text-sky-500 bg-sky-500/10 border-sky-500/20 hover:bg-sky-500/20",
     green:
-      "text-emerald-500/70 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20",
+      "text-emerald-500 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20",
     amber:
       "text-amber-500 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20",
     purple:
@@ -2541,7 +2541,7 @@ function Modal({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground/80 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground transition-colors"
           >
             <IconX />
           </button>

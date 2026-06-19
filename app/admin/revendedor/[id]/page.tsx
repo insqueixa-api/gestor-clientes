@@ -468,7 +468,7 @@ const { confirm, ConfirmUI } = useConfirm();
 
   if (loading)
     return (
-      <div className="p-10 text-center text-muted-foreground/80 dark:text-white/20 animate-pulse font-medium">
+      <div className="p-10 text-center text-muted-foreground animate-pulse font-medium">
         Carregando revenda...
       </div>
     );
@@ -503,7 +503,7 @@ const { confirm, ConfirmUI } = useConfirm();
             <button
               onClick={() => setValuesHidden(v => !v)}
               title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground/80 hover:text-foreground/90 hover:border-border-hover transition-all text-xs font-medium shadow-sm select-none"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground hover:text-foreground/90 hover:border-foreground/20 transition-all text-xs font-medium shadow-sm select-none"
             >
               {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               <span className="hidden sm:inline text-[11px] tracking-wide">
@@ -546,7 +546,7 @@ const { confirm, ConfirmUI } = useConfirm();
         <div className="space-y-4">
           {/* 1. CARD RESUMO */}
           <div className="bg-card border-y sm:border border-border sm:rounded-xl p-4 shadow-sm transition-colors">
-            <h3 className="text-[11px] font-medium text-muted-foreground/40 uppercase mb-4 tracking-widest">
+            <h3 className="text-[11px] font-medium text-muted-foreground uppercase mb-4 tracking-widest">
               Resumo da Conta
             </h3>
             <div className="space-y-3 text-sm">
@@ -581,7 +581,7 @@ const { confirm, ConfirmUI } = useConfirm();
 
           {/* 2. CARD CONTATOS */}
 <div className="bg-card border border-border rounded-xl p-5 shadow-sm transition-colors">
-            <h3 className="text-[11px] font-medium text-muted-foreground/40 uppercase mb-4 tracking-widest">
+            <h3 className="text-[11px] font-medium text-muted-foreground uppercase mb-4 tracking-widest">
               Contatos e Observações
             </h3>
             <div className="space-y-3 text-sm">
@@ -634,14 +634,14 @@ const { confirm, ConfirmUI } = useConfirm();
                       {formatPhoneDisplay(reseller.whatsapp_e164)}
                     </a>
                   ) : (
-                    <span className="text-muted-foreground/80 italic text-sm">—</span>
+                    <span className="text-muted-foreground italic text-sm">—</span>
                   )}
                 </span>
               </div>
 
               {/* Opt-in */}
               <div className="py-2 border-t border-b border-border">
-                <div className="text-[10px] font-medium text-muted-foreground/40 uppercase mb-1">
+                <div className="text-[10px] font-medium text-muted-foreground uppercase mb-1">
                   Receber mensagem?
                 </div>
                 {reseller.whatsapp_opt_in ? (
@@ -659,7 +659,7 @@ const { confirm, ConfirmUI } = useConfirm();
 
 {/* Notas */}
               <div>
-                <div className="text-[11px] font-medium text-muted-foreground/40 mb-1.5">
+                <div className="text-[11px] font-medium text-muted-foreground mb-1.5">
                   Observações
                 </div>
                 <div className="text-foreground/90 bg-transparent p-3 rounded-xl text-xs leading-relaxed border border-border min-h-[80px] whitespace-pre-wrap">
@@ -674,13 +674,13 @@ const { confirm, ConfirmUI } = useConfirm();
         <div className="lg:col-span-2 space-y-6">
           {/* BLOCO 1: SERVIDORES VINCULADOS */}
 <div className="bg-card border border-border rounded-xl p-5 shadow-sm transition-colors">
-            <h3 className="text-[11px] font-medium text-muted-foreground/40 uppercase mb-4 tracking-widest flex items-center gap-2">
+            <h3 className="text-[11px] font-medium text-muted-foreground uppercase mb-4 tracking-widest flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
               Servidores Vinculados
             </h3>
 
             {servers.length === 0 ? (
-              <div className="p-8 text-center bg-transparent border border-dashed border-border rounded-xl text-muted-foreground/40 italic">
+              <div className="p-8 text-center bg-transparent border border-dashed border-border rounded-xl text-muted-foreground italic">
                 Nenhum servidor vinculado.
               </div>
             ) : (
@@ -759,14 +759,14 @@ const { confirm, ConfirmUI } = useConfirm();
 
           {/* BLOCO 2: HISTÓRICO */}
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm h-fit transition-colors">
-            <h3 className="text-[11px] font-medium text-muted-foreground/40 uppercase mb-6 tracking-widest flex items-center gap-2">
+            <h3 className="text-[11px] font-medium text-muted-foreground uppercase mb-6 tracking-widest flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
               Histórico de Compras
             </h3>
 
             <div className="space-y-0 px-2">
               {history.length === 0 ? (
-                <div className="py-12 text-center text-muted-foreground/40 text-sm italic border-2 border-dashed border-border rounded-xl">
+                <div className="py-12 text-center text-muted-foreground text-sm italic border-2 border-dashed border-border rounded-xl">
                   Nenhuma movimentação registrada.
                 </div>
               ) : (
@@ -804,13 +804,13 @@ const { confirm, ConfirmUI } = useConfirm();
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
-                          <div className="text-[10px] font-medium text-muted-foreground/40 bg-card px-2 py-1 rounded-md shadow-sm whitespace-nowrap">
+                          <div className="text-[10px] font-medium text-muted-foreground/60 bg-card px-2 py-1 rounded-md shadow-sm whitespace-nowrap">
                             {fmtDate(h.created_at ?? null)}
                           </div>
                           <button
                             onClick={() => handleDeleteHistory(h)}
                             disabled={deletingHistoryId === h.id}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-rose-500/10 text-muted-foreground/80 hover:text-rose-500 disabled:opacity-30"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-rose-500/10 text-muted-foreground hover:text-rose-500 disabled:opacity-30"
                             title="Apagar registro"
                           >
                             {deletingHistoryId === h.id ? (

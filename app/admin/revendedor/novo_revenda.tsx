@@ -179,7 +179,7 @@ function ToggleLine({
         {label}
       </span>
       <div
-        className={`w-10 h-5 rounded-full border relative transition-colors ${value ? "bg-emerald-500/60 border-emerald-500/50" : "bg-muted border-border"}`}
+        className={`w-10 h-5 rounded-full border relative transition-colors ${value ? "bg-emerald-500 border-emerald-500/50" : "bg-foreground/20 border-foreground/20"}`}
       >
         <div
           className={`absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-card transition-all ${value ? "left-[22px]" : "left-[4px]"}`}
@@ -645,7 +645,7 @@ export default function ResellerFormModal({
             <div>
               <Label>Telefone principal</Label>
               <div className="flex gap-2">
-                <div className="h-10 px-3 bg-transparent border border-border rounded-lg flex items-center text-xs text-muted-foreground/80 whitespace-nowrap font-medium min-w-[120px]">
+                <div className="h-10 px-3 bg-transparent border border-border rounded-lg flex items-center text-xs text-muted-foreground whitespace-nowrap font-medium min-w-[120px]">
                   {primaryCountryLabel}
                 </div>
 
@@ -665,7 +665,7 @@ export default function ResellerFormModal({
                     className={`absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded flex items-center justify-center transition-colors ${
                       primaryConfirmed
                         ? "text-emerald-500 bg-emerald-500/10"
-                        : "text-muted-foreground/80 hover:bg-muted"
+                        : "text-muted-foreground hover:bg-muted"
                     }`}
                   >
                     ✓
@@ -677,7 +677,7 @@ export default function ResellerFormModal({
             <div>
               <Label>Identificador WhatsApp (@)</Label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/80">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                   @
                 </span>
                 <Input
@@ -712,7 +712,7 @@ export default function ResellerFormModal({
               </div>
               {waValidation && (
                 <div
-                  className={`mt-1 flex items-center gap-1.5 text-[11px] font-medium ${waValidation.loading ? "text-muted-foreground/80" : waValidation.exists ? "text-emerald-500" : "text-rose-500"}`}
+                  className={`mt-1 flex items-center gap-1.5 text-[11px] font-medium ${waValidation.loading ? "text-muted-foreground" : waValidation.exists ? "text-emerald-500" : "text-rose-500"}`}
                 >
                   {waValidation.loading ? (
                     <>

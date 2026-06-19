@@ -803,7 +803,7 @@ filteredMovements.map((m) => (
                       key={m.id}
                       className="hover:bg-muted/30 transition-all text-foreground/80 group"
                     >
-                      <td className="px-5 py-3 whitespace-nowrap font-mono text-[11px] opacity-60">
+                      <td className="px-5 py-3 whitespace-nowrap font-mono text-[11px]">
                         {fmtDate(m.happened_at)}
                       </td>
                       <td className="px-5 py-3">

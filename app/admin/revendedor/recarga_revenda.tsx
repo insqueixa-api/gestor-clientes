@@ -137,7 +137,7 @@ function Input({
   return (
     <input
       {...props}
-      className={`w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 placeholder-muted-foreground/40 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 placeholder-muted-foreground/60 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     />
   );
 }
@@ -715,7 +715,7 @@ export default function QuickRechargeModal({
           )}
 
           {loading ? (
-            <div className="py-12 text-center text-muted-foreground/40 animate-pulse font-medium">
+            <div className="py-12 text-center text-muted-foreground animate-pulse font-medium">
               Carregando servidores...
             </div>
           ) : (
@@ -744,7 +744,7 @@ export default function QuickRechargeModal({
                   ))}
                 </Select>
                 {lockServer && (
-                  <p className="text-[10px] text-muted-foreground/40 mt-1 italic">
+                  <p className="text-[10px] text-muted-foreground/60 mt-1 italic">
                     * Servidor travado para este contexto.
                   </p>
                 )}
@@ -824,7 +824,7 @@ export default function QuickRechargeModal({
                     )}
 
                     {fxAsOf && !fxError && (
-                      <div className="text-[10px] text-muted-foreground/40">
+                      <div className="text-[10px] text-muted-foreground/60">
                         Última taxa registrada: {fxAsOf}
                       </div>
                     )}
@@ -844,7 +844,7 @@ export default function QuickRechargeModal({
               {/* Totais Finais */}
               <div className="bg-transparent p-4 rounded-xl border border-border flex justify-between items-center animate-in zoom-in-95 duration-500">
                 <div className="space-y-0.5">
-                  <span className="text-[10px] font-medium text-muted-foreground/40 uppercase tracking-widest">
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">
                     Valor contábil final
                   </span>
                   <div className="text-2xl font-medium text-emerald-500 tracking-tight">
@@ -853,7 +853,7 @@ export default function QuickRechargeModal({
                       : "—"}
                   </div>
                 </div>
-                <div className="text-[10px] text-muted-foreground/40 italic text-right max-w-[160px]">
+                <div className="text-[10px] text-muted-foreground/60 italic text-right max-w-[160px]">
                   Contabilidade processada em Reais (BRL).
                 </div>
               </div>

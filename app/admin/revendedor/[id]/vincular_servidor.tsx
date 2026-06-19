@@ -64,7 +64,7 @@ function Input({
   return (
     <input
       {...props}
-      className={`w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 placeholder-muted-foreground/40 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 placeholder-muted-foreground/60 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     />
   );
 }
@@ -246,7 +246,7 @@ export default function VincularServidor({
           )}
 
          {loadingServers ? (
-            <div className="py-12 text-center text-muted-foreground/40 animate-pulse font-medium">
+            <div className="py-12 text-center text-muted-foreground animate-pulse font-medium">
               Carregando servidores...
             </div>
           ) : (
