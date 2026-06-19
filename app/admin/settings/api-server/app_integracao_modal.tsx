@@ -195,7 +195,7 @@ export default function AppIntegracaoModal({
           </div>
           <button
             onClick={onCloseAction}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted text-muted-foreground/80 transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted text-muted-foreground transition-colors"
             type="button"
           >
             <svg
@@ -365,7 +365,7 @@ export default function AppIntegracaoModal({
                   PIN Padrão (Criação de Teste)
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/80">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                     🔒
                   </span>
                   <input
@@ -400,7 +400,7 @@ export default function AppIntegracaoModal({
                   className={`relative w-12 h-6 rounded-full transition-colors border ${
                     isActive
                       ? "bg-emerald-500 border-emerald-500"
-                      : "bg-muted border-transparent"
+                      : "bg-foreground/20 border-foreground/20"
                   }`}
                 >
                   <span

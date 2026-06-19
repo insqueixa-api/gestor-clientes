@@ -219,12 +219,12 @@ function ActionBtn({
   children: React.ReactNode;
 }) {
   const colors = {
-    blue: "text-sky-500 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20 dark:border-sky-500/20 dark:hover:bg-sky-500/20",
+    blue: "text-sky-500 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20",
     green:
-      "text-emerald-500 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20 dark:border-emerald-500/20 dark:hover:bg-emerald-500/20",
+      "text-emerald-500 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20",
     amber:
-      "text-amber-500 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20 dark:border-amber-500/20 dark:hover:bg-amber-500/20",
-    red: "text-rose-500 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20 dark:border-rose-500/20 dark:hover:bg-rose-500/20",
+      "text-amber-500 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20",
+    red: "text-rose-500 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20",
   };
   return (
     <button
@@ -290,7 +290,7 @@ function ModalDatePicker({
           </span>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-transparent dark:hover:bg-card/10 text-muted-foreground/80 transition-colors"
+            className="p-1 rounded-lg hover:bg-muted text-muted-foreground transition-colors"
           >
             <IconX />
           </button>
@@ -299,7 +299,7 @@ function ModalDatePicker({
         <div className="p-4 space-y-4">
           {/* Seletor de Ano */}
           <div>
-            <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-2">
+            <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
               Ano
             </label>
             <div className="flex items-center justify-between bg-transparent border border-border rounded-lg p-1">
@@ -323,7 +323,7 @@ function ModalDatePicker({
 
           {/* Grid de Meses */}
           <div>
-            <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-2">
+            <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
               Mês
             </label>
             <div className="grid grid-cols-3 gap-1.5">
@@ -420,7 +420,7 @@ function ModalDayPicker({
           </span>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-muted text-muted-foreground/80 transition-colors"
+            className="p-1 rounded-lg hover:bg-muted text-muted-foreground transition-colors"
           >
             <IconX />
           </button>
@@ -453,7 +453,7 @@ function ModalDayPicker({
               {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => (
                 <div
                   key={i}
-                  className="text-center text-[10px] font-medium text-muted-foreground/80 py-1"
+                  className="text-center text-[10px] font-medium text-muted-foreground py-1"
                 >
                   {d}
                 </div>
@@ -1145,7 +1145,7 @@ function FinanceiroPageContent() {
   // ✅ LOADING INICIAL PARA NÃO PISCAR A TELA
   if (loading && contasDB.length === 0) {
     return (
-      <div className="p-12 text-center text-muted-foreground/80 animate-pulse">
+      <div className="p-12 text-center text-muted-foreground animate-pulse">
         Carregando Finanças...
       </div>
     );
@@ -1268,7 +1268,7 @@ function FinanceiroPageContent() {
 
 <div className="px-3 md:p-4 bg-transparent md:bg-card border-0 md:border md:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 z-20">
         <div className="flex items-center justify-between">
-          <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground/60 tracking-wider">
+          <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground tracking-wider">
             Lançamentos
           </div>
           <button
@@ -1291,7 +1291,7 @@ function FinanceiroPageContent() {
               {search && (
                 <button
                   onClick={() => setSearch("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/80 hover:text-rose-500"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-rose-500"
                 >
                   <IconX />
                 </button>
@@ -1333,7 +1333,7 @@ function FinanceiroPageContent() {
             </button>
             <button
               onClick={() => setMobileFiltersOpen((v) => !v)}
-              className={`h-9 w-9 shrink-0 flex items-center justify-center rounded-lg border transition-colors ${mobileFiltersOpen ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500" : "border-border bg-card text-muted-foreground/60"}`}
+              className={`h-9 w-9 shrink-0 flex items-center justify-center rounded-lg border transition-colors ${mobileFiltersOpen ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500" : "border-border bg-card text-muted-foreground"}`}
             >
               <IconChevronDown />
             </button>
@@ -1405,7 +1405,7 @@ function FinanceiroPageContent() {
             {search && (
               <button
                 onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/80 hover:text-rose-500"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-rose-500"
               >
                 <IconX />
               </button>
@@ -1474,7 +1474,7 @@ function FinanceiroPageContent() {
               setCategoriaFilter("Todos");
               setRecorrenciaFilter("Todos");
             }}
-            className="h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 text-sm font-medium hover:bg-rose-500/20 dark:hover:bg-rose-500/20 transition-colors flex items-center gap-2"
+            className="h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 text-sm font-medium hover:bg-rose-500/20 transition-colors flex items-center gap-2"
           >
             <IconX /> Limpar
           </button>
@@ -1581,7 +1581,7 @@ function FinanceiroPageContent() {
               <tr>
                 <td
                   colSpan={9}
-                  className="p-8 text-center text-muted-foreground/80 italic"
+                  className="p-8 text-center text-muted-foreground italic"
                 >
                   Nenhum lançamento encontrado.
                 </td>
@@ -1917,7 +1917,7 @@ function FinanceiroPageContent() {
               </button>
               <button
                 onClick={() => setDeleteData({ open: false, transacao: null })}
-                className="px-4 py-2 mt-2 text-sm font-medium text-muted-foreground/80 hover:text-muted-foreground"
+                className="px-4 py-2 mt-2 text-sm font-medium text-muted-foreground hover:text-muted-foreground"
               >
                 Cancelar
               </button>
@@ -2005,7 +2005,7 @@ function MetricCard({
       className={`rounded-xl border border-border bg-card shadow-sm overflow-hidden flex flex-col border-l-4 ${colors[tone]} relative ${onEdit ? "cursor-pointer hover:scale-[1.02] hover:shadow-md transition-all" : ""}`}
       onClick={onEdit}
     >
-<div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-black/5 dark:border-border font-normal text-[13px] sm:text-sm flex justify-between items-center">
+<div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-border font-normal text-[13px] sm:text-sm flex justify-between items-center">
         <span className="flex items-center gap-2">
           {icon} {title}
         </span>
@@ -2015,7 +2015,7 @@ function MetricCard({
               e.stopPropagation();
               onEdit();
             }}
-            className="p-1 rounded-md bg-card/50 hover:bg-card/80 dark:bg-transparent dark:hover:bg-transparent transition-colors"
+            className="p-1 rounded-md hover:bg-muted transition-colors"
             title="Ajustar Saldo"
           >
             <IconEdit />
@@ -2166,7 +2166,7 @@ function ModalAjusteSaldo({
           O saldo será ajustado diretamente — nenhum lançamento será criado.
         </div>
         <div>
-          <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-1.5">
+          <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
             Conta / Carteira
           </label>
           <select
@@ -2187,11 +2187,11 @@ function ModalAjusteSaldo({
           </select>
         </div>
         <div>
-          <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-1.5">
+          <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
             Qual é o saldo real hoje?
           </label>
 <div className="flex items-center h-11 bg-card border border-border rounded-lg focus-within:border-emerald-500 transition-colors overflow-hidden">
-            <span className="pl-3 pr-1 text-sm font-medium text-muted-foreground/80 select-none shrink-0">
+            <span className="pl-3 pr-1 text-sm font-medium text-muted-foreground select-none shrink-0">
               R$
             </span>
             <input
@@ -2274,7 +2274,7 @@ function ModalNovaConta({
         </div>
         <div className="p-4 space-y-4">
           <div>
-            <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-1.5">
+            <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
               Nome
             </label>
             <input
@@ -2282,11 +2282,11 @@ function ModalNovaConta({
               value={nome}
               onChange={(e) => setNome(e.target.value)}
               placeholder="Ex: C6 Bank"
-              className="w-full h-10 px-3 bg-card dark:bg-transparent border border-border rounded-lg outline-none text-sm focus:border-emerald-500"
+              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg outline-none text-sm focus:border-emerald-500"
             />
           </div>
           <div>
-            <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-1.5">
+            <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
               Ícone
             </label>
             <div className="flex flex-wrap gap-2">
@@ -2448,7 +2448,7 @@ function ModalGerenciarItens({
               onClick={() =>
                 editandoId === it.id ? cancelarEdicao() : abrirEdicao(it)
               }
-              className={`p-1.5 rounded-lg transition-colors ${editandoId === it.id ? "text-emerald-500 bg-emerald-500/10" : "text-muted-foreground/80 hover:text-sky-500 hover:bg-sky-500/10"}`}
+              className={`p-1.5 rounded-lg transition-colors ${editandoId === it.id ? "text-emerald-500 bg-emerald-500/10" : "text-muted-foreground hover:text-sky-500 hover:bg-sky-500/10"}`}
               title="Editar"
             >
               <IconEdit />
@@ -2470,7 +2470,7 @@ function ModalGerenciarItens({
                   }
                 }
               }}
-className="p-1.5 text-muted-foreground/80 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
+className="p-1.5 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
               title="Excluir"
             >
               <IconTrash />
@@ -2481,7 +2481,7 @@ className="p-1.5 text-muted-foreground/80 hover:text-rose-500 hover:bg-rose-500/
         {editandoId === it.id && (
           <div className="p-3 border-t border-border bg-card space-y-3 animate-in fade-in slide-in-from-top-1 duration-150">
             <div>
-              <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-1">
+              <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
                 Nome
               </label>
               <input
@@ -2492,7 +2492,7 @@ className="p-1.5 text-muted-foreground/80 hover:text-rose-500 hover:bg-rose-500/
               />
             </div>
             <div>
-              <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-1">
+              <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
                 Ícone
               </label>
               <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1">
@@ -2540,7 +2540,7 @@ className="p-1.5 text-muted-foreground/80 hover:text-rose-500 hover:bg-rose-500/
 
         <div className="p-4 overflow-y-auto flex-1 space-y-2">
           {items.length === 0 && (
-            <div className="text-center text-muted-foreground/80 text-sm italic">
+            <div className="text-center text-muted-foreground text-sm italic">
               Nenhum item cadastrado.
             </div>
           )}
@@ -2660,7 +2660,7 @@ function ModalNovaCategoria({
         </div>
         <div className="p-4 space-y-4">
           <div>
-            <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-1.5">
+            <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
               Nome
             </label>
             <input
@@ -2668,11 +2668,11 @@ function ModalNovaCategoria({
               value={nome}
               onChange={(e) => setNome(e.target.value)}
               placeholder="Ex: Roupas"
-              className="w-full h-10 px-3 bg-card dark:bg-transparent border border-border rounded-lg outline-none text-sm focus:border-emerald-500"
+              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg outline-none text-sm focus:border-emerald-500"
             />
           </div>
           <div>
-            <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider mb-1.5">
+            <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
               Ícone
             </label>
             <div className="flex flex-wrap gap-2">
@@ -3386,7 +3386,7 @@ function ModalTransacao({
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-2 relative" ref={autocompleteRef}>
-              <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
                 Descrição
               </label>
               <input
@@ -3404,7 +3404,7 @@ function ModalTransacao({
               />
               {showSugestoes && sugestoes.length > 0 && (
                 <div className="absolute left-0 right-0 top-full mt-1 z-[9999] bg-card border border-border rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-                  <div className="px-3 py-1.5 text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider border-b border-border">
+                  <div className="px-3 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider border-b border-border">
                     Lançamentos anteriores
                   </div>
                   {sugestoes.map((s, i) => {
@@ -3425,12 +3425,12 @@ function ModalTransacao({
                           </span>
                           <div className="flex items-center gap-2 mt-0.5">
                             {conta && (
-                              <span className="text-[10px] text-muted-foreground/80">
+                              <span className="text-[10px] text-muted-foreground">
                                 {conta.icone} {conta.nome}
                               </span>
                             )}
                             {cat && (
-                              <span className="text-[10px] text-muted-foreground/80">
+                              <span className="text-[10px] text-muted-foreground">
                                 {cat.icone} {cat.nome}
                               </span>
                             )}
@@ -3452,7 +3452,7 @@ function ModalTransacao({
               )}
             </div>
             <div>
-              <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
                 Valor{" "}
                 {tipoRecorrencia === "PARCELADA" && !isEdit ? "Total" : ""} (R$)
               </label>
@@ -3476,7 +3476,7 @@ function ModalTransacao({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
                 Data de Vencimento
               </label>
               <div className="relative">
@@ -3493,7 +3493,7 @@ function ModalTransacao({
                 <button
                   type="button"
                   onClick={() => setShowVencimentoPicker(true)}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground/80 hover:text-emerald-500 hover:bg-emerald-500/10 rounded-md transition-colors"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10 rounded-md transition-colors"
                   title="Abrir calendário"
                 >
                   <IconCalendar />
@@ -3517,19 +3517,19 @@ function ModalTransacao({
               )}
             </div>
             <div>
-              <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
                 Status
               </label>
               <div className="flex bg-transparent rounded-lg border border-border p-1 h-10">
                 <button
                   onClick={() => setStatus("PENDENTE")}
-                  className={`flex-1 rounded-md text-xs font-medium transition-colors ${status === "PENDENTE" ? "bg-amber-500/10 text-amber-500" : "text-muted-foreground/80 hover:text-muted-foreground"}`}
+                  className={`flex-1 rounded-md text-xs font-medium transition-colors ${status === "PENDENTE" ? "bg-amber-500/10 text-amber-500" : "text-muted-foreground hover:text-muted-foreground"}`}
                 >
                   ⏳ Pendente
                 </button>
                 <button
                   onClick={() => setStatus("PAGO")}
-                  className={`flex-1 rounded-md text-xs font-medium transition-colors ${status === "PAGO" ? "bg-emerald-500/10 text-emerald-500" : "text-muted-foreground/80 hover:text-muted-foreground"}`}
+                  className={`flex-1 rounded-md text-xs font-medium transition-colors ${status === "PAGO" ? "bg-emerald-500/10 text-emerald-500" : "text-muted-foreground hover:text-muted-foreground"}`}
                 >
                   ✅ Pago
                 </button>
@@ -3539,7 +3539,7 @@ function ModalTransacao({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
                 Conta / Carteira
               </label>
               <select
@@ -3568,7 +3568,7 @@ function ModalTransacao({
               </select>
             </div>
             <div>
-              <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
                 Categoria
               </label>
               <select
@@ -3601,13 +3601,13 @@ function ModalTransacao({
           {status === "PAGO" && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-1">
-              <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
                 Data de Pagamento
               </label>
               <button
                 type="button"
                 onClick={() => setShowPagamentoPicker(true)}
-                className={`w-full h-10 px-3 flex justify-center items-center bg-card border rounded-lg transition-colors text-sm font-medium ${status === "PAGO" ? "border-emerald-500/20 text-emerald-500 hover:border-emerald-500" : "border-border text-muted-foreground/80 hover:border-border-hover"}`}
+                className={`w-full h-10 px-3 flex justify-center items-center bg-card border rounded-lg transition-colors text-sm font-medium ${status === "PAGO" ? "border-emerald-500/20 text-emerald-500 hover:border-emerald-500" : "border-border text-muted-foreground hover:border-foreground/20"}`}
               >
                 {pagamentoDisplay}
               </button>
@@ -3634,21 +3634,21 @@ function ModalTransacao({
             <div className="sm:col-span-2">
               {isEdit && rTipoInicial !== "UNICA" ? (
                 <>
-                  <label className="block text-[10px] font-medium text-muted-foreground/80  mb-1 uppercase tracking-wider">
+                  <label className="block text-[10px] font-medium text-muted-foreground  mb-1 uppercase tracking-wider">
                     Aplicar alterações em:
                   </label>
                   <div className="flex bg-transparent rounded-lg border border-border p-1 h-10">
                     <button
                       type="button"
                       onClick={() => setEscopoEdicao("UNICA")}
-                      className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopoEdicao === "UNICA" ? "bg-amber-500/10 text-amber-500 shadow-sm" : "text-muted-foreground/80 hover:text-muted-foreground"}`}
+                      className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopoEdicao === "UNICA" ? "bg-amber-500/10 text-amber-500 shadow-sm" : "text-muted-foreground hover:text-muted-foreground"}`}
                     >
                       📅 Apenas nesta
                     </button>
                     <button
                       type="button"
                       onClick={() => setEscopoEdicao("TODAS")}
-                      className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopoEdicao === "TODAS" ? "bg-sky-500/10 text-sky-500 shadow-sm" : "text-muted-foreground/80 hover:text-muted-foreground"}`}
+                      className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopoEdicao === "TODAS" ? "bg-sky-500/10 text-sky-500 shadow-sm" : "text-muted-foreground hover:text-muted-foreground"}`}
                     >
                       🔁 Nesta e nas futuras
                     </button>
@@ -3663,7 +3663,7 @@ function ModalTransacao({
 
           {!isEdit && (
             <div className="p-3 rounded-lg border border-border bg-transparent space-y-3">
-              <label className="block text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
                 Recorrência e Parcelamento
               </label>
 
@@ -3726,7 +3726,7 @@ function ModalTransacao({
           )}
 
           <div>
-            <label className="block text-[10px] font-medium text-muted-foreground/80  mb-1 uppercase tracking-wider">
+            <label className="block text-[10px] font-medium text-muted-foreground  mb-1 uppercase tracking-wider">
               Observações
             </label>
             <textarea
@@ -3982,20 +3982,20 @@ function ModalBaixa({
         {/* Descrição + Valor */}
         <div className="p-3 rounded-xl border border-border bg-transparent flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-medium text-muted-foreground/80 uppercase tracking-wider mb-0.5">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-0.5">
               {isReceita ? "📈 Receita" : "📉 Despesa"}
             </p>
             <p className="text-sm font-medium text-foreground/90 truncate">
               {transacao.descricao}
             </p>
             {transacao.categoria_nome && (
-              <p className="text-xs text-muted-foreground/80 mt-0.5">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 {transacao.categoria_nome}
               </p>
             )}
           </div>
           <div className="text-right shrink-0">
-            <p className="text-[10px] text-muted-foreground/80 uppercase tracking-wider mb-1">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
               Valor (R$)
             </p>
             <input
@@ -4024,21 +4024,21 @@ function ModalBaixa({
         {/* Escopo — só aparece se valor mudou e tem recorrência */}
         {valorAlterado && transacao.recorrencia_id && (
           <div className="animate-in fade-in zoom-in-95 duration-150">
-            <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1.5 uppercase tracking-wider">
+            <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
               Aplicar novo valor em:
             </label>
             <div className="flex bg-transparent rounded-lg border border-border p-1 h-10">
               <button
                 type="button"
                 onClick={() => setEscopo("UNICA")}
-                className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopo === "UNICA" ? "bg-amber-500/10 text-amber-500 shadow-sm" : "text-muted-foreground/80 hover:text-muted-foreground"}`}
+                className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopo === "UNICA" ? "bg-amber-500/10 text-amber-500 shadow-sm" : "text-muted-foreground hover:text-muted-foreground"}`}
                     >
                       📅 Apenas nesta
                     </button>
               <button
                 type="button"
                 onClick={() => setEscopo("TODAS")}
-                className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopo === "TODAS" ? "bg-sky-500/10 text-sky-500 shadow-sm" : "text-muted-foreground/80 hover:text-muted-foreground"}`}
+                className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopo === "TODAS" ? "bg-sky-500/10 text-sky-500 shadow-sm" : "text-muted-foreground hover:text-muted-foreground"}`}
                     >
                       🔁 Nesta e nas futuras
                     </button>
@@ -4049,7 +4049,7 @@ function ModalBaixa({
         {/* Data de pagamento (só na baixa) */}
         {isBaixando && (
           <div>
-            <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1.5 uppercase tracking-wider">
+            <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
               Data de Pagamento
             </label>
             <div className="relative">
@@ -4066,7 +4066,7 @@ function ModalBaixa({
               <button
                 type="button"
                 onClick={() => setShowPicker(true)}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground/80 hover:text-emerald-500 hover:bg-emerald-500/10 rounded-md transition-colors"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10 rounded-md transition-colors"
               >
                 <IconCalendar />
               </button>
@@ -4094,7 +4094,7 @@ function ModalBaixa({
 
         {/* Conta */}
         <div>
-          <label className="block text-[10px] font-medium text-muted-foreground/80 mb-1.5 uppercase tracking-wider">
+          <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
             Conta / Carteira
           </label>
           <select
@@ -4136,7 +4136,7 @@ export default function FinanceiroPessoalPage() {
   return (
     <Suspense
       fallback={
-        <div className="p-12 text-center text-muted-foreground/80 animate-pulse">
+        <div className="p-12 text-center text-muted-foreground animate-pulse">
           Carregando Finanças...
         </div>
       }

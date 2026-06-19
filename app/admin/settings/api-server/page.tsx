@@ -390,7 +390,7 @@ export default function ApiServerPage() {
       </div>
 
       {loading && (
-        <div className="p-12 text-center text-muted-foreground/80 animate-pulse bg-card rounded-xl border border-border">
+        <div className="p-12 text-center text-muted-foreground animate-pulse bg-card rounded-xl border border-border">
           Carregando integrações...
         </div>
       )}
@@ -398,7 +398,7 @@ export default function ApiServerPage() {
       {activeTab === "servidores" && (
         <>
 {!loading && integrations.length === 0 && (
-            <div className="p-12 text-center text-muted-foreground/40 bg-card rounded-xl border border-dashed border-border">
+            <div className="p-12 text-center text-muted-foreground bg-card rounded-xl border border-dashed border-border">
               Nenhuma integração de servidor cadastrada.
             </div>
           )}
@@ -553,7 +553,7 @@ export default function ApiServerPage() {
       {activeTab === "aplicativos" && (
         <>
           {!loading && appList.length === 0 && (
-            <div className="p-12 text-center text-muted-foreground/40 bg-card rounded-xl border border-dashed border-border">
+            <div className="p-12 text-center text-muted-foreground bg-card rounded-xl border border-dashed border-border">
               Nenhuma integração de aplicativo cadastrada.
             </div>
           )}
@@ -633,7 +633,7 @@ export default function ApiServerPage() {
                             onClick={() =>
                               navigator.clipboard.writeText(row.api_url!)
                             }
-                            className="shrink-0 p-1 rounded hover:bg-muted text-muted-foreground/80 hover:text-sky-500 transition-colors"
+                            className="shrink-0 p-1 rounded hover:bg-muted text-muted-foreground hover:text-sky-500 transition-colors"
                             title="Copiar URL"
                           >
                             <svg

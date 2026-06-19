@@ -219,7 +219,7 @@ export default function NovaIntegracaoModal({
 
         <div className="p-5 space-y-4">
           <div>
-            <label className="block text-[10px] font-medium text-muted-foreground/60 mb-1 uppercase tracking-wider">
+            <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
               Servidor
             </label>
             <select
@@ -244,7 +244,7 @@ export default function NovaIntegracaoModal({
           </div>
 
           <div>
-            <label className="block text-[10px] font-medium text-muted-foreground/60 mb-1 uppercase tracking-wider">
+            <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
               Nome da integração
             </label>
             <input
@@ -286,7 +286,7 @@ export default function NovaIntegracaoModal({
             {provider === "ELITE" && (
               <>
                 <div>
-                  <label className="block text-[10px] font-medium text-muted-foreground/60 mb-1 uppercase tracking-wider">
+                  <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
                     Base URL do painel
                   </label>
                   <input
@@ -304,7 +304,7 @@ export default function NovaIntegracaoModal({
               </>
             )}
             <div>
-              <label className="block text-[10px] font-medium text-muted-foreground/60 mb-1 uppercase tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
                 Token / Chave API
               </label>
               <input
@@ -324,7 +324,7 @@ export default function NovaIntegracaoModal({
 
             {(provider === "FAST" || provider === "ELITE") && (
               <div>
-                <label className="block text-[10px] font-medium text-muted-foreground/60 mb-1 uppercase tracking-wider">
+                <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
                   {provider === "ELITE" ? "Senha" : "Secret Key"}
                 </label>
                 <div className="relative">
@@ -343,7 +343,7 @@ export default function NovaIntegracaoModal({
                   <button
                     type="button"
                     onClick={() => setShowSecret((v) => !v)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground/70 transition-colors"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground/70 transition-colors"
                     tabIndex={-1}
                   >
                     {showSecret ? (
