@@ -2480,37 +2480,9 @@ export default function RenewClient() {
 
       {/* --- CORPO DA PÁGINA --- */}
       <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4 px-3 sm:px-4 py-4 sm:py-6">
-        {/* Banner Guia TV */}
-{(() => {
-  const srvKey = SERVER_GUIA_MAP[selectedAccount.server_name];
-  if (!srvKey) return null;
-  return (
-    <div className="relative overflow-hidden rounded-xl border border-sky-500/20 bg-gradient-to-r from-sky-500/10 via-indigo-500/5 to-sky-500/10 p-4 shadow-sm">
-      <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-xl bg-sky-500/15 flex items-center justify-center shrink-0 border border-sky-500/20">
-          <span className="text-2xl">🔥</span>
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-foreground">Novidades no servidor!</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Confira os últimos lançamentos de canais, filmes e séries.
-          </p>
-        </div>
-        <a
-          href={`/renew/guia-tv?servidor=${srvKey}`}
-          className="shrink-0 flex items-center gap-1.5 h-9 px-4 rounded-full bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold transition-colors shadow-sm"
-        >
-          Ver →
-        </a>
-      </div>
-    </div>
-
-  );
-})()}
-
-{/* Vencimento Centralizado (Substitui Card Azul) */}
-<div
-  className={`w-full text-center py-3 sm:py-4 rounded-xl shadow-sm border-2 animate-in fade-in zoom-in duration-500 ${
+        {/* Vencimento Centralizado (Substitui Card Azul) */}
+        <div
+          className={`w-full text-center py-3 sm:py-4 rounded-xl shadow-sm border-2 animate-in fade-in zoom-in duration-500 ${
             timeRemaining?.expired
               ? "bg-rose-500/10 border-rose-500/20"
               : selectedAccount.is_trial
