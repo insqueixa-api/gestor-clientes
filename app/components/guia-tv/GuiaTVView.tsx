@@ -944,7 +944,6 @@ const backdrop=detalhe?.poster_tmdb_url||detalhe?.cover_url||"";
                 </div>
               )}
 
-              {detalhe.generos&&detalhe.generos.length>0&&<div className="flex gap-2.5 flex-wrap pt-1">{detalhe.generos.map(g=><span key={g} className="text-[11px] font-semibold text-muted-foreground bg-muted border border-border px-3 py-1 rounded-full uppercase tracking-wide">{g}</span>)}</div>}
               {detalhe.sinopse&&<div className="bg-muted/20 p-5 rounded-xl border border-border"><div className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-3.5">Sinopse</div><div className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">{detalhe.sinopse}</div></div>}
               
 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-1">
