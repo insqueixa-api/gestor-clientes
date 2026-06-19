@@ -1384,7 +1384,7 @@ const checkQueuedToasts = (setToasts: React.Dispatch<React.SetStateAction<any[]>
 export default function GuiaTVView({ servidorFiltro, modoCliente }: GuiaTVViewProps) {
   const SERVIDOR_ADMIN = servidorFiltro ?? "TODOS";
 
-  const [tab,setTab]=useState<GuiaTVTab>("canais");
+  const [tab,setTab]=useState<GuiaTVTab>("filmes");
   const [epg,setEpg]=useState<EpgData|null>(null);
   const [loadingEpg,setLoadingEpg]=useState(true);
   const [erroEpg,setErroEpg]=useState<string|null>(null);
@@ -1503,15 +1503,15 @@ export default function GuiaTVView({ servidorFiltro, modoCliente }: GuiaTVViewPr
       {/* Barra de sub-navegação refatorada visivelmente com padrão PlansPage */}
       <div className="flex-shrink-0 bg-muted/40 border-b border-border transition-colors relative z-40">
         <div className="flex items-center px-4 sm:px-5 h-14 gap-2 sm:gap-3">
-          <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto custom-scrollbar h-full flex-1">
-            {(["canais","filmes","series"] as GuiaTVTab[]).map(t=>(
-              <button key={t} onClick={()=>setTab(t)}
-                className={`flex items-center gap-2 h-9 px-4 sm:px-5 rounded-full transition-all text-xs sm:text-sm whitespace-nowrap focus:outline-none focus:ring-0 shrink-0 ${tab===t ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-900/20' : 'bg-transparent border border-border text-muted-foreground font-medium hover:bg-muted hover:text-foreground'}`}
-              >
-                {t==="canais"?<><Tv size={14}/> Canais</>:t==="filmes"?<><Film size={14}/> Filmes</>:<><Clapperboard size={14}/> Séries</>}
-              </button>
-            ))}
-          </div>
+          <div className={`flex items-center gap-2 sm:gap-3 h-full ${modoCliente ? "w-full justify-around" : "overflow-x-auto custom-scrollbar flex-1"}`}>
+  {(["canais","filmes","series"] as GuiaTVTab[]).map(t=>(
+    <button key={t} onClick={()=>setTab(t)}
+      className={`flex items-center justify-center gap-2 h-9 rounded-full transition-all text-xs sm:text-sm whitespace-nowrap focus:outline-none focus:ring-0 ${modoCliente ? "flex-1" : "px-4 sm:px-5 shrink-0"} ${tab===t ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-900/20' : 'bg-transparent border border-border text-muted-foreground font-medium hover:bg-muted hover:text-foreground'}`}
+    >
+      {t==="canais"?<><Tv size={14}/> Canais</>:t==="filmes"?<><Film size={14}/> Filmes</>:<><Clapperboard size={14}/> Séries</>}
+    </button>
+  ))}
+</div>
           
           {/* ✅ Botão Sincronizar unificado e sempre visível */}
           {!modoCliente && (
@@ -1521,7 +1521,7 @@ export default function GuiaTVView({ servidorFiltro, modoCliente }: GuiaTVViewPr
             >
               <RefreshCw size={13} className={syncing ? "animate-spin text-sky-500" : (syncOpen ? "text-white" : "text-muted-foreground")} />
               <span className="hidden sm:inline">Sincronizar</span>
-              <span className="sm:hidden">Syncronizar</span>
+              <span className="sm:hidden">Sincronizar</span>
               <ChevronDown size={12} className={`opacity-60 transform ${syncOpen ? "rotate-180" : "none"} transition-transform duration-150`} />
             </button>
             {syncOpen && (
