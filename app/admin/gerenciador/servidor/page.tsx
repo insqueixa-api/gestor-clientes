@@ -504,7 +504,7 @@ export default function AdminServersPage() {
               navigator.clipboard.writeText(dns);
               addToast("success", "Copiado", "DNS copiada com sucesso!");
             }}
-            className="p-1.5 text-muted-foreground/60 hover:text-sky-500 hover:bg-muted rounded transition-colors shrink-0"
+            className="p-1.5 text-muted-foreground hover:text-sky-500 hover:bg-muted rounded transition-colors shrink-0"
             title="Copiar"
           >
             <svg
@@ -626,7 +626,7 @@ export default function AdminServersPage() {
             <button
               onClick={() => setValuesHidden(v => !v)}
               title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground/80 hover:text-foreground/90 hover:border-border-hover transition-all text-xs font-medium shadow-sm select-none"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground hover:text-foreground/90 hover:border-foreground/20 transition-all text-xs font-medium shadow-sm select-none"
             >
               {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               <span className="hidden sm:inline text-[11px] tracking-wide">
@@ -661,13 +661,13 @@ export default function AdminServersPage() {
 
       <div className="space-y-6 pt-0 px-0">
         {loading && (
-          <div className="mx-3 sm:mx-0 p-12 text-center text-muted-foreground/80 animate-pulse bg-card rounded-xl border border-border">
+          <div className="mx-3 sm:mx-0 p-12 text-center text-muted-foreground animate-pulse bg-card rounded-xl border border-border">
             Carregando servidores...
           </div>
         )}
 
 {!loading && servers.length === 0 && (
-          <div className="mx-3 sm:mx-0 p-12 text-center text-muted-foreground/40 bg-card rounded-xl border border-dashed border-border">
+          <div className="mx-3 sm:mx-0 p-12 text-center text-muted-foreground bg-card rounded-xl border border-dashed border-border">
             Nenhum servidor encontrado {showArchived ? "na lixeira" : ""}.
           </div>
         )}
@@ -1049,7 +1049,7 @@ export default function AdminServersPage() {
                   <div className={`bg-transparent p-3 border-t border-border text-[11px] space-y-2 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
                     {server.panel_web_url && (
                       <div className="flex gap-2">
-                        <span className="font-medium text-muted-foreground/40 uppercase tracking-tighter">
+                        <span className="font-medium text-muted-foreground uppercase tracking-tighter">
                           Url:
                         </span>
                         <a
@@ -1063,7 +1063,7 @@ export default function AdminServersPage() {
                     )}
                     {server.panel_telegram_group && (
                       <div className="flex gap-2">
-                        <span className="font-medium text-muted-foreground/40 uppercase tracking-tighter">
+                        <span className="font-medium text-muted-foreground uppercase tracking-tighter">
                           Telegram:
                         </span>
                         <a
@@ -1081,7 +1081,7 @@ export default function AdminServersPage() {
                       </div>
                     )}
                     {server.notes && (
-                      <div className="italic text-muted-foreground/40 pt-1 border-t border-dashed border-border mt-2 line-clamp-1">
+                      <div className="italic text-muted-foreground/70 pt-1 border-t border-dashed border-border mt-2 line-clamp-1">
                         obs: {server.notes}
                       </div>
                     )}

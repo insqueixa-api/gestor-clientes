@@ -981,7 +981,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
                   </option>
                 ))}
               </Select>
-<p className="text-[9px] text-muted-foreground/40 mt-1 italic">
+<p className="text-[9px] text-muted-foreground/60 mt-1 italic">
                 Define de qual WhatsApp o portal do cliente enviará as
                 confirmações e PIX.
               </p>

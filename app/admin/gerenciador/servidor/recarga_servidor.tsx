@@ -475,7 +475,7 @@ export default function RecargaServidorModal({
           {/* TOTALIZADORES */}
           <div className="flex justify-between items-end bg-transparent border border-border p-3 rounded-lg">
             <div>
-              <div className="text-[10px] uppercase font-medium text-muted-foreground/80">
+              <div className="text-[10px] uppercase font-medium text-muted-foreground">
                 Total Original
               </div>
               <div className="text-sm font-medium text-muted-foreground">
@@ -486,7 +486,7 @@ export default function RecargaServidorModal({
               </div>
             </div>
             <div className="text-right">
-              <div className="text-[10px] uppercase font-medium text-muted-foreground/80">
+              <div className="text-[10px] uppercase font-medium text-muted-foreground">
                 Total em BRL (Custo Real)
               </div>
               <div className="text-xl font-medium text-emerald-500">

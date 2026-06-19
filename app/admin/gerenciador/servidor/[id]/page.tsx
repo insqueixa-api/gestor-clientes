@@ -536,7 +536,7 @@ const { confirm, ConfirmUI } = useConfirm();
 
   if (loading && !server)
     return (
-      <div className="text-muted-foreground/80 dark:text-muted-foreground animate-pulse p-8">
+      <div className="text-muted-foreground animate-pulse p-8">
         Carregando detalhes...
       </div>
     );
@@ -576,7 +576,7 @@ const { confirm, ConfirmUI } = useConfirm();
             <button
               onClick={() => setValuesHidden(v => !v)}
               title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground/80 hover:text-foreground/90 hover:border-border-hover transition-all text-xs font-medium shadow-sm select-none"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground hover:text-foreground/90 hover:border-foreground/20 transition-all text-xs font-medium shadow-sm select-none"
             >
               {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               <span className="hidden sm:inline text-[11px] tracking-wide">
@@ -595,7 +595,7 @@ const { confirm, ConfirmUI } = useConfirm();
 
 <span className="opacity-30">/</span>
 
-            <span className="text-muted-foreground/40">detalhes</span>
+            <span className="text-muted-foreground/60">detalhes</span>
           </div>
         </div>
 
@@ -792,7 +792,7 @@ const { confirm, ConfirmUI } = useConfirm();
                   <tr>
                     <td
                       colSpan={5}
-                      className="px-5 py-12 text-center text-muted-foreground/40 italic"
+                      className="px-5 py-12 text-center text-muted-foreground italic"
                     >
                       Nenhum registro encontrado.
                     </td>
@@ -915,7 +915,7 @@ function StatCard({
 }) {
   return (
     <div className="bg-transparent p-4 rounded-xl border border-border flex flex-col justify-between h-24 transition-all hover:border-emerald-500/30">
-      <div className="text-[10px] uppercase font-medium text-muted-foreground/40 tracking-widest">
+      <div className="text-[10px] uppercase font-medium text-muted-foreground tracking-widest">
         {title}
       </div>
       <div
@@ -942,7 +942,7 @@ function DetailStat({
 }) {
   return (
     <div className="group">
-      <div className="text-[11px] font-medium text-muted-foreground/40 mb-1 tracking-tight">
+      <div className="text-[11px] font-medium text-muted-foreground mb-1 tracking-tight">
         {label}
       </div>
       <div
@@ -951,7 +951,7 @@ function DetailStat({
         {value}
       </div>
       {sub && (
-        <div className="text-[10px] text-muted-foreground/40 font-medium">
+        <div className="text-[10px] text-muted-foreground/70 font-medium">
           {sub}
         </div>
       )}
