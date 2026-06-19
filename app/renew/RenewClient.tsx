@@ -1045,7 +1045,7 @@ export default function RenewClient() {
                 setShowMethodSelector(false);
                 setPendingRenew(null);
               }}
-              className="w-full text-sm font-medium text-muted-foreground/80 hover:text-muted-foreground transition-colors pt-1"
+              className="w-full text-sm font-medium text-muted-foreground hover:text-foreground transition-colors pt-1"
             >
               Cancelar
             </button>
@@ -1231,7 +1231,7 @@ export default function RenewClient() {
                     </div>
                   )}
 
-                  <p className="text-xs text-muted-foreground/80 mt-4">
+                  <p className="text-xs text-muted-foreground mt-4">
                     Atualizando página...
                   </p>
                 </>
@@ -1313,7 +1313,7 @@ export default function RenewClient() {
                       />
                     ) : (
                       <div className="w-48 h-48 sm:w-56 sm:h-56 bg-muted rounded-lg flex items-center justify-center mx-auto">
-                        <p className="text-muted-foreground/80 text-sm text-center">
+                        <p className="text-muted-foreground text-sm text-center">
                           QR Code não disponível
                         </p>
                       </div>
@@ -1395,7 +1395,7 @@ export default function RenewClient() {
                       setPaymentStatus("pending");
                       setPaymentPhase("awaiting_payment");
                     }}
-                    className="w-full pb-1 pt-0 !mt-3 text-sm font-medium text-muted-foreground/80 hover:text-muted-foreground transition-colors"
+                    className="w-full pb-1 pt-0 !mt-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                   >
                     Cancelar
                   </button>
@@ -1427,7 +1427,7 @@ export default function RenewClient() {
                   <>
                     {/* Valor */}
                     <div className="text-center">
-                      <p className="text-xs font-bold text-muted-foreground/80 uppercase tracking-wider mb-1">
+                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">
                         Total a pagar
                       </p>
                       <p className="text-3xl font-black text-foreground">
@@ -1477,7 +1477,7 @@ export default function RenewClient() {
                         }
                       >
                         <div>
-                          <p className="text-xs font-bold text-muted-foreground/80 uppercase tracking-wider mb-2">
+                          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">
                             Número do Cartão
                           </p>
                           <div
@@ -1504,13 +1504,13 @@ export default function RenewClient() {
                       >
                         <button
                           onClick={() => setStripeStep(1)}
-                          className="text-sm font-medium text-muted-foreground/80 hover:text-muted-foreground transition-colors flex items-center gap-1"
+                          className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
                         >
                           ← Voltar
                         </button>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <p className="text-xs font-bold text-muted-foreground/80 uppercase tracking-wider mb-2">
+                            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">
                               Validade
                             </p>
                             <div
@@ -1519,7 +1519,7 @@ export default function RenewClient() {
                             />
                           </div>
                           <div>
-                            <p className="text-xs font-bold text-muted-foreground/80 uppercase tracking-wider mb-2">
+                            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">
                               CVC
                             </p>
                             <div
@@ -1563,7 +1563,7 @@ export default function RenewClient() {
                       </div>
                     </div>
 
-                    <p className="text-center text-[10px] text-muted-foreground/80">
+                    <p className="text-center text-[10px] text-muted-foreground">
                       Pagamento processado com segurança via Stripe
                     </p>
 
@@ -1575,7 +1575,7 @@ export default function RenewClient() {
                         setPaymentPhase("awaiting_payment");
                         setStripeStep(1);
                       }}
-                      className="w-full text-sm font-medium text-muted-foreground/80 hover:text-muted-foreground transition-colors"
+                      className="w-full text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                     >
                       Cancelar
                     </button>
@@ -1622,7 +1622,7 @@ export default function RenewClient() {
                   {paymentPhase !== "renewing" && (
                     <>
                       <div className="text-center">
-                        <p className="text-xs font-bold text-muted-foreground/80 uppercase tracking-wider mb-1">
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">
                           Total a pagar
                         </p>
                         <p className="text-3xl font-black text-foreground">
@@ -1664,13 +1664,13 @@ export default function RenewClient() {
                         className={`min-h-[52px] ${paymentRequest ? "" : "hidden"}`}
                       />
                       {!paymentRequest && (
-                        <div className="flex items-center justify-center py-4 gap-2 text-muted-foreground/80 text-sm">
-                          <div className="w-5 h-5 border-2 border-border border-t-muted-foreground rounded-full animate-spin" />
+                        <div className="flex items-center justify-center py-4 gap-2 text-muted-foreground text-sm">
+                          <div className="w-5 h-5 border-2 border-border border-t-foreground rounded-full animate-spin" />
                           Verificando disponibilidade...
                         </div>
                       )}
 
-                      <p className="text-center text-[10px] text-muted-foreground/80">
+                      <p className="text-center text-[10px] text-muted-foreground">
                         Pagamento processado com segurança via Stripe
                       </p>
 
@@ -1682,7 +1682,7 @@ export default function RenewClient() {
                           setPaymentPhase("awaiting_payment");
                           setStripeStep(1);
                         }}
-                        className="w-full text-sm font-medium text-muted-foreground/80 hover:text-muted-foreground transition-colors"
+                        className="w-full text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                       >
                         Cancelar
                       </button>
@@ -1733,7 +1733,7 @@ export default function RenewClient() {
                 {effectiveGatewayType === "pix_manual" && (
                   <div className="space-y-3">
                     <div>
-                      <p className="text-xs font-bold text-muted-foreground/80 uppercase tracking-wider mb-1">
+                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">
                         Chave PIX
                       </p>
                       <div className="relative group">
@@ -1767,7 +1767,7 @@ export default function RenewClient() {
                     </div>
 
                     <div>
-                      <p className="text-xs font-bold text-muted-foreground/80 uppercase tracking-wider mb-1">
+                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">
                         Titular (Favorecido)
                       </p>
                       <div className="flex items-center justify-between gap-2">
@@ -1794,7 +1794,7 @@ export default function RenewClient() {
 
                     {paymentData.institution && (
                       <div>
-                        <p className="text-xs font-bold text-muted-foreground/80 uppercase tracking-wider mb-1">
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">
                           Instituição Bancária
                         </p>
                         <div className="flex items-center justify-between gap-2">
@@ -1821,7 +1821,7 @@ export default function RenewClient() {
                 {effectiveGatewayType === "transfer_manual_eur" && (
                   <div className="space-y-3 bg-muted/50 p-4 rounded-xl border border-border">
                     <div>
-                      <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider mb-0.5">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
                         Nome do Favorecido
                       </p>
                       <div className="flex items-center justify-between gap-2">
@@ -1842,7 +1842,7 @@ export default function RenewClient() {
                     </div>
                     {paymentData.bank_name && (
                       <div>
-                        <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider mb-0.5">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
                           Nome do Banco
                         </p>
                         <div className="flex items-center justify-between gap-2">
@@ -1863,7 +1863,7 @@ export default function RenewClient() {
                       </div>
                     )}
                     <div>
-                      <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider mb-0.5">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
                         IBAN
                       </p>
                       <div className="flex items-center justify-between gap-2">
@@ -1883,7 +1883,7 @@ export default function RenewClient() {
                       </div>
                     </div>
                     <div>
-                      <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider mb-0.5">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
                         Swift/BIC
                       </p>
                       <div className="flex items-center justify-between gap-2">
@@ -1904,7 +1904,7 @@ export default function RenewClient() {
                     </div>
                     {paymentData.bank_address && (
                       <div>
-                        <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider mb-0.5">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
                           Endereço do Banco
                         </p>
                         <div className="flex items-start justify-between gap-2">
@@ -1931,7 +1931,7 @@ export default function RenewClient() {
                 {effectiveGatewayType === "transfer_manual_usd" && (
                   <div className="space-y-3 bg-muted/50 p-4 rounded-xl border border-border">
                     <div>
-                      <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider mb-0.5">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
                         Nome do Favorecido
                       </p>
                       <div className="flex items-center justify-between gap-2">
@@ -1952,7 +1952,7 @@ export default function RenewClient() {
                     </div>
                     {paymentData.bank_name && (
                       <div>
-                        <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider mb-0.5">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
                           Nome do Banco
                         </p>
                         <div className="flex items-center justify-between gap-2">
@@ -1973,7 +1973,7 @@ export default function RenewClient() {
                       </div>
                     )}
                     <div>
-                      <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider mb-0.5">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
                         Número da conta
                       </p>
                       <div className="flex items-center justify-between gap-2">
@@ -1994,7 +1994,7 @@ export default function RenewClient() {
                     </div>
                     {paymentData.account_type && (
                       <div>
-                        <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider mb-0.5">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
                           Tipo da conta
                         </p>
                         <p className="text-sm font-medium text-foreground">
@@ -2003,7 +2003,7 @@ export default function RenewClient() {
                       </div>
                     )}
                     <div>
-                      <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider mb-0.5">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
                         Routing number
                       </p>
                       <div className="flex items-center justify-between gap-2">
@@ -2023,7 +2023,7 @@ export default function RenewClient() {
                       </div>
                     </div>
                     <div>
-                      <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider mb-0.5">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
                         Swift/BIC
                       </p>
                       <div className="flex items-center justify-between gap-2">
@@ -2044,7 +2044,7 @@ export default function RenewClient() {
                     </div>
                     {paymentData.bank_address && (
                       <div>
-                        <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider mb-0.5">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
                           Endereço do Banco
                         </p>
                         <div className="flex items-start justify-between gap-2">
@@ -2077,7 +2077,7 @@ export default function RenewClient() {
 
                 {/* VALOR A TRANSFERIR (GLOBAL PARA TODOS OS MANUAIS) */}
                 <div className="pt-2">
-                  <p className="text-xs font-bold text-muted-foreground/80 uppercase tracking-wider mb-1">
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">
                     Valor a Transferir
                   </p>
                   <p className="text-2xl font-bold text-foreground">
@@ -2121,7 +2121,7 @@ export default function RenewClient() {
                     setPaymentModal(false);
                     setPaymentData(null);
                   }}
-                  className="w-full pb-1 pt-0 !mt-3 text-sm font-medium text-muted-foreground/80 hover:text-muted-foreground transition-colors"
+                  className="w-full pb-1 pt-0 !mt-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Fechar
                 </button>
@@ -2287,7 +2287,7 @@ export default function RenewClient() {
           {/* Busca (Opcional) */}
           {accounts.length > 3 && (
             <div className="mb-4 sm:mb-6 relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/80 text-lg">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-lg">
                 🔍
               </span>
               <input
@@ -2303,7 +2303,7 @@ export default function RenewClient() {
           {/* --- CARDS DE CONTAS (Layout 3 Linhas) --- */}
 <div className="space-y-4">
             {filteredAccounts.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground/80 bg-muted/40 rounded-xl border border-dashed border-border">
+              <div className="text-center py-8 text-muted-foreground bg-muted/40 rounded-xl border border-dashed border-border">
                 Nenhuma conta encontrada.
               </div>
             ) : (
@@ -2521,7 +2521,7 @@ export default function RenewClient() {
           <div className="p-3 sm:p-4 space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider block mb-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
                   Usuário
                 </label>
                 <div className="text-sm font-mono text-foreground bg-muted px-3 py-2 rounded-lg border border-border truncate">
@@ -2529,7 +2529,7 @@ export default function RenewClient() {
                 </div>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider block mb-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
                   Servidor
                 </label>
                 <div className="text-sm font-medium text-foreground bg-muted px-3 py-2 rounded-lg border border-border truncate">
@@ -2539,7 +2539,7 @@ export default function RenewClient() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider block mb-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
                   Vencimento em
                 </label>
                 <div className="text-sm font-medium text-foreground bg-muted px-3 py-2 rounded-lg border border-border">
@@ -2547,7 +2547,7 @@ export default function RenewClient() {
                 </div>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider block mb-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
                   Telas
                 </label>
                 <div className="text-sm font-bold text-foreground bg-muted px-3 py-2 rounded-lg border border-border">
@@ -2714,7 +2714,7 @@ export default function RenewClient() {
             {/* Expansível de Ofertas */}
             {showOtherPlans && (
 <div className="space-y-2 animate-in slide-in-from-top-2 duration-200 mt-2">
-                <p className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-wider px-1">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">
                   Todas as Opções
                 </p>
                 {availablePrices

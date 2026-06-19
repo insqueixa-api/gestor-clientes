@@ -145,7 +145,7 @@ if (isValidating) {
             {hasValidSession ? (
 <form onSubmit={handleUpdatePassword} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-foreground/80">
+                  <label className="block text-sm font-medium text-foreground">
                     Nova Senha
                   </label>
                   <input

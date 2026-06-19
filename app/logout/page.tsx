@@ -17,7 +17,7 @@ export default function LogoutPage() {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
-      <div className="animate-pulse text-muted-foreground/80 font-medium">
+      <div className="animate-pulse text-muted-foreground font-medium">
         Encerrando sessão...
       </div>
     </div>

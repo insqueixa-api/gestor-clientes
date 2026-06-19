@@ -203,7 +203,7 @@ export default function LoginPage() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/80 hover:text-foreground/80 transition-colors"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground/80 transition-colors"
                       tabIndex={-1} // Impede que o 'Tab' pare no olho, indo direto para o Entrar
                     >
                       {showPassword ? (
