@@ -394,29 +394,29 @@ function ModalDetalheCanal({canal, progsPorCanal, agoraMs, onProgSelect, onClose
                             <div 
                                 key={p.start} 
                                 onClick={() => onProgSelect(p)}
-                                className={`flex items-start gap-4 p-5 rounded-xl border bg-card transition-all cursor-pointer group shadow-sm ${emAndamento ? 'border-sky-500/30 bg-sky-500/[0.05]' : 'border-border hover:bg-muted/30'}`}
+                                className={`flex items-start gap-3 sm:gap-4 p-4 sm:p-5 rounded-xl border bg-card transition-all cursor-pointer group shadow-sm ${emAndamento ? 'border-sky-500/30 bg-sky-500/[0.05]' : 'border-border hover:bg-muted/30'}`}
                             >
                                 {/* ✅ Placeholder idêntico ao print (quadrado branco com borda e ícone) */}
                                 {p.prog_icon ? (
-                                    <img src={p.prog_icon} alt={p.title} loading="lazy" className="w-14 h-14 rounded-lg object-cover shrink-0 border border-border bg-white" />
+                                    <img src={p.prog_icon} alt={p.title} loading="lazy" className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg object-cover shrink-0 border border-border bg-white" />
                                 ) : (
-                                    <div className="w-14 h-14 rounded-xl bg-card flex items-center justify-center shrink-0 border border-border shadow-sm">
+                                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-card flex items-center justify-center shrink-0 border border-border shadow-sm">
                                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground/50"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
                                     </div>
                                 )}
                                 
                                 <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2.5 mb-1.5">
+                                    <div className="flex items-center gap-2 flex-wrap mb-1">
                                         {emAndamento && (
-                                            <span className="shrink-0 text-[10px] font-bold text-sky-500 bg-sky-500/10 px-2.5 py-0.5 rounded-full tracking-wider uppercase">Passando</span>
+                                            <span className="shrink-0 text-[10px] font-bold text-sky-500 bg-sky-500/10 px-2 py-0.5 rounded-full tracking-wider uppercase">Passando</span>
                                         )}
-<span className="text-sm font-medium text-muted-foreground">
+                                        <span className="text-xs sm:text-sm font-medium text-muted-foreground">
                                             {formatHora(p.start)} – {formatHora(p.stop)}
                                         </span>
-                                        <span className="text-xs text-muted-foreground/60 ml-auto font-medium">{p.duracao_min} min</span>
+                                        <span className="text-[11px] sm:text-xs text-muted-foreground/60 ml-auto font-medium shrink-0">{p.duracao_min} min</span>
                                     </div>
                                     
-<div className={`text-base font-semibold truncate group-hover:text-sky-500 tracking-tight ${emAndamento ? 'text-sky-500' : 'text-foreground'}`}>
+                                    <div className={`text-sm sm:text-base font-semibold leading-snug line-clamp-2 group-hover:text-sky-500 tracking-tight ${emAndamento ? 'text-sky-500' : 'text-foreground'}`}>
                                         {p.title}
                                     </div>
 
@@ -427,10 +427,10 @@ function ModalDetalheCanal({canal, progsPorCanal, agoraMs, onProgSelect, onClose
                                     )}
 
                                     {p.desc && (
-                                        <div className="text-sm text-muted-foreground leading-relaxed line-clamp-2 mt-2">{p.desc}</div>
+                                        <div className="text-xs sm:text-sm text-muted-foreground leading-relaxed line-clamp-2 mt-2">{p.desc}</div>
                                     )}
                                 </div>
-                                <div className="shrink-0 flex items-center justify-center pt-1">
+                                <div className="shrink-0 hidden sm:flex items-center justify-center pt-1">
                                     <ChevronRight className="w-4 h-4 text-border group-hover:text-sky-500"/>
                                 </div>
                             </div>
