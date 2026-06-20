@@ -104,8 +104,8 @@ function isCategoriaPrincipal(cat: string, total: number): boolean {
 
 // ─── Helpers (Originais e Preservados) ──────────────────────────────────────────
 function nowBRT(): Date { return new Date(); }
-function formatHora(iso: string) { return new Date(iso).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}); }
-function formatDataHora(iso: string) { return new Date(iso).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}); }
+function formatHora(iso: string) { return new Date(iso).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",timeZone:"America/Sao_Paulo"}); }
+function formatDataHora(iso: string) { return new Date(iso).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit",timeZone:"America/Sao_Paulo"}); }
 function iniciais(nome: string) { return nome.split(" ").filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase(); }
 function normalizar(s: string): string { return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9\s]/g," ").replace(/\s+/g," ").trim(); }
 
@@ -695,7 +695,7 @@ function Poster({titulo,posterUrl,coverUrl,fill}:{titulo:string;posterUrl:string
   const src=(!err&&(posterUrl||coverUrl))||null;
   if(fill){
     if(!src) return <div className="w-full aspect-[2/3] rounded-lg flex flex-col items-center justify-center gap-2 border border-border bg-muted/40"><Film size={28} className="text-muted-foreground/60"/><span className="text-[10px] text-muted-foreground/60 text-center px-2 line-clamp-2 leading-snug">{titulo}</span></div>;
-    return <img src={src} alt={titulo} onError={()=>setErr(true)} className="w-full aspect-[2/3] rounded-lg object-cover border border-border shadow-sm bg-card"/>;
+    return <img src={src} alt={titulo} loading="lazy" onError={()=>setErr(true)} className="w-full aspect-[2/3] rounded-lg object-cover border border-border shadow-sm bg-card"/>;
   }
   if(!src) return <div className="rounded-lg flex flex-col items-center justify-center gap-2.5 shrink-0 border border-border bg-muted/40" style={{width:POSTER_W,height:POSTER_H}}><Film size={32} className="text-muted-foreground/60"/><span className="text-[10px] text-muted-foreground/60 text-center px-2 line-clamp-2 leading-snug">{titulo}</span></div>;
   return <img src={src} alt={titulo} onError={()=>setErr(true)} className="rounded-lg object-cover shrink-0 border border-border shadow-sm bg-card" style={{width:POSTER_W,height:POSTER_H}}/>;
@@ -1076,10 +1076,10 @@ function AbaCatalogo({tipo,servidorAdmin,modoCliente}:{tipo:TipoConteudo;servido
             const cor = srv==="TODOS" ? "var(--muted-foreground)" : (COR_SERVIDOR[srv as ServidorId]||"#94a3b8");
             const ativo = servidor===srv;
             return(
-              <button key={srv} onClick={()=>{setServidor(srv as ServidorId|"TODOS");setCatSelecionada(null);setSubCatSelecionada(null);setPage(1);setBusca("");setBuscaAtiva("");}}
-                className={`h-8 px-4 rounded-full font-bold text-xs border transition-all ${ativo ? 'bg-indigo-600 text-white shadow shadow-indigo-900/10' : 'bg-muted/40 border-border/80 text-muted-foreground hover:border-foreground/20 hover:text-foreground'}`}>
-                {srv}
-              </button>
+  <button key={srv} onClick={()=>{setServidor(srv as ServidorId|"TODOS");setCatSelecionada(null);setSubCatSelecionada(null);setPage(1);setBusca("");setBuscaAtiva("");setDetalhando(null);}}
+              className={`h-8 px-4 rounded-full font-bold text-xs border transition-all ${ativo ? 'bg-indigo-600 text-white shadow shadow-indigo-900/10' : 'bg-muted/40 border-border/80 text-muted-foreground hover:border-foreground/20 hover:text-foreground'}`}>
+              {srv}
+            </button>
             );
           })}
         </div>
@@ -1227,79 +1227,84 @@ function AbaCanais({epg,progsPorCanal}:{epg:EpgData;progsPorCanal:Map<string,Pro
   const catsDisponiveis=useMemo(()=>{const s=new Set(epg.canais.map(c=>c.categoria));return CATS_ORDEM.filter(c=>s.has(c));},[epg]);
   
   
+  // ✅ Lista de bloqueio movida para fora do useMemo de categoria — usada também na busca
+  const CANAIS_BLOQUEADOS = useMemo(() => new Set([
+    "bandhdb", 
+    "globo anhanguera", 
+    "record tv goiás", 
+    "recordtvalt", 
+    "recordtvbelem", 
+    "sbttvaratubahia", 
+    "idinvestigacaodiscovery", 
+    "gbrbsportoalegre", 
+    "tntsries", 
+    "jovenpannews", 
+    "gb", 
+    "gbbrasilia", 
+    "gbminas", 
+    "gbnordeste",
+    "gbnscflorianopolis",
+    "gbrpccuritiba",
+    "gbtvanhanguera",
+    "gbtvbahia",
+    "gbtvcentroamerica",
+    "gbtvgazetaalagoas",
+    "gbtvliberalbelem",
+    "gbtvredeamazonicaboavista",
+    "gbtvredeamazonicamacapa",
+    "gbtvredeamazonicariobranco",
+    "gbtvsergipe",
+    "gbtvverdesmares",
+    "intertvcabuginatal",
+    "intertvgrandeminas",
+    "nscblumenau",
+    "nscjoinville",
+    "playboy",
+    "sextreme",
+    "sexyhot",
+    "tcaction",
+    "tccult",
+    "tcfun",
+    "tcpipoca",
+    "tcpremium",
+    "tctouch",
+    "tvclubeteresina",
+    "tvgazetasules",
+    "tvmirantesaoluis",
+    "tvmorenacampogrande",
+    "tvriosul",
+    "tvtemsjriopreto",
+    "venus",
+    "eptvsuldeminas",
+    "eptv ribeirão preto",
+    "eptv campinas",
+    "usa"
+  ]), []);
+
+  function isCanalBloqueado(c: Canal): boolean {
+    const nomeNormalizado = (c.nome || "").toLowerCase().trim();
+    const displayNormalizado = (c.display_name || "").toLowerCase().trim();
+    const idNormalizado = (c.id || "").toLowerCase().trim();
+    return CANAIS_BLOQUEADOS.has(nomeNormalizado) ||
+           CANAIS_BLOQUEADOS.has(displayNormalizado) ||
+           CANAIS_BLOQUEADOS.has(idNormalizado);
+  }
+
+  // ✅ epg "limpo" sem os canais ocultados — usado tanto na grade quanto na busca
+  const epgVisivel = useMemo(() => ({
+    ...epg,
+    canais: epg.canais.filter(c => !isCanalBloqueado(c)),
+  }), [epg, CANAIS_BLOQUEADOS]);
+
   const canaisFiltrados = useMemo(() => {
-    // Lista de bloqueio em letras minúsculas para garantir a correspondência exata sem falhas de case
-    const bloqueados = [
-      "bandhdb", 
-      "globo anhanguera", 
-      "record tv goiás", 
-      "recordtvalt", 
-      "recordtvbelem", 
-      "sbttvaratubahia", 
-      "idinvestigacaodiscovery", 
-      "gbrbsportoalegre", 
-      "tntsries", 
-      "jovenpannews", 
-      "gb", 
-      "gbbrasilia", 
-      "gbminas", 
-      "gbnordeste",
-      "gbnscflorianopolis",
-      "gbrpccuritiba",
-      "gbtvanhanguera",
-      "gbtvbahia",
-      "gbtvcentroamerica",
-      "gbtvgazetaalagoas",
-      "gbtvliberalbelem",
-      "gbtvredeamazonicaboavista",
-      "gbtvredeamazonicamacapa",
-      "gbtvredeamazonicariobranco",
-      "gbtvsergipe",
-      "gbtvverdesmares",
-      "intertvcabuginatal",
-      "intertvgrandeminas",
-      "nscblumenau",
-      "nscjoinville",
-      "playboy",
-      "sextreme",
-      "sexyhot",
-      "tcaction",
-      "tccult",
-      "tcfun",
-      "tcpipoca",
-      "tcpremium",
-      "tctouch",
-      "tvclubeteresina",
-      "tvgazetasules",
-      "tvmirantesaoluis",
-      "tvmorenacampogrande",
-      "tvriosul",
-      "tvtemsjriopreto",
-      "venus",
-      "eptvsuldeminas",
-      "eptv ribeirão preto",
-      "eptv campinas",
-      "usa"
-    ];
-
-    // Inicia a lista já filtrando e removendo os canais indesejados
-    let lista = epg.canais.filter(c => {
-      const nomeNormalizado = (c.nome || "").toLowerCase().trim();
-      const displayNormalizado = (c.display_name || "").toLowerCase().trim();
-      const idNormalizado = (c.id || "").toLowerCase().trim();
-      
-      return !bloqueados.includes(nomeNormalizado) && 
-             !bloqueados.includes(displayNormalizado) && 
-             !bloqueados.includes(idNormalizado);
-    });
-
+    let lista = epgVisivel.canais;
     if (catAtiva !== "Todos") lista = lista.filter(c => c.categoria === catAtiva);
     if (subAtiva !== "Todos") {
       const sg = (SUBGRUPOS[catAtiva] || []).find(s => s.label === subAtiva);
       if (sg) lista = lista.filter(c => sg.match.some(m => c.display_name.toUpperCase().includes(m)));
     }
     return lista;
-  }, [epg, catAtiva, subAtiva]);
+  }, [epgVisivel, catAtiva, subAtiva]);
 
   const emBusca=buscaAtiva.trim().length>0;
   const subgruposDisponiveis=SUBGRUPOS[catAtiva]||[];
@@ -1368,7 +1373,7 @@ function AbaCanais({epg,progsPorCanal}:{epg:EpgData;progsPorCanal:Map<string,Pro
       </div>
       
       {emBusca ? (
-        <div className="flex-1 overflow-y-auto"><ResultadoBuscaEPG epg={epg} busca={buscaAtiva} progsPorCanal={progsPorCanal} onClear={()=>{setBusca("");setBuscaAtiva("");}}/></div>
+        <div className="flex-1 overflow-y-auto"><ResultadoBuscaEPG epg={epgVisivel} busca={buscaAtiva} progsPorCanal={progsPorCanal} onClear={()=>{setBusca("");setBuscaAtiva("");}}/></div>
       ) : canaisFiltrados.length===0 ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center p-12 text-muted-foreground italic text-sm py-28 bg-muted/20"><AlertTriangle size={28} className="text-muted-foreground/50"/>Nenhum canal encontrado para os filtros selecionados. Tente mudar a categoria ou limpar a busca.</div>
       ) : (
@@ -1494,14 +1499,13 @@ export default function GuiaTVView({ servidorFiltro, modoCliente }: GuiaTVViewPr
 
   // Lógica de progsPorCanal original preservada
   const progsPorCanal=useMemo(()=>{
-    if(!epg)return new Map<string,Programa[]>();
-    const map=new Map<string,Programa[]>();
-    const brtMs=Date.now()-3*3600000;
-    // Lógica original de janela de 6h passadas e 24h futuras
-    const ini=brtMs-6*3600000,fim=brtMs+24*3600000;
-    for(const p of epg.programas){const s=new Date(p.start).getTime(),e=new Date(p.stop).getTime();if(e<ini||s>fim)continue;const arr=map.get(p.channel_id)||[];arr.push(p);map.set(p.channel_id,arr);}
-    return map;
-  },[epg]);
+  if(!epg)return new Map<string,Programa[]>();
+  const map=new Map<string,Programa[]>();
+  const agoraMs=Date.now();
+  const ini=agoraMs-6*3600000,fim=agoraMs+24*3600000;
+  for(const p of epg.programas){const s=new Date(p.start).getTime(),e=new Date(p.stop).getTime();if(e<ini||s>fim)continue;const arr=map.get(p.channel_id)||[];arr.push(p);map.set(p.channel_id,arr);}
+  return map;
+},[epg]);
 
   // Lógica original de sync preservada, mas com Toasts adicionados
   async function handleSync(){
