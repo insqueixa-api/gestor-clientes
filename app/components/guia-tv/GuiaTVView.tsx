@@ -864,7 +864,10 @@ const backdrop=detalhe?.poster_tmdb_url||detalhe?.cover_url||"";
                       const caminho = modoCliente
                         ? disponibilidadeFiltrada[0]?.categoria_origem
                         : null;
-                      return caminho ? <>| {caminho}</> : null;
+                      if (!caminho) return null;
+                      // remove prefixo redundante tipo "FILMES:", "Séries:", "SERIES -" etc.
+                      const limpo = caminho.replace(/^(filmes?|s[eé]ries?)\s*[:\-–]\s*/i, "").trim();
+                      return <>{" | "}{limpo || caminho}</>;
                     })()}
                   </span>
                   {detalhe.ano&&<span className="text-sm font-medium text-muted-foreground">{detalhe.ano}</span>}
