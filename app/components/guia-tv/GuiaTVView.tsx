@@ -1409,6 +1409,101 @@ const checkQueuedToasts = (setToasts: React.Dispatch<React.SetStateAction<any[]>
   } catch {}
 };
 
+// ─── Modal de Dados de Uso (Acessos ao Guia TV por servidor) ─────────────────
+type UsageStatsServidor = { servidor: string; total: number; mes: number; semana: number; hoje: number };
+
+function ModalUsageStats({onClose}:{onClose:()=>void}) {
+  const [loading,setLoading]=useState(true);
+  const [erro,setErro]=useState<string|null>(null);
+  const [dados,setDados]=useState<UsageStatsServidor[]>([]);
+
+  useEffect(()=>{
+    fetch("/api/client-portal/guia-tv/access-stats")
+      .then(r=>r.json())
+      .then(d=>{
+        if(d.ok) setDados(d.data);
+        else setErro(d.error || "Erro ao carregar estatísticas.");
+      })
+      .catch(()=>setErro("Erro de conexão ao carregar estatísticas."))
+      .finally(()=>setLoading(false));
+  },[]);
+
+  const COR_FAIXA: Record<string,string> = { ELITE:"#6366f1", NATV:"#10b981", FAST:"#06b6d4", TODOS:"#94a3b8" };
+  const LABEL_FAIXA: Record<string,string> = { ELITE:"EliteTV", NATV:"NaTV", FAST:"FastTV", TODOS:"Todos" };
+
+  return (
+    <div className="fixed inset-0 z-[9990] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
+      <div
+        onClick={e=>e.stopPropagation()}
+        className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[85vh] flex flex-col animate-in fade-in-0 zoom-in-95 duration-300"
+      >
+        <div className="flex items-center justify-between p-5 border-b border-border shrink-0 bg-card">
+          <div>
+            <div className="text-lg font-bold text-foreground flex items-center gap-2.5">
+              <Database size={18} className="text-violet-500"/> Dados de Uso
+            </div>
+            <div className="text-xs text-muted-foreground/90 mt-1.5 leading-relaxed">
+              Acessos de clientes ao Guia TV, por servidor.
+            </div>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-rose-500 transition-colors p-1 rounded-full hover:bg-rose-500/10">
+            <X size={20}/>
+          </button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 p-5 space-y-3 bg-muted/20">
+          {loading && (
+            <div className="text-center py-16 text-muted-foreground animate-pulse flex flex-col items-center gap-3">
+              <RefreshCw size={22} className="animate-spin text-muted-foreground/60"/>
+              Carregando estatísticas...
+            </div>
+          )}
+          {!loading && erro && (
+            <div className="text-center py-16 text-rose-500 text-sm font-medium">{erro}</div>
+          )}
+          {!loading && !erro && dados.length===0 && (
+            <div className="text-center py-16 text-muted-foreground text-sm italic">
+              Nenhum acesso registrado ainda.
+            </div>
+          )}
+          {!loading && !erro && dados.map(d=>{
+            const cor = COR_FAIXA[d.servidor] || "#94a3b8";
+            const label = LABEL_FAIXA[d.servidor] || d.servidor;
+            return (
+              <div key={d.servidor} className="p-4 rounded-xl border border-border bg-card">
+                <div className="flex items-center gap-2.5 mb-3">
+                  <div className="w-2.5 h-2.5 rounded-full" style={{background:cor}}/>
+                  <span className="text-sm font-bold text-foreground tracking-tight">{label}</span>
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    {label:"Total", valor:d.total},
+                    {label:"Mês", valor:d.mes},
+                    {label:"Semana", valor:d.semana},
+                    {label:"Hoje", valor:d.hoje},
+                  ].map(item=>(
+                    <div key={item.label} className="text-center p-2 rounded-lg bg-muted/40 border border-border/60">
+                      <div className="text-base font-bold text-foreground tabular-nums">{item.valor.toLocaleString()}</div>
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">{item.label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="p-4 border-t border-border shrink-0 bg-muted/40">
+          <div className="text-[11px] text-muted-foreground flex items-center justify-center gap-2 leading-relaxed">
+            <RefreshCw size={10} className="text-muted-foreground/60"/> Seu próprio acesso como admin não é contabilizado.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 // Configuração original preservada
 export default function GuiaTVView({ servidorFiltro, modoCliente }: GuiaTVViewProps) {
   const SERVIDOR_ADMIN = servidorFiltro ?? "TODOS";
@@ -1417,8 +1512,9 @@ export default function GuiaTVView({ servidorFiltro, modoCliente }: GuiaTVViewPr
   const [epg,setEpg]=useState<EpgData|null>(null);
   const [loadingEpg,setLoadingEpg]=useState(true);
   const [erroEpg,setErroEpg]=useState<string|null>(null);
-  const [syncing,setSyncing]=useState(false);
+const [syncing,setSyncing]=useState(false);
   const [showCatalogo,setShowCatalogo]=useState(false);
+  const [showUsageStats,setShowUsageStats]=useState(false);
 
   // ✅ Controle do Dropdown Sincronizar na Top Bar
   const [syncOpen, setSyncOpen] = useState(false);
@@ -1570,6 +1666,14 @@ export default function GuiaTVView({ servidorFiltro, modoCliente }: GuiaTVViewPr
                   </div>
                   {syncing ? "Sincronizando EPG..." : "Sincronizar Grade EPG"}
                 </button>
+                <div className="w-full h-px bg-border my-1"></div>
+                <button onClick={() => { setShowUsageStats(true); setSyncOpen(false); }}
+                  className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                  <div className="w-8 h-8 rounded-full bg-violet-500/10 flex items-center justify-center shrink-0">
+                    <Database size={15} className="text-violet-500" />
+                  </div>
+                  Dados de Uso
+                </button>
               </div>
             )}
           </div>
@@ -1587,7 +1691,8 @@ export default function GuiaTVView({ servidorFiltro, modoCliente }: GuiaTVViewPr
       {tab==="filmes"&&<AbaCatalogo tipo="FILME" servidorAdmin={SERVIDOR_ADMIN} modoCliente={modoCliente}/>}
 {tab==="series"&&<AbaCatalogo tipo="SERIE" servidorAdmin={SERVIDOR_ADMIN} modoCliente={modoCliente}/>}
 
-      {showCatalogo&&<ModalCatalogo onClose={()=>setShowCatalogo(false)}/>}
+{showCatalogo&&<ModalCatalogo onClose={()=>setShowCatalogo(false)}/>}
+      {showUsageStats&&<ModalUsageStats onClose={()=>setShowUsageStats(false)}/>}
       
       {/* Estilos originais preservados */}
       <style>{`

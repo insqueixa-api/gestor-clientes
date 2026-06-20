@@ -96,15 +96,31 @@ export async function POST(req: NextRequest) {
     // ── 2. Baixa o M3U ────────────────────────────────────────────────────────
     console.log(`[CATALOG-NATV] Baixando M3U...`);
     let m3uText = "";
-    try {
-      const resp = await fetch(m3uUrl, {
-        signal:  AbortSignal.timeout(55_000),
-        headers: { "User-Agent": "IPTVSmartersPro", "Accept": "*/*" },
-      });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      m3uText = await resp.text();
-    } catch (e: any) {
-      log.erro = `Falha ao baixar M3U: ${e.message}`;
+    const MAX_TENTATIVAS = 3;
+    let ultimoErro: any = null;
+
+    for (let tentativa = 1; tentativa <= MAX_TENTATIVAS; tentativa++) {
+      try {
+        console.log(`[CATALOG-NATV] Tentativa ${tentativa}/${MAX_TENTATIVAS}...`);
+        const resp = await fetch(m3uUrl, {
+          signal:  AbortSignal.timeout(180_000),
+          headers: { "User-Agent": "IPTVSmartersPro", "Accept": "*/*" },
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        m3uText = await resp.text();
+        ultimoErro = null;
+        break; // sucesso, sai do loop
+      } catch (e: any) {
+        ultimoErro = e;
+        console.warn(`[CATALOG-NATV] Tentativa ${tentativa} falhou: ${e.message}`);
+        if (tentativa < MAX_TENTATIVAS) {
+          await new Promise(r => setTimeout(r, 5_000)); // espera 5s antes de tentar de novo
+        }
+      }
+    }
+
+    if (ultimoErro) {
+      log.erro = `Falha ao baixar M3U após ${MAX_TENTATIVAS} tentativas: ${ultimoErro.message}`;
       await salvarLog(log);
       return NextResponse.json({ error: log.erro }, { status: 502 });
     }
