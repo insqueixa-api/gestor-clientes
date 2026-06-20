@@ -850,15 +850,23 @@ const backdrop=detalhe?.poster_tmdb_url||detalhe?.cover_url||"";
         onClick={e=>e.stopPropagation()} 
         className="bg-card border border-border w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col animate-in fade-in-0 zoom-in-95 duration-300"
       >
-        <div className="relative h-60 flex-shrink-0 bg-muted/30">
-          {backdrop&&<><img src={backdrop} alt="" className="w-full h-full object-cover opacity-50"/><div className="absolute inset-0 bg-gradient-to-t from-card via-card/30 to-transparent"/></>}
-          <button onClick={onClose} className="absolute top-4 right-4 bg-card/60 text-muted-foreground hover:text-rose-500 rounded-full p-2 hover:bg-rose-500/10 transition-colors z-10"><X size={20}/></button>
+        <div className="relative min-h-[200px] flex-shrink-0 bg-muted/30">
+          {backdrop&&<><img src={backdrop} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40"/><div className="absolute inset-0 bg-gradient-to-t from-card via-card/70 to-card/20"/></>}
+          <button onClick={onClose} className="absolute top-4 right-4 bg-card/80 text-muted-foreground hover:text-rose-500 rounded-full p-2 hover:bg-rose-500/10 transition-colors z-10"><X size={20}/></button>
           {!loading&&detalhe&&(
-            <div className="absolute bottom-0 left-0 right-0 p-6 flex gap-6 items-end">
+            <div className="relative p-5 sm:p-6 flex gap-4 sm:gap-6 items-end pt-16">
               <Poster titulo={detalhe.titulo_normalizado} posterUrl={detalhe.poster_tmdb_url} coverUrl={detalhe.cover_url}/>
-<div className="flex-1 min-w-0 pb-1">
-                <div className="flex items-center gap-2.5 mb-2.5 flex-wrap">
-                  <span className={`text-[10px] font-bold text-white px-2.5 py-0.5 rounded-full uppercase tracking-wide ${detalhe.tipo==="FILME"?"bg-amber-600":"bg-sky-600"}`}>{detalhe.tipo==="FILME"?"Filme":"Série"}</span>
+              <div className="flex-1 min-w-0 pb-1">
+                <div className="flex items-center gap-2 mb-2.5 flex-wrap">
+                  <span className={`text-[10px] sm:text-[11px] font-bold text-white px-2.5 py-1 rounded-full uppercase tracking-wide inline-flex items-center gap-1.5 ${detalhe.tipo==="FILME"?"bg-amber-600":"bg-sky-600"}`}>
+                    {detalhe.tipo==="FILME"?"Filme":"Série"}
+                    {(() => {
+                      const caminho = modoCliente
+                        ? disponibilidadeFiltrada[0]?.categoria_origem
+                        : null;
+                      return caminho ? <>| {caminho}</> : null;
+                    })()}
+                  </span>
                   {detalhe.ano&&<span className="text-sm font-medium text-muted-foreground">{detalhe.ano}</span>}
                   {detalhe.avaliacao&&<span className="text-sm text-amber-500 flex items-center gap-1.5 font-semibold"><Star size={14} className="fill-amber-500"/>{detalhe.avaliacao.toFixed(1)}</span>}
                   {!modoCliente && (detalhe.tmdb_confirmado
@@ -866,12 +874,7 @@ const backdrop=detalhe?.poster_tmdb_url||detalhe?.cover_url||"";
                     :<span className="text-xs font-medium text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/30">Falta TMDB</span>
                   )}
                 </div>
-                {modoCliente && disponibilidadeFiltrada.length>0 && (
-                  <div className="text-xs text-muted-foreground/80 mb-1.5">
-                    Disponível em: <span className="text-foreground/80">{disponibilidadeFiltrada.map(d=>d.categoria_origem).join(", ")}</span>
-                  </div>
-                )}
-                <div className="text-2xl font-extrabold text-foreground leading-tight tracking-tight whitespace-normal">{detalhe.titulo_normalizado}</div>
+                <div className="text-base sm:text-2xl font-extrabold text-foreground leading-tight tracking-tight whitespace-normal line-clamp-3">{detalhe.titulo_normalizado}</div>
               </div>
             </div>
           )}
@@ -944,7 +947,7 @@ const backdrop=detalhe?.poster_tmdb_url||detalhe?.cover_url||"";
                 </div>
               )}
 
-              {detalhe.sinopse&&<div className="bg-muted/20 p-5 rounded-xl border border-border"><div className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-3.5">Sinopse</div><div className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">{detalhe.sinopse}</div></div>}
+              {detalhe.sinopse&&<div className="bg-muted/20 p-5 rounded-xl border border-border"><div className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-3.5">Sinopse</div><div className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto pr-1">{detalhe.sinopse}</div></div>}
               
 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-1">
                 {!modoCliente && detalhe.disponibilidade.length>0&&(
