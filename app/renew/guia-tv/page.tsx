@@ -14,15 +14,6 @@ const SERVIDOR_MAP: Record<string, ServidorFiltro> = {
   TODOS: "TODOS",
 };
 
-function getStoredSession(): string {
-  if (typeof window === "undefined") return "";
-  try {
-    return window.sessionStorage.getItem("cp_session") || "";
-  } catch {
-    return "";
-  }
-}
-
 function GuiaTVCliente() {
   const sp = useSearchParams();
   const raw = (sp.get("servidor") ?? "").toUpperCase();
@@ -34,13 +25,10 @@ function GuiaTVCliente() {
     if (logged.current) return;
     logged.current = true;
 
-    const sessionToken = getStoredSession();
-    if (!sessionToken) return; // sem sessão salva, não há o que logar com segurança
-
     fetch("/api/client-portal/guia-tv/log-access", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session_token: sessionToken, servidor: servidorFiltro }),
+      body: JSON.stringify({ servidor: servidorFiltro }),
       cache: "no-store",
     }).catch(() => {}); // falha de log nunca deve incomodar o cliente
   }, [servidorFiltro]);
