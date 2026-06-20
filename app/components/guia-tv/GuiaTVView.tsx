@@ -1417,8 +1417,10 @@ function ModalUsageStats({onClose}:{onClose:()=>void}) {
   const [erro,setErro]=useState<string|null>(null);
   const [dados,setDados]=useState<UsageStatsServidor[]>([]);
 
-  useEffect(()=>{
-    fetch("/api/client-portal/guia-tv/access-stats")
+  function carregar() {
+    setLoading(true);
+    setErro(null);
+    fetch("/api/client-portal/guia-tv/access-stats", { cache: "no-store" })
       .then(r=>r.json())
       .then(d=>{
         if(d.ok) setDados(d.data);
@@ -1426,6 +1428,10 @@ function ModalUsageStats({onClose}:{onClose:()=>void}) {
       })
       .catch(()=>setErro("Erro de conexão ao carregar estatísticas."))
       .finally(()=>setLoading(false));
+  }
+
+  useEffect(()=>{
+    carregar();
   },[]);
 
   const COR_FAIXA: Record<string,string> = { ELITE:"#6366f1", NATV:"#10b981", FAST:"#06b6d4", TODOS:"#94a3b8" };
@@ -1446,9 +1452,14 @@ function ModalUsageStats({onClose}:{onClose:()=>void}) {
               Acessos de clientes ao Guia TV, por servidor.
             </div>
           </div>
-          <button onClick={onClose} className="text-muted-foreground hover:text-rose-500 transition-colors p-1 rounded-full hover:bg-rose-500/10">
-            <X size={20}/>
-          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            <button onClick={carregar} disabled={loading} className="text-muted-foreground hover:text-violet-500 transition-colors p-1.5 rounded-full hover:bg-violet-500/10 disabled:opacity-50 disabled:cursor-wait">
+              <RefreshCw size={18} className={loading ? "animate-spin" : ""}/>
+            </button>
+            <button onClick={onClose} className="text-muted-foreground hover:text-rose-500 transition-colors p-1 rounded-full hover:bg-rose-500/10">
+              <X size={20}/>
+            </button>
+          </div>
         </div>
 
         <div className="overflow-y-auto flex-1 p-5 space-y-3 bg-muted/20">
