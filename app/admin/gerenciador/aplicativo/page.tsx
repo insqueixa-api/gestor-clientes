@@ -57,6 +57,9 @@ const ALL_FIELD_TYPES: AppFieldType[] = [
   "obs",
 ];
 
+type CostType = "free" | "paid" | "partnership";
+type LicensePeriod = "annual" | "lifetime";
+
 type AppData = {
   id: string;
   tenant_id: string;
@@ -67,6 +70,15 @@ type AppData = {
   is_active: boolean;
   fields_config: AppField[];
   integration_type?: string | null;
+  cost_type?: CostType | null;
+  partner_server_id?: string | null;
+  license_price?: number | null;
+  license_period?: LicensePeriod | null;
+};
+
+type ServerOption = {
+  id: string;
+  name: string;
 };
 
 // --- COMPONENTES UI ---
@@ -114,11 +126,12 @@ function normalizeApiUrl(url: string) {
 }
 
 export default function AppManagerPage() {
-  const [apps, setApps] = useState<AppData[]>([]);
+const [apps, setApps] = useState<AppData[]>([]);
   const [myTenantId, setMyTenantId] = useState<string | null>(null);
   const [configuredIntegrations, setConfiguredIntegrations] = useState<
     { name: string; url: string }[]
   >([]);
+  const [servers, setServers] = useState<ServerOption[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -167,6 +180,10 @@ export default function AppManagerPage() {
   const dragIndexRef = useRef<number | null>(null);
   const [formIconUrl, setFormIconUrl] = useState<string>("");
   const [uploadingIcon, setUploadingIcon] = useState(false);
+  const [formCostType, setFormCostType] = useState<CostType | "">("");
+  const [formPartnerServerId, setFormPartnerServerId] = useState<string>("");
+  const [formLicensePrice, setFormLicensePrice] = useState<string>("");
+  const [formLicensePeriod, setFormLicensePeriod] = useState<LicensePeriod | "">("");
 
   async function handleIconUpload(file: File) {
     if (!file.type.startsWith("image/")) {
@@ -241,7 +258,7 @@ export default function AppManagerPage() {
       if (!tid) return;
       setMyTenantId(tid);
 
-      const [appsRes, integrationsRes] = await Promise.all([
+const [appsRes, integrationsRes, serversRes] = await Promise.all([
         supabaseBrowser
           .from("apps")
           .select("*")
@@ -252,10 +269,16 @@ export default function AppManagerPage() {
           .select("app_name, api_url")
           .eq("tenant_id", tid)
           .eq("is_active", true),
+        supabaseBrowser
+          .from("servers")
+          .select("id, name")
+          .eq("tenant_id", tid)
+          .order("name", { ascending: true }),
       ]);
 
       if (appsRes.error) throw appsRes.error;
       if (integrationsRes.error) throw integrationsRes.error;
+      if (serversRes.error) throw serversRes.error;
 
       const formattedApps = (appsRes.data || [])
         .map((app) => ({
@@ -268,13 +291,14 @@ export default function AppManagerPage() {
           a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }),
         );
 
-      setApps(formattedApps);
+setApps(formattedApps);
       setConfiguredIntegrations(
         integrationsRes.data?.map((i) => ({
           name: i.app_name,
           url: i.api_url || "",
         })) || [],
       );
+      setServers(serversRes.data || []);
     } catch (error: any) {
       addToast("error", "Erro ao carregar dados", error.message);
     } finally {
@@ -349,6 +373,10 @@ export default function AppManagerPage() {
     setFormFields([]);
     setFormIntegration("");
     setFormIconUrl("");
+    setFormCostType("");
+    setFormPartnerServerId("");
+    setFormLicensePrice("");
+    setFormLicensePeriod("");
     setIsModalOpen(true);
   }
 
@@ -359,6 +387,10 @@ export default function AppManagerPage() {
     setFormFields(JSON.parse(JSON.stringify(app.fields_config)));
     setFormIntegration(app.integration_type || "");
     setFormIconUrl(app.icon_url || "");
+    setFormCostType((app.cost_type as CostType) || "");
+    setFormPartnerServerId(app.partner_server_id || "");
+    setFormLicensePrice(app.license_price != null ? String(app.license_price) : "");
+    setFormLicensePeriod((app.license_period as LicensePeriod) || "");
     setIsModalOpen(true);
   }
 
@@ -379,6 +411,15 @@ export default function AppManagerPage() {
       return;
     }
 
+    if (formCostType === "partnership" && !formPartnerServerId) {
+      addToast(
+        "error",
+        "Servidor obrigatório",
+        "Selecione o servidor parceiro para este aplicativo.",
+      );
+      return;
+    }
+
     setSaving(true);
     try {
       const tid = await getCurrentTenantId();
@@ -392,6 +433,8 @@ export default function AppManagerPage() {
       }
 
       const safeUrl = normalizeApiUrl(formUrl);
+      const isPaid = formCostType === "paid";
+      const isPartnership = formCostType === "partnership";
 
       const insertPayload = {
         tenant_id: tid,
@@ -400,6 +443,10 @@ export default function AppManagerPage() {
         icon_url: formIconUrl || null,
         fields_config: formFields,
         integration_type: formIntegration || null,
+        cost_type: formCostType || null,
+        partner_server_id: isPartnership ? formPartnerServerId : null,
+        license_price: isPaid && formLicensePrice ? Number(formLicensePrice) : null,
+        license_period: isPaid && formLicensePeriod ? formLicensePeriod : null,
       };
 
       if (editingId) {
@@ -409,6 +456,10 @@ export default function AppManagerPage() {
           icon_url: formIconUrl || null,
           fields_config: formFields,
           integration_type: formIntegration || null,
+          cost_type: formCostType || null,
+          partner_server_id: isPartnership ? formPartnerServerId : null,
+          license_price: isPaid && formLicensePrice ? Number(formLicensePrice) : null,
+          license_period: isPaid && formLicensePeriod ? formLicensePeriod : null,
         };
         const { error } = await supabaseBrowser
           .from("apps")
@@ -472,6 +523,11 @@ export default function AppManagerPage() {
   }
 
   function renderAppCard(app: AppData) {
+    const partnerServerName = app.partner_server_id
+      ? servers.find((s) => s.id === app.partner_server_id)?.name || "Servidor"
+      : "";
+    const licensePeriodLabel =
+      app.license_period === "annual" ? "/ano" : app.license_period === "lifetime" ? " vitalícia" : "";
     const needsConfiguration =
       app.integration_type &&
       !configuredIntegrations.some((i) => i.name === app.integration_type);
@@ -532,6 +588,27 @@ export default function AppManagerPage() {
                   {needsConfiguration
                     ? `${appLabel} - Configurar API`
                     : `${appLabel} - Integrado`}
+                </span>
+              )}
+
+              {app.cost_type === "free" && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-sky-500/10 text-sky-500 border border-sky-500/20">
+                  🆓 Gratuito
+                </span>
+              )}
+
+              {app.cost_type === "partnership" && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-violet-500/10 text-violet-500 border border-violet-500/20">
+                  🤝 Parceria: {partnerServerName}
+                </span>
+              )}
+
+              {app.cost_type === "paid" && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                  💰{" "}
+                  {app.license_price
+                    ? `R$ ${Number(app.license_price).toFixed(2).replace(".", ",")}${licensePeriodLabel}`
+                    : "Pago"}
                 </span>
               )}
             </div>
@@ -885,6 +962,72 @@ export default function AppManagerPage() {
                     </p>
                   </div>
                 )}
+
+              {/* CUSTO E PARCERIA */}
+              <div className="bg-transparent border border-border rounded-xl p-4 space-y-4">
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Custo e Parceria
+                </h3>
+
+                <div>
+                  <Label>Tipo</Label>
+                  <Select
+                    value={formCostType}
+                    onChange={(e) => setFormCostType(e.target.value as CostType | "")}
+                  >
+                    <option value="">Não definido</option>
+                    <option value="free">Gratuito (universal)</option>
+                    <option value="paid">Pago (licença à parte)</option>
+                    <option value="partnership">Parceria com servidor</option>
+                  </Select>
+                </div>
+
+                {formCostType === "partnership" && (
+                  <div>
+                    <Label>Servidor parceiro</Label>
+                    <Select
+                      value={formPartnerServerId}
+                      onChange={(e) => setFormPartnerServerId(e.target.value)}
+                    >
+                      <option value="">Selecione o servidor...</option>
+                      {servers.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </Select>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Este app é exclusivo/gratuito para clientes deste servidor.
+                    </p>
+                  </div>
+                )}
+
+                {formCostType === "paid" && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Valor da licença (R$)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="Ex: 30.00"
+                        value={formLicensePrice}
+                        onChange={(e) => setFormLicensePrice(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label>Período da licença</Label>
+                      <Select
+                        value={formLicensePeriod}
+                        onChange={(e) => setFormLicensePeriod(e.target.value as LicensePeriod | "")}
+                      >
+                        <option value="">Não definido</option>
+                        <option value="annual">Anual</option>
+                        <option value="lifetime">Vitalícia (paga uma vez)</option>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* CONSTRUTOR DE CAMPOS */}
               <div className="bg-transparent border border-border rounded-xl p-4 space-y-3">
