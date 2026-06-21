@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Loader2, RefreshCcw, Plug, Ban, CheckCircle2,
-  Power, RotateCw, Wrench, X,
+  Power, RotateCw, Wrench, X, ChevronDown, ChevronRight,
 } from "lucide-react";
 import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
 import { useConfirm } from "@/app/admin/HookuseConfirm";
@@ -54,8 +54,10 @@ function WhatsAppSessionCard({
   const [rejectMessage, setRejectMessage] = useState(
     "{saudacao}! 😊\nNo momento não estou recebendo ligações. Por favor, envie mensagem e aguarde retorno."
   );
-  const [editingMessage, setEditingMessage] = useState(false);
+const [editingMessage, setEditingMessage] = useState(false);
   const [draftMessage, setDraftMessage] = useState("");
+  const [showAllowedSection, setShowAllowedSection] = useState(false);
+  const [showMessageSection, setShowMessageSection] = useState(false);
 const [allowedList, setAllowedList] = useState<AllowedRow[]>([]);
   const [savedAllowedNumbers, setSavedAllowedNumbers] = useState<string[]>([]);
   const [savingConfig, setSavingConfig] = useState(false);
@@ -102,6 +104,8 @@ const [allowedList, setAllowedList] = useState<AllowedRow[]>([]);
         setQrDataUrl(null);
         await fetchProfile();
         await fetchConfig();
+        setShowAllowedSection(false);
+        setShowMessageSection(false);
         if (showLoading) addToast("success", "Sincronizado");
         return;
       }
@@ -302,104 +306,128 @@ if (res.ok) {
 
               {rejectCalls && (
                 <>
-                  {/* Lista branca — container único, 5 visíveis, scroll no resto */}
+                  {/* Lista branca — colapsável, fecha de novo a cada refresh */}
                   <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-[10px] font-medium text-muted-foreground uppercase">Números Permitidos</label>
-                      <button
-                        onClick={() =>
-                          setAllowedList([{ id: Math.random().toString(36).slice(2), name: "", raw: "", loading: false, exists: null }, ...allowedList])
-                        }
-                        className="text-[10px] font-medium text-emerald-500 hover:underline"
-                      >
-                        + Adicionar
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => setShowAllowedSection((v) => !v)}
+                      className="w-full flex items-center justify-between mb-1.5 group"
+                    >
+                      <span className="flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground uppercase group-hover:text-foreground transition-colors">
+                        {showAllowedSection ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                        Números Permitidos
+                        <span className="text-muted-foreground/60 normal-case font-normal">({allowedList.length})</span>
+                      </span>
+                    </button>
 
-                    {allowedList.length === 0 ? (
-                      <div className="text-xs text-center text-muted-foreground py-3 bg-transparent rounded-xl border border-dashed border-border">
-                        Nenhum número liberado.
-                      </div>
-                    ) : (
-                      <div className="border border-border rounded-xl divide-y divide-border overflow-y-auto" style={{ maxHeight: "230px" }}>
-                        {allowedList.map((row) => (
-                          <div key={row.id} className="flex items-center gap-2 px-3 py-2">
-                            <input
-                              value={row.name}
-                              onChange={(e) => setAllowedList((p) => p.map((r) => (r.id === row.id ? { ...r, name: e.target.value } : r)))}
-                              placeholder="Nome"
-                              className="w-1/3 h-7 px-1 text-xs bg-transparent outline-none"
-                            />
-                            <input
-                              value={row.raw}
-                              onChange={(e) => setAllowedList((p) => p.map((r) => (r.id === row.id ? { ...r, raw: e.target.value } : r)))}
-                              onBlur={() => validateRow(row.id, row.raw)}
-                              placeholder="Número com DDI"
-                              className="flex-1 h-7 px-1 text-xs font-mono bg-transparent outline-none"
-                            />
-                            <button
-                              onClick={() => setAllowedList((p) => p.filter((r) => r.id !== row.id))}
-                              className="text-rose-500 text-[11px] font-medium shrink-0 hover:underline"
-                            >
-                              ✕ Remover
-                            </button>
+                    {showAllowedSection && (
+                      <>
+                        <div className="flex justify-end mb-1.5">
+                          <button
+                            onClick={() =>
+                              setAllowedList([{ id: Math.random().toString(36).slice(2), name: "", raw: "", loading: false, exists: null }, ...allowedList])
+                            }
+                            className="text-[10px] font-medium text-emerald-500 hover:underline"
+                          >
+                            + Adicionar
+                          </button>
+                        </div>
+
+                        {allowedList.length === 0 ? (
+                          <div className="text-xs text-center text-muted-foreground py-3 bg-transparent rounded-xl border border-dashed border-border">
+                            Nenhum número liberado.
                           </div>
-                        ))}
-                      </div>
-                    )}
+                        ) : (
+                          <div className="border border-border rounded-xl divide-y divide-border overflow-y-auto" style={{ maxHeight: "230px" }}>
+                            {allowedList.map((row) => (
+                              <div key={row.id} className="flex items-center gap-2 px-3 py-2">
+                                <input
+                                  value={row.name}
+                                  onChange={(e) => setAllowedList((p) => p.map((r) => (r.id === row.id ? { ...r, name: e.target.value } : r)))}
+                                  placeholder="Nome"
+                                  className="w-1/3 h-7 px-1 text-xs bg-transparent outline-none"
+                                />
+                                <input
+                                  value={row.raw}
+                                  onChange={(e) => setAllowedList((p) => p.map((r) => (r.id === row.id ? { ...r, raw: e.target.value } : r)))}
+                                  onBlur={() => validateRow(row.id, row.raw)}
+                                  placeholder="Número com DDI"
+                                  className="flex-1 h-7 px-1 text-xs font-mono bg-transparent outline-none"
+                                />
+                                <button
+                                  onClick={() => setAllowedList((p) => p.filter((r) => r.id !== row.id))}
+                                  className="text-rose-500 text-[11px] font-medium shrink-0 hover:underline"
+                                >
+                                  ✕ Remover
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
 
-                    {isListDirty && (
-                      <button
-                        onClick={() => void saveConfig()}
-                        disabled={savingConfig}
-                        className="w-full mt-2 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold shadow-sm"
-                      >
-                        {savingConfig ? "Salvando..." : "💾 Salvar Lista"}
-                      </button>
+                        {isListDirty && (
+                          <button
+                            onClick={() => void saveConfig()}
+                            disabled={savingConfig}
+                            className="w-full mt-2 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold shadow-sm"
+                          >
+                            {savingConfig ? "Salvando..." : "💾 Salvar Lista"}
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
 
-                  {/* Mensagem de resposta — clique para editar */}
+                  {/* Mensagem de resposta — colapsável, clique para editar */}
                   <div>
-                    <label className="block text-[10px] font-medium text-muted-foreground uppercase mb-1.5">Mensagem de Resposta</label>
-                    {!editingMessage ? (
-                      <div
-                        onClick={startEditMessage}
-                        className="px-3 py-2 text-xs bg-transparent border border-dashed border-border rounded-xl text-foreground/80 cursor-pointer hover:border-emerald-500/50 whitespace-pre-wrap"
-                        title="Clique para editar"
-                      >
-                        {rejectMessage || "Clique para definir a mensagem..."}
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <div className="flex flex-wrap gap-1">
-                          {["{saudacao}", "{hora}", "{data}"].map((tag) => (
-                            <button
-                              key={tag}
-                              onClick={() => setDraftMessage((v) => v + tag)}
-                              className="text-[10px] px-2 py-0.5 rounded border border-border bg-muted hover:bg-emerald-500/10 text-muted-foreground"
-                            >
-                              {tag}
+                    <button
+                      onClick={() => setShowMessageSection((v) => !v)}
+                      className="w-full flex items-center justify-between mb-1.5 group"
+                    >
+                      <span className="flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground uppercase group-hover:text-foreground transition-colors">
+                        {showMessageSection ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                        Mensagem de Resposta
+                      </span>
+                    </button>
+
+                    {showMessageSection &&
+                      (!editingMessage ? (
+                        <div
+                          onClick={startEditMessage}
+                          className="px-3 py-2 text-xs bg-transparent border border-dashed border-border rounded-xl text-foreground/80 cursor-pointer hover:border-emerald-500/50 whitespace-pre-wrap"
+                          title="Clique para editar"
+                        >
+                          {rejectMessage || "Clique para definir a mensagem..."}
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap gap-1">
+                            {["{saudacao}", "{hora}", "{data}"].map((tag) => (
+                              <button
+                                key={tag}
+                                onClick={() => setDraftMessage((v) => v + tag)}
+                                className="text-[10px] px-2 py-0.5 rounded border border-border bg-muted hover:bg-emerald-500/10 text-muted-foreground"
+                              >
+                                {tag}
+                              </button>
+                            ))}
+                          </div>
+                          <textarea
+                            value={draftMessage}
+                            onChange={(e) => setDraftMessage(e.target.value)}
+                            rows={3}
+                            autoFocus
+                            className="w-full px-3 py-2 text-xs bg-card border border-emerald-500/50 rounded-xl outline-none resize-none"
+                          />
+                          <div className="flex gap-2">
+                            <button onClick={() => setEditingMessage(false)} className="flex-1 py-1.5 rounded-lg border border-border text-[10px] font-medium text-muted-foreground">
+                              Cancelar
                             </button>
-                          ))}
+                            <button onClick={() => void confirmEditMessage()} disabled={savingConfig} className="flex-1 py-1.5 rounded-lg bg-emerald-600 text-white text-[10px] font-bold">
+                              {savingConfig ? "Salvando..." : "✓ Salvar"}
+                            </button>
+                          </div>
                         </div>
-                        <textarea
-                          value={draftMessage}
-                          onChange={(e) => setDraftMessage(e.target.value)}
-                          rows={3}
-                          autoFocus
-                          className="w-full px-3 py-2 text-xs bg-card border border-emerald-500/50 rounded-xl outline-none resize-none"
-                        />
-                        <div className="flex gap-2">
-                          <button onClick={() => setEditingMessage(false)} className="flex-1 py-1.5 rounded-lg border border-border text-[10px] font-medium text-muted-foreground">
-                            Cancelar
-                          </button>
-                          <button onClick={() => void confirmEditMessage()} disabled={savingConfig} className="flex-1 py-1.5 rounded-lg bg-emerald-600 text-white text-[10px] font-bold">
-                            {savingConfig ? "Salvando..." : "✓ Salvar"}
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                      ))}
                   </div>
                 </>
               )}
