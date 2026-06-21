@@ -161,6 +161,7 @@ const TAG_GROUPS = [
       { label: "{pin_cliente}", desc: "PIN da Área do Cliente (4 dígitos)" },
       { label: "{valor_fatura}", desc: "Valor da renovação" },
       { label: "{moeda_cliente}", desc: "BRL/USD/EUR" },
+      { label: "{pix_copia_cola}", desc: "Código PIX copia-e-cola automático (gateway online)" },
 
       // ✅ PIX Manual
       { label: "{pix_manual_cnpj}", desc: "Chave PIX (tipo CNPJ)" },
