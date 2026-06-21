@@ -19,6 +19,7 @@ import {
   Server,
   Layers,
   MessageSquare,
+  MessageCircle,
   Receipt,
   CreditCard,
   Smartphone,
@@ -209,7 +210,7 @@ export default function AdminShell({
           id: "whatsapp_disconnected",
           title: "📵 WhatsApp Desconectado",
           message: "Reconecte para retomar o envio de mensagens.",
-          link: "/admin/settings/profile",
+          link: "/admin/settings/whatsapp",
           type: "whatsapp",
           is_read: false,
           created_at: nowIso,
@@ -990,6 +991,15 @@ export default function AdminShell({
               onClick={() => setOpenMenu(null)}
             />
             <MenuLink
+              href="/admin/settings/whatsapp"
+              label={
+                <span className="flex items-center gap-2">
+                  <MessageCircle className="w-4 h-4 text-emerald-400" /> WhatsApp
+                </span>
+              }
+              onClick={() => setOpenMenu(null)}
+            />
+            <MenuLink
               href="/admin/agenda"
               label={
                 <span className="flex items-center gap-2">
@@ -1245,7 +1255,7 @@ export default function AdminShell({
                 Fechar
               </button>
               <a
-                href="/admin/settings/profile"
+                href="/admin/settings/whatsapp"
                 onClick={() => setShowWaModal(false)}
                 className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-500 transition-colors text-xs uppercase shadow-lg shadow-emerald-900/20"
               >

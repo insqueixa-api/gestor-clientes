@@ -33,7 +33,7 @@ const DEFAULT_REJECT_MESSAGE =
 
 // Config por sessão: { rejectCalls: bool, rejectMessage: string }
 const sessionConfigs = new Map();
-const CONFIG_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../auth");
+const CONFIG_DIR = path.resolve(AUTH_DIR, "_config");
 
 function getConfigPath(sessionKey) {
   return path.join(CONFIG_DIR, sessionKey, "wa-config.json");
@@ -595,7 +595,7 @@ async function restoreExistingSessions() {
   }
 
   const dirs = fs.readdirSync(AUTH_DIR).filter((d) => {
-    return fs.statSync(path.join(AUTH_DIR, d)).isDirectory();
+    return d !== "_config" && fs.statSync(path.join(AUTH_DIR, d)).isDirectory();
   });
 
   console.log(`[WA] Restaurando ${dirs.length} sessão(ões) existente(s)...`);

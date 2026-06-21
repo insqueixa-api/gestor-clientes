@@ -310,6 +310,13 @@ const config = updateSessionConfig(sessionKey, { rejectCalls, rejectMessage, all
   return res.json({ ok: true, config });
 });
 
+// ── POST /system/restart ────────────────────────────────────
+app.post("/system/restart", authMiddleware, async (req, res) => {
+  console.log("[SYSTEM] Restart solicitado via API");
+  res.json({ ok: true, message: "Reiniciando serviço..." });
+  setTimeout(() => process.exit(0), 500);
+});
+
 // ── 404 ───────────────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({ error: "Rota não encontrada" });
