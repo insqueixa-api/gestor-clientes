@@ -56,7 +56,8 @@ function WhatsAppSessionCard({
   );
   const [editingMessage, setEditingMessage] = useState(false);
   const [draftMessage, setDraftMessage] = useState("");
-  const [allowedList, setAllowedList] = useState<AllowedRow[]>([]);
+const [allowedList, setAllowedList] = useState<AllowedRow[]>([]);
+  const [savedAllowedNumbers, setSavedAllowedNumbers] = useState<string[]>([]);
   const [savingConfig, setSavingConfig] = useState(false);
 
   const route = (path: string) => `/api/whatsapp/${path}${apiSuffix}`;
@@ -87,6 +88,7 @@ function WhatsAppSessionCard({
         setRejectCalls(json.rejectCalls ?? true);
         setRejectMessage(json.rejectMessage ?? "");
         setAllowedList(parseAllowed(json.allowedNumbers ?? []));
+        setSavedAllowedNumbers(json.allowedNumbers ?? []);
       }
     } catch {}
   }
@@ -144,7 +146,10 @@ function WhatsAppSessionCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (res.ok) addToast("success", "Configuração salva");
+if (res.ok) {
+        addToast("success", "Configuração salva");
+        setSavedAllowedNumbers(payload.allowedNumbers);
+      }
     } finally {
       setSavingConfig(false);
     }
@@ -230,6 +235,8 @@ function WhatsAppSessionCard({
     }
   }
 
+  const isListDirty = JSON.stringify(stringifyAllowed(allowedList)) !== JSON.stringify(savedAllowedNumbers);
+
   return (
     <div className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-4">
       {/* Cabeçalho com badge de status ao lado */}
@@ -263,7 +270,7 @@ function WhatsAppSessionCard({
           {/* Duas colunas: foto | opções */}
           <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-5">
             {/* Coluna 1 — foto grande quadrada */}
-            <div className="shrink-0 mx-auto sm:mx-0">
+            <div className="shrink-0 flex flex-col items-center mx-auto sm:mx-0">
               <div className="w-44 h-44 sm:w-52 sm:h-52 rounded-2xl bg-muted border-2 border-border overflow-hidden flex items-center justify-center shadow-sm">
                 {pictureUrl ? (
                   <img src={pictureUrl} alt="Avatar" className="w-full h-full object-cover" />
@@ -271,7 +278,7 @@ function WhatsAppSessionCard({
                   <span className="text-2xl font-medium text-muted-foreground/60">WA</span>
                 )}
               </div>
-              <div className="text-center sm:text-left mt-2 text-sm font-bold text-foreground truncate max-w-52">
+              <div className="text-center mt-3 text-base font-bold text-foreground tracking-tight truncate max-w-52">
                 {pushName || "Aguardando"}
               </div>
             </div>
@@ -295,7 +302,7 @@ function WhatsAppSessionCard({
 
               {rejectCalls && (
                 <>
-                  {/* Lista branca — 5 visíveis, scroll no resto */}
+                  {/* Lista branca — container único, 5 visíveis, scroll no resto */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="text-[10px] font-medium text-muted-foreground uppercase">Números Permitidos</label>
@@ -308,41 +315,48 @@ function WhatsAppSessionCard({
                         + Adicionar
                       </button>
                     </div>
-                    <div className="space-y-1.5 overflow-y-auto pr-1" style={{ maxHeight: "230px" }}>
-                      {allowedList.length === 0 ? (
-                        <div className="text-xs text-center text-muted-foreground py-3 bg-transparent rounded-xl border border-dashed border-border">
-                          Nenhum número liberado.
-                        </div>
-                      ) : (
-                        allowedList.map((row) => (
-                          <div key={row.id} className="flex gap-2 items-center p-1.5 rounded-lg border border-border">
+
+                    {allowedList.length === 0 ? (
+                      <div className="text-xs text-center text-muted-foreground py-3 bg-transparent rounded-xl border border-dashed border-border">
+                        Nenhum número liberado.
+                      </div>
+                    ) : (
+                      <div className="border border-border rounded-xl divide-y divide-border overflow-y-auto" style={{ maxHeight: "230px" }}>
+                        {allowedList.map((row) => (
+                          <div key={row.id} className="flex items-center gap-2 px-3 py-2">
                             <input
                               value={row.name}
                               onChange={(e) => setAllowedList((p) => p.map((r) => (r.id === row.id ? { ...r, name: e.target.value } : r)))}
                               placeholder="Nome"
-                              className="w-1/3 h-8 px-2 text-xs bg-card border border-border rounded-lg outline-none"
+                              className="w-1/3 h-7 px-1 text-xs bg-transparent outline-none"
                             />
                             <input
                               value={row.raw}
                               onChange={(e) => setAllowedList((p) => p.map((r) => (r.id === row.id ? { ...r, raw: e.target.value } : r)))}
                               onBlur={() => validateRow(row.id, row.raw)}
                               placeholder="Número com DDI"
-                              className="flex-1 h-8 px-2 text-xs font-mono bg-card border border-border rounded-lg outline-none"
+                              className="flex-1 h-7 px-1 text-xs font-mono bg-transparent outline-none"
                             />
-                            <button onClick={() => setAllowedList((p) => p.filter((r) => r.id !== row.id))} className="text-rose-500 text-xs px-1.5 shrink-0">
-                              ✕
+                            <button
+                              onClick={() => setAllowedList((p) => p.filter((r) => r.id !== row.id))}
+                              className="text-rose-500 text-[11px] font-medium shrink-0 hover:underline"
+                            >
+                              ✕ Remover
                             </button>
                           </div>
-                        ))
-                      )}
-                    </div>
-                    <button
-                      onClick={() => void saveConfig()}
-                      disabled={savingConfig}
-                      className="w-full mt-2 py-1.5 rounded-lg bg-muted border border-border text-[10px] font-medium text-muted-foreground hover:bg-card"
-                    >
-                      {savingConfig ? "Salvando..." : "💾 Salvar Lista"}
-                    </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {isListDirty && (
+                      <button
+                        onClick={() => void saveConfig()}
+                        disabled={savingConfig}
+                        className="w-full mt-2 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold shadow-sm"
+                      >
+                        {savingConfig ? "Salvando..." : "💾 Salvar Lista"}
+                      </button>
+                    )}
                   </div>
 
                   {/* Mensagem de resposta — clique para editar */}
