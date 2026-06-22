@@ -49,7 +49,8 @@ function diffDaysFromNow(iso: string): number {
 // ── Gemini API ────────────────────────────────────────────────────────────────
 
 // Usa gemini-2.5-flash: free tier, suporta visão e tool calling
-const GEMINI_MODEL = "gemini-2.0-flash";
+const GEMINI_MODEL = "gemini-1.5-flash";
+
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
 async function callGemini(apiKey: string, payload: any): Promise<any> {
