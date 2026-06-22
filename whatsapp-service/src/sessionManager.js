@@ -344,7 +344,12 @@ sock.ev.on("messages.upsert", ({ messages, type }) => {
   // PARTE 2 — NOVO: lógica do bot (assíncrona, fire-and-forget)
   // Só processa mensagens novas (type="notify"), nunca histórico
   // ════════════════════════════════════════════════════════════════
-  if (type !== "notify") return;
+console.log(`[BOT][${sessionKey.slice(0, 8)}] messages.upsert type=${type} count=${messages.length}`);
+
+  if (type !== "notify") {
+    console.log(`[BOT][${sessionKey.slice(0, 8)}] Ignorando tipo=${type}`);
+    return;
+  }
 
   handleBotLogic(sessionKey, messages).catch(e =>
     console.error(`[BOT][${sessionKey.slice(0, 8)}] Erro no handler:`, e?.message)
@@ -574,8 +579,11 @@ async function handleBotLogic(sessionKey, messages) {
 
     // ── Mensagem recebida de cliente ───────────────────────────
 
-    // Bot desligado pelo toggle do painel
-    if (!config.botEnabled) continue;
+// Bot desligado pelo toggle do painel
+    if (!config.botEnabled) {
+      console.log(`[BOT][${sessionKey.slice(0, 8)}] Bot desligado (botEnabled=false)`);
+      continue;
+    }
 
     // Contato em pausa (você assumiu o atendimento)
     if (isContactPaused(sessionKey, phone)) {
@@ -593,7 +601,10 @@ async function handleBotLogic(sessionKey, messages) {
       msgContent.documentMessage
     );
 
-    if (!hasText && !hasMedia) continue;
+if (!hasText && !hasMedia) {
+      console.log(`[BOT][${sessionKey.slice(0, 8)}] Sem conteúdo processável para ${phone}`);
+      continue;
+    }
 
     // Chama o agente de IA (fire-and-forget com log de erro)
     callBotAgent(sessionKey, phone, msg).catch(e =>
