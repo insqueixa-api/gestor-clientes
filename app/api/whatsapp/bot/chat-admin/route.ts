@@ -5,6 +5,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { generatePortalLink } from "@/lib/whatsapp/template-vars";
+// 🟢 Importando as definições unificadas (A Fonte Única de Verdade)
+import { BOT_TOOL_DECLARATIONS, buildBotSystemPrompt } from "@/lib/whatsapp/bot-prompt";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -20,35 +22,8 @@ function makeSupabaseAdmin() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-function toBRDate(iso: string): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "";
-  return d.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
-}
-
-function toBRDateTime(iso: string): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "";
-  return d.toLocaleString("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    day: "2-digit", month: "2-digit", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
-}
-
-function diffDaysFromNow(iso: string): number {
-  const sp = (d: Date) =>
-    new Date(d.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }));
-  return Math.floor(
-    (sp(new Date(iso)).getTime() - sp(new Date()).getTime()) / 86_400_000
-  );
-}
-
 // Usa a tag -latest para garantir que a API v1beta encontre o modelo
 const GEMINI_MODEL = "gemini-flash-latest";
-
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
 async function callGemini(apiKey: string, payload: any): Promise<any> {
@@ -160,111 +135,8 @@ async function toolRecomendarApplicativo(sb: any, tenantId: string, serverId: st
   };
 }
 
-const TOOL_DECLARATIONS = [
-  {
-    name: "gerar_link_portal",
-    description: "Gera o link personalizado do portal de renovação. Use quando o cliente pedir pra pagar ou quiser renovar. IMPORTANTE: Se o cliente tiver múltiplas contas, passe o 'conta_index' correspondente.",
-    parameters: { 
-      type: "OBJECT", 
-      properties: { 
-        conta_index: { type: "INTEGER", description: "O número da conta (1, 2, etc) que o cliente escolheu. Padrão 1." } 
-      }, 
-      required: [] 
-    },
-  },
-  {
-    name: "consultar_precos",
-    description: "Consulta a tabela de preços real do cliente. NUNCA invente preços. IMPORTANTE: Se o cliente tiver múltiplas contas, passe o 'conta_index'.",
-    parameters: { 
-      type: "OBJECT", 
-      properties: { 
-        conta_index: { type: "INTEGER", description: "O número da conta (1, 2, etc) que o cliente escolheu. Padrão 1." } 
-      }, 
-      required: [] 
-    },
-  },
-  {
-    name: "verificar_cloudflare",
-    description: "Verifica instabilidade global na Cloudflare. Usar SOMENTE quando app não abre.",
-    parameters: { type: "OBJECT", properties: {}, required: [] },
-  },
-  {
-    name: "recomendar_aplicativo",
-    description: "Recomenda aplicativos por servidor do cliente.",
-    parameters: { type: "OBJECT", properties: {}, required: [] },
-  },
-];
-
-function buildSystemPrompt(clients: any[], templatesText: string, isTest: boolean): string {
-const contasFormatadas = clients.map((c, index) => {
-    const diasVenc = c.vencimento ? diffDaysFromNow(c.vencimento) : null;
-    const vencDateTime = c.vencimento ? toBRDateTime(c.vencimento) : null;
-    const vencStatus = diasVenc === null
-      ? "não informado"
-      : diasVenc < 0
-      ? `⚠️ VENCIDO em ${vencDateTime} (há ${Math.abs(diasVenc)} dia(s))`
-      : diasVenc === 0
-      ? `⚠️ VENCE HOJE às ${vencDateTime?.split(" ")[1] || ""}`
-      : `✅ ${vencDateTime} (em ${diasVenc} dia(s))`;
-
-    return [
-      `[CONTA ${index + 1}]`,
-      `- Nome: ${c.display_name}`,
-      `- Usuário do servidor: ${c.server_username || "(não informado)"}`,
-      `- Servidor: ${c.server_name}`,
-      `- Plano: ${c.plan_label} / ${c.screens} tela(s)`,
-      `- Vencimento: ${vencStatus}`,
-      `- Moeda: ${c.price_currency || "BRL"}`,
-    ].join("\n");
-  }).join("\n\n");
-
-  return `Você é o assistente de atendimento da UniGestor, um serviço de IPTV.${isTest ? "\n\n⚠️ MODO DE TESTE: Esta é uma simulação do painel admin. Responda normalmente como faria com um cliente real." : ""}
-
-## CONTAS IDENTIFICADAS PARA ESTE WHATSAPP (${clients.length} conta(s))
-${contasFormatadas}
-
-## REGRA PARA MÚLTIPLAS CONTAS
-Se o cliente tiver MAIS DE UMA CONTA e fizer pedido genérico, NÃO adivinhe qual conta. Liste TODAS e pergunte qual ele quer.
-
-FORMATO OBRIGATÓRIO ao listar contas (sem exceção, todas elas):
-- Conta 1: Nome (usuario_servidor) — Servidor — Plano, vence DD/MM/AAAA às HH:MM
-- Conta 2: Nome (usuario_servidor) — Servidor — Plano, vence DD/MM/AAAA às HH:MM
-...
-
-Exemplos:
-- Conta 1: Marcio (marcio123) — NaTV — Mensal, vence 25/06/2026 às 23:59
-- Conta 2: Marcio Juliana (apv71349) — FastTV — Trimestral, vence 02/08/2026 às 14:30
-
-NUNCA omita o usuário do servidor — é a única forma de diferenciar contas do mesmo servidor.
-NUNCA omita a hora do vencimento — clientes precisam saber se cai de manhã ou à meia-noite.
-NUNCA interrompa a lista antes de listar todas as contas.
-
-OBRIGATÓRIO sobre vencimentos: SEMPRE informe data E hora completas (ex: 25/06/2026 às 23:59). A hora é primordial — clientes precisam saber se o acesso vai cair de manhã ou à meia-noite.
-
-## REGRAS ABSOLUTAS
-1. NUNCA invente valores, datas ou dados financeiros — use as ferramentas.
-2. Você é um assistente APENAS DE LEITURA E SUPORTE. NUNCA prometa fazer alterações no sistema, cancelar planos, cadastrar clientes ou gerar cobranças manuais. Se o cliente pedir uma ação dessas, informe que você é o assistente virtual e que ele deve aguardar o atendimento humano.
-3. Vencimento vencido? Explique e ofereça o link de renovação.
-4. verificar_cloudflare SOMENTE quando "app não abre".
-5. Preços e apps sempre via ferramenta, nunca da memória.
-6. **Apps** vêm sempre de recomendar_aplicativo. Nunca da memória.
-7. Se não souber responder, diga que vai verificar com o suporte e que responde em breve.
-
-## DIAGNÓSTICO (ordem obrigatória)
-1. Vencido? → link para renovar.
-2. Canal trava → internet do cliente → resetar modem.
-3. App não abre → verificar_cloudflare → orientar conforme resultado.
-4. App abre mas canal falha → verificar com suporte.
-
-## SOBRE TELAS
-1 tela = múltiplas TVs em uso intercalado. Simultâneo = precisa de mais telas.
-
-## BASE DE CONHECIMENTO
-${templatesText || "(nenhum template ativo)"}
-
-## TOM
-Informal, conciso, como WhatsApp real. Máx 4-5 linhas por resposta. Emojis com moderação.`;
-}
+// ── As definições das ferramentas (TOOL_DECLARATIONS) e o System Prompt 
+// ── foram movidos para @/lib/whatsapp/bot-prompt.ts para evitar duplicação.
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
@@ -293,12 +165,12 @@ export async function POST(req: Request) {
   let body: any;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "JSON inválido" }, { status: 400 }); }
 
-  const { message, phone, conversation_history } = body; // 🟢 Agora recebe o phone
+  const { message, phone, conversation_history } = body; 
   if (!message?.trim()) return NextResponse.json({ error: "message é obrigatório" }, { status: 400 });
 
   // Preparando lista de clientes (Array)
   let clients: any[] = [];
-  let clientMatchesRaw: any[] = []; // Guardamos os resultados crus (raw) pra passar pras ferramentas se precisar
+  let clientMatchesRaw: any[] = []; 
 
   if (phone) {
     const { data: clientMatches } = await sb
@@ -334,7 +206,7 @@ export async function POST(req: Request) {
       price_currency: "BRL", price_amount: 0, plan_table_id: null,
       server_id: null, whatsapp_username: null,
     });
-    clientMatchesRaw.push(clients[0]); // Evita erro se a tool for chamada
+    clientMatchesRaw.push(clients[0]); 
   }
 
   // Templates como base de conhecimento (removido is_active=true para ler tudo)
@@ -346,7 +218,7 @@ export async function POST(req: Request) {
     .map((t: any) => `### [${t.category}] ${t.name}\n${t.content}`)
     .join("\n\n---\n\n");
 
-  const systemPrompt = buildSystemPrompt(clients, templatesText, true); // 🟢 Passando o Array
+  const systemPrompt = buildBotSystemPrompt(clients, templatesText, { isTest: true }); // 🟢 Usando a função unificada
 
   // Monta conversa com histórico (multi-turn)
   const history = Array.isArray(conversation_history) ? conversation_history : [];
@@ -356,18 +228,17 @@ export async function POST(req: Request) {
   ];
 
   const geminiPayload: any = {
-    systemInstruction: { parts: [{ text: systemPrompt }] }, // 🟢 Corrigido para CamelCase
-    tools: [{ functionDeclarations: TOOL_DECLARATIONS }],   // 🟢 Corrigido para CamelCase
+    systemInstruction: { parts: [{ text: systemPrompt }] }, 
+    tools: [{ functionDeclarations: BOT_TOOL_DECLARATIONS }], // 🟢 Usando as ferramentas unificadas
     contents,
-        generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
-
+    generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
   };
 
   // Loop de tool calling
   let finalResponse = "";
   const newContents = [...contents];
 
-  try { // 🟢 Adicionada a blindagem contra erros da API do Gemini
+  try { 
     for (let i = 0; i < 5; i++) {
       const result = await callGemini(geminiKey, { ...geminiPayload, contents: newContents });
       const parts = result?.candidates?.[0]?.content?.parts || [];
@@ -430,7 +301,6 @@ export async function POST(req: Request) {
   return NextResponse.json({
     ok: true,
     response: finalResponse,
-    // Devolve o histórico atualizado pro front manter o multi-turn
     updated_history: newContents,
   });
 }

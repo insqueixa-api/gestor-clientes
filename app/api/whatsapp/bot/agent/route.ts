@@ -4,6 +4,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { generatePortalLink } from "@/lib/whatsapp/template-vars";
+// 🟢 Importando a Fonte Única de Verdade (Regras e Ferramentas unificadas)
+import { BOT_TOOL_DECLARATIONS, buildBotSystemPrompt } from "@/lib/whatsapp/bot-prompt";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // Vercel: máx 60s (agente pode demorar com tool calls)
@@ -31,37 +33,10 @@ function makeSupabaseAdmin() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-function toBRDate(iso: string): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "";
-  return d.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
-}
-
-function toBRDateTime(iso: string): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "";
-  return d.toLocaleString("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    day: "2-digit", month: "2-digit", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
-}
-
-function diffDaysFromNow(iso: string): number {
-  const sp = (d: Date) =>
-    new Date(d.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }));
-  return Math.floor(
-    (sp(new Date(iso)).getTime() - sp(new Date()).getTime()) / 86_400_000
-  );
-}
-
 // ── Gemini API ────────────────────────────────────────────────────────────────
 
 // Usa a tag -latest para garantir que a API v1beta encontre o modelo
 const GEMINI_MODEL = "gemini-flash-latest";
-
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
 async function callGemini(apiKey: string, payload: any): Promise<any> {
@@ -121,7 +96,7 @@ async function sendWAMessage(sessionKey: string, phone: string, message: string)
   }
 }
 
-// ── Implementações das ferramentas ────────────────────────────────────────────
+// ── Implementações das ferramentas (Lógica de Negócio do Backend) ─────────────
 
 async function toolGerarLinkPortal(
   sb: any,
@@ -290,120 +265,6 @@ async function toolRecomendarApplicativo(
   return { apps_parceiros_do_servidor: parceiros, apps_universais_gratis: gratis, apps_universais_pagos: pagos };
 }
 
-// ── Definições das ferramentas pro Gemini ─────────────────────────────────────
-
-const TOOL_DECLARATIONS = [
-  {
-    name: "gerar_link_portal",
-    description:
-      "Gera o link personalizado do portal de renovação. Use quando o cliente pedir pra pagar ou quiser renovar. IMPORTANTE: Se o cliente tiver múltiplas contas, passe o 'conta_index' correspondente.",
-    parameters: { 
-      type: "OBJECT", 
-      properties: { 
-        conta_index: { type: "INTEGER", description: "O número da conta (1, 2, etc) que o cliente escolheu. Padrão 1." } 
-      }, 
-      required: [] 
-    },
-  },
-  {
-    name: "consultar_precos",
-    description:
-      "Consulta a tabela de preços real do cliente. NUNCA invente preços. IMPORTANTE: Se o cliente tiver múltiplas contas, passe o 'conta_index'.",
-    parameters: { 
-      type: "OBJECT", 
-      properties: { 
-        conta_index: { type: "INTEGER", description: "O número da conta (1, 2, etc) que o cliente escolheu. Padrão 1." } 
-      }, 
-      required: [] 
-    },
-  },
-  {
-    name: "recomendar_aplicativo",
-    description:
-      "Recomenda quais aplicativos o cliente deve usar — apps parceiros gratuitos do servidor dele, apps universais gratuitos, e apps pagos. Use quando o cliente perguntar qual app usar, como configurar uma TV nova, ou quiser trocar de aparelho.",
-    parameters: { type: "OBJECT", properties: {}, required: [] },
-  },
-];
-
-// ── System prompt ─────────────────────────────────────────────────────────────
-
-function buildSystemPrompt(clients: any[], templatesText: string): string {
-const contasFormatadas = clients.map((c, index) => {
-    const diasVenc = c.vencimento ? diffDaysFromNow(c.vencimento) : null;
-    const vencDateTime = c.vencimento ? toBRDateTime(c.vencimento) : null;
-    const vencStatus = diasVenc === null
-      ? "não informado"
-      : diasVenc < 0
-      ? `⚠️ VENCIDO em ${vencDateTime} (há ${Math.abs(diasVenc)} dia(s))`
-      : diasVenc === 0
-      ? `⚠️ VENCE HOJE às ${vencDateTime?.split(" ")[1] || ""}`
-      : `✅ ${vencDateTime} (em ${diasVenc} dia(s))`;
-
-    return [
-      `[CONTA ${index + 1}]`,
-      `- Nome: ${c.display_name}`,
-      `- Usuário do servidor: ${c.server_username || "(não informado)"}`,
-      `- Servidor: ${c.server_name}`,
-      `- Plano: ${c.plan_label} / ${c.screens} tela(s)`,
-      `- Vencimento: ${vencStatus}`,
-      `- Moeda: ${c.price_currency || "BRL"}`,
-    ].join("\n");
-  }).join("\n\n");
-
-  return `Você é o assistente de atendimento da UniGestor, um serviço de IPTV. Responda sempre em português brasileiro informal, de forma natural e concisa — como uma pessoa real respondendo no WhatsApp, nunca como um robô ou atendente de call center.
-
-## CONTAS IDENTIFICADAS PARA ESTE WHATSAPP (${clients.length} conta(s))
-${contasFormatadas}
-
-## REGRA PARA MÚLTIPLAS CONTAS
-Se o cliente tiver MAIS DE UMA CONTA e fizer pedido genérico, NÃO adivinhe qual conta. Liste TODAS e pergunte qual ele quer.
-
-FORMATO OBRIGATÓRIO ao listar contas (sem exceção, todas elas):
-- Conta 1: Nome (usuario_servidor) — Servidor — Plano, vence DD/MM/AAAA às HH:MM
-- Conta 2: Nome (usuario_servidor) — Servidor — Plano, vence DD/MM/AAAA às HH:MM
-...
-
-Exemplos:
-- Conta 1: Marcio (marcio123) — NaTV — Mensal, vence 25/06/2026 às 23:59
-- Conta 2: Marcio Juliana (apv71349) — FastTV — Trimestral, vence 02/08/2026 às 14:30
-
-NUNCA omita o usuário do servidor — é a única forma de diferenciar contas do mesmo servidor.
-NUNCA omita a hora do vencimento — clientes precisam saber se cai de manhã ou à meia-noite.
-NUNCA interrompa a lista antes de listar todas as contas.
-
-OBRIGATÓRIO sobre vencimentos: SEMPRE informe data E hora completas (ex: 25/06/2026 às 23:59). A hora é primordial — clientes precisam saber se o acesso vai cair de manhã ou à meia-noite.
-
-## REGRAS ABSOLUTAS
-1. NUNCA invente valores, datas ou dados financeiros — use as ferramentas.
-2. Você é um assistente APENAS DE LEITURA E SUPORTE. NUNCA prometa fazer alterações no sistema, cancelar planos, cadastrar clientes ou gerar cobranças manuais.
-3. Vencimento vencido? Explique e ofereça o link de renovação.
-4. verificar_cloudflare SOMENTE quando "app não abre".
-5. Preços e apps sempre via ferramenta, nunca da memória.
-6. **Apps** vêm sempre de recomendar_aplicativo. Nunca da memória.
-7. Se não souber responder, diga que vai verificar com o suporte e que responde em breve.
-
-## DIAGNÓSTICO DE PROBLEMAS (siga essa ordem exata)
-1. Acesso vencido? → Informa e oferece link para renovar. Fim.
-2. "Canal trava / buffer / lento" → Internet do cliente → orienta: desligar o modem da tomada por 30s, religar, esperar 2 min, e testar novamente.
-3. "Aplicativo não abre / não carrega" → Chama verificar_cloudflare → se instável: é infraestrutura; se ok: orienta resetar modem e reinstalar o app.
-4. "App abre mas canal específico não funciona" → Pode ser instabilidade no servidor → vai verificar e retorna em breve.
-
-## SOBRE TELAS E SIMULTANEIDADE
-Uma tela permite instalar o app em várias TVs, mas só uma funciona por vez. Para duas TVs ao mesmo tempo, precisa de 2 telas. Use consultar_precos.
-
-## SOBRE O PORTAL DE PAGAMENTO
-O portal aceita PIX, cartão, Apple Pay e Google Pay. Pagamentos são confirmados automaticamente. Use gerar_link_portal.
-
-## BASE DE CONHECIMENTO
-${templatesText || "(nenhum template ativo encontrado)"}
-
-## TOM E ESTILO
-- Mensagens curtas — máximo 4-5 linhas por resposta
-- Linguagem informal mas profissional
-- Emojis com moderação
-- Não repita o que o cliente disse antes de responder`;
-}
-
 // ── Handler principal ─────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
@@ -483,7 +344,7 @@ export async function POST(req: Request) {
       .from("client_portal_payments")
       .select("id, fulfillment_status, whatsapp_status")
       .eq("tenant_id", tenant_id)
-      .in("client_id", clients.map(c => c.id)) // 🟢 Busca em todas as contas dele
+      .in("client_id", clients.map((c: any) => c.id))
       .gte("created_at", sixHoursAgo)
       .order("created_at", { ascending: false })
       .limit(1);
@@ -503,7 +364,6 @@ export async function POST(req: Request) {
       const msg =
         `Oi ${firstName}! Recebi seu comprovante. ✅\n\nSua renovação está em análise e será concluída em breve. Qualquer dúvida é só chamar!`;
       await sendWAMessage(session_key, phone, msg);
-      // Retorna sem lida — você precisa agir
       return NextResponse.json({ ok: true, action: "manual_pending" });
     }
 
@@ -515,21 +375,13 @@ export async function POST(req: Request) {
           role: "user",
           parts: [
             {
-              inlineData: { // 🟢 Corrigido para CamelCase
-                mimeType: mime_type || (media_type === "image" ? "image/jpeg" : "application/pdf"), // 🟢 Corrigido para CamelCase
+              inlineData: {
+                mimeType: mime_type || (media_type === "image" ? "image/jpeg" : "application/pdf"),
                 data: media_base64,
               },
             },
             {
-              text: `Analise esta imagem/documento. É um comprovante de pagamento financeiro (transferência PIX, TED, DOC, recibo bancário ou similar)?
-
-Se SIM, extraia os dados visíveis e responda SOMENTE com este JSON:
-{"is_receipt":true,"pix_key":"chave pix de destino se visível ou null","value":"valor em reais como string ou null","datetime":"data e hora como string ou null","confirmation_code":"código de confirmação/autenticação ou null"}
-
-Se NÃO for comprovante de pagamento, responda SOMENTE:
-{"is_receipt":false}
-
-Responda APENAS o JSON, sem markdown, sem explicação.`,
+              text: `Analise esta imagem/documento. É um comprovante de pagamento financeiro (transferência PIX, TED, DOC, recibo bancário ou similar)?\n\nSe SIM, extraia os dados visíveis e responda SOMENTE com este JSON:\n{"is_receipt":true,"pix_key":"chave pix de destino se visível ou null","value":"valor em reais como string ou null","datetime":"data e hora como string ou null","confirmation_code":"código de confirmação/autenticação ou null"}\n\nSe NÃO for comprovante de pagamento, responda SOMENTE:\n{"is_receipt":false}\n\nResponda APENAS o JSON, sem markdown, sem explicação.`,
             },
           ],
         }],
@@ -547,11 +399,9 @@ Responda APENAS o JSON, sem markdown, sem explicação.`,
       }
 
       if (!parsed?.is_receipt) {
-        // Não é comprovante — silêncio total
         return NextResponse.json({ ok: true, action: "silence" });
       }
 
-      // É comprovante pago fora do sistema — extrai detalhes e notifica
       const detalhes = [
         parsed.pix_key ? `🔑 Chave PIX: ${parsed.pix_key}` : null,
         parsed.value ? `💰 Valor: ${parsed.value}` : null,
@@ -578,11 +428,9 @@ Responda APENAS o JSON, sem markdown, sem explicação.`,
         .trim();
 
       await sendWAMessage(session_key, phone, msg);
-      // Retorna sem marcar como lida — você precisa agir
       return NextResponse.json({ ok: true, action: "receipt_manual" });
     }
 
-    // Caso D: Tem registro mas não é nenhum dos casos anteriores — silêncio
     return NextResponse.json({ ok: true, action: "silence" });
   }
 
@@ -603,7 +451,8 @@ Responda APENAS o JSON, sem markdown, sem explicação.`,
     .map((t: any) => `### [${t.category}] ${t.name}\n${t.content}`)
     .join("\n\n---\n\n");
 
-  const systemPrompt = buildSystemPrompt(clients, templatesText); // 🟢 Passando array
+  // 🟢 Chamando a função de prompt unificada
+  const systemPrompt = buildBotSystemPrompt(clients, templatesText); 
 
   // Conversa inicial
   const conversation: any[] = [
@@ -612,7 +461,7 @@ Responda APENAS o JSON, sem markdown, sem explicação.`,
 
   const geminiPayload: any = {
     systemInstruction: { parts: [{ text: systemPrompt }] },
-    tools: [{ functionDeclarations: TOOL_DECLARATIONS }],
+    tools: [{ functionDeclarations: BOT_TOOL_DECLARATIONS }], // 🟢 Ferramentas unificadas
     contents: conversation,
     generationConfig: {
       temperature: 0.7,
@@ -658,6 +507,7 @@ Responda APENAS o JSON, sem markdown, sem explicação.`,
           switch (fn.name) {
             case "gerar_link_portal": {
               const idx = Math.max(0, (fn.args?.conta_index || 1) - 1);
+              // IMPORTANTE: Mantém a distinção de rawClient para gerarLinkPortal como estava antes
               const selectedRaw = clientMatches[idx] || clientMatches[0];
               const selectedClient = clients[idx] || clients[0];
               toolResult = {
