@@ -285,20 +285,26 @@ const TOOL_DECLARATIONS = [
   {
     name: "gerar_link_portal",
     description:
-      "Gera o link personalizado do portal de renovação para o cliente pagar online (PIX, cartão, Apple Pay, Google Pay). Use quando o cliente pedir pra pagar, quiser renovar o plano, ou pedir o link de pagamento.",
-    parameters: { type: "OBJECT", properties: {}, required: [] },
+      "Gera o link personalizado do portal de renovação. Use quando o cliente pedir pra pagar ou quiser renovar. IMPORTANTE: Se o cliente tiver múltiplas contas, passe o 'conta_index' correspondente.",
+    parameters: { 
+      type: "OBJECT", 
+      properties: { 
+        conta_index: { type: "INTEGER", description: "O número da conta (1, 2, etc) que o cliente escolheu. Padrão 1." } 
+      }, 
+      required: [] 
+    },
   },
   {
     name: "consultar_precos",
     description:
-      "Consulta a tabela de preços real do cliente — valores por período (mensal, trimestral, etc) e por quantidade de telas. Use quando o cliente perguntar sobre valores, planos, quanto custa adicionar uma tela, ou trocar de período. NUNCA invente preços — use sempre esta ferramenta.",
-    parameters: { type: "OBJECT", properties: {}, required: [] },
-  },
-  {
-    name: "verificar_cloudflare",
-    description:
-      "Verifica se há instabilidade global na Cloudflare. Use SOMENTE quando o sintoma do cliente for 'aplicativo não abre / não carrega'. NUNCA use para canal travando, buffering, ou outros problemas — esses são internet do cliente.",
-    parameters: { type: "OBJECT", properties: {}, required: [] },
+      "Consulta a tabela de preços real do cliente. NUNCA invente preços. IMPORTANTE: Se o cliente tiver múltiplas contas, passe o 'conta_index'.",
+    parameters: { 
+      type: "OBJECT", 
+      properties: { 
+        conta_index: { type: "INTEGER", description: "O número da conta (1, 2, etc) que o cliente escolheu. Padrão 1." } 
+      }, 
+      required: [] 
+    },
   },
   {
     name: "recomendar_aplicativo",
@@ -310,32 +316,24 @@ const TOOL_DECLARATIONS = [
 
 // ── System prompt ─────────────────────────────────────────────────────────────
 
-function buildSystemPrompt(client: any, templatesText: string): string {
-  const diasVenc =
-    client.vencimento ? diffDaysFromNow(client.vencimento) : null;
-
-  const vencStatus =
-    diasVenc === null
-      ? "não informado"
-      : diasVenc < 0
-      ? `⚠️ VENCIDO há ${Math.abs(diasVenc)} dia(s) — acesso provavelmente bloqueado`
-      : diasVenc === 0
-      ? "⚠️ VENCE HOJE"
-      : `✅ ${toBRDate(client.vencimento)} (em ${diasVenc} dia(s))`;
+function buildSystemPrompt(clients: any[], templatesText: string): string {
+  const contasFormatadas = clients.map((c, index) => {
+    const diasVenc = c.vencimento ? diffDaysFromNow(c.vencimento) : null;
+    const vencStatus = diasVenc === null ? "não informado" : diasVenc < 0 ? `⚠️ VENCIDO há ${Math.abs(diasVenc)} dia(s)` : diasVenc === 0 ? "⚠️ VENCE HOJE" : `✅ ${toBRDate(c.vencimento)} (em ${diasVenc} dia(s))`;
+    return `[CONTA ${index + 1}]\n- Nome: ${c.display_name}\n- Servidor: ${c.server_name}\n- Plano: ${c.plan_label} / ${c.screens} tela(s)\n- Vencimento: ${vencStatus}\n- Moeda: ${c.price_currency || "BRL"}`;
+  }).join("\n\n");
 
   return `Você é o assistente de atendimento da UniGestor, um serviço de IPTV. Responda sempre em português brasileiro informal, de forma natural e concisa — como uma pessoa real respondendo no WhatsApp, nunca como um robô ou atendente de call center.
 
-## CLIENTE IDENTIFICADO
-- Nome: ${client.display_name}
-- Servidor: ${client.server_name}
-- Plano: ${client.plan_label} / ${client.screens} tela(s)
-- Vencimento: ${vencStatus}
-- Moeda: ${client.price_currency || "BRL"}
-- Teste grátis: ${client.is_trial ? "sim" : "não"}
+## CONTAS IDENTIFICADAS PARA ESTE WHATSAPP (${clients.length} conta(s))
+${contasFormatadas}
+
+## REGRA PARA MÚLTIPLAS CONTAS (MUITO IMPORTANTE)
+Se o cliente tiver MAIS DE UMA CONTA listada acima e fizer um pedido genérico (ex: "qual meu vencimento?", "quero renovar", "meu canal travou"), você NÃO DEVE adivinhar qual é a conta. Você DEVE perguntar de forma gentil a qual conta ele se refere (cite os servidores ou os nomes para ajudá-lo a identificar). Se ele tiver apenas UMA conta, prossiga o atendimento direto.
 
 ## REGRAS ABSOLUTAS
 1. NUNCA invente valores, datas ou dados financeiros — use as ferramentas.
-2. Você é um assistente APENAS DE LEITURA E SUPORTE. NUNCA prometa fazer alterações no sistema, cancelar planos, cadastrar clientes ou gerar cobranças manuais. Se o cliente pedir uma ação dessas, informe que você é o assistente virtual e que ele deve aguardar o atendimento humano.
+2. Você é um assistente APENAS DE LEITURA E SUPORTE. NUNCA prometa fazer alterações no sistema, cancelar planos, cadastrar clientes ou gerar cobranças manuais.
 3. Vencimento vencido? Explique e ofereça o link de renovação.
 4. verificar_cloudflare SOMENTE quando "app não abre".
 5. Preços e apps sempre via ferramenta, nunca da memória.
@@ -343,31 +341,24 @@ function buildSystemPrompt(client: any, templatesText: string): string {
 7. Se não souber responder, diga que vai verificar com o suporte e que responde em breve.
 
 ## DIAGNÓSTICO DE PROBLEMAS (siga essa ordem exata)
-
 1. Acesso vencido? → Informa e oferece link para renovar. Fim.
-2. "Canal trava / buffer / lento" → Internet do cliente → orienta: desligar o modem da tomada por 30s, religar, esperar 2 min, e testar novamente. Se persistir, testar com outro aparelho ou rede.
-3. "Aplicativo não abre / não carrega" → Chama verificar_cloudflare → se instável: informa que é instabilidade na infraestrutura e que está sendo resolvido; se ok: orienta resetar modem e reinstalar o app.
-4. "App abre mas canal específico não funciona" (acesso válido) → Pode ser instabilidade no servidor → diz que vai verificar e retorna em breve.
+2. "Canal trava / buffer / lento" → Internet do cliente → orienta: desligar o modem da tomada por 30s, religar, esperar 2 min, e testar novamente.
+3. "Aplicativo não abre / não carrega" → Chama verificar_cloudflare → se instável: é infraestrutura; se ok: orienta resetar modem e reinstalar o app.
+4. "App abre mas canal específico não funciona" → Pode ser instabilidade no servidor → vai verificar e retorna em breve.
 
 ## SOBRE TELAS E SIMULTANEIDADE
-
-Uma tela permite instalar o app em várias TVs, mas só uma funciona por vez (uso intercalado). Para duas TVs funcionarem ao mesmo tempo, precisa de 2 telas. Use consultar_precos para mostrar o valor exato.
+Uma tela permite instalar o app em várias TVs, mas só uma funciona por vez. Para duas TVs ao mesmo tempo, precisa de 2 telas. Use consultar_precos.
 
 ## SOBRE O PORTAL DE PAGAMENTO
+O portal aceita PIX, cartão, Apple Pay e Google Pay. Pagamentos são confirmados automaticamente. Use gerar_link_portal.
 
-O portal de pagamento aceita PIX (clientes BRL), cartão de crédito, Apple Pay e Google Pay (clientes internacionais). Os pagamentos pelo portal são confirmados automaticamente, sem precisar enviar comprovante. Use gerar_link_portal para gerar o link personalizado do cliente.
-
-## BASE DE CONHECIMENTO (seus templates e textos cadastrados)
-
+## BASE DE CONHECIMENTO
 ${templatesText || "(nenhum template ativo encontrado)"}
 
 ## TOM E ESTILO
-
 - Mensagens curtas — máximo 4-5 linhas por resposta
 - Linguagem informal mas profissional
-- Emojis com moderação (1-2 por mensagem no máximo)
-- Nunca comece toda mensagem com "Olá"
-- Não enrole — se o cliente sabe o que quer, vá direto ao ponto
+- Emojis com moderação
 - Não repita o que o cliente disse antes de responder`;
 }
 
@@ -427,20 +418,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, action: "silence" });
   }
 
-  // Por ora usa o primeiro match (multi-conta: seletor numerado fica pra v2)
-  const rawClient = clientMatches[0];
-  const isSecondary = rawClient.secondary_whatsapp_username === phone;
+  // ── Mapeia TODAS as contas encontradas ──
+  const clients = clientMatches.map((raw) => {
+    const isSec = raw.secondary_whatsapp_username === phone;
+    return {
+      ...raw,
+      display_name: isSec ? (raw.secondary_display_name || raw.display_name || "Cliente") : (raw.display_name || "Cliente"),
+      server_name: (raw.servers as any)?.name || "Servidor",
+      is_secondary: isSec,
+    };
+  });
 
-  const client = {
-    ...rawClient,
-    display_name: isSecondary
-      ? rawClient.secondary_display_name || rawClient.display_name || "Cliente"
-      : rawClient.display_name || "Cliente",
-    server_name: (rawClient.servers as any)?.name || "Servidor",
-    is_secondary: isSecondary,
-  };
-
-  const firstName = client.display_name.split(" ")[0];
+  const firstName = clients[0].display_name.split(" ")[0];
 
   // ── 2. Mídia — lógica determinística (sem IA pra decidir o status) ────────
 
@@ -451,7 +440,7 @@ export async function POST(req: Request) {
       .from("client_portal_payments")
       .select("id, fulfillment_status, whatsapp_status")
       .eq("tenant_id", tenant_id)
-      .eq("client_id", client.id)
+      .in("client_id", clients.map(c => c.id)) // 🟢 Busca em todas as contas dele
       .gte("created_at", sixHoursAgo)
       .order("created_at", { ascending: false })
       .limit(1);
@@ -529,7 +518,7 @@ Responda APENAS o JSON, sem markdown, sem explicação.`,
         .filter(Boolean)
         .join("\n");
 
-      const portalLink = await toolGerarLinkPortal(sb, tenant_id, rawClient, isSecondary);
+      const portalLink = await toolGerarLinkPortal(sb, tenant_id, clientMatches[0], clients[0].is_secondary);
 
       const msg = [
         `Oi ${firstName}! Recebi seu comprovante. 📄`,
@@ -571,7 +560,7 @@ Responda APENAS o JSON, sem markdown, sem explicação.`,
     .map((t: any) => `### [${t.category}] ${t.name}\n${t.content}`)
     .join("\n\n---\n\n");
 
-  const systemPrompt = buildSystemPrompt(client, templatesText);
+  const systemPrompt = buildSystemPrompt(clients, templatesText); // 🟢 Passando array
 
   // Conversa inicial
   const conversation: any[] = [
@@ -624,23 +613,33 @@ Responda APENAS o JSON, sem markdown, sem explicação.`,
 
         try {
           switch (fn.name) {
-            case "gerar_link_portal":
+            case "gerar_link_portal": {
+              const idx = Math.max(0, (fn.args?.conta_index || 1) - 1);
+              const selectedRaw = clientMatches[idx] || clientMatches[0];
+              const selectedClient = clients[idx] || clients[0];
               toolResult = {
-                link: await toolGerarLinkPortal(sb, tenant_id, rawClient, isSecondary),
+                link: await toolGerarLinkPortal(sb, tenant_id, selectedRaw, selectedClient.is_secondary),
               };
               break;
+            }
 
-            case "consultar_precos":
-              toolResult = await toolConsultarPrecos(sb, tenant_id, client);
+            case "consultar_precos": {
+              const idx = Math.max(0, (fn.args?.conta_index || 1) - 1);
+              const selectedClient = clients[idx] || clients[0];
+              toolResult = await toolConsultarPrecos(sb, tenant_id, selectedClient);
               break;
+            }
 
             case "verificar_cloudflare":
               toolResult = await toolVerificarCloudflare();
               break;
 
-            case "recomendar_aplicativo":
-              toolResult = await toolRecomendarApplicativo(sb, tenant_id, client.server_id || null);
+            case "recomendar_aplicativo": {
+              const idx = Math.max(0, (fn.args?.conta_index || 1) - 1);
+              const selectedClient = clients[idx] || clients[0];
+              toolResult = await toolRecomendarApplicativo(sb, tenant_id, selectedClient.server_id || null);
               break;
+            }
 
             default:
               toolResult = { error: `Ferramenta desconhecida: ${fn.name}` };

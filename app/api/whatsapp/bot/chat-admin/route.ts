@@ -152,13 +152,25 @@ async function toolRecomendarApplicativo(sb: any, tenantId: string, serverId: st
 const TOOL_DECLARATIONS = [
   {
     name: "gerar_link_portal",
-    description: "Gera o link do portal de renovação para o cliente pagar online.",
-    parameters: { type: "OBJECT", properties: {}, required: [] },
+    description: "Gera o link personalizado do portal de renovação. Use quando o cliente pedir pra pagar ou quiser renovar. IMPORTANTE: Se o cliente tiver múltiplas contas, passe o 'conta_index' correspondente.",
+    parameters: { 
+      type: "OBJECT", 
+      properties: { 
+        conta_index: { type: "INTEGER", description: "O número da conta (1, 2, etc) que o cliente escolheu. Padrão 1." } 
+      }, 
+      required: [] 
+    },
   },
   {
     name: "consultar_precos",
-    description: "Consulta a tabela de preços real do cliente por período e telas.",
-    parameters: { type: "OBJECT", properties: {}, required: [] },
+    description: "Consulta a tabela de preços real do cliente. NUNCA invente preços. IMPORTANTE: Se o cliente tiver múltiplas contas, passe o 'conta_index'.",
+    parameters: { 
+      type: "OBJECT", 
+      properties: { 
+        conta_index: { type: "INTEGER", description: "O número da conta (1, 2, etc) que o cliente escolheu. Padrão 1." } 
+      }, 
+      required: [] 
+    },
   },
   {
     name: "verificar_cloudflare",
@@ -172,21 +184,20 @@ const TOOL_DECLARATIONS = [
   },
 ];
 
-function buildSystemPrompt(client: any, templatesText: string, isTest: boolean): string {
-  const diasVenc = client.vencimento ? diffDaysFromNow(client.vencimento) : null;
-  const vencStatus = diasVenc === null ? "não informado"
-    : diasVenc < 0 ? `⚠️ VENCIDO há ${Math.abs(diasVenc)} dia(s)`
-    : diasVenc === 0 ? "⚠️ VENCE HOJE"
-    : `✅ ${toBRDate(client.vencimento)} (em ${diasVenc} dia(s))`;
+function buildSystemPrompt(clients: any[], templatesText: string, isTest: boolean): string {
+  const contasFormatadas = clients.map((c, index) => {
+    const diasVenc = c.vencimento ? diffDaysFromNow(c.vencimento) : null;
+    const vencStatus = diasVenc === null ? "não informado" : diasVenc < 0 ? `⚠️ VENCIDO há ${Math.abs(diasVenc)} dia(s)` : diasVenc === 0 ? "⚠️ VENCE HOJE" : `✅ ${toBRDate(c.vencimento)} (em ${diasVenc} dia(s))`;
+    return `[CONTA ${index + 1}]\n- Nome: ${c.display_name}\n- Servidor: ${c.server_name}\n- Plano: ${c.plan_label} / ${c.screens} tela(s)\n- Vencimento: ${vencStatus}\n- Moeda: ${c.price_currency || "BRL"}`;
+  }).join("\n\n");
 
   return `Você é o assistente de atendimento da UniGestor, um serviço de IPTV.${isTest ? "\n\n⚠️ MODO DE TESTE: Esta é uma simulação do painel admin. Responda normalmente como faria com um cliente real." : ""}
 
-## CLIENTE SIMULADO
-- Nome: ${client.display_name || "Cliente Teste"}
-- Servidor: ${client.server_name || "Servidor"}
-- Plano: ${client.plan_label || "Mensal"} / ${client.screens || 1} tela(s)
-- Vencimento: ${vencStatus}
-- Moeda: ${client.price_currency || "BRL"}
+## CONTAS IDENTIFICADAS PARA ESTE WHATSAPP (${clients.length} conta(s))
+${contasFormatadas}
+
+## REGRA PARA MÚLTIPLAS CONTAS (MUITO IMPORTANTE)
+Se o cliente tiver MAIS DE UMA CONTA listada acima e fizer um pedido genérico (ex: "qual meu vencimento?", "quero renovar", "meu canal travou"), você NÃO DEVE adivinhar qual é a conta. Você DEVE perguntar de forma gentil a qual conta ele se refere (cite os servidores ou os nomes para ajudá-lo a identificar). Se ele tiver apenas UMA conta, prossiga o atendimento direto.
 
 ## REGRAS ABSOLUTAS
 1. NUNCA invente valores, datas ou dados financeiros — use as ferramentas.
@@ -243,15 +254,10 @@ export async function POST(req: Request) {
   const { message, phone, conversation_history } = body; // 🟢 Agora recebe o phone
   if (!message?.trim()) return NextResponse.json({ error: "message é obrigatório" }, { status: 400 });
 
-  // Carrega cliente (se informado) ou usa um placeholder genérico
-  let client: any = {
-    id: null, display_name: "Cliente Teste", server_name: "Servidor",
-    plan_label: "Mensal", screens: 1, vencimento: null,
-    price_currency: "BRL", price_amount: 0, plan_table_id: null,
-    server_id: null, whatsapp_username: null,
-  };
+  // Preparando lista de clientes (Array)
+  let clients: any[] = [];
+  let clientMatchesRaw: any[] = []; // Guardamos os resultados crus (raw) pra passar pras ferramentas se precisar
 
-  // 🟢 Simulando a vida real: Busca o cliente na base usando apenas o telefone
   if (phone) {
     const { data: clientMatches } = await sb
       .from("clients")
@@ -264,30 +270,40 @@ export async function POST(req: Request) {
       .or(`whatsapp_username.eq.${phone},secondary_whatsapp_username.eq.${phone}`);
 
     if (clientMatches && clientMatches.length > 0) {
-      const rawClient = clientMatches[0];
-      const isSecondary = rawClient.secondary_whatsapp_username === phone;
-      
-      client = {
-        ...rawClient,
-        display_name: isSecondary
-          ? rawClient.secondary_display_name || rawClient.display_name || "Cliente"
-          : rawClient.display_name || "Cliente",
-        server_name: (rawClient.servers as any)?.name || "Servidor",
-        is_secondary: isSecondary,
-      };
+      clientMatchesRaw = clientMatches;
+      clients = clientMatches.map((raw) => {
+        const isSec = raw.secondary_whatsapp_username === phone;
+        return {
+          ...raw,
+          display_name: isSec ? (raw.secondary_display_name || raw.display_name || "Cliente") : (raw.display_name || "Cliente"),
+          server_name: (raw.servers as any)?.name || "Servidor",
+          is_secondary: isSec,
+        };
+      });
     }
   }
 
-  // Templates como base de conhecimento
+  // Se não achou conta (ou nem foi passado telefone), coloca o placeholder padrão na array
+  if (clients.length === 0) {
+    clients.push({
+      id: null, display_name: "Cliente Teste Genérico", server_name: "Servidor Teste",
+      plan_label: "Mensal", screens: 1, vencimento: null,
+      price_currency: "BRL", price_amount: 0, plan_table_id: null,
+      server_id: null, whatsapp_username: null,
+    });
+    clientMatchesRaw.push(clients[0]); // Evita erro se a tool for chamada
+  }
+
+  // Templates como base de conhecimento (removido is_active=true para ler tudo)
   const { data: templateRows } = await sb
     .from("message_templates").select("name, category, content")
-    .eq("tenant_id", tenantId).eq("is_active", true).order("category");
+    .eq("tenant_id", tenantId).order("category");
 
   const templatesText = (templateRows || [])
     .map((t: any) => `### [${t.category}] ${t.name}\n${t.content}`)
     .join("\n\n---\n\n");
 
-  const systemPrompt = buildSystemPrompt(client, templatesText, true);
+  const systemPrompt = buildSystemPrompt(clients, templatesText, true); // 🟢 Passando o Array
 
   // Monta conversa com histórico (multi-turn)
   const history = Array.isArray(conversation_history) ? conversation_history : [];
@@ -329,18 +345,27 @@ export async function POST(req: Request) {
         let toolResult: any;
         try {
           switch (fn.name) {
-            case "gerar_link_portal":
-              toolResult = { link: await toolGerarLinkPortal(sb, tenantId, client) };
+            case "gerar_link_portal": {
+              const idx = Math.max(0, (fn.args?.conta_index || 1) - 1);
+              const selectedClient = clients[idx] || clients[0];
+              toolResult = { link: await toolGerarLinkPortal(sb, tenantId, selectedClient) };
               break;
-            case "consultar_precos":
-              toolResult = await toolConsultarPrecos(sb, tenantId, client);
+            }
+            case "consultar_precos": {
+              const idx = Math.max(0, (fn.args?.conta_index || 1) - 1);
+              const selectedClient = clients[idx] || clients[0];
+              toolResult = await toolConsultarPrecos(sb, tenantId, selectedClient);
               break;
+            }
             case "verificar_cloudflare":
               toolResult = await toolVerificarCloudflare();
               break;
-            case "recomendar_aplicativo":
-              toolResult = await toolRecomendarApplicativo(sb, tenantId, client.server_id || null);
+            case "recomendar_aplicativo": {
+              const idx = Math.max(0, (fn.args?.conta_index || 1) - 1);
+              const selectedClient = clients[idx] || clients[0];
+              toolResult = await toolRecomendarApplicativo(sb, tenantId, selectedClient.server_id || null);
               break;
+            }
             default:
               toolResult = { error: "Ferramenta desconhecida" };
           }
