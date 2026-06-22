@@ -609,6 +609,9 @@ type ChatMessage = { role: "user" | "bot"; text: string };
 function BotTestChat({ tenantId }: { tenantId: string | null }) {
   const [clients, setClients] = useState<{ id: string; display_name: string; whatsapp_username?: string | null }[]>([]);
   const [selectedPhone, setSelectedPhone] = useState<string>("");
+  const [clientSearch, setClientSearch] = useState<string>("");
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [selectedLabel, setSelectedLabel] = useState<string>("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [history, setHistory] = useState<any[]>([]);
   const [input, setInput] = useState("");
@@ -751,28 +754,95 @@ function BotTestChat({ tenantId }: { tenantId: string | null }) {
           
             {/* LADO ESQUERDO: SIMULADOR DE CHAT */}
             <div className="flex flex-col h-[500px] bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b border-border flex items-center gap-3 flex-wrap bg-muted/20">
-              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider shrink-0">Simular número:</span>
-              <select
-                value={selectedPhone}
-                onChange={(e) => { setSelectedPhone(e.target.value); clearChat(); }}
-                className="flex-1 min-w-0 h-8 px-2 text-xs bg-card border border-border rounded-lg outline-none focus:border-emerald-500/50"
-              >
-                <option value="">Genérico (sem dados reais)</option>
-                {clients
-                  .filter((c) => c.whatsapp_username)
-                  // Remove os números duplicados da lista
-                  .filter((c, index, array) => array.findIndex(item => item.whatsapp_username === c.whatsapp_username) === index)
-                  .map((c) => (
-                    <option key={c.whatsapp_username} value={c.whatsapp_username}>
-                      {c.whatsapp_username} - {c.display_name}
-                    </option>
-                  ))}
-              </select>
-              {messages.length > 0 && (
-                <button onClick={clearChat} className="text-[10px] text-rose-500 font-medium hover:underline shrink-0">
-                  Limpar chat
-                </button>
+            <div className="px-4 py-3 border-b border-border bg-muted/20 space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider shrink-0">Simular:</span>
+                <div className="relative flex-1">
+                  <input
+                    value={clientSearch}
+                    onChange={(e) => { setClientSearch(e.target.value); setShowDropdown(true); }}
+                    onFocus={() => setShowDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+                    placeholder="Buscar por nome ou número..."
+                    className="w-full h-8 px-3 text-xs bg-card border border-border rounded-lg outline-none focus:border-emerald-500/50"
+                  />
+                  {showDropdown && (
+                    <div className="absolute z-20 top-9 left-0 right-0 bg-card border border-border rounded-xl shadow-xl max-h-52 overflow-y-auto">
+                      {/* Opção genérica */}
+                      <button
+                        onMouseDown={() => {
+                          setSelectedPhone("");
+                          setSelectedLabel("Genérico (sem dados reais)");
+                          setClientSearch("");
+                          setShowDropdown(false);
+                          clearChat();
+                        }}
+                        className="w-full text-left px-3 py-2 text-xs hover:bg-muted transition-colors text-muted-foreground"
+                      >
+                        Genérico (sem dados reais)
+                      </button>
+
+                      {/* Clientes filtrados */}
+                      {clients
+                        .filter((c) => c.whatsapp_username)
+                        .filter((c) => {
+                          const q = clientSearch.toLowerCase();
+                          if (!q) return true;
+                          return (
+                            c.display_name?.toLowerCase().includes(q) ||
+                            c.whatsapp_username?.includes(q)
+                          );
+                        })
+                        .map((c, idx) => (
+                          <button
+                            key={`${c.whatsapp_username}-${idx}`}
+                            onMouseDown={() => {
+                              setSelectedPhone(c.whatsapp_username || "");
+                              setSelectedLabel(`${c.display_name} — ${c.whatsapp_username}`);
+                              setClientSearch("");
+                              setShowDropdown(false);
+                              clearChat();
+                            }}
+                            className="w-full text-left px-3 py-2 text-xs hover:bg-muted transition-colors border-t border-border/50"
+                          >
+                            <span className="font-medium text-foreground">{c.display_name}</span>
+                            <span className="text-muted-foreground ml-2">{c.whatsapp_username}</span>
+                          </button>
+                        ))}
+
+                      {clients.filter((c) => c.whatsapp_username && (
+                        !clientSearch ||
+                        c.display_name?.toLowerCase().includes(clientSearch.toLowerCase()) ||
+                        c.whatsapp_username?.includes(clientSearch)
+                      )).length === 0 && clientSearch && (
+                        <div className="px-3 py-2 text-xs text-muted-foreground">
+                          Nenhum cliente encontrado
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {messages.length > 0 && (
+                  <button onClick={clearChat} className="text-[10px] text-rose-500 font-medium hover:underline shrink-0">
+                    Limpar
+                  </button>
+                )}
+              </div>
+
+              {/* Mostra quem está selecionado */}
+              {selectedLabel && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-muted-foreground">Simulando:</span>
+                  <span className="text-[10px] font-medium text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
+                    {selectedLabel}
+                  </span>
+                  <button
+                    onClick={() => { setSelectedPhone(""); setSelectedLabel(""); clearChat(); }}
+                    className="text-[10px] text-muted-foreground hover:text-rose-500 transition-colors"
+                  >
+                    ✕
+                  </button>
+                </div>
               )}
             </div>
 
