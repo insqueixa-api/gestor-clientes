@@ -27,6 +27,17 @@ function toBRDate(iso: string): string {
   return d.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
 }
 
+function toBRDateTime(iso: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+}
+
 function diffDaysFromNow(iso: string): number {
   const sp = (d: Date) =>
     new Date(d.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }));
@@ -185,10 +196,26 @@ const TOOL_DECLARATIONS = [
 ];
 
 function buildSystemPrompt(clients: any[], templatesText: string, isTest: boolean): string {
-  const contasFormatadas = clients.map((c, index) => {
+const contasFormatadas = clients.map((c, index) => {
     const diasVenc = c.vencimento ? diffDaysFromNow(c.vencimento) : null;
-    const vencStatus = diasVenc === null ? "não informado" : diasVenc < 0 ? `⚠️ VENCIDO há ${Math.abs(diasVenc)} dia(s)` : diasVenc === 0 ? "⚠️ VENCE HOJE" : `✅ ${toBRDate(c.vencimento)} (em ${diasVenc} dia(s))`;
-    return `[CONTA ${index + 1}]\n- Nome: ${c.display_name}\n- Servidor: ${c.server_name}\n- Plano: ${c.plan_label} / ${c.screens} tela(s)\n- Vencimento: ${vencStatus}\n- Moeda: ${c.price_currency || "BRL"}`;
+    const vencDateTime = c.vencimento ? toBRDateTime(c.vencimento) : null;
+    const vencStatus = diasVenc === null
+      ? "não informado"
+      : diasVenc < 0
+      ? `⚠️ VENCIDO em ${vencDateTime} (há ${Math.abs(diasVenc)} dia(s))`
+      : diasVenc === 0
+      ? `⚠️ VENCE HOJE às ${vencDateTime?.split(" ")[1] || ""}`
+      : `✅ ${vencDateTime} (em ${diasVenc} dia(s))`;
+
+    return [
+      `[CONTA ${index + 1}]`,
+      `- Usuário do servidor: ${c.server_username || "(não informado)"}`,
+      `- Servidor: ${c.server_name}`,
+      `- Nome: ${c.display_name}`,
+      `- Plano: ${c.plan_label} / ${c.screens} tela(s)`,
+      `- Vencimento: ${vencStatus}`,
+      `- Moeda: ${c.price_currency || "BRL"}`,
+    ].join("\n");
   }).join("\n\n");
 
   return `Você é o assistente de atendimento da UniGestor, um serviço de IPTV.${isTest ? "\n\n⚠️ MODO DE TESTE: Esta é uma simulação do painel admin. Responda normalmente como faria com um cliente real." : ""}
@@ -197,7 +224,15 @@ function buildSystemPrompt(clients: any[], templatesText: string, isTest: boolea
 ${contasFormatadas}
 
 ## REGRA PARA MÚLTIPLAS CONTAS (MUITO IMPORTANTE)
-Se o cliente tiver MAIS DE UMA CONTA listada acima e fizer um pedido genérico (ex: "qual meu vencimento?", "quero renovar", "meu canal travou"), você NÃO DEVE adivinhar qual é a conta. Você DEVE perguntar de forma gentil a qual conta ele se refere (cite os servidores ou os nomes para ajudá-lo a identificar). Se ele tiver apenas UMA conta, prossiga o atendimento direto.
+Se o cliente tiver MAIS DE UMA CONTA e fizer um pedido genérico (ex: "qual meu vencimento?", "quero renovar", "meu canal travou"), NÃO DEVE adivinhar. Pergunte gentilmente a qual conta ele se refere.
+
+OBRIGATÓRIO ao listar contas: SEMPRE mostrar o "Usuário do servidor" (ex: marcio123) junto com o servidor. Nunca liste contas sem o username — em servidores iguais é a ÚNICA forma do cliente identificar qual conta é a dele.
+
+Formato correto ao listar:
+- Conta 1: marcio123 (NaTV) — Mensal, vence 25/06/2026 às 23:59
+- Conta 2: marcio456 (NaTV) — Mensal, vence 10/07/2026 às 23:59
+
+OBRIGATÓRIO sobre vencimentos: SEMPRE informe data E hora completas (ex: 25/06/2026 às 23:59). A hora é primordial — clientes precisam saber se o acesso vai cair de manhã ou à meia-noite.
 
 ## REGRAS ABSOLUTAS
 1. NUNCA invente valores, datas ou dados financeiros — use as ferramentas.
@@ -263,6 +298,7 @@ export async function POST(req: Request) {
       .from("clients")
       .select(`
         id, display_name, secondary_display_name, whatsapp_username, secondary_whatsapp_username,
+        server_username,
         vencimento, screens, plan_label, plan_table_id, price_amount, price_currency, technology,
         server_id, is_trial, is_archived, servers (name)
       `)
