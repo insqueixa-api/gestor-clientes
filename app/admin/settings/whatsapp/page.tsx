@@ -746,10 +746,11 @@ function BotTestChat({ tenantId }: { tenantId: string | null }) {
       </button>
 
       {isOpen && (
-        <div className="border-t border-border flex flex-col lg:flex-row">
+        <div className="border-t border-border bg-muted/5 p-4 sm:p-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
-          {/* LADO ESQUERDO: SIMULADOR DE CHAT */}
-          <div className="flex-1 border-b lg:border-b-0 lg:border-r border-border flex flex-col h-[500px]">
+            {/* LADO ESQUERDO: SIMULADOR DE CHAT */}
+            <div className="flex flex-col h-[500px] bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-border flex items-center gap-3 flex-wrap bg-muted/20">
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider shrink-0">Simular número:</span>
               <select
@@ -843,7 +844,7 @@ function BotTestChat({ tenantId }: { tenantId: string | null }) {
           </div>
 
           {/* LADO DIREITO: BASE DE CONHECIMENTO LIVRE */}
-          <div className="w-full lg:w-[400px] flex flex-col h-[500px] bg-muted/10">
+            <div className="flex flex-col h-[500px] bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
             <div className="px-5 py-3 border-b border-border bg-muted/20">
               <h4 className="text-xs font-bold text-foreground">Base de Conhecimento Geral</h4>
               <p className="text-[10px] text-muted-foreground mt-0.5">Ensine como o sistema funciona ou regras da empresa.</p>
@@ -885,7 +886,8 @@ function BotTestChat({ tenantId }: { tenantId: string | null }) {
               </button>
             </form>
           </div>
-          
+            
+          </div>
         </div>
       )}
     </div>
