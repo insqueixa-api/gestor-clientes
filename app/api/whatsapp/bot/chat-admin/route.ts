@@ -36,7 +36,7 @@ function diffDaysFromNow(iso: string): number {
 }
 
 // Usa a tag -latest para garantir que a API v1beta encontre o modelo
-const GEMINI_MODEL = "gemini-1.5-flash-latest";
+const GEMINI_MODEL = "gemini-flash-latest";
 
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
