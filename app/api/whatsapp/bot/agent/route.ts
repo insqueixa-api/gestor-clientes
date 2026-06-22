@@ -558,7 +558,6 @@ Responda APENAS o JSON, sem markdown, sem explicação.`,
     .from("message_templates")
     .select("name, category, content")
     .eq("tenant_id", tenant_id)
-    .eq("is_active", true)
     .order("category");
 
   const templatesText = (templateRows || [])

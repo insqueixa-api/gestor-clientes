@@ -92,7 +92,7 @@ async function toolConsultarPrecos(sb: any, tenantId: string, client: any): Prom
     const { data: def } = await sb
       .from("plan_tables").select("id")
       .eq("tenant_id", tenantId).eq("is_system_default", true)
-      .eq("currency", client.price_currency || "BRL").eq("is_active", true).maybeSingle();
+      .eq("currency", client.price_currency || "BRL").maybeSingle();
     if (def) planTableId = def.id;
   }
   if (!planTableId) return { error: "Tabela de preços não encontrada" };
