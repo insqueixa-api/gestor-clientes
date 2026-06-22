@@ -759,11 +759,15 @@ function BotTestChat({ tenantId }: { tenantId: string | null }) {
                 className="flex-1 min-w-0 h-8 px-2 text-xs bg-card border border-border rounded-lg outline-none focus:border-emerald-500/50"
               >
                 <option value="">Genérico (sem dados reais)</option>
-                {clients.filter(c => c.whatsapp_username).map((c) => (
-                  <option key={c.id} value={c.whatsapp_username}>
-                    {c.whatsapp_username} - {c.display_name}
-                  </option>
-                ))}
+                {clients
+                  .filter((c) => c.whatsapp_username)
+                  // Remove os números duplicados da lista
+                  .filter((c, index, array) => array.findIndex(item => item.whatsapp_username === c.whatsapp_username) === index)
+                  .map((c) => (
+                    <option key={c.whatsapp_username} value={c.whatsapp_username}>
+                      {c.whatsapp_username} - {c.display_name}
+                    </option>
+                  ))}
               </select>
               {messages.length > 0 && (
                 <button onClick={clearChat} className="text-[10px] text-rose-500 font-medium hover:underline shrink-0">
