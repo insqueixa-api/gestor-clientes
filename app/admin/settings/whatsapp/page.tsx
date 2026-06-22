@@ -60,7 +60,9 @@ const [editingMessage, setEditingMessage] = useState(false);
   const [showMessageSection, setShowMessageSection] = useState(false);
 const [allowedList, setAllowedList] = useState<AllowedRow[]>([]);
   const [savedAllowedNumbers, setSavedAllowedNumbers] = useState<string[]>([]);
-  const [savingConfig, setSavingConfig] = useState(false);
+const [savingConfig, setSavingConfig] = useState(false);
+  const [botEnabled, setBotEnabled] = useState(false);
+  const [tenantId, setTenantId] = useState<string | null>(null);
 
   const route = (path: string) => `/api/whatsapp/${path}${apiSuffix}`;
 
@@ -86,11 +88,12 @@ const [allowedList, setAllowedList] = useState<AllowedRow[]>([]);
     try {
       const res = await fetch(route("config"), { cache: "no-store" });
       const json = await res.json().catch(() => ({}));
-      if (res.ok) {
+if (res.ok) {
         setRejectCalls(json.rejectCalls ?? true);
         setRejectMessage(json.rejectMessage ?? "");
         setAllowedList(parseAllowed(json.allowedNumbers ?? []));
         setSavedAllowedNumbers(json.allowedNumbers ?? []);
+        setBotEnabled(json.botEnabled ?? false);
       }
     } catch {}
   }
@@ -121,7 +124,12 @@ const [allowedList, setAllowedList] = useState<AllowedRow[]>([]);
     }
   }
 
-  useEffect(() => {
+useEffect(() => {
+    // Carrega tenantId uma vez — necessário pra o bot saber a qual tenant pertence
+    import("@/lib/tenant").then(({ getCurrentTenantId }) => {
+      getCurrentTenantId().then((tid) => { if (tid) setTenantId(tid); });
+    });
+
     fetchStatus().then(({ connected: c, status }) => {
       if (c || status === "qr" || status === "connecting") {
         setIsDormant(false);
@@ -137,13 +145,15 @@ const [allowedList, setAllowedList] = useState<AllowedRow[]>([]);
   }, [isDormant, connected]);
 
   // ── Salvar config (toggle / mensagem / lista) ─────────────────
-  async function saveConfig(overrides: Partial<{ rejectCalls: boolean; rejectMessage: string; allowedNumbers: string[] }> = {}) {
+  async function saveConfig(overrides: Partial<{ rejectCalls: boolean; rejectMessage: string; allowedNumbers: string[]; botEnabled: boolean }> = {}) {
     setSavingConfig(true);
     try {
-      const payload = {
+const payload = {
         rejectCalls: overrides.rejectCalls ?? rejectCalls,
         rejectMessage: overrides.rejectMessage ?? rejectMessage,
         allowedNumbers: overrides.allowedNumbers ?? stringifyAllowed(allowedList),
+        botEnabled: overrides.botEnabled ?? botEnabled,
+        ...(tenantId ? { tenantId } : {}),
       };
       const res = await fetch(route("config"), {
         method: "POST",
@@ -159,10 +169,16 @@ if (res.ok) {
     }
   }
 
-  async function handleToggleRejectCalls() {
+async function handleToggleRejectCalls() {
     const next = !rejectCalls;
     setRejectCalls(next);
     await saveConfig({ rejectCalls: next });
+  }
+
+  async function handleToggleBot() {
+    const next = !botEnabled;
+    setBotEnabled(next);
+    await saveConfig({ botEnabled: next });
   }
 
   function startEditMessage() {
@@ -289,6 +305,30 @@ if (res.ok) {
 
             {/* Coluna 2 — opções */}
             <div className="flex-1 min-w-0 space-y-3">
+{/* Toggle bot de atendimento */}
+              <div className="flex items-center justify-between p-3 rounded-xl border border-border">
+                <span className="text-sm font-medium text-foreground/90 flex items-center gap-1.5">
+                  {botEnabled ? (
+                    <span className="text-base leading-none">🤖</span>
+                  ) : (
+                    <span className="text-base leading-none opacity-40">🤖</span>
+                  )}
+                  Bot de Atendimento
+                  {botEnabled && (
+                    <span className="text-[10px] font-medium text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-md">
+                      ativo
+                    </span>
+                  )}
+                </span>
+                <button
+                  onClick={() => void handleToggleBot()}
+                  disabled={savingConfig}
+                  className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${botEnabled ? "bg-emerald-500" : "bg-muted"}`}
+                >
+                  <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-card shadow-sm transition-transform ${botEnabled ? "translate-x-5" : ""}`} />
+                </button>
+              </div>
+
               {/* Toggle rejeitar chamadas */}
               <div className="flex items-center justify-between p-3 rounded-xl border border-border">
                 <span className="text-sm font-medium text-foreground/90 flex items-center gap-1.5">
