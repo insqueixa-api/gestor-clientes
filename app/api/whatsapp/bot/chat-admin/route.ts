@@ -279,8 +279,8 @@ export async function POST(req: Request) {
   ];
 
   const geminiPayload: any = {
-    system_instruction: { parts: [{ text: systemPrompt }] },
-    tools: [{ function_declarations: TOOL_DECLARATIONS }],
+    systemInstruction: { parts: [{ text: systemPrompt }] }, // 🟢 Corrigido para CamelCase
+    tools: [{ functionDeclarations: TOOL_DECLARATIONS }],   // 🟢 Corrigido para CamelCase
     contents,
     generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
   };
@@ -289,48 +289,53 @@ export async function POST(req: Request) {
   let finalResponse = "";
   const newContents = [...contents];
 
-  for (let i = 0; i < 5; i++) {
-    const result = await callGemini(geminiKey, { ...geminiPayload, contents: newContents });
-    const parts = result?.candidates?.[0]?.content?.parts || [];
-    const toolCalls = parts.filter((p: any) => p.functionCall);
-    const textPart = parts.find((p: any) => typeof p.text === "string" && p.text.trim());
+  try { // 🟢 Adicionada a blindagem contra erros da API do Gemini
+    for (let i = 0; i < 5; i++) {
+      const result = await callGemini(geminiKey, { ...geminiPayload, contents: newContents });
+      const parts = result?.candidates?.[0]?.content?.parts || [];
+      const toolCalls = parts.filter((p: any) => p.functionCall);
+      const textPart = parts.find((p: any) => typeof p.text === "string" && p.text.trim());
 
-    if (textPart && !toolCalls.length) {
-      finalResponse = textPart.text.trim();
-      newContents.push({ role: "model", parts: [{ text: finalResponse }] });
-      break;
-    }
-    if (!toolCalls.length) break;
-
-    newContents.push({ role: "model", parts });
-    const toolResults: any[] = [];
-
-    for (const part of toolCalls) {
-      const fn = part.functionCall;
-      let toolResult: any;
-      try {
-        switch (fn.name) {
-          case "gerar_link_portal":
-            toolResult = { link: await toolGerarLinkPortal(sb, tenantId, client) };
-            break;
-          case "consultar_precos":
-            toolResult = await toolConsultarPrecos(sb, tenantId, client);
-            break;
-          case "verificar_cloudflare":
-            toolResult = await toolVerificarCloudflare();
-            break;
-          case "recomendar_aplicativo":
-            toolResult = await toolRecomendarApplicativo(sb, tenantId, client.server_id || null);
-            break;
-          default:
-            toolResult = { error: "Ferramenta desconhecida" };
-        }
-      } catch (e: any) {
-        toolResult = { error: e?.message };
+      if (textPart && !toolCalls.length) {
+        finalResponse = textPart.text.trim();
+        newContents.push({ role: "model", parts: [{ text: finalResponse }] });
+        break;
       }
-      toolResults.push({ functionResponse: { name: fn.name, response: toolResult } });
+      if (!toolCalls.length) break;
+
+      newContents.push({ role: "model", parts });
+      const toolResults: any[] = [];
+
+      for (const part of toolCalls) {
+        const fn = part.functionCall;
+        let toolResult: any;
+        try {
+          switch (fn.name) {
+            case "gerar_link_portal":
+              toolResult = { link: await toolGerarLinkPortal(sb, tenantId, client) };
+              break;
+            case "consultar_precos":
+              toolResult = await toolConsultarPrecos(sb, tenantId, client);
+              break;
+            case "verificar_cloudflare":
+              toolResult = await toolVerificarCloudflare();
+              break;
+            case "recomendar_aplicativo":
+              toolResult = await toolRecomendarApplicativo(sb, tenantId, client.server_id || null);
+              break;
+            default:
+              toolResult = { error: "Ferramenta desconhecida" };
+          }
+        } catch (e: any) {
+          toolResult = { error: e?.message };
+        }
+        toolResults.push({ functionResponse: { name: fn.name, response: toolResult } });
+      }
+      newContents.push({ role: "user", parts: toolResults });
     }
-    newContents.push({ role: "user", parts: toolResults });
+  } catch (e: any) {
+    safeLog("[BOT][chat-admin] Falha ao comunicar com Google Gemini:", e?.message);
+    return NextResponse.json({ error: `Erro na comunicação com a IA: ${e?.message}` }, { status: 502 });
   }
 
   if (!finalResponse) return NextResponse.json({ error: "Agente não retornou resposta" }, { status: 500 });

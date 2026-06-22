@@ -476,8 +476,8 @@ export async function POST(req: Request) {
           role: "user",
           parts: [
             {
-              inline_data: {
-                mime_type: mime_type || (media_type === "image" ? "image/jpeg" : "application/pdf"),
+              inlineData: { // 🟢 Corrigido para CamelCase
+                mimeType: mime_type || (media_type === "image" ? "image/jpeg" : "application/pdf"), // 🟢 Corrigido para CamelCase
                 data: media_base64,
               },
             },
@@ -573,8 +573,8 @@ Responda APENAS o JSON, sem markdown, sem explicação.`,
   ];
 
   const geminiPayload: any = {
-    system_instruction: { parts: [{ text: systemPrompt }] },
-    tools: [{ function_declarations: TOOL_DECLARATIONS }],
+    systemInstruction: { parts: [{ text: systemPrompt }] },
+    tools: [{ functionDeclarations: TOOL_DECLARATIONS }],
     contents: conversation,
     generationConfig: {
       temperature: 0.7,
@@ -585,76 +585,81 @@ Responda APENAS o JSON, sem markdown, sem explicação.`,
   // Loop de tool calling — máx 5 iterações pra evitar loop infinito
   let finalResponse = "";
 
-  for (let i = 0; i < 5; i++) {
-    safeLog(`[BOT][agent] Gemini iteração ${i + 1}`);
+  try {
+    for (let i = 0; i < 5; i++) {
+      safeLog(`[BOT][agent] Gemini iteração ${i + 1}`);
 
-    const result = await callGemini(geminiKey, geminiPayload);
-    const parts = result?.candidates?.[0]?.content?.parts || [];
+      const result = await callGemini(geminiKey, geminiPayload);
+      const parts = result?.candidates?.[0]?.content?.parts || [];
 
-    const toolCalls = parts.filter((p: any) => p.functionCall);
-    const textPart = parts.find((p: any) => typeof p.text === "string" && p.text.trim());
+      const toolCalls = parts.filter((p: any) => p.functionCall);
+      const textPart = parts.find((p: any) => typeof p.text === "string" && p.text.trim());
 
-    // Modelo deu resposta de texto sem tool calls → fim do loop
-    if (textPart && !toolCalls.length) {
-      finalResponse = textPart.text.trim();
-      break;
-    }
-
-    // Sem tool calls e sem texto → algo errado, sai
-    if (!toolCalls.length) {
-      safeLog("[BOT][agent] Gemini não retornou texto nem tool calls");
-      break;
-    }
-
-    // Adiciona resposta do modelo à conversa antes de executar ferramentas
-    geminiPayload.contents.push({ role: "model", parts });
-
-    // Executa cada ferramenta solicitada
-    const toolResults: any[] = [];
-    for (const part of toolCalls) {
-      const fn = part.functionCall;
-      let toolResult: any;
-
-      try {
-        switch (fn.name) {
-          case "gerar_link_portal":
-            toolResult = {
-              link: await toolGerarLinkPortal(sb, tenant_id, rawClient, isSecondary),
-            };
-            break;
-
-          case "consultar_precos":
-            toolResult = await toolConsultarPrecos(sb, tenant_id, client);
-            break;
-
-          case "verificar_cloudflare":
-            toolResult = await toolVerificarCloudflare();
-            break;
-
-          case "recomendar_aplicativo":
-            toolResult = await toolRecomendarApplicativo(sb, tenant_id, client.server_id || null);
-            break;
-
-          default:
-            toolResult = { error: `Ferramenta desconhecida: ${fn.name}` };
-        }
-      } catch (e: any) {
-        safeLog(`[BOT][agent] Erro na ferramenta ${fn.name}:`, e?.message);
-        toolResult = { error: e?.message || "Erro ao executar ferramenta" };
+      // Modelo deu resposta de texto sem tool calls → fim do loop
+      if (textPart && !toolCalls.length) {
+        finalResponse = textPart.text.trim();
+        break;
       }
 
-      safeLog(`[BOT][agent] Tool ${fn.name}:`, JSON.stringify(toolResult).slice(0, 200));
+      // Sem tool calls e sem texto → algo errado, sai
+      if (!toolCalls.length) {
+        safeLog("[BOT][agent] Gemini não retornou texto nem tool calls");
+        break;
+      }
 
-      toolResults.push({
-        functionResponse: {
-          name: fn.name,
-          response: toolResult,
-        },
-      });
+      // Adiciona resposta do modelo à conversa antes de executar ferramentas
+      geminiPayload.contents.push({ role: "model", parts });
+
+      // Executa cada ferramenta solicitada
+      const toolResults: any[] = [];
+      for (const part of toolCalls) {
+        const fn = part.functionCall;
+        let toolResult: any;
+
+        try {
+          switch (fn.name) {
+            case "gerar_link_portal":
+              toolResult = {
+                link: await toolGerarLinkPortal(sb, tenant_id, rawClient, isSecondary),
+              };
+              break;
+
+            case "consultar_precos":
+              toolResult = await toolConsultarPrecos(sb, tenant_id, client);
+              break;
+
+            case "verificar_cloudflare":
+              toolResult = await toolVerificarCloudflare();
+              break;
+
+            case "recomendar_aplicativo":
+              toolResult = await toolRecomendarApplicativo(sb, tenant_id, client.server_id || null);
+              break;
+
+            default:
+              toolResult = { error: `Ferramenta desconhecida: ${fn.name}` };
+          }
+        } catch (e: any) {
+          safeLog(`[BOT][agent] Erro na ferramenta ${fn.name}:`, e?.message);
+          toolResult = { error: e?.message || "Erro ao executar ferramenta" };
+        }
+
+        safeLog(`[BOT][agent] Tool ${fn.name}:`, JSON.stringify(toolResult).slice(0, 200));
+
+        toolResults.push({
+          functionResponse: {
+            name: fn.name,
+            response: toolResult,
+          },
+        });
+      }
+
+      // Adiciona resultados das ferramentas à conversa
+      geminiPayload.contents.push({ role: "user", parts: toolResults });
     }
-
-    // Adiciona resultados das ferramentas à conversa
-    geminiPayload.contents.push({ role: "user", parts: toolResults });
+  } catch (e: any) {
+    safeLog("[BOT][agent] Falha ao comunicar com Google Gemini:", e?.message);
+    return NextResponse.json({ ok: false, error: e?.message }, { status: 502 });
   }
 
   if (!finalResponse) {
