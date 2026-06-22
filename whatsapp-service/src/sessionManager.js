@@ -18,6 +18,18 @@ const processedCalls = new Map(); // callId -> timestamp
 // Em memória: se o servidor reiniciar, pausas somem — comportamento aceitável
 const humanPausedContacts = new Map();
 
+// Deduplicação de mensagens — evita processar a mesma msg duplicada do Baileys
+const processedMessages = new Map(); // msgId -> timestamp
+function isMessageAlreadyProcessed(msgId) {
+  const now = Date.now();
+  for (const [id, ts] of processedMessages.entries()) {
+    if (now - ts > 60_000) processedMessages.delete(id); // limpa após 1 min
+  }
+  if (processedMessages.has(msgId)) return true;
+  processedMessages.set(msgId, now);
+  return false;
+}
+
 function isContactPaused(sessionKey, phone) {
   const map = humanPausedContacts.get(sessionKey);
   if (!map) return false;
@@ -603,6 +615,13 @@ async function handleBotLogic(sessionKey, messages) {
 
 if (!hasText && !hasMedia) {
       console.log(`[BOT][${sessionKey.slice(0, 8)}] Sem conteúdo processável para ${phone}`);
+      continue;
+    }
+
+// Deduplicação — Baileys pode emitir a mesma mensagem várias vezes
+    const msgId = msg.key?.id;
+    if (msgId && isMessageAlreadyProcessed(msgId)) {
+      console.log(`[BOT][${sessionKey.slice(0, 8)}] Msg ${msgId} já processada, ignorando duplicata`);
       continue;
     }
 
