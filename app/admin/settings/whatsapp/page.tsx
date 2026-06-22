@@ -606,7 +606,13 @@ function VmMaintenanceModal({
 
 type ChatMessage = { role: "user" | "bot"; text: string };
 
-function BotTestChat({ tenantId }: { tenantId: string | null }) {
+function BotTestChat({ 
+  tenantId, 
+  addToast 
+}: { 
+  tenantId: string | null;
+  addToast: (type: "success" | "error", title: string, msg?: string) => void;
+}) {
   const [clients, setClients] = useState<{ id: string; display_name: string; whatsapp_username?: string | null }[]>([]);
   const [selectedPhone, setSelectedPhone] = useState<string>("");
   const [clientSearch, setClientSearch] = useState<string>("");
@@ -639,7 +645,7 @@ function BotTestChat({ tenantId }: { tenantId: string | null }) {
 
       if (error) throw error;
       if (!data || data.length === 0) {
-        window.alert("Nenhum conhecimento encontrado.");
+        addToast("error", "Aviso", "Nenhum conhecimento encontrado.");
         return;
       }
 
@@ -664,7 +670,7 @@ function BotTestChat({ tenantId }: { tenantId: string | null }) {
       URL.revokeObjectURL(url);
 
     } catch (err: any) {
-      window.alert(`Erro ao exportar: ${err.message}`);
+      addToast("error", "Erro ao exportar", err.message);
     } finally {
       setExporting(false);
     }
@@ -723,20 +729,25 @@ function BotTestChat({ tenantId }: { tenantId: string | null }) {
     if (!idealResponse?.trim()) return;
 
     setSavingTemplate(wrongBotText);
-    const tid = await getCurrentTenantId();
-    
-    const feedbackContent = `PERGUNTA DO CLIENTE: "${userText}"\nRESPOSTA IDEAL DO BOT: "${idealResponse.trim()}"`;
-    
-    await supabaseBrowser.from("message_templates").insert({
-      tenant_id: tid, 
-      name: "Correção de Comportamento", 
-      category: "Treinamento Específico", 
-      content: feedbackContent, 
-      is_active: true,
-    });
-    
-    setSavingTemplate(null);
-    window.alert("Feedback salvo! O bot se baseará nesta correção nas próximas vezes.");
+    try {
+      const tid = await getCurrentTenantId();
+      const feedbackContent = `PERGUNTA DO CLIENTE: "${userText}"\nRESPOSTA IDEAL DO BOT: "${idealResponse.trim()}"`;
+      
+      const { error } = await supabaseBrowser.from("message_templates").insert({
+        tenant_id: tid, 
+        name: "Correção de Comportamento", 
+        category: "Treinamento Específico", 
+        content: feedbackContent, 
+        is_active: true,
+      });
+      if (error) throw error;
+      
+      addToast("success", "Feedback salvo!", "O bot se baseará nesta correção nas próximas vezes.");
+    } catch (err: any) {
+      addToast("error", "Erro ao salvar", err.message);
+    } finally {
+      setSavingTemplate(null);
+    }
   }
 
   async function saveAsTemplate(text: string) {
@@ -744,13 +755,21 @@ function BotTestChat({ tenantId }: { tenantId: string | null }) {
     if (!name?.trim()) return;
     const category = window.prompt("Categoria (ex: Manutenção, Pagamento):", "Geral");
     if (!category) return;
+    
     setSavingTemplate(text);
-    const tid = await getCurrentTenantId();
-    await supabaseBrowser.from("message_templates").insert({
-      tenant_id: tid, name: name.trim(), category: category.trim(), content: text, is_active: true,
-    });
-    setSavingTemplate(null);
-    window.alert("Template salvo! O bot vai usar esse conhecimento nas próximas conversas.");
+    try {
+      const tid = await getCurrentTenantId();
+      const { error } = await supabaseBrowser.from("message_templates").insert({
+        tenant_id: tid, name: name.trim(), category: category.trim(), content: text, is_active: true,
+      });
+      if (error) throw error;
+      
+      addToast("success", "Template salvo!", "O bot vai usar esse conhecimento nas próximas conversas.");
+    } catch (err: any) {
+      addToast("error", "Erro ao salvar", err.message);
+    } finally {
+      setSavingTemplate(null);
+    }
   }
 
   // Injeção de Conhecimento Direto (Livre)
@@ -759,20 +778,25 @@ function BotTestChat({ tenantId }: { tenantId: string | null }) {
     if (!knowTitle.trim() || !knowContent.trim() || savingKnowledge) return;
     
     setSavingKnowledge(true);
-    const tid = await getCurrentTenantId();
-    
-    await supabaseBrowser.from("message_templates").insert({
-      tenant_id: tid, 
-      name: knowTitle.trim(), 
-      category: "Regras do Negócio", 
-      content: knowContent.trim(), 
-      is_active: true,
-    });
-    
-    setKnowTitle("");
-    setKnowContent("");
-    setSavingKnowledge(false);
-    window.alert("Conhecimento injetado com sucesso no cérebro da IA!");
+    try {
+      const tid = await getCurrentTenantId();
+      const { error } = await supabaseBrowser.from("message_templates").insert({
+        tenant_id: tid, 
+        name: knowTitle.trim(), 
+        category: "Regras do Negócio", 
+        content: knowContent.trim(), 
+        is_active: true,
+      });
+      if (error) throw error;
+      
+      setKnowTitle("");
+      setKnowContent("");
+      addToast("success", "Injetado com sucesso!", "Conhecimento salvo no cérebro da IA.");
+    } catch (err: any) {
+      addToast("error", "Erro ao injetar", err.message);
+    } finally {
+      setSavingKnowledge(false);
+    }
   }
 
   function clearChat() { setMessages([]); setHistory([]); }
@@ -1064,7 +1088,7 @@ export default function WhatsAppPage() {
         <WhatsAppSessionCard label="Sessão 2" apiSuffix="2" addToast={addToast} />
       </div>
 
-<BotTestChat tenantId={null} />
+      <BotTestChat tenantId={null} addToast={addToast} />
 
       {showVmMenu && <VmMaintenanceModal onClose={() => setShowVmMenu(false)} addToast={addToast} />}
     </div>

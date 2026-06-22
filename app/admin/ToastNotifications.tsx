@@ -61,10 +61,10 @@ export default function ToastNotifications({ toasts, removeToast }: Props) {
             key={t.id}
             className={`pointer-events-auto relative overflow-hidden flex items-start gap-3 p-4 rounded-xl shadow-2xl border-2 transition-all animate-in fade-in slide-in-from-top-5 duration-300  ${
               t.type === "success"
-                ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-200 shadow-emerald-500/20 ring-1 ring-emerald-200/50 dark:ring-emerald-500/10"
+                ? "bg-emerald-50 dark:bg-emerald-950 border-emerald-300 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-200 shadow-emerald-500/20 ring-1 ring-emerald-200/50 dark:ring-emerald-500/10"
                 : t.type === "warning"
-                  ? "bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-500/40 text-amber-800 dark:text-amber-100 shadow-amber-500/20 ring-1 ring-amber-200/50 dark:ring-amber-500/20"
-                  : "bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-500/30 text-rose-800 dark:text-rose-200 shadow-rose-500/20 ring-1 ring-rose-200/50 dark:ring-rose-500/10"
+                  ? "bg-amber-50 dark:bg-amber-950 border-amber-300 dark:border-amber-500/40 text-amber-800 dark:text-amber-100 shadow-amber-500/20 ring-1 ring-amber-200/50 dark:ring-amber-500/20"
+                  : "bg-rose-50 dark:bg-rose-950 border-rose-300 dark:border-rose-500/30 text-rose-800 dark:text-rose-200 shadow-rose-500/20 ring-1 ring-rose-200/50 dark:ring-rose-500/10"
             }`}
           >
             {/* Ícone */}
