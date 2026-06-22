@@ -41,14 +41,17 @@ const GEMINI_MODEL = "gemini-2.0-flash";
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
 async function callGemini(apiKey: string, payload: any): Promise<any> {
-  const url = `${GEMINI_BASE}/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+  const url = `${GEMINI_BASE}/${GEMINI_MODEL}:generateContent`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 30_000);
   let res: Response;
   try {
     res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
       body: JSON.stringify(payload),
       signal: controller.signal,
     });
