@@ -1,3 +1,5 @@
 API_TOKEN=UNIGESTOR_SUPER_TOKEN_2026
 PORT=3000
 CALL_REJECT_MESSAGE=Olá, no momento não estou recebendo ligações pelo WhatsApp. Por favor, envie uma mensagem e aguarde meu retorno. Obrigado! 😊
+GEMINI_API_KEY=AQ.Ab8RN6IatR7croeS3GHEE-oZaXt9Uqx8Pz7M9FeztphUyNJ-mQ
+UNIGESTOR_BOT_INTERNAL_SECRET=70627038a8f7b7fd56339da2c8d0211db10030bf4abe4c4c9f2cc7840ac24b50

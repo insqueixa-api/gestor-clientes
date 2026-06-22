@@ -2,6 +2,7 @@ import makeWASocket, {
   useMultiFileAuthState,
   DisconnectReason,
   fetchLatestBaileysVersion,
+  downloadMediaMessage,
 } from "@whiskeysockets/baileys";
 import { Boom } from "@hapi/boom";
 import path from "path";
@@ -11,6 +12,32 @@ import pino from "pino";
 
 // Adiciona no topo do arquivo, após os imports:
 const processedCalls = new Map(); // callId -> timestamp
+
+// Human takeover: quando você responde, bot para por 4h pra aquele contato
+// Map: sessionKey -> Map(phone -> pausedUntil timestamp)
+// Em memória: se o servidor reiniciar, pausas somem — comportamento aceitável
+const humanPausedContacts = new Map();
+
+function isContactPaused(sessionKey, phone) {
+  const map = humanPausedContacts.get(sessionKey);
+  if (!map) return false;
+  const until = map.get(phone);
+  if (!until) return false;
+  if (Date.now() > until) {
+    map.delete(phone); // expirou, limpa
+    return false;
+  }
+  return true;
+}
+
+function pauseContact(sessionKey, phone) {
+  if (!humanPausedContacts.has(sessionKey)) {
+    humanPausedContacts.set(sessionKey, new Map());
+  }
+  const until = Date.now() + 4 * 60 * 60 * 1000; // 4 horas
+  humanPausedContacts.get(sessionKey).set(phone, until);
+  console.log(`[BOT][${sessionKey.slice(0, 8)}] ⏸️ Atendimento humano ativo para ${phone} até ${new Date(until).toLocaleTimeString("pt-BR")}`);
+}
 
 function isCallAlreadyProcessed(callId) {
   const now = Date.now();
@@ -52,7 +79,13 @@ function getSessionConfig(sessionKey) {
     }
   } catch {}
 
-  const defaults = { rejectCalls: true, rejectMessage: DEFAULT_REJECT_MESSAGE, allowedNumbers: [] };
+  const defaults = {
+    rejectCalls: true,
+    rejectMessage: DEFAULT_REJECT_MESSAGE,
+    allowedNumbers: [],
+    botEnabled: false,   // bot começa desligado — você liga pelo toggle no front
+    tenantId: null,      // preenchido quando admin salva as configurações
+  };
   sessionConfigs.set(sessionKey, defaults);
   return defaults;
 }
@@ -64,6 +97,8 @@ function updateSessionConfig(sessionKey, updates) {
     ...(updates.rejectCalls !== undefined ? { rejectCalls: !!updates.rejectCalls } : {}),
     ...(updates.rejectMessage !== undefined ? { rejectMessage: String(updates.rejectMessage) } : {}),
     ...(Array.isArray(updates.allowedNumbers) ? { allowedNumbers: updates.allowedNumbers } : {}),
+    ...(updates.botEnabled !== undefined ? { botEnabled: !!updates.botEnabled } : {}),
+    ...(updates.tenantId !== undefined ? { tenantId: String(updates.tenantId) } : {}),
   };
   sessionConfigs.set(sessionKey, next);
 
@@ -284,7 +319,11 @@ sock.ev.on("contacts.upsert", (contacts) => {
 sock.ev.on("contacts.set", ({ contacts }) => { mapContacts(contacts); saveLidMap(sessionKey); });
 
 // Captura lid->phone nas mensagens também (constrói o mapa com o tempo)
-sock.ev.on("messages.upsert", ({ messages }) => {
+// ⚠️ Adicionado `type` para filtrar apenas mensagens novas (notify) no bot
+sock.ev.on("messages.upsert", ({ messages, type }) => {
+  // ════════════════════════════════════════════════════════════════
+  // PARTE 1 — EXISTENTE: constrói mapa lid→phone (síncrono, preservado)
+  // ════════════════════════════════════════════════════════════════
   if (!lidPhoneMap.has(sessionKey)) lidPhoneMap.set(sessionKey, new Map());
   const map = lidPhoneMap.get(sessionKey);
   let changed = false;
@@ -300,6 +339,16 @@ sock.ev.on("messages.upsert", ({ messages }) => {
     }
   }
   if (changed) saveLidMap(sessionKey);
+
+  // ════════════════════════════════════════════════════════════════
+  // PARTE 2 — NOVO: lógica do bot (assíncrona, fire-and-forget)
+  // Só processa mensagens novas (type="notify"), nunca histórico
+  // ════════════════════════════════════════════════════════════════
+  if (type !== "notify") return;
+
+  handleBotLogic(sessionKey, messages).catch(e =>
+    console.error(`[BOT][${sessionKey.slice(0, 8)}] Erro no handler:`, e?.message)
+  );
 });
 
   // ── Conexão ──────────────────────────────────────────────────
@@ -474,6 +523,193 @@ if (connection === "open") {
   });
   return sessData;
 }
+
+// ── Bot Logic Handler ─────────────────────────────────────────────────────────
+async function handleBotLogic(sessionKey, messages) {
+  const config = getSessionConfig(sessionKey);
+  const lidMap = lidPhoneMap.get(sessionKey);
+
+  for (const msg of messages) {
+    const key = msg.key;
+    if (!key) continue;
+
+    const remoteJid = key.remoteJid || "";
+
+    // Ignora grupos — sempre
+    if (remoteJid.endsWith("@g.us")) continue;
+
+    // Ignora status broadcast
+    if (remoteJid === "status@broadcast") continue;
+
+    // Ignora mensagens sem conteúdo (notificações internas do Baileys)
+    if (!msg.message) continue;
+
+    // Ignora reactions, view-once, e outros tipos sem conteúdo real pra bot
+    const msgContent = msg.message;
+    const isReaction = !!msgContent.reactionMessage;
+    const isProtocol = !!msgContent.protocolMessage;
+    const isEphemeral = !!msgContent.ephemeralMessage;
+    if (isReaction || isProtocol || isEphemeral) continue;
+
+    // ── Resolve telefone do remetente ──────────────────────────
+    let phone = remoteJid.split("@")[0].split(":")[0].replace(/\D/g, "");
+
+    if (remoteJid.includes("@lid")) {
+      // LID (identidade fantasma) — tenta resolver para número real
+      const resolved = lidMap?.get(phone);
+      if (!resolved) {
+        console.log(`[BOT][${sessionKey.slice(0, 8)}] LID não resolvido ainda, ignorando`);
+        continue;
+      }
+      phone = resolved;
+    }
+
+    if (!phone || phone.length < 8) continue;
+
+    // ── fromMe: você respondeu → human takeover ────────────────
+    if (key.fromMe) {
+      pauseContact(sessionKey, phone);
+      continue;
+    }
+
+    // ── Mensagem recebida de cliente ───────────────────────────
+
+    // Bot desligado pelo toggle do painel
+    if (!config.botEnabled) continue;
+
+    // Contato em pausa (você assumiu o atendimento)
+    if (isContactPaused(sessionKey, phone)) {
+      console.log(`[BOT][${sessionKey.slice(0, 8)}] ⏸️ ${phone} em atendimento humano, bot silencioso`);
+      continue;
+    }
+
+    // Tem conteúdo que vale processar?
+    const hasText = !!(
+      msgContent.conversation ||
+      msgContent.extendedTextMessage?.text
+    );
+    const hasMedia = !!(
+      msgContent.imageMessage ||
+      msgContent.documentMessage
+    );
+
+    if (!hasText && !hasMedia) continue;
+
+    // Chama o agente de IA (fire-and-forget com log de erro)
+    callBotAgent(sessionKey, phone, msg).catch(e =>
+      console.error(`[BOT][${sessionKey.slice(0, 8)}] Erro ao chamar agente para ${phone}:`, e?.message)
+    );
+  }
+}
+
+// ── Bot Agent ─────────────────────────────────────────────────────────────────
+// Baixa imagem/documento do Baileys e converte para base64 (necessário para
+// análise de comprovante — o bot não tem acesso ao socket diretamente)
+async function downloadMsgMedia(sock, msg) {
+  try {
+    const buffer = await downloadMediaMessage(
+      msg,
+      "buffer",
+      {},
+      { logger: baileysLogger, reuploadRequest: sock.updateMediaMessage },
+    );
+    return Buffer.from(buffer).toString("base64");
+  } catch (e) {
+    console.error(`[BOT] Erro ao baixar mídia:`, e?.message);
+    return null;
+  }
+}
+
+// Chama o agente de IA no Next.js — fire-and-forget com tratamento de erro
+async function callBotAgent(sessionKey, phone, msg) {
+  const config = getSessionConfig(sessionKey);
+
+  if (!config.tenantId) {
+    console.warn(`[BOT][${sessionKey.slice(0, 8)}] tenantId não configurado — salve as configurações do WhatsApp no painel`);
+    return;
+  }
+
+  const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "").trim().replace(/\/+$/, "");
+  const botSecret = String(process.env.UNIGESTOR_BOT_INTERNAL_SECRET || "").trim();
+
+  if (!appUrl || !botSecret) {
+    console.warn(`[BOT] UNIGESTOR_APP_URL ou UNIGESTOR_BOT_INTERNAL_SECRET não configurados`);
+    return;
+  }
+
+  // Extrai texto da mensagem
+  const text =
+    msg.message?.conversation ||
+    msg.message?.extendedTextMessage?.text ||
+    null;
+
+  // Detecta tipo de mídia
+  const hasImage = !!(msg.message?.imageMessage);
+  const hasDocument = !!(msg.message?.documentMessage);
+  const hasMidia = hasImage || hasDocument;
+
+  // Baixa mídia se necessário (para leitura de comprovante)
+  let mediaBase64 = null;
+  let mediaType = null;
+
+  if (hasMidia) {
+    const sess = sessions.get(sessionKey);
+    if (sess?.socket) {
+      mediaBase64 = await downloadMsgMedia(sess.socket, msg);
+      mediaType = hasImage ? "image" : "document";
+    }
+  }
+
+  // Nada útil pra processar
+  if (!text && !mediaBase64) return;
+
+  const payload = {
+    tenant_id: config.tenantId,
+    session_key: sessionKey,
+    phone,
+    message_id: msg.key?.id || null,
+    text,
+    media_base64: mediaBase64,
+    media_type: mediaType,
+    mime_type: hasImage
+      ? (msg.message?.imageMessage?.mimetype || "image/jpeg")
+      : (msg.message?.documentMessage?.mimetype || null),
+  };
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000); // 30s — agente pode demorar
+    let res;
+    try {
+      res = await fetch(`${appUrl}/api/whatsapp/bot/agent`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-internal-secret": botSecret,
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    if (!res.ok) {
+      const err = await res.text().catch(() => "");
+      console.error(`[BOT][${sessionKey.slice(0, 8)}] Agente retornou erro ${res.status}: ${err.slice(0, 200)}`);
+    } else {
+      console.log(`[BOT][${sessionKey.slice(0, 8)}] ✅ Agente processou mensagem de ${phone}`);
+    }
+  } catch (e) {
+    if (e?.name === "AbortError") {
+      console.error(`[BOT][${sessionKey.slice(0, 8)}] Timeout ao chamar agente`);
+    } else {
+      console.error(`[BOT][${sessionKey.slice(0, 8)}] Erro ao chamar agente:`, e?.message);
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 async function disconnectSession(sessionKey) {
   const sess = sessions.get(sessionKey);
