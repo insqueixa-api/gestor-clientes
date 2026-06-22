@@ -785,6 +785,9 @@ function BotTestChat({ tenantId }: { tenantId: string | null }) {
                       {/* Clientes filtrados */}
                       {clients
                         .filter((c) => c.whatsapp_username)
+                        .filter((c, idx, arr) =>
+                          arr.findIndex(x => x.whatsapp_username === c.whatsapp_username) === idx
+                        )
                         .filter((c) => {
                           const q = clientSearch.toLowerCase();
                           if (!q) return true;
