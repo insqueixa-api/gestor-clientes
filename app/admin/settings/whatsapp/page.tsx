@@ -625,6 +625,51 @@ function BotTestChat({ tenantId }: { tenantId: string | null }) {
   const [knowContent, setKnowContent] = useState("");
   const [savingKnowledge, setSavingKnowledge] = useState(false);
 
+  const [exporting, setExporting] = useState(false);
+
+  async function exportKnowledge() {
+    setExporting(true);
+    try {
+      const tid = await getCurrentTenantId();
+      const { data, error } = await supabaseBrowser
+        .from("message_templates")
+        .select("name, category, content")
+        .eq("tenant_id", tid)
+        .order("category");
+
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        window.alert("Nenhum conhecimento encontrado.");
+        return;
+      }
+
+      // Monta o arquivo de texto formatado
+      let textData = "=== BASE DE CONHECIMENTO DO BOT ===\n\n";
+      data.forEach((item) => {
+        textData += `📌 Categoria: ${item.category}\n`;
+        textData += `📝 Assunto: ${item.name}\n`;
+        textData += `💡 Conteúdo:\n${item.content}\n`;
+        textData += `\n---------------------------------------------------\n\n`;
+      });
+
+      // Cria e baixa o arquivo
+      const blob = new Blob([textData], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "base_de_conhecimento_bot.txt";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+    } catch (err: any) {
+      window.alert(`Erro ao exportar: ${err.message}`);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   useEffect(() => {
     if (!isOpen) return;
     supabaseBrowser
@@ -922,9 +967,19 @@ function BotTestChat({ tenantId }: { tenantId: string | null }) {
 
           {/* LADO DIREITO: BASE DE CONHECIMENTO LIVRE */}
             <div className="flex flex-col h-[500px] bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
-            <div className="px-5 py-3 border-b border-border bg-muted/20">
-              <h4 className="text-xs font-bold text-foreground">Base de Conhecimento Geral</h4>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Ensine como o sistema funciona ou regras da empresa.</p>
+            <div className="px-5 py-3 border-b border-border bg-muted/20 flex items-center justify-between">
+              <div>
+                <h4 className="text-xs font-bold text-foreground">Base de Conhecimento Geral</h4>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Ensine como o sistema funciona ou regras da empresa.</p>
+              </div>
+              <button
+                type="button"
+                onClick={exportKnowledge}
+                disabled={exporting}
+                className="text-[10px] bg-card border border-border px-3 py-1.5 rounded-lg font-medium hover:bg-muted transition-colors flex items-center gap-1.5 shadow-sm"
+              >
+                {exporting ? <Loader2 className="w-3 h-3 animate-spin" /> : "📥 Exportar (.txt)"}
+              </button>
             </div>
 
             <form onSubmit={injectKnowledge} className="flex-1 p-5 flex flex-col gap-4 overflow-y-auto">
