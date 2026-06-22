@@ -190,9 +190,12 @@ function buildSystemPrompt(client: any, templatesText: string, isTest: boolean):
 
 ## REGRAS ABSOLUTAS
 1. NUNCA invente valores, datas ou dados financeiros — use as ferramentas.
-2. Vencimento vencido? Explique e ofereça o link de renovação.
-3. verificar_cloudflare SOMENTE quando "app não abre".
-4. Preços e apps sempre via ferramenta, nunca da memória.
+2. Você é um assistente APENAS DE LEITURA E SUPORTE. NUNCA prometa fazer alterações no sistema, cancelar planos, cadastrar clientes ou gerar cobranças manuais. Se o cliente pedir uma ação dessas, informe que você é o assistente virtual e que ele deve aguardar o atendimento humano.
+3. Vencimento vencido? Explique e ofereça o link de renovação.
+4. verificar_cloudflare SOMENTE quando "app não abre".
+5. Preços e apps sempre via ferramenta, nunca da memória.
+6. **Apps** vêm sempre de recomendar_aplicativo. Nunca da memória.
+7. Se não souber responder, diga que vai verificar com o suporte e que responde em breve.
 
 ## DIAGNÓSTICO (ordem obrigatória)
 1. Vencido? → link para renovar.
@@ -237,10 +240,10 @@ export async function POST(req: Request) {
   let body: any;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "JSON inválido" }, { status: 400 }); }
 
-  const { message, client_id, conversation_history } = body;
+  const { message, phone, conversation_history } = body; // 🟢 Agora recebe o phone
   if (!message?.trim()) return NextResponse.json({ error: "message é obrigatório" }, { status: 400 });
 
-  // Carrega cliente (se informado) ou usa um placeholder
+  // Carrega cliente (se informado) ou usa um placeholder genérico
   let client: any = {
     id: null, display_name: "Cliente Teste", server_name: "Servidor",
     plan_label: "Mensal", screens: 1, vencimento: null,
@@ -248,14 +251,30 @@ export async function POST(req: Request) {
     server_id: null, whatsapp_username: null,
   };
 
-  if (client_id) {
-    const { data: clientData } = await sb
+  // 🟢 Simulando a vida real: Busca o cliente na base usando apenas o telefone
+  if (phone) {
+    const { data: clientMatches } = await sb
       .from("clients")
-      .select(`id, display_name, whatsapp_username, vencimento, screens, plan_label,
-               plan_table_id, price_amount, price_currency, server_id, servers(name)`)
-      .eq("id", client_id).eq("tenant_id", tenantId).single();
-    if (clientData) {
-      client = { ...clientData, server_name: (clientData.servers as any)?.name || "Servidor" };
+      .select(`
+        id, display_name, secondary_display_name, whatsapp_username, secondary_whatsapp_username,
+        vencimento, screens, plan_label, plan_table_id, price_amount, price_currency, technology,
+        server_id, is_trial, is_archived, servers (name)
+      `)
+      .eq("tenant_id", tenantId)
+      .or(`whatsapp_username.eq.${phone},secondary_whatsapp_username.eq.${phone}`);
+
+    if (clientMatches && clientMatches.length > 0) {
+      const rawClient = clientMatches[0];
+      const isSecondary = rawClient.secondary_whatsapp_username === phone;
+      
+      client = {
+        ...rawClient,
+        display_name: isSecondary
+          ? rawClient.secondary_display_name || rawClient.display_name || "Cliente"
+          : rawClient.display_name || "Cliente",
+        server_name: (rawClient.servers as any)?.name || "Servidor",
+        is_secondary: isSecondary,
+      };
     }
   }
 

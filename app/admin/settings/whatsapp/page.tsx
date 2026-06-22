@@ -607,8 +607,8 @@ function VmMaintenanceModal({
 type ChatMessage = { role: "user" | "bot"; text: string };
 
 function BotTestChat({ tenantId }: { tenantId: string | null }) {
-  const [clients, setClients] = useState<{ id: string; display_name: string }[]>([]);
-  const [selectedClientId, setSelectedClientId] = useState<string>("");
+  const [clients, setClients] = useState<{ id: string; display_name: string; whatsapp_username?: string | null }[]>([]);
+  const [selectedPhone, setSelectedPhone] = useState<string>("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [history, setHistory] = useState<any[]>([]);
   const [input, setInput] = useState("");
@@ -617,11 +617,16 @@ function BotTestChat({ tenantId }: { tenantId: string | null }) {
   const [isOpen, setIsOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  // States para a Injeção de Conhecimento Livre (Direita)
+  const [knowTitle, setKnowTitle] = useState("");
+  const [knowContent, setKnowContent] = useState("");
+  const [savingKnowledge, setSavingKnowledge] = useState(false);
+
   useEffect(() => {
     if (!isOpen) return;
     supabaseBrowser
       .from("clients")
-      .select("id, display_name")
+      .select("id, display_name, whatsapp_username")
       .eq("is_archived", false)
       .order("display_name")
       .limit(200)
@@ -646,7 +651,7 @@ function BotTestChat({ tenantId }: { tenantId: string | null }) {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           message: userMsg,
-          client_id: selectedClientId || undefined,
+          phone: selectedPhone || undefined,
           conversation_history: history,
         }),
       });
@@ -664,6 +669,28 @@ function BotTestChat({ tenantId }: { tenantId: string | null }) {
     }
   }
 
+  // Feedback corretivo: Ensina a resposta ideal para uma pergunta específica
+  async function saveFeedback(userText: string, wrongBotText: string) {
+    const idealResponse = window.prompt("Como o robô deveria ter respondido a essa mensagem?");
+    if (!idealResponse?.trim()) return;
+
+    setSavingTemplate(wrongBotText);
+    const tid = await getCurrentTenantId();
+    
+    const feedbackContent = `PERGUNTA DO CLIENTE: "${userText}"\nRESPOSTA IDEAL DO BOT: "${idealResponse.trim()}"`;
+    
+    await supabaseBrowser.from("message_templates").insert({
+      tenant_id: tid, 
+      name: "Correção de Comportamento", 
+      category: "Treinamento Específico", 
+      content: feedbackContent, 
+      is_active: true,
+    });
+    
+    setSavingTemplate(null);
+    window.alert("Feedback salvo! O bot se baseará nesta correção nas próximas vezes.");
+  }
+
   async function saveAsTemplate(text: string) {
     const name = window.prompt("Nome do template:");
     if (!name?.trim()) return;
@@ -678,6 +705,28 @@ function BotTestChat({ tenantId }: { tenantId: string | null }) {
     window.alert("Template salvo! O bot vai usar esse conhecimento nas próximas conversas.");
   }
 
+  // Injeção de Conhecimento Direto (Livre)
+  async function injectKnowledge(e: React.FormEvent) {
+    e.preventDefault();
+    if (!knowTitle.trim() || !knowContent.trim() || savingKnowledge) return;
+    
+    setSavingKnowledge(true);
+    const tid = await getCurrentTenantId();
+    
+    await supabaseBrowser.from("message_templates").insert({
+      tenant_id: tid, 
+      name: knowTitle.trim(), 
+      category: "Regras do Negócio", 
+      content: knowContent.trim(), 
+      is_active: true,
+    });
+    
+    setKnowTitle("");
+    setKnowContent("");
+    setSavingKnowledge(false);
+    window.alert("Conhecimento injetado com sucesso no cérebro da IA!");
+  }
+
   function clearChat() { setMessages([]); setHistory([]); }
 
   return (
@@ -686,92 +735,157 @@ function BotTestChat({ tenantId }: { tenantId: string | null }) {
         onClick={() => setIsOpen((v) => !v)}
         className="w-full flex items-center justify-between px-6 py-4 hover:bg-muted/50 transition-colors"
       >
-        <div className="flex items-center gap-2">
-          <span className="text-lg">🤖</span>
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">🧠</span>
           <div className="text-left">
-            <p className="text-sm font-medium text-foreground">Chat de Treinamento do Bot</p>
-            <p className="text-[11px] text-muted-foreground">Teste respostas e salve conhecimento novo como template</p>
+            <p className="text-sm font-medium text-foreground">Laboratório de Inteligência</p>
+            <p className="text-[11px] text-muted-foreground">Simule conversas, corrija erros e ensine regras do sistema</p>
           </div>
         </div>
         {isOpen ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
       </button>
 
       {isOpen && (
-        <div className="border-t border-border">
-          <div className="px-4 py-3 border-b border-border flex items-center gap-3 flex-wrap">
-            <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider shrink-0">Simular cliente:</span>
-            <select
-              value={selectedClientId}
-              onChange={(e) => { setSelectedClientId(e.target.value); clearChat(); }}
-              className="flex-1 min-w-0 h-8 px-2 text-xs bg-transparent border border-border rounded-lg outline-none focus:border-emerald-500/50"
-            >
-              <option value="">Genérico (sem dados reais)</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>{c.display_name}</option>
-              ))}
-            </select>
-            {messages.length > 0 && (
-              <button onClick={clearChat} className="text-[10px] text-muted-foreground hover:text-foreground shrink-0">
-                Limpar chat
-              </button>
-            )}
-          </div>
+        <div className="border-t border-border flex flex-col lg:flex-row">
+          
+          {/* LADO ESQUERDO: SIMULADOR DE CHAT */}
+          <div className="flex-1 border-b lg:border-b-0 lg:border-r border-border flex flex-col h-[500px]">
+            <div className="px-4 py-3 border-b border-border flex items-center gap-3 flex-wrap bg-muted/20">
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider shrink-0">Simular número:</span>
+              <select
+                value={selectedPhone}
+                onChange={(e) => { setSelectedPhone(e.target.value); clearChat(); }}
+                className="flex-1 min-w-0 h-8 px-2 text-xs bg-card border border-border rounded-lg outline-none focus:border-emerald-500/50"
+              >
+                <option value="">Genérico (sem dados reais)</option>
+                {clients.filter(c => c.whatsapp_username).map((c) => (
+                  <option key={c.id} value={c.whatsapp_username}>
+                    {c.whatsapp_username} - {c.display_name}
+                  </option>
+                ))}
+              </select>
+              {messages.length > 0 && (
+                <button onClick={clearChat} className="text-[10px] text-rose-500 font-medium hover:underline shrink-0">
+                  Limpar chat
+                </button>
+              )}
+            </div>
 
-          <div className="h-80 overflow-y-auto p-4 space-y-3">
-            {messages.length === 0 && (
-              <div className="flex items-center justify-center h-full text-xs text-muted-foreground text-center">
-                Digite uma mensagem como se fosse um cliente.<br />
-                O bot responderá exatamente como faria no WhatsApp real.
-              </div>
-            )}
-            {messages.map((msg, i) => (
-              <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div className="max-w-[80%] space-y-1">
-                  <div className={`px-3 py-2 rounded-xl text-xs whitespace-pre-wrap ${
-                    msg.role === "user"
-                      ? "bg-emerald-500 text-white rounded-br-sm"
-                      : "bg-muted text-foreground rounded-bl-sm"
-                  }`}>
-                    {msg.text}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {messages.length === 0 && (
+                <div className="flex items-center justify-center h-full text-xs text-muted-foreground text-center px-4">
+                  Envie uma mensagem testando cenários de atendimento.<br />
+                  Se o bot errar, clique em "Corrigir" para treiná-lo.
+                </div>
+              )}
+              {messages.map((msg, i) => (
+                <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className="max-w-[85%] space-y-1">
+                    <div className={`px-3 py-2.5 rounded-xl text-xs whitespace-pre-wrap leading-relaxed shadow-sm ${
+                      msg.role === "user"
+                        ? "bg-emerald-600 text-white rounded-br-sm"
+                        : "bg-muted border border-border text-foreground rounded-bl-sm"
+                    }`}>
+                      {msg.text}
+                    </div>
+                    {msg.role === "bot" && (
+                      <div className="flex gap-3 pl-1">
+                        <button
+                          onClick={() => saveAsTemplate(msg.text)}
+                          disabled={savingTemplate === msg.text}
+                          className="text-[10px] font-medium text-muted-foreground hover:text-sky-500 transition-colors"
+                        >
+                          {savingTemplate === msg.text ? "Salvando..." : "💾 Salvar boa resposta"}
+                        </button>
+                        
+                        {/* 🟢 O novo botão de Feedback corretivo */}
+                        <button
+                          onClick={() => {
+                            // Encontra qual foi a última mensagem do usuário antes dessa resposta do bot
+                            const lastUserMsg = [...messages].slice(0, i).reverse().find(m => m.role === "user")?.text || "Mensagem desconhecida";
+                            saveFeedback(lastUserMsg, msg.text);
+                          }}
+                          className="text-[10px] font-medium text-rose-500/80 hover:text-rose-500 transition-colors flex items-center gap-1"
+                        >
+                          <Wrench className="w-3 h-3" /> Corrigir erro
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  {msg.role === "bot" && (
-                    <button
-                      onClick={() => saveAsTemplate(msg.text)}
-                      disabled={savingTemplate === msg.text}
-                      className="text-[10px] text-muted-foreground hover:text-emerald-500 transition-colors pl-1"
-                    >
-                      {savingTemplate === msg.text ? "Salvando..." : "💾 Salvar como template"}
-                    </button>
-                  )}
                 </div>
-              </div>
-            ))}
-            {loading && (
-              <div className="flex justify-start">
-                <div className="bg-muted px-3 py-2 rounded-xl rounded-bl-sm">
-                  <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+              ))}
+              {loading && (
+                <div className="flex justify-start">
+                  <div className="bg-muted border border-border px-4 py-3 rounded-xl rounded-bl-sm">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+                  </div>
                 </div>
-              </div>
-            )}
-            <div ref={bottomRef} />
+              )}
+              <div ref={bottomRef} />
+            </div>
+
+            <div className="border-t border-border p-3 flex gap-2 bg-muted/10">
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void sendMessage(); } }}
+                placeholder="Simule a mensagem do cliente..."
+                className="flex-1 h-10 px-3 text-xs bg-card border border-border rounded-xl outline-none focus:border-emerald-500/50 shadow-sm"
+              />
+              <button
+                onClick={() => void sendMessage()}
+                disabled={loading || !input.trim()}
+                className="h-10 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold disabled:opacity-50 transition-all shadow-sm"
+              >
+                Enviar
+              </button>
+            </div>
           </div>
 
-          <div className="border-t border-border p-3 flex gap-2">
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void sendMessage(); } }}
-              placeholder="Digite como se fosse o cliente..."
-              className="flex-1 h-9 px-3 text-xs bg-transparent border border-border rounded-lg outline-none focus:border-emerald-500/50"
-            />
-            <button
-              onClick={() => void sendMessage()}
-              disabled={loading || !input.trim()}
-              className="h-9 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold disabled:opacity-50 transition-all"
-            >
-              Enviar
-            </button>
+          {/* LADO DIREITO: BASE DE CONHECIMENTO LIVRE */}
+          <div className="w-full lg:w-[400px] flex flex-col h-[500px] bg-muted/10">
+            <div className="px-5 py-3 border-b border-border bg-muted/20">
+              <h4 className="text-xs font-bold text-foreground">Base de Conhecimento Geral</h4>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Ensine como o sistema funciona ou regras da empresa.</p>
+            </div>
+
+            <form onSubmit={injectKnowledge} className="flex-1 p-5 flex flex-col gap-4 overflow-y-auto">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Assunto / Contexto
+                </label>
+                <input
+                  required
+                  value={knowTitle}
+                  onChange={(e) => setKnowTitle(e.target.value)}
+                  placeholder="Ex: Como funciona o cancelamento"
+                  className="w-full h-9 px-3 text-xs bg-card border border-border rounded-lg outline-none focus:border-emerald-500/50"
+                />
+              </div>
+
+              <div className="space-y-1.5 flex-1 flex flex-col">
+                <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  O que o robô precisa saber?
+                </label>
+                <textarea
+                  required
+                  value={knowContent}
+                  onChange={(e) => setKnowContent(e.target.value)}
+                  placeholder="Digite a explicação livremente. Ex: O cliente só pode cancelar o plano após 7 dias ligando para o número 0800..."
+                  className="w-full flex-1 p-3 text-xs bg-card border border-border rounded-lg outline-none focus:border-emerald-500/50 resize-none leading-relaxed"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={savingKnowledge || !knowTitle.trim() || !knowContent.trim()}
+                className="w-full h-10 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold disabled:opacity-50 transition-all shadow-sm flex items-center justify-center gap-2"
+              >
+                {savingKnowledge ? "Injetando..." : "⚡ Ensinar ao Robô"}
+              </button>
+            </form>
           </div>
+          
         </div>
       )}
     </div>

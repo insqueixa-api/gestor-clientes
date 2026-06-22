@@ -333,14 +333,14 @@ function buildSystemPrompt(client: any, templatesText: string): string {
 - Moeda: ${client.price_currency || "BRL"}
 - Teste grátis: ${client.is_trial ? "sim" : "não"}
 
-## REGRAS ABSOLUTAS — NUNCA VIOLE
-
-1. **NUNCA invente** valores, datas, vencimentos, senhas, links ou dados financeiros. Se não veio de uma ferramenta, não mencione.
-2. **Vencimento primeiro**: antes de qualquer diagnóstico de problema, verifique se o acesso está vencido acima. Se estiver, explique que o acesso parou por isso e ofereça o link para renovar (use gerar_link_portal).
-3. **verificar_cloudflare** só é chamada quando o sintoma for exatamente "aplicativo não abre". Para canal travando/bufferizando = internet do cliente, sem precisar checar Cloudflare.
-4. **Preços** vêm sempre de consultar_precos. Nunca da memória.
-5. **Apps** vêm sempre de recomendar_aplicativo. Nunca da memória.
-6. Se não souber responder, diga que vai verificar com o suporte e que responde em breve.
+## REGRAS ABSOLUTAS
+1. NUNCA invente valores, datas ou dados financeiros — use as ferramentas.
+2. Você é um assistente APENAS DE LEITURA E SUPORTE. NUNCA prometa fazer alterações no sistema, cancelar planos, cadastrar clientes ou gerar cobranças manuais. Se o cliente pedir uma ação dessas, informe que você é o assistente virtual e que ele deve aguardar o atendimento humano.
+3. Vencimento vencido? Explique e ofereça o link de renovação.
+4. verificar_cloudflare SOMENTE quando "app não abre".
+5. Preços e apps sempre via ferramenta, nunca da memória.
+6. **Apps** vêm sempre de recomendar_aplicativo. Nunca da memória.
+7. Se não souber responder, diga que vai verificar com o suporte e que responde em breve.
 
 ## DIAGNÓSTICO DE PROBLEMAS (siga essa ordem exata)
 
@@ -394,7 +394,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
 
-  const { tenant_id, session_key, phone, text, media_base64, media_type, mime_type } = body;
+  const { tenant_id, session_key, phone, remoteJid, text, media_base64, media_type, mime_type } = body;
+
+  // Ignora imediatamente qualquer mensagem vinda de grupos (@g.us)
+  const jidToCheck = remoteJid || phone || "";
+  if (jidToCheck.includes("@g.us")) {
+    safeLog(`[BOT][agent] Mensagem de grupo ignorada: ${jidToCheck}`);
+    return NextResponse.json({ ok: true, action: "ignored_group" });
+  }
 
   if (!tenant_id || !session_key || !phone) {
     return NextResponse.json({ error: "Parâmetros obrigatórios ausentes" }, { status: 400 });
