@@ -6,6 +6,8 @@ import {
 } from "lucide-react";
 import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
 import { useConfirm } from "@/app/admin/HookuseConfirm";
+import { supabaseBrowser } from "@/lib/supabase/browser";
+import { getCurrentTenantId } from "@/lib/tenant";
 
 // ── Ícone real do WhatsApp ────────────────────────────────────
 function WhatsAppIcon({ className }: { className?: string }) {
@@ -600,6 +602,182 @@ function VmMaintenanceModal({
   );
 }
 
+// ── Chat de teste / aprendizado do bot ───────────────────────────
+
+type ChatMessage = { role: "user" | "bot"; text: string };
+
+function BotTestChat({ tenantId }: { tenantId: string | null }) {
+  const [clients, setClients] = useState<{ id: string; display_name: string }[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState<string>("");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [history, setHistory] = useState<any[]>([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [savingTemplate, setSavingTemplate] = useState<string | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    supabaseBrowser
+      .from("clients")
+      .select("id, display_name")
+      .eq("is_archived", false)
+      .order("display_name")
+      .limit(200)
+      .then(({ data }: any) => setClients(data || []));
+  }, [isOpen]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  async function sendMessage() {
+    if (!input.trim() || loading) return;
+    const userMsg = input.trim();
+    setInput("");
+    setMessages((prev) => [...prev, { role: "user", text: userMsg }]);
+    setLoading(true);
+    try {
+      const { data: { session } } = await supabaseBrowser.auth.getSession();
+      const token = session?.access_token;
+      const res = await fetch("/api/whatsapp/bot/chat-admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          message: userMsg,
+          client_id: selectedClientId || undefined,
+          conversation_history: history,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json.ok && json.response) {
+        setMessages((prev) => [...prev, { role: "bot", text: json.response }]);
+        setHistory(json.updated_history || []);
+      } else {
+        setMessages((prev) => [...prev, { role: "bot", text: `❌ Erro: ${json.error || "sem resposta"}` }]);
+      }
+    } catch (e: any) {
+      setMessages((prev) => [...prev, { role: "bot", text: `❌ Erro: ${e?.message}` }]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function saveAsTemplate(text: string) {
+    const name = window.prompt("Nome do template:");
+    if (!name?.trim()) return;
+    const category = window.prompt("Categoria (ex: Manutenção, Pagamento):", "Geral");
+    if (!category) return;
+    setSavingTemplate(text);
+    const tid = await getCurrentTenantId();
+    await supabaseBrowser.from("message_templates").insert({
+      tenant_id: tid, name: name.trim(), category: category.trim(), content: text, is_active: true,
+    });
+    setSavingTemplate(null);
+    window.alert("Template salvo! O bot vai usar esse conhecimento nas próximas conversas.");
+  }
+
+  function clearChat() { setMessages([]); setHistory([]); }
+
+  return (
+    <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+      <button
+        onClick={() => setIsOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-6 py-4 hover:bg-muted/50 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-lg">🤖</span>
+          <div className="text-left">
+            <p className="text-sm font-medium text-foreground">Chat de Treinamento do Bot</p>
+            <p className="text-[11px] text-muted-foreground">Teste respostas e salve conhecimento novo como template</p>
+          </div>
+        </div>
+        {isOpen ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+      </button>
+
+      {isOpen && (
+        <div className="border-t border-border">
+          <div className="px-4 py-3 border-b border-border flex items-center gap-3 flex-wrap">
+            <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider shrink-0">Simular cliente:</span>
+            <select
+              value={selectedClientId}
+              onChange={(e) => { setSelectedClientId(e.target.value); clearChat(); }}
+              className="flex-1 min-w-0 h-8 px-2 text-xs bg-transparent border border-border rounded-lg outline-none focus:border-emerald-500/50"
+            >
+              <option value="">Genérico (sem dados reais)</option>
+              {clients.map((c) => (
+                <option key={c.id} value={c.id}>{c.display_name}</option>
+              ))}
+            </select>
+            {messages.length > 0 && (
+              <button onClick={clearChat} className="text-[10px] text-muted-foreground hover:text-foreground shrink-0">
+                Limpar chat
+              </button>
+            )}
+          </div>
+
+          <div className="h-80 overflow-y-auto p-4 space-y-3">
+            {messages.length === 0 && (
+              <div className="flex items-center justify-center h-full text-xs text-muted-foreground text-center">
+                Digite uma mensagem como se fosse um cliente.<br />
+                O bot responderá exatamente como faria no WhatsApp real.
+              </div>
+            )}
+            {messages.map((msg, i) => (
+              <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div className="max-w-[80%] space-y-1">
+                  <div className={`px-3 py-2 rounded-xl text-xs whitespace-pre-wrap ${
+                    msg.role === "user"
+                      ? "bg-emerald-500 text-white rounded-br-sm"
+                      : "bg-muted text-foreground rounded-bl-sm"
+                  }`}>
+                    {msg.text}
+                  </div>
+                  {msg.role === "bot" && (
+                    <button
+                      onClick={() => saveAsTemplate(msg.text)}
+                      disabled={savingTemplate === msg.text}
+                      className="text-[10px] text-muted-foreground hover:text-emerald-500 transition-colors pl-1"
+                    >
+                      {savingTemplate === msg.text ? "Salvando..." : "💾 Salvar como template"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+            {loading && (
+              <div className="flex justify-start">
+                <div className="bg-muted px-3 py-2 rounded-xl rounded-bl-sm">
+                  <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+                </div>
+              </div>
+            )}
+            <div ref={bottomRef} />
+          </div>
+
+          <div className="border-t border-border p-3 flex gap-2">
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void sendMessage(); } }}
+              placeholder="Digite como se fosse o cliente..."
+              className="flex-1 h-9 px-3 text-xs bg-transparent border border-border rounded-lg outline-none focus:border-emerald-500/50"
+            />
+            <button
+              onClick={() => void sendMessage()}
+              disabled={loading || !input.trim()}
+              className="h-9 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold disabled:opacity-50 transition-all"
+            >
+              Enviar
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Página principal ──────────────────────────────────────────────
 export default function WhatsAppPage() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -638,9 +816,7 @@ export default function WhatsAppPage() {
         <WhatsAppSessionCard label="Sessão 2" apiSuffix="2" addToast={addToast} />
       </div>
 
-      <div className="bg-card border border-dashed border-border rounded-2xl p-6 text-center text-xs text-muted-foreground">
-        🤖 Atendimento automatizado via WhatsApp — em breve aqui.
-      </div>
+<BotTestChat tenantId={null} />
 
       {showVmMenu && <VmMaintenanceModal onClose={() => setShowVmMenu(false)} addToast={addToast} />}
     </div>
