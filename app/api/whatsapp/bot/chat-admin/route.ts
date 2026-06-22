@@ -209,9 +209,9 @@ const contasFormatadas = clients.map((c, index) => {
 
     return [
       `[CONTA ${index + 1}]`,
+      `- Nome: ${c.display_name}`,
       `- Usuário do servidor: ${c.server_username || "(não informado)"}`,
       `- Servidor: ${c.server_name}`,
-      `- Nome: ${c.display_name}`,
       `- Plano: ${c.plan_label} / ${c.screens} tela(s)`,
       `- Vencimento: ${vencStatus}`,
       `- Moeda: ${c.price_currency || "BRL"}`,
@@ -223,14 +223,21 @@ const contasFormatadas = clients.map((c, index) => {
 ## CONTAS IDENTIFICADAS PARA ESTE WHATSAPP (${clients.length} conta(s))
 ${contasFormatadas}
 
-## REGRA PARA MÚLTIPLAS CONTAS (MUITO IMPORTANTE)
-Se o cliente tiver MAIS DE UMA CONTA e fizer um pedido genérico (ex: "qual meu vencimento?", "quero renovar", "meu canal travou"), NÃO DEVE adivinhar. Pergunte gentilmente a qual conta ele se refere.
+## REGRA PARA MÚLTIPLAS CONTAS
+Se o cliente tiver MAIS DE UMA CONTA e fizer pedido genérico, NÃO adivinhe qual conta. Liste TODAS e pergunte qual ele quer.
 
-OBRIGATÓRIO ao listar contas: SEMPRE mostrar o "Usuário do servidor" (ex: marcio123) junto com o servidor. Nunca liste contas sem o username — em servidores iguais é a ÚNICA forma do cliente identificar qual conta é a dele.
+FORMATO OBRIGATÓRIO ao listar contas (sem exceção, todas elas):
+- Conta 1: Nome (usuario_servidor) — Servidor — Plano, vence DD/MM/AAAA às HH:MM
+- Conta 2: Nome (usuario_servidor) — Servidor — Plano, vence DD/MM/AAAA às HH:MM
+...
 
-Formato correto ao listar:
-- Conta 1: marcio123 (NaTV) — Mensal, vence 25/06/2026 às 23:59
-- Conta 2: marcio456 (NaTV) — Mensal, vence 10/07/2026 às 23:59
+Exemplos:
+- Conta 1: Marcio (marcio123) — NaTV — Mensal, vence 25/06/2026 às 23:59
+- Conta 2: Marcio Juliana (apv71349) — FastTV — Trimestral, vence 02/08/2026 às 14:30
+
+NUNCA omita o usuário do servidor — é a única forma de diferenciar contas do mesmo servidor.
+NUNCA omita a hora do vencimento — clientes precisam saber se cai de manhã ou à meia-noite.
+NUNCA interrompa a lista antes de listar todas as contas.
 
 OBRIGATÓRIO sobre vencimentos: SEMPRE informe data E hora completas (ex: 25/06/2026 às 23:59). A hora é primordial — clientes precisam saber se o acesso vai cair de manhã ou à meia-noite.
 
@@ -352,7 +359,8 @@ export async function POST(req: Request) {
     systemInstruction: { parts: [{ text: systemPrompt }] }, // 🟢 Corrigido para CamelCase
     tools: [{ functionDeclarations: TOOL_DECLARATIONS }],   // 🟢 Corrigido para CamelCase
     contents,
-    generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
+        generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
+
   };
 
   // Loop de tool calling
