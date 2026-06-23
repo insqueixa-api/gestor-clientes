@@ -5,7 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { generatePortalLink } from "@/lib/whatsapp/template-vars";
 // 🟢 Importando a Fonte Única de Verdade (Regras e Ferramentas unificadas)
-import { BOT_TOOL_DECLARATIONS, buildBotSystemPrompt } from "@/lib/whatsapp/bot-prompt";
+import { BOT_TOOL_DECLARATIONS, buildBotSystemPrompt, toBRDateTime } from "@/lib/whatsapp/bot-prompt";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // Vercel: máx 60s (agente pode demorar com tool calls)
@@ -304,18 +304,18 @@ export async function POST(req: Request) {
   // ── 1. Identificar cliente ────────────────────────────────────────────────
 
   const { data: clientMatches, error: clientErr } = await sb
-    .from("clients")
-    .select(`
-      id, display_name, secondary_display_name,
-      whatsapp_username, secondary_whatsapp_username,
-      server_username,
-      vencimento, screens, plan_label, plan_table_id,
-      price_amount, price_currency, technology,
-      server_id, is_trial, is_archived,
-      servers (name)
-    `)
-    .eq("tenant_id", tenant_id)
-    .or(`whatsapp_username.eq.${phone},secondary_whatsapp_username.eq.${phone}`);
+  .from("clients")
+  .select(`
+    id, display_name, secondary_display_name,
+    whatsapp_username, secondary_whatsapp_username,
+    server_username, server_password,
+    vencimento, screens, plan_label, plan_table_id,
+    price_amount, price_currency, technology,
+    server_id, is_trial, is_archived,
+    servers (name, dns)
+  `)
+  .eq("tenant_id", tenant_id)
+  .or(`whatsapp_username.eq.${phone},secondary_whatsapp_username.eq.${phone}`);
 
   if (clientErr || !clientMatches?.length) {
     safeLog("[BOT][agent] Número não identificado como cliente:", phone);
@@ -324,14 +324,16 @@ export async function POST(req: Request) {
 
   // ── Mapeia TODAS as contas encontradas ──
   const clients = clientMatches.map((raw) => {
-    const isSec = raw.secondary_whatsapp_username === phone;
-    return {
-      ...raw,
-      display_name: isSec ? (raw.secondary_display_name || raw.display_name || "Cliente") : (raw.display_name || "Cliente"),
-      server_name: (raw.servers as any)?.name || "Servidor",
-      is_secondary: isSec,
-    };
-  });
+  const isSec = raw.secondary_whatsapp_username === phone;
+  const dnsArray: string[] = (raw.servers as any)?.dns || [];
+  return {
+    ...raw,
+    display_name: isSec ? (raw.secondary_display_name || raw.display_name || "Cliente") : (raw.display_name || "Cliente"),
+    server_name: (raw.servers as any)?.name || "Servidor",
+    server_dns: dnsArray,
+    is_secondary: isSec,
+  };
+});
 
   const firstName = clients[0].display_name.split(" ")[0];
 
@@ -452,7 +454,44 @@ export async function POST(req: Request) {
     .join("\n\n---\n\n");
 
   // 🟢 Chamando a função de prompt unificada
-  const systemPrompt = buildBotSystemPrompt(clients, templatesText); 
+  // ── Histórico recente: últimos jobs enviados + últimos pagamentos ─────────
+const [{ data: recentJobs }, { data: recentPayments }] = await Promise.all([
+  sb
+    .from("client_message_jobs")
+    .select("sent_at, message_template_id, status")
+    .eq("tenant_id", tenant_id)
+    .in("client_id", clients.map((c: any) => c.id))
+    .eq("status", "SENT")
+    .order("sent_at", { ascending: false })
+    .limit(3),
+  sb
+    .from("client_portal_payments")
+    .select("created_at, status, fulfillment_status, whatsapp_status, new_vencimento, price_amount, price_currency, period")
+    .eq("tenant_id", tenant_id)
+    .in("client_id", clients.map((c: any) => c.id))
+    .order("created_at", { ascending: false })
+    .limit(3),
+]);
+
+const historicoRecente = [
+  "### Últimos envios automáticos:",
+  ...(recentJobs && recentJobs.length > 0
+    ? recentJobs.map((j: any) =>
+        `- ${j.message_template_id ? "Lembrete automático" : "Mensagem manual"} enviado em ${toBRDateTime(j.sent_at)}`
+      )
+    : ["- Nenhum envio recente encontrado"]),
+  "",
+  "### Últimos pagamentos no portal:",
+  ...(recentPayments && recentPayments.length > 0
+    ? recentPayments.map((p: any) =>
+        `- ${toBRDateTime(p.created_at)} | ${p.price_currency} ${Number(p.price_amount).toFixed(2)} | status=${p.status} | fulfillment=${p.fulfillment_status} | whatsapp=${p.whatsapp_status ?? "n/a"}${p.new_vencimento ? ` | novo_vencimento=${toBRDateTime(p.new_vencimento)}` : ""}`
+      )
+    : ["- Nenhum pagamento recente encontrado"]),
+].join("\n");
+
+const systemPrompt = buildBotSystemPrompt(clients, templatesText, {
+  historicoRecente,
+});
 
   // Conversa inicial
   const conversation: any[] = [
