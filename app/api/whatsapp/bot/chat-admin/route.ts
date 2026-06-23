@@ -179,7 +179,7 @@ export async function POST(req: Request) {
     id, display_name, secondary_display_name, whatsapp_username, secondary_whatsapp_username,
     server_username, server_password,
     vencimento, screens, plan_label, plan_table_id, price_amount, price_currency, technology,
-    server_id, is_trial, is_archived, servers (name, dns)
+    server_id, is_trial, is_archived, servers (name, dns, is_offline, offline_since, offline_reason)
   `)
   .eq("tenant_id", tenantId)
   .or(`whatsapp_username.eq.${phone},secondary_whatsapp_username.eq.${phone}`);
@@ -189,11 +189,15 @@ export async function POST(req: Request) {
       clients = clientMatches.map((raw) => {
   const isSec = raw.secondary_whatsapp_username === phone;
   const dnsArray: string[] = (raw.servers as any)?.dns || [];
+  const srv = raw.servers as any;
   return {
     ...raw,
     display_name: isSec ? (raw.secondary_display_name || raw.display_name || "Cliente") : (raw.display_name || "Cliente"),
-    server_name: (raw.servers as any)?.name || "Servidor",
+    server_name: srv?.name || "Servidor",
     server_dns: dnsArray,
+    server_is_offline: srv?.is_offline ?? false,
+    server_offline_since: srv?.offline_since ?? null,
+    server_offline_reason: srv?.offline_reason ?? null,
     is_secondary: isSec,
   };
 });

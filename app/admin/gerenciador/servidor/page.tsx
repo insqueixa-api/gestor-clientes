@@ -27,6 +27,9 @@ export type ServerRow = {
   id: string;
   tenant_id: string;
   name: string;
+  is_offline?: boolean;
+  offline_since?: string | null;
+  offline_reason?: string | null;
   slug: string;
   logo_url?: string | null;
   notes: string | null;
@@ -293,6 +296,63 @@ export default function AdminServersPage() {
   }
 
   // --- ACTIONS ---
+
+  async function handleToggleOffline(server: ServerRow) {
+  if (server.is_offline) {
+    // Está offline — confirma para marcar como online
+    const ok = await confirm({
+      title: `Marcar ${server.name} como Online?`,
+      subtitle: "O servidor voltou a funcionar normalmente?",
+      tone: "emerald",
+      confirmText: "Sim, está Online",
+      cancelText: "Cancelar",
+    });
+    if (!ok) return;
+
+    const { error } = await supabaseBrowser
+      .from("servers")
+      .update({ is_offline: false, offline_since: null, offline_reason: null })
+      .eq("id", server.id);
+
+    if (error) { addToast("error", "Erro", error.message); return; }
+    addToast("success", `${server.name} Online`, "Servidor marcado como online.");
+    fetchServers();
+  } else {
+    // Está online — pergunta motivo e horário
+    const motivo = window.prompt(`Motivo da instabilidade em ${server.name}:\n(deixe em branco se não souber)`);
+    if (motivo === null) return; // cancelou
+
+    const horarioInput = window.prompt(
+      "Desde quando está offline? (formato HH:MM — deixe em branco para usar agora)",
+      new Date().toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" })
+    );
+    if (horarioInput === null) return; // cancelou
+
+    // Monta o timestamp
+    let offlineSince: string;
+    if (horarioInput.trim() && /^\d{2}:\d{2}$/.test(horarioInput.trim())) {
+      const today = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+      offlineSince = new Date(`${today}T${horarioInput.trim()}:00-03:00`).toISOString();
+    } else {
+      offlineSince = new Date().toISOString();
+    }
+
+    const { error } = await supabaseBrowser
+      .from("servers")
+      .update({
+        is_offline: true,
+        offline_since: offlineSince,
+        offline_reason: motivo?.trim() || null,
+      })
+      .eq("id", server.id);
+
+    if (error) { addToast("error", "Erro", error.message); return; }
+    addToast("success", `${server.name} Offline`, "Servidor marcado como offline.");
+    fetchServers();
+  }
+}
+
+
   async function handleArchive(server: ServerRow) {
     // ✅ botão de excluir (arquivar) restaurado
 
@@ -743,22 +803,28 @@ export default function AdminServersPage() {
                     )}
 
                     {/* Botão de Sync (só se tiver integração) */}
-                    {server.panel_integration && (
-                      <IconActionBtn
-                        title={
-                          syncingServerId === server.id
-                            ? "Sincronizando..."
-                            : "Sincronizar saldo da integração"
-                        }
-                        tone={syncingServerId === server.id ? "amber" : "blue"} // ✅ Fica amarelo enquanto trabalha
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleSyncIntegration(server);
-                        }}
-                      >
-                        <IconSync />
-                      </IconActionBtn>
-                    )}
+                    {/* Botão ON/OFF do servidor */}
+<button
+  onClick={(e) => { e.stopPropagation(); handleToggleOffline(server); }}
+  title={server.is_offline ? "Servidor OFFLINE — clique para marcar como Online" : "Servidor Online — clique para marcar como Offline"}
+  className={`px-2.5 py-1 rounded-lg border text-[10px] font-bold uppercase tracking-wider transition-all ${
+    server.is_offline
+      ? "bg-rose-500/10 text-rose-500 border-rose-500/30 hover:bg-rose-500/20 animate-pulse"
+      : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20"
+  }`}
+>
+  {server.is_offline ? "OFF" : "ON"}
+</button>
+
+{server.panel_integration && (
+  <IconActionBtn
+    title={syncingServerId === server.id ? "Sincronizando..." : "Sincronizar saldo da integração"}
+    tone={syncingServerId === server.id ? "amber" : "blue"}
+    onClick={(e) => { e.stopPropagation(); handleSyncIntegration(server); }}
+  >
+    <IconSync />
+  </IconActionBtn>
+)}
 
                     <IconActionBtn
                       title="Recarregar Créditos"
