@@ -265,6 +265,55 @@ async function toolRecomendarApplicativo(
   return { apps_parceiros_do_servidor: parceiros, apps_universais_gratis: gratis, apps_universais_pagos: pagos };
 }
 
+// ── RAG: Gerar embedding e buscar conhecimento relevante ─────────────────────
+
+async function generateEmbedding(apiKey: string, text: string): Promise<number[] | null> {
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "models/text-embedding-004",
+          content: { parts: [{ text }] },
+          taskType: "RETRIEVAL_QUERY",
+        }),
+        signal: AbortSignal.timeout(10_000),
+      }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data?.embedding?.values ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function searchBotKnowledge(
+  sb: any,
+  tenantId: string,
+  embedding: number[],
+  limit = 10
+): Promise<string> {
+  try {
+    const { data, error } = await sb.rpc("search_bot_knowledge", {
+      p_tenant_id: tenantId,
+      p_embedding: `[${embedding.join(",")}]`,
+      p_limit: limit,
+      p_threshold: 0.3,
+    });
+
+    if (error || !data?.length) return "(nenhum conhecimento relevante encontrado)";
+
+    return data
+      .map((row: any) => `### [${row.category}] ${row.title}\n${row.content}`)
+      .join("\n\n---\n\n");
+  } catch {
+    return "(erro ao buscar base de conhecimento)";
+  }
+}
+
 // ── Handler principal ─────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
@@ -446,18 +495,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, action: "silence" });
   }
 
-  // Carrega templates como base de conhecimento do agente
-  const { data: templateRows } = await sb
-    .from("message_templates")
-    .select("name, category, content")
-    .eq("tenant_id", tenant_id)
-    .order("category");
+  // ── RAG: busca conhecimento relevante para esta mensagem ─────────────────
+  let templatesText = "(nenhum conhecimento relevante encontrado)";
+  try {
+    const embedding = await generateEmbedding(geminiKey, text.trim());
+    if (embedding) {
+      templatesText = await searchBotKnowledge(sb, tenant_id, embedding, 10);
+      safeLog("[BOT][agent] RAG: conhecimento buscado com sucesso");
+    } else {
+      safeLog("[BOT][agent] RAG: falha ao gerar embedding — usando fallback vazio");
+    }
+  } catch (e: any) {
+    safeLog("[BOT][agent] RAG: erro inesperado —", e?.message);
+  }
 
-  const templatesText = (templateRows || [])
-    .map((t: any) => `### [${t.category}] ${t.name}\n${t.content}`)
-    .join("\n\n---\n\n");
-
-  // 🟢 Chamando a função de prompt unificada
   // ── Histórico recente: últimos jobs enviados + últimos pagamentos ─────────
 const [{ data: recentJobs }, { data: recentPayments }] = await Promise.all([
   sb

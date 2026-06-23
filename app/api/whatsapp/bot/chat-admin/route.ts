@@ -140,6 +140,55 @@ async function toolRecomendarApplicativo(sb: any, tenantId: string, serverId: st
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
+// ── RAG: Gerar embedding e buscar conhecimento relevante ─────────────────────
+
+async function generateEmbedding(apiKey: string, text: string): Promise<number[] | null> {
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "models/text-embedding-004",
+          content: { parts: [{ text }] },
+          taskType: "RETRIEVAL_QUERY",
+        }),
+        signal: AbortSignal.timeout(10_000),
+      }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data?.embedding?.values ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function searchBotKnowledge(
+  sb: any,
+  tenantId: string,
+  embedding: number[],
+  limit = 10
+): Promise<string> {
+  try {
+    const { data, error } = await sb.rpc("search_bot_knowledge", {
+      p_tenant_id: tenantId,
+      p_embedding: `[${embedding.join(",")}]`,
+      p_limit: limit,
+      p_threshold: 0.3,
+    });
+
+    if (error || !data?.length) return "(nenhum conhecimento relevante encontrado)";
+
+    return data
+      .map((row: any) => `### [${row.category}] ${row.title}\n${row.content}`)
+      .join("\n\n---\n\n");
+  } catch {
+    return "(erro ao buscar base de conhecimento)";
+  }
+}
+
 export async function POST(req: Request) {
   const geminiKey = String(process.env.GEMINI_API_KEY || "").trim();
   if (!geminiKey) return NextResponse.json({ error: "GEMINI_API_KEY não configurada" }, { status: 500 });
@@ -215,14 +264,26 @@ export async function POST(req: Request) {
     clientMatchesRaw.push(clients[0]); 
   }
 
-  // Templates como base de conhecimento (removido is_active=true para ler tudo)
-  const { data: templateRows } = await sb
-    .from("message_templates").select("name, category, content")
-    .eq("tenant_id", tenantId).order("category");
-
-  const templatesText = (templateRows || [])
-    .map((t: any) => `### [${t.category}] ${t.name}\n${t.content}`)
-    .join("\n\n---\n\n");
+  // ── RAG: busca conhecimento relevante para esta mensagem ─────────────────
+  let templatesText = "(nenhum conhecimento relevante encontrado)";
+  try {
+    const embedding = await generateEmbedding(geminiKey, message.trim());
+    if (embedding) {
+      const { data: ragData, error: ragErr } = await sb.rpc("search_bot_knowledge", {
+        p_tenant_id: tenantId,
+        p_embedding: `[${embedding.join(",")}]`,
+        p_limit: 10,
+        p_threshold: 0.3,
+      });
+      if (!ragErr && ragData?.length) {
+        templatesText = ragData
+          .map((row: any) => `### [${row.category}] ${row.title}\n${row.content}`)
+          .join("\n\n---\n\n");
+      }
+    }
+  } catch (e: any) {
+    safeLog("[BOT][chat-admin] RAG erro:", e?.message);
+  }
 
   const [{ data: recentJobs }, { data: recentPayments }] = await Promise.all([
   sb
