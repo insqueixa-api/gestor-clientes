@@ -298,59 +298,82 @@ export default function AdminServersPage() {
   // --- ACTIONS ---
 
   async function handleToggleOffline(server: ServerRow) {
-  if (server.is_offline) {
-    // Está offline — confirma para marcar como online
-    const ok = await confirm({
-      title: `Marcar ${server.name} como Online?`,
-      subtitle: "O servidor voltou a funcionar normalmente?",
-      tone: "emerald",
-      confirmText: "Sim, está Online",
-      cancelText: "Cancelar",
-    });
-    if (!ok) return;
+    if (server.is_offline) {
+      // Está offline — confirma para marcar como online
+      const ok = await confirm({
+        title: `Marcar ${server.name} como Online?`,
+        subtitle: "O servidor voltou a funcionar normalmente?",
+        tone: "emerald",
+        confirmText: "Sim, está Online",
+        cancelText: "Cancelar",
+      });
+      if (!ok) return;
 
-    const { error } = await supabaseBrowser
-      .from("servers")
-      .update({ is_offline: false, offline_since: null, offline_reason: null })
-      .eq("id", server.id);
+      // Atualização otimista na UI para resposta instantânea
+      setServers((prev) => prev.map((s) => (s.id === server.id ? { ...s, is_offline: false } : s)));
 
-    if (error) { addToast("error", "Erro", error.message); return; }
-    addToast("success", `${server.name} Online`, "Servidor marcado como online.");
-    fetchServers();
-  } else {
-    // Está online — pergunta motivo e horário
-    const motivo = window.prompt(`Motivo da instabilidade em ${server.name}:\n(deixe em branco se não souber)`);
-    if (motivo === null) return; // cancelou
+      const { error } = await supabaseBrowser
+        .from("servers")
+        .update({ is_offline: false, offline_since: null, offline_reason: null })
+        .eq("id", server.id);
 
-    const horarioInput = window.prompt(
-      "Desde quando está offline? (formato HH:MM — deixe em branco para usar agora)",
-      new Date().toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" })
-    );
-    if (horarioInput === null) return; // cancelou
-
-    // Monta o timestamp
-    let offlineSince: string;
-    if (horarioInput.trim() && /^\d{2}:\d{2}$/.test(horarioInput.trim())) {
-      const today = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
-      offlineSince = new Date(`${today}T${horarioInput.trim()}:00-03:00`).toISOString();
+      if (error) { addToast("error", "Erro", error.message); fetchServers(); return; }
+      addToast("success", `${server.name} Online`, "Servidor marcado como online.");
+      fetchServers();
     } else {
-      offlineSince = new Date().toISOString();
+      // Está online — pergunta motivo e horário via modal unificado
+      const result = await confirm({
+        title: `Marcar ${server.name} como OFFLINE?`,
+        subtitle: "Preencha os detalhes da instabilidade (opcional):",
+        tone: "rose",
+        confirmText: "Marcar Offline",
+        cancelText: "Cancelar",
+        inputs: [
+          {
+            name: "motivo",
+            label: "Motivo da instabilidade",
+            placeholder: "Ex: Manutenção, falha de rota...",
+          },
+          {
+            name: "horario",
+            label: "Desde quando? (HH:MM)",
+            placeholder: "Deixe em branco para usar a hora atual",
+          },
+        ],
+      } as any);
+      if (!result) return; // cancelou
+
+      // Usamos 'any' para driblar a tipagem estrita de boolean do hook original
+      const data = result as any;
+      const motivo = data.motivo || "";
+      const horarioInput = data.horario || "";
+
+      // Monta o timestamp
+      let offlineSince: string;
+      if (horarioInput.trim() && /^\d{2}:\d{2}$/.test(horarioInput.trim())) {
+        const today = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+        offlineSince = new Date(`${today}T${horarioInput.trim()}:00-03:00`).toISOString();
+      } else {
+        offlineSince = new Date().toISOString();
+      }
+
+      // Atualização otimista na UI para resposta instantânea
+      setServers((prev) => prev.map((s) => (s.id === server.id ? { ...s, is_offline: true } : s)));
+
+      const { error } = await supabaseBrowser
+        .from("servers")
+        .update({
+          is_offline: true,
+          offline_since: offlineSince,
+          offline_reason: motivo.trim() || null,
+        })
+        .eq("id", server.id);
+
+      if (error) { addToast("error", "Erro", error.message); fetchServers(); return; }
+      addToast("success", `${server.name} Offline`, "Servidor marcado como offline.");
+      fetchServers();
     }
-
-    const { error } = await supabaseBrowser
-      .from("servers")
-      .update({
-        is_offline: true,
-        offline_since: offlineSince,
-        offline_reason: motivo?.trim() || null,
-      })
-      .eq("id", server.id);
-
-    if (error) { addToast("error", "Erro", error.message); return; }
-    addToast("success", `${server.name} Offline`, "Servidor marcado como offline.");
-    fetchServers();
   }
-}
 
 
   async function handleArchive(server: ServerRow) {
