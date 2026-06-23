@@ -321,32 +321,15 @@ export default function AdminServersPage() {
       addToast("success", `${server.name} Online`, "Servidor marcado como online.");
       fetchServers();
     } else {
-      // Está online — pergunta motivo e horário via modal unificado
-      const result = await confirm({
-        title: `Marcar ${server.name} como OFFLINE?`,
-        subtitle: "Preencha os detalhes da instabilidade (opcional):",
-        tone: "rose",
-        confirmText: "Marcar Offline",
-        cancelText: "Cancelar",
-        inputs: [
-          {
-            name: "motivo",
-            label: "Motivo da instabilidade",
-            placeholder: "Ex: Manutenção, falha de rota...",
-          },
-          {
-            name: "horario",
-            label: "Desde quando? (HH:MM)",
-            placeholder: "Deixe em branco para usar a hora atual",
-          },
-        ],
-      } as any);
-      if (!result) return; // cancelou
+      // Está online — pergunta motivo e horário via prompt nativo para não quebrar o hook global
+      const motivo = window.prompt(`Motivo da instabilidade em ${server.name}:\n(deixe em branco se não souber)`);
+      if (motivo === null) return; // cancelou
 
-      // Usamos 'any' para driblar a tipagem estrita de boolean do hook original
-      const data = result as any;
-      const motivo = data.motivo || "";
-      const horarioInput = data.horario || "";
+      const horarioInput = window.prompt(
+        "Desde quando está offline? (formato HH:MM — deixe em branco para usar agora)",
+        new Date().toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" })
+      );
+      if (horarioInput === null) return; // cancelou
 
       // Monta o timestamp
       let offlineSince: string;
