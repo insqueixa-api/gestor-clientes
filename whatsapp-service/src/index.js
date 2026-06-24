@@ -19,19 +19,20 @@ if (!API_TOKEN) {
 
 app.use(express.json());
 
-// ── Logs de acesso inteligentes (Silencia o Polling) ───────────
+// ── Logs de acesso inteligentes (Silencia o Polling e 404) ───────────
 app.use((req, res, next) => {
   // ✅ Pula o log se a URL COMEÇAR com alguma dessas rotas (ignora os parâmetros)
   const isQuiet = ["/health", "/status", "/profile", "/sessions"].some(path => 
     req.url.startsWith(path) || req.path.startsWith(path)
   );
   
-  if (isQuiet) {
-    return next();
-  }
+  if (isQuiet) return next();
 
   const start = Date.now();
   res.on("finish", () => {
+    // 🔥 SILENCIA OS 404: Não exibe logs de rotas que não existem (Evita poluição de bots de internet e URLs raiz)
+    if (res.statusCode === 404) return;
+
     const ms = Date.now() - start;
     console.log(`[HTTP] ${req.method} ${req.path} → ${res.statusCode} (${ms}ms)`);
   });

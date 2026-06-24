@@ -13,12 +13,20 @@ import pino from "pino";
 // Adiciona no topo do arquivo, após os imports:
 const processedCalls = new Map();
 
-// Suprime logs verbosos do libsignal (Bad MAC de sessões antigas — erro cosmético)
+// Suprime logs verbosos de ERRO do libsignal (Bad MAC de sessões antigas — erro cosmético)
 const _origConsoleError = console.error;
 console.error = (...args) => {
   const msg = String(args[0] || "");
   if (msg.includes("Bad MAC") || msg.includes("Failed to decrypt") || msg.includes("Session error")) return;
   _origConsoleError(...args);
+};
+
+// Suprime logs verbosos de SUCESSO/INFO do libsignal (Bloqueia aquele texto gigante de chaves "Closing session")
+const _origConsoleLog = console.log;
+console.log = (...args) => {
+  const msg = String(args[0] || "");
+  if (msg.includes("Closing open session in favor") || msg.includes("Closing session: SessionEntry")) return;
+  _origConsoleLog(...args);
 };
 
 // Human takeover: quando você responde, bot para por 4h pra aquele contato
