@@ -307,7 +307,7 @@ async function handleToggleOffline(server: ServerRow) {
       title: `${server.name} voltou ao normal?`,
       subtitle: "O servidor será marcado como Online e os clientes não verão mais o aviso de instabilidade.",
       tone: "emerald",
-      confirmText: "Sim, marcar como Online",
+      confirmText: "Servidor Online",
       cancelText: "Cancelar",
     });
     if (!ok) return;
