@@ -754,17 +754,31 @@ function FloatingChat({ addToast }: { addToast: (type: "success" | "error", titl
       {/* Botão flutuante */}
       <button
         onClick={() => setIsOpen((v) => !v)}
-        className={`fixed bottom-6 right-6 z-40 w-14 h-14 rounded-2xl shadow-2xl flex items-center justify-center transition-all duration-300 ${isOpen ? "bg-rose-500 hover:bg-rose-400 rotate-0" : "bg-gradient-to-br from-violet-600 to-indigo-600 hover:scale-110"}`}
+        className={`fixed bottom-6 right-6 z-40 w-14 h-14 rounded-2xl shadow-2xl flex items-center justify-center transition-all duration-300 ${
+          isOpen
+            ? "bg-rose-500 hover:bg-rose-400 rotate-0 text-white"
+            : "bg-card border border-border hover:scale-110"
+        }`}
         title={isOpen ? "Fechar simulador" : "Abrir simulador do bot"}
       >
         {isOpen ? (
-  <X className="w-6 h-6 text-white" />
-) : (
-  <svg viewBox="0 0 192 192" className="w-7 h-7" fill="none">
-    <path d="M96 20C96 20 72 72 20 96C72 120 96 172 96 172C96 172 120 120 172 96C120 72 96 20 96 20Z" fill="white"/>
-    <path d="M96 20C96 20 120 72 172 96C120 120 96 172 96 172C96 172 72 120 20 96C72 72 96 20 96 20Z" fill="white" opacity="0.5"/>
-  </svg>
-)}
+          <X className="w-6 h-6" />
+        ) : (
+          <svg viewBox="0 0 24 24" className="w-8 h-8" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="gemini-gradient" x1="2.5" y1="2.5" x2="21.5" y2="21.5" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#1C7DFF" />
+                <stop offset="33%" stopColor="#9E7DF6" />
+                <stop offset="66%" stopColor="#F98980" />
+                <stop offset="100%" stopColor="#FFC875" />
+              </linearGradient>
+            </defs>
+            <path
+              d="M23.554 11.026a1.18 1.18 0 0 0-.825-.826C18.257 9.043 14.957 5.743 13.8 1.272a1.18 1.18 0 0 0-2.274 0c-1.157 4.47-4.457 7.77-8.928 8.928a1.18 1.18 0 0 0 0 2.274c4.471 1.158 7.771 4.458 8.928 8.929a1.18 1.18 0 0 0 2.274 0c1.157-4.471 4.457-7.771 8.928-8.929a1.18 1.18 0 0 0 .826-.826Z"
+              fill="url(#gemini-gradient)"
+            />
+          </svg>
+        )}
       </button>
 
       {/* Drawer do chat */}
