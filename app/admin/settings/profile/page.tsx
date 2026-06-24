@@ -862,8 +862,8 @@ async function handleSave() {
     <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-background transition-colors text-foreground">
       <ToastNotifications toasts={toasts} removeToast={removeToast} />
 
-      {/* HEADER DA PÁGINA */}
-      <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
+{/* HEADER DA PÁGINA */}
+      <div className="max-w-5xl mx-auto flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
         <div className="min-w-0 text-left">
           <div className="flex items-center gap-3">
             <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">
@@ -1026,8 +1026,8 @@ async function handleSave() {
         </div>
       </div>
 
-      {/* CONTEÚDO PRINCIPAL CENTRALIZADO */}
-      <div className="max-w-3xl mx-auto">
+{/* CONTEÚDO PRINCIPAL CENTRALIZADO */}
+      <div className="max-w-5xl mx-auto px-3 sm:px-0">
         <div className="space-y-6">
           {/* CARD 1: DADOS PESSOAIS (SEMPRE VISÍVEL) */}
           <div
