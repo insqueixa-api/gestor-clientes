@@ -295,14 +295,14 @@ async function searchBotKnowledge(
   sb: any,
   tenantId: string,
   embedding: number[],
-  limit = 10
+  limit = 5
 ): Promise<string> {
   try {
     const { data, error } = await sb.rpc("search_bot_knowledge", {
       p_tenant_id: tenantId,
       p_embedding: `[${embedding.join(",")}]`,
       p_limit: limit,
-      p_threshold: 0.3,
+      p_threshold: 0.5,
     });
 
     if (error || !data?.length) return "(nenhum conhecimento relevante encontrado)";
@@ -508,7 +508,7 @@ export async function POST(req: Request) {
   try {
     const embedding = await generateEmbedding(geminiKey, text.trim());
     if (embedding) {
-      templatesText = await searchBotKnowledge(sb, tenant_id, embedding, 10);
+      templatesText = await searchBotKnowledge(sb, tenant_id, embedding, 5);
       safeLog("[BOT][agent] RAG: conhecimento buscado com sucesso");
     } else {
       safeLog("[BOT][agent] RAG: falha ao gerar embedding — usando fallback vazio");

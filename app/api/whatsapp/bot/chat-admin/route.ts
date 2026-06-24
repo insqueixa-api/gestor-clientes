@@ -170,14 +170,14 @@ async function searchBotKnowledge(
   sb: any,
   tenantId: string,
   embedding: number[],
-  limit = 10
+  limit = 5
 ): Promise<string> {
   try {
     const { data, error } = await sb.rpc("search_bot_knowledge", {
       p_tenant_id: tenantId,
       p_embedding: `[${embedding.join(",")}]`,
       p_limit: limit,
-      p_threshold: 0.3,
+      p_threshold: 0.5,
     });
 
     if (error || !data?.length) return "(nenhum conhecimento relevante encontrado)";
@@ -273,8 +273,8 @@ export async function POST(req: Request) {
       const { data: ragData, error: ragErr } = await sb.rpc("search_bot_knowledge", {
         p_tenant_id: tenantId,
         p_embedding: `[${embedding.join(",")}]`,
-        p_limit: 10,
-        p_threshold: 0.3,
+        p_limit: 5,
+        p_threshold: 0.5,
       });
       if (!ragErr && ragData?.length) {
         templatesText = ragData
