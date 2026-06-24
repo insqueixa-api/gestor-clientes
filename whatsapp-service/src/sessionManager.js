@@ -613,17 +613,20 @@ if (key.fromMe) {
       continue;
     }
 
-    // Tem conteúdo que vale processar?
+    // Tem conteúdo que vale processar? (Capturando texto/legenda e ignorando imagens)
     const hasText = !!(
       msgContent.conversation ||
-      msgContent.extendedTextMessage?.text
+      msgContent.extendedTextMessage?.text ||
+      msgContent.imageMessage?.caption ||
+      msgContent.documentMessage?.caption ||
+      msgContent.viewOnceMessageV2?.message?.imageMessage?.caption
     );
-    const hasMedia = !!(
-      msgContent.imageMessage ||
-      msgContent.documentMessage
-    );
+    
+    // Só consideramos "mídia processável" se for documento (ex: PDF)
+    const hasDocument = !!(msgContent.documentMessage);
 
-if (!hasText && !hasMedia) continue;
+    // Se for SÓ UMA IMAGEM sem legenda, ignora 100% e morre em silêncio
+    if (!hasText && !hasDocument) continue;
 
 // Deduplicação — Baileys pode emitir a mesma mensagem várias vezes
     const msgId = msg.key?.id;
@@ -674,31 +677,32 @@ async function callBotAgent(sessionKey, phone, msg) {
     return;
   }
 
-  // Extrai texto da mensagem
+  // Extrai texto da mensagem (incluindo legendas de fotos)
   const text =
     msg.message?.conversation ||
     msg.message?.extendedTextMessage?.text ||
+    msg.message?.imageMessage?.caption ||
+    msg.message?.documentMessage?.caption ||
+    msg.message?.viewOnceMessageV2?.message?.imageMessage?.caption ||
     null;
 
-  // Detecta tipo de mídia
-const hasImage = !!(msg.message?.imageMessage);
+  // Apenas processamos documentos. Imagens (imageMessage, viewOnce) são ignoradas.
   const hasDocument = !!(msg.message?.documentMessage);
-  const hasViewOnce = !!(msg.message?.viewOnceMessage || msg.message?.viewOnceMessageV2);
-  const hasMidia = hasImage || hasDocument || hasViewOnce;
 
-  // Baixa mídia se necessário (para leitura de comprovante)
   let mediaBase64 = null;
   let mediaType = null;
+  let mimeType = null;
 
-  if (hasMidia) {
+  if (hasDocument) {
     const sess = sessions.get(sessionKey);
     if (sess?.socket) {
       mediaBase64 = await downloadMsgMedia(sess.socket, msg);
-      mediaType = hasImage ? "image" : "document";
+      mediaType = "document";
+      mimeType = msg.message?.documentMessage?.mimetype || null;
     }
   }
 
-  // Nada útil pra processar
+  // Se a mensagem for só uma imagem sem texto, morre aqui e não chama a IA
   if (!text && !mediaBase64) return;
 
   const payload = {
@@ -710,9 +714,7 @@ const hasImage = !!(msg.message?.imageMessage);
     text,
     media_base64: mediaBase64,
     media_type: mediaType,
-    mime_type: hasImage
-      ? (msg.message?.imageMessage?.mimetype || "image/jpeg")
-      : (msg.message?.documentMessage?.mimetype || null),
+    mime_type: mimeType,
   };
 
   try {

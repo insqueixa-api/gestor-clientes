@@ -557,15 +557,41 @@ const agoraSP = new Date().toLocaleString("pt-BR", {
   hour: "2-digit", minute: "2-digit", hour12: false,
 });
 
-const systemPrompt = buildBotSystemPrompt(clients, templatesText, {
+const promptBase = buildBotSystemPrompt(clients, templatesText, {
   historicoRecente,
   agoraSP,
 });
 
-  // Conversa inicial
-  const conversation: any[] = [
-    { role: "user", parts: [{ text: text.trim() }] },
-  ];
+// Adiciona a regra de ouro para blindar o bot contra as "legendas órfãs"
+const systemPrompt = promptBase + "\n\nREGRA IMPORTANTE DE SISTEMA: Você é um assistente baseado em texto. Você é CEGO para imagens, fotos ou comprovantes. Se a mensagem do cliente indicar que ele acabou de enviar um comprovante, foto ou imagem (ex: 'Tá pago', 'Segue o comprovante', 'Olha aí'), APENAS agradeça cordialmente, diga que o sistema registrou o envio e que um humano irá conferir a imagem em breve. JAMAIS peça para o cliente enviar a imagem novamente.";
+
+  // Busca as últimas 10 mensagens para dar contexto ao bot (Cura da Amnésia)
+  // ATENÇÃO: Ajuste "sua_tabela_de_mensagens", "is_bot" e "texto" para os nomes reais da sua tabela
+  const { data: chatHistory } = await sb
+    .from("sua_tabela_de_mensagens") 
+    .select("is_bot, texto") 
+    .eq("tenant_id", tenant_id)
+    .eq("whatsapp_username", phone) // ou a coluna que você usa para o telefone
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  const conversation: any[] = [];
+
+  // Se houver histórico, preenche a conversa em ordem cronológica (antigas primeiro)
+  if (chatHistory && chatHistory.length > 0) {
+    const orderedHistory = chatHistory.reverse();
+    for (const msg of orderedHistory) {
+      if (msg.texto?.trim()) {
+        conversation.push({
+          role: msg.is_bot ? "model" : "user",
+          parts: [{ text: msg.texto.trim() }]
+        });
+      }
+    }
+  }
+
+  // Adiciona a mensagem ATUAL do cliente no final do array
+  conversation.push({ role: "user", parts: [{ text: text.trim() }] });
 
   const geminiPayload: any = {
     systemInstruction: { parts: [{ text: systemPrompt }] },

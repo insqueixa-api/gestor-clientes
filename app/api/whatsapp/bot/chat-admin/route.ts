@@ -325,10 +325,13 @@ const agoraSP = new Date().toLocaleString("pt-BR", {
   hour: "2-digit", minute: "2-digit", hour12: false,
 });
 
-const systemPrompt = buildBotSystemPrompt(clients, templatesText, {
+const promptBase = buildBotSystemPrompt(clients, templatesText, {
   historicoRecente,
   agoraSP,
 });
+
+// Adiciona a regra de ouro para blindar o bot contra as "legendas órfãs" (igual no Agent real)
+const systemPrompt = promptBase + "\n\nREGRA IMPORTANTE DE SISTEMA: Você é um assistente baseado em texto. Você é CEGO para imagens, fotos ou comprovantes. Se a mensagem do cliente indicar que ele acabou de enviar um comprovante, foto ou imagem (ex: 'Tá pago', 'Segue o comprovante', 'Olha aí'), APENAS agradeça cordialmente, diga que o sistema registrou o envio e que um humano irá conferir a imagem em breve. JAMAIS peça para o cliente enviar a imagem novamente.";
 
   // Monta conversa com histórico (multi-turn)
   const history = Array.isArray(conversation_history) ? conversation_history : [];
