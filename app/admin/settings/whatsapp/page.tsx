@@ -514,16 +514,16 @@ function KnowledgeBase({ addToast }: { addToast: (type: "success" | "error", tit
                 className="w-full h-9 pl-9 pr-3 text-xs bg-muted/50 border border-border rounded-lg outline-none focus:border-violet-500/50"
               />
             </div>
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              <button onClick={() => setFilterCategory("")} className={`shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-colors ${filterCategory === "" ? "bg-violet-500/15 text-violet-500 border border-violet-500/20" : "bg-muted text-muted-foreground border border-border hover:bg-muted/70"}`}>
-                Todos
-              </button>
-              {categories.map((cat) => (
-                <button key={cat} onClick={() => setFilterCategory(cat === filterCategory ? "" : cat)} className={`shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-colors ${filterCategory === cat ? "bg-violet-500/15 text-violet-500 border border-violet-500/20" : "bg-muted text-muted-foreground border border-border hover:bg-muted/70"}`}>
-                  {cat}
-                </button>
-              ))}
-            </div>
+            <select
+  value={filterCategory}
+  onChange={(e) => setFilterCategory(e.target.value)}
+  className="w-full h-8 px-2 text-xs bg-muted/50 border border-border rounded-lg outline-none focus:border-violet-500/50 text-foreground"
+>
+  <option value="">Todas as categorias</option>
+  {categories.map((cat) => (
+    <option key={cat} value={cat}>{cat}</option>
+  ))}
+</select>
           </div>
 
           {/* Itens */}
@@ -553,14 +553,7 @@ function KnowledgeBase({ addToast }: { addToast: (type: "success" | "error", tit
                         <p className="text-[10px] text-muted-foreground truncate">{item.content.slice(0, 60)}...</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                      <button onClick={(e) => { e.stopPropagation(); void handleToggleActive(item); }} className="p-1 rounded text-muted-foreground hover:text-emerald-500 transition-colors" title={item.is_active ? "Desativar" : "Ativar"}>
-                        {item.is_active ? <ToggleRight className="w-3.5 h-3.5" /> : <ToggleLeft className="w-3.5 h-3.5" />}
-                      </button>
-                      <button onClick={(e) => { e.stopPropagation(); void handleDelete(item); }} className="p-1 rounded text-muted-foreground hover:text-rose-500 transition-colors" title="Remover">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                    {/* botões removidos — ações ficam no editor */}
                   </div>
                 </div>
               ))
@@ -624,14 +617,27 @@ function KnowledgeBase({ addToast }: { addToast: (type: "success" | "error", tit
               </div>
 
               {!isNew && (
-                <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border border-border">
-                  <span className="text-xs text-muted-foreground">Status:</span>
-                  <button onClick={() => setEditActive((v) => !v)} className={`flex items-center gap-2 text-xs font-medium transition-colors ${editActive ? "text-emerald-500" : "text-muted-foreground"}`}>
-                    {editActive ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
-                    {editActive ? "Ativo — bot usa este conhecimento" : "Inativo — bot ignora este item"}
-                  </button>
-                </div>
-              )}
+  <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border">
+    <div className="flex items-center gap-3">
+      <span className="text-xs text-muted-foreground">Status:</span>
+      <span className={`text-xs font-medium ${editActive ? "text-emerald-500" : "text-muted-foreground"}`}>
+        {editActive ? "Ativo — bot usa este conhecimento" : "Inativo — bot ignora este item"}
+      </span>
+      <button
+        onClick={() => setEditActive((v) => !v)}
+        className={`relative w-11 h-6 rounded-full transition-colors ${editActive ? "bg-emerald-500" : "bg-muted border border-border"}`}
+      >
+        <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-card shadow-sm transition-transform ${editActive ? "translate-x-5" : ""}`} />
+      </button>
+    </div>
+    <button
+      onClick={() => void handleDelete(selected!)}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium text-rose-500 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 transition-colors"
+    >
+      <Trash2 className="w-3 h-3" /> Excluir
+    </button>
+  </div>
+)}
 
               <div className="flex gap-3">
                 <button onClick={closeEditor} className="flex-1 h-10 rounded-xl border border-border text-xs font-medium text-muted-foreground hover:bg-muted transition-colors">Cancelar</button>
@@ -751,12 +757,14 @@ function FloatingChat({ addToast }: { addToast: (type: "success" | "error", titl
         className={`fixed bottom-6 right-6 z-40 w-14 h-14 rounded-2xl shadow-2xl flex items-center justify-center transition-all duration-300 ${isOpen ? "bg-rose-500 hover:bg-rose-400 rotate-0" : "bg-gradient-to-br from-violet-600 to-indigo-600 hover:scale-110"}`}
         title={isOpen ? "Fechar simulador" : "Abrir simulador do bot"}
       >
-        {isOpen ? <X className="w-6 h-6 text-white" /> : <MessageSquare className="w-6 h-6 text-white" />}
-        {!isOpen && (
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-background text-[8px] font-bold text-white flex items-center justify-center">
-            AI
-          </span>
-        )}
+        {isOpen ? (
+  <X className="w-6 h-6 text-white" />
+) : (
+  <svg viewBox="0 0 192 192" className="w-7 h-7" fill="none">
+    <path d="M96 20C96 20 72 72 20 96C72 120 96 172 96 172C96 172 120 120 172 96C120 72 96 20 96 20Z" fill="white"/>
+    <path d="M96 20C96 20 120 72 172 96C120 120 96 172 96 172C96 172 72 120 20 96C72 72 96 20 96 20Z" fill="white" opacity="0.5"/>
+  </svg>
+)}
       </button>
 
       {/* Drawer do chat */}
