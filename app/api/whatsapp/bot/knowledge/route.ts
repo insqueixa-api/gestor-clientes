@@ -134,6 +134,9 @@ export async function PUT(req: Request) {
   if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const geminiKey = String(process.env.GEMINI_API_KEY || "").trim();
+  
+  // DEBUG TEMPORÁRIO — remover após confirmar
+  console.log("[KNOWLEDGE PUT] geminiKey presente:", !!geminiKey, "length:", geminiKey.length);
 
   let body: any;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "JSON inválido" }, { status: 400 }); }
