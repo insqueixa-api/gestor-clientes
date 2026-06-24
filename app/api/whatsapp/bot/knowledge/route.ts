@@ -152,7 +152,6 @@ export async function PUT(req: Request) {
 
   // Regenera embedding sempre que chamado com geminiKey disponível
   if (geminiKey) {
-    // Busca valores atuais para compor o texto completo
     const { data: current } = await sb
       .from("bot_knowledge")
       .select("title, content")
@@ -163,8 +162,12 @@ export async function PUT(req: Request) {
     const finalTitle = updatePayload.title ?? current?.title ?? "";
     const finalContent = updatePayload.content ?? current?.content ?? "";
     const textToEmbed = `${finalTitle}\n\n${finalContent}`;
+    console.log("[KNOWLEDGE PUT] Gerando embedding para:", finalTitle.slice(0, 50));
     const embedding = await generateEmbedding(geminiKey, textToEmbed);
+    console.log("[KNOWLEDGE PUT] Embedding gerado:", embedding ? `${embedding.length} dimensões` : "FALHOU");
     if (embedding) updatePayload.embedding = `[${embedding.join(",")}]`;
+  } else {
+    console.log("[KNOWLEDGE PUT] geminiKey ausente — embedding não gerado");
   }
 
   const { data, error } = await sb
