@@ -1026,10 +1026,9 @@ async function handleSave() {
         </div>
       </div>
 
-      {/* GRID PRINCIPAL */}
-      <div className="grid gap-6 grid-cols-1 xl:grid-cols-3">
-        {/* COLUNA ESQUERDA: DADOS PESSOAIS + (ABA SAÚDE OU PLANILHAS) */}
-        <div className="space-y-6 xl:col-span-2">
+      {/* CONTEÚDO PRINCIPAL CENTRALIZADO */}
+      <div className="max-w-3xl mx-auto">
+        <div className="space-y-6">
           {/* CARD 1: DADOS PESSOAIS (SEMPRE VISÍVEL) */}
           <div
             className={`bg-card border-y sm:border border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-6 transition-all ${isEditing ? "ring-1 ring-emerald-500/20" : ""}`}
@@ -1866,8 +1865,8 @@ className="flex-1 h-10 border border-border text-muted-foreground font-medium ro
                 );
               })()}
           </div>
-        </div> {/* fecha xl:col-span-2 */}
-      </div> {/* fecha grid principal */}
+</div>
+      </div>
 
       {/* inputs ocultos para import */}
       <input ref={importFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportFile(f); }} />

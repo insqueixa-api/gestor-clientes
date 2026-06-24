@@ -10,7 +10,7 @@ import {
   Eye,
 } from "lucide-react";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import type { ReactNode, MouseEvent } from "react";
 import Link from "next/link";
 import { getCurrentTenantId } from "@/lib/tenant";
@@ -297,19 +297,21 @@ export default function AdminServersPage() {
 
   // --- ACTIONS ---
 
-  async function handleToggleOffline(server: ServerRow) {
+  // Ref para capturar os valores dos inputs dentro do modal
+const offlineMotivoRef = React.useRef<HTMLInputElement>(null);
+const offlineHorarioRef = React.useRef<HTMLInputElement>(null);
+
+async function handleToggleOffline(server: ServerRow) {
   if (server.is_offline) {
-    // ── Voltar para Online ──
     const ok = await confirm({
       title: `${server.name} voltou ao normal?`,
       subtitle: "O servidor será marcado como Online e os clientes não verão mais o aviso de instabilidade.",
       tone: "emerald",
-      confirmText: "Servidor Online",
+      confirmText: "Sim, marcar como Online",
       cancelText: "Cancelar",
     });
     if (!ok) return;
 
-    // Otimista
     setServers((prev) => prev.map((s) => s.id === server.id ? { ...s, is_offline: false, offline_since: null, offline_reason: null } : s));
 
     const { error } = await supabaseBrowser.rpc("toggle_server_offline", {
@@ -324,8 +326,6 @@ export default function AdminServersPage() {
     fetchServers();
 
   } else {
-    // ── Marcar como Offline ──
-    // Pega hora atual de SP como sugestão
     const agoraSP = new Date().toLocaleTimeString("pt-BR", {
       timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit",
     });
@@ -337,27 +337,60 @@ export default function AdminServersPage() {
       confirmText: "Confirmar Offline",
       cancelText: "Cancelar",
       details: [
-        `Horário de início: ${agoraSP} (hora atual em SP)`,
+        <div key="campos" className="space-y-3 pt-1">
+          <div>
+            <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
+              Motivo (opcional)
+            </label>
+            <input
+              ref={offlineMotivoRef}
+              type="text"
+              placeholder="Ex: Instabilidade no datacenter"
+              defaultValue=""
+              className="w-full h-9 px-3 text-xs bg-card border border-border rounded-lg outline-none focus:border-rose-500/50 text-foreground placeholder-muted-foreground/50"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
+              Desde quando (HH:MM — padrão: agora)
+            </label>
+            <input
+              ref={offlineHorarioRef}
+              type="time"
+              defaultValue={agoraSP}
+              className="w-full h-9 px-3 text-xs bg-card border border-border rounded-lg outline-none focus:border-rose-500/50 text-foreground"
+            />
+          </div>
+        </div>,
         "O bot pausará o diagnóstico técnico para clientes deste servidor",
         "Você pode reverter a qualquer momento clicando em OFF",
       ],
     });
     if (!ok) return;
 
-    const offlineSince = new Date().toISOString();
+    // Lê os valores dos inputs via ref após confirmação
+    const motivo = offlineMotivoRef.current?.value?.trim() || null;
+    const horarioInput = offlineHorarioRef.current?.value || agoraSP;
 
-    // Otimista
-    setServers((prev) => prev.map((s) => s.id === server.id ? { ...s, is_offline: true, offline_since: offlineSince } : s));
+    let offlineSince: string;
+    if (horarioInput && /^\d{2}:\d{2}$/.test(horarioInput)) {
+      const today = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+      offlineSince = new Date(`${today}T${horarioInput}:00-03:00`).toISOString();
+    } else {
+      offlineSince = new Date().toISOString();
+    }
+
+    setServers((prev) => prev.map((s) => s.id === server.id ? { ...s, is_offline: true, offline_since: offlineSince, offline_reason: motivo } : s));
 
     const { error } = await supabaseBrowser.rpc("toggle_server_offline", {
       p_server_id: server.id,
       p_is_offline: true,
       p_offline_since: offlineSince,
-      p_offline_reason: null,
+      p_offline_reason: motivo,
     });
 
     if (error) { addToast("error", "Erro ao atualizar", error.message); fetchServers(); return; }
-    addToast("success", `${server.name} Offline`, "Bot pausará diagnósticos para este servidor.");
+    addToast("success", `${server.name} Offline`, motivo ? `Motivo: ${motivo}` : "Bot pausará diagnósticos para este servidor.");
     fetchServers();
   }
 }
