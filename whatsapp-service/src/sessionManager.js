@@ -663,9 +663,10 @@ async function callBotAgent(sessionKey, phone, msg) {
     null;
 
   // Detecta tipo de mídia
-  const hasImage = !!(msg.message?.imageMessage);
+const hasImage = !!(msg.message?.imageMessage);
   const hasDocument = !!(msg.message?.documentMessage);
-  const hasMidia = hasImage || hasDocument;
+  const hasViewOnce = !!(msg.message?.viewOnceMessage || msg.message?.viewOnceMessageV2);
+  const hasMidia = hasImage || hasDocument || hasViewOnce;
 
   // Baixa mídia se necessário (para leitura de comprovante)
   let mediaBase64 = null;
@@ -686,6 +687,7 @@ async function callBotAgent(sessionKey, phone, msg) {
     tenant_id: config.tenantId,
     session_key: sessionKey,
     phone,
+    remoteJid: msg.key?.remoteJid || null,
     message_id: msg.key?.id || null,
     text,
     media_base64: mediaBase64,
@@ -697,7 +699,7 @@ async function callBotAgent(sessionKey, phone, msg) {
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30_000); // 30s — agente pode demorar
+    const timeout = setTimeout(() => controller.abort(), 55_000); // 55s — Vercel tem max 60s
     let res;
     try {
       res = await fetch(`${appUrl}/api/whatsapp/bot/agent`, {
