@@ -406,7 +406,13 @@ const systemPrompt = buildBotSystemPrompt(clients, templatesText, {
     return NextResponse.json({ error: `Erro na comunicação com a IA: ${e?.message}` }, { status: 502 });
   }
 
-  if (!finalResponse) return NextResponse.json({ error: "Agente não retornou resposta" }, { status: 500 });
+if (!finalResponse?.trim()) return NextResponse.json({ error: "Agente não retornou resposta" }, { status: 500 });
+
+  // Nunca retorna texto técnico de controle interno
+  const blockedResponses = ["do_not_respond", "silence", "no_response", "ignored"];
+  if (blockedResponses.some(b => finalResponse.trim().toLowerCase() === b)) {
+    return NextResponse.json({ ok: true, response: "(silêncio — bot optou por não responder)", updated_history: newContents });
+  }
 
   return NextResponse.json({
     ok: true,

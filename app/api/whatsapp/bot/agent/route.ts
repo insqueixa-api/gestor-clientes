@@ -571,9 +571,9 @@ const systemPrompt = buildBotSystemPrompt(clients, templatesText, {
     systemInstruction: { parts: [{ text: systemPrompt }] },
     tools: [{ functionDeclarations: BOT_TOOL_DECLARATIONS }], // 🟢 Ferramentas unificadas
     contents: conversation,
-    generationConfig: {
+generationConfig: {
       temperature: 0.7,
-      maxOutputTokens: 1024,
+      maxOutputTokens: 2048,
     },
   };
 
@@ -668,9 +668,16 @@ const systemPrompt = buildBotSystemPrompt(clients, templatesText, {
     return NextResponse.json({ ok: false, error: e?.message }, { status: 502 });
   }
 
-  if (!finalResponse) {
+if (!finalResponse?.trim()) {
     safeLog("[BOT][agent] Agente não retornou resposta após 5 iterações");
     return NextResponse.json({ ok: true, action: "no_response" });
+  }
+
+  // Nunca envia texto técnico ou de controle como resposta real
+  const blockedResponses = ["do_not_respond", "silence", "no_response", "ignored"];
+  if (blockedResponses.some(b => finalResponse.trim().toLowerCase() === b)) {
+    safeLog("[BOT][agent] Resposta bloqueada (controle interno):", finalResponse.trim());
+    return NextResponse.json({ ok: true, action: "silence" });
   }
 
   await sendWAMessage(session_key, phone, finalResponse);
