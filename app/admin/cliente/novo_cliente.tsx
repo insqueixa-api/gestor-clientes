@@ -1169,7 +1169,8 @@ export default function NovoCliente({
   // --- PAGAMENTO (TAB 2) ---
   const [serverId, setServerId] = useState("");
   const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  // Força o estado inicial como string vazia e garante que qualquer set será string
+  const [password, setPassword] = useState<string>("");
 
   // ✅ NOVO: Tecnologia
   const [technology, setTechnology] = useState("IPTV");
@@ -1775,7 +1776,10 @@ export default function NovoCliente({
           }
 
           setUsername(clientToEdit.username || "");
-          setPassword(clientToEdit.server_password || "");
+          // Força a conversão para String explícita antes de colocar no estado
+          // Se o valor for 0019... e chegar como 19..., a única forma de recuperar é garantindo 
+          // que o valor lido do banco (clientToEdit) seja lido como string.
+          setPassword(clientToEdit.server_password != null ? String(clientToEdit.server_password) : "");
 
           // ✅ M3U URL
           setM3uUrl(clientToEdit.m3u_url || "");
@@ -5111,10 +5115,16 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
                       <Label>Senha</Label>
                       <div className="relative">
                         <Input
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          className="pr-10"
-                        />
+                      type="text"
+                      inputMode="text"
+                      value={password}
+                      onChange={(e) => {
+                        // Garante que o que está chegando aqui seja tratado como string
+                        const val = String(e.target.value);
+                        setPassword(val);
+                      }}
+                      className="pr-10"
+                    />
                         {password && (
                           <button
                             type="button"
