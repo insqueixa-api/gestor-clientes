@@ -2106,28 +2106,7 @@ export default function RenewClient() {
                         </button>
                       </div>
                     </div>
-                    {paymentData.bank_address && (
-                      <div>
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
-                          Endereço do Banco
-                        </p>
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-xs text-muted-foreground leading-snug">
-                            {paymentData.bank_address}
-                          </p>
-                          <button
-                            onClick={() =>
-                              copyField("usd_addr", paymentData.bank_address)
-                            }
-                            className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_addr" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
-                          >
-                            {copiedField === "usd_addr"
-                              ? "✅ Copiado"
-                              : "📋 Copiar"}
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                    
                   </div>
                 )}
 
