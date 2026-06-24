@@ -319,9 +319,14 @@ const historicoRecente = [
     : ["- Nenhum pagamento recente encontrado"]),
 ].join("\n");
 
+const agoraSP = new Date().toLocaleString("pt-BR", {
+  timeZone: "America/Sao_Paulo",
+  hour: "2-digit", minute: "2-digit", hour12: false,
+});
+
 const systemPrompt = buildBotSystemPrompt(clients, templatesText, {
-  isTest: true,
   historicoRecente,
+  agoraSP,
 });
 
   // Monta conversa com histórico (multi-turn)

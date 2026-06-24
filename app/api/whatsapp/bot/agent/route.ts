@@ -489,10 +489,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, action: "silence" });
   }
 
-  // ── 3. Mensagem de texto — agente Gemini com ferramentas ─────────────────
+// ── 3. Mensagem de texto — agente Gemini com ferramentas ─────────────────
 
   if (!text?.trim()) {
     return NextResponse.json({ ok: true, action: "silence" });
+  }
+
+  // Filtro determinístico: confirmações simples nunca chegam ao agente
+  const confirmacaoSimples = /^(ok|okay|oks|👍|👌|✅|😊|🙏|blz|beleza|certo|entendi|entendido|perfeito|tá|ta|tá bom|ta bom|tudo bem|obrigad[oa]|vlw|valeu|até|ótimo|otimo|show|legal|massa|👏|🤝|😀|😄|🙂)$/i;
+  if (confirmacaoSimples.test(text.trim())) {
+    safeLog("[BOT][agent] Confirmação simples ignorada:", text.trim());
+    return NextResponse.json({ ok: true, action: "silence_confirmation" });
   }
 
   // ── RAG: busca conhecimento relevante para esta mensagem ─────────────────
@@ -544,8 +551,14 @@ const historicoRecente = [
     : ["- Nenhum pagamento recente encontrado"]),
 ].join("\n");
 
+const agoraSP = new Date().toLocaleString("pt-BR", {
+  timeZone: "America/Sao_Paulo",
+  hour: "2-digit", minute: "2-digit", hour12: false,
+});
+
 const systemPrompt = buildBotSystemPrompt(clients, templatesText, {
   historicoRecente,
+  agoraSP,
 });
 
   // Conversa inicial
