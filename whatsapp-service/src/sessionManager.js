@@ -11,12 +11,21 @@ import { fileURLToPath } from "url";
 import pino from "pino";
 
 // Adiciona no topo do arquivo, após os imports:
-const processedCalls = new Map(); // callId -> timestamp
+const processedCalls = new Map();
+
+// Suprime logs verbosos do libsignal (Bad MAC de sessões antigas — erro cosmético)
+const _origConsoleError = console.error;
+console.error = (...args) => {
+  const msg = String(args[0] || "");
+  if (msg.includes("Bad MAC") || msg.includes("Failed to decrypt") || msg.includes("Session error")) return;
+  _origConsoleError(...args);
+};
 
 // Human takeover: quando você responde, bot para por 4h pra aquele contato
-// Map: sessionKey -> Map(phone -> pausedUntil timestamp)
-// Em memória: se o servidor reiniciar, pausas somem — comportamento aceitável
 const humanPausedContacts = new Map();
+
+// Contatos que o bot já iniciou atendimento (bot respondeu ao menos 1x)
+const botActiveContacts = new Set(); // "sessionKey:phone"
 
 // Deduplicação de mensagens — evita processar a mesma msg duplicada do Baileys
 const processedMessages = new Map(); // msgId -> timestamp
@@ -578,9 +587,18 @@ async function handleBotLogic(sessionKey, messages) {
 
     if (!phone || phone.length < 8) continue;
 
-    // ── fromMe: você respondeu → human takeover ────────────────
-    if (key.fromMe) {
-      pauseContact(sessionKey, phone);
+    // ── fromMe: só pausa se for mensagem manual (não automática do sistema)
+    // Mensagens automáticas têm source: "system" no payload ou são enviadas via /send
+    // Identificamos mensagens manuais pelo campo pushName ausente no fromMe
+    // Na prática: mensagens do Baileys via sendMessage têm key.fromMe=true mas
+    // não devem pausar — só pausar quando você digitar manualmente no celular
+if (key.fromMe) {
+      // Só pausa se o bot já havia iniciado atendimento com esse contato
+      // Evita que mensagens automáticas de cobrança disparem human takeover
+      if (botActiveContacts.has(`${sessionKey}:${phone}`)) {
+        pauseContact(sessionKey, phone);
+        botActiveContacts.delete(`${sessionKey}:${phone}`);
+      }
       continue;
     }
 
@@ -715,11 +733,13 @@ const hasImage = !!(msg.message?.imageMessage);
       clearTimeout(timeout);
     }
 
-    if (!res.ok) {
+if (!res.ok) {
       const err = await res.text().catch(() => "");
       console.error(`[BOT][${sessionKey.slice(0, 8)}] Agente retornou erro ${res.status}: ${err.slice(0, 200)}`);
     } else {
       console.log(`[BOT][${sessionKey.slice(0, 8)}] ✅ Agente processou mensagem de ${phone}`);
+      // Marca contato como ativo — bot já iniciou atendimento
+      botActiveContacts.add(`${sessionKey}:${phone}`);
     }
   } catch (e) {
     if (e?.name === "AbortError") {
@@ -790,6 +810,9 @@ function deleteSessionFiles(sessionKey, fullDelete = false) {
 }
 
 // ✅ AGORA RECEBE O imageUrl COMO TERCEIRO PARÂMETRO (OPCIONAL)
+// Set global de IDs enviados via API (não devem disparar human takeover)
+const apiSentMessageIds = new Set();
+
 async function sendMessage(sessionKey, phone, message, imageUrl = null) {
   const sess = sessions.get(sessionKey);
   if (!sess || sess.status !== "connected") {
