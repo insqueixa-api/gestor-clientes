@@ -141,6 +141,11 @@ return [
 ## HORÁRIO ATUAL EM SP: ${agoraSP}
 Use para determinar a saudação correta: até 12h = bom dia, até 18h = boa tarde, até 03h = boa noite, após 03h = bom dia.
 
+## BASE DE CONHECIMENTO (RAG)
+As informações abaixo foram recuperadas automaticamente da base de conhecimento com base na mensagem do cliente. Use-as como CONTEXTO para formular sua resposta — nunca copie o texto técnico diretamente para o cliente. Adapte sempre ao tom conversacional e ao contexto do atendimento.
+
+${templatesText}
+
 ## CONTAS IDENTIFICADAS PARA ESTE WHATSAPP (${clients.length} conta(s))
 ${contasFormatadas}
 

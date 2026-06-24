@@ -147,8 +147,8 @@ export async function PUT(req: Request) {
   if (content !== undefined) updatePayload.content = content.trim();
   if (is_active !== undefined) updatePayload.is_active = is_active;
 
-  // Regenera embedding se título ou conteúdo mudaram
-  if ((title !== undefined || content !== undefined) && geminiKey) {
+  // Regenera embedding sempre que chamado com geminiKey disponível
+  if (geminiKey) {
     // Busca valores atuais para compor o texto completo
     const { data: current } = await sb
       .from("bot_knowledge")
