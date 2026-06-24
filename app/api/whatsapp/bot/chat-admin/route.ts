@@ -145,12 +145,12 @@ async function toolRecomendarApplicativo(sb: any, tenantId: string, serverId: st
 async function generateEmbedding(apiKey: string, text: string): Promise<number[] | null> {
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "models/text-embedding-004",
+          model: "models/gemini-embedding-001",
           content: { parts: [{ text }] },
           taskType: "RETRIEVAL_QUERY",
         }),
