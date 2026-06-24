@@ -296,6 +296,9 @@ export default function RenewClient() {
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  
+  // ✅ NOVO: Controle de abas para a transferência EUR
+  const [eurTab, setEurTab] = useState<"local" | "intl">("local");
 
   const [stripeReady, setStripeReady] = useState(false);
   const [stripeLoading, setStripeLoading] = useState(false);
@@ -1826,111 +1829,194 @@ export default function RenewClient() {
 
                 {/* 2. DADOS PARA TRANSFERÊNCIA EUR */}
                 {effectiveGatewayType === "transfer_manual_eur" && (
-                  <div className="space-y-3 bg-muted/50 p-4 rounded-xl border border-border">
-                    <div>
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
-                        Nome do Favorecido
-                      </p>
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-medium text-foreground">
-                          {paymentData.beneficiary_name}
-                        </p>
-                        <button
-                          onClick={() =>
-                            copyField("eur_name", paymentData.beneficiary_name)
-                          }
-                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_name" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
-                        >
-                          {copiedField === "eur_name"
-                            ? "✅ Copiado"
-                            : "📋 Copiar"}
-                        </button>
-                      </div>
+                  <div className="space-y-4">
+                    
+                    {/* --- TABS: LOCAL / INTERNACIONAL --- */}
+                    <div className="flex p-1 bg-muted/50 border border-border rounded-lg">
+                      <button
+                        onClick={() => setEurTab("local")}
+                        className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${
+                          eurTab === "local"
+                            ? "bg-card text-foreground shadow-sm border border-border/50"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        Local
+                      </button>
+                      <button
+                        onClick={() => setEurTab("intl")}
+                        className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${
+                          eurTab === "intl"
+                            ? "bg-card text-foreground shadow-sm border border-border/50"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        Internacional
+                      </button>
                     </div>
-                    {paymentData.bank_name && (
+
+                    <div className="space-y-4 bg-muted/50 p-4 rounded-xl border border-border">
+                      
+                      {/* AVISO DA ABA */}
+                      <p className="text-[11px] font-medium text-muted-foreground bg-background/50 p-2 rounded-lg border border-border text-center">
+                        {eurTab === "local"
+                          ? "🇪🇺 Apenas para transferências domésticas (SEPA)."
+                          : "🌍 Apenas para transferências internacionais (SWIFT)."}
+                      </p>
+
+                      {/* --- DADOS COMPARTILHADOS (Topo) --- */}
                       <div>
                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
-                          Nome do Banco
+                          Nome do Favorecido
                         </p>
                         <div className="flex items-center justify-between gap-2">
                           <p className="text-sm font-medium text-foreground">
-                            {paymentData.bank_name}
+                            {paymentData.beneficiary_name}
                           </p>
                           <button
-                            onClick={() =>
-                              copyField("eur_bank", paymentData.bank_name)
-                            }
-                            className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_bank" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
+                            onClick={() => copyField("eur_name", paymentData.beneficiary_name)}
+                            className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_name" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
                           >
-                            {copiedField === "eur_bank"
-                              ? "✅ Copiado"
-                              : "📋 Copiar"}
+                            {copiedField === "eur_name" ? "✅ Copiado" : "📋 Copiar"}
                           </button>
                         </div>
                       </div>
-                    )}
-                    <div>
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
-                        IBAN
-                      </p>
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-mono font-medium text-foreground break-all">
-                          {paymentData.iban}
-                        </p>
-                        <button
-                          onClick={() =>
-                            copyField("eur_iban", paymentData.iban)
-                          }
-                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_iban" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
-                        >
-                          {copiedField === "eur_iban"
-                            ? "✅ Copiado"
-                            : "📋 Copiar"}
-                        </button>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
-                        Swift/BIC
-                      </p>
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-mono font-medium text-foreground">
-                          {paymentData.swift_bic}
-                        </p>
-                        <button
-                          onClick={() =>
-                            copyField("eur_swift", paymentData.swift_bic)
-                          }
-                          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_swift" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
-                        >
-                          {copiedField === "eur_swift"
-                            ? "✅ Copiado"
-                            : "📋 Copiar"}
-                        </button>
-                      </div>
-                    </div>
-                    {paymentData.bank_address && (
-                      <div>
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
-                          Endereço do Banco
-                        </p>
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-xs text-muted-foreground leading-snug">
-                            {paymentData.bank_address}
+
+                      {paymentData.bank_name && (
+                        <div>
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
+                            Nome do Banco
                           </p>
-                          <button
-                            onClick={() =>
-                              copyField("eur_addr", paymentData.bank_address)
-                            }
-                            className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_addr" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
-                          >
-                            {copiedField === "eur_addr"
-                              ? "✅ Copiado"
-                              : "📋 Copiar"}
-                          </button>
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm font-medium text-foreground">
+                              {paymentData.bank_name}
+                            </p>
+                            <button
+                              onClick={() => copyField("eur_bank", paymentData.bank_name)}
+                              className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_bank" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
+                            >
+                              {copiedField === "eur_bank" ? "✅ Copiado" : "📋 Copiar"}
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
+
+                      <hr className="border-border" />
+
+                      {/* --- ABA LOCAL --- */}
+                      {eurTab === "local" && (
+                        <div className="grid grid-cols-2 gap-3">
+                          {/* IBAN Lado Esquerdo */}
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
+                              IBAN
+                            </p>
+                            <div className="flex flex-col gap-1.5">
+                              <p className="text-xs font-mono font-medium text-foreground break-all">
+                                {paymentData.iban_local || "—"}
+                              </p>
+                              {paymentData.iban_local && (
+                                <button
+                                  onClick={() => copyField("eur_iban_local", paymentData.iban_local)}
+                                  className={`self-start px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_iban_local" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
+                                >
+                                  {copiedField === "eur_iban_local" ? "✅ Copiado" : "📋 Copiar"}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* BIC Lado Direito */}
+                          <div className="min-w-0 border-l border-border pl-3">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
+                              BIC
+                            </p>
+                            <div className="flex flex-col gap-1.5">
+                              <p className="text-xs font-mono font-medium text-foreground break-all">
+                                {paymentData.bic_local || "—"}
+                              </p>
+                              {paymentData.bic_local && (
+                                <button
+                                  onClick={() => copyField("eur_bic_local", paymentData.bic_local)}
+                                  className={`self-start px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_bic_local" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
+                                >
+                                  {copiedField === "eur_bic_local" ? "✅ Copiado" : "📋 Copiar"}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* --- ABA INTERNACIONAL --- */}
+                      {eurTab === "intl" && (
+                        <div className="grid grid-cols-2 gap-3">
+                          {/* Account Lado Esquerdo */}
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
+                              Número da Conta
+                            </p>
+                            <div className="flex flex-col gap-1.5">
+                              <p className="text-xs font-mono font-medium text-foreground break-all">
+                                {paymentData.account_number_intl || "—"}
+                              </p>
+                              {paymentData.account_number_intl && (
+                                <button
+                                  onClick={() => copyField("eur_acc_intl", paymentData.account_number_intl)}
+                                  className={`self-start px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_acc_intl" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
+                                >
+                                  {copiedField === "eur_acc_intl" ? "✅ Copiado" : "📋 Copiar"}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Swift Lado Direito */}
+                          <div className="min-w-0 border-l border-border pl-3">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
+                              BIC (SWIFT)
+                            </p>
+                            <div className="flex flex-col gap-1.5">
+                              <p className="text-xs font-mono font-medium text-foreground break-all">
+                                {paymentData.bic_intl || "—"}
+                              </p>
+                              {paymentData.bic_intl && (
+                                <button
+                                  onClick={() => copyField("eur_bic_intl", paymentData.bic_intl)}
+                                  className={`self-start px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_bic_intl" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
+                                >
+                                  {copiedField === "eur_bic_intl" ? "✅ Copiado" : "📋 Copiar"}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* --- DADOS COMPARTILHADOS (Rodapé) --- */}
+                      {paymentData.bank_address && (
+                        <>
+                          <hr className="border-border" />
+                          <div>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
+                              Endereço do Banco
+                            </p>
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-xs text-muted-foreground leading-snug">
+                                {paymentData.bank_address}
+                              </p>
+                              <button
+                                onClick={() => copyField("eur_addr", paymentData.bank_address)}
+                                className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_addr" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
+                              >
+                                {copiedField === "eur_addr" ? "✅ Copiado" : "📋 Copiar"}
+                              </button>
+                            </div>
+                          </div>
+                        </>
+                      )}
+
+                    </div>
                   </div>
                 )}
 
