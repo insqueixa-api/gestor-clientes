@@ -40,6 +40,7 @@ async function generateEmbedding(apiKey: string, text: string): Promise<number[]
           model: "models/gemini-embedding-001",
           content: { parts: [{ text }] },
           taskType: "RETRIEVAL_DOCUMENT",
+  outputDimensionality: 768,
         }),
         signal: AbortSignal.timeout(10_000),
       }
