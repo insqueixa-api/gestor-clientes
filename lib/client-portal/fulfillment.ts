@@ -188,7 +188,17 @@ export async function runFulfillment(params: FulfillmentParams) {
 
   // ✅ HELPER: Atualiza o banco e dispara o email de alerta simultaneamente
   const notifyManual = async (reason: string) => {
-    await supabaseAdmin.from("client_portal_payments").update({ fulfillment_status: "manual_pending", fulfillment_error: reason }).eq("id", payment.id);
+    // ✅ GERA CÓDIGO ÚNICO DE RASTREIO (Se já não existir um)
+    // Ex: "MAN" + 5 caracteres aleatórios para caber certinho no slice(-8) do seu frontend
+    const manualRef = payment.mp_payment_id || `MAN${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+
+    // ✅ Atualiza a auditoria com o erro E injeta o ID gerado no campo mp_payment_id
+    await supabaseAdmin.from("client_portal_payments").update({ 
+      fulfillment_status: "manual_pending", 
+      fulfillment_error: reason,
+      mp_payment_id: manualRef 
+    }).eq("id", payment.id);
+
     try {
       await fetch(`${origin}/api/notifications/manual-renewal`, {
         method: "POST",
@@ -200,11 +210,61 @@ export async function runFulfillment(params: FulfillmentParams) {
           planLabel: payment.plan_label || (client as any).plan_label || payment.period,
           amount: payment.price_amount,
           currency: payment.price_currency || "BRL",
-          mpPaymentId: payment.mp_payment_id,
+          mpPaymentId: manualRef, // ✅ Passa o ID na notificação
           reason
         })
       });
     } catch (e) { safeServerLog("Erro ao notificar email", e); }
+
+    // ========================================================================
+    // ✅ REGISTRAR RENOVAÇÃO MANUAL (E FALLBACKS) COMO "PENDENTE"
+    // ========================================================================
+    const months = toPeriodMonths(payment.period);
+    const totalPaid = payment.price_amount != null ? Number(payment.price_amount) : 0;
+    const safeCurrency = String(payment.price_currency || client.price_currency || "BRL").toUpperCase().trim();
+    const unitPrice = months > 0 ? Number((totalPaid / months).toFixed(2)) : totalPaid;
+    const qtyScreens = Number((client as any).screens ?? 1);
+    const clientName = String((client as any).display_name || "Cliente").trim();
+    const formattedMoney = new Intl.NumberFormat("pt-BR", { style: "currency", currency: safeCurrency }).format(totalPaid);
+
+    try {
+      await supabaseAdmin.from("client_events").insert({
+        tenant_id: tenantId,
+        client_id: client.id,
+        event_type: "RENEWAL_MANUAL",
+        message: `Renovação Manual Pendente · ${months} mês(es) · ${qtyScreens} tela(s) · ${formattedMoney}`,
+        meta: {
+          reason,
+          mp_payment_id: manualRef, // ✅ Registra o ID gerado nos eventos do cliente
+          months,
+          server_name: srv.name || null,
+          source: "client_portal_manual",
+        },
+      });
+    } catch (e) {
+      safeServerLog("fulfillment: failed to insert manual client_events", (e as any)?.message);
+    }
+
+    try {
+      await supabaseAdmin.from("client_renewals").insert({
+        tenant_id: tenantId,
+        client_id: client.id,
+        server_id: client.server_id,
+        months,
+        screens: qtyScreens,
+        currency: safeCurrency,
+        unit_price: unitPrice,
+        total_amount: totalPaid,
+        credits_per_month: 1,
+        credits_used: months * qtyScreens,
+        status: "PENDING", 
+        notes: `[RENOVAÇÃO MANUAL PENDENTE] · ${clientName} (${login}) · ${months} mês(es) · ${formattedMoney} · Ref: ${manualRef} · Motivo: ${reason}`, // ✅ Registra na nota para auditoria fácil
+      });
+    } catch (e) {
+      safeServerLog("fulfillment: failed to insert manual client_renewals", (e as any)?.message);
+    }
+    // ========================================================================
+
     return { expDateISO: null };
   };
   

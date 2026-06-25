@@ -458,19 +458,28 @@ function AuditoriaPageContent() {
   };
 
   // --- HELPERS VISUAIS (Com Bloqueio de Fluxo) ---
-  function getPaymentBadge(status: string) {
+  function getPaymentBadge(status: string, paymentMethod: string) {
     if (status === "approved" || status === "PAGO")
       return (
         <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-emerald-500/10 text-emerald-500 text-[10px] font-medium uppercase border border-emerald-500/20">
           Aprovado
         </span>
       );
-    if (status === "pending")
+    if (status === "pending") {
+      // ✅ Se for método manual, exibe a tag específica "MANUAL"
+      if (paymentMethod === "manual") {
+        return (
+          <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-amber-500/10 text-amber-500 text-[10px] font-medium uppercase border border-amber-500/20">
+            Manual
+          </span>
+        );
+      }
       return (
         <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-amber-500/10 text-amber-500 text-[10px] font-medium uppercase border border-amber-500/20">
           Pendente
         </span>
       );
+    }
     if (status === "rejected" || status === "cancelled")
       return (
         <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-rose-500/10 text-rose-500 text-[10px] font-medium uppercase border border-rose-500/20">
@@ -780,7 +789,7 @@ function AuditoriaPageContent() {
                         {/* Pagamento (Status + Ref) */}
                         <td className="px-4 py-3 text-center">
                           <div className="flex flex-col gap-1 items-center">
-                            {getPaymentBadge(r.payment_status)}
+                            {getPaymentBadge(r.payment_status, r.payment_method)}
                             {r.mp_payment_id && (
                               <button
                                 onClick={(e) => {

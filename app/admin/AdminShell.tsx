@@ -267,20 +267,28 @@ export default function AdminShell({
 
       if (tenantId) {
         try {
+          // ✅ Conta e detalha os pendentes por tipo
           const { data: pendingManual, error: manualErr } =
             await supabaseBrowser
               .from("client_portal_payments")
-              .select("id, created_at")
+              .select("id, created_at, gateway_type, price_amount, price_currency")
               .eq("tenant_id", tenantId)
               .eq("fulfillment_status", "manual_pending");
 
-          if (!manualErr && pendingManual) {
+          if (!manualErr && pendingManual && pendingManual.length > 0) {
+            
+            // ✅ Agrupa por tipo de portal/manual
+            const isTransfer = pendingManual.some(p => p.gateway_type === "transfer_manual_eur" || p.gateway_type === "transfer_manual_usd" || p.gateway_type === "pix_manual");
+            
             pendingManual.forEach((p) => {
+              const valor = new Intl.NumberFormat("pt-BR", { style: "currency", currency: p.price_currency || "BRL" }).format(p.price_amount || 0);
+              
               list.push({
                 id: `manual_${p.id}`,
-                title: "🟣 Ação Necessária",
-                message:
-                  "Um pagamento foi aprovado e aguarda liberação manual no servidor.",
+                title: isTransfer ? "🏦 Transferência Recebida" : "🟣 Ação Necessária",
+                message: isTransfer 
+                  ? `Uma transferência de **${valor}** foi gerada no portal. Verifique o comprovante e libere o cliente.`
+                  : "Uma renovação manual aguarda sua liberação no servidor.",
                 link: "/admin/auditoria",
                 type: "info",
                 is_read: false,

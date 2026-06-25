@@ -1418,7 +1418,8 @@ export default function RecargaCliente({
 
       // --- PASSO 3: RENOVAR (REGISTRAR PAGAMENTO) ---
       // ⚠️ SÓ chama renew_client_and_log se MANUAL (não automática)
-      if (registerPayment && !renewAutomatic) {
+      // ✅ E SÓ CRIA NOVO SE NÃO FOR UMA CONFIRMAÇÃO DE AUDITORIA MANUAL (paymentLogId presente)
+      if (registerPayment && !renewAutomatic && !paymentLogId) {
         setLoadingText("Registrando pagamento...");
 
         // ✅ MENSAGENS SEPARADAS: Uma limpa para o cliente, outra detalhada para o servidor
