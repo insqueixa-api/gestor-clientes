@@ -396,10 +396,8 @@ sessData.socket = sock;
 }
 
 sock.ev.on("contacts.upsert", (contacts) => {
-  console.log(`[WA][CONTACTS] upsert ${contacts.length} contatos`);
-  contacts.forEach(c => { if (c.lid) console.log(`[WA][CONTACTS] id=${c.id} lid=${c.lid}`); });
-  mapContacts(contacts); 
-  saveLidMap(sessionKey); 
+  mapContacts(contacts);
+  saveLidMap(sessionKey);
 });
 sock.ev.on("contacts.set", ({ contacts }) => { mapContacts(contacts); saveLidMap(sessionKey); });
 
@@ -990,4 +988,5 @@ export {
   createSession, disconnectSession, reconnectSession, sendMessage, validateNumber,
   getSession, getAllSessions, restoreExistingSessions, qrCallbacks,
   getSessionConfig, updateSessionConfig, renderRejectMessage, getContactProfilePicture,
+  getBotEvents,
 };

@@ -319,9 +319,6 @@ app.post("/system/restart", authMiddleware, async (req, res) => {
   setTimeout(() => process.exit(0), 500);
 });
 
-// ── GET /bot-events — SSE para monitor em tempo real ─────────
-import { registerSseClient, unregisterSseClient } from "./sessionManager.js";
-
 // ── GET /bot-events — últimos eventos do bot ──────────────────
 app.get("/bot-events", authMiddleware, (req, res) => {
   return res.json({ ok: true, events: getBotEvents() });
