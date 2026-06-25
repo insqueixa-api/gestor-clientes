@@ -988,5 +988,4 @@ export {
   createSession, disconnectSession, reconnectSession, sendMessage, validateNumber,
   getSession, getAllSessions, restoreExistingSessions, qrCallbacks,
   getSessionConfig, updateSessionConfig, renderRejectMessage, getContactProfilePicture,
-  getBotEvents,
 };
