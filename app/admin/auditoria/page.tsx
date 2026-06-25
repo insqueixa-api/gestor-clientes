@@ -551,7 +551,7 @@ function AuditoriaPageContent() {
     }
 
     // 3. Aguardando transferência bancária manual
-    if (status === "awaiting_transfer") {
+if (status === "awaiting_transfer") {
       return (
         <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-sky-500/10 text-sky-500 text-[10px] font-medium uppercase border border-sky-500/20">
           Aguard. Transferência
@@ -559,8 +559,8 @@ function AuditoriaPageContent() {
       );
     }
 
-    // 4. Se o pagamento ainda está pendente, mostra o traço aguardando
-    if (paymentStatus !== "approved" && paymentStatus !== "PAGO") {
+    // 4. Fluxo normal pós-pagamento aprovado
+    if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !== "manual_approved") {
       return (
         <span className="text-muted-foreground/60 font-medium">—</span>
       );
@@ -605,7 +605,7 @@ function AuditoriaPageContent() {
     fulfillmentStatus: string,
   ) {
     // 1. Se o pagamento NÃO foi aprovado, a mensagem nunca é enviada.
-    if (paymentStatus !== "approved" && paymentStatus !== "PAGO") {
+if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !== "manual_approved") {
       return (
         <span className="text-muted-foreground/60 font-medium">—</span>
       );

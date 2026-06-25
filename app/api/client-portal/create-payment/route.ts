@@ -520,23 +520,15 @@ if (insErr || !inserted) {
 
       // ✅ Email imediato: cliente informou que vai transferir
       try {
-        const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.APP_URL || "").trim();
-        await fetch(`${appUrl}/api/notifications/manual-renewal`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-internal-secret": String(process.env.INTERNAL_API_SECRET || ""),
-          },
-          body: JSON.stringify({
-            clientName: displayName,
-            serverUsername: String(client.whatsapp_username || ""),
-            serverName,
-            planLabel,
-            amount: computedPrice,
-            currency,
-            mpPaymentId: inserted.id,
-            reason: "Cliente iniciou transferência bancária pelo portal. Aguardando confirmação do recebimento.",
-          }),
+        const { sendTransferEmail } = await import("@/lib/notifications/send-transfer-email");
+        await sendTransferEmail({
+          clientName: displayName,
+          serverUsername: String((client as any).server_username || client.whatsapp_username || ""),
+          serverName,
+          planLabel,
+          amount: computedPrice,
+          currency,
+          mpPaymentId: inserted.id,
         });
       } catch (e) {
         safeServerLog("create-payment: failed to send transfer email", (e as any)?.message);
