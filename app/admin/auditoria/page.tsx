@@ -376,6 +376,54 @@ function AuditoriaPageContent() {
     }
   };
 
+  // ✅ NOVO: Confirma recebimento de transferência bancária e abre modal de renovação
+  const handleConfirmarTransferencia = async (log: LogRow) => {
+    if (!tenantId) return;
+
+    const ok = await confirm({
+      title: "Confirmar Recebimento",
+      subtitle: "O dinheiro já caiu na conta? Isso vai abrir o painel de renovação.",
+      tone: "sky",
+      icon: "🏦",
+      details: [
+        `Cliente: ${log.client_name}`,
+        `Login: ${log.server_username}`,
+        `Valor: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: log.price_currency || "BRL" }).format(log.price_amount)}`,
+      ],
+      confirmText: "Sim, Recebi — Renovar Agora",
+      cancelText: "Voltar",
+    });
+
+    if (!ok) return;
+
+    try {
+      // 1. Avança o status para manual_approved + manual_pending
+      const { error } = await supabaseBrowser.rpc("update_fulfillment_status", {
+        p_log_id: log.id,
+        p_tenant_id: tenantId,
+        p_status: "manual_pending",
+      });
+      if (error) throw error;
+
+      // 2. Marca pagamento como manual_approved
+      const { error: payErr } = await supabaseBrowser
+        .from("client_portal_payments")
+        .update({ status: "manual_approved" })
+        .eq("id", log.id)
+        .eq("tenant_id", tenantId);
+      if (payErr) throw payErr;
+
+      // 3. Abre o RecargaCliente
+      setRenewState({
+        logId: log.id,
+        clientId: log.client_id,
+        clientName: log.client_name,
+      });
+    } catch (e: any) {
+      addToast("error", "Erro ao confirmar recebimento", e.message);
+    }
+  };
+
   // ✅ NOVA FUNÇÃO: Reenvia apenas o WhatsApp direto, sem abrir o modal
   const handleReenviarWhatsapp = async (log: LogRow) => {
     if (!tenantId) return;
@@ -466,17 +514,25 @@ function AuditoriaPageContent() {
         </span>
       );
     if (status === "pending") {
-      // ✅ Se for método manual, exibe a tag específica "MANUAL"
       if (paymentMethod === "manual") {
         return (
-          <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-amber-500/10 text-amber-500 text-[10px] font-medium uppercase border border-amber-500/20">
-            Manual
+          <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-purple-500/10 text-purple-500 text-[10px] font-medium uppercase border border-purple-500/20 animate-pulse">
+            Renovação Manual
           </span>
         );
       }
       return (
         <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-amber-500/10 text-amber-500 text-[10px] font-medium uppercase border border-amber-500/20">
           Pendente
+        </span>
+      );
+    }
+
+    // ✅ NOVO: pagamento manual confirmado por você
+    if (status === "manual_approved") {
+      return (
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-emerald-500/10 text-emerald-500 text-[10px] font-medium uppercase border border-emerald-500/20">
+          Aprovado Manualmente
         </span>
       );
     }
@@ -514,10 +570,19 @@ function AuditoriaPageContent() {
       );
     }
 
-    // 3. Se o pagamento ainda está pendente, mostra o traço aguardando
+    // 3. Aguardando transferência bancária manual
+    if (status === "awaiting_transfer") {
+      return (
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-sky-500/10 text-sky-500 text-[10px] font-medium uppercase border border-sky-500/20 animate-pulse">
+          Aguard. Transferência
+        </span>
+      );
+    }
+
+    // 4. Se o pagamento ainda está pendente, mostra o traço aguardando
     if (paymentStatus !== "approved" && paymentStatus !== "PAGO") {
       return (
-<span className="text-muted-foreground/60 font-medium">—</span>
+        <span className="text-muted-foreground/60 font-medium">—</span>
       );
     }
 
@@ -672,6 +737,7 @@ function AuditoriaPageContent() {
               <option value="manual_pending">Ação Manual (Pendentes)</option>
             <option value="error">Erros na Renovação</option>
             <option value="pending">Aguardando Pagamento</option>
+            <option value="awaiting_transfer">Aguardando Transferência</option>
           </select>
         </div>
       </div>
@@ -715,12 +781,14 @@ function AuditoriaPageContent() {
                     // ✅ Separação clara dos estados
                     const isManualPending =
                       r.fulfillment_status === "manual_pending";
+                    const isAwaitingTransfer =
+                      r.fulfillment_status === "awaiting_transfer";
                     const isWhatsappError =
                       r.whatsapp_status === "error" &&
                       (r.fulfillment_status === "done" ||
                         r.fulfillment_status === "manual_done");
 
-                    const canShowAction = isManualPending || isWhatsappError;
+                    const canShowAction = isManualPending || isAwaitingTransfer || isWhatsappError;
 
                     return (
                       <tr
@@ -871,7 +939,6 @@ function AuditoriaPageContent() {
                           <div className="flex items-center justify-center gap-2">
                             {isManualPending && (
                               <>
-                                {/* Botão Concluir (Roxo) - Abre o Modal de Recarga */}
                                 <button
                                   onClick={() =>
                                     setRenewState({
@@ -885,12 +952,32 @@ function AuditoriaPageContent() {
                                 >
                                   <IconCheckCircle /> Concluir
                                 </button>
-
-                                {/* ✅ Botão Cancelar (Vermelho suave) */}
                                 <button
                                   onClick={() => handleCancelarAcao(r)}
                                   className="gap-1 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 text-[10px] font-medium uppercase rounded-lg transition-colors border border-rose-500/20 shadow-sm flex items-center justify-center gap-1"
                                   title="Encerrar esta pendência sem renovar"
+                                >
+                                  <IconX />
+                                </button>
+                              </>
+                            )}
+
+                            {/* ✅ NOVO: Aguardando transferência bancária */}
+                            {isAwaitingTransfer && (
+                              <>
+                                <button
+                                  onClick={() =>
+                                    handleConfirmarTransferencia(r)
+                                  }
+                                  className="gap-1 px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-500 text-[10px] font-medium uppercase rounded-lg transition-colors border border-sky-500/30 shadow-sm flex items-center justify-center gap-1"
+                                  title="Confirmar recebimento e renovar"
+                                >
+                                  <IconCheckCircle /> Confirmar
+                                </button>
+                                <button
+                                  onClick={() => handleCancelarAcao(r)}
+                                  className="gap-1 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 text-[10px] font-medium uppercase rounded-lg transition-colors border border-rose-500/20 shadow-sm flex items-center justify-center gap-1"
+                                  title="Cancelar — cliente não transferiu"
                                 >
                                   <IconX />
                                 </button>

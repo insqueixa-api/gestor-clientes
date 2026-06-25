@@ -267,28 +267,51 @@ export default function AdminShell({
 
       if (tenantId) {
         try {
-          // ✅ Conta e detalha os pendentes por tipo
-          const { data: pendingManual, error: manualErr } =
-            await supabaseBrowser
-              .from("client_portal_payments")
-              .select("id, created_at, gateway_type, price_amount, price_currency")
-              .eq("tenant_id", tenantId)
-              .eq("fulfillment_status", "manual_pending");
+          // 1. Aguardando transferência bancária (cliente clicou mas ainda não confirmou)
+          const { data: awaitingTransfer } = await supabaseBrowser
+            .from("client_portal_payments")
+            .select("id, created_at, price_amount, price_currency, gateway_type")
+            .eq("tenant_id", tenantId)
+            .eq("fulfillment_status", "awaiting_transfer");
 
-          if (!manualErr && pendingManual && pendingManual.length > 0) {
-            
-            // ✅ Agrupa por tipo de portal/manual
-            const isTransfer = pendingManual.some(p => p.gateway_type === "transfer_manual_eur" || p.gateway_type === "transfer_manual_usd" || p.gateway_type === "pix_manual");
-            
+          if (awaitingTransfer && awaitingTransfer.length > 0) {
+            awaitingTransfer.forEach((p) => {
+              const valor = new Intl.NumberFormat("pt-BR", {
+                style: "currency",
+                currency: p.price_currency || "EUR",
+              }).format(p.price_amount || 0);
+              const tipo = p.gateway_type === "transfer_manual_usd"
+                ? "USD"
+                : "EUR";
+              list.push({
+                id: `transfer_${p.id}`,
+                title: "🏦 Transferência Aguardando",
+                message: `Um cliente informou que vai transferir **${valor}** (${tipo}). Confirme o recebimento na Auditoria.`,
+                link: "/admin/auditoria",
+                type: "warning",
+                is_read: false,
+                created_at: p.created_at || nowIso,
+              });
+            });
+          }
+
+          // 2. Renovação manual pendente (servidor sem integração / Elite / fallback)
+          const { data: pendingManual } = await supabaseBrowser
+            .from("client_portal_payments")
+            .select("id, created_at, price_amount, price_currency")
+            .eq("tenant_id", tenantId)
+            .eq("fulfillment_status", "manual_pending");
+
+          if (pendingManual && pendingManual.length > 0) {
             pendingManual.forEach((p) => {
-              const valor = new Intl.NumberFormat("pt-BR", { style: "currency", currency: p.price_currency || "BRL" }).format(p.price_amount || 0);
-              
+              const valor = new Intl.NumberFormat("pt-BR", {
+                style: "currency",
+                currency: p.price_currency || "BRL",
+              }).format(p.price_amount || 0);
               list.push({
                 id: `manual_${p.id}`,
-                title: isTransfer ? "🏦 Transferência Recebida" : "🟣 Ação Necessária",
-                message: isTransfer 
-                  ? `Uma transferência de **${valor}** foi gerada no portal. Verifique o comprovante e libere o cliente.`
-                  : "Uma renovação manual aguarda sua liberação no servidor.",
+                title: "🟣 Renovação Manual Pendente",
+                message: `Pagamento de **${valor}** confirmado. Acesse a Auditoria para liberar o cliente no servidor.`,
                 link: "/admin/auditoria",
                 type: "info",
                 is_read: false,

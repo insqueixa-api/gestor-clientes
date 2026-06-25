@@ -188,13 +188,12 @@ export async function runFulfillment(params: FulfillmentParams) {
 
   // ✅ HELPER: Atualiza o banco e dispara o email de alerta simultaneamente
   const notifyManual = async (reason: string) => {
-    // ✅ GERA CÓDIGO ÚNICO DE RASTREIO (Se já não existir um)
-    // Ex: "MAN" + 5 caracteres aleatórios para caber certinho no slice(-8) do seu frontend
     const manualRef = payment.mp_payment_id || `MAN${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
 
-    // ✅ Atualiza a auditoria com o erro E injeta o ID gerado no campo mp_payment_id
     await supabaseAdmin.from("client_portal_payments").update({ 
-      fulfillment_status: "manual_pending", 
+      fulfillment_status: "manual_pending",
+      // ✅ NOVO: marca o pagamento como manual_approved para distinguir do pending do cliente
+      status: "manual_approved",
       fulfillment_error: reason,
       mp_payment_id: manualRef 
     }).eq("id", payment.id);

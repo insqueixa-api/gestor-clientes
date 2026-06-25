@@ -304,6 +304,29 @@ if (process.env.NODE_ENV !== "production" && price_amount_raw != null) {
 
       if (!manual || manErr) return jsonError("Nenhum método de pagamento manual configurado", 503);
 
+      // ✅ NOVO: cria registro de auditoria para renovação manual escolhida pelo cliente
+      const { data: inserted, error: insErr } = await supabaseAdmin
+        .from("client_portal_payments")
+        .insert({
+          tenant_id: sess.tenant_id,
+          client_id,
+          gateway_type: manual.type,
+          payment_method: "manual",
+          period,
+          plan_label: planLabel,
+          price_amount: Number(computedPrice),
+          price_currency: currency,
+          status: "pending",
+          fulfillment_status: "awaiting_transfer",
+        })
+        .select("id")
+        .single();
+
+      if (insErr || !inserted) {
+        safeServerLog("create-payment: insert manual payment error", insErr?.message);
+        return jsonError("Erro interno", 500);
+      }
+
       return NextResponse.json(
         {
           ok: true,
@@ -312,6 +335,7 @@ if (process.env.NODE_ENV !== "production" && price_amount_raw != null) {
           currency,
           ...manual.config,
           gateway_type: manual.type,
+          internal_payment_id: inserted.id, // ✅ para tracking futuro se necessário
         },
         { status: 200, headers: NO_STORE_HEADERS }
       );
@@ -489,12 +513,36 @@ if (insErr || !inserted) {
               .select("id, mp_payment_id")
               .single();
 
-            if (insErr || !inserted) {
-              safeServerLog("create-payment: upsert stripe payment error", insErr?.message);
-              return jsonError("Erro interno", 500);
-            }
+      if (insErr || !inserted) {
+        safeServerLog("create-payment: insert manual payment error", insErr?.message);
+        return jsonError("Erro interno", 500);
+      }
 
-return NextResponse.json(
+      // ✅ Email imediato: cliente informou que vai transferir
+      try {
+        const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.APP_URL || "").trim();
+        await fetch(`${appUrl}/api/notifications/manual-renewal`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-internal-secret": String(process.env.INTERNAL_API_SECRET || ""),
+          },
+          body: JSON.stringify({
+            clientName: displayName,
+            serverUsername: String(client.whatsapp_username || ""),
+            serverName,
+            planLabel,
+            amount: computedPrice,
+            currency,
+            mpPaymentId: inserted.id,
+            reason: "Cliente iniciou transferência bancária pelo portal. Aguardando confirmação do recebimento.",
+          }),
+        });
+      } catch (e) {
+        safeServerLog("create-payment: failed to send transfer email", (e as any)?.message);
+      }
+
+      return NextResponse.json(
               {
                 ok: true,
                 payment_method: "stripe",
