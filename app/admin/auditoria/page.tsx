@@ -494,9 +494,9 @@ function AuditoriaPageContent() {
         </span>
       );
     if (status === "pending") {
-      if (paymentMethod === "manual") {
+if (paymentMethod === "manual") {
         return (
-          <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-purple-500/10 text-purple-500 text-[10px] font-medium uppercase border border-purple-500/20 animate-pulse">
+          <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-purple-500/10 text-purple-500 text-[10px] font-medium uppercase border border-purple-500/20">
             Renovação Manual
           </span>
         );

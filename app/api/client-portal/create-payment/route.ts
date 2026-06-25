@@ -106,9 +106,9 @@ if (!session_token || !client_id || !period) {
 
     // 2) Buscar dados do cliente
     // ✅ CRÍTICO: garante que o client_id pertence ao whatsapp da sessão (Principal ou Secundário)
-    const { data: client, error: clientErr } = await supabaseAdmin
+const { data: client, error: clientErr } = await supabaseAdmin
       .from("clients")
-      .select("id, display_name, secondary_display_name, whatsapp_username, secondary_whatsapp_username, plan_label, price_currency, screens, plan_table_id, price_amount, servers(name)")
+      .select("id, display_name, secondary_display_name, whatsapp_username, secondary_whatsapp_username, server_username, plan_label, price_currency, screens, plan_table_id, price_amount, servers(name)")
       .eq("id", client_id)
       .eq("tenant_id", sess.tenant_id)
       .or(`whatsapp_username.eq.${sess.whatsapp_username},secondary_whatsapp_username.eq.${sess.whatsapp_username}`)
