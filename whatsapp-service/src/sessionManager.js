@@ -826,7 +826,9 @@ if (!res.ok) {
         phone,
         display_name: responseData?.display_name || null,
         server_name: responseData?.server_name || null,
+        server_username: responseData?.server_username || null,
         preview: responseData?.bot_response?.slice(0, 100) || null,
+        full_response: responseData?.bot_response || null,
       });
     }
   } catch (e) {

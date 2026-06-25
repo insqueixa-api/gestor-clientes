@@ -690,11 +690,12 @@ if (!finalResponse?.trim()) {
   }
 
 await sendWAMessage(session_key, phone, finalResponse);
-  return NextResponse.json({
+return NextResponse.json({
     ok: true,
     action: "responded",
     bot_response: finalResponse,
     display_name: clients[0]?.display_name || null,
     server_name: clients[0]?.server_name || null,
+    server_username: clients[0]?.server_username || null,
   });
 }
