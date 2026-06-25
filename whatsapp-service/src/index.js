@@ -22,7 +22,7 @@ app.use(express.json());
 // ── Logs de acesso inteligentes (Silencia o Polling e 404) ───────────
 app.use((req, res, next) => {
   // ✅ Pula o log se a URL COMEÇAR com alguma dessas rotas (ignora os parâmetros)
-  const isQuiet = ["/health", "/status", "/profile", "/sessions"].some(path => 
+  const isQuiet = ["/health", "/status", "/profile", "/sessions", "/session-config"].some(path => 
     req.url.startsWith(path) || req.path.startsWith(path)
   );
   
