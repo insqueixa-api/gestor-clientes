@@ -42,6 +42,18 @@ process.stdout.write = (chunk, ...args) => {
   return _origStdoutWrite(chunk, ...args);
 };
 
+const _origStderrWrite = process.stderr.write.bind(process.stderr);
+process.stderr.write = (chunk, ...args) => {
+  const msg = String(chunk);
+  if (
+    msg.includes("Closing open session") ||
+    msg.includes("Closing session: SessionEntry") ||
+    msg.includes("SessionEntry {") ||
+    msg.includes("Decrypted message with closed session")
+  ) return true;
+  return _origStderrWrite(chunk, ...args);
+};
+
 // ── Buffer de eventos do bot (últimos 100, em memória) ────────
 const botEventBuffer = [];
 const BOT_EVENT_MAX = 100;
