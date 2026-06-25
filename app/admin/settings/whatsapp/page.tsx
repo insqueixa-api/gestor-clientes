@@ -499,7 +499,7 @@ function KnowledgeBase({ addToast }: { addToast: (type: "success" | "error", tit
         </button>
       </div>
 
-<div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] min-h-[600px]">
+<div className="grid grid-cols-1 lg:grid-cols-2 min-h-[600px]">
         {/* Lista */}
         <div className="border-r border-border flex flex-col">
           {/* Busca e filtro */}
@@ -515,19 +515,19 @@ function KnowledgeBase({ addToast }: { addToast: (type: "success" | "error", tit
               />
             </div>
             <select
-  value={filterCategory}
-  onChange={(e) => setFilterCategory(e.target.value)}
-  className="w-full h-8 px-2 text-xs bg-muted/50 border border-border rounded-lg outline-none focus:border-violet-500/50 text-foreground"
->
-  <option value="">Todas as categorias</option>
-  {categories.map((cat) => (
-    <option key={cat} value={cat}>{cat}</option>
-  ))}
-</select>
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+              className="w-full h-8 px-2 text-xs bg-muted/50 border border-border rounded-lg outline-none focus:border-violet-500/50 text-foreground"
+            >
+              <option value="">Todas as categorias</option>
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
           </div>
 
-{/* Itens */}
-          <div className="overflow-y-auto divide-y divide-border" style={{ maxHeight: "520px" }}>
+          {/* Itens */}
+          <div className="overflow-y-auto divide-y divide-border" style={{ maxHeight: "600px" }}>
             {loading ? (
               <div className="p-6 text-center text-xs text-muted-foreground animate-pulse">Carregando...</div>
             ) : filteredItems.length === 0 ? (
