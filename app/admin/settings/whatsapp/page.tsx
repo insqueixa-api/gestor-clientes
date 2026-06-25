@@ -499,7 +499,7 @@ function KnowledgeBase({ addToast }: { addToast: (type: "success" | "error", tit
         </button>
       </div>
 
-<div className="grid grid-cols-1 lg:grid-cols-2 min-h-[600px]">
+<div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] min-h-[600px]">
         {/* Lista */}
         <div className="border-r border-border flex flex-col">
           {/* Busca e filtro */}
@@ -514,16 +514,23 @@ function KnowledgeBase({ addToast }: { addToast: (type: "success" | "error", tit
                 className="w-full h-9 pl-9 pr-3 text-xs bg-muted/50 border border-border rounded-lg outline-none focus:border-violet-500/50"
               />
             </div>
-            <select
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              className="w-full h-8 px-2 text-xs bg-muted/50 border border-border rounded-lg outline-none focus:border-violet-500/50 text-foreground"
-            >
-              <option value="">Todas as categorias</option>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                onClick={() => setFilterCategory("")}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-medium border transition-colors ${filterCategory === "" ? "bg-violet-500 text-white border-violet-500" : "bg-muted/50 text-muted-foreground border-border hover:border-violet-500/50"}`}
+              >
+                Todas
+              </button>
               {categories.map((cat) => (
-                <option key={cat} value={cat}>{cat}</option>
+                <button
+                  key={cat}
+                  onClick={() => setFilterCategory(filterCategory === cat ? "" : cat)}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-medium border transition-colors ${filterCategory === cat ? "bg-violet-500 text-white border-violet-500" : "bg-muted/50 text-muted-foreground border-border hover:border-violet-500/50"}`}
+                >
+                  {cat}
+                </button>
               ))}
-            </select>
+            </div>
           </div>
 
           {/* Itens */}
@@ -550,7 +557,7 @@ function KnowledgeBase({ addToast }: { addToast: (type: "success" | "error", tit
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] text-violet-500 bg-violet-500/10 px-1.5 py-0.5 rounded font-medium whitespace-nowrap shrink-0">{item.category}</span>
-                        <p className="text-[10px] text-muted-foreground truncate">{item.content.slice(0, 60)}...</p>
+                        <p className="text-[10px] text-muted-foreground truncate">{item.content.slice(0, 120)}...</p>
                       </div>
                     </div>
                     {/* botões removidos — ações ficam no editor */}
