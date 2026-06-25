@@ -327,6 +327,22 @@ if (process.env.NODE_ENV !== "production" && price_amount_raw != null) {
         return jsonError("Erro interno", 500);
       }
 
+      // ✅ Email imediato: cliente informou que vai transferir
+      try {
+        const { sendTransferEmail } = await import("@/lib/notifications/send-transfer-email");
+        await sendTransferEmail({
+          clientName: displayName,
+          serverUsername: String((client as any).server_username || client.whatsapp_username || ""),
+          serverName,
+          planLabel,
+          amount: computedPrice,
+          currency,
+          mpPaymentId: inserted.id,
+        });
+      } catch (e: any) {
+        console.error("[EMAIL] Falha ao enviar email de transferência:", e?.message);
+      }
+
       return NextResponse.json(
         {
           ok: true,
@@ -335,7 +351,7 @@ if (process.env.NODE_ENV !== "production" && price_amount_raw != null) {
           currency,
           ...manual.config,
           gateway_type: manual.type,
-          internal_payment_id: inserted.id, // ✅ para tracking futuro se necessário
+          internal_payment_id: inserted.id,
         },
         { status: 200, headers: NO_STORE_HEADERS }
       );
@@ -518,35 +534,7 @@ if (insErr || !inserted) {
         return jsonError("Erro interno", 500);
       }
 
-// ✅ Email imediato: cliente informou que vai transferir
-      try {
-        console.log("[EMAIL-DEBUG] Iniciando envio de email de transferência");
-        const { sendTransferEmail } = await import("@/lib/notifications/send-transfer-email");
-        console.log("[EMAIL-DEBUG] Função importada, chamando...", {
-          clientName: displayName,
-          serverName,
-          planLabel,
-          amount: computedPrice,
-          currency,
-          mpPaymentId: inserted.id,
-          EMAIL_USER: process.env.EMAIL_USER ? "definido" : "VAZIO",
-          EMAIL_PASS: process.env.EMAIL_PASS ? "definido" : "VAZIO",
-        });
-        await sendTransferEmail({
-          clientName: displayName,
-          serverUsername: String((client as any).server_username || client.whatsapp_username || ""),
-          serverName,
-          planLabel,
-          amount: computedPrice,
-          currency,
-          mpPaymentId: inserted.id,
-        });
-        console.log("[EMAIL-DEBUG] Email enviado com sucesso");
-      } catch (e: any) {
-        console.error("[EMAIL-DEBUG] ERRO:", e?.message, e?.stack);
-      }
-
-      return NextResponse.json(
+return NextResponse.json(
               {
                 ok: true,
                 payment_method: "stripe",
