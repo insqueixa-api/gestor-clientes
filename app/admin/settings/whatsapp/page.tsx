@@ -499,7 +499,7 @@ function KnowledgeBase({ addToast }: { addToast: (type: "success" | "error", tit
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] min-h-[520px]">
+<div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] min-h-[600px]">
         {/* Lista */}
         <div className="border-r border-border flex flex-col">
           {/* Busca e filtro */}
@@ -526,8 +526,8 @@ function KnowledgeBase({ addToast }: { addToast: (type: "success" | "error", tit
 </select>
           </div>
 
-          {/* Itens */}
-          <div className="flex-1 overflow-y-auto divide-y divide-border">
+{/* Itens */}
+          <div className="overflow-y-auto divide-y divide-border" style={{ maxHeight: "520px" }}>
             {loading ? (
               <div className="p-6 text-center text-xs text-muted-foreground animate-pulse">Carregando...</div>
             ) : filteredItems.length === 0 ? (
@@ -549,7 +549,7 @@ function KnowledgeBase({ addToast }: { addToast: (type: "success" | "error", tit
                         <p className="text-xs font-medium text-foreground truncate">{item.title}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-violet-500 bg-violet-500/10 px-1.5 py-0.5 rounded font-medium">{item.category}</span>
+                        <span className="text-[10px] text-violet-500 bg-violet-500/10 px-1.5 py-0.5 rounded font-medium whitespace-nowrap shrink-0">{item.category}</span>
                         <p className="text-[10px] text-muted-foreground truncate">{item.content.slice(0, 60)}...</p>
                       </div>
                     </div>
@@ -591,18 +591,15 @@ function KnowledgeBase({ addToast }: { addToast: (type: "success" | "error", tit
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5"><Tag className="w-3 h-3" /> Categoria</label>
-                  <input
+                  <select
                     value={editCategory}
                     onChange={(e) => setEditCategory(e.target.value)}
-                    placeholder="Ex: Manutenção, Pagamento, Aplicativo"
-                    list="categories-list"
-                    className="w-full h-9 px-3 text-xs bg-muted/50 border border-border rounded-lg outline-none focus:border-violet-500/50"
-                  />
-                  <datalist id="categories-list">
-                    {categories.map((c) => <option key={c} value={c} />)}
-                    <option value="Manutenção" /><option value="Pagamento" /><option value="Aplicativo" />
-                    <option value="Regras do Negócio" /><option value="Geral" />
-                  </datalist>
+                    className="w-full h-9 px-3 text-xs bg-muted/50 border border-border rounded-lg outline-none focus:border-violet-500/50 text-foreground"
+                  >
+                    {[...new Set([...categories, "Aplicativos", "Manutenção", "Novos Clientes", "Suporte", "Treinamento", "Vendas", "Geral"])].sort().map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 

@@ -35,6 +35,28 @@ const humanPausedContacts = new Map();
 // Contatos que o bot já iniciou atendimento (bot respondeu ao menos 1x)
 const botActiveContacts = new Set(); // "sessionKey:phone"
 
+// Histórico de conversa em memória por contato (sessionKey:phone -> array de turns)
+// Máx 10 turnos, some quando servidor reinicia — comportamento aceitável
+const conversationHistories = new Map();
+const MAX_HISTORY_TURNS = 10;
+
+function getHistory(sessionKey, phone) {
+  return conversationHistories.get(`${sessionKey}:${phone}`) || [];
+}
+
+function addToHistory(sessionKey, phone, role, text) {
+  const key = `${sessionKey}:${phone}`;
+  const history = conversationHistories.get(key) || [];
+  history.push({ role, parts: [{ text }] });
+  // Mantém apenas os últimos MAX_HISTORY_TURNS turnos
+  if (history.length > MAX_HISTORY_TURNS) history.splice(0, history.length - MAX_HISTORY_TURNS);
+  conversationHistories.set(key, history);
+}
+
+function clearHistory(sessionKey, phone) {
+  conversationHistories.delete(`${sessionKey}:${phone}`);
+}
+
 // Deduplicação de mensagens — evita processar a mesma msg duplicada do Baileys
 const processedMessages = new Map(); // msgId -> timestamp
 function isMessageAlreadyProcessed(msgId) {
@@ -713,6 +735,11 @@ async function callBotAgent(sessionKey, phone, msg) {
   // Se a mensagem for só uma imagem sem texto, morre aqui e não chama a IA
   if (!text && !mediaBase64) return;
 
+// Busca histórico antes de montar payload
+  const conversationHistory = getHistory(sessionKey, phone);
+  // Adiciona a mensagem atual do cliente ao histórico
+  if (text?.trim()) addToHistory(sessionKey, phone, "user", text.trim());
+
   const payload = {
     tenant_id: config.tenantId,
     session_key: sessionKey,
@@ -723,6 +750,7 @@ async function callBotAgent(sessionKey, phone, msg) {
     media_base64: mediaBase64,
     media_type: mediaType,
     mime_type: mimeType,
+    conversation_history: conversationHistory,
   };
 
   try {
@@ -747,9 +775,14 @@ if (!res.ok) {
       const err = await res.text().catch(() => "");
       console.error(`[BOT][${sessionKey.slice(0, 8)}] Agente retornou erro ${res.status}: ${err.slice(0, 200)}`);
     } else {
+      const responseData = await res.json().catch(() => ({}));
       console.log(`[BOT][${sessionKey.slice(0, 8)}] ✅ Agente processou mensagem de ${phone}`);
       // Marca contato como ativo — bot já iniciou atendimento
       botActiveContacts.add(`${sessionKey}:${phone}`);
+      // Salva resposta do bot no histórico
+      if (responseData?.bot_response?.trim()) {
+        addToHistory(sessionKey, phone, "model", responseData.bot_response);
+      }
     }
   } catch (e) {
     if (e?.name === "AbortError") {

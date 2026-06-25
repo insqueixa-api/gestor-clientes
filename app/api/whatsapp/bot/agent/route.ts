@@ -42,7 +42,7 @@ const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 async function callGemini(apiKey: string, payload: any): Promise<any> {
   const url = `${GEMINI_BASE}/${GEMINI_MODEL}:generateContent`;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30_000);
+  const timeout = setTimeout(() => controller.abort(), 55_000);
   let res: Response;
   try {
     res = await fetch(url, {
@@ -508,7 +508,9 @@ export async function POST(req: Request) {
   try {
     const embedding = await generateEmbedding(geminiKey, text.trim());
     if (embedding) {
-      templatesText = await searchBotKnowledge(sb, tenant_id, embedding, 5);
+      // Mensagens simples não precisam de RAG completo
+const isSimpleQuery = /^(ol[aá]|oi|bom dia|boa tarde|boa noite|quando vence|meu vencimento|renovar|pagar|quanto custa)$/i.test(text.trim());
+templatesText = await searchBotKnowledge(sb, tenant_id, embedding, isSimpleQuery ? 2 : 5);
       safeLog("[BOT][agent] RAG: conhecimento buscado com sucesso");
     } else {
       safeLog("[BOT][agent] RAG: falha ao gerar embedding — usando fallback vazio");
@@ -563,35 +565,16 @@ const promptBase = buildBotSystemPrompt(clients, templatesText, {
 });
 
 // Adiciona a regra de ouro para blindar o bot contra as "legendas órfãs"
-const systemPrompt = promptBase + "\n\nREGRA IMPORTANTE DE SISTEMA: Você é um assistente baseado em texto. Você é CEGO para imagens, fotos ou comprovantes. Se a mensagem do cliente indicar que ele acabou de enviar um comprovante, foto ou imagem (ex: 'Tá pago', 'Segue o comprovante', 'Olha aí'), APENAS agradeça cordialmente, diga que o sistema registrou o envio e que um humano irá conferir a imagem em breve. JAMAIS peça para o cliente enviar a imagem novamente.";
+const systemPrompt = promptBase + "\n\nREGRA DE MÍDIA: Se o cliente mencionar que enviou foto, comprovante ou imagem mas você não recebeu o conteúdo visual, responda: 'Recebi sua mensagem! Para comprovantes de pagamento, você pode renovar direto pelo portal que é automático — ou se preferir, o Márcio vai conferir assim que possível. 😊' Nunca peça para reenviar a imagem.";
 
-  // Busca as últimas 10 mensagens para dar contexto ao bot (Cura da Amnésia)
-  // ATENÇÃO: Ajuste "sua_tabela_de_mensagens", "is_bot" e "texto" para os nomes reais da sua tabela
-  const { data: chatHistory } = await sb
-    .from("sua_tabela_de_mensagens") 
-    .select("is_bot, texto") 
-    .eq("tenant_id", tenant_id)
-    .eq("whatsapp_username", phone) // ou a coluna que você usa para o telefone
-    .order("created_at", { ascending: false })
-    .limit(10);
-
-  const conversation: any[] = [];
-
-  // Se houver histórico, preenche a conversa em ordem cronológica (antigas primeiro)
-  if (chatHistory && chatHistory.length > 0) {
-    const orderedHistory = chatHistory.reverse();
-    for (const msg of orderedHistory) {
-      if (msg.texto?.trim()) {
-        conversation.push({
-          role: msg.is_bot ? "model" : "user",
-          parts: [{ text: msg.texto.trim() }]
-        });
-      }
-    }
-  }
-
-  // Adiciona a mensagem ATUAL do cliente no final do array
-  conversation.push({ role: "user", parts: [{ text: text.trim() }] });
+  // Histórico vem do sessionManager (em memória, sem banco)
+  const history = Array.isArray(body.conversation_history) ? body.conversation_history : [];
+  
+  // Monta conversa: histórico anterior + mensagem atual
+  const conversation: any[] = [
+    ...history,
+    { role: "user", parts: [{ text: text.trim() }] },
+  ];
 
   const geminiPayload: any = {
     systemInstruction: { parts: [{ text: systemPrompt }] },
@@ -706,6 +689,6 @@ if (!finalResponse?.trim()) {
     return NextResponse.json({ ok: true, action: "silence" });
   }
 
-  await sendWAMessage(session_key, phone, finalResponse);
-  return NextResponse.json({ ok: true, action: "responded" });
+await sendWAMessage(session_key, phone, finalResponse);
+  return NextResponse.json({ ok: true, action: "responded", bot_response: finalResponse });
 }
