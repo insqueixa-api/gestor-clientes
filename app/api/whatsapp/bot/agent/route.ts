@@ -412,7 +412,7 @@ export async function POST(req: Request) {
       const msg =
         `Oi ${firstName}! 😊 Recebi seu comprovante, mas sua renovação já foi processada automaticamente pelo portal — tudo certo com seu acesso!\n\nPara os próximos pagamentos pelo portal, não precisa enviar comprovante. Tudo acontece de forma automática. ✅`;
       await sendWAMessage(session_key, phone, msg);
-      return NextResponse.json({ ok: true, action: "auto_confirmed" });
+      return NextResponse.json({ ok: true, action: "auto_confirmed", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
     }
 
     // Caso B: No fluxo do portal, aguardando confirmação manual sua
@@ -420,7 +420,7 @@ export async function POST(req: Request) {
       const msg =
         `Oi ${firstName}! Recebi seu comprovante. ✅\n\nSua renovação está em análise e será concluída em breve. Qualquer dúvida é só chamar!`;
       await sendWAMessage(session_key, phone, msg);
-      return NextResponse.json({ ok: true, action: "manual_pending" });
+      return NextResponse.json({ ok: true, action: "manual_pending", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
     }
 
     // Caso C: Sem registro no portal — pagou fora do sistema
@@ -484,7 +484,7 @@ export async function POST(req: Request) {
         .trim();
 
       await sendWAMessage(session_key, phone, msg);
-      return NextResponse.json({ ok: true, action: "receipt_manual" });
+      return NextResponse.json({ ok: true, action: "receipt_manual", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
     }
 
     return NextResponse.json({ ok: true, action: "silence" });
@@ -690,5 +690,11 @@ if (!finalResponse?.trim()) {
   }
 
 await sendWAMessage(session_key, phone, finalResponse);
-  return NextResponse.json({ ok: true, action: "responded", bot_response: finalResponse });
+  return NextResponse.json({
+    ok: true,
+    action: "responded",
+    bot_response: finalResponse,
+    display_name: clients[0]?.display_name || null,
+    server_name: clients[0]?.server_name || null,
+  });
 }

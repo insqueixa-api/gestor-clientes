@@ -29,6 +29,33 @@ console.log = (...args) => {
   _origConsoleLog(...args);
 };
 
+// Suprime output direto do Baileys no stdout (Closing session, etc)
+const _origStdoutWrite = process.stdout.write.bind(process.stdout);
+process.stdout.write = (chunk, ...args) => {
+  const msg = String(chunk);
+  if (
+    msg.includes("Closing open session") ||
+    msg.includes("Closing session: SessionEntry") ||
+    msg.includes("SessionEntry {") ||
+    msg.includes("Decrypted message with closed session")
+  ) return true;
+  return _origStdoutWrite(chunk, ...args);
+};
+
+// ── Buffer de eventos do bot (últimos 100, em memória) ────────
+const botEventBuffer = [];
+const BOT_EVENT_MAX = 100;
+
+function emitBotEvent(event) {
+  const entry = { ...event, timestamp: new Date().toISOString() };
+  botEventBuffer.unshift(entry); // mais recente primeiro
+  if (botEventBuffer.length > BOT_EVENT_MAX) botEventBuffer.pop();
+}
+
+export function getBotEvents() {
+  return [...botEventBuffer];
+}
+
 // Human takeover: quando você responde, bot para por 4h pra aquele contato
 const humanPausedContacts = new Map();
 
@@ -85,9 +112,16 @@ function pauseContact(sessionKey, phone) {
   if (!humanPausedContacts.has(sessionKey)) {
     humanPausedContacts.set(sessionKey, new Map());
   }
-  const until = Date.now() + 4 * 60 * 60 * 1000; // 4 horas
+  const until = Date.now() + 4 * 60 * 60 * 1000;
   humanPausedContacts.get(sessionKey).set(phone, until);
   console.log(`[BOT][${sessionKey.slice(0, 8)}] ⏸️ Atendimento humano ativo para ${phone} até ${new Date(until).toLocaleTimeString("pt-BR")}`);
+  emitBotEvent({
+    type: "human_takeover",
+    phone,
+    display_name: null,
+    server_name: null,
+    preview: `Atendimento humano até ${new Date(until).toLocaleTimeString("pt-BR")}`,
+  });
 }
 
 function isCallAlreadyProcessed(callId) {
@@ -605,13 +639,9 @@ async function handleBotLogic(sessionKey, messages) {
     // ── Resolve telefone do remetente ──────────────────────────
     let phone = remoteJid.split("@")[0].split(":")[0].replace(/\D/g, "");
 
-    if (remoteJid.includes("@lid")) {
-      // LID (identidade fantasma) — tenta resolver para número real
+if (remoteJid.includes("@lid")) {
       const resolved = lidMap?.get(phone);
-      if (!resolved) {
-        console.log(`[BOT][${sessionKey.slice(0, 8)}] LID não resolvido ainda, ignorando`);
-        continue;
-      }
+      if (!resolved) continue;
       phone = resolved;
     }
 
@@ -635,13 +665,13 @@ if (key.fromMe) {
     // ── Mensagem recebida de cliente ───────────────────────────
 
 // Bot desligado pelo toggle do painel
-    if (!config.botEnabled) continue;
-
-    // Contato em pausa (você assumiu o atendimento)
-    if (isContactPaused(sessionKey, phone)) {
-      console.log(`[BOT][${sessionKey.slice(0, 8)}] ⏸️ ${phone} em atendimento humano, bot silencioso`);
+if (!config.botEnabled) {
+      emitBotEvent({ type: "ignored", reason: "bot_disabled", phone, display_name: null, server_name: null, preview: "Bot desligado" });
       continue;
     }
+
+    // Contato em pausa (você assumiu o atendimento)
+if (isContactPaused(sessionKey, phone)) continue;
 
     // Tem conteúdo que vale processar? (Capturando texto/legenda e ignorando imagens)
     const hasText = !!(
@@ -777,18 +807,25 @@ if (!res.ok) {
     } else {
       const responseData = await res.json().catch(() => ({}));
       console.log(`[BOT][${sessionKey.slice(0, 8)}] ✅ Agente processou mensagem de ${phone}`);
-      // Marca contato como ativo — bot já iniciou atendimento
       botActiveContacts.add(`${sessionKey}:${phone}`);
-      // Salva resposta do bot no histórico
       if (responseData?.bot_response?.trim()) {
         addToHistory(sessionKey, phone, "model", responseData.bot_response);
       }
+      emitBotEvent({
+        type: "bot_responded",
+        phone,
+        display_name: responseData?.display_name || null,
+        server_name: responseData?.server_name || null,
+        preview: responseData?.bot_response?.slice(0, 100) || null,
+      });
     }
   } catch (e) {
     if (e?.name === "AbortError") {
       console.error(`[BOT][${sessionKey.slice(0, 8)}] Timeout ao chamar agente`);
+      emitBotEvent({ type: "timeout", phone, display_name: null, server_name: null, preview: "Agente demorou mais de 55s" });
     } else {
       console.error(`[BOT][${sessionKey.slice(0, 8)}] Erro ao chamar agente:`, e?.message);
+      emitBotEvent({ type: "error", phone, display_name: null, server_name: null, preview: e?.message || "Erro desconhecido" });
     }
   }
 }
