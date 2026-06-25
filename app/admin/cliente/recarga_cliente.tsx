@@ -1471,30 +1471,7 @@ export default function RecargaCliente({
         if (renewError) throw new Error(`Erro Renew: ${renewError.message}`);
       }
 
-      // --- PASSO 3.5: BAIXA NO PAGAMENTO DO PORTAL (quando vier da auditoria) ---
-      if (paymentLogId) {
-        try {
-          const tid2 = await getCurrentTenantId();
-          const { error: payBaixaErr } = await supabaseBrowser.rpc(
-            "update_fulfillment_status",
-            {
-              p_log_id: paymentLogId,
-              p_tenant_id: tid2,
-              p_status: "manual_done",
-            },
-          );
-          if (payBaixaErr) throw payBaixaErr;
-
-          // ✅ Marca o pagamento como manual_approved
-          await supabaseBrowser
-            .from("client_portal_payments")
-            .update({ status: "manual_approved" })
-            .eq("id", paymentLogId);
-        } catch (e: any) {
-          // Não bloqueia o fluxo — apenas loga
-          console.error("Falha ao dar baixa no pagamento do portal:", e?.message);
-        }
-      }
+      // --- PASSO 3.5: removido — a RPC update_fulfillment_status já cuida do status ---
 
       // --- PASSO 4: ENVIAR WHATSAPP ---
       if (sendWhats && messageContent && messageContent.trim()) {

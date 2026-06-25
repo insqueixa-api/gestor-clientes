@@ -390,38 +390,18 @@ function AuditoriaPageContent() {
         `Login: ${log.server_username}`,
         `Valor: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: log.price_currency || "BRL" }).format(log.price_amount)}`,
       ],
-      confirmText: "Sim, Recebi — Renovar Agora",
+      confirmText: "Recebido - Renovar",
       cancelText: "Voltar",
     });
 
     if (!ok) return;
 
-    try {
-      // 1. Avança o status para manual_approved + manual_pending
-      const { error } = await supabaseBrowser.rpc("update_fulfillment_status", {
-        p_log_id: log.id,
-        p_tenant_id: tenantId,
-        p_status: "manual_pending",
-      });
-      if (error) throw error;
-
-      // 2. Marca pagamento como manual_approved
-      const { error: payErr } = await supabaseBrowser
-        .from("client_portal_payments")
-        .update({ status: "manual_approved" })
-        .eq("id", log.id)
-        .eq("tenant_id", tenantId);
-      if (payErr) throw payErr;
-
-      // 3. Abre o RecargaCliente
-      setRenewState({
-        logId: log.id,
-        clientId: log.client_id,
-        clientName: log.client_name,
-      });
-    } catch (e: any) {
-      addToast("error", "Erro ao confirmar recebimento", e.message);
-    }
+    // ✅ Só abre o modal — o onSuccess cuida de atualizar tudo ao concluir
+    setRenewState({
+      logId: log.id,
+      clientId: log.client_id,
+      clientName: log.client_name,
+    });
   };
 
   // ✅ NOVA FUNÇÃO: Reenvia apenas o WhatsApp direto, sem abrir o modal
@@ -573,7 +553,7 @@ function AuditoriaPageContent() {
     // 3. Aguardando transferência bancária manual
     if (status === "awaiting_transfer") {
       return (
-        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-sky-500/10 text-sky-500 text-[10px] font-medium uppercase border border-sky-500/20 animate-pulse">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-sky-500/10 text-sky-500 text-[10px] font-medium uppercase border border-sky-500/20">
           Aguard. Transferência
         </span>
       );
@@ -601,7 +581,7 @@ function AuditoriaPageContent() {
       );
     if (status === "manual_pending")
       return (
-        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-purple-500/10 text-purple-500 text-[10px] font-medium uppercase border border-purple-500/20 animate-pulse">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-purple-500/10 text-purple-500 text-[10px] font-medium uppercase border border-purple-500/20">
           Ação Manual
         </span>
       );
@@ -1044,26 +1024,30 @@ function AuditoriaPageContent() {
             toastKey="auditoria_list_toasts"
             onClose={() => setRenewState(null)}
             onSuccess={async (returnedLogId) => {
-              if (!returnedLogId) return;
-              try {
-                const { error } = await supabaseBrowser.rpc(
-                  "update_fulfillment_status",
-                  {
-                    p_log_id: returnedLogId,
-                    p_tenant_id: tenantId,
-                    p_status: "manual_done",
-                  },
-                );
-                if (error) throw error;
-                addToast(
-                  "success",
-                  "Auditoria Atualizada",
-                  "Renovação confirmada na Auditoria!",
-                );
-                setRenewState(null);
-                loadData();
-              } catch (e) {}
-            }}
+  if (!returnedLogId) return;
+  try {
+    // 1. Marca fulfillment como concluído
+    const { error } = await supabaseBrowser.rpc(
+      "update_fulfillment_status",
+      {
+        p_log_id: returnedLogId,
+        p_tenant_id: tenantId,
+        p_status: "manual_done",
+      },
+    );
+    if (error) throw error;
+
+    // 2. Marca pagamento como aprovado manualmente
+    await supabaseBrowser.rpc("approve_manual_payment", {
+      p_log_id: returnedLogId,
+      p_tenant_id: tenantId,
+    });
+
+    addToast("success", "Auditoria Atualizada", "Renovação confirmada na Auditoria!");
+    setRenewState(null);
+    loadData();
+  } catch (e) {}
+}}
           />
         </>
       )}
