@@ -499,7 +499,7 @@ function KnowledgeBase({ addToast }: { addToast: (type: "success" | "error", tit
         </button>
       </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[2fr_3fr] min-h-[600px]">
+        <div className="grid grid-cols-1 lg:grid-cols-[2fr_4fr] min-h-[600px]">
         {/* Lista */}
         <div className="border-r border-border flex flex-col">
           {/* Busca e filtro */}
