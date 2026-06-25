@@ -518,9 +518,20 @@ if (insErr || !inserted) {
         return jsonError("Erro interno", 500);
       }
 
-      // ✅ Email imediato: cliente informou que vai transferir
+// ✅ Email imediato: cliente informou que vai transferir
       try {
+        console.log("[EMAIL-DEBUG] Iniciando envio de email de transferência");
         const { sendTransferEmail } = await import("@/lib/notifications/send-transfer-email");
+        console.log("[EMAIL-DEBUG] Função importada, chamando...", {
+          clientName: displayName,
+          serverName,
+          planLabel,
+          amount: computedPrice,
+          currency,
+          mpPaymentId: inserted.id,
+          EMAIL_USER: process.env.EMAIL_USER ? "definido" : "VAZIO",
+          EMAIL_PASS: process.env.EMAIL_PASS ? "definido" : "VAZIO",
+        });
         await sendTransferEmail({
           clientName: displayName,
           serverUsername: String((client as any).server_username || client.whatsapp_username || ""),
@@ -530,8 +541,9 @@ if (insErr || !inserted) {
           currency,
           mpPaymentId: inserted.id,
         });
-      } catch (e) {
-        safeServerLog("create-payment: failed to send transfer email", (e as any)?.message);
+        console.log("[EMAIL-DEBUG] Email enviado com sucesso");
+      } catch (e: any) {
+        console.error("[EMAIL-DEBUG] ERRO:", e?.message, e?.stack);
       }
 
       return NextResponse.json(
