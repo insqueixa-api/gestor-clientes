@@ -367,10 +367,13 @@ export async function POST(req: Request) {
   .eq("tenant_id", tenant_id)
   .or(`whatsapp_username.eq.${phone},secondary_whatsapp_username.eq.${phone}`);
 
-const isUnknownContact = clientErr || !clientMatches?.length;
+if (clientErr || !clientMatches?.length) {
+    safeLog("[BOT][agent] Número não identificado como cliente:", phone);
+    return NextResponse.json({ ok: true, action: "silence" });
+  }
 
-  // ── Mapeia TODAS as contas encontradas (vazio se não-cliente) ──
-  const clients = isUnknownContact ? [] : clientMatches.map((raw) => {
+  // ── Mapeia TODAS as contas encontradas ──
+  const clients = clientMatches.map((raw) => {
   const isSec = raw.secondary_whatsapp_username === phone;
   const dnsArray: string[] = (raw.servers as any)?.dns || [];
   const srv = raw.servers as any;
@@ -386,11 +389,11 @@ const isUnknownContact = clientErr || !clientMatches?.length;
   };
 });
 
-const firstName = clients[0]?.display_name?.split(" ")[0] || "";
+const firstName = clients[0].display_name.split(" ")[0];
 
   // ── 2. Mídia — lógica determinística (sem IA pra decidir o status) ────────
 
-if (media_base64 && media_type && !isUnknownContact) {
+if (media_base64 && media_type) {
     const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
 
     const { data: recentPayments } = await sb
@@ -498,6 +501,13 @@ if (media_base64 && media_type && !isUnknownContact) {
   if (confirmacaoSimples.test(text.trim())) {
     safeLog("[BOT][agent] Confirmação simples ignorada:", text.trim());
     return NextResponse.json({ ok: true, action: "silence_confirmation" });
+  }
+
+  // Ignora links puros sem contexto (YouTube, Spotify, TikTok etc.)
+  const isLinkOnly = /^https?:\/\/\S+$/.test(text.trim());
+  if (isLinkOnly) {
+    safeLog("[BOT][agent] Link puro ignorado:", text.trim().slice(0, 80));
+    return NextResponse.json({ ok: true, action: "silence" });
   }
 
   // ── RAG: busca conhecimento relevante para esta mensagem ─────────────────
@@ -683,6 +693,21 @@ if (!finalResponse?.trim()) {
   const blockedResponses = ["do_not_respond", "silence", "no_response", "ignored"];
   if (blockedResponses.some(b => finalResponse.trim().toLowerCase() === b)) {
     safeLog("[BOT][agent] Resposta bloqueada (controle interno):", finalResponse.trim());
+    return NextResponse.json({ ok: true, action: "silence" });
+  }
+
+  // Bloqueia raciocínio interno vazando como resposta
+  const isInternalThinking = (
+    finalResponse.includes("Portanto, devo ignorar") ||
+    finalResponse.includes("devo ignorar esta mensagem") ||
+    finalResponse.includes("não devo responder nada") ||
+    finalResponse.includes("* Portanto, devo") ||
+    finalResponse.includes("Analisando a mensagem, devo") ||
+    finalResponse.includes("Com base nas regras, devo") ||
+    /^\*[\s\S]*\*$/.test(finalResponse.trim())
+  );
+  if (isInternalThinking) {
+    safeLog("[BOT][agent] Raciocínio interno bloqueado:", finalResponse.slice(0, 100));
     return NextResponse.json({ ok: true, action: "silence" });
   }
 

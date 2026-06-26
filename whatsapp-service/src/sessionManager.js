@@ -630,6 +630,40 @@ if (connection === "open") {
   return sessData;
 }
 
+// ── Debounce por contato — agrupa mensagens consecutivas ─────
+const pendingAgentCalls = new Map(); // "sessionKey:phone" -> { timer, msgs[] }
+
+function scheduleBotAgent(sessionKey, phone, msg) {
+  const key = `${sessionKey}:${phone}`;
+  const existing = pendingAgentCalls.get(key);
+
+  if (existing) {
+    // Já tem timer pendente — cancela e adiciona mensagem ao lote
+    clearTimeout(existing.timer);
+    existing.msgs.push(msg);
+  } else {
+    pendingAgentCalls.set(key, { timer: null, msgs: [msg] });
+  }
+
+  const entry = pendingAgentCalls.get(key);
+  entry.timer = setTimeout(async () => {
+    pendingAgentCalls.delete(key);
+    const msgs = entry.msgs;
+
+    if (msgs.length === 1) {
+      // Mensagem única — comportamento normal
+      callBotAgent(sessionKey, phone, msgs[0]).catch(e =>
+        console.error(`[BOT][${sessionKey.slice(0, 8)}] Erro ao chamar agente para ${phone}:`, e?.message)
+      );
+    } else {
+      // Múltiplas mensagens — monta mensagem combinada
+      callBotAgentBatch(sessionKey, phone, msgs).catch(e =>
+        console.error(`[BOT][${sessionKey.slice(0, 8)}] Erro ao chamar agente (batch) para ${phone}:`, e?.message)
+      );
+    }
+  }, 10_000); // 10 segundos de debounce
+}
+
 // ── Bot Logic Handler ─────────────────────────────────────────────────────────
 async function handleBotLogic(sessionKey, messages) {
   const config = getSessionConfig(sessionKey);
@@ -722,10 +756,8 @@ if (isContactPaused(sessionKey, phone)) continue;
       : null;
     if (msgTimestamp && Date.now() - msgTimestamp > 3 * 60 * 1000) continue;
 
-    // Chama o agente de IA (fire-and-forget com log de erro)
-    callBotAgent(sessionKey, phone, msg).catch(e =>
-      console.error(`[BOT][${sessionKey.slice(0, 8)}] Erro ao chamar agente para ${phone}:`, e?.message)
-    );
+// Debounce: aguarda 8s antes de processar — agrupa mensagens consecutivas
+    scheduleBotAgent(sessionKey, phone, msg);
   }
 }
 
@@ -861,6 +893,40 @@ if (!res.ok) {
       emitBotEvent({ type: "error", phone, display_name: null, server_name: null, preview: e?.message || "Erro desconhecido" });
     }
   }
+}
+
+// Variante do callBotAgent para múltiplas mensagens agrupadas
+async function callBotAgentBatch(sessionKey, phone, msgs) {
+  // Extrai texto de todas as mensagens e combina
+  const textos = msgs
+    .map(msg =>
+      msg.message?.conversation ||
+      msg.message?.extendedTextMessage?.text ||
+      msg.message?.imageMessage?.caption ||
+      msg.message?.documentMessage?.caption ||
+      null
+    )
+    .filter(Boolean);
+
+  if (!textos.length) return;
+
+  // Verifica se alguma é link puro — ignora links, mantém textos reais
+  const textosReais = textos.filter(t => !/^https?:\/\/\S+$/.test(t.trim()));
+  if (!textosReais.length) return;
+
+  // Combina num texto único separado por quebra de linha
+  const textoCombinado = textosReais.join("\n");
+
+  // Usa a última msg como base para metadata (key, remoteJid, etc.)
+  const lastMsg = msgs[msgs.length - 1];
+
+  // Cria msg sintética com o texto combinado
+  const syntheticMsg = {
+    ...lastMsg,
+    message: { conversation: textoCombinado },
+  };
+
+  return callBotAgent(sessionKey, phone, syntheticMsg);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
