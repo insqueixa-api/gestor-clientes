@@ -367,13 +367,10 @@ export async function POST(req: Request) {
   .eq("tenant_id", tenant_id)
   .or(`whatsapp_username.eq.${phone},secondary_whatsapp_username.eq.${phone}`);
 
-  if (clientErr || !clientMatches?.length) {
-    safeLog("[BOT][agent] Número não identificado como cliente:", phone);
-    return NextResponse.json({ ok: true, action: "silence" });
-  }
+const isUnknownContact = clientErr || !clientMatches?.length;
 
-  // ── Mapeia TODAS as contas encontradas ──
-  const clients = clientMatches.map((raw) => {
+  // ── Mapeia TODAS as contas encontradas (vazio se não-cliente) ──
+  const clients = isUnknownContact ? [] : clientMatches.map((raw) => {
   const isSec = raw.secondary_whatsapp_username === phone;
   const dnsArray: string[] = (raw.servers as any)?.dns || [];
   const srv = raw.servers as any;
@@ -389,11 +386,11 @@ export async function POST(req: Request) {
   };
 });
 
-  const firstName = clients[0].display_name.split(" ")[0];
+const firstName = clients[0]?.display_name?.split(" ")[0] || "";
 
   // ── 2. Mídia — lógica determinística (sem IA pra decidir o status) ────────
 
-  if (media_base64 && media_type) {
+if (media_base64 && media_type && !isUnknownContact) {
     const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
 
     const { data: recentPayments } = await sb

@@ -75,25 +75,36 @@ const humanPausedContacts = new Map();
 const botActiveContacts = new Set(); // "sessionKey:phone"
 
 // Histórico de conversa em memória por contato (sessionKey:phone -> array de turns)
-// Máx 10 turnos, some quando servidor reinicia — comportamento aceitável
+// Máx 10 turnos, expira após 2h de inatividade
 const conversationHistories = new Map();
+const conversationLastActivity = new Map();
 const MAX_HISTORY_TURNS = 10;
+const HISTORY_TTL_MS = 2 * 60 * 60 * 1000; // 2 horas
 
 function getHistory(sessionKey, phone) {
-  return conversationHistories.get(`${sessionKey}:${phone}`) || [];
+  const key = `${sessionKey}:${phone}`;
+  const lastActivity = conversationLastActivity.get(key) || 0;
+  if (Date.now() - lastActivity > HISTORY_TTL_MS) {
+    conversationHistories.delete(key);
+    conversationLastActivity.delete(key);
+    return [];
+  }
+  return conversationHistories.get(key) || [];
 }
 
 function addToHistory(sessionKey, phone, role, text) {
   const key = `${sessionKey}:${phone}`;
   const history = conversationHistories.get(key) || [];
   history.push({ role, parts: [{ text }] });
-  // Mantém apenas os últimos MAX_HISTORY_TURNS turnos
   if (history.length > MAX_HISTORY_TURNS) history.splice(0, history.length - MAX_HISTORY_TURNS);
   conversationHistories.set(key, history);
+  conversationLastActivity.set(key, Date.now());
 }
 
 function clearHistory(sessionKey, phone) {
-  conversationHistories.delete(`${sessionKey}:${phone}`);
+  const key = `${sessionKey}:${phone}`;
+  conversationHistories.delete(key);
+  conversationLastActivity.delete(key);
 }
 
 // Deduplicação de mensagens — evita processar a mesma msg duplicada do Baileys
@@ -126,6 +137,7 @@ function pauseContact(sessionKey, phone) {
   }
   const until = Date.now() + 4 * 60 * 60 * 1000;
   humanPausedContacts.get(sessionKey).set(phone, until);
+  clearHistory(sessionKey, phone); // limpa histórico quando humano assume
   console.log(`[BOT][${sessionKey.slice(0, 8)}] ⏸️ Atendimento humano ativo para ${phone} até ${new Date(until).toLocaleTimeString("pt-BR")}`);
   emitBotEvent({
     type: "human_takeover",
@@ -535,8 +547,7 @@ if (connection === "open") {
         ? lastDisconnect.error.output?.statusCode
         : null;
 
-// ✅ NOVO: Aceita mais tentativas antes de jogar a toalha (aumentado para 10)
-      // ✅ NOVO: Aceita mais tentativas antes de jogar a toalha (aumentado para 10)
+
       const shouldReconnect =
         statusCode !== DisconnectReason.loggedOut &&
         statusCode !== DisconnectReason.forbidden &&
@@ -705,6 +716,12 @@ if (isContactPaused(sessionKey, phone)) continue;
       continue;
     }
 
+// Proteção: ignora mensagens com mais de 3 minutos (reemitidas após reconexão)
+    const msgTimestamp = typeof msg.messageTimestamp === "number"
+      ? msg.messageTimestamp * 1000
+      : null;
+    if (msgTimestamp && Date.now() - msgTimestamp > 3 * 60 * 1000) continue;
+
     // Chama o agente de IA (fire-and-forget com log de erro)
     callBotAgent(sessionKey, phone, msg).catch(e =>
       console.error(`[BOT][${sessionKey.slice(0, 8)}] Erro ao chamar agente para ${phone}:`, e?.message)
@@ -772,8 +789,12 @@ async function callBotAgent(sessionKey, phone, msg) {
     }
   }
 
-  // Se a mensagem for só uma imagem sem texto, morre aqui e não chama a IA
+// Se a mensagem for só uma imagem sem texto, morre aqui e não chama a IA
   if (!text && !mediaBase64) return;
+
+  // Ignora links puros sem legenda (YouTube, Spotify, TikTok etc.)
+  const isLinkOnly = /^https?:\/\/\S+$/.test((text || "").trim());
+  if (isLinkOnly) return;
 
 // Busca histórico antes de montar payload
   const conversationHistory = getHistory(sessionKey, phone);
@@ -900,10 +921,6 @@ function deleteSessionFiles(sessionKey, fullDelete = false) {
   }
   console.log(`[WA][${sessionKey.slice(0, 8)}] Arquivos de auth removidos (config preservada)`);
 }
-
-// ✅ AGORA RECEBE O imageUrl COMO TERCEIRO PARÂMETRO (OPCIONAL)
-// Set global de IDs enviados via API (não devem disparar human takeover)
-const apiSentMessageIds = new Set();
 
 async function sendMessage(sessionKey, phone, message, imageUrl = null) {
   const sess = sessions.get(sessionKey);
