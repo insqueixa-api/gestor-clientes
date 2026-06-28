@@ -2,23 +2,11 @@
 import { NextRequest, NextResponse }   from "next/server";
 import { createClient }                from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
-import { S3Client, PutObjectCommand }  from "@aws-sdk/client-s3";
 
 export const dynamic     = "force-dynamic";
 export const maxDuration = 60;
 
-const s3 = new S3Client({
-  region:   "auto",
-  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: {
-    accessKeyId:     process.env.R2_ACCESS_KEY_ID     || "",
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || "",
-  },
-});
 
-const R2_BUCKET = process.env.R2_BUCKET_NAME        || "unigestor-media";
-const R2_URL    = process.env.NEXT_PUBLIC_R2_DEV_URL || "";
-const LOG_KEY   = "epg/catalog_fast_log.json";
 const SERVIDOR  = "FAST" as const;
 const CLIENT_ID = "aefcff7a-9b8f-46be-9a1b-155a73a472de";
 
@@ -53,13 +41,21 @@ export async function GET() {
     .eq("id", CLIENT_ID)
     .single();
 
-  let logData: any = { status: "Nenhum sync realizado ainda" };
-  try {
-    const res = await fetch(`${R2_URL}/${LOG_KEY}`, { cache: "no-store" });
-    if (res.ok) logData = await res.json();
-  } catch {}
+const { data: statsView } = await supabaseAdmin
+    .from("catalog_stats_por_servidor")
+    .select("filmes, series_unicas, episodios")
+    .eq("servidor", SERVIDOR)
+    .single();
 
-  return NextResponse.json({ ...logData, m3u_url: cliente?.m3u_url || null });
+  return NextResponse.json({
+    m3u_url: cliente?.m3u_url || null,
+    executado_em: new Date().toISOString(),
+    resultado: {
+      filmes:        statsView?.filmes        || 0,
+      series_unicas: statsView?.series_unicas || 0,
+      episodios:     statsView?.episodios     || 0,
+    },
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -188,50 +184,36 @@ const availRows = loteNorm
 
   // ── Finalizar ─────────────────────────────────────────────────────────────
   if (tipo === "finalizar") {
+    const stats = body.stats || {};
+
+    // Snapshot ANTES do RPC (banco ainda não atualizado)
+    const [{ count: totalAvailAntes }, { count: totalEpisodiosAntes }] = await Promise.all([
+      supabaseAdmin.from("catalog_availability").select("*", { count: "exact", head: true }).eq("servidor", SERVIDOR),
+      supabaseAdmin.from("catalog_episodes").select("*", { count: "exact", head: true }).eq("servidor", SERVIDOR),
+    ]);
+
     const { error: rpcErr } = await supabaseAdmin
       .rpc("catalog_atualizar_contadores", { p_servidor: SERVIDOR });
 
     if (rpcErr) console.error("[CATALOG-FAST] Erro RPC contadores:", rpcErr.message);
 
-    const stats = body.stats || {};
+    // Snapshot DEPOIS
+    const [{ count: totalAvailDepois }, { count: totalEpisodiosDepois }] = await Promise.all([
+      supabaseAdmin.from("catalog_availability").select("*", { count: "exact", head: true }).eq("servidor", SERVIDOR),
+      supabaseAdmin.from("catalog_episodes").select("*", { count: "exact", head: true }).eq("servidor", SERVIDOR),
+    ]);
 
-    const { count: totalAvail }     = await supabaseAdmin
-      .from("catalog_availability")
-      .select("*", { count: "exact", head: true })
-      .eq("servidor", SERVIDOR);
-
-    const { count: totalEpisodios } = await supabaseAdmin
-      .from("catalog_episodes")
-      .select("*", { count: "exact", head: true })
-      .eq("servidor", SERVIDOR);
-
-    const log = {
-      servidor:     SERVIDOR,
-      executado_em: new Date().toISOString(),
-      resultado: {
-        filmes:          stats.filmes          || 0,
-        series_unicas:   stats.series          || 0,
-        episodios:       stats.episodios        || 0,
-        novos_titulos:   Math.max(0, (totalAvail    || 0) - ((stats.filmes || 0) + (stats.series || 0))),
-        novos_episodios: Math.max(0, (totalEpisodios || 0) - (stats.episodios || 0)),
-        banco_titulos:   totalAvail    || 0,
-        banco_episodios: totalEpisodios || 0,
-      },
-      erro: null,
+    const resultado = {
+      filmes:          stats.filmes   || 0,
+      series_unicas:   stats.series   || 0,
+      episodios:       stats.episodios || 0,
+      novos_titulos:   Math.max(0, (totalAvailDepois    || 0) - (totalAvailAntes    || 0)),
+      novos_episodios: Math.max(0, (totalEpisodiosDepois || 0) - (totalEpisodiosAntes || 0)),
+      banco_titulos:   totalAvailDepois    || 0,
+      banco_episodios: totalEpisodiosDepois || 0,
     };
 
-    try {
-      await s3.send(new PutObjectCommand({
-        Bucket:      R2_BUCKET,
-        Key:         LOG_KEY,
-        Body:        JSON.stringify(log, null, 2),
-        ContentType: "application/json",
-      }));
-    } catch (e) {
-      console.error("[CATALOG-FAST] Erro ao salvar log no R2:", e);
-    }
-
-    return NextResponse.json({ ok: true, finalizado: true, ...log.resultado });
+    return NextResponse.json({ ok: true, finalizado: true, ...resultado });
   }
 
   return NextResponse.json({ error: "tipo inválido" }, { status: 400 });

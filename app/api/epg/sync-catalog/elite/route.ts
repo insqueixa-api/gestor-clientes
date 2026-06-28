@@ -60,17 +60,19 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
   try {
-    const [{ count: totalFilmes }, { count: totalSeries }, { count: totalEpisodios }] = await Promise.all([
-      supabaseAdmin.from("catalog_availability").select("catalog_master!inner(tipo)", { count: "exact", head: true }).eq("servidor", SERVIDOR).eq("catalog_master.tipo", "FILME"),
-      supabaseAdmin.from("catalog_availability").select("catalog_master!inner(tipo)", { count: "exact", head: true }).eq("servidor", SERVIDOR).eq("catalog_master.tipo", "SERIE"),
-      supabaseAdmin.from("catalog_episodes").select("*", { count: "exact", head: true }).eq("servidor", SERVIDOR),
-    ]);
+    const { data, error } = await supabaseAdmin
+      .from("catalog_stats_por_servidor")
+      .select("filmes, series_unicas, episodios")
+      .eq("servidor", SERVIDOR)
+      .single();
+
+    if (error || !data) throw new Error(error?.message || "Servidor não encontrado na view");
 
     return NextResponse.json({
       resultado: {
-        filmes:        totalFilmes    || 0,
-        series_unicas: totalSeries    || 0,
-        episodios:     totalEpisodios || 0,
+        filmes:        data.filmes        || 0,
+        series_unicas: data.series_unicas || 0,
+        episodios:     data.episodios     || 0,
       },
       executado_em: new Date().toISOString(),
     });
