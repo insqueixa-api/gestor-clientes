@@ -215,7 +215,8 @@ export async function POST(req: NextRequest) {
           .insert(paraInsert)
           .select("id, titulo_busca");
         if (error) {
-          console.error(`[CATALOG-ELITE] Erro insert master lote ${i}:`, error.message);
+          // Lança o erro para aparecer no log do R2 e parar o fluxo
+          throw new Error(`Insert master lote ${i}: ${error.message} | code: ${error.code} | details: ${error.details}`);
         } else {
           for (const row of inseridos || []) {
             masterIdMap.set(row.titulo_busca, row.id);
