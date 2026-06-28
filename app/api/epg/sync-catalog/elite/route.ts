@@ -319,9 +319,12 @@ const availabilityRows = [...filmesUnicos, ...seriesUnicas.master]
     const { error: rpcErr } = await supabaseAdmin
       .rpc("catalog_atualizar_contadores", { p_servidor: SERVIDOR });
 
-    if (rpcErr) console.error(`[CATALOG-ELITE] Erro RPC contadores:`, rpcErr.message);
+if (rpcErr) console.error(`[CATALOG-ELITE] Erro RPC contadores:`, rpcErr.message);
 
-    // ── 5. Resultado ──────────────────────────────────────────────────────────
+    // Refresh da view materializada
+    await supabaseAdmin.rpc("refresh_catalog_stats");
+
+    // ── 5. Resultado
     const duracao = Math.round((Date.now() - inicio) / 1000);
 
     // Conta totais no banco DEPOIS do sync

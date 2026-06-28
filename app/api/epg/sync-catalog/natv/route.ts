@@ -285,9 +285,12 @@ const master_id = masterIdMap.get(normalizarTituloBusca(ep.titulo_normalizado));
     }
 
     // ── 4e. Contadores ────────────────────────────────────────────────────────
-    await supabaseAdmin.rpc("catalog_atualizar_contadores", { p_servidor: SERVIDOR });
+await supabaseAdmin.rpc("catalog_atualizar_contadores", { p_servidor: SERVIDOR });
 
-    // ── 5. Resultado ──────────────────────────────────────────────────────────
+    // Refresh da view materializada
+    await supabaseAdmin.rpc("refresh_catalog_stats");
+
+    // ── 5. Resultado
     const duracao = Math.round((Date.now() - inicio) / 1000);
 
     // Conta totais no banco após sync

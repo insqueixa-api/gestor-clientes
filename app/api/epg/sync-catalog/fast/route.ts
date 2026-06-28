@@ -192,10 +192,13 @@ const availRows = loteNorm
       supabaseAdmin.from("catalog_episodes").select("*", { count: "exact", head: true }).eq("servidor", SERVIDOR),
     ]);
 
-    const { error: rpcErr } = await supabaseAdmin
+const { error: rpcErr } = await supabaseAdmin
       .rpc("catalog_atualizar_contadores", { p_servidor: SERVIDOR });
 
     if (rpcErr) console.error("[CATALOG-FAST] Erro RPC contadores:", rpcErr.message);
+
+    // Refresh da view materializada
+    await supabaseAdmin.rpc("refresh_catalog_stats");
 
     // Snapshot DEPOIS
     const [{ count: totalAvailDepois }, { count: totalEpisodiosDepois }] = await Promise.all([
