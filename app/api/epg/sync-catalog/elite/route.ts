@@ -206,12 +206,13 @@ export async function POST(req: NextRequest) {
         const { data: inseridos, error } = await supabaseAdmin
           .from("catalog_master")
           .insert(paraInsert)
-          .select("id, titulo_busca");
+          .select("id, titulo_normalizado");
         if (error) {
           console.error(`[CATALOG-ELITE] Erro insert master lote ${i}:`, error.message);
         } else {
-  for (const row of inseridos || []) {
-            masterIdMap.set(row.titulo_busca, row.id);
+          for (const row of inseridos || []) {
+            // Calcula titulo_busca localmente — não depende do trigger via PostgREST
+            masterIdMap.set(normalizarTituloBusca(row.titulo_normalizado), row.id);
           }
           novosTitulosContados += inseridos?.length ?? 0;
         }
