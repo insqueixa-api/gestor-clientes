@@ -85,7 +85,15 @@ export async function POST(req: NextRequest) {
     erro:         null,
   };
 
-  try {
+ try {
+    // ── 0. Snapshot dos totais ANTES do sync ─────────────────────────────────
+    const { count: totalAvailAntes } = await supabaseAdmin
+      .from("catalog_availability").select("*", { count: "exact", head: true })
+      .eq("servidor", SERVIDOR);
+    const { count: totalEpisodiosAntes } = await supabaseAdmin
+      .from("catalog_episodes").select("*", { count: "exact", head: true })
+      .eq("servidor", SERVIDOR);
+
     // ── 1. Busca m3u_url direto do cliente no banco ───────────────────────────
     const { data: cliente, error: clienteErr } = await supabaseAdmin
       .from("clients")
@@ -306,25 +314,24 @@ const availabilityRows = [...filmesUnicos, ...seriesUnicas.master]
     // ── 5. Resultado ──────────────────────────────────────────────────────────
     const duracao = Math.round((Date.now() - inicio) / 1000);
 
-    // Conta totais no banco após sync para calcular novos
-    const { count: totalAvail }     = await supabaseAdmin
+    // Conta totais no banco DEPOIS do sync
+    const { count: totalAvailDepois } = await supabaseAdmin
       .from("catalog_availability").select("*", { count: "exact", head: true })
       .eq("servidor", SERVIDOR);
-    const { count: totalEpisodios } = await supabaseAdmin
+    const { count: totalEpisodiosDepois } = await supabaseAdmin
       .from("catalog_episodes").select("*", { count: "exact", head: true })
       .eq("servidor", SERVIDOR);
 
-    // Remove as variáveis desnecessárias e usa o contador real
-log.resultado = {
-  duracao_s:       duracao,
-  filmes:          filmesUnicos.length,
-  series_unicas:   seriesUnicas.master.length,
-  episodios:       episodeRows.length,
-  novos_titulos:   novosTitulosContados,
-  novos_episodios: novosEpisodiosContados,
-  banco_titulos:   totalAvail    || 0,
-  banco_episodios: totalEpisodios || 0,
-};
+    log.resultado = {
+      duracao_s:       duracao,
+      filmes:          filmesUnicos.length,
+      series_unicas:   seriesUnicas.master.length,
+      episodios:       episodeRows.length,
+      novos_titulos:   Math.max(0, (totalAvailDepois    || 0) - (totalAvailAntes    || 0)),
+      novos_episodios: Math.max(0, (totalEpisodiosDepois || 0) - (totalEpisodiosAntes || 0)),
+      banco_titulos:   totalAvailDepois    || 0,
+      banco_episodios: totalEpisodiosDepois || 0,
+    };
 
     await salvarLog(log);
     console.log(`[CATALOG-ELITE] Concluído em ${duracao}s`, log.resultado);
