@@ -61,9 +61,9 @@ export async function GET() {
 
   try {
     const [{ count: totalFilmes }, { count: totalSeries }, { count: totalEpisodios }] = await Promise.all([
-      supabaseAdmin.from("catalog_availability").select("*", { count: "exact", head: true }).eq("servidor", SERVIDOR).eq("tipo", "FILME"),
-      supabaseAdmin.from("catalog_availability").select("*", { count: "exact", head: true }).eq("servidor", SERVIDOR).eq("tipo", "SERIE"),
-      supabaseAdmin.from("catalog_episodes").select("*",    { count: "exact", head: true }).eq("servidor", SERVIDOR),
+      supabaseAdmin.from("catalog_availability").select("catalog_master!inner(tipo)", { count: "exact", head: true }).eq("servidor", SERVIDOR).eq("catalog_master.tipo", "FILME"),
+      supabaseAdmin.from("catalog_availability").select("catalog_master!inner(tipo)", { count: "exact", head: true }).eq("servidor", SERVIDOR).eq("catalog_master.tipo", "SERIE"),
+      supabaseAdmin.from("catalog_episodes").select("*", { count: "exact", head: true }).eq("servidor", SERVIDOR),
     ]);
 
     return NextResponse.json({
