@@ -60,11 +60,46 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
   try {
-    const res = await fetch(`${R2_URL}/${LOG_KEY}`, { cache: "no-store" });
-    if (!res.ok) return NextResponse.json({ status: "Nenhum sync realizado ainda" });
-    return NextResponse.json(await res.json());
-  } catch {
-    return NextResponse.json({ status: "Log não encontrado" });
+    const { count: filmes } = await supabaseAdmin
+      .from("catalog_availability")
+      .select("*", { count: "exact", head: true })
+      .eq("servidor", SERVIDOR)
+      .eq("tipo_ref", "FILME"); // vamos checar logo abaixo se esse join existe
+
+    // Conta direto nas tabelas
+    const { count: totalTitulos } = await supabaseAdmin
+      .from("catalog_availability")
+      .select("*", { count: "exact", head: true })
+      .eq("servidor", SERVIDOR);
+
+    const { count: totalEpisodios } = await supabaseAdmin
+      .from("catalog_episodes")
+      .select("*", { count: "exact", head: true })
+      .eq("servidor", SERVIDOR);
+
+    // Filmes e séries via join com catalog_master
+    const { count: totalFilmes } = await supabaseAdmin
+      .from("catalog_availability")
+      .select("catalog_master!inner(tipo)", { count: "exact", head: true })
+      .eq("servidor", SERVIDOR)
+      .eq("catalog_master.tipo", "FILME");
+
+    const { count: totalSeries } = await supabaseAdmin
+      .from("catalog_availability")
+      .select("catalog_master!inner(tipo)", { count: "exact", head: true })
+      .eq("servidor", SERVIDOR)
+      .eq("catalog_master.tipo", "SERIE");
+
+    return NextResponse.json({
+      resultado: {
+        filmes:        totalFilmes    || 0,
+        series_unicas: totalSeries    || 0,
+        episodios:     totalEpisodios || 0,
+      },
+      executado_em: null, // sem último sync disponível em tempo real
+    });
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }
 

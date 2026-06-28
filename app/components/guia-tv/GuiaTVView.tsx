@@ -552,9 +552,25 @@ function ModalCatalogo({onClose}:{onClose:()=>void}) {
   const addToast=(type:"success"|"error"|"warning",title:string,message:string)=>setToasts(p=>[...p,{id:Date.now(),type,title,message,durationMs:5000}]);
   
   // Lógica original preservada
-  useEffect(()=>{(["elite","natv","fast"] as SrvId[]).forEach(async srv=>{try{const d=await fetch(`/api/epg/sync-catalog/${srv}`).then(r=>r.json());if(d.resultado){setInfo(p=>({...p,[srv]:{ultimo_sync:d.executado_em||null,filmes:d.resultado.filmes||0,series_unicas:d.resultado.series_unicas||d.resultado.series||0,episodios:d.resultado.episodios||0}}));}}catch{}});},[]);
+  const carregarInfo = async () => {
+  (["elite","natv","fast"] as SrvId[]).forEach(async srv => {
+    try {
+      const d = await fetch(`/api/epg/sync-catalog/${srv}`, { cache: "no-store" }).then(r => r.json());
+      if (d.resultado) {
+        setInfo(p => ({...p, [srv]: {
+          ultimo_sync:   d.executado_em || null,
+          filmes:        d.resultado.filmes        || 0,
+          series_unicas: d.resultado.series_unicas || d.resultado.series || 0,
+          episodios:     d.resultado.episodios     || 0,
+        }}));
+      }
+    } catch {}
+  });
+};
+
+useEffect(() => { carregarInfo(); }, []);
   
-  async function syncElite(){setStatus(p=>({...p,elite:"running"}));setServerMessages(p=>({...p,elite:null}));try{const d=await fetch("/api/epg/sync-catalog/elite",{method:"POST"}).then(r=>r.json());if(d.error)throw new Error(d.error);setInfo(p=>({...p,elite:{ultimo_sync:new Date().toISOString(),filmes:d.filmes??0,series_unicas:d.series_unicas??0,episodios:d.episodios??0}}));setStatus(p=>({...p,elite:"ok"}));const msg=`Novos títulos: ${d.novos_titulos??0} · Concluído em ${d.duracao_s}s`;setServerMessages(p=>({...p,elite:{text:msg,type:"success"}}));addToast("success","EliteTV sincronizado",msg);}catch(e:any){setStatus(p=>({...p,elite:"error"}));setServerMessages(p=>({...p,elite:{text:e.message||"Erro desconhecido",type:"error"}}));addToast("error","Falha ao sincronizar EliteTV",e.message);}}
+  async function syncElite(){setStatus(p=>({...p,elite:"running"}));setServerMessages(p=>({...p,elite:null}));try{const d=await fetch("/api/epg/sync-catalog/elite",{method:"POST"}).then(r=>r.json());if(d.error)throw new Error(d.error);await carregarInfo();setStatus(p=>({...p,elite:"ok"}));const msg=`Novos títulos: ${d.novos_titulos??0} · Concluído em ${d.duracao_s}s`;setServerMessages(p=>({...p,elite:{text:msg,type:"success"}}));addToast("success","EliteTV sincronizado",msg);}catch(e:any){setStatus(p=>({...p,elite:"error"}));setServerMessages(p=>({...p,elite:{text:e.message||"Erro desconhecido",type:"error"}}));addToast("error","Falha ao sincronizar EliteTV",e.message);}}
   
   async function syncNaTV(){setStatus(p=>({...p,natv:"running"}));setServerMessages(p=>({...p,natv:null}));try{const d=await fetch("/api/epg/sync-catalog/natv",{method:"POST"}).then(r=>r.json());if(d.error)throw new Error(d.error);setInfo(p=>({...p,natv:{ultimo_sync:new Date().toISOString(),filmes:d.filmes??0,series_unicas:d.series_unicas??0,episodios:d.episodios??0}}));setStatus(p=>({...p,natv:"ok"}));const msg=`Novos títulos: ${d.novos_titulos??0} · Concluído em ${d.duracao_s}s`;setServerMessages(p=>({...p,natv:{text:msg,type:"success"}}));addToast("success","NaTV sincronizado",msg);}catch(e:any){setStatus(p=>({...p,natv:"error"}));setServerMessages(p=>({...p,natv:{text:e.message||"Erro desconhecido",type:"error"}}));addToast("error","Falha ao sincronizar NaTV",e.message);}}
   
