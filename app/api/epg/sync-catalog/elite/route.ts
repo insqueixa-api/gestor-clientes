@@ -208,15 +208,14 @@ export async function POST(req: NextRequest) {
         if (error) console.error(`[CATALOG-ELITE] Erro update master lote ${i}:`, error.message);
       }
 
-      // 5. Executa inserts e captura IDs gerados
+      // 5. Executa inserts — upsert por titulo_normalizado para evitar conflito de constraint
       if (paraInsert.length > 0) {
         const { data: inseridos, error } = await supabaseAdmin
           .from("catalog_master")
-          .insert(paraInsert)
+          .upsert(paraInsert, { onConflict: "titulo_normalizado", ignoreDuplicates: false })
           .select("id, titulo_busca");
         if (error) {
-          // Lança o erro para aparecer no log do R2 e parar o fluxo
-          throw new Error(`Insert master lote ${i}: ${error.message} | code: ${error.code} | details: ${error.details}`);
+          throw new Error(`Upsert master lote ${i}: ${error.message} | code: ${error.code} | details: ${error.details}`);
         } else {
           for (const row of inseridos || []) {
             masterIdMap.set(row.titulo_busca, row.id);
