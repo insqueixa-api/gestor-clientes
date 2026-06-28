@@ -136,13 +136,14 @@ export async function POST(req: NextRequest) {
     const seriesUnicas = agruparSeries(series);
     const todasMaster  = [...filmesUnicos, ...seriesUnicas.master];
 
-    // ── 4a. Upsert catalog_master por titulo_busca ────────────────────────────
-    // Fluxo: calcula titulo_busca local → busca ID existente → UPDATE ou INSERT
-    // Evita duplicatas quando titulo_normalizado mudou mas titulo_busca é igual
+// ── 4a. Upsert catalog_master por titulo_busca ────────────────────────────
     console.log(`[CATALOG-ELITE] Upsert catalog_master: ${todasMaster.length} títulos...`);
 
     const masterIdMap = new Map<string, string>(); // titulo_busca → id
+    let novosTitulosContados   = 0;
+    let novosEpisodiosContados = 0;
 
+    
     for (let i = 0; i < todasMaster.length; i += BATCH_MASTER) {
       const lote = todasMaster.slice(i, i + BATCH_MASTER);
 
@@ -209,9 +210,10 @@ export async function POST(req: NextRequest) {
         if (error) {
           console.error(`[CATALOG-ELITE] Erro insert master lote ${i}:`, error.message);
         } else {
-          for (const row of inseridos || []) {
+  for (const row of inseridos || []) {
             masterIdMap.set(row.titulo_busca, row.id);
           }
+          novosTitulosContados += inseridos?.length ?? 0;
         }
       }
     }
@@ -289,7 +291,7 @@ const availabilityRows = [...filmesUnicos, ...seriesUnicas.master]
       if (error) {
         console.error(`[CATALOG-ELITE] Erro episodes lote ${i}:`, error.message);
       } else {
-        episodiosNovos += lote.length;
+        novosEpisodiosContados += lote.length; // mantém o nome consistente
       }
     }
 
@@ -311,17 +313,17 @@ const availabilityRows = [...filmesUnicos, ...seriesUnicas.master]
       .from("catalog_episodes").select("*", { count: "exact", head: true })
       .eq("servidor", SERVIDOR);
 
-    const totalEnviado = filmesUnicos.length + seriesUnicas.master.length;
-    log.resultado = {
-      duracao_s:           duracao,
-      filmes:              filmesUnicos.length,
-      series_unicas:       seriesUnicas.master.length,
-      episodios:           episodeRows.length,
-      novos_titulos:       Math.max(0, (totalAvail    || 0) - totalEnviado),
-      novos_episodios:     Math.max(0, (totalEpisodios || 0) - episodeRows.length),
-      banco_titulos:       totalAvail    || 0,
-      banco_episodios:     totalEpisodios || 0,
-    };
+    // Remove as variáveis desnecessárias e usa o contador real
+log.resultado = {
+  duracao_s:       duracao,
+  filmes:          filmesUnicos.length,
+  series_unicas:   seriesUnicas.master.length,
+  episodios:       episodeRows.length,
+  novos_titulos:   novosTitulosContados,
+  novos_episodios: novosEpisodiosContados,
+  banco_titulos:   totalAvail    || 0,
+  banco_episodios: totalEpisodios || 0,
+};
 
     await salvarLog(log);
     console.log(`[CATALOG-ELITE] Concluído em ${duracao}s`, log.resultado);
