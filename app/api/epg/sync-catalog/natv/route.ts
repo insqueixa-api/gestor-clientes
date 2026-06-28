@@ -51,11 +51,22 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
   try {
-    const res = await fetch(`${R2_URL}/${LOG_KEY}`, { cache: "no-store" });
-    if (!res.ok) return NextResponse.json({ status: "Nenhum sync realizado ainda" });
-    return NextResponse.json(await res.json());
-  } catch {
-    return NextResponse.json({ status: "Log não encontrado" });
+    const [{ count: totalFilmes }, { count: totalSeries }, { count: totalEpisodios }] = await Promise.all([
+      supabaseAdmin.from("catalog_availability").select("catalog_master!inner(tipo)", { count: "exact", head: true }).eq("servidor", SERVIDOR).eq("catalog_master.tipo", "FILME"),
+      supabaseAdmin.from("catalog_availability").select("catalog_master!inner(tipo)", { count: "exact", head: true }).eq("servidor", SERVIDOR).eq("catalog_master.tipo", "SERIE"),
+      supabaseAdmin.from("catalog_episodes").select("*", { count: "exact", head: true }).eq("servidor", SERVIDOR),
+    ]);
+
+    return NextResponse.json({
+      resultado: {
+        filmes:        totalFilmes    || 0,
+        series_unicas: totalSeries    || 0,
+        episodios:     totalEpisodios || 0,
+      },
+      executado_em: new Date().toISOString(),
+    });
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }
 
@@ -73,7 +84,15 @@ export async function POST(req: NextRequest) {
     etapas: {}, resultado: {}, erro: null,
   };
 
-  try {
+ try {
+    // ── 0. Snapshot dos totais ANTES do sync ─────────────────────────────────
+    const { count: totalAvailAntes } = await supabaseAdmin
+      .from("catalog_availability").select("*", { count: "exact", head: true })
+      .eq("servidor", SERVIDOR);
+    const { count: totalEpisodiosAntes } = await supabaseAdmin
+      .from("catalog_episodes").select("*", { count: "exact", head: true })
+      .eq("servidor", SERVIDOR);
+
     // ── 1. Busca m3u_url do cliente NaTV no banco ─────────────────────────────
     const { data: cliente, error: clienteErr } = await supabaseAdmin
       .from("clients")
@@ -198,13 +217,13 @@ export async function POST(req: NextRequest) {
 
 
 
-      if (paraInsert.length > 0) {
+if (paraInsert.length > 0) {
         const { data: inseridos, error } = await supabaseAdmin
           .from("catalog_master")
-          .insert(paraInsert)
+          .upsert(paraInsert, { onConflict: "titulo_normalizado", ignoreDuplicates: false })
           .select("id, titulo_busca");
         if (error) {
-          console.error(`[CATALOG-NATV] Erro insert master lote ${i}:`, error.message);
+          throw new Error(`Upsert master lote ${i}: ${error.message} | code: ${error.code} | details: ${error.details}`);
         } else {
           for (const row of inseridos || []) {
             masterIdMap.set(row.titulo_busca, row.id);
@@ -277,16 +296,15 @@ const master_id = masterIdMap.get(normalizarTituloBusca(ep.titulo_normalizado));
       .from("catalog_episodes").select("*", { count: "exact", head: true })
       .eq("servidor", SERVIDOR);
 
-    const totalEnviado = filmesUnicos.length + seriesUnicas.master.length;
     log.resultado = {
-      duracao_s:           duracao,
-      filmes:              filmesUnicos.length,
-      series_unicas:       seriesUnicas.master.length,
-      episodios:           epRows.length,
-      novos_titulos:       Math.max(0, (totalAvail    || 0) - totalEnviado),
-      novos_episodios:     Math.max(0, (totalEpisodios || 0) - epRows.length),
-      banco_titulos:       totalAvail    || 0,
-      banco_episodios:     totalEpisodios || 0,
+      duracao_s:       duracao,
+      filmes:          filmesUnicos.length,
+      series_unicas:   seriesUnicas.master.length,
+      episodios:       epRows.length,
+      novos_titulos:   Math.max(0, (totalAvail    || 0) - (totalAvailAntes    || 0)),
+      novos_episodios: Math.max(0, (totalEpisodios || 0) - (totalEpisodiosAntes || 0)),
+      banco_titulos:   totalAvail    || 0,
+      banco_episodios: totalEpisodios || 0,
     };
 
     await salvarLog(log);
