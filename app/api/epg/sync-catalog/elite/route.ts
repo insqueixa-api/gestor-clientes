@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
     erro:         null,
   };
 
- try {
+  try {
     // ── 0. Snapshot dos totais ANTES do sync ─────────────────────────────────
     const { count: totalAvailAntes } = await supabaseAdmin
       .from("catalog_availability").select("*", { count: "exact", head: true })
@@ -144,14 +144,13 @@ export async function POST(req: NextRequest) {
     const seriesUnicas = agruparSeries(series);
     const todasMaster  = [...filmesUnicos, ...seriesUnicas.master];
 
-// ── 4a. Upsert catalog_master por titulo_busca ────────────────────────────
+    // ── 4a. Upsert catalog_master por titulo_busca ────────────────────────────
+    // Fluxo: calcula titulo_busca local → busca ID existente → UPDATE ou INSERT
+    // Evita duplicatas quando titulo_normalizado mudou mas titulo_busca é igual
     console.log(`[CATALOG-ELITE] Upsert catalog_master: ${todasMaster.length} títulos...`);
 
     const masterIdMap = new Map<string, string>(); // titulo_busca → id
-    let novosTitulosContados   = 0;
-    let novosEpisodiosContados = 0;
 
-    
     for (let i = 0; i < todasMaster.length; i += BATCH_MASTER) {
       const lote = todasMaster.slice(i, i + BATCH_MASTER);
 
@@ -214,15 +213,13 @@ export async function POST(req: NextRequest) {
         const { data: inseridos, error } = await supabaseAdmin
           .from("catalog_master")
           .insert(paraInsert)
-          .select("id, titulo_normalizado");
+          .select("id, titulo_busca");
         if (error) {
           console.error(`[CATALOG-ELITE] Erro insert master lote ${i}:`, error.message);
         } else {
           for (const row of inseridos || []) {
-            // Calcula titulo_busca localmente — não depende do trigger via PostgREST
-            masterIdMap.set(normalizarTituloBusca(row.titulo_normalizado), row.id);
+            masterIdMap.set(row.titulo_busca, row.id);
           }
-          novosTitulosContados += inseridos?.length ?? 0;
         }
       }
     }
@@ -300,7 +297,7 @@ const availabilityRows = [...filmesUnicos, ...seriesUnicas.master]
       if (error) {
         console.error(`[CATALOG-ELITE] Erro episodes lote ${i}:`, error.message);
       } else {
-        novosEpisodiosContados += lote.length; // mantém o nome consistente
+        episodiosNovos += lote.length;
       }
     }
 
