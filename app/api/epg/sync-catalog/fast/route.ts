@@ -65,9 +65,18 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
   const { tipo, lote } = body as {
-    tipo: "master" | "episodios" | "finalizar";
+    tipo: "iniciar" | "master" | "episodios" | "finalizar";
     lote?: any[];
   };
+
+  // ── Snapshot ANTES do sync ────────────────────────────────────────────────
+  if (tipo === "iniciar") {
+    const [{ count: totalAvail }, { count: totalEpisodios }] = await Promise.all([
+      supabaseAdmin.from("catalog_availability").select("*", { count: "exact", head: true }).eq("servidor", SERVIDOR),
+      supabaseAdmin.from("catalog_episodes").select("*", { count: "exact", head: true }).eq("servidor", SERVIDOR),
+    ]);
+    return NextResponse.json({ ok: true, totalAvailAntes: totalAvail || 0, totalEpisodiosAntes: totalEpisodios || 0 });
+  }
 
   // ── Lote de master (filmes + séries) ─────────────────────────────────────
   if (tipo === "master" && Array.isArray(lote) && lote.length > 0) {
@@ -186,11 +195,9 @@ const availRows = loteNorm
   if (tipo === "finalizar") {
     const stats = body.stats || {};
 
-    // Snapshot ANTES do RPC (banco ainda não atualizado)
-    const [{ count: totalAvailAntes }, { count: totalEpisodiosAntes }] = await Promise.all([
-      supabaseAdmin.from("catalog_availability").select("*", { count: "exact", head: true }).eq("servidor", SERVIDOR),
-      supabaseAdmin.from("catalog_episodes").select("*", { count: "exact", head: true }).eq("servidor", SERVIDOR),
-    ]);
+// Snapshot ANTES vem da chamada "iniciar" feita pela extensão
+    const totalAvailAntes    = body.totalAvailAntes    || 0;
+    const totalEpisodiosAntes = body.totalEpisodiosAntes || 0;
 
 const { error: rpcErr } = await supabaseAdmin
       .rpc("catalog_atualizar_contadores", { p_servidor: SERVIDOR });
