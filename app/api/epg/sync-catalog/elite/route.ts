@@ -60,35 +60,11 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
   try {
-    const { count: filmes } = await supabaseAdmin
-      .from("catalog_availability")
-      .select("*", { count: "exact", head: true })
-      .eq("servidor", SERVIDOR)
-      .eq("tipo_ref", "FILME"); // vamos checar logo abaixo se esse join existe
-
-    // Conta direto nas tabelas
-    const { count: totalTitulos } = await supabaseAdmin
-      .from("catalog_availability")
-      .select("*", { count: "exact", head: true })
-      .eq("servidor", SERVIDOR);
-
-    const { count: totalEpisodios } = await supabaseAdmin
-      .from("catalog_episodes")
-      .select("*", { count: "exact", head: true })
-      .eq("servidor", SERVIDOR);
-
-    // Filmes e séries via join com catalog_master
-    const { count: totalFilmes } = await supabaseAdmin
-      .from("catalog_availability")
-      .select("catalog_master!inner(tipo)", { count: "exact", head: true })
-      .eq("servidor", SERVIDOR)
-      .eq("catalog_master.tipo", "FILME");
-
-    const { count: totalSeries } = await supabaseAdmin
-      .from("catalog_availability")
-      .select("catalog_master!inner(tipo)", { count: "exact", head: true })
-      .eq("servidor", SERVIDOR)
-      .eq("catalog_master.tipo", "SERIE");
+    const [{ count: totalFilmes }, { count: totalSeries }, { count: totalEpisodios }] = await Promise.all([
+      supabaseAdmin.from("catalog_availability").select("*", { count: "exact", head: true }).eq("servidor", SERVIDOR).eq("tipo", "FILME"),
+      supabaseAdmin.from("catalog_availability").select("*", { count: "exact", head: true }).eq("servidor", SERVIDOR).eq("tipo", "SERIE"),
+      supabaseAdmin.from("catalog_episodes").select("*",    { count: "exact", head: true }).eq("servidor", SERVIDOR),
+    ]);
 
     return NextResponse.json({
       resultado: {
@@ -96,7 +72,7 @@ export async function GET() {
         series_unicas: totalSeries    || 0,
         episodios:     totalEpisodios || 0,
       },
-      executado_em: null, // sem último sync disponível em tempo real
+      executado_em: new Date().toISOString(),
     });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
