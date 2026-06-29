@@ -424,8 +424,7 @@ function ModalDetalheCanal({canal, progsPorCanal, agoraMs, onProgSelect, onClose
                         return (
                             <div 
                                 key={p.start} 
-                                onClick={() => onProgSelect(p)}
-                                className={`flex items-start gap-3 sm:gap-4 p-4 sm:p-5 rounded-xl border bg-card transition-all cursor-pointer group shadow-sm ${emAndamento ? 'border-sky-500/30 bg-sky-500/[0.05]' : 'border-border hover:bg-muted/30'}`}
+                                className={`flex items-start gap-3 sm:gap-4 p-4 sm:p-5 rounded-xl border bg-card transition-all shadow-sm ${emAndamento ? 'border-sky-500/30 bg-sky-500/[0.05]' : 'border-border'}`}
                             >
                                 {/* ✅ Placeholder idêntico ao print (quadrado branco com borda e ícone) */}
                                 {p.prog_icon ? (
@@ -449,7 +448,7 @@ function ModalDetalheCanal({canal, progsPorCanal, agoraMs, onProgSelect, onClose
                                         <span className="text-[11px] sm:text-xs text-muted-foreground/60 ml-auto font-medium shrink-0">{p.duracao_min} min</span>
                                     </div>
                                     
-                                    <div className={`text-sm sm:text-base font-semibold leading-snug line-clamp-2 group-hover:text-sky-500 tracking-tight ${emAndamento ? 'text-sky-500' : 'text-foreground'}`}>
+                                    <div className={`text-sm sm:text-base font-semibold leading-snug line-clamp-2 tracking-tight ${emAndamento ? 'text-sky-500' : 'text-foreground'}`}>
                                         {p.title}
                                     </div>
 
@@ -462,9 +461,6 @@ function ModalDetalheCanal({canal, progsPorCanal, agoraMs, onProgSelect, onClose
                                     {p.desc && (
                                         <div className="text-xs sm:text-sm text-muted-foreground leading-relaxed line-clamp-2 mt-2">{p.desc}</div>
                                     )}
-                                </div>
-                                <div className="shrink-0 hidden sm:flex items-center justify-center pt-1">
-                                    <ChevronRight className="w-4 h-4 text-border group-hover:text-sky-500"/>
                                 </div>
                             </div>
                         );
