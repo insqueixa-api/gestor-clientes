@@ -87,11 +87,45 @@ const CAT_COR_TW: Record<string,string> = { "Abertos":"text-sky-500","Jornalismo
 
 // Preservando o SUBGRUPOS para manter a lógica de filtragem original
 const SUBGRUPOS: Record<string,{label:string;match:string[]}[]> = {
-  "Esportes":[{label:"SporTV",match:["SporTV"]},{label:"Premiere",match:["Premiere"]},{label:"ESPN",match:["ESPN"]},{label:"Combate",match:["Combate"]},{label:"Band Sports",match:["Band Sports"]},{label:"Portal do Futebol",match:["Portal do Futebol"]}],
-  "Filmes":[{label:"Telecine",match:["Telecine"]},{label:"HBO",match:["HBO"]},{label:"TNT",match:["TNT"]},{label:"Studio Universal",match:["Studio Universal"]},{label:"Warner",match:["Warner"]},{label:"Paramount",match:["Paramount"]},{label:"Megapix",match:["Megapix"]},{label:"Canal Brasil",match:["Canal Brasil"]}],
-  "Infantil":[{label:"Cartoon Network",match:["Cartoon Network"]},{label:"Disney",match:["Disney"]},{label:"Nickelodeon",match:["Nickelodeon"]},{label:"Gloob",match:["Gloob"]},{label:"Discovery Kids",match:["Discovery Kids"]}],
-  "Documentários":[{label:"Discovery",match:["Discovery Channel"]},{label:"Nat Geo",match:["National Geographic"]},{label:"Animal Planet",match:["Animal Planet"]},{label:"History",match:["The History Channel"]},{label:"ID",match:["ID"]}],
-  "Jornalismo":[{label:"GloboNews",match:["GloboNews"]},{label:"CNN",match:["CNN"]},{label:"Band News",match:["Band News"]},{label:"Record News",match:["Record News"]},{label:"CNN Brasil",match:["CNN Brasil"]}],
+  "Esportes": [
+    {label:"SporTV",      match:["SporTV"]},
+    {label:"Premiere",    match:["Premiere"]},
+    {label:"ESPN",        match:["ESPN"]},
+    {label:"Combate",     match:["Combate"]},
+    {label:"Band Sports", match:["Band Sports"]},
+  ],
+  "Filmes": [
+    {label:"HBO",              match:["HBO"]},
+    {label:"Telecine",         match:["Telecine"]},
+    {label:"TNT",              match:["TNT"]},
+    {label:"Cinemax / Space",  match:["Cinemax","Space"]},
+    {label:"Paramount / AMC",  match:["Paramount","AMC"]},
+    {label:"Canal Brasil",     match:["Canal Brasil"]},
+    {label:"Studio Universal", match:["Studio Universal","Megapix"]},
+  ],
+  "Infantil": [
+    {label:"Cartoon/Cartoonito", match:["Cartoon Network","Cartoonito"]},
+    {label:"Nickelodeon",        match:["Nickelodeon","Nick Jr"]},
+    {label:"Gloob",              match:["Gloob","Gloobinho"]},
+    {label:"Discovery Kids",     match:["Discovery Kids"]},
+    {label:"TV Rá Tim Bum",      match:["TV Rá Tim Bum"]},
+  ],
+  "Documentários": [
+    {label:"Discovery",    match:["Discovery Channel","Discovery Science","Discovery Turbo","Discovery Home"]},
+    {label:"Animal Planet",match:["Animal Planet"]},
+    {label:"History",      match:["The History Channel"]},
+    {label:"ID / Arte",    match:["ID","Arte 1","Curta"]},
+  ],
+  "Jornalismo": [
+    {label:"Globo",       match:["GloboNews"]},
+    {label:"CNN",         match:["CNN Internacional","CNN Brasil"]},
+    {label:"Band/Record", match:["Band News","Record News"]},
+  ],
+  "Abertos": [
+    {label:"Globo/SBT/Record", match:["Globo","SBT","Record","Band","Rede TV"]},
+    {label:"Culturais",        match:["Cultura","TV Brasil","Futura","TV Escola"]},
+    {label:"Legislativo",      match:["TV Câmara","TV Senado","TV Justiça"]},
+  ],
 };
 
 const COR_SERVIDOR: Record<string, string> = { ELITE: "#6366f1", NATV: "#10b981", FAST: "#06b6d4" };
@@ -1309,7 +1343,7 @@ const canaisFiltrados = useMemo(() => {
     if (catAtiva !== "Todos") lista = lista.filter(c => c.categoria === catAtiva);
     if (subAtiva !== "Todos") {
       const sg = (SUBGRUPOS[catAtiva] || []).find(s => s.label === subAtiva);
-      if (sg) lista = lista.filter(c => sg.match.some(m => c.display_name.toUpperCase().includes(m)));
+if (sg) lista = lista.filter(c => sg.match.some(m => c.display_name.toLowerCase().includes(m.toLowerCase())));
     }
     return lista; 
   }, [epg, catAtiva, subAtiva]);
