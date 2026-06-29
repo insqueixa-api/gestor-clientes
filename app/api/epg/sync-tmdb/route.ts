@@ -143,7 +143,7 @@ export async function GET() {
   });
 }
 
-// ─── POST — Processar lote ────────────────────────────────────────────────────
+// ─── POST — Processar lote (Automático / Misto) ───────────────────────────────
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -152,15 +152,13 @@ export async function POST(req: NextRequest) {
   if (!TMDB_KEY) return NextResponse.json({ error: "TMDB_API_KEY não configurada" }, { status: 500 });
 
   const params = req.nextUrl.searchParams;
-  const tipo   = (params.get("tipo") || "FILME").toUpperCase() as "FILME" | "SERIE";
-  const lote   = Math.min(parseInt(params.get("lote") || "50"), 100);
+  const lote   = 50; // Tamanho fixo do lote (automático) para evitar timeout
   const forcar = params.get("forcar") === "true";
 
-  // Busca títulos sem TMDB
+  // Busca títulos sem TMDB (Misturado: Filmes e Séries juntos)
   let query = supabaseAdmin
     .from("catalog_master")
     .select("id, titulo_normalizado, tipo, ano")
-    .eq("tipo", tipo)
     .is("tmdb_id", null)
     .limit(lote);
 
@@ -178,14 +176,16 @@ export async function POST(req: NextRequest) {
   let encontrados = 0;
   let nao_encontrados = 0;
 
-// Processa em lotes de 5 em paralelo
+  // Processa em lotes de 5 em paralelo
   const CONCORRENCIA = 5;
   for (let i = 0; i < titulos.length; i += CONCORRENCIA) {
     const grupo = titulos.slice(i, i + CONCORRENCIA);
     await Promise.all(grupo.map(async (titulo) => {
       try {
         await sleep(SLEEP_MS);
-        const tmdbRes = await buscarTMDB(titulo.titulo_normalizado, tipo, titulo.ano);
+        
+        // Agora usamos titulo.tipo dinamicamente para cada item
+        const tmdbRes = await buscarTMDB(titulo.titulo_normalizado, titulo.tipo as "FILME" | "SERIE", titulo.ano);
 
         if (!tmdbRes) {
           await supabaseAdmin.from("catalog_master").update({ tmdb_buscado_em: agora }).eq("id", titulo.id);
@@ -194,9 +194,9 @@ export async function POST(req: NextRequest) {
         }
 
         const { resultado, score } = tmdbRes;
-        const detalhes = await buscarDetalhes(resultado.id, tipo);
+        const detalhes = await buscarDetalhes(resultado.id, titulo.tipo as "FILME" | "SERIE");
 
-        const nomeResultado = tipo === "FILME" ? resultado.title : resultado.name;
+        const nomeResultado = titulo.tipo === "FILME" ? resultado.title : resultado.name;
         const generosList   = (detalhes?.genres || []).map((g: any) => g.name) as string[];
         const poster        = resultado.poster_path ? `${TMDB_IMG}${resultado.poster_path}` : null;
         const sinopse       = detalhes?.overview || resultado.overview || null;
@@ -223,7 +223,6 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     ok:              true,
-    tipo,
     processados:     titulos.length,
     encontrados,
     nao_encontrados,

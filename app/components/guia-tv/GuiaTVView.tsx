@@ -579,16 +579,65 @@ useEffect(() => { carregarInfo(); }, []);
   const SERVIDORES:{id:SrvId;label:string;cor:string;bgClass:string;onSync:()=>void}[]=[{id:"elite",label:"EliteTV",cor:"#6366f1",bgClass:"bg-indigo-600 hover:bg-indigo-500",onSync:syncElite},{id:"natv",label:"NaTV",cor:"#10b981",bgClass:"bg-emerald-600 hover:bg-emerald-500",onSync:syncNaTV},{id:"fast",label:"FastTV",cor:"#06b6d4",bgClass:"bg-sky-600 hover:bg-sky-500",onSync:syncFast}];
   const [tmdbStatus,setTmdbStatus]=useState<"idle"|"running"|"ok"|"error">("idle");
   const [tmdbMessage, setTmdbMessage] = useState<{ text: string, type: "success" | "error" } | null>(null);
-  const [tmdbLogs,setTmdbLogs]=useState<string[]>([]);
-  const [tmdbLote,setTmdbLote]=useState<number>(50);
   const [tmdbInfo,setTmdbInfo]=useState<{filmes:{sem_tmdb:number;com_tmdb:number};series:{sem_tmdb:number;com_tmdb:number}}|null>(null);
   const [tmdbConfirm,setTmdbConfirm]=useState(false);
-  const [tmdbTipo,setTmdbTipo]=useState<"FILME"|"SERIE">("FILME");
-  const addTmdbLog=(msg:string)=>setTmdbLogs(p=>[...p,msg]);
   
   useEffect(()=>{fetch("/api/epg/sync-tmdb").then(r=>r.json()).then(d=>{if(d.filmes)setTmdbInfo(d);}).catch(()=>{});},[]);
   
-  async function syncTmdb(){setTmdbStatus("running");setTmdbConfirm(false);setTmdbMessage(null);let totalProc=0,totalEnc=0,totalNao=0;try{while(true){const d=await fetch(`/api/epg/sync-tmdb?tipo=${tmdbTipo}&lote=${tmdbLote}`,{method:"POST"}).then(r=>r.json());if(d.error)throw new Error(d.error);if(d.processados===0){if(totalProc===0){const msg="Todos os títulos já foram processados.";setTmdbMessage({text:msg,type:"success"});addToast("success","Enriquecimento TMDB",msg);}break;}totalProc+=d.processados;totalEnc+=d.encontrados;totalNao+=d.nao_encontrados;if(!d.proximo_lote){break;}const s=await fetch("/api/epg/sync-tmdb").then(r=>r.json());if(s.filmes)setTmdbInfo(s);await new Promise(r=>setTimeout(r,60_000));}const s=await fetch("/api/epg/sync-tmdb").then(r=>r.json());if(s.filmes)setTmdbInfo(s);setTmdbStatus("ok");if(totalProc>0){const msg=`${totalProc} processados · ${totalEnc} encontrados · ${totalNao} não encontrados`;setTmdbMessage({text:msg,type:"success"});addToast("success","Enriquecimento TMDB concluído",msg);}}catch(e:any){setTmdbStatus("error");setTmdbMessage({text:e.message||"Erro desconhecido",type:"error"});addToast("error","Falha no enriquecimento TMDB",e.message);}}
+  async function syncTmdb() {
+    setTmdbStatus("running");
+    setTmdbConfirm(false);
+    setTmdbMessage(null);
+    let totalProc = 0, totalEnc = 0, totalNao = 0, lotes = 0;
+    
+    try {
+      while (true) {
+        // Removemos tipo e lote da URL. O backend vai fazer 50 por vez automaticamente pegando o que faltar (filme ou série).
+        const d = await fetch(`/api/epg/sync-tmdb`, { method: "POST" }).then(r => r.json());
+        if (d.error) throw new Error(d.error);
+        
+        if (d.processados === 0) {
+          if (totalProc === 0) {
+            const msg = "Todos os títulos já foram processados.";
+            setTmdbMessage({ text: msg, type: "success" });
+            addToast("success", "Enriquecimento TMDB", msg);
+          }
+          break;
+        }
+        
+        totalProc += d.processados;
+        totalEnc += d.encontrados;
+        totalNao += d.nao_encontrados;
+        lotes++;
+        
+        // Atualização em tempo real na tela
+        setTmdbMessage({ text: `Processando... Lotes concluídos: ${lotes} | ${totalProc} consultados | ${totalEnc} encontrados`, type: "success" });
+        
+        if (!d.proximo_lote) break;
+        
+        // Atualiza a estatística global a cada lote
+        const s = await fetch("/api/epg/sync-tmdb").then(r => r.json());
+        if (s.filmes) setTmdbInfo(s);
+        
+        // Delay de 2 segundos para não tomar block da API do TMDB
+        await new Promise(r => setTimeout(r, 2000)); 
+      }
+      
+      const s = await fetch("/api/epg/sync-tmdb").then(r => r.json());
+      if (s.filmes) setTmdbInfo(s);
+      
+      setTmdbStatus("ok");
+      if (totalProc > 0) {
+        const msg = `Finalizado! ${totalProc} processados · ${totalEnc} encontrados · ${totalNao} não encontrados`;
+        setTmdbMessage({ text: msg, type: "success" });
+        addToast("success", "Enriquecimento TMDB concluído", msg);
+      }
+    } catch (e: any) {
+      setTmdbStatus("error");
+      setTmdbMessage({ text: e.message || "Erro desconhecido", type: "error" });
+      addToast("error", "Falha no enriquecimento TMDB", e.message);
+    }
+  }
   
   return (
     <div className="fixed inset-0 z-[9990] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
@@ -682,7 +731,26 @@ useEffect(() => { carregarInfo(); }, []);
                 {tmdbStatus==="running"?"Rodando...":"Enriquecer"}
               </button>
             </div>
-            {tmdbConfirm&&<div className="mt-4 p-4 rounded-xl bg-background border border-border animate-in slide-in-from-top-2"><div className="text-xs font-semibold text-muted-foreground tracking-wider uppercase mb-3">Configurar lote:</div><div className="flex flex-wrap items-center gap-3.5 mb-3.5"><div className="flex bg-muted/40 p-1.5 rounded-lg border border-border gap-1.5"><button onClick={()=>setTmdbTipo("FILME")} disabled={tmdbStatus==="running"} className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-colors ${tmdbTipo==="FILME"?"bg-amber-500/10 border border-amber-500/20 text-amber-500":"text-muted-foreground hover:bg-muted hover:text-foreground"} disabled:opacity-50`}>Filmes</button><button onClick={()=>setTmdbTipo("SERIE")} disabled={tmdbStatus==="running"} className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-colors ${tmdbTipo==="SERIE"?"bg-amber-500/10 border border-amber-500/20 text-amber-500":"text-muted-foreground hover:bg-muted hover:text-foreground"} disabled:opacity-50`}>Séries</button></div><div className="flex items-center gap-2.5 bg-muted/40 border border-border rounded-lg px-3 py-1.5"><span className="text-xs text-muted-foreground">Tamanho Lote:</span><input type="number" min={5} max={100} value={tmdbLote} disabled={tmdbStatus==="running"} onChange={e=>setTmdbLote(Math.min(100,Math.max(5,parseInt(e.target.value)||5)))} className="w-16 h-7 px-2 bg-card border border-border rounded-md text-foreground text-sm font-semibold text-center outline-none focus:border-amber-500/40 disabled:opacity-50"/><span className="text-xs text-muted-foreground/60">(máx 100)</span></div></div><div className="flex items-center justify-between gap-3 border-t border-border/60 pt-3.5">{tmdbInfo&&<div className="text-xs font-medium text-foreground">{tmdbTipo==="FILME"?tmdbInfo.filmes.sem_tmdb.toLocaleString():tmdbInfo.series.sem_tmdb.toLocaleString()} {tmdbTipo==="FILME"?"filmes":"séries"} aguardando enriquecimento.</div>}<button onClick={syncTmdb} disabled={tmdbStatus==="running"} className="h-8 px-4 rounded-md bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow disabled:opacity-50 disabled:cursor-wait">Confirmar e Iniciar</button></div></div>}
+            {tmdbConfirm && (
+              <div className="mt-4 p-4 rounded-xl bg-background border border-border animate-in slide-in-from-top-2">
+                <div className="text-xs font-semibold text-muted-foreground tracking-wider uppercase mb-3">Iniciar Enriquecimento Automático</div>
+                <div className="flex flex-col gap-3">
+                  <div className="text-xs text-muted-foreground leading-relaxed">
+                    O sistema irá buscar automaticamente todos os filmes e séries que estão sem capa e sinopse e fará o enriquecimento em lotes até finalizar tudo.
+                  </div>
+                  <div className="flex items-center justify-between gap-3 border-t border-border/60 pt-3.5">
+                    {tmdbInfo && (
+                      <div className="text-xs font-medium text-foreground">
+                        {(tmdbInfo.filmes.sem_tmdb + tmdbInfo.series.sem_tmdb).toLocaleString()} títulos no total aguardando enriquecimento.
+                      </div>
+                    )}
+                    <button onClick={syncTmdb} disabled={tmdbStatus==="running"} className="h-8 px-4 rounded-md bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow disabled:opacity-50 disabled:cursor-wait">
+                      Confirmar e Iniciar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 </div>
           
           <LimparCatalogo />
