@@ -298,22 +298,24 @@ function GradeListaPerformance({canais, progsPorCanal}:{canais:Canal[];progsPorC
                 </div>
 
                 {/* Coluna 2 - Programa Atual */}
-                <div className="w-full border-t md:border-t-0 md:border-l border-border/60 pt-3 md:pt-0 md:pl-6">
+                {/* Adicionado min-w-0 no container pai */}
+                <div className="w-full min-w-0 border-t md:border-t-0 md:border-l border-border/60 pt-3 md:pt-0 md:pl-6">
                   {progAtual ? (
                     <div className="min-w-0 md:pr-10">
                       {/* Mobile: badge + linha única (título à esquerda, horário fixo à direita) */}
                       <div className="flex md:hidden items-center gap-2 mb-1">
-                                                <span className="shrink-0 text-[10px] font-bold text-sky-500 bg-sky-500/10 border border-sky-500/20 px-2 py-0.5 rounded uppercase tracking-wider">AO VIVO</span>
-
-                        <span className="text-sm font-semibold text-foreground truncate flex-1 min-w-0">{progAtual.title}</span>
+                        <span className="shrink-0 text-[10px] font-bold text-sky-500 bg-sky-500/10 border border-sky-500/20 px-2 py-0.5 rounded uppercase tracking-wider">AO VIVO</span>
+                        {/* Trocado truncate por line-clamp-2 */}
+                        <span className="text-sm font-semibold text-foreground line-clamp-2 flex-1 min-w-0">{progAtual.title}</span>
                         <span className="text-xs text-muted-foreground font-medium shrink-0 ml-auto">{formatHora(progAtual.start)} – {formatHora(progAtual.stop)}</span>
                       </div>
                       {/* Desktop: layout original em coluna */}
                       <div className="hidden md:block">
                         <div className="text-[10px] font-bold text-sky-500 bg-sky-500/10 px-2 py-0.5 rounded uppercase w-max mb-2 tracking-wider">AO VIVO</div>
                         <div className="flex flex-col gap-1">
-                          <div className="text-sm font-semibold text-foreground truncate group-hover:text-sky-500">{progAtual.title}</div>
-<div className="text-xs text-muted-foreground font-medium">
+                          {/* Trocado truncate por line-clamp-2 */}
+                          <div className="text-sm font-semibold text-foreground line-clamp-2 group-hover:text-sky-500" title={progAtual.title}>{progAtual.title}</div>
+                          <div className="text-xs text-muted-foreground font-medium">
                             {formatHora(progAtual.start)} – {formatHora(progAtual.stop)}
                           </div>
                         </div>
@@ -333,14 +335,16 @@ function GradeListaPerformance({canais, progsPorCanal}:{canais:Canal[];progsPorC
                     {/* Mobile: horário + título na mesma linha, sem label */}
                     <div className="flex md:hidden items-baseline gap-2">
                       <span className="text-xs text-muted-foreground font-mono shrink-0">{formatHora(p.start)}</span>
-                      <span className="text-sm font-medium text-foreground/90 truncate">{p.title}</span>
+                      {/* Trocado truncate por line-clamp-2 */}
+                      <span className="text-sm font-medium text-foreground/90 line-clamp-2">{p.title}</span>
                     </div>
                     {/* Desktop: layout original com label */}
                     <div className="hidden md:block">
                       <div className="text-[11px] font-medium text-muted-foreground tracking-wider uppercase mb-1">
                         {idx === 0 ? "Em seguida" : "Depois"}
                       </div>
-                      <div className="text-sm font-medium text-foreground/90 truncate group-hover:text-foreground">{p.title}</div>
+                      {/* Trocado truncate por line-clamp-2 */}
+                      <div className="text-sm font-medium text-foreground/90 line-clamp-2 group-hover:text-foreground" title={p.title}>{p.title}</div>
                       <div className="text-xs text-muted-foreground font-mono">{formatHora(p.start)}</div>
                     </div>
                   </div>
@@ -1339,12 +1343,35 @@ function AbaCanais({epg,progsPorCanal}:{epg:EpgData;progsPorCanal:Map<string,Pro
     
 
 const canaisFiltrados = useMemo(() => {
-    let lista = epg.canais;
-    if (catAtiva !== "Todos") lista = lista.filter(c => c.categoria === catAtiva);
+    let lista = [...epg.canais]; // Clonar para poder ordenar com segurança
+    
+    // 1. Aplicar Filtros
+    if (catAtiva !== "Todos") {
+      lista = lista.filter(c => c.categoria === catAtiva);
+    }
     if (subAtiva !== "Todos") {
       const sg = (SUBGRUPOS[catAtiva] || []).find(s => s.label === subAtiva);
-if (sg) lista = lista.filter(c => sg.match.some(m => c.display_name.toLowerCase().includes(m.toLowerCase())));
+      if (sg) lista = lista.filter(c => sg.match.some(m => c.display_name.toLowerCase().includes(m.toLowerCase())));
     }
+
+    // 2. Ordenação Multinível (Prioridade da Categoria > Alfabética Natural)
+    lista.sort((a, b) => {
+      const catA = CATS_ORDEM.indexOf(a.categoria);
+      const catB = CATS_ORDEM.indexOf(b.categoria);
+      
+      // Se não achar na constante, joga para o fim (999)
+      const safeCatA = catA !== -1 ? catA : 999;
+      const safeCatB = catB !== -1 ? catB : 999;
+      
+      if (safeCatA !== safeCatB) {
+        return safeCatA - safeCatB; // Ordem estrita de grupos (ex: Abertos, Jornalismo, etc)
+      }
+      
+      // Se empatar na categoria (ou estiver numa mesma subcategoria), desempata por nome naturalmente.
+      // {numeric: true} garante que "Canal 2" venha antes de "Canal 10".
+      return a.nome.localeCompare(b.nome, 'pt-BR', { numeric: true, sensitivity: 'base' });
+    });
+
     return lista; 
   }, [epg, catAtiva, subAtiva]);
 

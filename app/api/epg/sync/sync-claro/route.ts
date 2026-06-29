@@ -192,7 +192,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 5. Deleta programas encerrados há mais de 1h ──────────────────────
-    const corte = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const corte = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
     const { error: deleteErr } = await supabaseAdmin
       .from("epg_programas")
       .delete()
