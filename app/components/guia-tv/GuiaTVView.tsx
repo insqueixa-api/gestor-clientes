@@ -243,18 +243,18 @@ function GradeListaPerformance({canais, progsPorCanal}:{canais:Canal[];progsPorC
             const corBase = CAT_COR[canal.categoria] || "#6b7280";
 
             // ✅ MUDANÇA 3: Ocultar canais sem programação
-            if (progs.length === 0) return null;
+            // if (progs.length === 0) return null; // <-- Comentamos esta linha para exibir todos
 
             return (
               <div 
-                key={canal.id} 
+                key={canal.id}
                 onClick={() => setCanalDetalheSel(canal)}
-                // ✅ GRID CORRIGIDO: 3 colunas (1fr) de exato mesmo tamanho + seta
-                className="group flex flex-col md:grid md:grid-cols-[1fr_1fr_1fr_auto] items-center gap-4 md:gap-6 p-4 rounded-2xl border border-border bg-card hover:border-sky-500/30 hover:bg-muted/50 transition-all cursor-pointer shadow-sm"
+                // ✅ GRID CORRIGIDO: 4 colunas (1fr) de exato mesmo tamanho + seta
+                className="group flex flex-col md:grid md:grid-cols-[1fr_1fr_1fr_1fr_auto] items-center gap-4 md:gap-6 p-4 rounded-2xl border border-border bg-card hover:border-sky-500/30 hover:bg-muted/50 transition-all cursor-pointer shadow-sm"
               >
                 {/* Coluna 1: Canal */}
                 <div className="flex items-center gap-4 w-full shrink-0">
-                  <Logo src={canal.icon} nome={canal.nome} categoria={canal.categoria} size={44}/>
+                  <Logo src={canal.icon} nome={canal.nome} categoria={canal.categoria} size={72}/>
                   <div className="min-w-0">
                     <div className="font-semibold text-foreground text-base tracking-tight truncate">{canal.nome}</div>
                     <div className={`text-xs font-medium ${catTwColor} flex items-center gap-1.5`}>
@@ -294,33 +294,33 @@ function GradeListaPerformance({canais, progsPorCanal}:{canais:Canal[];progsPorC
                   )}
                 </div>
 
-                {/* Coluna 3 - Próximo programa */}
-                <div className="w-full grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 gap-2 md:gap-4 border-t md:border-t-0 md:border-l border-border/60 pt-3 md:pt-0 md:pl-6">
-                  {proximosProgs.map((p, idx) => (
-                    <div key={idx} className="min-w-0">
-                      {/* Mobile: horário + título na mesma linha, sem label */}
-                      <div className="flex md:hidden items-baseline gap-2">
-                        <span className="text-xs text-muted-foreground font-mono shrink-0">{formatHora(p.start)}</span>
-                        <span className="text-sm font-medium text-foreground/90 truncate">{p.title}</span>
-                      </div>
-                      {/* Desktop: layout original com label */}
-                      <div className="hidden md:block">
-                        <div className="text-[11px] font-medium text-muted-foreground tracking-wider uppercase mb-1">
-                          {idx === 0 ? "Em seguida" : "Depois"}
-                        </div>
-                        <div className="text-sm font-medium text-foreground/90 truncate group-hover:text-foreground">{p.title}</div>
-                        <div className="text-xs text-muted-foreground font-mono">{formatHora(p.start)}</div>
-                      </div>
+                {/* Colunas 3 e 4 - Próximos programas (Separados para renderizar no grid pai) */}
+                {proximosProgs.map((p, idx) => (
+                  <div key={idx} className="w-full min-w-0 border-t md:border-t-0 md:border-l border-border/60 pt-3 md:pt-0 md:pl-6">
+                    {/* Mobile: horário + título na mesma linha, sem label */}
+                    <div className="flex md:hidden items-baseline gap-2">
+                      <span className="text-xs text-muted-foreground font-mono shrink-0">{formatHora(p.start)}</span>
+                      <span className="text-sm font-medium text-foreground/90 truncate">{p.title}</span>
                     </div>
-                  ))}
+                    {/* Desktop: layout original com label */}
+                    <div className="hidden md:block">
+                      <div className="text-[11px] font-medium text-muted-foreground tracking-wider uppercase mb-1">
+                        {idx === 0 ? "Em seguida" : "Depois"}
+                      </div>
+                      <div className="text-sm font-medium text-foreground/90 truncate group-hover:text-foreground">{p.title}</div>
+                      <div className="text-xs text-muted-foreground font-mono">{formatHora(p.start)}</div>
+                    </div>
+                  </div>
+                ))}
 
-                  {Array.from({length: 2 - proximosProgs.length}).map((_, idx) => (
-                    <div key={`empty-${idx}`} className="min-w-0 opacity-40">
-                      <div className="hidden md:block text-[11px] font-medium text-muted-foreground tracking-wider uppercase mb-1">Em seguida</div>
-                      <div className="text-xs text-muted-foreground">Sem informação</div>
+                {Array.from({length: 2 - proximosProgs.length}).map((_, idx) => (
+                  <div key={`empty-${idx}`} className="w-full min-w-0 opacity-40 border-t md:border-t-0 md:border-l border-border/60 pt-3 md:pt-0 md:pl-6">
+                    <div className="hidden md:block text-[11px] font-medium text-muted-foreground tracking-wider uppercase mb-1">
+                      {proximosProgs.length === 0 && idx === 0 ? "Em seguida" : "Depois"}
                     </div>
-                  ))}
-                </div>
+                    <div className="text-xs text-muted-foreground">Sem informação</div>
+                  </div>
+                ))}
                 
                 {/* Ícone seta (Coluna 'auto' no grid) */}
                 <div className="flex md:items-center justify-end md:justify-center shrink-0 hidden md:flex">
@@ -356,7 +356,7 @@ function ModalDetalheCanal({canal, progsPorCanal, agoraMs, onProgSelect, onClose
             >
                 {/* Cabeçalho do Modal */}
                 <div className="px-6 py-5 border-b border-border flex items-center gap-4 shrink-0 bg-card">
-                    <Logo src={canal.icon} nome={canal.nome} categoria={canal.categoria} size={48}/>
+                    <Logo src={canal.icon} nome={canal.nome} categoria={canal.categoria} size={72}/>
                     <div className="flex-1 min-w-0">
                         <div className="text-xs font-semibold text-sky-500 uppercase tracking-wider mb-1 flex items-center gap-1.5">
                             <CatIcon slug={canal.categoria.toLowerCase()} size={12} color="text-sky-500"/>
