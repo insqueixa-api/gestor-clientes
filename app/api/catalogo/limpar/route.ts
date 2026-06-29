@@ -20,11 +20,11 @@ const supabaseAdmin = createAdmin(
 const SERVIDORES = ["ELITE", "NATV", "FAST"] as const;
 type Servidor = typeof SERVIDORES[number];
 
-function calcularD1(ultimoSync: string): Date {
-  const d1 = new Date(ultimoSync);
-  d1.setDate(d1.getDate() - 1);
-  d1.setHours(0, 0, 0, 0);
-  return d1;
+function calcularCorte(ultimoSync: string): Date {
+  // Corte = 1 hora antes do último sync (títulos que não apareceram nesse sync)
+  const corte = new Date(ultimoSync);
+  corte.setHours(corte.getHours() - 1);
+  return corte;
 }
 
 export async function GET() {
@@ -41,13 +41,13 @@ export async function GET() {
 
     if (!maxRow?.sincronizado_em) { preview[srv] = 0; continue; }
 
-    const d1 = calcularD1(maxRow.sincronizado_em);
+const corte = calcularCorte(maxRow.sincronizado_em);
 
     const { count } = await supabaseAdmin
       .from("catalog_availability")
       .select("*", { count: "exact", head: true })
       .eq("servidor", srv)
-      .lt("sincronizado_em", d1.toISOString());
+      .lt("sincronizado_em", corte.toISOString());
 
     preview[srv] = count || 0;
   }
@@ -79,41 +79,33 @@ export async function POST(req: NextRequest) {
     if (!maxRow?.sincronizado_em) { resultado[srv] = 0; continue; }
 
     // 2. Calcula D-1 (meia-noite do dia anterior ao último sync)
-    const d1 = calcularD1(maxRow.sincronizado_em);
+    const corte = calcularCorte(maxRow.sincronizado_em);
 
-    // 3. Deleta availability anteriores a D-1
+    // 3. Conta antes de deletar
+    const { count: countAntes } = await supabaseAdmin
+      .from("catalog_availability")
+      .select("*", { count: "exact", head: true })
+      .eq("servidor", srv)
+      .lt("sincronizado_em", corte.toISOString());
+
+    // 4. Deleta
     const { error } = await supabaseAdmin
       .from("catalog_availability")
       .delete()
       .eq("servidor", srv)
-      .lt("sincronizado_em", d1.toISOString());
+      .lt("sincronizado_em", corte.toISOString());
 
     if (error) {
       console.error(`[LIMPAR] Erro ao deletar ${srv}:`, error.message);
       resultado[srv] = 0;
     } else {
-      resultado[srv] = 1; // deletou (count não disponível sem head:false)
+      resultado[srv] = countAntes || 0;
     }
   }
 
-  // 4. Remove órfãos do catalog_master em lotes
-  let orfaosRemovidos = 0;
-  const { data: todos } = await supabaseAdmin
-    .from("catalog_master")
-    .select("id")
-    .limit(2000);
-
-  for (const row of todos || []) {
-    const { count } = await supabaseAdmin
-      .from("catalog_availability")
-      .select("*", { count: "exact", head: true })
-      .eq("master_id", row.id);
-
-    if (count === 0) {
-      await supabaseAdmin.from("catalog_master").delete().eq("id", row.id);
-      orfaosRemovidos++;
-    }
-  }
+  // 4. Remove órfãos via RPC — uma query só
+  const { data: orfaosData } = await supabaseAdmin.rpc("remover_master_orfaos");
+  const orfaosRemovidos = orfaosData || 0;
 
   return NextResponse.json({ ok: true, resultado, orfaos_removidos: orfaosRemovidos });
 }
