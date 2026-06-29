@@ -132,9 +132,8 @@ function Logo({src,nome,categoria,size=32}:{src?:string;nome:string;categoria?:s
       src={src} 
       alt={nome} 
       onError={()=>setErr(true)} 
-      className="shrink-0 object-contain rounded-lg border border-border bg-dark-surface p-1 shadow-sm"
-
-
+      // Removido o bg-dark-surface, p-1, bordas e sombras. Fundo 100% transparente.
+      className="shrink-0 object-contain rounded-lg bg-transparent"
       style={{width:size,height:size}}
     />
   );
@@ -392,10 +391,12 @@ function ModalDetalheCanal({canal, progsPorCanal, agoraMs, onProgSelect, onClose
                             >
                                 {/* ✅ Placeholder idêntico ao print (quadrado branco com borda e ícone) */}
                                 {p.prog_icon ? (
-                                    <img src={`/api/epg/sync/imagem?id=${p.prog_icon.split("/").pop()?.replace(".jpg","")}`} alt={p.title} loading="lazy" className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg object-cover shrink-0 border border-border bg-white" />
+                                    // Aumentado os tamanhos para w-20/h-20 no mobile e w-24/h-24 em telas maiores
+                                    <img src={`/api/epg/sync/imagem?id=${p.prog_icon.split("/").pop()?.replace(".jpg","")}`} alt={p.title} loading="lazy" className="w-20 h-20 sm:w-24 sm:h-24 rounded-lg object-cover shrink-0 border border-border bg-white" />
                                 ) : (
-                                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-card flex items-center justify-center shrink-0 border border-border shadow-sm">
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground/50"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-card flex items-center justify-center shrink-0 border border-border shadow-sm">
+                                        {/* Ícone SVG aumentado para 32px para ficar proporcional à nova caixa */}
+                                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground/50"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
                                     </div>
                                 )}
                                 
