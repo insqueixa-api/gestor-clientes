@@ -200,8 +200,46 @@ export async function POST(req: NextRequest) {
 
     if (deleteErr) console.error(`[EPG-CLARO] Erro ao deletar passados:`, deleteErr.message);
 
-    // ── 6. Monta JSON para R2 ─────────────────────────────────────────────
-    // Busca programas atualizados do banco para montar o payload
+// ── 6. Atualiza logos dos canais via API Claro ────────────────────────
+    try {
+      const resCanais = await fetch(
+        `https://programacao.claro.com.br/gatekeeper/canal/select?q=id_cidade:22&wt=json&rows=1000&sort=cn_canal+asc&fl=id_canal,url_imagem&fq=nome:*`,
+        { signal: AbortSignal.timeout(10_000), headers: { "User-Agent": "Mozilla/5.0" } }
+      );
+      if (resCanais.ok) {
+        const jsonCanais = await resCanais.json();
+        const logosMap = new Map<number, string>();
+        for (const c of jsonCanais?.response?.docs || []) {
+          if (c.id_canal && c.url_imagem) logosMap.set(parseInt(c.id_canal), c.url_imagem);
+        }
+        // Atualiza em lotes de 50
+const canaisComLogo = canaisPrincipais.filter(c => logosMap.has(c.id_canal));
+        if (canaisComLogo.length > 0) {
+          const updates = canaisComLogo.map(c => ({
+            id_canal:      c.id_canal,
+            nome:          c.nome,
+            categoria:     c.categoria,
+            url_logo:      logosMap.get(c.id_canal)!,
+            atualizado_em: new Date().toISOString(),
+          }));
+          await supabaseAdmin
+            .from("epg_canais")
+            .upsert(updates, { onConflict: "id_canal", ignoreDuplicates: false });
+        }
+        console.log(`[EPG-CLARO] Logos atualizadas: ${canaisComLogo.length} canais`);
+      }
+    } catch (e: any) {
+      console.warn(`[EPG-CLARO] Falha ao atualizar logos:`, e.message);
+    }
+
+// ── 7. Monta JSON para R2 ─────────────────────────────────────────────
+    // Rebusca canais com logos atualizadas
+    const { data: canaisComLogosAtualizadas } = await supabaseAdmin
+      .from("epg_canais")
+      .select("id_canal, nome, categoria, url_logo, cn_canal")
+      .eq("ativo", true)
+      .neq("categoria", "HD");
+
     const { data: programasDb } = await supabaseAdmin
       .from("epg_programas")
       .select("*")
@@ -214,7 +252,7 @@ export async function POST(req: NextRequest) {
       cidade:          "Rio de Janeiro",
       total_canais:    canaisPrincipais.length,
       total_programas: programasDb?.length || 0,
-      canais: canaisPrincipais.map(c => ({
+canais: (canaisComLogosAtualizadas || canaisPrincipais).map(c => ({
   id:           String(c.id_canal),
   display_name: c.nome,
   nome:         c.nome,
