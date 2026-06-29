@@ -1,4 +1,4 @@
-// app/api/epg/sync-claro/route.ts
+// app/api/epg/sync/sync-claro/route.ts
 //
 // GET  → status: total de canais e programas no banco
 // POST → sync completo:
@@ -215,14 +215,18 @@ export async function POST(req: NextRequest) {
       total_canais:    canaisPrincipais.length,
       total_programas: programasDb?.length || 0,
       canais: canaisPrincipais.map(c => ({
-        id:        c.id_canal,
-        nome:      c.nome,
-        categoria: c.categoria,
-        icon:      c.url_logo || "",
-        cn_canal:  c.cn_canal,
-      })),
-      programas: (programasDb || []).map(p => ({
-        channel_id:   p.id_canal,
+  id:           String(c.id_canal),
+  display_name: c.nome,
+  nome:         c.nome,
+  categoria:    c.categoria,
+  icon:         c.url_logo || "",
+  servidor:     "CLARO",
+  cn_canal:     c.cn_canal,
+})),
+programas: (programasDb || []).map(p => ({
+  channel_id:   String(p.id_canal),
+  channel_nome: "", // preenchido pelo front via canal
+  categoria:    "",
         start:        p.inicio,
         stop:         p.fim,
         title:        p.titulo,

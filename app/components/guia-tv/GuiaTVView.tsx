@@ -1699,7 +1699,7 @@ const [syncing,setSyncing]=useState(false);
   async function handleSync(){
     setSyncing(true);
     try{
-        const d=await fetch("/api/epg/sync",{method:"POST"}).then(r=>r.json());
+        const d=await fetch("/api/epg/sync/sync-claro",{method:"POST"}).then(r=>r.json());
         if(d.ok){
             addToast("success", "Sincronização Concluída", `A grade EPG foi atualizada com sucesso em ${d.duracao_s}s. Recarregando grade...`);
             setTimeout(()=>window.location.reload(),2000);
@@ -1756,7 +1756,7 @@ const [syncing,setSyncing]=useState(false);
                   <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
                     <Tv size={15} className={syncing ? "animate-spin text-emerald-500" : "text-emerald-500"} />
                   </div>
-                  {syncing ? "Sincronizando EPG..." : "Sincronizar Grade EPG"}
+                  {syncing ? "Sincronizando EPG..." : "Sincronizar Grade Claro"}
                 </button>
                 <div className="w-full h-px bg-border my-1"></div>
                 <button onClick={() => { setShowUsageStats(true); setSyncOpen(false); }}
