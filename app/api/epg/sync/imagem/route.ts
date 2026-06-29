@@ -5,11 +5,10 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const id = req.nextUrl.searchParams.get("id");
-  if (!id || !/^\d+$/.test(id)) {
+  if (!id || !/^[\d]+$/.test(id) || id.length > 20) {
     return new NextResponse("Invalid", { status: 400 });
   }
-  const padded = id.padStart(14, "0");
-  const url = `https://getcdn.nowonline.com.br/images_epg/360_540/${padded}.jpg`;
+  const url = `https://getcdn.nowonline.com.br/images_epg/360_540/${id}.jpg`;
 
   try {
     const resp = await fetch(url, {

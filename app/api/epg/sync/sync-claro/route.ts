@@ -245,7 +245,7 @@ const { data: programasDb } = await supabaseAdmin
       .select("*")
       .order("id_canal", { ascending: true })
       .order("inicio",   { ascending: true })
-      .limit(50000);
+      .limit(100000);
 
     const payload = {
       gerado_em:       new Date().toISOString(),
