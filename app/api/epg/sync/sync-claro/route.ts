@@ -240,12 +240,22 @@ const canaisComLogo = canaisPrincipais.filter(c => logosMap.has(c.id_canal));
       .eq("ativo", true)
       .neq("categoria", "HD");
 
-const { data: programasDb } = await supabaseAdmin
-      .from("epg_programas")
-      .select("*")
-      .order("id_canal", { ascending: true })
-      .order("inicio",   { ascending: true })
-      .limit(100000);
+// Busca paginada para superar o limite de 1000 do PostgREST
+    let programasDb: any[] = [];
+    let offset = 0;
+    const PAGE = 1000;
+    while (true) {
+      const { data: lote, error } = await supabaseAdmin
+        .from("epg_programas")
+        .select("id_canal, inicio, fim, titulo, genero, imagem_url, elenco, diretor")
+        .order("id_canal", { ascending: true })
+        .order("inicio",   { ascending: true })
+        .range(offset, offset + PAGE - 1);
+      if (error || !lote?.length) break;
+      programasDb.push(...lote);
+      if (lote.length < PAGE) break;
+      offset += PAGE;
+    }
 
     const payload = {
       gerado_em:       new Date().toISOString(),
@@ -280,7 +290,7 @@ programas: (programasDb || []).map(p => ({
       Key:         EPG_KEY,
       Body:        JSON.stringify(payload),
       ContentType: "application/json",
-      CacheControl: "public, max-age=3600",
+      CacheControl: "no-cache, no-store, must-revalidate",
     }));
 
     const duracao = Math.round((Date.now() - inicio) / 1000);
