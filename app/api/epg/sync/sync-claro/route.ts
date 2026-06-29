@@ -240,11 +240,12 @@ const canaisComLogo = canaisPrincipais.filter(c => logosMap.has(c.id_canal));
       .eq("ativo", true)
       .neq("categoria", "HD");
 
-    const { data: programasDb } = await supabaseAdmin
+const { data: programasDb } = await supabaseAdmin
       .from("epg_programas")
       .select("*")
       .order("id_canal", { ascending: true })
-      .order("inicio",   { ascending: true });
+      .order("inicio",   { ascending: true })
+      .limit(50000);
 
     const payload = {
       gerado_em:       new Date().toISOString(),

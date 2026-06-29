@@ -81,26 +81,20 @@ type SrvStatus = "idle" | "running" | "ok" | "error";
 type CatalogInfo = { ultimo_sync: string | null; filmes: number; series_unicas: number; episodios: number; };
 
 // ─── Constantes EPG (Originais e Preservadas) ──────────────────────────────────
-const CATS_ORDEM = ["Aberta","Notícias","Esportes","Filmes","Variedades","Documentários","Infantil","Música","Regional","Religioso","Outros"];
-const CAT_COR: Record<string,string> = { "Aberta":"#3b82f6","Notícias":"#ef4444","Esportes":"#10b981","Filmes":"#f59e0b","Variedades":"#8b5cf6","Documentários":"#06b6d4","Infantil":"#ec4899","Música":"#6366f1","Regional":"#84cc16","Religioso":"#f97316","Outros":"#6b7280" };
-// Cores padrão Tailwind para uso no tema claro/escuro
-const CAT_COR_TW: Record<string,string> = { "Aberta":"text-sky-500","Notícias":"text-rose-500","Esportes":"text-emerald-500","Filmes":"text-amber-500","Variedades":"text-violet-500","Documentários":"text-cyan-500","Infantil":"text-pink-500","Música":"text-indigo-500","Regional":"text-lime-500","Religioso":"text-orange-500","Outros":"text-slate-500" };
+const CATS_ORDEM = ["Abertos","Jornalismo","Esportes","Filmes","Séries","Documentários","Variedades","Musicais","Infantil","Religioso","Agro","Outros"];
+const CAT_COR: Record<string,string> = { "Abertos":"#3b82f6","Jornalismo":"#ef4444","Esportes":"#10b981","Filmes":"#f59e0b","Séries":"#8b5cf6","Documentários":"#06b6d4","Variedades":"#a855f7","Musicais":"#6366f1","Infantil":"#ec4899","Religioso":"#f97316","Agro":"#84cc16","Outros":"#6b7280" };
+const CAT_COR_TW: Record<string,string> = { "Abertos":"text-sky-500","Jornalismo":"text-rose-500","Esportes":"text-emerald-500","Filmes":"text-amber-500","Séries":"text-violet-500","Documentários":"text-cyan-500","Variedades":"text-purple-500","Musicais":"text-indigo-500","Infantil":"text-pink-500","Religioso":"text-orange-500","Agro":"text-lime-500","Outros":"text-slate-500" };
 
 // Preservando o SUBGRUPOS para manter a lógica de filtragem original
 const SUBGRUPOS: Record<string,{label:string;match:string[]}[]> = {
-  "Esportes":[{label:"SporTV",match:["SPORTV","SPORT TV"]},{label:"Premiere",match:["PREMIERE"]},{label:"ESPN",match:["ESPN"]},{label:"Combate",match:["COMBATE"]},{label:"BandSports",match:["BANDSPORT"]},{label:"DAZN",match:["DAZN"]}],
-  "Filmes":[{label:"Telecine",match:["TELECINE"]},{label:"HBO",match:["HBO"]},{label:"TNT",match:["TNT"]},{label:"Universal",match:["UNIVERSAL"]},{label:"Warner",match:["WARNER"]},{label:"Paramount",match:["PARAMOUNT"]},{label:"Megapix",match:["MEGAPIX"]}],
-  "Infantil":[{label:"Cartoon",match:["CARTOON"]},{label:"Disney",match:["DISNEY"]},{label:"Nick",match:["NICK","NICKELODEON"]},{label:"Gloob",match:["GLOOB"]}],
+  "Esportes":[{label:"SporTV",match:["SporTV"]},{label:"Premiere",match:["Premiere"]},{label:"ESPN",match:["ESPN"]},{label:"Combate",match:["Combate"]},{label:"Band Sports",match:["Band Sports"]},{label:"Portal do Futebol",match:["Portal do Futebol"]}],
+  "Filmes":[{label:"Telecine",match:["Telecine"]},{label:"HBO",match:["HBO"]},{label:"TNT",match:["TNT"]},{label:"Studio Universal",match:["Studio Universal"]},{label:"Warner",match:["Warner"]},{label:"Paramount",match:["Paramount"]},{label:"Megapix",match:["Megapix"]},{label:"Canal Brasil",match:["Canal Brasil"]}],
+  "Infantil":[{label:"Cartoon Network",match:["Cartoon Network"]},{label:"Disney",match:["Disney"]},{label:"Nickelodeon",match:["Nickelodeon"]},{label:"Gloob",match:["Gloob"]},{label:"Discovery Kids",match:["Discovery Kids"]}],
+  "Documentários":[{label:"Discovery",match:["Discovery Channel"]},{label:"Nat Geo",match:["National Geographic"]},{label:"Animal Planet",match:["Animal Planet"]},{label:"History",match:["The History Channel"]},{label:"ID",match:["ID"]}],
+  "Jornalismo":[{label:"GloboNews",match:["GloboNews"]},{label:"CNN",match:["CNN"]},{label:"Band News",match:["Band News"]},{label:"Record News",match:["Record News"]},{label:"CNN Brasil",match:["CNN Brasil"]}],
 };
 
 const COR_SERVIDOR: Record<string, string> = { ELITE: "#6366f1", NATV: "#10b981", FAST: "#06b6d4" };
-
-// Lógica de filtragem lixo original e preservada
-function isCategoriaPrincipal(cat: string, total: number): boolean {
-  if (/^SERIES [A-Z0-9]$/i.test(cat) && total < 20) return false;
-  if (/^SERIES 0 a 9$/i.test(cat)) return false;
-  return true;
-}
 
 // ─── Helpers (Originais e Preservados) ──────────────────────────────────────────
 function nowBRT(): Date { return new Date(); }
@@ -398,7 +392,7 @@ function ModalDetalheCanal({canal, progsPorCanal, agoraMs, onProgSelect, onClose
                             >
                                 {/* ✅ Placeholder idêntico ao print (quadrado branco com borda e ícone) */}
                                 {p.prog_icon ? (
-                                    <img src={p.prog_icon} alt={p.title} loading="lazy" className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg object-cover shrink-0 border border-border bg-white" />
+                                    <img src={`/api/epg/sync/imagem?id=${p.prog_icon.split("/").pop()?.replace(".jpg","")}`} alt={p.title} loading="lazy" className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg object-cover shrink-0 border border-border bg-white" />
                                 ) : (
                                     <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-card flex items-center justify-center shrink-0 border border-border shadow-sm">
                                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground/50"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
@@ -1136,7 +1130,8 @@ function AbaCatalogo({tipo,servidorAdmin,modoCliente}:{tipo:TipoConteudo;servido
 
   // Lógica original preservada
   useEffect(()=>{ setLoadingNov(true);setNovidades([]); fetch(`/api/catalogo/novidades?servidor=${servidor}&tipo=${tipo}`) .then(r=>r.json()).then(d=>{if(d.ok&&d.data)setNovidades(d.data);}).finally(()=>setLoadingNov(false)); },[servidor,tipo]);
-  useEffect(()=>{ setLoadingCats(true);setCatSelecionada(null);setSubCatSelecionada(null);setSubCategorias([]);setTitulos([]); fetch(`/api/catalogo/categorias?servidor=${servidor}&tipo=${tipo}`) .then(r=>r.json()).then(d=>{ if(d.ok){ const filtradas=(d.data as Categoria[]) .filter(c=>isCategoriaPrincipal(c.categoria_origem,c.total)) .sort((a,b)=>a.label.localeCompare(b.label,"pt-BR")); setCategorias(filtradas); } }).finally(()=>setLoadingCats(false)); },[servidor,tipo]);
+  useEffect(()=>{ setLoadingCats(true);setCatSelecionada(null);setSubCatSelecionada(null);setSubCategorias([]);setTitulos([]); fetch(`/api/catalogo/categorias?servidor=${servidor}&tipo=${tipo}`) .then(r=>r.json()).then(d=>{ if(d.ok){ const filtradas=(d.data as Categoria[])
+            .sort((a,b)=>a.label.localeCompare(b.label,"pt-BR")); setCategorias(filtradas); } }).finally(()=>setLoadingCats(false)); },[servidor,tipo]);
   // useEffect para subcategorias - mantido vazio conforme original
   useEffect(()=>{ setSubCatSelecionada(null);setSubCategorias([]); if(!catSelecionada)return; },[catSelecionada]);
   useEffect(()=>{ const cat=subCatSelecionada||catSelecionada; if(!cat)return; setLoadingTits(true);setTitulos([]); fetch(`/api/catalogo/titulos?servidor=${servidor}&tipo=${tipo}&categoria=${encodeURIComponent(cat.categoria_origem)}&page=${page}`) .then(r=>r.json()).then(d=>{if(d.ok){setTitulos(d.data);setTotalTitulos(d.total);setPerPage(d.per_page||50);}}).finally(()=>setLoadingTits(false)); },[catSelecionada,subCatSelecionada,servidor,tipo,page]);
@@ -1306,86 +1301,17 @@ function AbaCanais({epg,progsPorCanal}:{epg:EpgData;progsPorCanal:Map<string,Pro
   useEffect(()=>{ function h(e:MouseEvent){if(catRef.current&&!catRef.current.contains(e.target as Node))setCatOpen(false);} document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h); },[]);
   useEffect(()=>{ function h(e:MouseEvent){if(subRef.current&&!subRef.current.contains(e.target as Node))setSubOpen(false);} document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h); },[]);
   const catsDisponiveis=useMemo(()=>{const s=new Set(epg.canais.map(c=>c.categoria));return CATS_ORDEM.filter(c=>s.has(c));},[epg]);
-  
-  
-  // ✅ Lista de bloqueio movida para fora do useMemo de categoria — usada também na busca
-  const CANAIS_BLOQUEADOS = useMemo(() => new Set([
-    "bandhdb", 
-    "globo anhanguera", 
-    "record tv goiás", 
-    "recordtvalt", 
-    "recordtvbelem", 
-    "sbttvaratubahia", 
-    "idinvestigacaodiscovery", 
-    "gbrbsportoalegre", 
-    "tntsries", 
-    "jovenpannews", 
-    "gb", 
-    "gbbrasilia", 
-    "gbminas", 
-    "gbnordeste",
-    "gbnscflorianopolis",
-    "gbrpccuritiba",
-    "gbtvanhanguera",
-    "gbtvbahia",
-    "gbtvcentroamerica",
-    "gbtvgazetaalagoas",
-    "gbtvliberalbelem",
-    "gbtvredeamazonicaboavista",
-    "gbtvredeamazonicamacapa",
-    "gbtvredeamazonicariobranco",
-    "gbtvsergipe",
-    "gbtvverdesmares",
-    "intertvcabuginatal",
-    "intertvgrandeminas",
-    "nscblumenau",
-    "nscjoinville",
-    "playboy",
-    "sextreme",
-    "sexyhot",
-    "tcaction",
-    "tccult",
-    "tcfun",
-    "tcpipoca",
-    "tcpremium",
-    "tctouch",
-    "tvclubeteresina",
-    "tvgazetasules",
-    "tvmirantesaoluis",
-    "tvmorenacampogrande",
-    "tvriosul",
-    "tvtemsjriopreto",
-    "venus",
-    "eptvsuldeminas",
-    "eptv ribeirão preto",
-    "eptv campinas",
-    "usa"
-  ]), []);
+    
 
-  function isCanalBloqueado(c: Canal): boolean {
-    const nomeNormalizado = (c.nome || "").toLowerCase().trim();
-    const displayNormalizado = (c.display_name || "").toLowerCase().trim();
-    const idNormalizado = (c.id || "").toLowerCase().trim();
-    return CANAIS_BLOQUEADOS.has(nomeNormalizado) ||
-           CANAIS_BLOQUEADOS.has(displayNormalizado) ||
-           CANAIS_BLOQUEADOS.has(idNormalizado);
-  }
-
-  // ✅ epg "limpo" sem os canais ocultados — usado tanto na grade quanto na busca
-  const epgVisivel = useMemo(() => ({
-    ...epg,
-    canais: epg.canais.filter(c => !isCanalBloqueado(c)),
-  }), [epg, CANAIS_BLOQUEADOS]);
-
-  const canaisFiltrados = useMemo(() => {
-    let lista = epgVisivel.canais;
+const canaisFiltrados = useMemo(() => {
+    let lista = epg.canais;
     if (catAtiva !== "Todos") lista = lista.filter(c => c.categoria === catAtiva);
     if (subAtiva !== "Todos") {
       const sg = (SUBGRUPOS[catAtiva] || []).find(s => s.label === subAtiva);
       if (sg) lista = lista.filter(c => sg.match.some(m => c.display_name.toUpperCase().includes(m)));
     }
-    return lista;
-  }, [epgVisivel, catAtiva, subAtiva]);
+    return lista; 
+  }, [epg, catAtiva, subAtiva]);
 
   const emBusca=buscaAtiva.trim().length>0;
   const subgruposDisponiveis=SUBGRUPOS[catAtiva]||[];
@@ -1454,7 +1380,7 @@ function AbaCanais({epg,progsPorCanal}:{epg:EpgData;progsPorCanal:Map<string,Pro
       </div>
       
       {emBusca ? (
-        <div className="flex-1 overflow-y-auto"><ResultadoBuscaEPG epg={epgVisivel} busca={buscaAtiva} progsPorCanal={progsPorCanal} onClear={()=>{setBusca("");setBuscaAtiva("");}}/></div>
+        <div className="flex-1 overflow-y-auto"><ResultadoBuscaEPG epg={epg} busca={buscaAtiva} progsPorCanal={progsPorCanal} onClear={()=>{setBusca("");setBuscaAtiva("");}}/></div>
       ) : canaisFiltrados.length===0 ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center p-12 text-muted-foreground italic text-sm py-28 bg-muted/20"><AlertTriangle size={28} className="text-muted-foreground/50"/>Nenhum canal encontrado para os filtros selecionados. Tente mudar a categoria ou limpar a busca.</div>
       ) : (
@@ -1646,42 +1572,7 @@ const [syncing,setSyncing]=useState(false);
     setLoadingEpg(true);setErroEpg(null);
     fetch(`${process.env.NEXT_PUBLIC_R2_DEV_URL}/epg/epg_br.json?t=${Date.now()}`,{cache:"no-store"})
       .then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json();})
-      .then(data => {
-        // 1. Dicionário de Renomeios
-        const RENOMES: Record<string, string> = {
-          "+ Globosat": "Globosat",
-          "Tvcultura": "TV Cultura",
-          "Discoverychannel": "Discovery Channel",
-          "film&arts": "Film & Arts",
-          "BandSports": "Band Sports",
-          "Tntnovelas": "TNT Novelas",
-          "GloboNews": "Globo News",
-          "Boavontade": "Boa Vontade",
-          "Canalsony": "Canal Sony",
-          "Modoviagem": "Modo Viagem",
-          "Redesuper": "Rede Super",
-          "Tvpaieterno": "TV Pai Eterno"
-        };
-
-        // 2. Dicionário de Recategorizações (Mapeado pelo nome já corrigido ou original)
-        const RECLASSIFICAR: Record<string, string> = {
-          "Rede Super": "Religioso",
-          "TV Pai Eterno": "Religioso"
-        };
-
-        // 3. Aplica as mutações nos canais antes de salvar no estado
-        if (data && Array.isArray(data.canais)) {
-          data.canais = data.canais.map((c: any) => {
-            let novoNome = RENOMES[c.nome] || c.nome;
-            let novoDisplay = RENOMES[c.display_name] || c.display_name;
-            let novaCat = RECLASSIFICAR[novoNome] || RECLASSIFICAR[c.nome] || c.categoria;
-
-            return { ...c, nome: novoNome, display_name: novoDisplay, categoria: novaCat };
-          });
-        }
-        
-        setEpg(data);
-      })
+      .then(data => { setEpg(data); })
       .catch(()=>setErroEpg("Grade de canais não encontrada localmente. Rode o botão 'Sync EPG Grade' para gerar.")).finally(()=>setLoadingEpg(false));
   },[]);
 
