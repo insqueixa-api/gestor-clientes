@@ -611,7 +611,7 @@ useEffect(() => { carregarInfo(); }, []);
         lotes++;
         
         // Atualização em tempo real na tela
-        setTmdbMessage({ text: `Processando... Lotes concluídos: ${lotes} | ${totalProc} consultados | ${totalEnc} encontrados`, type: "success" });
+        setTmdbMessage({ text: `Lote: ${lotes} | ${totalProc} consultados | ${totalEnc} encontrados`, type: "success" });
         
         if (!d.proximo_lote) break;
         
@@ -735,17 +735,14 @@ useEffect(() => { carregarInfo(); }, []);
               <div className="mt-4 p-4 rounded-xl bg-background border border-border animate-in slide-in-from-top-2">
                 <div className="text-xs font-semibold text-muted-foreground tracking-wider uppercase mb-3">Iniciar Enriquecimento Automático</div>
                 <div className="flex flex-col gap-3">
-                  <div className="text-xs text-muted-foreground leading-relaxed">
-                    O sistema irá buscar automaticamente todos os filmes e séries que estão sem capa e sinopse e fará o enriquecimento em lotes até finalizar tudo.
-                  </div>
                   <div className="flex items-center justify-between gap-3 border-t border-border/60 pt-3.5">
                     {tmdbInfo && (
                       <div className="text-xs font-medium text-foreground">
-                        {(tmdbInfo.filmes.sem_tmdb + tmdbInfo.series.sem_tmdb).toLocaleString()} títulos no total aguardando enriquecimento.
+                        {(tmdbInfo.filmes.sem_tmdb + tmdbInfo.series.sem_tmdb).toLocaleString()} títulos aguardando enriquecimento.
                       </div>
                     )}
                     <button onClick={syncTmdb} disabled={tmdbStatus==="running"} className="h-8 px-4 rounded-md bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow disabled:opacity-50 disabled:cursor-wait">
-                      Confirmar e Iniciar
+                      Iniciar
                     </button>
                   </div>
                 </div>
