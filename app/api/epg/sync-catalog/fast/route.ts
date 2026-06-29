@@ -47,9 +47,18 @@ const { data: statsView } = await supabaseAdmin
     .eq("servidor", SERVIDOR)
     .single();
 
+  // Busca a data exata do último sync gravado no banco
+  const { data: syncData } = await supabaseAdmin
+    .from("catalog_availability")
+    .select("sincronizado_em")
+    .eq("servidor", SERVIDOR)
+    .order("sincronizado_em", { ascending: false })
+    .limit(1)
+    .single();
+
   return NextResponse.json({
     m3u_url: cliente?.m3u_url || null,
-    executado_em: new Date().toISOString(),
+    executado_em: syncData?.sincronizado_em || null,
     resultado: {
       filmes:        statsView?.filmes        || 0,
       series_unicas: statsView?.series_unicas || 0,

@@ -68,13 +68,22 @@ export async function GET() {
 
     if (error || !data) throw new Error(error?.message || "Servidor não encontrado na view");
 
+    // Busca a data exata do último sync gravado no banco
+    const { data: syncData } = await supabaseAdmin
+      .from("catalog_availability")
+      .select("sincronizado_em")
+      .eq("servidor", SERVIDOR)
+      .order("sincronizado_em", { ascending: false })
+      .limit(1)
+      .single();
+
     return NextResponse.json({
       resultado: {
         filmes:        data.filmes        || 0,
         series_unicas: data.series_unicas || 0,
         episodios:     data.episodios     || 0,
       },
-      executado_em: new Date().toISOString(),
+      executado_em: syncData?.sincronizado_em || null,
     });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
