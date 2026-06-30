@@ -198,12 +198,12 @@ function toJogoDia(g: GameDetail): JogoDia {
 }
 
 /** Gera URL do logo do canal via CDN 365scores */
-export function tvNetworkLogoUrl(id: number, imageVersion: number): string {
+function tvNetworkLogoUrl(id: number, imageVersion: number): string {
   return `https://imagecache.365scores.com/image/upload/f_png,w_60,h_60,c_limit,q_auto:eco,dpr_2/v${imageVersion}/Networks/${id}`
 }
 
 /** Gera URL do escudo do time via CDN 365scores */
-export function competitorLogoUrl(id: number, imageVersion: number): string {
+function competitorLogoUrl(id: number, imageVersion: number): string {
   return `https://imagecache.365scores.com/image/upload/f_png,w_34,h_34,c_limit,q_auto:eco,dpr_2,d_Competitors:default1.png/v${imageVersion}/Competitors/${id}`
 }
 
