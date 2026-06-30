@@ -1,16 +1,32 @@
 // app/api/epg/sync/sync-jogos/route.ts
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdmin } from '@supabase/supabase-js'
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+
+
+const supabaseAdmin = createAdmin(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+)
+
+export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 // ─── Config ────────────────────────────────────────────────────────────────────
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const R2_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID!
-const R2_ACCESS_KEY = process.env.R2_ACCESS_KEY_ID!
-const R2_SECRET_KEY = process.env.R2_SECRET_ACCESS_KEY!
+
 const R2_BUCKET = process.env.R2_BUCKET_NAME!
-const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL! // ex: https://pub-xxx.r2.dev
+const R2_PUBLIC_URL = process.env.NEXT_PUBLIC_R2_DEV_URL || ''
+
+const s3 = new S3Client({
+  region: 'auto',
+  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  credentials: {
+    accessKeyId:     process.env.R2_ACCESS_KEY_ID     || '',
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || '',
+  },
+})
 
 const API_BASE = 'https://webws.365scores.com/web'
 const TZ = 'America%2FSao_Paulo'
@@ -209,46 +225,21 @@ function competitorLogoUrl(id: number, imageVersion: number): string {
 
 /** Sobe JSON para o R2 usando fetch com S3-compatible PUT */
 async function uploadToR2(key: string, body: string): Promise<void> {
-  // Usa o endpoint S3-compatible do Cloudflare R2
-  const endpoint = `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${R2_BUCKET}/${key}`
-
-  // Assina a requisição com AWS Signature V4
-  const { AwsV4Signer } = await import('aws4fetch')
-  const signer = new AwsV4Signer({
-    url: endpoint,
-    method: 'PUT',
-    region: 'auto',
-    service: 's3',
-    accessKeyId: R2_ACCESS_KEY,
-    secretAccessKey: R2_SECRET_KEY,
-    body,
-    headers: { 'content-type': 'application/json' },
-  })
-
-  const signed = await signer.sign()
-  const res = await fetch(signed.url, {
-    method: signed.method,
-    headers: signed.headers,
-    body,
-  })
-
-  if (!res.ok) {
-    const txt = await res.text()
-    throw new Error(`R2 PUT falhou: ${res.status} — ${txt}`)
-  }
+  await s3.send(new PutObjectCommand({
+    Bucket:       R2_BUCKET,
+    Key:          key,
+    Body:         body,
+    ContentType:  'application/json',
+    CacheControl: 'no-cache, no-store, must-revalidate',
+  }))
 }
 
 // ─── Handler Principal ──────────────────────────────────────────────────────────
 
 export async function GET(request: Request) {
-  // Segurança: só roda com cron-secret ou em dev
-  const authHeader = request.headers.get('authorization')
-  const cronSecret = process.env.CRON_SECRET
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
   const agora = new Date()
   const hoje = formatDateForAPI(agora)
 
@@ -286,7 +277,7 @@ export async function GET(request: Request) {
     const jogos = validos.map(toJogoDia)
 
     // ── 5. Upsert no Supabase ───────────────────────────────────────────────
-    const { error: upsertError } = await supabase
+    const { error: upsertError } = await supabaseAdmin
       .from('jogos_dia')
       .upsert(jogos, { onConflict: 'game_id' })
 
@@ -329,6 +320,7 @@ export async function GET(request: Request) {
       total: jogos.length,
       sports: r2Payload.sports,
       r2_url: `${R2_PUBLIC_URL}/epg/jogos_dia.json`,
+
     })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
