@@ -207,34 +207,44 @@ export async function POST(req: NextRequest) {
 
     if (deleteErr) console.error(`[EPG-CLARO] Erro ao deletar passados:`, deleteErr.message);
 
-// ── 6. Atualiza logos dos canais via API Claro ────────────────────────
+// ── 6. Atualiza logos dos canais via API Claro (RJ + SP) ──────────────
+    // Ignora logos genéricas da Claro (fallback "claro.svg") para não sobrescrever
+    // correções manuais aplicadas quando a API não retorna a logo real do canal.
+    function isLogoGenerica(url: string): boolean {
+      return /\/claro\.svg(\?|$)/i.test(url.trim());
+    }
+
     try {
-      const resCanais = await fetch(
-        `https://programacao.claro.com.br/gatekeeper/canal/select?q=id_cidade:22&wt=json&rows=1000&sort=cn_canal+asc&fl=id_canal,url_imagem&fq=nome:*`,
-        { signal: AbortSignal.timeout(10_000), headers: { "User-Agent": "Mozilla/5.0" } }
-      );
-      if (resCanais.ok) {
+      const logosMap = new Map<number, string>();
+      for (const cidade of CIDADES) {
+        const resCanais = await fetch(
+          `https://programacao.claro.com.br/gatekeeper/canal/select?q=id_cidade:${cidade}&wt=json&rows=1000&sort=cn_canal+asc&fl=id_canal,url_imagem&fq=nome:*`,
+          { signal: AbortSignal.timeout(10_000), headers: { "User-Agent": "Mozilla/5.0" } }
+        );
+        if (!resCanais.ok) continue;
         const jsonCanais = await resCanais.json();
-        const logosMap = new Map<number, string>();
         for (const c of jsonCanais?.response?.docs || []) {
-          if (c.id_canal && c.url_imagem) logosMap.set(parseInt(c.id_canal), c.url_imagem);
+          if (!c.id_canal || !c.url_imagem) continue;
+          if (isLogoGenerica(c.url_imagem)) continue; // pula logo genérica, mantém a atual
+          const id = parseInt(c.id_canal);
+          if (!logosMap.has(id)) logosMap.set(id, c.url_imagem);
         }
-        // Atualiza em lotes de 50
-const canaisComLogo = canaisPrincipais.filter(c => logosMap.has(c.id_canal));
-        if (canaisComLogo.length > 0) {
-          const updates = canaisComLogo.map(c => ({
-            id_canal:      c.id_canal,
-            nome:          c.nome,
-            categoria:     c.categoria,
-            url_logo:      logosMap.get(c.id_canal)!,
-            atualizado_em: new Date().toISOString(),
-          }));
-          await supabaseAdmin
-            .from("epg_canais")
-            .upsert(updates, { onConflict: "id_canal", ignoreDuplicates: false });
-        }
-        console.log(`[EPG-CLARO] Logos atualizadas: ${canaisComLogo.length} canais`);
       }
+
+      const canaisComLogo = canaisPrincipais.filter(c => logosMap.has(c.id_canal));
+      if (canaisComLogo.length > 0) {
+        const updates = canaisComLogo.map(c => ({
+          id_canal:      c.id_canal,
+          nome:          c.nome,
+          categoria:     c.categoria,
+          url_logo:      logosMap.get(c.id_canal)!,
+          atualizado_em: new Date().toISOString(),
+        }));
+        await supabaseAdmin
+          .from("epg_canais")
+          .upsert(updates, { onConflict: "id_canal", ignoreDuplicates: false });
+      }
+      console.log(`[EPG-CLARO] Logos atualizadas: ${canaisComLogo.length} canais (genéricas ignoradas)`);
     } catch (e: any) {
       console.warn(`[EPG-CLARO] Falha ao atualizar logos:`, e.message);
     }
