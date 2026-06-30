@@ -34,7 +34,7 @@ const R2_BUCKET = process.env.R2_BUCKET_NAME        || "unigestor-media";
 const R2_URL    = process.env.NEXT_PUBLIC_R2_DEV_URL || "";
 const EPG_KEY   = "epg/epg_br.json";
 
-const CIDADE    = "22"; // RJ
+const CIDADES = ["22", "1"]; // RJ e SP — Globo/SBT/Record/Band têm afiliadas regionais
 const IMG_BASE  = "https://getcdn.nowonline.com.br/images_epg/360_540";
 
 function montarImagemUrl(eventimagename: string): string | null {
@@ -111,29 +111,37 @@ export async function POST(req: NextRequest) {
       if (c.id_canal_hd) todosCanaisIds.add(c.id_canal_hd);
     }
 
-    // ── 2. Busca programação da Claro ─────────────────────────────────────
+    // ── 2. Busca programação da Claro (múltiplas cidades: RJ + SP) ────────
     const { inicio: dtInicio, fim: dtFim } = janelaDatas();
-    const url = `https://programacao.claro.com.br/gatekeeper/exibicao/select?q=id_cidade:${CIDADE}&wt=json&rows=100000&sort=id_canal+asc,dh_inicio+asc&fl=id_exibicao,id_canal,titulo,dh_inicio,dh_fim,genero,eventimagename,elenco,diretor&fq=dh_inicio:[${dtInicio}+TO+${dtFim}]`;
-
     console.log(`[EPG-CLARO] Buscando programação: ${dtInicio} → ${dtFim}`);
 
     let programacaoClaro: any[] = [];
-    try {
-      const resp = await fetch(url, {
-        signal:  AbortSignal.timeout(30_000),
-        headers: { "User-Agent": "Mozilla/5.0", "Accept": "application/json" },
-      });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const json = await resp.json();
-      programacaoClaro = json?.response?.docs || [];
-    } catch (e: any) {
+    for (const cidade of CIDADES) {
+      const url = `https://programacao.claro.com.br/gatekeeper/exibicao/select?q=id_cidade:${cidade}&wt=json&rows=100000&sort=id_canal+asc,dh_inicio+asc&fl=id_exibicao,id_canal,titulo,dh_inicio,dh_fim,genero,eventimagename,elenco,diretor&fq=dh_inicio:[${dtInicio}+TO+${dtFim}]`;
+      try {
+        const resp = await fetch(url, {
+          signal:  AbortSignal.timeout(30_000),
+          headers: { "User-Agent": "Mozilla/5.0", "Accept": "application/json" },
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const json = await resp.json();
+        const docs = json?.response?.docs || [];
+        programacaoClaro.push(...docs);
+        console.log(`[EPG-CLARO] Cidade ${cidade}: ${docs.length} programas`);
+      } catch (e: any) {
+        console.error(`[EPG-CLARO] Falha cidade ${cidade}: ${e.message}`);
+        // Não aborta o sync inteiro se uma cidade falhar — segue com a outra
+      }
+    }
+
+    if (programacaoClaro.length === 0) {
       return NextResponse.json({
-        error: `Falha ao buscar Claro: ${e.message}`,
+        error: `Falha ao buscar Claro: nenhuma cidade retornou dados`,
         dica:  "A API da Claro pode estar bloqueando requisições do servidor Vercel.",
       }, { status: 502 });
     }
 
-    console.log(`[EPG-CLARO] ${programacaoClaro.length} programas recebidos da Claro`);
+    console.log(`[EPG-CLARO] ${programacaoClaro.length} programas recebidos da Claro (todas as cidades)`);
 
     // ── 3. Filtra e monta programas ───────────────────────────────────────
     // Agrupa por canal para fazer fallback HD → SD
