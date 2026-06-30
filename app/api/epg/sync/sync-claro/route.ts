@@ -170,8 +170,8 @@ export async function POST(req: NextRequest) {
           id_exibicao: p.id_exibicao,
           id_canal:    canal.id_canal, // sempre o canal principal
           titulo:      p.titulo || "",
-          inicio:      p.dh_inicio,
-          fim:         p.dh_fim,
+          inicio:      p.dh_inicio ? p.dh_inicio.replace("Z", "-03:00") : null,
+          fim:         p.dh_fim ? p.dh_fim.replace("Z", "-03:00") : null,
           genero:      p.genero || null,
           imagem_url:  montarImagemUrl(p.eventimagename),
           elenco:      p.elenco?.trim() || null,
@@ -198,7 +198,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── 5. Deleta programas encerrados há mais de 1h ──────────────────────
+    // ── 5. Deleta programas encerrados há mais de 3h ──────────────────────
     const corte = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
     const { error: deleteErr } = await supabaseAdmin
       .from("epg_programas")
