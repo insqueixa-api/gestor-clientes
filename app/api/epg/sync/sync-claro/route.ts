@@ -39,9 +39,8 @@ const IMG_BASE  = "https://getcdn.nowonline.com.br/images_epg/360_540";
 
 function montarImagemUrl(eventimagename: string): string | null {
   if (!eventimagename?.trim()) return null;
-  // Pad com zeros à esquerda até 14 dígitos
-  const padded = eventimagename.trim().padStart(14, "0");
-  return `${IMG_BASE}/${padded}.jpg`;
+  // Mantém o ID exatamente como veio da Claro, sem padding
+  return eventimagename.trim();
 }
 
 function janelaDatas(): { inicio: string; fim: string } {
