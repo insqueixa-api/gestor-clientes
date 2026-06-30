@@ -242,16 +242,26 @@ export async function GET(request: Request) {
   if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
   const agora = new Date()
   const hoje = formatDateForAPI(agora)
+  const amanha = new Date(agora)
+  amanha.setDate(amanha.getDate() + 1)
+  const dataAmanha = formatDateForAPI(amanha)
 
   console.log(`[sync-jogos] Iniciando sync para ${hoje}`)
 
   try {
-    // ── 1. Busca todos os jogos do dia ──────────────────────────────────────
-    const todosGames = await fetchAllScores(hoje)
-    console.log(`[sync-jogos] Total de jogos: ${todosGames.length}`)
+// ── 1. Busca jogos de hoje e amanhã em paralelo ─────────────────────────
+    const [gamesHoje, gamesAmanha] = await Promise.all([
+      fetchAllScores(hoje),
+      fetchAllScores(dataAmanha),
+    ])
+    const todosGames = [...gamesHoje, ...gamesAmanha]
+    // Deduplica por game_id (caso a API retorne o mesmo jogo nos dois ranges)
+    const gamesSemDup = [...new Map(todosGames.map(g => [g.id, g])).values()]
+    console.log(`[sync-jogos] Total de jogos (hoje+amanhã): ${gamesSemDup.length}`)
 
     // ── 2. Filtra só os que têm transmissão em TV ───────────────────────────
-    const comTV = todosGames.filter((g) => g.hasTVNetworks)
+    const comTV = gamesSemDup.filter((g) => g.hasTVNetworks)
+
     console.log(`[sync-jogos] Jogos com TV: ${comTV.length}`)
 
     if (comTV.length === 0) {

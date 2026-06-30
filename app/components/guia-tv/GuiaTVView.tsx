@@ -383,8 +383,6 @@ function ModalDetalheCanal({canal, progsPorCanal, agoraMs, onProgSelect, onClose
     // Filtramos e preparamos a programação para exibir dia atual e próximo
     const progs = useMemo(() => {
         const all = (progsPorCanal.get(canal.id) || []);
-        // REMOVIDO: const agoraBrtMs = agoraMs - 3 * 3600000; // ✅ Hack removido
-        // ✅ Filtramos programas que ainda não terminaram usando UTC real
         return all.filter(p => new Date(p.stop).getTime() > agoraMs).sort((a,b)=>new Date(a.start).getTime()-new Date(b.start).getTime());
     }, [canal, progsPorCanal, agoraMs]);
 
@@ -418,8 +416,6 @@ function ModalDetalheCanal({canal, progsPorCanal, agoraMs, onProgSelect, onClose
                     ) : progs.map(p => {
                         const sMs = new Date(p.start).getTime();
                         const eMs = new Date(p.stop).getTime();
-                        // REMOVIDO: const agoraBrtMs = agoraMs - 3 * 3600000; // ✅ Redundância e hack removidos
-                        // ✅ Comparação corrigida usando UTC e < para o fim
                         const emAndamento = agoraMs >= sMs && agoraMs < eMs;
                         const baseTwColor = CAT_COR_TW[canal.categoria] || "text-slate-500";
                         const corBase = CAT_COR[canal.categoria] || "#6b7280";
@@ -1304,7 +1300,9 @@ function ResultadoBuscaEPG({epg,busca,progsPorCanal,onClear}:{epg:EpgData;busca:
   // Lógica original preservada
   const canaisMatch=useMemo(()=>epg.canais.filter(c=>normalizar(c.nome).includes(normalizar(busca))||normalizar(c.display_name).includes(normalizar(busca))),[epg,busca]);
   const programasMatch=useMemo(()=>{const titulos=new Map<string,{prog:Programa;canal:Canal}[]>();const cmap=new Map(epg.canais.map(c=>[c.id,c]));for(const p of epg.programas){if(!normalizar(p.title).includes(normalizar(busca)))continue;const c=cmap.get(p.channel_id);if(!c)continue;const arr=titulos.get(p.title)||[];arr.push({prog:p,canal:c});titulos.set(p.title,arr);}return[...titulos.entries()].map(([titulo,items])=>({titulo,items:items.sort((a,b)=>new Date(a.prog.start).getTime()-new Date(b.prog.start).getTime())})).sort((a,b)=>b.items.length-a.items.length);},[epg,busca]);
-const agoraMs = agora;
+  const agoraMs = agora;
+
+  
 
   if(detalhe?.tipo==="canal")return(
     <>
@@ -1322,6 +1320,161 @@ const agoraMs = agora;
   if(detalhe?.tipo==="programa"){const ocorrencias=programasMatch.find(p=>p.titulo===detalhe.titulo)?.items||[];return(<div className="p-6 bg-background space-y-5"><div className="flex items-center gap-4 p-4 border border-border bg-card rounded-2xl shadow-sm"><button onClick={()=>setDetalhe(null)} className="h-8 px-4 rounded-lg bg-transparent border border-border text-muted-foreground hover:bg-muted hover:text-foreground text-xs font-semibold transition-colors shrink-0">← Voltar</button><div className="flex-1 min-w-0"><div className="text-base font-bold text-foreground leading-snug">{detalhe.titulo}</div><div className="text-xs text-muted-foreground/90 mt-0.5">{ocorrencias.length} canal(is) exibindo</div></div><button onClick={onClear} className="h-8 px-3.5 rounded-lg bg-muted text-muted-foreground hover:border-foreground/20 hover:text-foreground text-[11px] font-semibold transition-colors flex items-center gap-1.5"><X size={13}/> Nova busca</button></div><div className="space-y-3 p-4 border border-border bg-card rounded-2xl shadow-sm">{ocorrencias.map((item,i)=>{const sMs=new Date(item.prog.start).getTime();const eMs=new Date(item.prog.stop).getTime();const emAndamento=agoraMs>=sMs&&agoraMs<eMs;const passou=agoraMs>=eMs;const corCanal=CAT_COR[item.canal.categoria]||"#6b7280";return(<div key={i} className={`flex flex-col md:flex-row md:items-center gap-4 p-4 rounded-lg border transition-all ${emAndamento ? 'border-sky-500/30 bg-sky-500/[0.01]' : passou ? 'border-border bg-card opacity-50' : 'border-border bg-card'}`}>{passou&&<span className="shrink-0 text-[10px] font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full tracking-wide uppercase">Passou</span>}{emAndamento&&<span className="shrink-0 text-[10px] font-bold text-sky-500 bg-sky-500/15 px-2 py-0.5 rounded-full tracking-wide uppercase">AO VIVO</span>}<Logo src={item.canal.icon} nome={item.canal.nome} categoria={item.canal.categoria} size={40}/><div className="flex-1 min-w-0 md:border-l md:border-border md:pl-4"> <div className="text-base font-bold text-foreground leading-snug group-hover:text-sky-500 tracking-tight whitespace-normal">{item.canal.nome}</div> <div className="text-xs text-muted-foreground/90 mt-0.5">{item.canal.categoria}</div> </div> <span className="text-sm font-mono text-muted-foreground/90 font-medium shrink-0 min-w-28 text-right ml-auto">{formatHora(item.prog.start)} – {formatHora(item.prog.stop)}</span><span className="text-xs text-muted-foreground/60 shrink-0 ml-4 hidden md:block">{item.prog.duracao_min} min</span></div>);})}</div></div>);}
   
   return(<div className="p-6 bg-background space-y-6"><div className="flex items-center justify-between gap-4 p-4 border border-border bg-card rounded-xl shadow-sm"><div className="text-sm text-foreground/90 flex items-center gap-2"><Search size={14} className="text-muted-foreground/60"/> Resultados para pesquisa por: <span className="text-foreground font-semibold">"{busca}"</span></div><button onClick={onClear} className="h-8 px-3.5 rounded-lg bg-transparent border border-border text-muted-foreground hover:bg-muted hover:text-foreground text-xs font-semibold transition-colors flex items-center gap-1.5"><X size={13}/> Limpar Pesquisa</button></div>{canaisMatch.length>0&&(<div className="space-y-4 pt-1"><div className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest pl-1 flex items-center gap-2"><Tv size={13} className="text-muted-foreground/60"/> CANAIS ENCONTRADOS ({canaisMatch.length})</div><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">{canaisMatch.map(canal=>{const progsCanal=progsPorCanal.get(canal.id)||[];const atual=progsCanal.find(p=>{const sMs=new Date(p.start).getTime();const eMs=new Date(p.stop).getTime();return agoraMs>=sMs&&agoraMs<eMs;});return(<div key={canal.id} onClick={()=>setDetalhe({tipo:"canal",canal})} className="flex items-center gap-3.5 p-3.5 rounded-xl border border-border bg-card hover:border-foreground/20 hover:bg-muted/30 transition-all cursor-pointer group"><Logo src={canal.icon} nome={canal.nome} categoria={canal.categoria} size={40}/><div className="flex-1 min-w-0"><div className="text-sm font-semibold text-foreground group-hover:text-sky-500 truncate">{canal.nome}</div><div className="text-[11px] text-muted-foreground/90 mt-1 flex flex-col gap-0.5">{canal.categoria}{atual?(<span className="text-foreground/70 truncate pt-0.5">• {atual.title}</span>):""}</div></div><ChevronRight className="w-5 h-5 text-border/70 group-hover:text-sky-500 shrink-0 ml-auto"/></div>);})}</div></div>)}{programasMatch.length>0&&(<div className="space-y-4 pt-3 border-t border-border/80"><div className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest pl-1 flex items-center gap-2"><Clapperboard size={13} className="text-muted-foreground/60"/> PROGRAMAS ENCONTRADOS ({programasMatch.length})</div><div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">{programasMatch.map(({titulo,items})=>{const emAr=items.some(i=>{const sMs=new Date(i.prog.start).getTime();const eMs=new Date(i.prog.stop).getTime();return agoraMs>=sMs&&agoraMs<eMs;});return(<div key={titulo} onClick={()=>setDetalhe({tipo:"programa",titulo})} className={`flex items-center gap-3.5 p-3.5 rounded-xl border transition-all cursor-pointer group ${emAr ? 'border-sky-500/30 bg-sky-500/[0.01]' : 'border-border bg-card hover:border-foreground/20 hover:bg-muted/30'}`}><div className="flex-1 min-w-0"><div className="flex items-center gap-2 mb-1">{emAr&&<span className="shrink-0 text-[9px] font-bold text-sky-500 bg-sky-500/15 px-1.5 py-0.5 rounded uppercase">Passando</span>}<span className={`text-sm font-semibold group-hover:text-sky-500 truncate ${emAr ? 'text-sky-500' : 'text-foreground'}`}>{titulo}</span></div><div className="text-[11px] text-muted-foreground/90 mt-1">Exibindo em {items.length} canal(is) agora.</div></div><ChevronRight className="w-5 h-5 text-border/70 group-hover:text-sky-500 shrink-0 ml-auto"/></div>);})}</div></div>)}{canaisMatch.length===0&&programasMatch.length===0&&(<div className="text-center py-20 text-muted-foreground p-5 border border-border bg-card/60 rounded-xl flex flex-col items-center gap-3"><Search size={32} className="text-muted-foreground/60"/><div className="text-sm font-medium">Nenhum canal ou programa encontrado para "{busca}".</div><div className="text-xs text-muted-foreground">Tente buscar por termos mais genéricos.</div></div>)}</div>);
+}
+
+// INSERIR (novo componente antes de: function AbaCanais(...)):
+function JogosDoDia({ data, loading }: { data: JogosDiaData | null; loading: boolean }) {
+  const [sportAtivo, setSportAtivo] = useState<number | 'todos'>('todos')
+
+  if (loading) return (
+    <div className="flex items-center gap-2 px-4 py-3 text-xs text-muted-foreground animate-pulse">
+      <RefreshCw size={12} className="animate-spin" /> Carregando jogos do dia...
+    </div>
+  )
+  if (!data || data.jogos.length === 0) return null
+
+  // Futebol sempre primeiro na ordenação dos sports
+  const sportsDisponiveis = [...data.sports].sort((a, b) => {
+    if (a === 1) return -1; if (b === 1) return 1; return a - b
+  })
+
+  const jogosFiltrados = (sportAtivo === 'todos'
+    ? [...data.jogos]
+    : data.jogos.filter(j => j.sport_id === sportAtivo)
+  ).sort((a, b) => {
+    // Futebol sempre primeiro, depois por horário
+    if (a.sport_id !== b.sport_id) {
+      if (a.sport_id === 1) return -1; if (b.sport_id === 1) return 1
+    }
+    return new Date(a.data_hora).getTime() - new Date(b.data_hora).getTime()
+  })
+
+  return (
+    <div className="border-b border-border bg-card/60">
+      {/* Header da seção */}
+      <div className="flex items-center gap-3 px-4 sm:px-5 pt-4 pb-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Trophy size={14} className="text-amber-500" />
+          <span className="text-xs font-bold text-foreground uppercase tracking-wider">Jogos do Dia</span>
+          <span className="text-[10px] font-medium text-muted-foreground bg-muted border border-border px-1.5 py-0.5 rounded-full">
+            {data.jogos.length}
+          </span>
+        </div>
+        {/* Filtros por sport */}
+        <div className="flex items-center gap-1.5 flex-wrap ml-2">
+          <button
+            onClick={() => setSportAtivo('todos')}
+            className={`h-6 px-2.5 rounded-full text-[10px] font-bold transition-all ${sportAtivo === 'todos' ? 'bg-amber-500 text-white' : 'bg-muted text-muted-foreground hover:text-foreground'}`}
+          >
+            Todos
+          </button>
+          {sportsDisponiveis.map(sid => (
+            <button key={sid}
+              onClick={() => setSportAtivo(sid)}
+              className={`h-6 px-2.5 rounded-full text-[10px] font-bold transition-all ${sportAtivo === sid ? 'bg-amber-500 text-white' : 'bg-muted text-muted-foreground hover:text-foreground'}`}
+            >
+              {SPORT_EMOJI[sid]} {SPORT_LABEL[sid] || `Sport ${sid}`}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Lista horizontal de jogos */}
+      <div className="flex gap-3 overflow-x-auto no-scrollbar px-4 sm:px-5 pb-4 pt-1">
+        {jogosFiltrados.map(jogo => {
+          const hora = new Date(jogo.data_hora).toLocaleTimeString('pt-BR', {
+            hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo'
+          })
+          const aoVivo = jogo.status_group === 3
+          const encerrado = jogo.status_group === 4
+          const temPlacar = jogo.score_home !== null && jogo.score_away !== null
+
+          return (
+            <div key={jogo.game_id}
+              className={`shrink-0 flex flex-col gap-2 p-3 rounded-xl border bg-card w-[200px] sm:w-[220px] transition-all ${aoVivo ? 'border-emerald-500/40 bg-emerald-500/[0.03]' : 'border-border'}`}
+            >
+              {/* Sport + status */}
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[10px] font-medium text-muted-foreground">
+                  {SPORT_EMOJI[jogo.sport_id]} {SPORT_LABEL[jogo.sport_id] || ''}
+                </span>
+                {aoVivo
+                  ? <span className="text-[9px] font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+                      {jogo.status_text || 'Ao Vivo'}
+                    </span>
+                  : encerrado
+                  ? <span className="text-[9px] font-medium text-muted-foreground/60 uppercase">Fim</span>
+                  : <span className="text-[9px] font-medium text-amber-500 font-mono">{hora}</span>
+                }
+              </div>
+
+              {/* Times */}
+              <div className="flex flex-col gap-1.5">
+                {/* Home */}
+                <div className="flex items-center gap-2">
+                  {jogo.home_logo
+                    ? <img src={jogo.home_logo} alt={jogo.home_nome} className="w-5 h-5 object-contain shrink-0" />
+                    : <div className="w-5 h-5 rounded-full bg-muted shrink-0" />
+                  }
+                  <span className={`text-xs font-semibold truncate flex-1 ${encerrado && temPlacar && (jogo.score_home ?? 0) < (jogo.score_away ?? 0) ? 'text-muted-foreground/60' : 'text-foreground'}`}>
+                    {jogo.home_nome}
+                  </span>
+                  {temPlacar && (
+                    <span className={`text-sm font-bold tabular-nums shrink-0 ${aoVivo || (encerrado && (jogo.score_home ?? 0) > (jogo.score_away ?? 0)) ? 'text-foreground' : 'text-muted-foreground/70'}`}>
+                      {jogo.score_home}
+                    </span>
+                  )}
+                </div>
+                {/* Away */}
+                <div className="flex items-center gap-2">
+                  {jogo.away_logo
+                    ? <img src={jogo.away_logo} alt={jogo.away_nome} className="w-5 h-5 object-contain shrink-0" />
+                    : <div className="w-5 h-5 rounded-full bg-muted shrink-0" />
+                  }
+                  <span className={`text-xs font-semibold truncate flex-1 ${encerrado && temPlacar && (jogo.score_away ?? 0) < (jogo.score_home ?? 0) ? 'text-muted-foreground/60' : 'text-foreground'}`}>
+                    {jogo.away_nome}
+                  </span>
+                  {temPlacar && (
+                    <span className={`text-sm font-bold tabular-nums shrink-0 ${aoVivo || (encerrado && (jogo.score_away ?? 0) > (jogo.score_home ?? 0)) ? 'text-foreground' : 'text-muted-foreground/70'}`}>
+                      {jogo.score_away}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Competição */}
+              <div className="text-[10px] text-muted-foreground/70 truncate border-t border-border/60 pt-1.5">
+                {jogo.competition_nome}
+              </div>
+
+              {/* Canais */}
+              {jogo.tv_networks.length > 0 && (
+                <div className="flex items-center gap-1 flex-wrap">
+                  {jogo.tv_networks.slice(0, 3).map(tv => (
+                    <img key={tv.id} src={tv.logo_url} alt={tv.name}
+                      title={tv.name}
+                      className="h-4 w-auto max-w-[40px] object-contain opacity-80"
+                      onError={e => {
+                        const el = e.currentTarget
+                        el.style.display = 'none'
+                        const span = document.createElement('span')
+                        span.className = 'text-[9px] text-muted-foreground/70'
+                        span.textContent = tv.name
+                        el.parentNode?.appendChild(span)
+                      }}
+                    />
+                  ))}
+                  {jogo.tv_networks.length > 3 && (
+                    <span className="text-[9px] text-muted-foreground/60">+{jogo.tv_networks.length - 3}</span>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 // ─── Aba Canais Refatorada (Performance e Visual de Lista) ─────────────────────
@@ -1480,6 +1633,33 @@ const checkQueuedToasts = (setToasts: React.Dispatch<React.SetStateAction<any[]>
 // ─── Modal de Dados de Uso (Acessos ao Guia TV por servidor) ─────────────────
 type UsageStatsServidor = { servidor: string; total: number; mes: number; semana: number; hoje: number };
 
+// INSERIR (novo bloco de tipos):
+type TVNetworkJogo = {
+  id: number; type: number; name: string; countryId: number
+  website: string; bookmakerId: number; imageVersion: number; logo_url: string
+}
+type JogoDiaItem = {
+  game_id: number; sport_id: number; competition_id: number
+  competition_nome: string; stage_nome: string | null
+  home_id: number; home_nome: string; home_image_ver: number | null
+  home_color: string | null; home_logo: string | null
+  away_id: number; away_nome: string; away_image_ver: number | null
+  away_color: string | null; away_logo: string | null
+  data_hora: string; status_group: number; status_text: string | null
+  score_home: number | null; score_away: number | null
+  tv_networks: TVNetworkJogo[]; venue: string | null; atualizado_em: string
+}
+type JogosDiaData = {
+  generated_at: string; date: string; total: number
+  sports: number[]; jogos: JogoDiaItem[]
+}
+const SPORT_LABEL: Record<number, string> = {
+  1: 'Futebol', 2: 'Basquete', 3: 'Tênis', 6: 'Futebol Americano', 8: 'Vôlei'
+}
+const SPORT_EMOJI: Record<number, string> = {
+  1: '⚽', 2: '🏀', 3: '🎾', 6: '🏈', 8: '🏐'
+}
+
 function ModalUsageStats({onClose}:{onClose:()=>void}) {
   const [loading,setLoading]=useState(true);
   const [erro,setErro]=useState<string|null>(null);
@@ -1591,9 +1771,12 @@ export default function GuiaTVView({ servidorFiltro, modoCliente }: GuiaTVViewPr
   const [epg,setEpg]=useState<EpgData|null>(null);
   const [loadingEpg,setLoadingEpg]=useState(true);
   const [erroEpg,setErroEpg]=useState<string|null>(null);
-const [syncing,setSyncing]=useState(false);
+  const [syncing,setSyncing]=useState(false);
   const [showCatalogo,setShowCatalogo]=useState(false);
   const [showUsageStats,setShowUsageStats]=useState(false);
+  const [jogosData, setJogosData] = useState<JogosDiaData | null>(null)
+  const [loadingJogos, setLoadingJogos] = useState(false)
+  const [syncingJogos, setSyncingJogos] = useState(false)
 
   // ✅ Controle do Dropdown Sincronizar na Top Bar
   const [syncOpen, setSyncOpen] = useState(false);
@@ -1637,6 +1820,16 @@ const [syncing,setSyncing]=useState(false);
       .catch(()=>setErroEpg("Grade de canais não encontrada localmente. Rode o botão 'Sync EPG Grade' para gerar.")).finally(()=>setLoadingEpg(false));
   },[]);
 
+  useEffect(() => {
+  if (tab !== 'canais') return
+  setLoadingJogos(true)
+  fetch(`${process.env.NEXT_PUBLIC_R2_DEV_URL}/epg/jogos_dia.json?t=${Date.now()}`, { cache: 'no-store' })
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
+    .then(data => setJogosData(data))
+    .catch(() => setJogosData(null))
+    .finally(() => setLoadingJogos(false))
+}, [tab])
+
   // Lógica de progsPorCanal original preservada
   const progsPorCanal=useMemo(()=>{
   if(!epg)return new Map<string,Programa[]>();
@@ -1663,6 +1856,25 @@ const [syncing,setSyncing]=useState(false);
         addToast("error", "Erro na Sincronização", e.message || "Erro de conexão com o servidor.");
     }finally{setSyncing(false);}
   }
+
+  async function handleSyncJogos() {
+  setSyncingJogos(true)
+  try {
+    const d1 = await fetch('/api/epg/sync/sync-jogos').then(r => r.json())
+    if (!d1.ok) throw new Error(d1.error || 'Erro ao sincronizar jogos')
+    
+    addToast('success', 'Jogos do Dia sincronizados', `${d1.total} jogos salvos (hoje + amanhã). Recarregando...`)
+    setTimeout(() => {
+      setLoadingJogos(true)
+      fetch(`${process.env.NEXT_PUBLIC_R2_DEV_URL}/epg/jogos_dia.json?t=${Date.now()}`, { cache: 'no-store' })
+        .then(r => r.json()).then(setJogosData).finally(() => setLoadingJogos(false))
+    }, 1500)
+  } catch (e: any) {
+    addToast('error', 'Falha ao sincronizar Jogos', e.message || 'Erro desconhecido')
+  } finally {
+    setSyncingJogos(false)
+  }
+}
 
   return (
     // ✅ Refatorado: Fundo padrão claro/escuro e layout Tailwind
@@ -1711,6 +1923,14 @@ const [syncing,setSyncing]=useState(false);
                   {syncing ? "Sincronizando EPG..." : "Sincronizar Grade Claro"}
                 </button>
                 <div className="w-full h-px bg-border my-1"></div>
+                <button onClick={() => { handleSyncJogos(); setSyncOpen(false); }} disabled={syncingJogos}
+                  className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${syncingJogos ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+                  <div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0">
+                    <Trophy size={15} className={syncingJogos ? 'animate-spin text-amber-500' : 'text-amber-500'} />
+                  </div>
+                  {syncingJogos ? 'Sincronizando Jogos...' : 'Sincronizar Jogos do Dia'}
+                </button>
+                <div className="w-full h-px bg-border my-1"></div>
                 <button onClick={() => { setShowUsageStats(true); setSyncOpen(false); }}
                   className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
                   <div className="w-8 h-8 rounded-full bg-violet-500/10 flex items-center justify-center shrink-0">
@@ -1728,9 +1948,15 @@ const [syncing,setSyncing]=useState(false);
 
       {/* Conteúdo com layout refatorado */}
       {tab==="canais"&&(
-        loadingEpg?<div className="flex flex-col items-center justify-center flex-1 gap-4 text-center p-20 text-muted-foreground animate-pulse text-sm py-40 bg-muted/20 transition-colors"><RefreshCw size={24} className="animate-spin text-muted-foreground/60"/>Carregando grade de canais...</div>
-        :erroEpg?<div className="flex flex-col items-center justify-center flex-1 gap-4 text-center p-20 text-muted-foreground animate-pulse text-sm py-40 bg-muted/20 transition-colors max-w-2xl mx-auto"><AlertTriangle size={32} className="text-amber-500"/><div className="text-sm font-medium text-foreground tracking-tight">{erroEpg}</div><button onClick={handleSync} disabled={syncing} className="h-9 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 disabled:opacity-50 disabled:cursor-wait"><RefreshCw size={13} className={syncing?"animate-spin":"none"}/> {syncing?"Sincronizando Grade...":"Tentar Sincronizar Grade Agora"}</button></div>
-        :epg&&<AbaCanais epg={epg} progsPorCanal={progsPorCanal} />
+        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          <JogosDoDia data={jogosData} loading={loadingJogos} />
+          {loadingEpg
+            ? <div className="flex flex-col items-center justify-center flex-1 gap-4 text-center p-20 text-muted-foreground animate-pulse text-sm py-40 bg-muted/20 transition-colors"><RefreshCw size={24} className="animate-spin text-muted-foreground/60"/>Carregando grade de canais...</div>
+            : erroEpg
+            ? <div className="flex flex-col items-center justify-center flex-1 gap-4 text-center p-20 text-muted-foreground animate-pulse text-sm py-40 bg-muted/20 transition-colors max-w-2xl mx-auto"><AlertTriangle size={32} className="text-amber-500"/><div className="text-sm font-medium text-foreground tracking-tight">{erroEpg}</div><button onClick={handleSync} disabled={syncing} className="h-9 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 disabled:opacity-50 disabled:cursor-wait"><RefreshCw size={13} className={syncing?"animate-spin":"none"}/> {syncing?"Sincronizando Grade...":"Tentar Sincronizar Grade Agora"}</button></div>
+            : epg && <AbaCanais epg={epg} progsPorCanal={progsPorCanal} />
+          }
+        </div>
       )}
       {tab==="filmes"&&<AbaCatalogo tipo="FILME" servidorAdmin={SERVIDOR_ADMIN} modoCliente={modoCliente}/>}
 {tab==="series"&&<AbaCatalogo tipo="SERIE" servidorAdmin={SERVIDOR_ADMIN} modoCliente={modoCliente}/>}
