@@ -162,14 +162,17 @@ function Logo({src,nome,categoria,size=32}:{src?:string;nome:string;categoria?:s
   );
 
  return (
-    <img 
-      src={src} 
-      alt={nome} 
-      onError={()=>setErr(true)} 
-      // Removido o bg-dark-surface, p-1, bordas e sombras. Fundo 100% transparente.
-      className="shrink-0 object-contain rounded-lg bg-transparent"
-      style={{width:size,height:size}}
-    />
+    <div 
+      className="shrink-0 rounded-lg overflow-hidden flex items-center justify-center"
+      style={{width:size,height:size,background:"#1a1a1a"}}
+    >
+      <img 
+        src={src} 
+        alt={nome} 
+        onError={()=>setErr(true)} 
+        className="w-[85%] h-[85%] object-contain"
+      />
+    </div>
   );
 }
 
