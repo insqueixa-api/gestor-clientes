@@ -237,9 +237,15 @@ async function uploadToR2(key: string, body: string): Promise<void> {
 // ─── Handler Principal ──────────────────────────────────────────────────────────
 
 export async function GET(request: Request) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+  // Aceita cron via Bearer token OU admin logado via sessão (igual ao sync-claro)
+  const authHeader = request.headers.get('authorization')
+  const isCron = authHeader === `Bearer ${process.env.EPG_SYNC_CRON_SECRET}`
+
+  if (!isCron) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+  }
   const agora = new Date()
   const hoje = formatDateForAPI(agora)
   const amanha = new Date(agora)
