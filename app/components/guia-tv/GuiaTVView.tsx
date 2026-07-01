@@ -1413,20 +1413,8 @@ function GrupoCompeticao({ competicao, jogos }: { competicao: string; jogos: Jog
   )
 }
 
-function JogosDoDia({ data, loading }: { data: JogosDiaData | null; loading: boolean }) {
+function JogosDoDia({ data, loading, sportAtivo }: { data: JogosDiaData | null; loading: boolean; sportAtivo: number }) {
 
-
-const [sportAtivo, setSportAtivo] = useState<number>(1) // futebol por padrão
-  const [sportOpen, setSportOpen] = useState(false)
-  const sportRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    function h(e: MouseEvent) {
-      if (sportRef.current && !sportRef.current.contains(e.target as Node)) setSportOpen(false)
-    }
-    document.addEventListener('mousedown', h)
-    return () => document.removeEventListener('mousedown', h)
-  }, [])
 
   if (loading) return (
     <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm animate-pulse gap-2">
@@ -1463,43 +1451,10 @@ const [sportAtivo, setSportAtivo] = useState<number>(1) // futebol por padrão
   const grupos = agruparPorCompeticao(jogosFiltrados)
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-      {/* Barra de filtros */}
-      <div className="flex-shrink-0 px-4 sm:px-5 py-3 border-b border-border bg-card flex items-center gap-2 flex-wrap shadow-sm z-30 relative">
-        <div className="flex items-center gap-2 mr-1">
-          <Trophy size={14} className="text-amber-500" />
-          <span className="text-xs font-bold text-foreground uppercase tracking-wider">Jogos do Dia</span>
-          <span className="text-[10px] font-medium text-muted-foreground bg-muted border border-border px-1.5 py-0.5 rounded-full">
-            {data.jogos.length}
-          </span>
-        </div>
-
-        {/* Filtro Sport */}
-        <div ref={sportRef} className="relative">
-          <button onClick={() => setSportOpen(o => !o)}
-            className="flex items-center gap-2 h-9 px-4 rounded-full font-semibold text-sm transition-all bg-amber-500 hover:bg-amber-400 text-white shadow-sm">
-            <span>{SPORT_EMOJI[sportEfetivo]} {SPORT_LABEL[sportEfetivo] || `Sport ${sportEfetivo}`}</span>
-            <ChevronDown size={13} className={`opacity-80 transform ${sportOpen ? 'rotate-180' : ''} transition-transform duration-150`} />
-          </button>
-          {sportOpen && (
-            <div className="absolute top-[calc(100%+8px)] left-0 min-w-48 bg-card border border-border rounded-xl shadow-xl z-50 p-2 animate-in slide-in-from-top-2 duration-150">
-              {sportsDisponiveis.map(sid => (
-                <button key={sid} onClick={() => { setSportAtivo(sid); setSportOpen(false) }}
-                  className={`w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${sportEfetivo === sid ? 'bg-amber-500/10 text-amber-500' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
-                  <span>{SPORT_EMOJI[sid]}</span> {SPORT_LABEL[sid] || `Sport ${sid}`}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Grade de jogos por competição */}
-      <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-5 space-y-6 bg-background">
-        {[...grupos.entries()].map(([competicao, jogos]) => (
-          <GrupoCompeticao key={competicao} competicao={competicao} jogos={jogos} />
-        ))}
-      </div>
+    <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-5 space-y-6 bg-background">
+      {[...grupos.entries()].map(([competicao, jogos]) => (
+        <GrupoCompeticao key={competicao} competicao={competicao} jogos={jogos} />
+      ))}
     </div>
   )
 }
@@ -1556,7 +1511,8 @@ const canaisFiltrados = useMemo(() => {
     return lista; 
   }, [epg, catAtiva, subAtiva]);
 
- const emBusca=buscaAtiva.trim().length>0;
+ const [sportAtivo, setSportAtivo] = useState<number>(1)
+  const emBusca=buscaAtiva.trim().length>0;
   const subgruposDisponiveis=SUBGRUPOS[catAtiva]||[];
 
   return (
@@ -1591,8 +1547,26 @@ const canaisFiltrados = useMemo(() => {
           )}
         </div>
 
-        {/* Botão 2: Subcategoria contextual — sports se jogos, subgrupos se canal */}
-        {catAtiva!=="jogos" && subgruposDisponiveis.length>0 && (
+{/* Botão 2: Subcategoria contextual — sports se jogos, subgrupos se canal */}
+        {catAtiva==="jogos" ? (
+          <div ref={subRef} className="relative shrink-0">
+            <button onClick={()=>setSubOpen(o=>!o)}
+              className="flex items-center gap-2 h-9 px-4 rounded-full font-semibold text-sm transition-all bg-amber-600 hover:bg-amber-500 text-white shadow-sm">
+              <span>{SPORT_EMOJI[sportAtivo] ?? '⚽'} {SPORT_LABEL[sportAtivo] ?? 'Futebol'}</span>
+              <ChevronDown size={12} className={`opacity-80 transform ${subOpen?"rotate-180":"none"} transition-transform duration-150`}/>
+            </button>
+            {subOpen && jogosData && (
+              <div className="absolute top-[calc(100%+8px)] left-0 min-w-48 bg-card border border-border rounded-xl shadow-xl z-50 p-2 animate-in slide-in-from-top-2 duration-150">
+                {[...new Set(jogosData.jogos.map(j=>j.sport_id))].sort((a,b)=>a===1?-1:b===1?1:a-b).map(sid=>(
+                  <button key={sid} onClick={()=>{setSportAtivo(sid);setSubOpen(false)}}
+                    className={`w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${sportAtivo===sid?'bg-amber-500/10 text-amber-500':'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+                    <span>{SPORT_EMOJI[sid]}</span> {SPORT_LABEL[sid]||`Sport ${sid}`}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : subgruposDisponiveis.length>0 && (
           <div ref={subRef} className="relative shrink-0">
             <button onClick={()=>setSubOpen(o=>!o)}
               className={`flex items-center gap-2 h-9 px-4 rounded-full font-semibold text-sm border transition-all ${subAtiva!=="Todos" ? 'bg-foreground text-background border-foreground shadow-sm' : 'bg-card text-muted-foreground border-border hover:bg-muted'}`}>
@@ -1633,7 +1607,7 @@ const canaisFiltrados = useMemo(() => {
       </div>
 
        {catAtiva==="jogos" ? (
-        <JogosDoDia data={jogosData??null} loading={loadingJogos??false} />
+        <JogosDoDia data={jogosData??null} loading={loadingJogos??false} sportAtivo={sportAtivo} />
       ) : emBusca ? (
         <div className="flex-1 overflow-y-auto"><ResultadoBuscaEPG epg={epg} busca={buscaAtiva} progsPorCanal={progsPorCanal} onClear={()=>{setBusca("");setBuscaAtiva("");}}/></div>
       ) : canaisFiltrados.length===0 ? (
