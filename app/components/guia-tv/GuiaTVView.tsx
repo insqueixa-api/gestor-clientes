@@ -1331,14 +1331,14 @@ function GrupoCompeticao({ competicao, jogos }: { competicao: string; jogos: Jog
       {/* Cabeçalho colapsável */}
       <button
         onClick={() => setAberto(o => !o)}
-        className="w-full flex items-center gap-3 mb-3 group"
+        className="w-full flex items-center gap-0 mb-3 group"
       >
         <div className="h-px flex-1 bg-border" />
-        <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest shrink-0 px-2 group-hover:text-foreground transition-colors">
-          {competicao}
-        </span>
-        <div className="shrink-0 text-muted-foreground group-hover:text-foreground transition-colors">
-          {aberto ? <ChevronDown size={13}/> : <ChevronRight size={13}/>}
+        <div className="flex items-center gap-1 shrink-0">
+          <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest group-hover:text-foreground transition-colors">
+            {competicao}
+          </span>
+          {aberto ? <ChevronDown size={12} className="text-muted-foreground group-hover:text-foreground transition-colors shrink-0"/> : <ChevronRight size={12} className="text-muted-foreground group-hover:text-foreground transition-colors shrink-0"/>}
         </div>
         <div className="h-px flex-1 bg-border" />
       </button>
@@ -1413,7 +1413,8 @@ function GrupoCompeticao({ competicao, jogos }: { competicao: string; jogos: Jog
   )
 }
 
-function JogosDoDia({ data, loading, sportAtivo }: { data: JogosDiaData | null; loading: boolean; sportAtivo: number }) {
+function JogosDoDia({ data, loading, sportAtivo, busca }: { data: JogosDiaData | null; loading: boolean; sportAtivo: number; busca?: string }) {
+
 
 
   if (loading) return (
@@ -1437,8 +1438,15 @@ function JogosDoDia({ data, loading, sportAtivo }: { data: JogosDiaData | null; 
   // Garante que sportAtivo seja válido
   const sportEfetivo = sportsDisponiveis.includes(sportAtivo) ? sportAtivo : sportsDisponiveis[0]
 
-  // Jogos do sport selecionado
-  const jogosSport = data.jogos.filter(j => j.sport_id === sportEfetivo)
+// Jogos do sport selecionado, com filtro de busca por time ou competição
+  const termoBusca = busca?.trim().toLowerCase() ?? ''
+  const jogosSport = data.jogos
+    .filter(j => j.sport_id === sportEfetivo)
+    .filter(j => !termoBusca || 
+      j.home_nome.toLowerCase().includes(termoBusca) ||
+      j.away_nome.toLowerCase().includes(termoBusca) ||
+      j.competition_nome.toLowerCase().includes(termoBusca)
+    )
     .sort((a, b) => new Date(a.data_hora).getTime() - new Date(b.data_hora).getTime())
 
   // Competições disponíveis neste sport
@@ -1601,13 +1609,13 @@ const canaisFiltrados = useMemo(() => {
         {/* Busca */}
         <div className="relative flex-1 min-w-0">
           <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 pointer-events-none"/>
-          <input value={busca} onChange={e=>{setBusca(e.target.value);if(!e.target.value.trim()){setBuscaAtiva("");return;}setBuscaAtiva(e.target.value.trim());}} onKeyDown={e=>{if(e.key==="Enter")setBuscaAtiva(busca.trim());if(e.key==="Escape"){setBusca("");setBuscaAtiva("");}}} placeholder="Pesquisar canais..." className="w-full h-9 pl-9 pr-8 bg-transparent border border-border rounded-full text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors"/>
+          <input value={busca} onChange={e=>{setBusca(e.target.value);if(!e.target.value.trim()){setBuscaAtiva("");return;}setBuscaAtiva(e.target.value.trim());}} onKeyDown={e=>{if(e.key==="Enter")setBuscaAtiva(busca.trim());if(e.key==="Escape"){setBusca("");setBuscaAtiva("");}}} placeholder={catAtiva==="jogos" ? "Buscar time ou competição..." : "Pesquisar canais..."} className="w-full h-9 pl-9 pr-8 bg-transparent border border-border rounded-full text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors"/>
           {busca&&<button onClick={()=>{setBusca("");setBuscaAtiva("");}} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X size={13}/></button>}
         </div>
       </div>
 
-       {catAtiva==="jogos" ? (
-        <JogosDoDia data={jogosData??null} loading={loadingJogos??false} sportAtivo={sportAtivo} />
+        {catAtiva==="jogos" ? (
+        <JogosDoDia data={jogosData??null} loading={loadingJogos??false} sportAtivo={sportAtivo} busca={busca} />
       ) : emBusca ? (
         <div className="flex-1 overflow-y-auto"><ResultadoBuscaEPG epg={epg} busca={buscaAtiva} progsPorCanal={progsPorCanal} onClear={()=>{setBusca("");setBuscaAtiva("");}}/></div>
       ) : canaisFiltrados.length===0 ? (
