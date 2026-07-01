@@ -1266,7 +1266,7 @@ function AbaCatalogo({tipo,servidorAdmin,modoCliente,onJogosDoDia}:{tipo:TipoCon
         <div>
           <div className="flex items-center gap-2 mb-6 p-4 rounded-xl border border-border bg-card/60">
             <span className="text-base font-semibold text-foreground flex items-center gap-2.5 min-w-0"><CatIcon slug={catAtiva.emoji} size={16} color="text-sky-500"/>{catAtiva.label}</span>
-            <span className="text-xs font-medium text-muted-foreground/90 ml-1">({totalTitulos.toLocaleString()} títulos cadastrados)</span>
+            <span className="text-xs font-medium text-muted-foreground/90 ml-1">({totalTitulos.toLocaleString()})</span>
             <button onClick={()=>{setCatSelecionada(null);setSubCatSelecionada(null);setPage(1);}} className="ml-auto h-8 px-4 rounded-lg bg-card border border-border text-foreground text-xs font-semibold hover:border-foreground/20 transition-colors">← Voltar</button>
           </div>
           {loadingTits?<div className="text-center py-20 text-muted-foreground animate-pulse flex flex-col items-center gap-4"><RefreshCw size={24} className="animate-spin text-muted-foreground/60"/> Carregando títulos...</div>:
@@ -1323,14 +1323,102 @@ function ResultadoBuscaEPG({epg,busca,progsPorCanal,onClear}:{epg:EpgData;busca:
   return(<div className="p-6 bg-background space-y-6"><div className="flex items-center justify-between gap-4 p-4 border border-border bg-card rounded-xl shadow-sm"><div className="text-sm text-foreground/90 flex items-center gap-2"><Search size={14} className="text-muted-foreground/60"/> Resultados para pesquisa por: <span className="text-foreground font-semibold">"{busca}"</span></div><button onClick={onClear} className="h-8 px-3.5 rounded-lg bg-transparent border border-border text-muted-foreground hover:bg-muted hover:text-foreground text-xs font-semibold transition-colors flex items-center gap-1.5"><X size={13}/> Limpar Pesquisa</button></div>{canaisMatch.length>0&&(<div className="space-y-4 pt-1"><div className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest pl-1 flex items-center gap-2"><Tv size={13} className="text-muted-foreground/60"/> CANAIS ENCONTRADOS ({canaisMatch.length})</div><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">{canaisMatch.map(canal=>{const progsCanal=progsPorCanal.get(canal.id)||[];const atual=progsCanal.find(p=>{const sMs=new Date(p.start).getTime();const eMs=new Date(p.stop).getTime();return agoraMs>=sMs&&agoraMs<eMs;});return(<div key={canal.id} onClick={()=>setDetalhe({tipo:"canal",canal})} className="flex items-center gap-3.5 p-3.5 rounded-xl border border-border bg-card hover:border-foreground/20 hover:bg-muted/30 transition-all cursor-pointer group"><Logo src={canal.icon} nome={canal.nome} categoria={canal.categoria} size={40}/><div className="flex-1 min-w-0"><div className="text-sm font-semibold text-foreground group-hover:text-sky-500 truncate">{canal.nome}</div><div className="text-[11px] text-muted-foreground/90 mt-1 flex flex-col gap-0.5">{canal.categoria}{atual?(<span className="text-foreground/70 truncate pt-0.5">• {atual.title}</span>):""}</div></div><ChevronRight className="w-5 h-5 text-border/70 group-hover:text-sky-500 shrink-0 ml-auto"/></div>);})}</div></div>)}{programasMatch.length>0&&(<div className="space-y-4 pt-3 border-t border-border/80"><div className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest pl-1 flex items-center gap-2"><Clapperboard size={13} className="text-muted-foreground/60"/> PROGRAMAS ENCONTRADOS ({programasMatch.length})</div><div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">{programasMatch.map(({titulo,items})=>{const emAr=items.some(i=>{const sMs=new Date(i.prog.start).getTime();const eMs=new Date(i.prog.stop).getTime();return agoraMs>=sMs&&agoraMs<eMs;});return(<div key={titulo} onClick={()=>setDetalhe({tipo:"programa",titulo})} className={`flex items-center gap-3.5 p-3.5 rounded-xl border transition-all cursor-pointer group ${emAr ? 'border-sky-500/30 bg-sky-500/[0.01]' : 'border-border bg-card hover:border-foreground/20 hover:bg-muted/30'}`}><div className="flex-1 min-w-0"><div className="flex items-center gap-2 mb-1">{emAr&&<span className="shrink-0 text-[9px] font-bold text-sky-500 bg-sky-500/15 px-1.5 py-0.5 rounded uppercase">Passando</span>}<span className={`text-sm font-semibold group-hover:text-sky-500 truncate ${emAr ? 'text-sky-500' : 'text-foreground'}`}>{titulo}</span></div><div className="text-[11px] text-muted-foreground/90 mt-1">Exibindo em {items.length} canal(is) agora.</div></div><ChevronRight className="w-5 h-5 text-border/70 group-hover:text-sky-500 shrink-0 ml-auto"/></div>);})}</div></div>)}{canaisMatch.length===0&&programasMatch.length===0&&(<div className="text-center py-20 text-muted-foreground p-5 border border-border bg-card/60 rounded-xl flex flex-col items-center gap-3"><Search size={32} className="text-muted-foreground/60"/><div className="text-sm font-medium">Nenhum canal ou programa encontrado para "{busca}".</div><div className="text-xs text-muted-foreground">Tente buscar por termos mais genéricos.</div></div>)}</div>);
 }
 
-function JogosDoDia({ data, loading, onVerGrade }: { data: JogosDiaData | null; loading: boolean; onVerGrade?: () => void }) {
+function GrupoCompeticao({ competicao, jogos }: { competicao: string; jogos: JogoDiaItem[] }) {
+  const [aberto, setAberto] = useState(true)
 
-  const [sportAtivo, setSportAtivo] = useState<number>(1) // futebol por padrão
-  const [competicaoAtiva, setCompeticaoAtiva] = useState<string | null>(null)
+  return (
+    <div>
+      {/* Cabeçalho colapsável */}
+      <button
+        onClick={() => setAberto(o => !o)}
+        className="w-full flex items-center gap-3 mb-3 group"
+      >
+        <div className="h-px flex-1 bg-border" />
+        <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest shrink-0 px-2 group-hover:text-foreground transition-colors">
+          {competicao}
+        </span>
+        <div className="shrink-0 text-muted-foreground group-hover:text-foreground transition-colors">
+          {aberto ? <ChevronDown size={13}/> : <ChevronRight size={13}/>}
+        </div>
+        <div className="h-px flex-1 bg-border" />
+      </button>
+
+      {/* Jogos — colapsável */}
+      {aberto && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-2">
+          {jogos.map(jogo => {
+            const hora = new Date(jogo.data_hora).toLocaleTimeString('pt-BR', {
+              hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo'
+            })
+            const aoVivo = jogo.status_group === 3
+            const encerrado = jogo.status_group === 4
+            const temPlacar = jogo.score_home !== null && jogo.score_away !== null
+            const homeVence = temPlacar && encerrado && (jogo.score_home ?? 0) > (jogo.score_away ?? 0)
+            const awayVence = temPlacar && encerrado && (jogo.score_away ?? 0) > (jogo.score_home ?? 0)
+
+            return (
+              <div key={jogo.game_id}
+                className={`flex flex-col rounded-2xl border bg-card overflow-hidden transition-all shadow-sm ${aoVivo ? 'border-emerald-500/40 shadow-emerald-500/10 shadow-md' : 'border-border'}`}>
+                <div className={`flex items-center justify-between px-4 py-2.5 border-b border-border/60 ${aoVivo ? 'bg-emerald-500/5' : 'bg-muted/30'}`}>
+                  <span className="text-[11px] font-medium text-muted-foreground">
+                    {SPORT_EMOJI[jogo.sport_id]} {SPORT_LABEL[jogo.sport_id] || ''}
+                  </span>
+                  {aoVivo
+                    ? <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full uppercase tracking-wide flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block"/>
+                        {jogo.status_text || 'Ao Vivo'}
+                      </span>
+                    : encerrado
+                    ? <span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wide">Encerrado</span>
+                    : <span className="text-[11px] font-bold text-amber-500 font-mono">{hora}</span>
+                  }
+                </div>
+                <div className="flex flex-col gap-2.5 px-4 py-4">
+                  <div className="flex items-center gap-3">
+                    {jogo.home_logo ? <img src={jogo.home_logo} alt={jogo.home_nome} className="w-7 h-7 object-contain shrink-0"/> : <div className="w-7 h-7 rounded-full bg-muted border border-border shrink-0"/>}
+                    <span className={`text-sm font-semibold flex-1 min-w-0 truncate ${awayVence ? 'text-muted-foreground/50' : 'text-foreground'}`}>{jogo.home_nome}</span>
+                    {temPlacar && <span className={`text-xl font-bold tabular-nums shrink-0 min-w-[28px] text-right ${homeVence ? 'text-foreground' : aoVivo ? 'text-foreground' : 'text-muted-foreground/60'}`}>{jogo.score_home}</span>}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {jogo.away_logo ? <img src={jogo.away_logo} alt={jogo.away_nome} className="w-7 h-7 object-contain shrink-0"/> : <div className="w-7 h-7 rounded-full bg-muted border border-border shrink-0"/>}
+                    <span className={`text-sm font-semibold flex-1 min-w-0 truncate ${homeVence ? 'text-muted-foreground/50' : 'text-foreground'}`}>{jogo.away_nome}</span>
+                    {temPlacar && <span className={`text-xl font-bold tabular-nums shrink-0 min-w-[28px] text-right ${awayVence ? 'text-foreground' : aoVivo ? 'text-foreground' : 'text-muted-foreground/60'}`}>{jogo.score_away}</span>}
+                  </div>
+                </div>
+                {jogo.tv_networks.length > 0 && (
+                  <div className="mx-4 mb-4 p-3 rounded-xl bg-muted/40 border border-border/60">
+                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">📺 Transmissão</div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {jogo.tv_networks.map(tv => (
+                        <div key={tv.id} title={tv.name}>
+                          <img src={tv.logo_url} alt={tv.name} className="h-5 w-auto max-w-[52px] object-contain"
+                            onError={e => {
+                              const img = e.currentTarget; img.style.display='none';
+                              const span = document.createElement('span');
+                              span.className='text-[10px] font-semibold text-foreground/80 bg-background border border-border/60 px-1.5 py-0.5 rounded';
+                              span.textContent=tv.name; img.parentNode?.appendChild(span);
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function JogosDoDia({ data, loading }: { data: JogosDiaData | null; loading: boolean }) {
+
+
+const [sportAtivo, setSportAtivo] = useState<number>(1) // futebol por padrão
   const [sportOpen, setSportOpen] = useState(false)
-  const [compOpen, setCompOpen] = useState(false)
   const sportRef = useRef<HTMLDivElement>(null)
-  const compRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     function h(e: MouseEvent) {
@@ -1339,17 +1427,6 @@ function JogosDoDia({ data, loading, onVerGrade }: { data: JogosDiaData | null; 
     document.addEventListener('mousedown', h)
     return () => document.removeEventListener('mousedown', h)
   }, [])
-
-  useEffect(() => {
-    function h(e: MouseEvent) {
-      if (compRef.current && !compRef.current.contains(e.target as Node)) setCompOpen(false)
-    }
-    document.addEventListener('mousedown', h)
-    return () => document.removeEventListener('mousedown', h)
-  }, [])
-
-  // Reseta competição ao trocar sport
-  useEffect(() => { setCompeticaoAtiva(null) }, [sportAtivo])
 
   if (loading) return (
     <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm animate-pulse gap-2">
@@ -1379,10 +1456,8 @@ function JogosDoDia({ data, loading, onVerGrade }: { data: JogosDiaData | null; 
   // Competições disponíveis neste sport
   const competicoes = [...new Set(jogosSport.map(j => j.competition_nome))]
 
-  // Jogos filtrados pela competição (se selecionada)
-  const jogosFiltrados = competicaoAtiva
-    ? jogosSport.filter(j => j.competition_nome === competicaoAtiva)
-    : jogosSport
+// Sem filtro de competição — agrupamento por competição já organiza a visualização
+  const jogosFiltrados = jogosSport
 
   // Agrupa por competição para exibição
   const grupos = agruparPorCompeticao(jogosFiltrados)
@@ -1417,161 +1492,12 @@ function JogosDoDia({ data, loading, onVerGrade }: { data: JogosDiaData | null; 
             </div>
           )}
         </div>
-
-        {/* Filtro Competição */}
-        {competicoes.length > 1 && (
-          <div ref={compRef} className="relative">
-            <button onClick={() => setCompOpen(o => !o)}
-              className={`flex items-center gap-2 h-9 px-4 rounded-full font-semibold text-sm border transition-all ${competicaoAtiva ? 'bg-foreground text-background border-foreground shadow-sm' : 'bg-card text-muted-foreground border-border hover:bg-muted'}`}>
-              <span className="truncate max-w-[200px]">{competicaoAtiva || 'Todas as competições'}</span>
-              <ChevronDown size={12} className={`opacity-60 shrink-0 transform ${compOpen ? 'rotate-180' : ''} transition-transform duration-150`} />
-            </button>
-            {compOpen && (
-              <div className="absolute top-[calc(100%+8px)] left-0 min-w-64 max-h-72 overflow-y-auto bg-card border border-border rounded-xl shadow-xl z-50 p-2 animate-in slide-in-from-top-2 duration-150">
-                <button onClick={() => { setCompeticaoAtiva(null); setCompOpen(false) }}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${!competicaoAtiva ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
-                  Todas as competições
-                </button>
-                <div className="w-full h-px bg-border my-1.5" />
-                {competicoes.map(comp => (
-                  <button key={comp} onClick={() => { setCompeticaoAtiva(comp); setCompOpen(false) }}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${competicaoAtiva === comp ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
-                    {comp}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Limpar filtro competição */}
-        {competicaoAtiva && (
-          <button onClick={() => setCompeticaoAtiva(null)}
-            className="flex items-center gap-1 h-9 px-3 rounded-full bg-card border border-border text-muted-foreground hover:bg-muted text-sm font-medium transition-all">
-            <X size={13} className="text-rose-500" /> Limpar
-          </button>
-        )}
-
-        {/* Botão Grade de Canais — dentro da barra, empurrado para a direita */}
-        {onVerGrade && (
-          <button onClick={onVerGrade}
-            className="ml-auto flex items-center gap-2 h-9 px-4 rounded-full bg-card border border-border text-muted-foreground hover:bg-muted text-sm font-medium transition-all shadow-sm shrink-0">
-            <Tv size={13} /> Grade de Canais
-          </button>
-        )}
       </div>
 
       {/* Grade de jogos por competição */}
-      <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-5 space-y-8 bg-background">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-5 space-y-6 bg-background">
         {[...grupos.entries()].map(([competicao, jogos]) => (
-          <div key={competicao}>
-            {/* Cabeçalho da competição */}
-            <div className="flex items-center gap-3 mb-4">
-              <div className="h-px flex-1 bg-border" />
-              <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest shrink-0 px-2">
-                {competicao}
-              </span>
-              <div className="h-px flex-1 bg-border" />
-            </div>
-
-            {/* Grid 3 colunas desktop, 1 mobile */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {jogos.map(jogo => {
-                const hora = new Date(jogo.data_hora).toLocaleTimeString('pt-BR', {
-                  hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo'
-                })
-                const aoVivo = jogo.status_group === 3
-                const encerrado = jogo.status_group === 4
-                const temPlacar = jogo.score_home !== null && jogo.score_away !== null
-                const homeVence = temPlacar && encerrado && (jogo.score_home ?? 0) > (jogo.score_away ?? 0)
-                const awayVence = temPlacar && encerrado && (jogo.score_away ?? 0) > (jogo.score_home ?? 0)
-
-                return (
-                  <div key={jogo.game_id}
-                    className={`flex flex-col rounded-2xl border bg-card overflow-hidden transition-all shadow-sm ${aoVivo ? 'border-emerald-500/40 shadow-emerald-500/10 shadow-md' : 'border-border'}`}>
-
-                    {/* Header: sport + status/hora */}
-                    <div className={`flex items-center justify-between px-4 py-2.5 border-b border-border/60 ${aoVivo ? 'bg-emerald-500/5' : 'bg-muted/30'}`}>
-                      <span className="text-[11px] font-medium text-muted-foreground">
-                        {SPORT_EMOJI[jogo.sport_id]} {SPORT_LABEL[jogo.sport_id] || ''}
-                      </span>
-                      {aoVivo
-                        ? <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full uppercase tracking-wide flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />
-                            {jogo.status_text || 'Ao Vivo'}
-                          </span>
-                        : encerrado
-                        ? <span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wide">Encerrado</span>
-                        : <span className="text-[11px] font-bold text-amber-500 font-mono">{hora}</span>
-                      }
-                    </div>
-
-                    {/* Times + Placar */}
-                    <div className="flex flex-col gap-2.5 px-4 py-4">
-                      {/* Home */}
-                      <div className="flex items-center gap-3">
-                        {jogo.home_logo
-                          ? <img src={jogo.home_logo} alt={jogo.home_nome} className="w-7 h-7 object-contain shrink-0" />
-                          : <div className="w-7 h-7 rounded-full bg-muted border border-border shrink-0" />
-                        }
-                        <span className={`text-sm font-semibold flex-1 min-w-0 truncate ${awayVence ? 'text-muted-foreground/50' : 'text-foreground'}`}>
-                          {jogo.home_nome}
-                        </span>
-                        {temPlacar && (
-                          <span className={`text-xl font-bold tabular-nums shrink-0 min-w-[28px] text-right ${homeVence ? 'text-foreground' : aoVivo ? 'text-foreground' : 'text-muted-foreground/60'}`}>
-                            {jogo.score_home}
-                          </span>
-                        )}
-                      </div>
-                      {/* Away */}
-                      <div className="flex items-center gap-3">
-                        {jogo.away_logo
-                          ? <img src={jogo.away_logo} alt={jogo.away_nome} className="w-7 h-7 object-contain shrink-0" />
-                          : <div className="w-7 h-7 rounded-full bg-muted border border-border shrink-0" />
-                        }
-                        <span className={`text-sm font-semibold flex-1 min-w-0 truncate ${homeVence ? 'text-muted-foreground/50' : 'text-foreground'}`}>
-                          {jogo.away_nome}
-                        </span>
-                        {temPlacar && (
-                          <span className={`text-xl font-bold tabular-nums shrink-0 min-w-[28px] text-right ${awayVence ? 'text-foreground' : aoVivo ? 'text-foreground' : 'text-muted-foreground/60'}`}>
-                            {jogo.score_away}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Box Transmissão */}
-                    {jogo.tv_networks.length > 0 && (
-                      <div className="mx-4 mb-4 p-3 rounded-xl bg-muted/40 border border-border/60">
-                        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">
-                          📺 Transmissão
-                        </div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {jogo.tv_networks.map(tv => (
-                            <div key={tv.id} className="flex items-center" title={tv.name}>
-                              <img
-                                src={tv.logo_url}
-                                alt={tv.name}
-                                className="h-5 w-auto max-w-[52px] object-contain"
-                                onError={e => {
-                                  const img = e.currentTarget
-                                  img.style.display = 'none'
-                                  const span = document.createElement('span')
-                                  span.className = 'text-[10px] font-semibold text-foreground/80 bg-background border border-border/60 px-1.5 py-0.5 rounded'
-                                  span.textContent = tv.name
-                                  img.parentNode?.appendChild(span)
-                                }}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
+          <GrupoCompeticao key={competicao} competicao={competicao} jogos={jogos} />
         ))}
       </div>
     </div>
@@ -1579,9 +1505,10 @@ function JogosDoDia({ data, loading, onVerGrade }: { data: JogosDiaData | null; 
 }
 
 // ─── Aba Canais Refatorada (Performance e Visual de Lista) ─────────────────────
-function AbaCanais({epg,progsPorCanal,onJogosDoDia}:{epg:EpgData;progsPorCanal:Map<string,Programa[]>;onJogosDoDia?:()=>void}) {
+function AbaCanais({epg,progsPorCanal,onJogosDoDia,catInicialAtiva,jogosData,loadingJogos}:{epg:EpgData;progsPorCanal:Map<string,Programa[]>;onJogosDoDia?:()=>void;catInicialAtiva?:string;jogosData?:JogosDiaData|null;loadingJogos?:boolean}) {
 
-  const [catAtiva,setCatAtiva]=useState("Todos");
+
+  const [catAtiva,setCatAtiva]=useState(catInicialAtiva||"Todos");
   const [subAtiva,setSubAtiva]=useState("Todos");
   const [busca,setBusca]=useState("");
   const [buscaAtiva,setBuscaAtiva]=useState("");
@@ -1634,53 +1561,53 @@ const canaisFiltrados = useMemo(() => {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-background overflow-hidden">
-      <div className="flex-shrink-0 px-4 sm:px-5 py-4 border-b border-border bg-card flex items-center gap-3 flex-wrap z-30 relative shadow-sm">
+      <div className="flex-shrink-0 px-4 sm:px-5 py-3 border-b border-border bg-card flex items-center gap-2 z-30 relative shadow-sm">
 
-        {/* Botão Jogos do Dia — fora do catRef */}
-        {onJogosDoDia && (
-          <button onClick={onJogosDoDia}
-            className="flex items-center gap-2 h-9 px-4 rounded-full font-semibold text-sm transition-all bg-amber-500 hover:bg-amber-400 text-white shadow-sm shrink-0">
-            <Trophy size={14} />
-            Jogos do Dia
-          </button>
-        )}
-
-        {/* Botão de Categoria Principal */}
-        <div ref={catRef} className="relative">
+        {/* Botão 1: Categoria unificada (Jogos do Dia + categorias de canais) */}
+        <div ref={catRef} className="relative shrink-0">
           <button onClick={()=>setCatOpen(o=>!o)}
-            className="flex items-center gap-2 h-9 px-4 rounded-full font-semibold text-sm transition-all bg-sky-600 hover:bg-sky-500 text-white shadow-sm">
-            <Database size={14} className="text-white/80" />
-            {catAtiva==="Todos" ? "Categorias" : catAtiva}
-            <ChevronDown size={14} className={`opacity-80 transform ${catOpen?"rotate-180":"none"} transition-transform duration-150`}/>
+            className={`flex items-center gap-2 h-9 px-4 rounded-full font-semibold text-sm transition-all shadow-sm ${catAtiva==="jogos" ? 'bg-amber-500 hover:bg-amber-400 text-white' : catAtiva!=="Todos" ? 'bg-sky-600 hover:bg-sky-500 text-white' : 'bg-sky-600 hover:bg-sky-500 text-white'}`}>
+            {catAtiva==="jogos" ? <><Trophy size={14}/> Jogos do Dia</> : catAtiva!=="Todos" ? <><Database size={14} className="text-white/80"/>{catAtiva}</> : <><Database size={14} className="text-white/80"/>Categorias</>}
+            <ChevronDown size={13} className={`opacity-80 transform ${catOpen?"rotate-180":"none"} transition-transform duration-150`}/>
           </button>
-          {catOpen&&(<div className="absolute top-[calc(100%+8px)] left-0 min-w-56 max-h-80 overflow-y-auto bg-card border border-border rounded-xl shadow-xl z-50 p-2 animate-in slide-in-from-top-2 duration-150">
-            {[{value:"Todos",label:"Todas as categorias"},...catsDisponiveis.map(c=>({value:c,label:c}))].map(opt=>(
-              <button key={opt.value} onClick={()=>{setCatAtiva(opt.value);setSubAtiva("Todos");setCatOpen(false);}}
-                className={`w-full text-left flex items-center justify-between gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${catAtiva===opt.value ? 'bg-sky-500/10 text-sky-500' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
-                <span className="truncate">{opt.label}</span>
-                {opt.value!=="Todos" && <div className="w-2 h-2 rounded-full" style={{backgroundColor: CAT_COR[opt.value]}}/>}
+          {catOpen&&(
+            <div className="absolute top-[calc(100%+8px)] left-0 min-w-56 max-h-80 overflow-y-auto bg-card border border-border rounded-xl shadow-xl z-50 p-2 animate-in slide-in-from-top-2 duration-150">
+              {/* Jogos do Dia — sempre primeiro */}
+              <button onClick={()=>{setCatAtiva("jogos");setSubAtiva("Todos");setCatOpen(false);onJogosDoDia?.();}}
+                className={`w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${catAtiva==="jogos" ? 'bg-amber-500/10 text-amber-500' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+                <Trophy size={14} className="text-amber-500 shrink-0"/>
+                <span>Jogos do Dia</span>
               </button>
-            ))}
-          </div>)}
+              <div className="w-full h-px bg-border my-1.5"/>
+              {/* Categorias de canais */}
+              {catsDisponiveis.map(c=>(
+                <button key={c} onClick={()=>{setCatAtiva(c);setSubAtiva("Todos");setCatOpen(false);}}
+                  className={`w-full text-left flex items-center justify-between gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${catAtiva===c ? 'bg-sky-500/10 text-sky-500' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+                  <span className="truncate">{c}</span>
+                  <div className="w-2 h-2 rounded-full shrink-0" style={{backgroundColor: CAT_COR[c]}}/>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Dropdown Subcategoria */}
-        {subgruposDisponiveis.length>0&&(
-          <div ref={subRef} className="relative">
+        {/* Botão 2: Subcategoria contextual — sports se jogos, subgrupos se canal */}
+        {catAtiva!=="jogos" && subgruposDisponiveis.length>0 && (
+          <div ref={subRef} className="relative shrink-0">
             <button onClick={()=>setSubOpen(o=>!o)}
               className={`flex items-center gap-2 h-9 px-4 rounded-full font-semibold text-sm border transition-all ${subAtiva!=="Todos" ? 'bg-foreground text-background border-foreground shadow-sm' : 'bg-card text-muted-foreground border-border hover:bg-muted'}`}>
-              {subAtiva==="Todos" ? "Subcategoria" : subAtiva}
+              <span>{subAtiva==="Todos" ? "Subcategoria" : subAtiva}</span>
               <ChevronDown size={12} className={`opacity-60 transform ${subOpen?"rotate-180":"none"} transition-transform duration-150`}/>
             </button>
             {subOpen&&(
-              <div className="absolute top-[calc(100%+8px)] left-0 min-w-48 max-h-80 overflow-y-auto bg-card border border-border rounded-xl shadow-xl z-50 p-2 animate-in slide-in-from-top-2 duration-150">
+              <div className="absolute top-[calc(100%+8px)] left-0 min-w-48 max-h-72 overflow-y-auto bg-card border border-border rounded-xl shadow-xl z-50 p-2 animate-in slide-in-from-top-2 duration-150">
                 <button onClick={()=>{setSubAtiva("Todos");setSubOpen(false);}}
-                  className={`w-full text-left flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors ${subAtiva==="Todos" ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+                  className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${subAtiva==="Todos" ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
                   Todas
                 </button>
                 {subgruposDisponiveis.map(sg=>(
                   <button key={sg.label} onClick={()=>{setSubAtiva(s=>s===sg.label?"Todos":sg.label);setSubOpen(false);}}
-                    className={`w-full text-left flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors ${subAtiva===sg.label ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+                    className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${subAtiva===sg.label ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
                     {sg.label}
                   </button>
                 ))}
@@ -1689,22 +1616,25 @@ const canaisFiltrados = useMemo(() => {
           </div>
         )}
 
-        {/* Botão Limpar */}
-        {(catAtiva!=="Todos"||subAtiva!=="Todos"||busca.trim()!=="")&&(
+        {/* Limpar */}
+        {(catAtiva!=="Todos"&&catAtiva!=="jogos"||subAtiva!=="Todos"||busca.trim()!=="")&&(
           <button onClick={()=>{setCatAtiva("Todos");setSubAtiva("Todos");setBusca("");setBuscaAtiva("");}}
-            className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-card border border-border text-muted-foreground hover:bg-muted text-sm font-medium transition-all shadow-sm">
-            <X size={14} className="text-rose-500"/> Limpar
+            className="flex items-center gap-1 h-9 px-3 rounded-full bg-card border border-border text-muted-foreground hover:bg-muted text-sm font-medium transition-all shrink-0">
+            <X size={13} className="text-rose-500"/>
           </button>
         )}
 
-        <div className="relative flex-1 min-w-[200px] ml-auto">
-          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/60 pointer-events-none"/>
-          <input value={busca} onChange={e=>{setBusca(e.target.value);if(!e.target.value.trim()){setBuscaAtiva("");return;} setBuscaAtiva(e.target.value.trim());}} onKeyDown={e=>e.key==="Enter"&&setBuscaAtiva(busca.trim())} placeholder="Pesquisar canais por nome..." className="w-full h-9 pl-10 pr-10 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors" />
-          {busca&&<button onClick={()=>{setBusca("");setBuscaAtiva("");}} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"><X size={14}/></button>}
+        {/* Busca */}
+        <div className="relative flex-1 min-w-0">
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 pointer-events-none"/>
+          <input value={busca} onChange={e=>{setBusca(e.target.value);if(!e.target.value.trim()){setBuscaAtiva("");return;}setBuscaAtiva(e.target.value.trim());}} onKeyDown={e=>{if(e.key==="Enter")setBuscaAtiva(busca.trim());if(e.key==="Escape"){setBusca("");setBuscaAtiva("");}}} placeholder="Pesquisar canais..." className="w-full h-9 pl-9 pr-8 bg-transparent border border-border rounded-full text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors"/>
+          {busca&&<button onClick={()=>{setBusca("");setBuscaAtiva("");}} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X size={13}/></button>}
         </div>
       </div>
 
-      {emBusca ? (
+       {catAtiva==="jogos" ? (
+        <JogosDoDia data={jogosData??null} loading={loadingJogos??false} />
+      ) : emBusca ? (
         <div className="flex-1 overflow-y-auto"><ResultadoBuscaEPG epg={epg} busca={buscaAtiva} progsPorCanal={progsPorCanal} onClear={()=>{setBusca("");setBuscaAtiva("");}}/></div>
       ) : canaisFiltrados.length===0 ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center p-12 text-muted-foreground italic text-sm py-28 bg-muted/20"><AlertTriangle size={28} className="text-muted-foreground/50"/>Nenhum canal encontrado para os filtros selecionados. Tente mudar a categoria ou limpar a busca.</div>
@@ -1898,7 +1828,6 @@ export default function GuiaTVView({ servidorFiltro, modoCliente }: GuiaTVViewPr
 const [jogosData, setJogosData] = useState<JogosDiaData | null>(null)
 const [loadingJogos, setLoadingJogos] = useState(false)
 const [syncingJogos, setSyncingJogos] = useState(false)
-const [viewCanais, setViewCanais] = useState<'jogos' | 'grade'>('jogos') // inicia nos jogos
 
   // ✅ Controle do Dropdown Sincronizar na Top Bar
   const [syncOpen, setSyncOpen] = useState(false);
@@ -1933,7 +1862,6 @@ const [viewCanais, setViewCanais] = useState<'jogos' | 'grade'>('jogos') // inic
   },[]);
 useEffect(()=>{
     window.dispatchEvent(new CustomEvent("GUIA_TV_TAB_CHANGED",{detail:tab}))
-    if (tab === 'canais') setViewCanais('jogos') // sempre abre nos jogos ao voltar para a aba
   },[tab]);
 
   // Lógica de fetch EPG com interceptação para Renomeios e Recategorizações
@@ -2073,21 +2001,23 @@ useEffect(()=>{
       </div>
 
       {/* Conteúdo com layout refatorado */}
-      {tab==="canais"&&(
+       {tab==="canais"&&(
         <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-          {viewCanais === 'jogos' ? (
-            <JogosDoDia
-              data={jogosData}
-              loading={loadingJogos}
-              onVerGrade={() => setViewCanais('grade')}
-            />
-          ) : (
-            loadingEpg
-              ? <div className="flex flex-col items-center justify-center flex-1 gap-4 text-center p-20 text-muted-foreground animate-pulse text-sm bg-muted/20 transition-colors"><RefreshCw size={24} className="animate-spin text-muted-foreground/60"/>Carregando grade de canais...</div>
-              : erroEpg
-              ? <div className="flex flex-col items-center justify-center flex-1 gap-4 text-center p-20 text-muted-foreground text-sm bg-muted/20 transition-colors max-w-2xl mx-auto"><AlertTriangle size={32} className="text-amber-500"/><div className="text-sm font-medium text-foreground tracking-tight">{erroEpg}</div><button onClick={handleSync} disabled={syncing} className="h-9 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 disabled:opacity-50 disabled:cursor-wait"><RefreshCw size={13} className={syncing?"animate-spin":"none"}/> {syncing?"Sincronizando Grade...":"Tentar Sincronizar Grade Agora"}</button></div>
-              : epg && <AbaCanais epg={epg} progsPorCanal={progsPorCanal} onJogosDoDia={() => setViewCanais('jogos')} />
-          )}
+          {loadingEpg
+            ? <div className="flex flex-col items-center justify-center flex-1 gap-4 text-center p-20 text-muted-foreground animate-pulse text-sm bg-muted/20 transition-colors"><RefreshCw size={24} className="animate-spin text-muted-foreground/60"/>Carregando...</div>
+            : erroEpg
+            ? <div className="flex flex-col items-center justify-center flex-1 gap-4 text-center p-20 text-muted-foreground text-sm bg-muted/20 transition-colors max-w-2xl mx-auto"><AlertTriangle size={32} className="text-amber-500"/><div className="text-sm font-medium text-foreground tracking-tight">{erroEpg}</div><button onClick={handleSync} disabled={syncing} className="h-9 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 disabled:opacity-50 disabled:cursor-wait"><RefreshCw size={13} className={syncing?"animate-spin":"none"}/>{syncing?"Sincronizando...":"Tentar Sincronizar"}</button></div>
+            : epg && (
+              <AbaCanais
+                epg={epg}
+                progsPorCanal={progsPorCanal}
+                onJogosDoDia={() => {/* handled internally */}}
+                catInicialAtiva="jogos"
+                jogosData={jogosData}
+                loadingJogos={loadingJogos}
+              />
+            )
+          }
         </div>
       )}
       {tab==="filmes"&&<AbaCatalogo tipo="FILME" servidorAdmin={SERVIDOR_ADMIN} modoCliente={modoCliente}/>}
