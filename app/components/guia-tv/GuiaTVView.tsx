@@ -1253,7 +1253,7 @@ function AbaCatalogo({tipo,servidorAdmin,modoCliente,onJogosDoDia}:{tipo:TipoCon
 
         <div className="relative flex-1 min-w-0">
           <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 pointer-events-none"/>
-          <input value={busca} onChange={e=>{setBusca(e.target.value);if(!e.target.value.trim()){setBuscaAtiva("");return;} setBuscaAtiva(e.target.value.trim());}} onKeyDown={e=>{ if(e.key==="Enter") setBuscaAtiva(busca.trim()); if(e.key==="Escape"){setBusca("");setBuscaAtiva("");} }} placeholder={`Pesquisar ${tipo==="FILME"?"filmes":"séries"}...`} className="w-full h-8 pl-9 pr-8 bg-transparent border border-border rounded-full text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors" />
+          <input value={busca} onChange={e=>{setBusca(e.target.value);if(!e.target.value.trim()){setBuscaAtiva("");return;} setBuscaAtiva(normalizar(e.target.value.trim()));}} onKeyDown={e=>{ if(e.key==="Enter") setBuscaAtiva(normalizar(busca.trim())); if(e.key==="Escape"){setBusca("");setBuscaAtiva("");} }} placeholder={`Pesquisar ${tipo==="FILME"?"filmes":"séries"}...`} className="w-full h-8 pl-9 pr-8 bg-transparent border border-border rounded-full text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors" />
           {busca&&<button onClick={()=>{setBusca("");setBuscaAtiva("");setResultadosBusca([])}} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"><X size={13}/></button>}
         </div>
       </div>
@@ -1439,13 +1439,13 @@ function JogosDoDia({ data, loading, sportAtivo, busca }: { data: JogosDiaData |
   const sportEfetivo = sportsDisponiveis.includes(sportAtivo) ? sportAtivo : sportsDisponiveis[0]
 
 // Jogos do sport selecionado, com filtro de busca por time ou competição
-  const termoBusca = busca?.trim().toLowerCase() ?? ''
+  const termoBusca = normalizar(busca ?? '')
   const jogosSport = data.jogos
     .filter(j => j.sport_id === sportEfetivo)
-    .filter(j => !termoBusca || 
-      j.home_nome.toLowerCase().includes(termoBusca) ||
-      j.away_nome.toLowerCase().includes(termoBusca) ||
-      j.competition_nome.toLowerCase().includes(termoBusca)
+    .filter(j => !termoBusca ||
+      normalizar(j.home_nome).includes(termoBusca) ||
+      normalizar(j.away_nome).includes(termoBusca) ||
+      normalizar(j.competition_nome).includes(termoBusca)
     )
     .sort((a, b) => new Date(a.data_hora).getTime() - new Date(b.data_hora).getTime())
 
