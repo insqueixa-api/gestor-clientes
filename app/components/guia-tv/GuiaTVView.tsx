@@ -1800,7 +1800,7 @@ function ModalUsageStats({onClose}:{onClose:()=>void}) {
 export default function GuiaTVView({ servidorFiltro, modoCliente }: GuiaTVViewProps) {
   const SERVIDOR_ADMIN = servidorFiltro ?? "TODOS";
 
-  const [tab,setTab]=useState<GuiaTVTab>("filmes");
+    const [tab,setTab]=useState<GuiaTVTab>("canais");
   const [epg,setEpg]=useState<EpgData|null>(null);
   const [loadingEpg,setLoadingEpg]=useState(true);
   const [erroEpg,setErroEpg]=useState<string|null>(null);
