@@ -1964,7 +1964,7 @@ useEffect(()=>{
                   <div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0">
                     <Trophy size={15} className={syncingJogos ? 'animate-spin text-amber-500' : 'text-amber-500'} />
                   </div>
-                  {syncingJogos ? 'Sincronizando Jogos...' : 'Sincronizar Jogos do Dia'}
+                  {syncingJogos ? 'Sincronizando Jogos...' : 'Sincronizar Jogos'}
                 </button>
                 <div className="w-full h-px bg-border my-1"></div>
                 <button onClick={() => { setShowUsageStats(true); setSyncOpen(false); }}
