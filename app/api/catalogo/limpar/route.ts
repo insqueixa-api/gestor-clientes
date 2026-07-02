@@ -56,11 +56,17 @@ const corte = calcularCorte(maxRow.sincronizado_em);
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  const authHeader = req.headers.get('authorization')
+  const isCron = authHeader === `Bearer ${process.env.EPG_SYNC_CRON_SECRET}`
 
-  const { servidor } = await req.json();
+  if (!isCron) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  }
+
+  const body = await req.json().catch(() => ({}))
+  const { servidor } = body
   if (!servidor) return NextResponse.json({ error: "servidor obrigatório" }, { status: 400 });
 
   const alvos: Servidor[] = servidor === "TODOS" ? [...SERVIDORES] : [servidor as Servidor];
