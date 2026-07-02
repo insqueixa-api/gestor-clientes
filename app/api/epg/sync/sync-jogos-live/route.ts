@@ -101,9 +101,11 @@ export async function GET(request: Request) {
         status_group:     g.statusGroup,
         status_text:      g.statusText ?? null,
         score_home:
+          (g.statusGroup === 3 || g.statusGroup === 4) &&
           g.homeCompetitor?.score != null && g.homeCompetitor.score >= 0
             ? g.homeCompetitor.score : null,
         score_away:
+          (g.statusGroup === 3 || g.statusGroup === 4) &&
           g.awayCompetitor?.score != null && g.awayCompetitor.score >= 0
             ? g.awayCompetitor.score : null,
         atualizado_em:    agora.toISOString(),
@@ -116,9 +118,17 @@ export async function GET(request: Request) {
     if (upsertError) throw new Error(`upsert: ${upsertError.message}`)
 
     // ── 3. Busca o JSON atual do Supabase e reconstrói o R2 ────────────────────
+const inicioDia = new Date(agora)
+    inicioDia.setHours(0, 0, 0, 0)
+    const fimAmanha = new Date(agora)
+    fimAmanha.setDate(fimAmanha.getDate() + 1)
+    fimAmanha.setHours(23, 59, 59, 999)
+
     const { data: jogos, error: selectError } = await supabaseAdmin
       .from('jogos_dia')
       .select('*')
+      .gte('data_hora', inicioDia.toISOString())
+      .lte('data_hora', fimAmanha.toISOString())
       .order('data_hora', { ascending: true })
 
     if (selectError) throw new Error(`select: ${selectError.message}`)
