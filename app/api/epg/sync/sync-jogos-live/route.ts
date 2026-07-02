@@ -87,16 +87,26 @@ export async function GET(request: Request) {
     const updates = gamesSemDup
       .filter((g: any) => g.hasTVNetworks)
       .map((g: any) => ({
-        game_id:      g.id,
-        status_group: g.statusGroup,
-        status_text:  g.statusText   ?? null,
+        game_id:          g.id,
+        // Campos obrigatórios da tabela — precisam vir mesmo no upsert parcial
+        sport_id:         g.sportId,
+        competition_id:   g.competitionId,
+        competition_nome: g.competitionDisplayName ?? '',
+        home_id:          g.homeCompetitor?.id,
+        home_nome:        g.homeCompetitor?.name ?? '',
+        away_id:          g.awayCompetitor?.id,
+        away_nome:        g.awayCompetitor?.name ?? '',
+        data_hora:        g.startTime,
+        // Campos de placar/status que queremos atualizar
+        status_group:     g.statusGroup,
+        status_text:      g.statusText ?? null,
         score_home:
           g.homeCompetitor?.score != null && g.homeCompetitor.score >= 0
             ? g.homeCompetitor.score : null,
         score_away:
           g.awayCompetitor?.score != null && g.awayCompetitor.score >= 0
             ? g.awayCompetitor.score : null,
-        atualizado_em: agora.toISOString(),
+        atualizado_em:    agora.toISOString(),
       }))
 
     const { error: upsertError } = await supabaseAdmin
