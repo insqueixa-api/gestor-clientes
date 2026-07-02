@@ -117,44 +117,35 @@ export async function GET(request: Request) {
 
     if (upsertError) throw new Error(`upsert: ${upsertError.message}`)
 
-    // ── 3. Busca o JSON atual do Supabase e reconstrói o R2 ────────────────────
-const inicioDia = new Date(agora)
-    inicioDia.setHours(0, 0, 0, 0)
-    const fimAmanha = new Date(agora)
-    fimAmanha.setDate(fimAmanha.getDate() + 1)
-    fimAmanha.setHours(23, 59, 59, 999)
+    // ── 3. Busca o JSON atual do R2, atualiza placares em memória e regravar ───
+    // Estratégia: não reconstruir do Supabase (evita perder jogos por filtro de data)
+    // Apenas patch dos campos de status/placar nos jogos já existentes no JSON
+    const r2Url = `${R2_PUBLIC_URL}/epg/jogos_dia.json`
+    const r2Res = await fetch(`${r2Url}?t=${Date.now()}`, { cache: 'no-store' })
+    if (!r2Res.ok) throw new Error(`R2 fetch: HTTP ${r2Res.status}`)
+    const r2Json = await r2Res.json()
 
-    const { data: jogos, error: selectError } = await supabaseAdmin
-      .from('jogos_dia')
-      .select('*')
-      .gte('data_hora', inicioDia.toISOString())
-      .lte('data_hora', fimAmanha.toISOString())
-      .order('data_hora', { ascending: true })
+    // Monta mapa de updates por game_id para lookup O(1)
+    const updatesMap = new Map(updates.map(u => [u.game_id, u]))
 
-    if (selectError) throw new Error(`select: ${selectError.message}`)
-
-    // Monta URLs de logo (mesmo padrão do sync-jogos)
-    function tvNetworkLogoUrl(id: number, imageVersion: number) {
-      return `https://imagecache.365scores.com/image/upload/f_png,w_60,h_60,c_limit,q_auto:eco,dpr_2/v${imageVersion}/Networks/${id}`
-    }
-    function competitorLogoUrl(id: number, imageVersion: number) {
-      return `https://imagecache.365scores.com/image/upload/f_png,w_34,h_34,c_limit,q_auto:eco,dpr_2,d_Competitors:default1.png/v${imageVersion}/Competitors/${id}`
-    }
+    // Aplica patch só nos campos de placar/status — preserva todos os outros campos (tv_networks, logos, etc.)
+    const jogosAtualizados = (r2Json.jogos ?? []).map((jogo: any) => {
+      const update = updatesMap.get(jogo.game_id)
+      if (!update) return jogo // jogo não veio no allscores — mantém como estava
+      return {
+        ...jogo,
+        status_group: update.status_group,
+        status_text:  update.status_text,
+        score_home:   update.score_home,
+        score_away:   update.score_away,
+        atualizado_em: update.atualizado_em,
+      }
+    })
 
     const r2Payload = {
+      ...r2Json,
       generated_at: agora.toISOString(),
-      date:  hoje,
-      total: jogos?.length ?? 0,
-      sports: [...new Set((jogos ?? []).map((j: any) => j.sport_id))],
-      jogos: (jogos ?? []).map((j: any) => ({
-        ...j,
-        home_logo: j.home_image_ver ? competitorLogoUrl(j.home_id, j.home_image_ver) : null,
-        away_logo: j.away_image_ver ? competitorLogoUrl(j.away_id, j.away_image_ver) : null,
-        tv_networks: (j.tv_networks ?? []).map((tv: any) => ({
-          ...tv,
-          logo_url: tvNetworkLogoUrl(tv.id, tv.imageVersion),
-        })),
-      })),
+      jogos: jogosAtualizados,
     }
 
     await s3.send(new PutObjectCommand({
