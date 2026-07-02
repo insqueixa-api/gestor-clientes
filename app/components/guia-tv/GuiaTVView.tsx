@@ -1347,9 +1347,20 @@ function GrupoCompeticao({ competicao, jogos }: { competicao: string; jogos: Jog
       {aberto && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-2">
           {jogos.map(jogo => {
-            const hora = new Date(jogo.data_hora).toLocaleTimeString('pt-BR', {
-              hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo'
-            })
+            const dataJogo = new Date(jogo.data_hora)
+                const hora = dataJogo.toLocaleTimeString('pt-BR', {
+                  hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo'
+                })
+                const hojeStr = new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+                const jogoStr = dataJogo.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+                const amanhaBRT = new Date()
+                amanhaBRT.setDate(amanhaBRT.getDate() + 1)
+                const amanhaStr = amanhaBRT.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+                const labelDia = jogoStr === hojeStr
+                  ? `Hoje ${hora}`
+                  : jogoStr === amanhaStr
+                  ? `Amanhã ${hora}`
+                  : `${dataJogo.toLocaleDateString('pt-BR', { weekday: 'long', timeZone: 'America/Sao_Paulo' }).replace(/^\w/, c => c.toUpperCase())} ${hora}`
             const aoVivo = jogo.status_group === 3
             const encerrado = jogo.status_group === 4
             const temPlacar = jogo.score_home !== null && jogo.score_away !== null
@@ -1370,7 +1381,8 @@ function GrupoCompeticao({ competicao, jogos }: { competicao: string; jogos: Jog
                       </span>
                     : encerrado
                     ? <span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wide">Encerrado</span>
-                    : <span className="text-[11px] font-bold text-amber-500 font-mono">{hora}</span>
+                   : <span className="text-[11px] font-bold text-amber-500 font-mono">{labelDia}</span>
+
                   }
                 </div>
                 <div className="flex flex-col gap-2.5 px-4 py-4">
