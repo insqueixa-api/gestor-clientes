@@ -1856,14 +1856,30 @@ useEffect(()=>{
   },[]);
 
   useEffect(() => {
-  if (tab !== 'canais') return
-  setLoadingJogos(true)
-  fetch(`${process.env.NEXT_PUBLIC_R2_DEV_URL}/epg/jogos_dia.json?t=${Date.now()}`, { cache: 'no-store' })
-    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
-    .then(data => setJogosData(data))
-    .catch(() => setJogosData(null))
-    .finally(() => setLoadingJogos(false))
-}, [tab])
+    if (tab !== 'canais') return
+
+    // 1. Carrega o JSON do R2 imediatamente (rápido)
+    setLoadingJogos(true)
+    fetch(`${process.env.NEXT_PUBLIC_R2_DEV_URL}/epg/jogos_dia.json?t=${Date.now()}`, { cache: 'no-store' })
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
+      .then(data => {
+        setJogosData(data)
+        // 2. Após exibir, atualiza placares em background (silencioso)
+        fetch('/api/epg/sync/sync-jogos-live', { cache: 'no-store' })
+          .then(r => r.json())
+          .then(result => {
+            if (result.ok) {
+              // 3. Recarrega o JSON do R2 com placares atualizados
+              return fetch(`${process.env.NEXT_PUBLIC_R2_DEV_URL}/epg/jogos_dia.json?t=${Date.now()}`, { cache: 'no-store' })
+                .then(r => r.json())
+                .then(updated => setJogosData(updated))
+            }
+          })
+          .catch(() => {/* silencioso — não afeta a exibição */})
+      })
+      .catch(() => setJogosData(null))
+      .finally(() => setLoadingJogos(false))
+  }, [tab])
 
   // Lógica de progsPorCanal original preservada
   const progsPorCanal=useMemo(()=>{
