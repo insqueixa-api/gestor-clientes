@@ -119,6 +119,7 @@ async function ensureLoggedInAndReadCredits(page, baseUrl, username, password) {
   const maxAttempts = 15; // ~22s de polling, igual ao espírito do código da extensão
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const state = await readCreditsFromPage(page);
+    console.log(`[elite-service] tentativa ${attempt + 1}/${maxAttempts}: status=${state.status} url=${page.url()}`);
 
     if (state.status === "success") return state;
     if (state.status === "error") throw new Error(state.message);
@@ -144,6 +145,18 @@ async function ensureLoggedInAndReadCredits(page, baseUrl, username, password) {
     }
 
     await new Promise((r) => setTimeout(r, 1500));
+  }
+
+  // Timeout: salva screenshot + HTML pra diagnóstico visual
+  try {
+    const debugDir = path.join(__dirname, "debug");
+    if (!fs.existsSync(debugDir)) fs.mkdirSync(debugDir, { recursive: true });
+    await page.screenshot({ path: path.join(debugDir, "timeout.png"), fullPage: true });
+    const html = await page.content();
+    fs.writeFileSync(path.join(debugDir, "timeout.html"), html);
+    console.log(`[elite-service] Timeout — screenshot e HTML salvos em ${debugDir}`);
+  } catch (debugErr) {
+    console.log(`[elite-service] Falha ao salvar debug: ${debugErr.message}`);
   }
 
   throw new Error("Timeout: não foi possível confirmar login/saldo dentro do tempo esperado.");
