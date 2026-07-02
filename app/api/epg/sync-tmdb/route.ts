@@ -116,10 +116,15 @@ async function buscarDetalhes(tmdbId: number, tipo: "FILME" | "SERIE") {
 }
 
 // ─── GET — Status ─────────────────────────────────────────────────────────────
-export async function GET() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+export async function GET(req: Request) {
+  const authHeader = req.headers.get('authorization')
+  const isCron = authHeader === `Bearer ${process.env.EPG_SYNC_CRON_SECRET}`
+
+  if (!isCron) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  }
 
   const [
     { count: totalFilmes },
@@ -145,9 +150,14 @@ export async function GET() {
 
 // ─── POST — Processar lote (Automático / Misto) ───────────────────────────────
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  const authHeader = req.headers.get('authorization')
+  const isCron = authHeader === `Bearer ${process.env.EPG_SYNC_CRON_SECRET}`
+
+  if (!isCron) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  }
 
   if (!TMDB_KEY) return NextResponse.json({ error: "TMDB_API_KEY não configurada" }, { status: 500 });
 
