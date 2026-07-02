@@ -108,7 +108,16 @@ export async function POST(req: NextRequest) {
 
     for (let i = 0; i < loteNorm.length; i += BATCH) {
       const batch = loteNorm.slice(i, i + BATCH);
-      const masterRows = batch.map(e => ({
+
+      // Deduplica dentro do lote após limparTitulo para evitar conflito no upsert
+      const batchMap = new Map<string, any>()
+      for (const e of batch) {
+        const key = `${e.titulo_normalizado}|${e.tipo}`
+        if (!batchMap.has(key) || (!batchMap.get(key).cover_url && e.cover_url)) {
+          batchMap.set(key, e)
+        }
+      }
+      const masterRows = [...batchMap.values()].map(e => ({
         titulo_normalizado: e.titulo_normalizado,
         tipo:               e.tipo,
         ...(e.cover_url ? { cover_url: e.cover_url } : {}),
