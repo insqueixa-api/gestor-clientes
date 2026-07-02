@@ -86,9 +86,14 @@ export async function POST(req: NextRequest) {
   const inicio = Date.now();
   const agora  = new Date().toISOString();
 
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  const authHeader = req.headers.get('authorization')
+  const isCron = authHeader === `Bearer ${process.env.EPG_SYNC_CRON_SECRET}`
+
+  if (!isCron) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  }
 
   const log: Record<string, any> = {
     servidor: SERVIDOR, executado_em: agora,
