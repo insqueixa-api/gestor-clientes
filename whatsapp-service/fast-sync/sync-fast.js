@@ -162,7 +162,15 @@ async function main() {
     }
   }
 
-  const masterLista = [...filmes.values(), ...seriesMaster.values()]
+  // Deduplica por titulo_normalizado para evitar conflito no upsert
+  const masterMap = new Map()
+  for (const item of [...filmes.values(), ...seriesMaster.values()]) {
+    const key = `${item.titulo_normalizado}|${item.tipo}`
+    if (!masterMap.has(key) || (!masterMap.get(key).cover_url && item.cover_url)) {
+      masterMap.set(key, item)
+    }
+  }
+  const masterLista = [...masterMap.values()]
   console.log(`[FAST-SYNC] Parse: ${filmes.size} filmes, ${seriesMaster.size} séries, ${episodios.length} episódios`)
 
   // 3. Snapshot antes
