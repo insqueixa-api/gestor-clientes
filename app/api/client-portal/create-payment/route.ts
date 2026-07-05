@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { notify } from "@/lib/notifications/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -326,6 +327,16 @@ if (process.env.NODE_ENV !== "production" && price_amount_raw != null) {
         safeServerLog("create-payment: insert manual payment error", insErr?.message);
         return jsonError("Erro interno", 500);
       }
+
+      // ✅ NOVO: notificação no sino (tabela notifications)
+      await notify({
+        tenantId: sess.tenant_id,
+        type: "transfer_aguardando",
+        title: "🏦 Transferência Aguardando",
+        message: `${displayName} informou que vai transferir ${new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(computedPrice)}. Confirme o recebimento na Auditoria.`,
+        link: "/admin/auditoria",
+        sourceId: inserted.id,
+      });
 
       // ✅ Email imediato: cliente informou que vai transferir
       try {

@@ -862,13 +862,44 @@ function FinanceiroPageContent() {
     if (!tenantId) return;
     try {
       if (modo === "TODAS" && t.recorrencia_id) {
+        // ✅ NOVO: busca os IDs antes de apagar, pra resolver as notificações
+        const { data: paraExcluir } = await supabaseBrowser
+          .from("fin_transacoes")
+          .select("id")
+          .eq("recorrencia_id", t.recorrencia_id)
+          .gte("data_vencimento", t.data_vencimento);
+
         await supabaseBrowser
           .from("fin_transacoes")
           .delete()
           .eq("recorrencia_id", t.recorrencia_id)
           .gte("data_vencimento", t.data_vencimento);
+
+        // ✅ NOVO: resolve a notificação de cada uma (se existir)
+        for (const row of paraExcluir || []) {
+          try {
+            await supabaseBrowser.rpc("resolve_notification", {
+              p_tenant_id: tenantId,
+              p_type: "fin_vencido",
+              p_source_id: row.id,
+            });
+          } catch (e) {
+            console.error("Falha ao resolver notificação de vencimento:", e);
+          }
+        }
       } else {
         await supabaseBrowser.from("fin_transacoes").delete().eq("id", t.id);
+
+        // ✅ NOVO
+        try {
+          await supabaseBrowser.rpc("resolve_notification", {
+            p_tenant_id: tenantId,
+            p_type: "fin_vencido",
+            p_source_id: t.id,
+          });
+        } catch (e) {
+          console.error("Falha ao resolver notificação de vencimento:", e);
+        }
       }
       addToast(
         "success",
@@ -3049,6 +3080,19 @@ function ModalTransacao({
             })
             .eq("id", transacaoEdit.id);
           if (error) throw error;
+
+          // ✅ NOVO
+          if (status === "PAGO") {
+            try {
+              await supabaseBrowser.rpc("resolve_notification", {
+                p_tenant_id: tenantId,
+                p_type: "fin_vencido",
+                p_source_id: transacaoEdit.id,
+              });
+            } catch (e) {
+              console.error("Falha ao resolver notificação de vencimento:", e);
+            }
+          }
         } else {
           // 1. Atualiza a transação atual
           const { error: errCurrent } = await supabaseBrowser
@@ -3070,6 +3114,19 @@ function ModalTransacao({
             })
             .eq("id", transacaoEdit.id);
           if (errCurrent) throw errCurrent;
+
+          // ✅ NOVO
+          if (status === "PAGO") {
+            try {
+              await supabaseBrowser.rpc("resolve_notification", {
+                p_tenant_id: tenantId,
+                p_type: "fin_vencido",
+                p_source_id: transacaoEdit.id,
+              });
+            } catch (e) {
+              console.error("Falha ao resolver notificação de vencimento:", e);
+            }
+          }
 
           // 2. Busca histórico oficial E faturas "órfãs" para limpeza total (À Prova de Balas)
           const [{ data: oficiais }, { data: orfas }] = await Promise.all([
@@ -3927,6 +3984,19 @@ function ModalBaixa({
         .eq("id", transacao.id);
 
       if (error) throw error;
+
+      // ✅ NOVO: se a transação foi paga, resolve a notificação de vencimento (se existir)
+      if (novoStatus === "PAGO") {
+        try {
+          await supabaseBrowser.rpc("resolve_notification", {
+            p_tenant_id: tenantId,
+            p_type: "fin_vencido",
+            p_source_id: transacao.id,
+          });
+        } catch (e) {
+          console.error("Falha ao resolver notificação de vencimento:", e);
+        }
+      }
 
       // Se valor mudou E escopo = TODAS, atualiza futuras também
       if (valorAlterado && escopo === "TODAS" && transacao.recorrencia_id) {

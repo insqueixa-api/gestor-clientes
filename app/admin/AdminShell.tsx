@@ -10,7 +10,6 @@ import React from "react";
 import {
   LayoutDashboard,
   Users,
-  Activity,
   Tv,
   Clock,
   Network,
@@ -32,30 +31,6 @@ import {
   RotateCcw,
   X,
 } from "lucide-react";
-
-function getHojeSP(): Date {
-  const spStr = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Sao_Paulo",
-  }).format(new Date());
-  const [y, m, d] = spStr.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-
-function getTargetDate(isoDate: string): Date {
-  const [y, m, d] = isoDate.split("T")[0].split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-
-function isOverdue(vencimentoIso?: string | null): boolean {
-  if (!vencimentoIso) return false;
-  return getTargetDate(vencimentoIso) < getHojeSP();
-}
-
-function daysUntil(s?: string | null): number | null {
-  if (!s) return null;
-  const diffTime = getTargetDate(s).getTime() - getHojeSP().getTime();
-  return Math.round(diffTime / 86400000);
-}
 
 function BrandUser({
   userLabel,
@@ -114,11 +89,24 @@ type Notification = {
   title: string;
   message: string;
   link: string;
-  type: "warning" | "error" | "info" | "whatsapp";
-  data?: any;
+  type: string; // vem direto da tabela: fin_vencido, whatsapp_falha, automacao_falha, transfer_aguardando, manual_pending, saldo_baixo (ou "whatsapp_desconectado_local" para o item ephemeral)
   is_read: boolean;
   created_at: string;
 };
+
+// ✅ NOVO: emoji de exibição por tipo (a tabela já guarda o emoji no título/mensagem,
+// isso aqui é só o ícone grande da lista)
+function getNotifEmoji(type: string): string {
+  switch (type) {
+    case "fin_vencido": return "🟥";
+    case "whatsapp_falha": return "💬";
+    case "automacao_falha": return "🤖";
+    case "transfer_aguardando": return "🏦";
+    case "manual_pending": return "🟣";
+    case "saldo_baixo": return "🪫";
+    default: return "🔔";
+  }
+}
 
 // Renderiza **negrito** dentro de um texto, sem HTML inseguro
 function renderBold(text: any): React.ReactNode {
@@ -143,26 +131,20 @@ export default function AdminShell({
   userLabel,
   tenantName,
   tenantId,
-  whatsappSessions,
   logoUrl,
 }: {
   children: React.ReactNode;
   userLabel: string;
   tenantName: string;
   tenantId?: string;
-  whatsappSessions?: number;
   logoUrl?: string | null;
 }) {
   const [openMenu, setOpenMenu] = useState<
     null | "manager" | "settings" | "mobile"
   >(null);
-  const [waDisconnected, setWaDisconnected] = useState(false);
-  const [showWaModal, setShowWaModal] = useState(false);
-
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+const [notifications, setNotifications] = useState<Notification[]>([]); // ✅ vem direto da tabela notifications
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
-  const [selectedNotification, setSelectedNotification] =
-    useState<Notification | null>(null);
+
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const unreadCount = useMemo(
@@ -170,321 +152,29 @@ export default function AdminShell({
     [notifications],
   );
 
-  useEffect(() => {
-    if (!whatsappSessions || whatsappSessions < 1) return;
-
-    async function checkWaSessions() {
-      try {
-        const [r1, r2] = await Promise.all([
-          fetch("/api/whatsapp/status", { cache: "no-store" })
-            .then((r) => r.json())
-            .catch(() => ({})),
-          whatsappSessions! >= 2
-            ? fetch("/api/whatsapp/status2", { cache: "no-store" })
-                .then((r) => r.json())
-                .catch(() => ({}))
-            : Promise.resolve({ connected: true }),
-        ]);
-        setWaDisconnected(!r1.connected && !r2.connected);
-      } catch {
-        // silencioso
-      }
-    }
-
-    void checkWaSessions();
-    const interval = setInterval(checkWaSessions, 10 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [whatsappSessions]);
+  
 
   useEffect(() => {
     const loadNotifications = async () => {
-      const list: Notification[] = [];
-      const nowIso = new Date().toISOString();
-      const dataAtualSP = new Intl.DateTimeFormat("en-CA", {
-        timeZone: "America/Sao_Paulo",
-      }).format(new Date());
+      if (!tenantId) return;
+      try {
+        const { data, error } = await supabaseBrowser
+          .from("notifications")
+          .select("id, type, title, message, link, is_read, created_at")
+          .eq("tenant_id", tenantId)
+          .is("archived_at", null)
+          .is("resolved_at", null)
+          .order("created_at", { ascending: false })
+          .limit(50);
 
-      if (waDisconnected) {
-        list.push({
-          id: "whatsapp_disconnected",
-          title: "📵 WhatsApp Desconectado",
-          message: "Reconecte para retomar o envio de mensagens.",
-          link: "/admin/settings/whatsapp",
-          type: "whatsapp",
-          is_read: false,
-          created_at: nowIso,
-        });
-      }
-
-      if (tenantId) {
-        try {
-          const { data: transacoes, error } = await supabaseBrowser
-            .from("fin_transacoes")
-            .select("id, descricao, valor, data_vencimento, tipo")
-            .eq("status", "PENDENTE")
-            .lte("data_vencimento", dataAtualSP);
-
-          if (!error && transacoes) {
-            transacoes.forEach((t) => {
-              const vencido = isOverdue(t.data_vencimento);
-              const diasAtrasoRaw = daysUntil(t.data_vencimento + "T12:00:00");
-              const diasAtraso =
-                diasAtrasoRaw !== null ? Math.abs(diasAtrasoRaw) : 0;
-              const dataFormatada = t.data_vencimento
-                .split("-")
-                .reverse()
-                .join("/");
-
-              const icone = t.tipo === "RECEITA" ? "📈" : "📉";
-              const tituloTipo =
-                t.tipo === "RECEITA" ? "Recebimento" : "Pagamento";
-              const valorFmt = new Intl.NumberFormat("pt-BR", {
-                style: "currency",
-                currency: "BRL",
-              }).format(t.valor);
-
-              const titleNotif = vencido
-                ? `🟥 ${tituloTipo} Vencido`
-                : `🟧 ${tituloTipo} Vence Hoje`;
-              const messageNotif = vencido
-                ? `${icone} ${t.descricao} - ${valorFmt}. Vencido há ${diasAtraso} dia(s) (${dataFormatada}).`
-                : `${icone} ${t.descricao} - ${valorFmt}. Pendente para hoje (${dataFormatada}).`;
-
-              list.push({
-                id: `fin_${t.id}`,
-                title: titleNotif,
-                message: messageNotif,
-                link: "/admin/settings/financeiro_pessoal",
-                type: vencido ? "error" : "warning",
-                is_read: false,
-                created_at: nowIso,
-                data: { transacaoId: t.id },
-              });
-            });
-          }
-        } catch (e) {}
-      }
-
-      if (tenantId) {
-        try {
-          // 1. Aguardando transferência bancária (cliente clicou mas ainda não confirmou)
-          const { data: awaitingTransfer } = await supabaseBrowser
-            .from("client_portal_payments")
-            .select("id, created_at, price_amount, price_currency, gateway_type")
-            .eq("tenant_id", tenantId)
-            .eq("fulfillment_status", "awaiting_transfer");
-
-          if (awaitingTransfer && awaitingTransfer.length > 0) {
-            awaitingTransfer.forEach((p) => {
-              const valor = new Intl.NumberFormat("pt-BR", {
-                style: "currency",
-                currency: p.price_currency || "EUR",
-              }).format(p.price_amount || 0);
-              const tipo = p.gateway_type === "transfer_manual_usd"
-                ? "USD"
-                : "EUR";
-              list.push({
-                id: `transfer_${p.id}`,
-                title: "🏦 Transferência Aguardando",
-                message: `Um cliente informou que vai transferir **${valor}** (${tipo}). Confirme o recebimento na Auditoria.`,
-                link: "/admin/auditoria",
-                type: "warning",
-                is_read: false,
-                created_at: p.created_at || nowIso,
-              });
-            });
-          }
-
-          // 2. Renovação manual pendente (servidor sem integração / Elite / fallback)
-          const { data: pendingManual } = await supabaseBrowser
-            .from("client_portal_payments")
-            .select("id, created_at, price_amount, price_currency")
-            .eq("tenant_id", tenantId)
-            .eq("fulfillment_status", "manual_pending");
-
-          if (pendingManual && pendingManual.length > 0) {
-            pendingManual.forEach((p) => {
-              const valor = new Intl.NumberFormat("pt-BR", {
-                style: "currency",
-                currency: p.price_currency || "BRL",
-              }).format(p.price_amount || 0);
-              list.push({
-                id: `manual_${p.id}`,
-                title: "🟣 Renovação Manual Pendente",
-                message: `Pagamento de **${valor}** confirmado. Acesse a Auditoria para liberar o cliente no servidor.`,
-                link: "/admin/auditoria",
-                type: "info",
-                is_read: false,
-                created_at: p.created_at || nowIso,
-              });
-            });
-          }
-        } catch (e) {}
-      }
-
-      if (tenantId) {
-        try {
-          const { data: failedWa, error: waErr } = await supabaseBrowser
-            .from("client_portal_payments")
-            .select("id, created_at")
-            .eq("tenant_id", tenantId)
-            .eq("whatsapp_status", "error")
-            .in("fulfillment_status", ["done", "manual_done"]);
-
-          if (!waErr && failedWa) {
-            failedWa.forEach((p) => {
-              list.push({
-                id: `wa_err_${p.id}`,
-                title: "💬 Falha no WhatsApp",
-                message:
-                  "Uma recarga foi efetuada, mas o envio do comprovante pelo WhatsApp falhou. Reenvie pela Auditoria.",
-                link: "/admin/auditoria",
-                type: "error",
-                is_read: false,
-                created_at: p.created_at || nowIso,
-              });
-            });
-          }
-        } catch (e) {}
-      }
-
-      // ✅ NOVO: Falhas das automações de cobrança (somente HOJE, fuso SP)
-      if (tenantId) {
-        try {
-          // Início do dia de hoje em São Paulo, convertido para um instante UTC
-          const startOfTodaySP = new Date(`${dataAtualSP}T00:00:00-03:00`).toISOString();
-
-          // 1) Busca TODOS os disparos de automação de hoje para cruzar falhas vs sucessos
-          const { data: todayJobs, error: jobsErr } = await supabaseBrowser
-            .from("client_message_jobs")
-            .select("id, client_id, automation_id, status, send_at")
-            .eq("tenant_id", tenantId)
-            .not("automation_id", "is", null)
-            .gte("send_at", startOfTodaySP);
-
-          // Blindagem: Garante que só vai tentar rodar o loop se for DE FATO uma lista válida
-          const validJobs = Array.isArray(todayJobs) ? todayJobs : [];
-
-          if (!jobsErr && validJobs.length > 0) {
-            // 2) Agrupa para saber se o cliente teve sucesso na mesma automação hoje
-            const statusByAutoAndClient: Record<string, Record<string, boolean>> = {};
-
-            validJobs.forEach((j: any) => {
-              if (!j.automation_id || !j.client_id) return;
-              
-              if (!statusByAutoAndClient[j.automation_id]) {
-                statusByAutoAndClient[j.automation_id] = {};
-              }
-              
-              // Se ainda não registramos o cliente, o padrão é falso (falhou/pendente)
-              if (statusByAutoAndClient[j.automation_id][j.client_id] === undefined) {
-                statusByAutoAndClient[j.automation_id][j.client_id] = false;
-              }
-
-              // Se teve um status SENT ou CANCELLED (resolvido na tela), marca como verdadeiro (anula falhas anteriores)
-              if (j.status === "SENT" || j.status === "CANCELLED") {
-                statusByAutoAndClient[j.automation_id][j.client_id] = true;
-              }
-            });
-
-            const countByAuto: Record<string, number> = {};
-            
-            // Conta APENAS clientes que ficaram com 'false' (ou seja, falharam e NUNCA tiveram SENT hoje)
-            Object.keys(statusByAutoAndClient).forEach(autoId => {
-              const clients = statusByAutoAndClient[autoId];
-              let realFails = 0;
-              Object.values(clients).forEach(hasSent => {
-                if (!hasSent) realFails++;
-              });
-              
-              if (realFails > 0) {
-                countByAuto[autoId] = realFails;
-              }
-            });
-
-            const autoIds = Object.keys(countByAuto);
-            if (autoIds.length > 0) {
-              // 3) Busca nome e horário das regras envolvidas
-              const { data: autos } = await supabaseBrowser
-                .from("billing_automations")
-                .select("id, name, schedule_time")
-                .eq("tenant_id", tenantId)
-                .in("id", autoIds);
-
-              const autoMap: Record<string, { name: string; time: string }> = {};
-              (autos || []).forEach((a: any) => {
-                autoMap[a.id] = {
-                  name: a.name || "Automação",
-                  time: a.schedule_time ? String(a.schedule_time).slice(0, 5) : "",
-                };
-              });
-
-              // 4) Um alerta por automação
-              autoIds.forEach((autoId) => {
-                const info = autoMap[autoId] || { name: "Automação", time: "" };
-                const qtd = countByAuto[autoId];
-                const horaTxt = info.time ? ` às ${info.time}hs` : "";
-                const clienteTxt =
-                  qtd > 1
-                    ? `${qtd} clientes não foram notificados`
-                    : `${qtd} cliente não foi notificado`;
-                list.push({
-                  id: `auto_fail_${autoId}_${dataAtualSP}`,
-                  title: `🤖 Falha: **${info.name}**`,
-                  message: `A regra não foi enviada${horaTxt}. ${clienteTxt} via WhatsApp.`,
-                  link: "/admin/gerenciador/cobranca",
-                  type: "error",
-                  is_read: false,
-                  created_at: nowIso,
-                });
-              });
-            }
-          }
-        } catch (e) {}
-      }
-
-      // ✅ NOVO: Notificação de Saldo Baixo nos Servidores (<= 15)
-      if (tenantId) {
-        try {
-          const { data: serversBaixo, error: srvErr } = await supabaseBrowser
-            .from("servers")
-            .select("id, name, credits_available")
-            .eq("tenant_id", tenantId)
-            .eq("is_archived", false)
-            .lte("credits_available", 15); // Menor ou igual a 15
-
-          if (!srvErr && serversBaixo) {
-            serversBaixo.forEach((s) => {
-              list.push({
-                id: `srv_low_credits_${s.id}`,
-                title: "🪫 Saldo Baixo",
-                message: `O servidor "${s.name}" está com apenas ${s.credits_available} créditos. Recarregue imediatamente para evitar interrupções!`,
-                link: "/admin/gerenciador/servidor", // Direciona para a gestão de servidores
-                type: "error", // Tipo error para aparecer vermelho e chamar atenção
-                is_read: false,
-                created_at: nowIso,
-              });
-            });
-          }
-        } catch (e) {}
-      }
-
-      const dismissed = JSON.parse(
-        localStorage.getItem("dismissed_notifs") || "[]",
-      );
-      const readNotifs = JSON.parse(
-        localStorage.getItem("read_notifs") || "[]",
-      );
-
-      const filteredList = list
-        .filter((n) => !dismissed.includes(n.id))
-        .map((n) => (readNotifs.includes(n.id) ? { ...n, is_read: true } : n));
-
-      setNotifications(filteredList);
+        if (!error && data) {
+          setNotifications(data as Notification[]);
+        }
+      } catch (e) {}
     };
 
     loadNotifications();
-  }, [waDisconnected, tenantId, refreshTrigger]);
+  }, [tenantId, refreshTrigger]);
 
   const managerRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -560,65 +250,63 @@ export default function AdminShell({
     setOpenMenu("mobile");
   }
 
-  const clearAllNotifications = () => {
-    const currentIds = notifications.map((n) => n.id);
-    const dismissed = JSON.parse(
-      localStorage.getItem("dismissed_notifs") || "[]",
-    );
-    const newDismissed = Array.from(new Set([...dismissed, ...currentIds]));
-    localStorage.setItem("dismissed_notifs", JSON.stringify(newDismissed));
+  const clearAllNotifications = async () => {
+    const dbIds = notifications.map((n) => n.id);
+    if (dbIds.length > 0) {
+      try {
+        await supabaseBrowser
+          .from("notifications")
+          .update({ archived_at: new Date().toISOString() })
+          .in("id", dbIds);
+      } catch (e) {}
+    }
     setNotifications([]);
   };
 
-  const handleSync = () => {
-    localStorage.removeItem("dismissed_notifs");
-    localStorage.removeItem("read_notifs");
+const handleSync = () => {
     setRefreshTrigger((prev) => prev + 1);
   };
 
-  const handleMarkAsUnread = (e: React.MouseEvent, id: string) => {
+  const handleMarkAsUnread = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    const readNotifs = JSON.parse(localStorage.getItem("read_notifs") || "[]");
-    const newReadNotifs = readNotifs.filter(
-      (notifId: string) => notifId !== id,
-    );
-    localStorage.setItem("read_notifs", JSON.stringify(newReadNotifs));
+
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, is_read: false } : n)),
     );
+    try {
+      await supabaseBrowser
+        .from("notifications")
+        .update({ is_read: false })
+        .eq("id", id);
+    } catch (e) {}
   };
 
-  const handleDismiss = (e: React.MouseEvent, id: string) => {
+  const handleDismiss = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    const dismissed = JSON.parse(
-      localStorage.getItem("dismissed_notifs") || "[]",
-    );
-    if (!dismissed.includes(id)) {
-      dismissed.push(id);
-      localStorage.setItem("dismissed_notifs", JSON.stringify(dismissed));
-    }
+
     setNotifications((prev) => prev.filter((n) => n.id !== id));
+    try {
+      await supabaseBrowser
+        .from("notifications")
+        .update({ archived_at: new Date().toISOString() })
+        .eq("id", id);
+    } catch (e) {}
   };
 
-  const handleNotificationClick = (n: Notification) => {
-    const readNotifs = JSON.parse(localStorage.getItem("read_notifs") || "[]");
-    if (!readNotifs.includes(n.id)) {
-      readNotifs.push(n.id);
-      localStorage.setItem("read_notifs", JSON.stringify(readNotifs));
-    }
-
-    setNotifications((prev) =>
-      prev.map((noti) =>
-        noti.id === n.id ? { ...noti, is_read: true } : noti,
-      ),
-    );
+  const handleNotificationClick = async (n: Notification) => {
     setShowNotificationsModal(false);
 
-    if (n.id === "whatsapp_disconnected") {
-      setShowWaModal(true);
-    } else {
-      window.location.href = n.link;
-    }
+    setNotifications((prev) =>
+      prev.map((noti) => (noti.id === n.id ? { ...noti, is_read: true } : noti)),
+    );
+    try {
+      await supabaseBrowser
+        .from("notifications")
+        .update({ is_read: true })
+        .eq("id", n.id);
+    } catch (e) {}
+
+    window.location.href = n.link;
   };
 
   const canUseDom = typeof document !== "undefined";
@@ -1183,13 +871,7 @@ export default function AdminShell({
                     ].join(" ")}
                   >
                     <div className="text-xl flex-shrink-0 mt-0.5">
-                      {n.type === "error"
-                        ? "🟥"
-                        : n.type === "warning"
-                          ? "⚠️"
-                          : n.type === "whatsapp"
-                            ? "📵"
-                            : "📢"}
+                      {getNotifEmoji(n.type)}
                     </div>
 
                     <div className="flex-1 min-w-0 pr-1">
@@ -1231,79 +913,7 @@ export default function AdminShell({
           </div>
         </Modal>
       )}
-
-      {selectedNotification && selectedNotification.type === "info" && (
-        <Modal
-          title={`📢 ${selectedNotification.title}`}
-          onClose={() => setSelectedNotification(null)}
-        >
-          <div className="space-y-6">
-            <div className="bg-transparent border border-border p-4 rounded-lg flex gap-3">
-              <span className="text-2xl mt-0.5">📢</span>
-              <div>
-                <p className="text-foreground/90 text-sm font-medium">
-                  {selectedNotification.title}
-                </p>
-                <p className="text-foreground/70 text-xs mt-1">
-                  {selectedNotification.message}
-                </p>
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 pt-2">
-              <button
-                onClick={() => setSelectedNotification(null)}
-                className="px-4 py-2 rounded-lg border border-border text-foreground/90 font-medium hover:bg-muted transition-colors text-xs uppercase"
-              >
-                Fechar
-              </button>
-              <Link
-                href={selectedNotification.link}
-                onClick={() => setSelectedNotification(null)}
-                className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-500 transition-colors text-xs uppercase shadow-lg shadow-emerald-900/20"
-              >
-                Ver mais
-              </Link>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {showWaModal && (
-        <Modal
-          title="📵 WhatsApp Desconectado"
-          onClose={() => setShowWaModal(false)}
-        >
-          <div className="space-y-6">
-            <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-lg flex gap-3">
-              <span className="text-2xl mt-0.5">📲</span>
-              <div>
-                <p className="text-foreground/90 text-sm font-medium">
-                  Nenhuma sessão do WhatsApp está conectada no momento.
-                </p>
-                <p className="text-foreground/70 text-xs mt-1">
-                  Os disparos automáticos e manuais estão pausados. Reconecte
-                  para retomar o envio de mensagens.
-                </p>
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 pt-2">
-              <button
-                onClick={() => setShowWaModal(false)}
-                className="px-4 py-2 rounded-lg border border-border text-foreground/90 font-medium hover:bg-muted transition-colors text-xs uppercase"
-              >
-                Fechar
-              </button>
-              <a
-                href="/admin/settings/whatsapp"
-                onClick={() => setShowWaModal(false)}
-                className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-500 transition-colors text-xs uppercase shadow-lg shadow-emerald-900/20"
-              >
-                Ir para Configurações
-              </a>
-            </div>
-          </div>
-        </Modal>
-      )}
+            
     </div>
   );
 }
@@ -1344,21 +954,6 @@ function Modal({
       </div>
     </div>,
     document.body,
-  );
-}
-
-function IconX() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-    >
-      <path d="M18 6L6 18M6 6l12 12" />
-    </svg>
   );
 }
 
@@ -1468,367 +1063,6 @@ function Divider() {
   return <div className="my-1.5 h-px bg-border mx-2" />;
 }
 
-function IconDashboard() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="#34d399"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 20V10" />
-      <path d="M18 20V4" />
-      <path d="M6 20V14" />
-    </svg>
-  );
-}
-function IconFastTimer() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="#fbbf24"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="9" />
-      <polyline points="12 7 12 12 15 14" />
-      <line x1="9" y1="2" x2="15" y2="2" />
-    </svg>
-  );
-}
-function IconClientes() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="#38bdf8"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  );
-}
-function IconRevendas() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="#a78bfa"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M20.42 4.58a5.4 5.4 0 0 0-7.65 0l-.77.78-.77-.78a5.4 5.4 0 0 0-7.65 7.65l8.42 8.42 8.42-8.42a5.4 5.4 0 0 0 0-7.65z" />
-    </svg>
-  );
-}
-function IconGerenciador() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="#94a3b8"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.07 4.93a10 10 0 0 1 0 14.14M16.24 7.76a6 6 0 0 1 0 8.49M4.93 4.93a10 10 0 0 0 0 14.14M7.76 7.76a6 6 0 0 0 0 8.49" />
-    </svg>
-  );
-}
-function IconConta() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="#f472b6"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-      <circle cx="12" cy="7" r="4" />
-    </svg>
-  );
-}
-function IconMenuServidor() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="#38bdf8"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="2" y="3" width="20" height="14" rx="2" />
-      <line x1="8" y1="21" x2="16" y2="21" />
-      <line x1="12" y1="17" x2="12" y2="21" />
-    </svg>
-  );
-}
-function IconMenuPlano() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="#34d399"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <line x1="12" y1="1" x2="12" y2="23" />
-      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-    </svg>
-  );
-}
-function IconMenuMensagens() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="#4ade80"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-    </svg>
-  );
-}
-function IconMenuCobranca() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="#fbbf24"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
-      <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
-      <line x1="6" y1="1" x2="6" y2="4" />
-      <line x1="10" y1="1" x2="10" y2="4" />
-      <line x1="14" y1="1" x2="14" y2="4" />
-    </svg>
-  );
-}
-function IconMenuPagamento() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="#a78bfa"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
-      <line x1="1" y1="10" x2="23" y2="10" />
-    </svg>
-  );
-}
-function IconMenuAplicativo() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="#f472b6"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
-      <line x1="12" y1="18" x2="12.01" y2="18" />
-    </svg>
-  );
-}
-function IconMenuPerfil() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="#f472b6"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-      <circle cx="12" cy="7" r="4" />
-    </svg>
-  );
-}
-function IconMenuFinanceiro() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="#34d399"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-    </svg>
-  );
-}
-function IconMenuApi() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="#38bdf8"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-    </svg>
-  );
-}
-function IconSininho({ className }: { className?: string }) {
-  return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-    </svg>
-  );
-}
-function IconAgenda() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="#fb923c"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-      <line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="8" y1="2" x2="8" y2="6" />
-      <line x1="3" y1="10" x2="21" y2="10" />
-      <path d="M8 14h.01" />
-      <path d="M12 14h.01" />
-      <path d="M16 14h.01" />
-      <path d="M8 18h.01" />
-      <path d="M12 18h.01" />
-      <path d="M16 18h.01" />
-    </svg>
-  );
-}
-
-function IconLog() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <polyline points="14 2 14 8 20 8" />
-      <line x1="16" y1="13" x2="8" y2="13" />
-      <line x1="16" y1="17" x2="8" y2="17" />
-      <polyline points="10 9 9 9 8 9" />
-    </svg>
-  );
-}
-function IconSync({ className }: { className?: string }) {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-      <path d="M3 3v5h5" />
-      <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
-      <path d="M16 21v-5h5" />
-    </svg>
-  );
-}
-function IconUndo() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3 7v6h6" />
-      <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
-    </svg>
-  );
-}
 function WhatsAppIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className={className}>

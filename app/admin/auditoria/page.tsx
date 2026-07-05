@@ -366,6 +366,23 @@ function AuditoriaPageContent() {
 
       if (error) throw error;
 
+      // ✅ NOVO: resolve as notificações do sino ligadas a este pagamento
+      // (tenta os dois tipos possíveis — o que não bater simplesmente não encontra linha)
+      try {
+        await supabaseBrowser.rpc("resolve_notification", {
+          p_tenant_id: tenantId,
+          p_type: "manual_pending",
+          p_source_id: log.id,
+        });
+        await supabaseBrowser.rpc("resolve_notification", {
+          p_tenant_id: tenantId,
+          p_type: "transfer_aguardando",
+          p_source_id: log.id,
+        });
+      } catch (e) {
+        console.error("Falha ao resolver notificação do sino:", e);
+      }
+
       addToast(
         "success",
         "Ação Encerrada",
@@ -473,6 +490,17 @@ function AuditoriaPageContent() {
         p_status: "sent",
       });
       if (rpcErr) throw rpcErr;
+
+      // ✅ NOVO: resolve a notificação de falha de WhatsApp, se existir
+      try {
+        await supabaseBrowser.rpc("resolve_notification", {
+          p_tenant_id: tenantId,
+          p_type: "whatsapp_falha",
+          p_source_id: log.id,
+        });
+      } catch (e) {
+        console.error("Falha ao resolver notificação WA:", e);
+      }
 
       addToast(
         "success",

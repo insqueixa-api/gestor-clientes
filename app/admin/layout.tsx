@@ -60,7 +60,6 @@ export default async function AdminLayout({
         userLabel={userLabel}
         tenantName={tenantName}
         tenantId={member.tenant_id}
-        whatsappSessions={1}
         logoUrl={tenantLogo}
       >
         {children}

@@ -2461,6 +2461,28 @@ function LogsModal({
     }
   };
 
+// ✅ NOVO: se não sobrou nenhuma falha pra essa automação, resolve a notificação do sino
+  const resolveIfNoMoreFailures = async (tid: string) => {
+    try {
+      const { count } = await supabaseBrowser
+        .from("client_message_jobs")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tid)
+        .eq("automation_id", ruleId)
+        .eq("status", "FAILED");
+
+      if (!count || count === 0) {
+        await supabaseBrowser.rpc("resolve_notification", {
+          p_tenant_id: tid,
+          p_type: "automacao_falha",
+          p_source_id: ruleId,
+        });
+      }
+    } catch (e) {
+      console.error("Falha ao resolver notificação de automação:", e);
+    }
+  };
+
   // Reenfileira: cria NOVOS jobs SCHEDULED (escadinha) e marca os antigos como CANCELLED
   const requeueIds = async (ids: string[]) => {
     if (ids.length === 0) return;
@@ -2519,6 +2541,7 @@ function LogsModal({
       if (updErr) throw updErr;
 
       await fetchLogs();
+      await resolveIfNoMoreFailures(tid);
     } catch (e: any) {
       if (process.env.NODE_ENV !== "production")
         console.error("requeue falhou:", e?.message);
@@ -2546,6 +2569,7 @@ function LogsModal({
       if (error) throw error;
 
       await fetchLogs();
+      await resolveIfNoMoreFailures(tid);
     } catch (e: any) {
       if (process.env.NODE_ENV !== "production")
         console.error("cancel falhou:", e?.message);

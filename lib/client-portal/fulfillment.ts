@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { notify } from "@/lib/notifications/notify";
 
 // ============================================================
 // Tipos
@@ -173,6 +174,7 @@ export async function runFulfillment(params: FulfillmentParams) {
           "x-internal-secret": lowCreditsSecret,
         },
         body: JSON.stringify({
+          serverId: srv.id,
           serverName: srv.name,
           credits: creditsNow,
           tenantId: tenantId,
@@ -198,6 +200,16 @@ export async function runFulfillment(params: FulfillmentParams) {
       fulfillment_error: reason,
       mp_payment_id: manualRef 
     }).eq("id", payment.id);
+
+    // ✅ NOVO: notificação no sino (tabela notifications)
+    await notify({
+      tenantId,
+      type: "manual_pending",
+      title: "🟣 Renovação Manual Pendente",
+      message: `Pagamento de ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: payment.price_currency || "BRL" }).format(payment.price_amount)} confirmado para ${client.display_name}. Acesse a Auditoria para liberar o cliente no servidor.`,
+      link: "/admin/auditoria",
+      sourceId: payment.id,
+    });
 
     try {
       await fetch(`${origin}/api/notifications/manual-renewal`, {
@@ -556,6 +568,16 @@ credits_used: months * qtyScreens,
     
     // ✅ NOVO: Se caiu no catch, atualiza a tabela de auditoria como "error" (Mesmo o Plano B agendando depois)
     await supabaseAdmin.from("client_portal_payments").update({ whatsapp_status: "error" }).eq("id", payment.id);
+
+    // ✅ NOVO: notificação no sino (tabela notifications)
+    await notify({
+      tenantId,
+      type: "whatsapp_falha",
+      title: "💬 Falha no WhatsApp",
+      message: `Uma recarga foi efetuada para ${client.display_name}, mas o envio do comprovante pelo WhatsApp falhou. Reenvie pela Auditoria.`,
+      link: "/admin/auditoria",
+      sourceId: payment.id,
+    });
 
     // ✅ PLANO B: Se falhou (mas temos a mensagem montada), salva direto na fila do Cron (+2 min)
     if (messageToSend) {

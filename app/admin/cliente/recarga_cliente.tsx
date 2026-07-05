@@ -1520,6 +1520,17 @@ export default function RecargaCliente({
             );
             if (waUpErr)
               console.error("Falha ao gravar whatsapp_status=sent:", waUpErr);
+
+            // ✅ NOVO: resolve a notificação de falha de WhatsApp, se existir
+            try {
+              await supabaseBrowser.rpc("resolve_notification", {
+                p_tenant_id: tid,
+                p_type: "whatsapp_falha",
+                p_source_id: paymentLogId,
+              });
+            } catch (e) {
+              console.error("Falha ao resolver notificação WA:", e);
+            }
           }
 
           // ✅ Usa queueToast para garantir que apareça na lista de clientes após o modal fechar
@@ -1555,6 +1566,25 @@ export default function RecargaCliente({
 
       // --- FIM ---
       setLoadingText("Concluído!");
+
+      // ✅ NOVO: resolve as notificações do sino ligadas a este pagamento
+      // (tenta os dois tipos possíveis — o que não bater simplesmente não encontra linha)
+      if (paymentLogId) {
+        try {
+          await supabaseBrowser.rpc("resolve_notification", {
+            p_tenant_id: tid,
+            p_type: "manual_pending",
+            p_source_id: paymentLogId,
+          });
+          await supabaseBrowser.rpc("resolve_notification", {
+            p_tenant_id: tid,
+            p_type: "transfer_aguardando",
+            p_source_id: paymentLogId,
+          });
+        } catch (e) {
+          console.error("Falha ao resolver notificação do sino:", e);
+        }
+      }
 
       // ✅ Toast final baseado no tipo de operação
       if (renewAutomatic) {

@@ -545,10 +545,23 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
 
           if (adjErr)
             throw new Error(`Erro ao ajustar saldo: ${adjErr.message}`);
+
+          // ✅ NOVO: se o saldo subiu acima do limite crítico, resolve a
+          // notificação de saldo baixo no sino (se existir)
+          if (newCredits > 15) {
+            try {
+              await supabase.rpc("resolve_notification", {
+                p_tenant_id: tenantId,
+                p_type: "saldo_baixo",
+                p_source_id: server.id,
+              });
+            } catch (e) {
+              console.error("Falha ao resolver notificação de saldo baixo:", e);
+            }
+          }
         }
         // -----------------------------------------------------
 
-        // -----------------------------------------------------
 
         const { error } = await supabase
           .from("servers")

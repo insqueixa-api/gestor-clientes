@@ -14,6 +14,7 @@ import {
   renderTemplate,
   getSPParts,
 } from "@/lib/whatsapp/template-vars";
+import { notify } from "@/lib/notifications/notify";
 
 function safeServerLog(...args: any[]) {
   if (process.env.NODE_ENV !== "production") {
@@ -89,6 +90,41 @@ function normalizeSendAtToUtcISOString(sendAtRaw: string): string {
   if (isNaN(d.getTime())) throw new Error(`send_at inválido após conversão: ${s}`);
 
   return d.toISOString();
+}
+
+// ✅ NOVO: notifica o sino IMEDIATAMENTE quando um job de automação falha.
+// Recalcula a contagem real de falhas ainda pendentes pra essa automação,
+// pra mensagem sempre refletir o total atual (não duplica notificação —
+// upsert pela unique constraint tenant_id+type+source_id).
+async function notifyAutomationFailure(sb: any, tenantId: string, automationId: string) {
+  try {
+    const { count } = await sb
+      .from("client_message_jobs")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .eq("automation_id", automationId)
+      .eq("status", "FAILED");
+
+    const { data: auto } = await sb
+      .from("billing_automations")
+      .select("name")
+      .eq("id", automationId)
+      .single();
+
+    const automationName = auto?.name || "Automação";
+    const total = count || 1;
+
+    await notify({
+      tenantId,
+      type: "automacao_falha",
+      title: `🤖 Falha: ${automationName}`,
+      message: `${total} mensagem(ns) falharam na automação "${automationName}". Veja os logs para reenviar.`,
+      link: "/admin/gerenciador/cobranca",
+      sourceId: automationId,
+    });
+  } catch (e) {
+    safeServerLog("[BILLING] falha ao notificar sino:", e);
+  }
 }
 
 export async function POST(req: Request) {
@@ -410,12 +446,19 @@ export async function POST(req: Request) {
 
         if (successCount === 0) {
           await sb.from("client_message_jobs").update({ status: "FAILED", error_message: String(lastError).slice(0, 500) }).eq("id", job.id);
+
+          // ✅ NOVO: notifica o sino AGORA, na hora, não espera cron nenhum
+          if ((job as any).automation_id) {
+            await notifyAutomationFailure(sb, String(job.tenant_id), String((job as any).automation_id));
+          }
+
           continue;
         }
 
         await sb.from("client_message_jobs").update({ status: "SENT", sent_at: new Date().toISOString(), error_message: null }).eq("id", job.id);
 
         // ✅ Grava o Log do disparo
+        
         if ((job as any).automation_id) {
           const cName = String((wa as any).row?.display_name || (wa as any).row?.client_name || "Cliente").trim();
           await sb.from("billing_logs").insert({
@@ -460,15 +503,20 @@ export async function POST(req: Request) {
           .eq("id", job.id);
 
         if ((job as any).automation_id) {
-          await sb.from("billing_logs").insert({
+          const { error: logErr } = await sb.from("billing_logs").insert({
             tenant_id: job.tenant_id,
             automation_id: (job as any).automation_id,
+            client_id: job.client_id,
             client_name: "Falha no Envio",
             client_whatsapp: "-",
             status: "FAILED",
             sent_at: new Date().toISOString(),
             error_message: errorMsg.slice(0, 500),
           });
+          if (logErr) safeServerLog("[BILLING] falha ao gravar log de erro:", logErr.message);
+
+          // ✅ NOVO: notifica o sino AGORA, na hora
+          await notifyAutomationFailure(sb, String(job.tenant_id), String((job as any).automation_id));
         }
       }
     }

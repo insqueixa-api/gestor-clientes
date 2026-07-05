@@ -170,6 +170,30 @@ export default function RecargaServidorModal({
     fetchFx();
   }, [currency]);
 
+  // ✅ NOVO: lê o saldo real e atualizado do banco; se subiu acima do limite
+  // crítico, resolve a notificação de saldo baixo no sino (se existir)
+  async function resolveIfCreditsOk() {
+    try {
+      const tenantId = await getCurrentTenantId();
+      const { data: fresh } = await supabaseBrowser
+        .from("servers")
+        .select("credits_available")
+        .eq("id", server.id)
+        .single();
+
+      const currentCredits = Number(fresh?.credits_available ?? 0);
+      if (currentCredits > 15) {
+        await supabaseBrowser.rpc("resolve_notification", {
+          p_tenant_id: tenantId,
+          p_type: "saldo_baixo",
+          p_source_id: server.id,
+        });
+      }
+    } catch (e) {
+      console.error("Falha ao resolver notificação de saldo baixo:", e);
+    }
+  }
+
   async function handleSave() {
     // ✅ Blindagem Dupla: Garante que Quantidade E Custo Unitário não sejam negativos ou anómalos
     if (!qty || Number(qty) <= 0) {
@@ -338,6 +362,7 @@ export default function RecargaServidorModal({
         }
 
         // ❌ REMOVIDO: alert("✅ Compra registrada e saldo sincronizado!");
+        await resolveIfCreditsOk();
         onSuccess();
         return;
       }
@@ -356,6 +381,7 @@ export default function RecargaServidorModal({
 
       if (error) throw error;
 
+      await resolveIfCreditsOk();
       onSuccess();
     } catch (error: any) {
       // ✅ Segurança: Limita o log local apenas a mensagens, nunca o objeto de erro completo de DB

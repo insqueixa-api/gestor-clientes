@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { notify } from "@/lib/notifications/notify";
 
 export async function POST(req: Request) {
   try {
@@ -10,7 +11,21 @@ export async function POST(req: Request) {
     }
 
     const data = await req.json();
-    const { serverName, credits, reason } = data;
+    const { serverId, serverName, credits, tenantId, reason } = data;
+
+    // ✅ NOVO: notificação no sino (tabela notifications) — não bloqueia o envio do e-mail
+    if (tenantId && serverId) {
+      await notify({
+        tenantId,
+        type: "saldo_baixo",
+        title: "🪫 Saldo Baixo",
+        message: `O servidor "${serverName || "Desconhecido"}" está com apenas ${credits} créditos. Recarregue imediatamente para evitar interrupções!`,
+        link: "/admin/gerenciador/servidor",
+        sourceId: serverId,
+      });
+    } else {
+      console.error("[NOTIFY] low-credits: tenantId ou serverId ausente, notificação do sino pulada");
+    }
 
     // 2. URLs Importantes
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.UNIGESTOR_APP_URL || "https://unigestor.net.br";
