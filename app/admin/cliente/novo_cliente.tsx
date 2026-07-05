@@ -3200,8 +3200,7 @@ const vRes = await fetch("/api/whatsapp/validate", {
         }
 
         // Sincroniza agenda e/ou operadora na edição se marcado
-// ✅ canSyncAgenda é sempre false em edição — trava dupla de segurança
-if (canSyncAgenda && syncAgenda && finalPrimaryE164) {
+if (syncAgenda && finalPrimaryE164) {
   setLoadingStep("Agenda Google...");
   await syncToGoogleAgenda(
     clientId,
@@ -3212,7 +3211,7 @@ if (canSyncAgenda && syncAgenda && finalPrimaryE164) {
 }
 
 // Secundário: sincroniza agenda também se tiver número
-if (canSyncAgenda && syncAgenda && finalSecondaryE164) {
+if (syncAgenda && finalSecondaryE164) {
   await syncToGoogleAgenda(
     clientId,
     finalSecondaryE164,
@@ -4135,8 +4134,8 @@ if (clientId) {
           }
         }
 
-        // Agenda Google (só na criação de TESTE normal, nunca em cliente ou teste rápido)
-if (canSyncAgenda && syncAgenda && finalPrimaryE164 && clientId) {
+        // Agenda Google (na criação, respeitando o que o usuário marcou no toggle)
+if (syncAgenda && finalPrimaryE164 && clientId) {
   setLoadingStep("Agenda Google...");
   await syncToGoogleAgenda(
     clientId,
@@ -4147,7 +4146,7 @@ if (canSyncAgenda && syncAgenda && finalPrimaryE164 && clientId) {
 }
 
 // Secundário: sincroniza agenda também se tiver número
-if (canSyncAgenda && syncAgenda && finalSecondaryE164 && clientId) {
+if (syncAgenda && finalSecondaryE164 && clientId) {
   await syncToGoogleAgenda(
     clientId,
     finalSecondaryE164,
@@ -4894,22 +4893,17 @@ if (canSyncAgenda && syncAgenda && finalSecondaryE164 && clientId) {
     <Label>Atualizar Agenda</Label>
     <div className="grid grid-cols-2 gap-2">
       <div
-  onClick={() => canSyncAgenda && setSyncAgenda(!syncAgenda)}
+  onClick={() => setSyncAgenda(!syncAgenda)}
   className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify-between gap-2 transition-colors ${
     syncAgenda
       ? "bg-emerald-500/10 border-emerald-500/20"
       : "bg-transparent border-border"
-  } ${!canSyncAgenda ? "opacity-50 cursor-not-allowed" : ""}`}
+  }`}
 >
 <span className={`text-xs font-medium ${syncAgenda ? "text-emerald-500" : "text-muted-foreground"}`}>
   Cadastro
 </span>
-  <Switch
-    checked={syncAgenda}
-    onChange={(v) => canSyncAgenda && setSyncAgenda(v)}
-    label=""
-    disabled={!canSyncAgenda}
-  />
+  <Switch checked={syncAgenda} onChange={setSyncAgenda} label="" />
 </div>
       <div
         onClick={() => setSyncOperadora(!syncOperadora)}
