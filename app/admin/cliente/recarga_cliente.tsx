@@ -1444,6 +1444,34 @@ export default function RecargaCliente({
         if (renewError) throw new Error(`Erro Renew: ${renewError.message}`);
       }
 
+      // ✅ NOVO: servidor SEM integração (ex: UniGestor), concluído manualmente
+      // pela Auditoria (paymentLogId presente). Esse caso nunca era coberto —
+      // faltava exatamente essa combinação, e por isso o crédito nunca era
+      // consumido nem o histórico gravado.
+      if (registerPayment && !renewAutomatic && paymentLogId) {
+        setLoadingText("Registrando renovação manual...");
+
+        const clientMessageManualAud = `Renovação manual via Auditoria · ${monthsToRenew} mês(es) · ${screens} tela(s) · ${fmtMoney(currency, rawPlanPrice)}`;
+        const serverNotesManualAud = `Renovação manual via Auditoria · ${nameToSend} (${clientData?.username || "-"}) · ${monthsToRenew} mês(es) · ${screens} tela(s) · ${fmtMoney(currency, rawPlanPrice)}${obs ? ` · Obs: ${obs}` : ""}`;
+
+        const { error: renewErrorAud } = await supabaseBrowser.rpc(
+          "renew_client_and_log",
+          {
+            p_tenant_id: tid,
+            p_client_id: clientId,
+            p_months: monthsToRenew,
+            p_status: "PAID",
+            p_notes: serverNotesManualAud,
+            p_new_vencimento: saoPauloDateTimeToIso(dueDate, dueTime),
+            p_is_automatic: false,
+            p_message: clientMessageManualAud,
+            p_unit_price: Number((totalBrl / monthsToRenew).toFixed(2)),
+            p_total_amount: totalBrl,
+          },
+        );
+        if (renewErrorAud) throw new Error(`Erro Renew: ${renewErrorAud.message}`);
+      }
+
       // ✅ Se automático, registra LOG + client_renewals
       if (registerPayment && renewAutomatic) {
         setLoadingText("Registrando renovação...");
@@ -1471,7 +1499,19 @@ export default function RecargaCliente({
         if (renewError) throw new Error(`Erro Renew: ${renewError.message}`);
       }
 
-      // --- PASSO 3.5: removido — a RPC update_fulfillment_status já cuida do status ---
+      // ✅ NOVO: verifica o saldo do servidor direto no banco (sem depender de sync
+      // externo) e atualiza a notificação de saldo baixo — cria se está baixo,
+      // resolve se subiu
+      if (clientData?.server_id) {
+        try {
+          await supabaseBrowser.rpc("check_and_notify_low_credits", {
+            p_tenant_id: tid,
+            p_server_id: clientData.server_id,
+          });
+        } catch (e) {
+          console.error("Falha ao checar saldo do servidor:", e);
+        }
+      }
 
       // --- PASSO 4: ENVIAR WHATSAPP ---
       if (sendWhats && messageContent && messageContent.trim()) {
