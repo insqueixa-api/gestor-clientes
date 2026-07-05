@@ -505,6 +505,13 @@ className={`h-8 rounded-lg text-xs font-medium transition-all ${
   );
 }
 
+// ✅ NOVO: data de hoje em São Paulo, no mesmo formato usado pelo cron (YYYY-MM-DD)
+function getTodaySP(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+  }).format(new Date());
+}
+
 function FinanceiroPageContent() {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -3081,8 +3088,10 @@ function ModalTransacao({
             .eq("id", transacaoEdit.id);
           if (error) throw error;
 
-          // ✅ NOVO
-          if (status === "PAGO") {
+          // ✅ AJUSTADO: resolve se foi paga OU se o novo vencimento não está
+          // mais vencido/vencendo hoje (ex: você adiou a data)
+          const naoEstaMaisVencida = vencimento > getTodaySP();
+          if (status === "PAGO" || naoEstaMaisVencida) {
             try {
               await supabaseBrowser.rpc("resolve_notification", {
                 p_tenant_id: tenantId,
@@ -3115,8 +3124,10 @@ function ModalTransacao({
             .eq("id", transacaoEdit.id);
           if (errCurrent) throw errCurrent;
 
-          // ✅ NOVO
-          if (status === "PAGO") {
+          // ✅ AJUSTADO: resolve se foi paga OU se o novo vencimento não está
+          // mais vencido/vencendo hoje (ex: você adiou a data)
+          const naoEstaMaisVencida = vencimento > getTodaySP();
+          if (status === "PAGO" || naoEstaMaisVencida) {
             try {
               await supabaseBrowser.rpc("resolve_notification", {
                 p_tenant_id: tenantId,
