@@ -1009,7 +1009,14 @@ export default function NovoCliente({
     };
   }, []);
   const isEditing = !!clientToEdit?.id; // ✅ sem id = criação (ex: Teste Rápido)
-  const isTrialMode = mode === "trial";
+const isTrialMode = mode === "trial";
+
+// ✅ Teste Rápido é identificado pelo defaultSendWhatsapp=false (só ele usa essa prop assim)
+const isQuickTrial = isTrialMode && defaultSendWhatsapp === false;
+
+// ✅ Sync de Agenda só é permitido na CRIAÇÃO de um teste normal
+// (fica desabilitado em: edição, criação de cliente comum, e teste rápido)
+const canSyncAgenda = !isEditing && isTrialMode && !isQuickTrial;
   const [activeTab, setActiveTab] = useState<"dados" | "pagamento" | "apps">(
     initialTab || "dados",
   );
@@ -1050,7 +1057,7 @@ export default function NovoCliente({
   const [servers, setServers] = useState<SelectOption[]>([]);
   const [allApps, setAllApps] = useState<SelectOption[]>([]);
 
-  const [syncAgenda, setSyncAgenda] = useState(true); // Habilita e desabilita Toggle de Sincronização com Agenda
+  const [syncAgenda, setSyncAgenda] = useState(canSyncAgenda); // Só nasce ligado quando é permitido
   const [syncOperadora, setSyncOperadora] = useState(false);
 
   // plan tables
@@ -3193,7 +3200,8 @@ const vRes = await fetch("/api/whatsapp/validate", {
         }
 
         // Sincroniza agenda e/ou operadora na edição se marcado
-if (syncAgenda && finalPrimaryE164) {
+// ✅ canSyncAgenda é sempre false em edição — trava dupla de segurança
+if (canSyncAgenda && syncAgenda && finalPrimaryE164) {
   setLoadingStep("Agenda Google...");
   await syncToGoogleAgenda(
     clientId,
@@ -3204,7 +3212,7 @@ if (syncAgenda && finalPrimaryE164) {
 }
 
 // Secundário: sincroniza agenda também se tiver número
-if (syncAgenda && finalSecondaryE164) {
+if (canSyncAgenda && syncAgenda && finalSecondaryE164) {
   await syncToGoogleAgenda(
     clientId,
     finalSecondaryE164,
@@ -4127,8 +4135,8 @@ if (clientId) {
           }
         }
 
-        // Agenda Google (só na criação, onde apiUsername existe e se marcado)
-if (syncAgenda && finalPrimaryE164 && clientId) {
+        // Agenda Google (só na criação de TESTE normal, nunca em cliente ou teste rápido)
+if (canSyncAgenda && syncAgenda && finalPrimaryE164 && clientId) {
   setLoadingStep("Agenda Google...");
   await syncToGoogleAgenda(
     clientId,
@@ -4139,7 +4147,7 @@ if (syncAgenda && finalPrimaryE164 && clientId) {
 }
 
 // Secundário: sincroniza agenda também se tiver número
-if (syncAgenda && finalSecondaryE164 && clientId) {
+if (canSyncAgenda && syncAgenda && finalSecondaryE164 && clientId) {
   await syncToGoogleAgenda(
     clientId,
     finalSecondaryE164,
@@ -4886,18 +4894,23 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
     <Label>Atualizar Agenda</Label>
     <div className="grid grid-cols-2 gap-2">
       <div
-        onClick={() => setSyncAgenda(!syncAgenda)}
-        className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify-between gap-2 transition-colors ${
-          syncAgenda
-            ? "bg-emerald-500/10 border-emerald-500/20"
-            : "bg-transparent border-border"
-        }`}
-      >
+  onClick={() => canSyncAgenda && setSyncAgenda(!syncAgenda)}
+  className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify-between gap-2 transition-colors ${
+    syncAgenda
+      ? "bg-emerald-500/10 border-emerald-500/20"
+      : "bg-transparent border-border"
+  } ${!canSyncAgenda ? "opacity-50 cursor-not-allowed" : ""}`}
+>
 <span className={`text-xs font-medium ${syncAgenda ? "text-emerald-500" : "text-muted-foreground"}`}>
-          Cadastro
-        </span>
-        <Switch checked={syncAgenda} onChange={setSyncAgenda} label="" />
-      </div>
+  Cadastro
+</span>
+  <Switch
+    checked={syncAgenda}
+    onChange={(v) => canSyncAgenda && setSyncAgenda(v)}
+    label=""
+    disabled={!canSyncAgenda}
+  />
+</div>
       <div
         onClick={() => setSyncOperadora(!syncOperadora)}
         className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify-between gap-2 transition-colors ${
