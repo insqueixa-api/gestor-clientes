@@ -103,6 +103,7 @@ function AuditoriaPageContent() {
     logId: string;
     clientId: string;
     clientName: string;
+    wasAwaitingTransfer: boolean; // true = pagamento manual real (transferência); false = só o fulfillment é manual (ex: Elite)
   } | null>(null);
 
   function addToast(
@@ -401,6 +402,7 @@ function AuditoriaPageContent() {
       logId: log.id,
       clientId: log.client_id,
       clientName: log.client_name,
+      wasAwaitingTransfer: true,
     });
   };
 
@@ -920,13 +922,14 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
                             {isManualPending && (
                               <>
                                 <button
-                                  onClick={() =>
-                                    setRenewState({
-                                      logId: r.id,
-                                      clientId: r.client_id,
-                                      clientName: r.client_name,
-                                    })
-                                  }
+  onClick={() =>
+    setRenewState({
+      logId: r.id,
+      clientId: r.client_id,
+      clientName: r.client_name,
+      wasAwaitingTransfer: false,
+    })
+  }
                                   className="gap-1 px-3 py-1.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-500 text-[10px] font-medium uppercase rounded-lg transition-colors border border-purple-500/30 shadow-sm flex items-center justify-center gap-1"
                                   title="Abrir painel de renovação"
                                 >
@@ -1026,7 +1029,6 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
             onSuccess={async (returnedLogId) => {
   if (!returnedLogId) return;
   try {
-    // 1. Marca fulfillment como concluído
     const { error } = await supabaseBrowser.rpc(
       "update_fulfillment_status",
       {
@@ -1037,11 +1039,17 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
     );
     if (error) throw error;
 
-    // 2. Marca pagamento como aprovado manualmente
-    await supabaseBrowser.rpc("approve_manual_payment", {
-      p_log_id: returnedLogId,
-      p_tenant_id: tenantId,
-    });
+    // 2. Só marca o pagamento como "aprovado manualmente" se o pagamento em si
+    // era manual (transferência aguardando confirmação bancária). Se o pagamento
+    // já foi confirmado automaticamente pelo gateway (MP/Stripe) e só faltava
+    // a renovação manual no servidor (ex: Elite), o status do pagamento
+    // NÃO deve ser tocado — ele já está correto como "approved".
+    if (renewState?.wasAwaitingTransfer) {
+      await supabaseBrowser.rpc("approve_manual_payment", {
+        p_log_id: returnedLogId,
+        p_tenant_id: tenantId,
+      });
+    }
 
     addToast("success", "Auditoria Atualizada", "Renovação confirmada na Auditoria!");
     setRenewState(null);

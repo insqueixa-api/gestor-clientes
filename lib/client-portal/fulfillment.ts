@@ -192,8 +192,9 @@ export async function runFulfillment(params: FulfillmentParams) {
 
     await supabaseAdmin.from("client_portal_payments").update({ 
       fulfillment_status: "manual_pending",
-      // ✅ NOVO: marca o pagamento como manual_approved para distinguir do pending do cliente
-      status: "manual_approved",
+      // ✅ NÃO mexe no campo "status" — isso é do pagamento, não do fulfillment.
+      // Se o pagamento já veio de gateway automático (MP/Stripe), o status
+      // "approved" deve permanecer intacto.
       fulfillment_error: reason,
       mp_payment_id: manualRef 
     }).eq("id", payment.id);
