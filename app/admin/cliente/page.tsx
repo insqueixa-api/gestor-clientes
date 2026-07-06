@@ -2144,72 +2144,6 @@ className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-co
                 {filtered.length}
               </span>
             </div>
-
-            <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground shrink-0">
-              {/* --- 📱 VERSÃO MOBILE: Dropdown de Páginas --- */}
-              <div className="md:hidden">
-                <select
-                  value={safePage}
-                  onChange={(e) => setPage(Number(e.target.value))}
-                  className="h-10 pl-3 pr-10 bg-transparent border border-border rounded-lg font-medium text-foreground/90 outline-none focus:border-emerald-500/50 appearance-none"
-                >
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                    (pNum) => (
-                      <option key={pNum} value={pNum}>
-                        Página {pNum}
-                      </option>
-                    ),
-                  )}
-                </select>
-              </div>
-
-              {/* --- 💻 VERSÃO DESKTOP: Botões Originais --- */}
-              <div className="hidden md:flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <span>Mostrar</span>
-                  <select
-                    value={pageSize}
-                    onChange={(e) => {
-                      setPageSize(Number(e.target.value));
-                      setPage(1);
-                    }}
-                    className="bg-transparent border border-border rounded px-1 py-0.5 outline-none text-foreground/90 cursor-pointer hover:border-emerald-500/50 transition-colors"
-                  >
-                    <option value={30}>30</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                  </select>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={safePage <= 1}
-                    className="h-8 w-8 rounded-lg border border-border bg-muted text-muted-foreground font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted/60 transition flex items-center justify-center"
-                    title="Página anterior"
-                  >
-                    ←
-                  </button>
-
-                  <span className="min-w-[90px] text-center whitespace-nowrap">
-                    Página{" "}
-                    <span className="font-medium text-foreground/90">
-                      {safePage}
-                    </span>{" "}
-                    / {totalPages}
-                  </span>
-
-                  <button
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={safePage >= totalPages}
-                    className="h-8 w-8 rounded-lg border border-border bg-muted text-muted-foreground font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted/80 transition flex items-center justify-center"
-                    title="Próxima página"
-                  >
-                    →
-                  </button>
-                </div>
-              </div>
-            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -2753,6 +2687,69 @@ className="p-8 text-center text-muted-foreground italic"
             </table>
             {/* ✅ espaço fixo depois do último cliente (para popups/menus não serem cortados) */}
             <div className="h-24 md:h-20" />
+          </div>
+
+          {/* --- RODAPÉ: Paginação (movida do topo) --- */}
+          <div className="border-t border-border px-4 py-3 flex flex-col md:flex-row items-center justify-between gap-3 bg-transparent">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Mostrar</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setPage(1);
+                }}
+                className="bg-transparent border border-border rounded px-1 py-0.5 outline-none text-foreground/90 cursor-pointer hover:border-emerald-500/50 transition-colors"
+              >
+                <option value={30}>30</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+
+            {/* 📱 Mobile: dropdown de páginas */}
+            <div className="md:hidden">
+              <select
+                value={safePage}
+                onChange={(e) => setPage(Number(e.target.value))}
+                className="h-10 pl-3 pr-10 bg-transparent border border-border rounded-lg font-medium text-foreground/90 outline-none focus:border-emerald-500/50 appearance-none"
+              >
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                  (pNum) => (
+                    <option key={pNum} value={pNum}>
+                      Página {pNum}
+                    </option>
+                  ),
+                )}
+              </select>
+            </div>
+
+            {/* 💻 Desktop: mesmo formato de botões da Auditoria */}
+            <div className="hidden md:flex items-center gap-3 text-xs text-muted-foreground">
+              <span>
+                Página{" "}
+                <span className="font-medium text-foreground/90">
+                  {safePage}
+                </span>{" "}
+                / {totalPages}
+              </span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={safePage <= 1}
+                  className="px-3 py-1 rounded border border-border text-xs font-medium disabled:opacity-40 bg-card hover:bg-muted text-muted-foreground transition-colors"
+                >
+                  Anterior
+                </button>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={safePage >= totalPages}
+                  className="px-3 py-1 rounded border border-border text-xs font-medium disabled:opacity-40 bg-card hover:bg-muted text-muted-foreground transition-colors"
+                >
+                  Próxima
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

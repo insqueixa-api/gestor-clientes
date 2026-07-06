@@ -93,7 +93,7 @@ function AuditoriaPageContent() {
 
   // Paginação
   const [page, setPage] = useState(1);
-  const pageSize = 50;
+  const [pageSize, setPageSize] = useState(25); // ✅ agora editável, independente da busca
 
   const { confirm, ConfirmUI } = useConfirm();
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -134,7 +134,7 @@ function AuditoriaPageContent() {
           ) // ✅ Adicionado whatsapp_status
           .eq("tenant_id", tid)
           .order("created_at", { ascending: false })
-          .limit(25);
+          .limit(50); // ✅ traz mais histórico; o pageSize é quem decide quanto aparece por vez
 
         if (searchTerm) {
           const term = searchTerm.trim();
