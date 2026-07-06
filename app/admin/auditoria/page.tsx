@@ -134,7 +134,7 @@ function AuditoriaPageContent() {
           ) // ✅ Adicionado whatsapp_status
           .eq("tenant_id", tid)
           .order("created_at", { ascending: false })
-          .limit(100);
+          .limit(25);
 
         if (searchTerm) {
           const term = searchTerm.trim();

@@ -431,7 +431,7 @@ function ClientePageContent() {
 
   // Filtros
   const [search, setSearch] = useState("");
-  const [pageSize, setPageSize] = useState(100);
+const [pageSize, setPageSize] = useState(30);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<"Todos" | ClientStatus>(
     "Todos",
@@ -583,9 +583,12 @@ function ClientePageContent() {
     image_url?: string | null;
     category?: string | null;
   }; // ✅ Busca a Categoria
-  const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
+const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
     [],
   );
+  // ✅ NOVO: controla se já buscamos, pra não repetir toda vez que o modal abre
+  const [templatesLoaded, setTemplatesLoaded] = useState(false);
+  const [whatsappSessionsLoaded, setWhatsappSessionsLoaded] = useState(false);
   const [selectedTemplateNowId, setSelectedTemplateNowId] =
     useState<string>(""); // modal enviar agora
   const [selectedTemplateScheduleId, setSelectedTemplateScheduleId] =
@@ -715,6 +718,25 @@ function ClientePageContent() {
     setMessageTemplates(mapped);
   }
 
+  // ✅ NOVO: só busca templates e sessões de WhatsApp na primeira vez que um
+  // dos modais de mensagem é aberto — nunca mais no carregamento da página
+  async function ensureMessagingDataLoaded() {
+    if (!tenantId) return;
+    const tasks: Promise<any>[] = [];
+
+    if (!templatesLoaded) {
+      tasks.push(
+        loadMessageTemplates(tenantId).then(() => setTemplatesLoaded(true)),
+      );
+    }
+    if (!whatsappSessionsLoaded) {
+      tasks.push(
+        loadWhatsAppSessions().then(() => setWhatsappSessionsLoaded(true)),
+      );
+    }
+    if (tasks.length) await Promise.all(tasks);
+  }
+
   // --- CARREGAMENTO ---
   async function loadData() {
     if (loadingRef.current) return;
@@ -726,42 +748,6 @@ function ClientePageContent() {
       const tid = await getCurrentTenantId();
       setTenantId(tid);
 
-      if (tid) {
-        await loadMessageTemplates(tid);
-        await loadWhatsAppSessions(); // ✅ NOVO: Puxa a foto e telefone da VM para a lista
-      }
-
-      // ✅ Acesso direto à tabela, sem burocracia de permissões
-      const { data: appsData, error: appsErr } = await supabaseBrowser
-        .from("apps")
-        .select("*")
-        .eq("is_active", true);
-
-      if (appsErr) {
-      }
-
-      // ✅ NOVO: Carrega as URLs das integrações do App
-      const { data: appInts } = await supabaseBrowser
-        .from("app_integrations")
-        .select("app_name, api_url, pin") // ✅ Trocado para 'pin'
-        .eq("tenant_id", tid)
-        .eq("is_active", true);
-      if (appInts) setAppIntegrations(appInts);
-
-      if (appsData && appsData.length > 0) {
-        const byId: Record<string, any> = {};
-        const byName: Record<string, any> = {};
-
-        for (const a of appsData) {
-          if (a?.id) byId[String(a.id)] = a;
-          byName[normAppKey(a?.name)] = a;
-        }
-
-        setAppsIndex({ byId, byName });
-      } else {
-        setAppsIndex({ byId: {}, byName: {} });
-      }
-
       if (!tid) {
         setRows([]);
         return;
@@ -772,6 +758,8 @@ function ClientePageContent() {
           ? "vw_clients_list_archived"
           : "vw_clients_list_active";
 
+      // ✅ SÓ isso é essencial pra tabela aparecer. Templates e WhatsApp saíram
+      // completamente daqui — só carregam quando você abre o modal de mensagem.
       const { data, error } = await supabaseBrowser
         .from(viewName)
         .select("*")
@@ -822,7 +810,6 @@ function ClientePageContent() {
             }> | null) || null,
 
           server_id: String(r.server_id ?? ""),
-          // ✅ ADICIONADO: Mapeia o ID vindo da view
           plan_table_id: r.plan_table_id ?? undefined,
           technology_edit: String(r.technology || "IPTV"),
           whatsapp: String(r.whatsapp_e164 ?? ""),
@@ -850,9 +837,38 @@ function ClientePageContent() {
         };
       });
 
+      // ✅ A tabela já pode aparecer aqui — tudo abaixo roda em segundo plano,
+      // sem bloquear, e atualiza sozinho (sem precisar de refresh)
       setRows(mapped);
+      setLoading(false);
+      loadingRef.current = false;
 
-      await loadScheduledForClients(
+      supabaseBrowser
+        .from("apps")
+        .select("*")
+        .eq("is_active", true)
+        .then(({ data: appsData }) => {
+          if (appsData && appsData.length > 0) {
+            const byId: Record<string, any> = {};
+            const byName: Record<string, any> = {};
+            for (const a of appsData) {
+              if (a?.id) byId[String(a.id)] = a;
+              byName[normAppKey(a?.name)] = a;
+            }
+            setAppsIndex({ byId, byName });
+          }
+        });
+
+      supabaseBrowser
+        .from("app_integrations")
+        .select("app_name, api_url, pin")
+        .eq("tenant_id", tid)
+        .eq("is_active", true)
+        .then(({ data: appInts }) => {
+          if (appInts) setAppIntegrations(appInts);
+        });
+
+      loadScheduledForClients(
         tid,
         mapped.map((m) => m.id),
       );
@@ -2159,7 +2175,7 @@ className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-co
                     }}
                     className="bg-transparent border border-border rounded px-1 py-0.5 outline-none text-foreground/90 cursor-pointer hover:border-emerald-500/50 transition-colors"
                   >
-                    <option value={25}>25</option>
+                    <option value={30}>30</option>
                     <option value={50}>50</option>
                     <option value={100}>100</option>
                   </select>
@@ -2630,6 +2646,7 @@ className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-co
                                       open: true,
                                       clientId: r.id,
                                     });
+                                    ensureMessagingDataLoaded(); // ✅ NOVO
                                   }}
                                 />
 
@@ -2645,6 +2662,7 @@ className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-co
                                       open: true,
                                       clientId: r.id,
                                     });
+                                    ensureMessagingDataLoaded(); // ✅ NOVO
                                   }}
                                 />
                               </div>
