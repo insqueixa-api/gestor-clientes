@@ -1480,7 +1480,8 @@ function JogosDoDia({ data, loading, sportAtivo, busca }: { data: JogosDiaData |
 }
 
 // ─── Aba Canais Refatorada (Performance e Visual de Lista) ─────────────────────
-function AbaCanais({epg,progsPorCanal,onJogosDoDia,catInicialAtiva,jogosData,loadingJogos}:{epg:EpgData;progsPorCanal:Map<string,Programa[]>;onJogosDoDia?:()=>void;catInicialAtiva?:string;jogosData?:JogosDiaData|null;loadingJogos?:boolean}) {
+  function AbaCanais({epg,loadingEpg,erroEpg,onRetrySync,syncing,progsPorCanal,onJogosDoDia,catInicialAtiva,jogosData,loadingJogos}:{epg:EpgData|null;loadingEpg?:boolean;erroEpg?:string|null;onRetrySync?:()=>void;syncing?:boolean;progsPorCanal:Map<string,Programa[]>;onJogosDoDia?:()=>void;catInicialAtiva?:string;jogosData?:JogosDiaData|null;loadingJogos?:boolean}) {
+
 
 
   const [catAtiva,setCatAtiva]=useState(catInicialAtiva||"Todos");
@@ -1495,10 +1496,16 @@ function AbaCanais({epg,progsPorCanal,onJogosDoDia,catInicialAtiva,jogosData,loa
   // Lógica original preservada
   useEffect(()=>{ function h(e:MouseEvent){if(catRef.current&&!catRef.current.contains(e.target as Node))setCatOpen(false);} document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h); },[]);
   useEffect(()=>{ function h(e:MouseEvent){if(subRef.current&&!subRef.current.contains(e.target as Node))setSubOpen(false);} document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h); },[]);
-  const catsDisponiveis=useMemo(()=>{const s=new Set(epg.canais.map(c=>c.categoria));return CATS_ORDEM.filter(c=>s.has(c));},[epg]);
+  const catsDisponiveis=useMemo(()=>{
+    if(!epg) return [];
+    const s=new Set(epg.canais.map(c=>c.categoria));
+    return CATS_ORDEM.filter(c=>s.has(c));
+  },[epg]);
     
 
 const canaisFiltrados = useMemo(() => {
+    if(!epg) return []; // ← guarda de nulo — evita crash antes do EPG chegar
+
     let lista = [...epg.canais]; // Clonar para poder ordenar com segurança
     
     // 1. Aplicar Filtros
@@ -1514,17 +1521,11 @@ const canaisFiltrados = useMemo(() => {
     lista.sort((a, b) => {
       const catA = CATS_ORDEM.indexOf(a.categoria);
       const catB = CATS_ORDEM.indexOf(b.categoria);
-      
-      // Se não achar na constante, joga para o fim (999)
       const safeCatA = catA !== -1 ? catA : 999;
       const safeCatB = catB !== -1 ? catB : 999;
-      
       if (safeCatA !== safeCatB) {
-        return safeCatA - safeCatB; // Ordem estrita de grupos (ex: Abertos, Jornalismo, etc)
+        return safeCatA - safeCatB;
       }
-      
-      // Se empatar na categoria (ou estiver numa mesma subcategoria), desempata por nome naturalmente.
-      // {numeric: true} garante que "Canal 2" venha antes de "Canal 10".
       return a.nome.localeCompare(b.nome, 'pt-BR', { numeric: true, sensitivity: 'base' });
     });
 
@@ -1627,14 +1628,30 @@ const canaisFiltrados = useMemo(() => {
       </div>
 
         {catAtiva==="jogos" ? (
-        <JogosDoDia data={jogosData??null} loading={loadingJogos??false} sportAtivo={sportAtivo} busca={busca} />
-      ) : emBusca ? (
-        <div className="flex-1 overflow-y-auto"><ResultadoBuscaEPG epg={epg} busca={buscaAtiva} progsPorCanal={progsPorCanal} onClear={()=>{setBusca("");setBuscaAtiva("");}}/></div>
-      ) : canaisFiltrados.length===0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center p-12 text-muted-foreground italic text-sm py-28 bg-muted/20"><AlertTriangle size={28} className="text-muted-foreground/50"/>Nenhum canal encontrado para os filtros selecionados. Tente mudar a categoria ou limpar a busca.</div>
-      ) : (
-        <GradeListaPerformance canais={canaisFiltrados} progsPorCanal={progsPorCanal}/>
+    <JogosDoDia data={jogosData??null} loading={loadingJogos??false} sportAtivo={sportAtivo} busca={busca} />
+  ) : loadingEpg ? (
+    <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center p-12 text-muted-foreground animate-pulse text-sm">
+      <RefreshCw size={22} className="animate-spin text-muted-foreground/60"/>
+      Carregando grade de canais...
+    </div>
+  ) : erroEpg ? (
+    <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center p-12 text-muted-foreground text-sm max-w-md mx-auto">
+      <AlertTriangle size={28} className="text-amber-500"/>
+      <div className="text-sm font-medium text-foreground tracking-tight">{erroEpg}</div>
+      {onRetrySync && (
+        <button onClick={onRetrySync} disabled={syncing} className="h-9 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 disabled:opacity-50 disabled:cursor-wait">
+          <RefreshCw size={13} className={syncing?"animate-spin":"none"}/>
+          {syncing?"Sincronizando...":"Tentar Sincronizar"}
+        </button>
       )}
+    </div>
+  ) : emBusca ? (
+    <div className="flex-1 overflow-y-auto"><ResultadoBuscaEPG epg={epg} busca={buscaAtiva} progsPorCanal={progsPorCanal} onClear={()=>{setBusca("");setBuscaAtiva("");}}/></div>
+  ) : canaisFiltrados.length===0 ? (
+    <div className="...">Nenhum canal encontrado...</div>
+  ) : (
+    <GradeListaPerformance canais={canaisFiltrados} progsPorCanal={progsPorCanal}/>
+  )}
     </div>
   );
 }
@@ -2012,24 +2029,21 @@ useEffect(()=>{
 
       {/* Conteúdo com layout refatorado */}
        {tab==="canais"&&(
-        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-          {loadingEpg
-            ? <div className="flex flex-col items-center justify-center flex-1 gap-4 text-center p-20 text-muted-foreground animate-pulse text-sm bg-muted/20 transition-colors"><RefreshCw size={24} className="animate-spin text-muted-foreground/60"/>Carregando...</div>
-            : erroEpg
-            ? <div className="flex flex-col items-center justify-center flex-1 gap-4 text-center p-20 text-muted-foreground text-sm bg-muted/20 transition-colors max-w-2xl mx-auto"><AlertTriangle size={32} className="text-amber-500"/><div className="text-sm font-medium text-foreground tracking-tight">{erroEpg}</div><button onClick={handleSync} disabled={syncing} className="h-9 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 disabled:opacity-50 disabled:cursor-wait"><RefreshCw size={13} className={syncing?"animate-spin":"none"}/>{syncing?"Sincronizando...":"Tentar Sincronizar"}</button></div>
-            : epg && (
-              <AbaCanais
-                epg={epg}
-                progsPorCanal={progsPorCanal}
-                onJogosDoDia={() => {/* handled internally */}}
-                catInicialAtiva="jogos"
-                jogosData={jogosData}
-                loadingJogos={loadingJogos}
-              />
-            )
-          }
-        </div>
-      )}
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+      <AbaCanais
+        epg={epg}
+        loadingEpg={loadingEpg}
+        erroEpg={erroEpg}
+        onRetrySync={handleSync}
+        syncing={syncing}
+        progsPorCanal={progsPorCanal}
+        onJogosDoDia={() => {}}
+        catInicialAtiva="jogos"
+        jogosData={jogosData}
+        loadingJogos={loadingJogos}
+      />
+    </div>
+  )}
       {tab==="filmes"&&<AbaCatalogo tipo="FILME" servidorAdmin={SERVIDOR_ADMIN} modoCliente={modoCliente}/>}
 {tab==="series"&&<AbaCatalogo tipo="SERIE" servidorAdmin={SERVIDOR_ADMIN} modoCliente={modoCliente}/>}
 
