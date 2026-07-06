@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { getWAContext, proxyVM, errAuth } from "@/lib/whatsapp/wa-context";
+import { getWAContextOrCron, proxyVM, errAuth } from "@/lib/whatsapp/wa-context";
 export const dynamic = "force-dynamic";
 
-export async function POST() {
-  const ctx = await getWAContext(2);
+export async function POST(req: Request) {
+  const ctx = await getWAContextOrCron(req, 2);
   if (!ctx) return errAuth();
   try {
     const { ok, status, json } = await proxyVM(ctx, "/reconnect", { method: "POST" });

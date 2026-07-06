@@ -3,9 +3,13 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+import { requireUserOrCron } from "@/lib/whatsapp/wa-context";
+
 export async function POST(req: Request) {
-  // ⚠️ Cole aqui o mesmo bloco de autenticação que você usa em /api/whatsapp/status
-  // (não tenho esse arquivo pra replicar exatamente — provavelmente checa sessão Supabase)
+  const authorized = await requireUserOrCron(req);
+  if (!authorized) {
+    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+  }
 
   const baseUrl = String(process.env.UNIGESTOR_WA_BASE_URL || "").trim();
   const waToken = String(process.env.UNIGESTOR_WA_TOKEN || "").trim();

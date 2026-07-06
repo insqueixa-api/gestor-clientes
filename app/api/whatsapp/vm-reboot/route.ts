@@ -3,8 +3,13 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+import { requireUserOrCron } from "@/lib/whatsapp/wa-context";
+
 export async function POST(req: Request) {
-  // ⚠️ Mesma autenticação aqui
+  const authorized = await requireUserOrCron(req);
+  if (!authorized) {
+    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+  }
 
   const hetznerToken = String(process.env.HETZNER_API_TOKEN || "").trim();
   const serverId = String(process.env.HETZNER_SERVER_ID || "").trim();
