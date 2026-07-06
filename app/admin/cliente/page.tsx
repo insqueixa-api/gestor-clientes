@@ -431,7 +431,7 @@ function ClientePageContent() {
 
   // Filtros
   const [search, setSearch] = useState("");
-const [pageSize, setPageSize] = useState(30);
+const [pageSize, setPageSize] = useState(50);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<"Todos" | ClientStatus>(
     "Todos",
@@ -2701,9 +2701,9 @@ className="p-8 text-center text-muted-foreground italic"
                 }}
                 className="bg-transparent border border-border rounded px-1 py-0.5 outline-none text-foreground/90 cursor-pointer hover:border-emerald-500/50 transition-colors"
               >
-                <option value={30}>30</option>
                 <option value={50}>50</option>
                 <option value={100}>100</option>
+                <option value={200}>200</option>
               </select>
             </div>
 
