@@ -82,8 +82,8 @@ export async function GET(req: Request) {
       r.rule_date_field === "created_at" ? "Cadastro" : "Vencimento",
       String(r.rule_days_diff || 0),
       r.whatsapp_session || "default",
-      String(r.delay_min || 15),
-      String(r.delay_max || 60)
+      String(r.delay_min || 15)
+      
     ];
   });
 

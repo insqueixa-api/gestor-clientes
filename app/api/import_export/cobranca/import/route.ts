@@ -146,8 +146,7 @@ const parseDays = (val: string) => {
         
         whatsapp_session: getCell(row, "Sessão WhatsApp") || "default",
         delay_min: Number(getCell(row, "Delay Mínimo")) || 15,
-        delay_max: Number(getCell(row, "Delay Máximo")) || 60,
-      };
+        };
 
       const { error } = await supabase.from("billing_automations").insert(payload);
       if (error) throw new Error(error.message);

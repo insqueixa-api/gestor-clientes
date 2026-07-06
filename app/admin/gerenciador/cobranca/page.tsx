@@ -36,8 +36,7 @@ type Automation = {
   message_template_id: string; // Obrigatório para o formulário saber qual ID selecionar na edição
   whatsapp_session?: string;
   delay_min?: number;
-  delay_max?: number;
-};
+  };
 
 // Tipo simplificado de cliente para cálculo de impacto
 type ClientLight = {
@@ -1031,10 +1030,8 @@ export default function BillingPage() {
       let currentSendAt = new Date(); // Começa "Agora"
 
       const inserts = affected.map((client) => {
-        // 1. Sorteia o tempo (Ex: entre 15 e 60 segundos)
-        const min = rule.delay_min || 15;
-        const max = rule.delay_max || 60;
-        const delaySecs = Math.floor(Math.random() * (max - min + 1)) + min; // 2. Soma ao horário acumulado (NÃO USA SLEEP AQUI)
+        // ✅ Intervalo fixo (mesma lógica do cron automático), sem sorteio
+const delaySecs = Math.max(rule.delay_min || 20, 15); // piso de segurança de 15s
         // Isso cria datas futuras: T+15s, T+35s, T+50s...
         currentSendAt = new Date(currentSendAt.getTime() + delaySecs * 1000);
 
