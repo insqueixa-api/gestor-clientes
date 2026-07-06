@@ -18,8 +18,7 @@ export async function GET() {
     "Campo Base",
     "Dias de Diferença",
     "Sessão WhatsApp",
-    "Delay Mínimo",
-    "Delay Máximo"
+    "Delay (segundos)"
   ];
 
   const examples = [
@@ -37,8 +36,7 @@ export async function GET() {
       "Vencimento",                 
       "-3",                         
       "default",                    
-      "15",                         
-      "60"                          
+      "20"
     ],
     [
       "Boas Vindas Imediata",
@@ -54,7 +52,6 @@ export async function GET() {
       "Cadastro",
       "0",                          
       "default",
-      "5",
       "20"
     ]
   ];
@@ -97,8 +94,7 @@ export async function GET() {
     { wch: 15 }, // Campo Base
     { wch: 20 }, // Dias Diff
     { wch: 18 }, // Sessão
-    { wch: 15 }, // Delay Min
-    { wch: 15 }, // Delay Max
+    { wch: 18 }, // Delay
   ];
 
   const workbook = XLSX.utils.book_new();

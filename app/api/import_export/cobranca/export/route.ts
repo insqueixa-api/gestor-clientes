@@ -54,7 +54,7 @@ export async function GET(req: Request) {
   const headers = [
     "Nome da Cobrança", "Mensagem", "Tipo", "Modo", "Horário (Auto)", "Dias da Semana (Auto)",
     "Status Alvo", "Servidores Alvo", "Planos Alvo", "Apps Alvo",
-    "Campo Base", "Dias de Diferença", "Sessão WhatsApp", "Delay Mínimo", "Delay Máximo"
+    "Campo Base", "Dias de Diferença", "Sessão WhatsApp", "Delay Mínimo"
   ];
 
   const rows = (autoRes.data || []).map((r) => {
