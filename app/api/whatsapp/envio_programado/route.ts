@@ -490,8 +490,9 @@ export async function POST(req: Request) {
             ? Number(automationConfig.delay_min)
             : 15;
 
-          // Piso de segurança de 3s, pra evitar acidente se alguém digitar 0 ou negativo
-          const finalDelay = Math.max(configuredDelay, 3);
+          // ✅ Piso de segurança de 15s — evita risco de bloqueio/rate-limit no
+          // WhatsApp mesmo se alguém configurar um valor baixo demais por engano
+          const finalDelay = Math.max(configuredDelay, 15);
 
           await sleep(finalDelay * 1000);
         }
