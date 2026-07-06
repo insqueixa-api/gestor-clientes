@@ -479,15 +479,19 @@ export async function POST(req: Request) {
 
         processed++;
 
-        // ✅ delay entre envios (respeita delay_min do banco)
+        // ✅ delay entre envios: usa exatamente o valor configurado na automação
+        // (delay_min), sem faixa aleatória — intervalo fixo, simples e previsível
         if (processed < jobs.length) {
           const automationConfig = Array.isArray((job as any).billing_automations)
             ? (job as any).billing_automations[0]
             : (job as any).billing_automations;
 
-          const dbDelay = automationConfig?.delay_min ? Number(automationConfig.delay_min) : 10;
-          const safeDelay = Math.min(dbDelay, 10);
-          const finalDelay = Math.max(safeDelay, 5);
+          const configuredDelay = automationConfig?.delay_min
+            ? Number(automationConfig.delay_min)
+            : 15;
+
+          // Piso de segurança de 3s, pra evitar acidente se alguém digitar 0 ou negativo
+          const finalDelay = Math.max(configuredDelay, 3);
 
           await sleep(finalDelay * 1000);
         }

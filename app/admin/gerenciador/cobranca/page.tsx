@@ -1698,8 +1698,7 @@ function AutomationWizard({
     message_template_id: "",
     whatsapp_session: "default",
     delay_min: 15,
-    delay_max: 60,
-
+    
     is_active: true,
 
     status: ["ACTIVE"],
@@ -1728,7 +1727,6 @@ function AutomationWizard({
           "",
         whatsapp_session: editingRule.whatsapp_session || "default",
         delay_min: editingRule.delay_min || 15,
-        delay_max: editingRule.delay_max || 60,
         is_active: editingRule.is_active,
         is_automatic: editingRule.is_automatic,
         status: editingRule.target_status || [],
@@ -1786,8 +1784,7 @@ function AutomationWizard({
         message_template_id: form.message_template_id,
         whatsapp_session: form.whatsapp_session,
         delay_min: form.delay_min,
-        delay_max: form.delay_max,
-
+        
         target_status: form.status,
         target_servers: form.servers,
         target_plans: form.plans,
@@ -1926,26 +1923,18 @@ function AutomationWizard({
 
               <div>
                 <Label>Segurança (Intervalo entre envios)</Label>
-                <div className="flex items-center gap-3 bg-transparent p-3 rounded-lg border border-border mt-1">
-                  <span className="text-xs text-muted-foreground">Entre</span>
-                  <input
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Aguardar</span>
+                  <Input
                     type="number"
-                    className="w-16 h-8 text-center rounded border border-border bg-card text-sm"
                     value={form.delay_min}
                     onChange={(e) =>
                       setForm({ ...form, delay_min: Number(e.target.value) })
                     }
                   />
-                  <span className="text-xs text-muted-foreground">e</span>
-                  <input
-                    type="number"
-                    className="w-16 h-8 text-center rounded border border-border bg-card text-sm"
-                    value={form.delay_max}
-                    onChange={(e) =>
-                      setForm({ ...form, delay_max: Number(e.target.value) })
-                    }
-                  />
-                  <span className="text-xs text-muted-foreground">segundos</span>
+                  <span className="text-xs text-muted-foreground">
+                    segundos entre cada envio
+                  </span>
                 </div>
               </div>
 
