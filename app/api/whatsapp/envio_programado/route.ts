@@ -384,7 +384,9 @@ export async function POST(req: Request) {
         } catch (e) {}
 
         // ✅ Loop de envios para os contatos vinculados à conta
-        for (const contact of wa.phones) {
+        for (let i = 0; i < wa.phones.length; i++) {
+          const contact = wa.phones[i];
+
           const vars =
             recipientType === "reseller"
               ? buildResellerTemplateVars({ resellerRow: wa.row })
@@ -441,6 +443,12 @@ export async function POST(req: Request) {
             lastError = await res.text();
           } else {
             successCount++;
+          }
+
+          // ✅ NOVO: delay de 10s entre telefone primário e secundário do mesmo
+          // cliente (só aplica se houver mais um contato depois deste)
+          if (i < wa.phones.length - 1) {
+            await sleep(10_000);
           }
         }
 
