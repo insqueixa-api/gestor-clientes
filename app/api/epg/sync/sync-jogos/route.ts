@@ -175,7 +175,9 @@ async function fetchRonin(date: string): Promise<any | null> {
 function normNome(s: string): string {
   return s.toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/\(.*?\)/g, '').replace(/[^a-z0-9]/g, ' ')
+    .replace(/\(.*?\)/g, '')
+    .replace(/\bfc\b|\bac\b|\bsc\b|\bfk\b|\bsk\b|\bcd\b|\bsv\b|\bas\b|\bcf\b|\brc\b|\bsd\b/g, '')
+    .replace(/[^a-z0-9]/g, ' ')
     .replace(/\s+/g, ' ').trim()
 }
 

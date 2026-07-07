@@ -1387,12 +1387,14 @@ function GrupoCompeticao({ competicao, jogos }: { competicao: string; jogos: Jog
                 </div>
                 <div className="flex flex-col gap-2.5 px-4 py-4">
                   <div className="flex items-center gap-3">
-                    {jogo.home_logo ? <img src={jogo.home_logo} alt={jogo.home_nome} className="w-7 h-7 object-contain shrink-0"/> : <div className="w-7 h-7 rounded-full bg-muted border border-border shrink-0"/>}
+                                        {jogo.home_logo && <img src={jogo.home_logo} alt={jogo.home_nome} className="w-7 h-7 object-contain shrink-0"/>}
+
                     <span className={`text-sm font-semibold flex-1 min-w-0 truncate ${awayVence ? 'text-muted-foreground/50' : 'text-foreground'}`}>{jogo.home_nome}</span>
                     {temPlacar && <span className={`text-xl font-bold tabular-nums shrink-0 min-w-[28px] text-right ${homeVence ? 'text-foreground' : aoVivo ? 'text-foreground' : 'text-muted-foreground/60'}`}>{jogo.score_home}</span>}
                   </div>
                   <div className="flex items-center gap-3">
-                    {jogo.away_logo ? <img src={jogo.away_logo} alt={jogo.away_nome} className="w-7 h-7 object-contain shrink-0"/> : <div className="w-7 h-7 rounded-full bg-muted border border-border shrink-0"/>}
+                                        {jogo.away_logo && <img src={jogo.away_logo} alt={jogo.away_nome} className="w-7 h-7 object-contain shrink-0"/>}
+
                     <span className={`text-sm font-semibold flex-1 min-w-0 truncate ${homeVence ? 'text-muted-foreground/50' : 'text-foreground'}`}>{jogo.away_nome}</span>
                     {temPlacar && <span className={`text-xl font-bold tabular-nums shrink-0 min-w-[28px] text-right ${awayVence ? 'text-foreground' : aoVivo ? 'text-foreground' : 'text-muted-foreground/60'}`}>{jogo.score_away}</span>}
                   </div>
@@ -1403,14 +1405,9 @@ function GrupoCompeticao({ competicao, jogos }: { competicao: string; jogos: Jog
                     <div className="flex items-center gap-2 flex-wrap">
                       {jogo.tv_networks.map(tv => (
                         <div key={tv.id} title={tv.name}>
-                          <img src={tv.logo_url} alt={tv.name} className="h-5 w-auto max-w-[52px] object-contain"
-                            onError={e => {
-                              const img = e.currentTarget; img.style.display='none';
-                              const span = document.createElement('span');
-                              span.className='text-[10px] font-semibold text-foreground/80 bg-background border border-border/60 px-1.5 py-0.5 rounded';
-                              span.textContent=tv.name; img.parentNode?.appendChild(span);
-                            }}
-                          />
+                          <span className="text-[10px] font-semibold text-foreground/80 bg-background border border-border/60 px-1.5 py-0.5 rounded">
+                            {tv.shortname || tv.name}
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -1687,7 +1684,7 @@ type UsageStatsServidor = { servidor: string; total: number; mes: number; semana
 // INSERIR (novo bloco de tipos):
 type TVNetworkJogo = {
   id: number; type: number; name: string; countryId: number
-  website: string; bookmakerId: number; imageVersion: number; logo_url: string
+  website: string; bookmakerId: number; imageVersion: number; logo_url: string; shortname?: string
 }
 type JogoDiaItem = {
   game_id: number; sport_id: number; competition_id: number
