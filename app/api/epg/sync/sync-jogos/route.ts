@@ -300,7 +300,7 @@ export async function GET(request: Request) {
               })),
               venue:         fx.venue ?? null,
               atualizado_em: agora.toISOString(),
-              fonte:         'ronin',
+              
             })
           }
         }
