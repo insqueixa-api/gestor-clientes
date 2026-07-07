@@ -76,9 +76,14 @@ function tvChannelLogoUrl(id: number): string {
 }
 
 function janelaHojeAmanha() {
-  const agora = new Date()
-  const inicio = new Date(agora); inicio.setHours(0, 0, 0, 0)
-  const fim = new Date(agora); fim.setDate(fim.getDate() + 2); fim.setHours(0, 0, 0, 0)
+  // ⚠️ Vercel roda em UTC — não dá pra confiar em new Date().setHours(0,0,0,0)
+  // pra "hoje" no fuso de Brasília. Calculamos o offset explicitamente
+  // (-3h fixo, Brasil não tem mais DST desde 2019).
+  const agoraUTC = new Date()
+  const agoraBR = new Date(agoraUTC.getTime() - 3 * 60 * 60 * 1000)
+  const inicioBR = new Date(Date.UTC(agoraBR.getUTCFullYear(), agoraBR.getUTCMonth(), agoraBR.getUTCDate(), 0, 0, 0))
+  const inicio = new Date(inicioBR.getTime() + 3 * 60 * 60 * 1000) // volta pra UTC real
+  const fim = new Date(inicio.getTime() + 2 * 24 * 60 * 60 * 1000) // +2 dias
   return { inicio, fim }
 }
 

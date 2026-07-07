@@ -1398,24 +1398,17 @@ function GrupoCompeticao({ competicao, jogos }: { competicao: string; jogos: Jog
                   </div>
                 </div>
                 {jogo.tv_networks.length > 0 && (
-                  <div className="mx-4 mb-4 p-3 rounded-xl bg-muted/40 border border-border/60">
-                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">📺 Transmissão</div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {jogo.tv_networks.map(tv => (
-                        <div key={tv.id} title={tv.name}>
-                          <img src={tv.logo_url} alt={tv.name} className="h-5 w-auto max-w-[52px] object-contain"
-                            onError={e => {
-                              const img = e.currentTarget; img.style.display='none';
-                              const span = document.createElement('span');
-                              span.className='text-[10px] font-semibold text-foreground/80 bg-background border border-border/60 px-1.5 py-0.5 rounded';
-                              span.textContent=tv.name; img.parentNode?.appendChild(span);
-                            }}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+  <div className="mx-4 mb-4 p-3 rounded-xl bg-muted/40 border border-border/60">
+    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">📺 Transmissão</div>
+    <div className="flex items-center gap-2 flex-wrap">
+      {jogo.tv_networks.map(tv => (
+        <span key={tv.id} className="text-[10px] font-semibold text-foreground/80 bg-background border border-border/60 px-1.5 py-0.5 rounded">
+          {tv.name}
+        </span>
+      ))}
+    </div>
+  </div>
+)}
               </div>
             )
           })}
@@ -1886,30 +1879,15 @@ useEffect(()=>{
   },[]);
 
   useEffect(() => {
-    if (tab !== 'canais') return
+  if (tab !== 'canais') return
 
-    // 1. Carrega o JSON do R2 imediatamente (rápido)
-    setLoadingJogos(true)
-    fetch(`${process.env.NEXT_PUBLIC_R2_DEV_URL}/epg/jogos_dia.json?t=${Date.now()}`, { cache: 'no-store' })
-      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
-      .then(data => {
-        setJogosData(data)
-        // 2. Após exibir, atualiza placares em background (silencioso)
-        fetch('/api/epg/sync/sync-jogos-live', { cache: 'no-store' })
-          .then(r => r.json())
-          .then(result => {
-            if (result.ok) {
-              // 3. Recarrega o JSON do R2 com placares atualizados
-              return fetch(`${process.env.NEXT_PUBLIC_R2_DEV_URL}/epg/jogos_dia.json?t=${Date.now()}`, { cache: 'no-store' })
-                .then(r => r.json())
-                .then(updated => setJogosData(updated))
-            }
-          })
-          .catch(() => {/* silencioso — não afeta a exibição */})
-      })
-      .catch(() => setJogosData(null))
-      .finally(() => setLoadingJogos(false))
-  }, [tab])
+  setLoadingJogos(true)
+  fetch(`${process.env.NEXT_PUBLIC_R2_DEV_URL}/epg/jogos_dia.json?t=${Date.now()}`, { cache: 'no-store' })
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
+    .then(data => setJogosData(data))
+    .catch(() => setJogosData(null))
+    .finally(() => setLoadingJogos(false))
+}, [tab])
 
   // Lógica de progsPorCanal original preservada
   const progsPorCanal=useMemo(()=>{
