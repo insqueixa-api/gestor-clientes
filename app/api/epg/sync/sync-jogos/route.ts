@@ -229,17 +229,15 @@ export async function GET(request: Request) {
 
     // ── 3. Monta índice de deduplicação (3 chaves) ───────────────────────────
     // Para cada jogo do 365, registra: home+away+data, home+data, away+data
-    const idxHomeAway = new Set<string>()
-    const idxHome     = new Set<string>()
-    const idxAway     = new Set<string>()
+    // Índice: sport_id + nome do time + data — independente de home/away
+    const idxTime = new Set<string>()
 
     for (const j of jogos365) {
       const data = soData(j.data_hora)
       const h = normNome(j.home_nome)
       const a = normNome(j.away_nome)
-      idxHomeAway.add(`${h}|${a}|${data}`)
-      idxHome.add(`${h}|${data}`)
-      idxAway.add(`${a}|${data}`)
+      idxTime.add(`${j.sport_id}|${h}|${data}`)
+      idxTime.add(`${j.sport_id}|${a}|${data}`)
     }
 
     // ── 4. Processa Roninmedia — só adiciona jogos não duplicados ────────────
@@ -260,11 +258,10 @@ export async function GET(request: Request) {
             const h = normNome(fx.home_team)
             const a = normNome(fx.visiting_team)
 
-            // Validação tripla — se qualquer chave bater, ignora
+            // Se o 365 já tem qualquer jogo com esse time nesse sport+data, ignora
             if (
-              idxHomeAway.has(`${h}|${a}|${data}`) ||
-              idxHome.has(`${h}|${data}`)           ||
-              idxAway.has(`${a}|${data}`)
+              idxTime.has(`${fx.sport_id}|${h}|${data}`) ||
+              idxTime.has(`${fx.sport_id}|${a}|${data}`)
             ) {
               console.log(`[sync-jogos] Ronin duplicado ignorado: ${fx.home_team} x ${fx.visiting_team}`)
               continue
@@ -344,7 +341,8 @@ export async function GET(request: Request) {
           id:        tv.id,
           name:      tv.name,
           shortname: tv.shortname ?? tv.name,
-          logo_url:  null,
+          logo_url:  null, // sem logo — só nome
+          imageVersion: tv.imageVersion ?? null,
         })),
       })),
     }
