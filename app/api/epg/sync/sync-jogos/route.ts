@@ -181,7 +181,10 @@ function normNome(s: string): string {
 
 /** Extrai só a data YYYY-MM-DD de uma ISO string */
 function soData(iso: string): string {
-  return iso.slice(0, 10)
+  // Converte para data em SP (UTC-3) antes de comparar
+  const d = new Date(iso)
+  const spStr = d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+  return spStr // YYYY-MM-DD em SP
 }
 
 // ─── Handler Principal ───────────────────────────────────────────────────────
@@ -338,8 +341,10 @@ export async function GET(request: Request) {
         home_logo: j.home_image_ver ? competitorLogoUrl(j.home_id, j.home_image_ver) : null,
         away_logo: j.away_image_ver ? competitorLogoUrl(j.away_id, j.away_image_ver) : null,
         tv_networks: j.tv_networks.map((tv: any) => ({
-          ...tv,
-          logo_url: tv.logo_url ?? (tv.imageVersion ? tvNetworkLogoUrl(tv.id, tv.imageVersion) : null),
+          id:        tv.id,
+          name:      tv.name,
+          shortname: tv.shortname ?? tv.name,
+          logo_url:  null,
         })),
       })),
     }
