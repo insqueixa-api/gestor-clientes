@@ -15,6 +15,7 @@
 // junto com o sync-jogos-sofa.cjs).
 
 import { NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
 
@@ -91,7 +92,48 @@ async function uploadToR2(key: string, body: string): Promise<void> {
   }))
 }
 
-// ─── Handler ────────────────────────────────────────────────────────────────────
+// ─── Handler GET (status, não dispara nada) ────────────────────────────────────
+//
+// O botão "Sincronizar Jogos" do GuiaTVView.tsx chama GET nesta rota. Como quem
+// popula os dados agora é o script da VM via cron (não mais um trigger síncrono
+// no clique), este GET só informa o estado atual — não busca nada no Sofascore.
+// ⚠️ Isso muda o comportamento do botão: ele deixa de "sincronizar agora" e
+// passa a só mostrar status. Se quiser, ajusto o texto/UX do botão no front
+// pra deixar isso claro pro usuário (ex.: trocar label pra "Status do Sync").
+
+export async function GET(request: Request) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+
+  try {
+    const { inicio, fim } = janelaHojeAmanha()
+    const { data: jogos, error } = await supabaseAdmin
+      .from('jogos_dia')
+      .select('atualizado_em')
+      .gte('data_hora', inicio.toISOString())
+      .lt('data_hora', fim.toISOString())
+      .order('atualizado_em', { ascending: false })
+      .limit(1)
+    if (error) throw new Error(`Supabase select (status): ${error.message}`)
+
+    const { count } = await supabaseAdmin
+      .from('jogos_dia')
+      .select('*', { count: 'exact', head: true })
+      .gte('data_hora', inicio.toISOString())
+      .lt('data_hora', fim.toISOString())
+
+    return NextResponse.json({
+      ok: true,
+      total: count ?? 0,
+      ultimo_sync: jogos?.[0]?.atualizado_em ?? null,
+      r2_url: `${R2_PUBLIC_URL}/${R2_KEY}`,
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 })
+  }
+}
 
 export async function POST(request: Request) {
   const authHeader = request.headers.get('authorization')
