@@ -1,39 +1,51 @@
 // sofa-sync/sync-jogos-sofa.cjs
+//
 // Busca "Jogos do Dia" no Sofascore (fonte ÚNICA, substitui 365scores) e envia
-// os lotes prontos pra API do Vercel gravar (Supabase + R2). Mesmo padrão do
-// fast-sync/sync-fast.cjs: a VM só busca e normaliza, o Vercel só grava.
-// Roda direto na VM porque o volume de chamadas (1 request de country-channels
-// POR JOGO candidato, sem endpoint em lote) não cabe no timeout de uma função
-// serverless nem deveria ser disparado em rajada.
+// os lotes prontos pra API do Vercel gravar (Supabase + R2).
+//
+// ⚠️ MUDANÇA IMPORTANTE (v2): chamadas HTTP simples (curl, Node https/fetch)
+// levam 403 do Sofascore mesmo com headers de navegador corretos — confirmado
+// que NÃO é bloqueio de IP (testado da VM e de uma rede residencial, os dois
+// levaram 403 idêntico). É bloqueio por fingerprint de TLS/HTTP2, que só um
+// motor de navegador real reproduz corretamente. Por isso agora usamos
+// Puppeteer (Chromium headless): as chamadas à API do Sofascore rodam DENTRO
+// de uma página real, via fetch() no contexto do navegador. O envio pra API
+// do Vercel (seu próprio servidor) continua via https puro — não tem
+// fingerprinting lá, isso não muda.
+//
+// ─── SETUP (uma vez, antes do primeiro run) ─────────────────────────────────────
+//
+// 1) Dependências de sistema do Chromium (Ubuntu 24.04):
+//    sudo apt-get update && sudo apt-get install -y \
+//      libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 \
+//      libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2t64 \
+//      libpango-1.0-0 libpangocairo-1.0-0 libgtk-3-0
+//
+// 2) Instalar o Puppeteer (usa o package.json que te mandei junto, isolado do
+//    package.json principal do whatsapp-service):
+//    cd /opt/whatsapp-service/sofa-sync
+//    npm install
+//    (isso baixa o Chromium sozinho, ~200MB — normal demorar um pouco)
+//
+// 3) Rodar manualmente pra validar antes de por no cron:
+//    node sync-jogos-sofa.cjs
 
 const https = require('https')
 const http  = require('http')
 const { parse } = require('url')
+const puppeteer = require('puppeteer')
 
 const API_BASE  = 'https://unigestor.net.br'
-// ⚠️ MESMO VALOR da env var EPG_SYNC_CRON_SECRET configurada no Vercel — cole
-// o valor real aqui antes de enviar pra VM. Se preferir, também dá pra ler de
-// process.env (exportando antes do node no crontab), mas sigo aqui o mesmo
-// padrão hardcoded que o sync-fast.cjs já usa pro API_TOKEN.
-const SYNC_SECRET = '5f69b42084838eb6106b5eadea61265a1e3844b27fe4c28720b113bc3ad22f4e'
+// ⚠️ MESMO VALOR da env var EPG_SYNC_CRON_SECRET configurada no Vercel.
+const SYNC_SECRET = 'COLE_AQUI_O_VALOR_DE_EPG_SYNC_CRON_SECRET'
 
-const LOTE = 300 // tamanho do lote enviado por POST — mesma ideia do LOTE=500 do fast-sync
+const LOTE = 300 // tamanho do lote enviado por POST
 
 const SOFA_BASE = 'https://www.sofascore.com/api/v1'
 const UTC_OFFSET = '-10800' // America/Sao_Paulo, sem DST desde 2019
 
-const SOFA_HEADERS = {
-  'accept': '*/*',
-  'accept-language': 'pt-BR,pt;q=0.9',
-  'referer': 'https://www.sofascore.com/',
-  'user-agent':
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36',
-}
-
 // IDs nativos de esporte do Sofascore (confirmados). Só os que seguem o fluxo
-// liga/rodada (categorias → uniqueTournament → scheduled-events). Tênis, MMA,
-// motorsport, boxe, snooker, badminton, table-tennis, esports usam torneio
-// individual/chaveamento — fluxo diferente, fica pra depois de validar.
+// liga/rodada (categorias → uniqueTournament → scheduled-events).
 const SOFA_SPORTS = [
   { slug: 'football', sportId: 1 },
   { slug: 'basketball', sportId: 2 },
@@ -45,13 +57,12 @@ const SOFA_SPORTS = [
   { slug: 'cricket', sportId: 62 },
 ]
 
-// Ritmo de chamadas contra o Sofascore — ajustar conforme o primeiro run real
-// (ver log de HTTP != 200; se aparecer 403/429, baixar SOFA_CONCURRENCY e/ou
-// subir SOFA_DELAY_MS).
-const SOFA_CONCURRENCY = 8
-const SOFA_DELAY_MS = 150
+// Ritmo de chamadas — mesmo com Chromium real, mantemos pacing conservador no
+// primeiro run. Se passar limpo sem 403, dá pra afrouxar depois.
+const SOFA_CONCURRENCY = 4
+const SOFA_DELAY_MS = 300
 
-// ─── HTTP genérico (idêntico em espírito ao sync-fast.cjs) ─────────────────────
+// ─── HTTP genérico (só usado pra falar com a SUA própria API, sem fingerprint) ──
 
 function httpFetch(url, opts = {}) {
   return new Promise((resolve, reject) => {
@@ -69,21 +80,13 @@ function httpFetch(url, opts = {}) {
       res.on('data', c => chunks.push(c))
       res.on('end', () => {
         const text = Buffer.concat(chunks).toString('utf8')
-        resolve({
-          status: res.statusCode,
-          text:   () => text,
-          json:   () => JSON.parse(text),
-        })
+        resolve({ status: res.statusCode, text: () => text, json: () => JSON.parse(text) })
       })
     })
     req.on('error', reject)
     if (opts.body) req.write(opts.body)
     req.end()
   })
-}
-
-function sofaGet(path) {
-  return httpFetch(`${SOFA_BASE}${path}`, { headers: SOFA_HEADERS })
 }
 
 function postIngest(tipo, extra = {}) {
@@ -135,63 +138,87 @@ function toStatusGroup(statusType) {
   }
 }
 
-// ─── Fetchers Sofascore ─────────────────────────────────────────────────────────
+// ─── Fetch via Chromium real (contorna o fingerprint) ──────────────────────────
 
-async function fetchBRChannelsMap() {
-  const res = await sofaGet('/tv/country/BR/channels')
+// Roda fetch() DENTRO da página do navegador — é o motor de rede do Chromium
+// fazendo a chamada, não o Node. Retorna {status, body} ou null em erro de rede.
+async function sofaFetchBrowser(page, path) {
+  const url = `${SOFA_BASE}${path}`
+  try {
+    const result = await page.evaluate(async (u) => {
+      try {
+        const res = await fetch(u)
+        const text = await res.text()
+        return { status: res.status, body: text }
+      } catch (e) {
+        return { status: 0, body: '', erro: String(e) }
+      }
+    }, url)
+    return result
+  } catch (e) {
+    console.warn(`[SOFA-SYNC] Falha no fetch via browser (${path}):`, e.message)
+    return { status: 0, body: '' }
+  }
+}
+
+async function fetchBRChannelsMap(page) {
   const map = new Map()
-  if (res.status === 200) {
-    const data = res.json()
+  const r = await sofaFetchBrowser(page, '/tv/country/BR/channels')
+  if (r.status !== 200) {
+    console.error(`[SOFA-SYNC] Falha ao buscar canais BR: HTTP ${r.status}`)
+    return map
+  }
+  try {
+    const data = JSON.parse(r.body)
     for (const ch of data.channels ?? []) {
       if (ch?.id != null && ch?.name) map.set(ch.id, ch.name)
     }
-  } else {
-    console.error(`[SOFA-SYNC] Falha ao buscar canais BR: HTTP ${res.status}`)
+  } catch (e) {
+    console.error('[SOFA-SYNC] Erro ao parsear canais BR:', e.message)
   }
   return map
 }
 
-async function fetchUniqueTournamentIds(sportSlug, date) {
+async function fetchUniqueTournamentIds(page, sportSlug, date) {
+  const r = await sofaFetchBrowser(page, `/sport/${sportSlug}/${date}/${UTC_OFFSET}/categories`)
+  if (r.status !== 200) {
+    console.warn(`[SOFA-SYNC] categorias ${sportSlug}/${date}: HTTP ${r.status}`)
+    return []
+  }
   try {
-    const res = await sofaGet(`/sport/${sportSlug}/${date}/${UTC_OFFSET}/categories`)
-    if (res.status !== 200) {
-      console.warn(`[SOFA-SYNC] categorias ${sportSlug}/${date}: HTTP ${res.status}`)
-      return []
-    }
-    const data = res.json()
+    const data = JSON.parse(r.body)
     const ids = new Set()
     for (const c of data.categories ?? []) {
       for (const id of c.uniqueTournamentIds ?? []) ids.add(id)
     }
     return [...ids]
   } catch (e) {
-    console.warn(`[SOFA-SYNC] Falha categorias ${sportSlug}/${date}:`, e.message)
+    console.warn(`[SOFA-SYNC] Erro ao parsear categorias ${sportSlug}/${date}:`, e.message)
     return []
   }
 }
 
-async function fetchTournamentEvents(uniqueTournamentId, date) {
+async function fetchTournamentEvents(page, uniqueTournamentId, date) {
+  const r = await sofaFetchBrowser(page, `/unique-tournament/${uniqueTournamentId}/scheduled-events/${date}`)
+  if (r.status !== 200) return []
   try {
-    const res = await sofaGet(`/unique-tournament/${uniqueTournamentId}/scheduled-events/${date}`)
-    if (res.status !== 200) return []
-    return res.json().events ?? []
-  } catch (e) {
-    console.warn(`[SOFA-SYNC] Falha eventos torneio ${uniqueTournamentId}/${date}:`, e.message)
-    return []
-  }
-}
-
-async function fetchEventBRChannelIds(eventId) {
-  try {
-    const res = await sofaGet(`/tv/event/${eventId}/country-channels`)
-    if (res.status !== 200) return []
-    return res.json()?.countryChannels?.BR ?? []
+    return JSON.parse(r.body).events ?? []
   } catch {
     return []
   }
 }
 
-// ─── Montagem do registro final (mesmo shape que a rota de ingest espera) ─────
+async function fetchEventBRChannelIds(page, eventId) {
+  const r = await sofaFetchBrowser(page, `/tv/event/${eventId}/country-channels`)
+  if (r.status !== 200) return []
+  try {
+    return JSON.parse(r.body)?.countryChannels?.BR ?? []
+  } catch {
+    return []
+  }
+}
+
+// ─── Montagem do registro final ────────────────────────────────────────────────
 
 function toJogoDia(ev, sportId, canaisBR, canaisMap) {
   const stageNome = ev.roundInfo?.name ?? (ev.roundInfo?.round ? `Rodada ${ev.roundInfo.round}` : null)
@@ -230,81 +257,103 @@ async function main() {
 
   console.log(`[SOFA-SYNC] Iniciando —`, new Date().toISOString(), `(${hoje} + ${dataAmanha})`)
 
-  // 1. Canais BR
-  const canaisMap = await fetchBRChannelsMap()
-  console.log(`[SOFA-SYNC] ${canaisMap.size} canais BR carregados`)
-
-  // 2. Torneios únicos por esporte (todas as categorias, sem filtro de país)
-  const tarefasTorneios = SOFA_SPORTS.map(({ slug, sportId }) => async () => {
-    const [idsHoje, idsAmanha] = await Promise.all([
-      fetchUniqueTournamentIds(slug, hoje),
-      fetchUniqueTournamentIds(slug, dataAmanha),
-    ])
-    const ids = [...new Set([...idsHoje, ...idsAmanha])]
-    console.log(`[SOFA-SYNC] ${slug}: ${ids.length} torneios únicos`)
-    return ids.map((id) => ({ sportId, tid: id }))
+  console.log('[SOFA-SYNC] Abrindo Chromium headless...')
+  const browser = await puppeteer.launch({
+    headless: 'new',
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
   })
-  const torneios = (await pLimit(tarefasTorneios, SOFA_SPORTS.length, 0)).flat()
-  console.log(`[SOFA-SYNC] Total de torneios a consultar: ${torneios.length}`)
 
-  // 3. Eventos de cada torneio (hoje + amanhã), ritmo controlado
-  const tarefasEventos = torneios.map(({ sportId, tid }) => async () => {
-    const [eHoje, eAmanha] = await Promise.all([
-      fetchTournamentEvents(tid, hoje),
-      fetchTournamentEvents(tid, dataAmanha),
-    ])
-    return [...eHoje, ...eAmanha].map((ev) => ({ ev, sportId }))
-  })
-  const eventosBrutos = (await pLimit(tarefasEventos, SOFA_CONCURRENCY, SOFA_DELAY_MS)).flat()
-  const eventosUnicos = [...new Map(eventosBrutos.map((e) => [e.ev.id, e])).values()]
-  console.log(`[SOFA-SYNC] ${eventosUnicos.length} eventos únicos no total`)
+  try {
+    const page = await browser.newPage()
+    // Navega pro domínio real primeiro — estabelece origem/cookies como um
+    // acesso normal de navegador antes de disparar as chamadas de API.
+    await page.goto('https://www.sofascore.com/', { waitUntil: 'domcontentloaded', timeout: 30000 })
+    await sleep(1000)
 
-  if (eventosUnicos.length === 0) {
-    console.log('[SOFA-SYNC] Nenhum evento encontrado — encerrando sem chamar a API')
-    return
-  }
+    // 1. Canais BR
+    const canaisMap = await fetchBRChannelsMap(page)
+    console.log(`[SOFA-SYNC] ${canaisMap.size} canais BR carregados`)
 
-  // 4. Canais BR por evento — é aqui que mora o volume real de chamadas
-  const tarefasCanais = eventosUnicos.map(({ ev }) => async () => fetchEventBRChannelIds(ev.id))
-  const canaisPorEvento = await pLimit(tarefasCanais, SOFA_CONCURRENCY, SOFA_DELAY_MS)
-
-  const comCanalBR = eventosUnicos
-    .map((item, i) => ({ ...item, canaisBR: canaisPorEvento[i] }))
-    .filter((item) => item.canaisBR.length > 0)
-
-  console.log(`[SOFA-SYNC] ${comCanalBR.length}/${eventosUnicos.length} eventos com transmissão no Brasil`)
-
-  const jogos = comCanalBR.map(({ ev, sportId, canaisBR }) => toJogoDia(ev, sportId, canaisBR, canaisMap))
-
-  // 5. Envia pra API do Vercel gravar: iniciar → lotes → finalizar
-  console.log('[SOFA-SYNC] Chamando "iniciar" na API...')
-  const rIniciar = await postIngest('iniciar')
-  if (rIniciar.status !== 200) {
-    console.error('[SOFA-SYNC] Erro no "iniciar":', rIniciar.text())
-    process.exit(1)
-  }
-
-  console.log(`[SOFA-SYNC] Enviando ${jogos.length} jogos em lotes de ${LOTE}...`)
-  for (let i = 0; i < jogos.length; i += LOTE) {
-    const lote = jogos.slice(i, i + LOTE)
-    const r = await postIngest('lote', { lote })
-    process.stdout.write(`\r  lote: ${Math.min(i + LOTE, jogos.length)}/${jogos.length}   `)
-    if (r.status !== 200) {
-      console.error(`\n[SOFA-SYNC] Erro no lote ${i}:`, r.text())
+    if (canaisMap.size === 0) {
+      console.error('[SOFA-SYNC] Não conseguiu carregar canais BR — abortando (provável bloqueio ainda ativo)')
+      await browser.close()
       process.exit(1)
     }
-  }
-  console.log()
 
-  console.log('[SOFA-SYNC] Chamando "finalizar" na API...')
-  const rFinal = await postIngest('finalizar')
-  if (rFinal.status !== 200) {
-    console.error('[SOFA-SYNC] Erro no "finalizar":', rFinal.text())
-    process.exit(1)
-  }
+    // 2. Torneios únicos por esporte (sequencial por esporte pra não sobrecarregar a página)
+    const torneios = []
+    for (const { slug, sportId } of SOFA_SPORTS) {
+      const idsHoje = await fetchUniqueTournamentIds(page, slug, hoje)
+      const idsAmanha = await fetchUniqueTournamentIds(page, slug, dataAmanha)
+      const ids = [...new Set([...idsHoje, ...idsAmanha])]
+      console.log(`[SOFA-SYNC] ${slug}: ${ids.length} torneios únicos`)
+      for (const id of ids) torneios.push({ sportId, tid: id })
+      await sleep(SOFA_DELAY_MS)
+    }
+    console.log(`[SOFA-SYNC] Total de torneios a consultar: ${torneios.length}`)
 
-  const duracaoSeg = ((Date.now() - inicioExec) / 1000).toFixed(1)
-  console.log('[SOFA-SYNC] Concluído:', rFinal.text(), `(${duracaoSeg}s de execução)`)
+    // 3. Eventos de cada torneio (hoje + amanhã), ritmo controlado
+    const tarefasEventos = torneios.map(({ sportId, tid }) => async () => {
+      const eHoje = await fetchTournamentEvents(page, tid, hoje)
+      const eAmanha = await fetchTournamentEvents(page, tid, dataAmanha)
+      return [...eHoje, ...eAmanha].map((ev) => ({ ev, sportId }))
+    })
+    const eventosBrutos = (await pLimit(tarefasEventos, SOFA_CONCURRENCY, SOFA_DELAY_MS)).flat()
+    const eventosUnicos = [...new Map(eventosBrutos.map((e) => [e.ev.id, e])).values()]
+    console.log(`[SOFA-SYNC] ${eventosUnicos.length} eventos únicos no total`)
+
+    if (eventosUnicos.length === 0) {
+      console.log('[SOFA-SYNC] Nenhum evento encontrado — encerrando sem chamar a API')
+      await browser.close()
+      return
+    }
+
+    // 4. Canais BR por evento
+    const tarefasCanais = eventosUnicos.map(({ ev }) => async () => fetchEventBRChannelIds(page, ev.id))
+    const canaisPorEvento = await pLimit(tarefasCanais, SOFA_CONCURRENCY, SOFA_DELAY_MS)
+
+    const comCanalBR = eventosUnicos
+      .map((item, i) => ({ ...item, canaisBR: canaisPorEvento[i] }))
+      .filter((item) => item.canaisBR.length > 0)
+
+    console.log(`[SOFA-SYNC] ${comCanalBR.length}/${eventosUnicos.length} eventos com transmissão no Brasil`)
+
+    const jogos = comCanalBR.map(({ ev, sportId, canaisBR }) => toJogoDia(ev, sportId, canaisBR, canaisMap))
+
+    await browser.close()
+    console.log('[SOFA-SYNC] Chromium fechado, enviando dados pra API...')
+
+    // 5. Envia pra API do Vercel gravar: iniciar → lotes → finalizar
+    const rIniciar = await postIngest('iniciar')
+    if (rIniciar.status !== 200) {
+      console.error('[SOFA-SYNC] Erro no "iniciar":', rIniciar.text())
+      process.exit(1)
+    }
+
+    console.log(`[SOFA-SYNC] Enviando ${jogos.length} jogos em lotes de ${LOTE}...`)
+    for (let i = 0; i < jogos.length; i += LOTE) {
+      const lote = jogos.slice(i, i + LOTE)
+      const r = await postIngest('lote', { lote })
+      process.stdout.write(`\r  lote: ${Math.min(i + LOTE, jogos.length)}/${jogos.length}   `)
+      if (r.status !== 200) {
+        console.error(`\n[SOFA-SYNC] Erro no lote ${i}:`, r.text())
+        process.exit(1)
+      }
+    }
+    console.log()
+
+    const rFinal = await postIngest('finalizar')
+    if (rFinal.status !== 200) {
+      console.error('[SOFA-SYNC] Erro no "finalizar":', rFinal.text())
+      process.exit(1)
+    }
+
+    const duracaoSeg = ((Date.now() - inicioExec) / 1000).toFixed(1)
+    console.log('[SOFA-SYNC] Concluído:', rFinal.text(), `(${duracaoSeg}s de execução)`)
+  } catch (e) {
+    await browser.close().catch(() => {})
+    throw e
+  }
 }
 
 main().catch(e => {

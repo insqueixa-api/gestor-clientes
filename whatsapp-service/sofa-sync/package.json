@@ -1,0 +1,8 @@
+{
+  "name": "sofa-sync",
+  "private": true,
+  "version": "1.0.0",
+  "dependencies": {
+    "puppeteer": "^23.11.1"
+  }
+}
