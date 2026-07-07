@@ -154,7 +154,8 @@ export async function GET(request: Request) {
       for (const sport of dia.sports) {
         for (const liga of sport.leagues) {
           for (const fx of (liga.fixtures ?? [])) {
-            if (!fx.channels?.length) continue  // só com transmissão
+ if (!fx.channels?.length) continue  // só com transmissão
+            if (!fx.home_team_id || !fx.visiting_team_id) continue  // ignora sem times
             if (vistos.has(fx.fixture_id)) continue
             vistos.add(fx.fixture_id)
 
