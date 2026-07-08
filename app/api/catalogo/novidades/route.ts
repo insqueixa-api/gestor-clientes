@@ -54,7 +54,8 @@ export async function GET(req: NextRequest) {
       if (!existing || (!existing.poster_tmdb_url && item.poster_tmdb_url)) {
         seen.set(key, item);
       }
-      if (seen.size >= 60) break; // retorna até 60 únicos (5 linhas × 4 colunas × ~3 páginas)
+            if (seen.size >= 100) break; // retorna até 100 únicos (2 páginas de 50)
+
     }
 
     return NextResponse.json({ ok: true, data: [...seen.values()] });
