@@ -2691,28 +2691,28 @@ className="p-8 text-center text-muted-foreground italic"
 
           {/* --- RODAPÉ: Paginação (movida do topo) --- */}
           <div className="border-t border-border px-4 py-3 flex flex-col md:flex-row items-center justify-between gap-3 bg-transparent">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>Mostrar</span>
-              <select
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
-                  setPage(1);
-                }}
-                className="bg-transparent border border-border rounded px-1 py-0.5 outline-none text-foreground/90 cursor-pointer hover:border-emerald-500/50 transition-colors"
-              >
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-                <option value={200}>200</option>
-              </select>
-            </div>
+            <div className="w-full md:w-auto flex items-center justify-between md:justify-start gap-2 text-xs text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <span>Mostrar</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setPage(1);
+                  }}
+                  className="bg-transparent border border-border rounded px-1 py-0.5 outline-none text-foreground/90 cursor-pointer hover:border-emerald-500/50 transition-colors"
+                >
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                  <option value={200}>200</option>
+                </select>
+              </div>
 
-            {/* 📱 Mobile: dropdown de páginas */}
-            <div className="md:hidden">
+              {/* 📱 Mobile: dropdown de páginas — mesma linha, mesma fonte do "Mostrar" */}
               <select
                 value={safePage}
                 onChange={(e) => setPage(Number(e.target.value))}
-                className="h-10 pl-3 pr-10 bg-transparent border border-border rounded-lg font-medium text-foreground/90 outline-none focus:border-emerald-500/50 appearance-none"
+                className="md:hidden bg-transparent border border-border rounded px-1 py-0.5 outline-none text-foreground/90 cursor-pointer hover:border-emerald-500/50 transition-colors"
               >
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map(
                   (pNum) => (
