@@ -1165,7 +1165,8 @@ function AbaCatalogo({tipo,servidorAdmin,modoCliente,onJogosDoDia}:{tipo:TipoCon
   useEffect(()=>{ function h(e:MouseEvent){if(subDropRef.current&&!subDropRef.current.contains(e.target as Node))setSubDropOpen(false);} document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h); },[]);
 
   // Lógica original preservada
-  useEffect(()=>{ setLoadingNov(true);setNovidades([]);setNovidadesPage(1); fetch(`/api/catalogo/novidades?servidor=${servidor}&tipo=${tipo}`) .then(r=>r.json()).then(d=>{if(d.ok&&d.data)setNovidades(d.data);}).finally(()=>setLoadingNov(false)); },[servidor,tipo]);
+  useEffect(()=>{ setLoadingNov(true);setNovidades([]);setNovidadesPage(1); fetch(`/api/catalogo/novidades?servidor=${servidor}&tipo=${tipo}`) .then(r=>r.json()).then(d=>{if(d.ok&&d.data)setNovidades(d.data.filter((t:TituloCard)=>t.poster_tmdb_url||t.cover_url));}).finally(()=>setLoadingNov(false)); },[servidor,tipo]);
+
   useEffect(()=>{ setLoadingCats(true);setCatSelecionada(null);setSubCatSelecionada(null);setSubCategorias([]);setTitulos([]); fetch(`/api/catalogo/categorias?servidor=${servidor}&tipo=${tipo}`) .then(r=>r.json()).then(d=>{ if(d.ok){ const filtradas=(d.data as Categoria[])
             .sort((a,b)=>a.label.localeCompare(b.label,"pt-BR")); setCategorias(filtradas); } }).finally(()=>setLoadingCats(false)); },[servidor,tipo]);
   // useEffect para subcategorias - mantido vazio conforme original
