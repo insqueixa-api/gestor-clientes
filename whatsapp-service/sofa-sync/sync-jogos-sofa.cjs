@@ -3,15 +3,11 @@
 // Busca "Jogos do Dia" no Sofascore (fonte ÚNICA, substitui 365scores) e envia
 // os lotes prontos pra API do Vercel gravar (Supabase + R2).
 //
-// ⚠️ MUDANÇA IMPORTANTE (v2): chamadas HTTP simples (curl, Node https/fetch)
-// levam 403 do Sofascore mesmo com headers de navegador corretos — confirmado
-// que NÃO é bloqueio de IP (testado da VM e de uma rede residencial, os dois
-// levaram 403 idêntico). É bloqueio por fingerprint de TLS/HTTP2, que só um
-// motor de navegador real reproduz corretamente. Por isso agora usamos
-// Puppeteer (Chromium headless): as chamadas à API do Sofascore rodam DENTRO
-// de uma página real, via fetch() no contexto do navegador. O envio pra API
-// do Vercel (seu próprio servidor) continua via https puro — não tem
-// fingerprinting lá, isso não muda.
+// ⚠️ MUDANÇA IMPORTANTE (v3): Chromium headless "puro" ainda deixa sinais de
+// automação (navigator.webdriver=true, plugins vazios, etc.) que o Sofascore
+// (atrás da Fastly, com bot management) detecta e bloqueia mesmo sendo Chrome
+// de verdade. Por isso usamos puppeteer-extra + puppeteer-extra-plugin-stealth,
+// que mascara esses sinais pra parecer um navegador comum de usuário.
 //
 // ─── SETUP (uma vez, antes do primeiro run) ─────────────────────────────────────
 //
@@ -33,7 +29,9 @@
 const https = require('https')
 const http  = require('http')
 const { parse } = require('url')
-const puppeteer = require('puppeteer')
+const puppeteer = require('puppeteer-extra')
+const StealthPlugin = require('puppeteer-extra-plugin-stealth')
+puppeteer.use(StealthPlugin())
 
 const API_BASE  = 'https://unigestor.net.br'
 // ⚠️ MESMO VALOR da env var EPG_SYNC_CRON_SECRET configurada no Vercel.
@@ -106,19 +104,20 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms))
 }
 
-async function pLimit(tasks, limit, delayMs) {
+async function pLimitComPaginas(pages, tasks, delayMs) {
   const results = []
-  const queue = [...tasks]
-  const workers = Array.from({ length: Math.min(limit, queue.length) }, async () => {
+  const queue = tasks.map((task, i) => ({ task, i }))
+  results.length = tasks.length
+  const workers = pages.map((page) => async () => {
     while (queue.length > 0) {
-      const task = queue.shift()
-      if (task) {
-        results.push(await task())
+      const item = queue.shift()
+      if (item) {
+        results[item.i] = await item.task(page)
         if (delayMs > 0) await sleep(delayMs)
       }
     }
   })
-  await Promise.all(workers)
+  await Promise.all(workers.map((w) => w()))
   return results
 }
 
@@ -139,24 +138,22 @@ function toStatusGroup(statusType) {
 }
 
 // ─── Fetch via Chromium real (contorna o fingerprint) ──────────────────────────
+//
+// IMPORTANTE: navega DIRETO pra URL da API (page.goto), replicando o que
+// funcionou manualmente (colar o link na barra de endereço). NÃO usamos
+// fetch() de dentro de outra página — isso é uma chamada AJAX/XHR, com
+// headers (sec-fetch-mode, sec-fetch-site) diferentes de uma navegação
+// direta, e é provável que seja exatamente isso que o Sofascore rejeita.
 
-// Roda fetch() DENTRO da página do navegador — é o motor de rede do Chromium
-// fazendo a chamada, não o Node. Retorna {status, body} ou null em erro de rede.
 async function sofaFetchBrowser(page, path) {
   const url = `${SOFA_BASE}${path}`
   try {
-    const result = await page.evaluate(async (u) => {
-      try {
-        const res = await fetch(u)
-        const text = await res.text()
-        return { status: res.status, body: text }
-      } catch (e) {
-        return { status: 0, body: '', erro: String(e) }
-      }
-    }, url)
-    return result
+    const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 })
+    const status = response ? response.status() : 0
+    const body = await page.evaluate(() => document.body.innerText)
+    return { status, body }
   } catch (e) {
-    console.warn(`[SOFA-SYNC] Falha no fetch via browser (${path}):`, e.message)
+    console.warn(`[SOFA-SYNC] Falha na navegação (${path}):`, e.message)
     return { status: 0, body: '' }
   }
 }
