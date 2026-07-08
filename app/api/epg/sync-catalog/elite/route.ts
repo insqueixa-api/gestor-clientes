@@ -312,8 +312,34 @@ const availabilityRows = [...filmesUnicos, ...seriesUnicas.master]
 
     console.log(`[CATALOG-ELITE] Upsert catalog_episodes: ${episodeRows.length} episódios...`);
     let episodiosNovos = 0;
+    // master_ids de séries que ganharam pelo menos 1 episódio genuinamente novo
+    // nesta sincronização — usado depois pra "reabrir" o adicionado_em delas.
+    const masterIdsComEpisodioNovo = new Set<string>();
+
     for (let i = 0; i < episodeRows.length; i += BATCH_EPISODES) {
       const lote = episodeRows.slice(i, i + BATCH_EPISODES);
+
+      // Descobre quais (master_id,temporada,episodio) deste lote já existiam
+      // ANTES deste sync, consultando só os master_ids envolvidos no lote.
+      const masterIdsDoLote = [...new Set(lote.map(ep => ep.master_id))];
+      const { data: existentes } = await supabaseAdmin
+        .from("catalog_episodes")
+        .select("master_id, temporada, episodio")
+        .eq("servidor", SERVIDOR)
+        .in("master_id", masterIdsDoLote);
+
+      const existenteSet = new Set(
+        (existentes || []).map(e => `${e.master_id}|${e.temporada}|${e.episodio}`)
+      );
+
+      for (const ep of lote) {
+        const key = `${ep.master_id}|${ep.temporada}|${ep.episodio}`;
+        if (!existenteSet.has(key)) {
+          episodiosNovos++;
+          masterIdsComEpisodioNovo.add(ep.master_id);
+        }
+      }
+
       const { error } = await supabaseAdmin
         .from("catalog_episodes")
         .upsert(lote, {
@@ -323,9 +349,21 @@ const availabilityRows = [...filmesUnicos, ...seriesUnicas.master]
 
       if (error) {
         console.error(`[CATALOG-ELITE] Erro episodes lote ${i}:`, error.message);
-      } else {
-        episodiosNovos += lote.length;
       }
+    }
+
+    // ── 4d-bis. "Reabre" o adicionado_em das séries que ganharam episódio novo ─
+    // Sem isso, série já existente que só recebeu episódio novo nunca reaparece
+    // em "novidades" (o upsert de availability preserva adicionado_em original).
+    if (masterIdsComEpisodioNovo.size > 0) {
+      const idsArray = [...masterIdsComEpisodioNovo];
+      console.log(`[CATALOG-ELITE] Reabrindo adicionado_em de ${idsArray.length} séries com episódio novo...`);
+      const { error: reopenErr } = await supabaseAdmin
+        .from("catalog_availability")
+        .update({ adicionado_em: agora })
+        .eq("servidor", SERVIDOR)
+        .in("master_id", idsArray);
+      if (reopenErr) console.error(`[CATALOG-ELITE] Erro ao reabrir adicionado_em:`, reopenErr.message);
     }
 
     // ── 4e. Atualizar contadores de temporadas/episódios (RPC) ───────────────
