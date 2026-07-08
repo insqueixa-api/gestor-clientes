@@ -51,6 +51,7 @@ export async function GET(req: NextRequest) {
       .eq("servidor", servidor)
       .eq("categoria_origem", categoria)
       .eq("catalog_master.tipo", tipo)
+      .or("poster_tmdb_url.not.is.null,cover_url.not.is.null", { foreignTable: "catalog_master" })
       .order("adicionado_em", { ascending: false })
       .range(offset, offset + PER_PAGE - 1);
 
