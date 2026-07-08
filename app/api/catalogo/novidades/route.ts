@@ -1,6 +1,10 @@
 // app/api/catalogo/novidades/route.ts
+// PARA:
 // Usa vw_catalog_novidades diretamente (já tem todos os campos)
-// Sem filtro de tmdb_confirmado — poster_tmdb_url é fallback de cover_url no front
+// Exige tmdb_confirmado = true e poster_tmdb_url real — mesmo critério do
+// titulos/route.ts, aplicado ANTES do corte de 60 únicos (senão o corte pode
+// "gastar" vagas com títulos que seriam descartados depois, e Lançamentos de
+// verdade ficarem de fora).
 // GET ?servidor=ELITE|NATV|FAST|TODOS&tipo=FILME|SERIE
 
 import { NextRequest, NextResponse } from "next/server";
@@ -26,9 +30,12 @@ export async function GET(req: NextRequest) {
         cover_url, poster_tmdb_url,
         ano, sinopse, avaliacao, generos,
         total_temporadas, total_episodios,
+        tmdb_confirmado,
         servidor, categoria_origem, adicionado_em
       `)
       .eq("tipo", tipo)
+      .eq("tmdb_confirmado", true)
+      .not("poster_tmdb_url", "is", null)
       .order("adicionado_em", { ascending: false })
       .limit(300); // pega bastante para deduplicar e atingir 60 únicos
 

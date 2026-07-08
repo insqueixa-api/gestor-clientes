@@ -1165,10 +1165,25 @@ function AbaCatalogo({tipo,servidorAdmin,modoCliente,onJogosDoDia}:{tipo:TipoCon
   useEffect(()=>{ function h(e:MouseEvent){if(subDropRef.current&&!subDropRef.current.contains(e.target as Node))setSubDropOpen(false);} document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h); },[]);
 
   // Lógica original preservada
-  useEffect(()=>{ setLoadingNov(true);setNovidades([]);setNovidadesPage(1); fetch(`/api/catalogo/novidades?servidor=${servidor}&tipo=${tipo}`) .then(r=>r.json()).then(d=>{if(d.ok&&d.data)setNovidades(d.data.filter((t:TituloCard)=>t.poster_tmdb_url||t.cover_url));}).finally(()=>setLoadingNov(false)); },[servidor,tipo]);
+  useEffect(()=>{ setLoadingNov(true);setNovidades([]);setNovidadesPage(1); fetch(`/api/catalogo/novidades?servidor=${servidor}&tipo=${tipo}`) .then(r=>r.json()).then(d=>{
+  if(d.ok&&d.data){
+    const comCapaTmdb = (d.data as TituloCard[]).filter(t => t.tmdb_confirmado && t.poster_tmdb_url);
+    const ordenados = comCapaTmdb.sort((a,b)=>{
+      const aLanc = normalizar(a.categoria_origem||'').includes('lancamentos') ? 0 : 1;
+      const bLanc = normalizar(b.categoria_origem||'').includes('lancamentos') ? 0 : 1;
+      return aLanc - bLanc; // sort é estável — preserva a ordem de recência dentro de cada grupo
+    });
+    setNovidades(ordenados);
+  }
+}).finally(()=>setLoadingNov(false)); },[servidor,tipo]);
 
   useEffect(()=>{ setLoadingCats(true);setCatSelecionada(null);setSubCatSelecionada(null);setSubCategorias([]);setTitulos([]); fetch(`/api/catalogo/categorias?servidor=${servidor}&tipo=${tipo}`) .then(r=>r.json()).then(d=>{ if(d.ok){ const filtradas=(d.data as Categoria[])
-            .sort((a,b)=>a.label.localeCompare(b.label,"pt-BR")); setCategorias(filtradas); } }).finally(()=>setLoadingCats(false)); },[servidor,tipo]);
+            .sort((a,b)=>{
+              const aLanc = normalizar(a.label).includes('lancamentos') ? 0 : 1;
+              const bLanc = normalizar(b.label).includes('lancamentos') ? 0 : 1;
+              if (aLanc !== bLanc) return aLanc - bLanc;
+              return a.label.localeCompare(b.label,"pt-BR");
+            }); setCategorias(filtradas); } }).finally(()=>setLoadingCats(false)); },[servidor,tipo]);
   // useEffect para subcategorias - mantido vazio conforme original
   useEffect(()=>{ setSubCatSelecionada(null);setSubCategorias([]); if(!catSelecionada)return; },[catSelecionada]);
   useEffect(()=>{ const cat=subCatSelecionada||catSelecionada; if(!cat)return; setLoadingTits(true);setTitulos([]); fetch(`/api/catalogo/titulos?servidor=${servidor}&tipo=${tipo}&categoria=${encodeURIComponent(cat.categoria_origem)}&page=${page}`) .then(r=>r.json()).then(d=>{if(d.ok){setTitulos(d.data);setTotalTitulos(d.total);setPerPage(d.per_page||50);}}).finally(()=>setLoadingTits(false)); },[catSelecionada,subCatSelecionada,servidor,tipo,page]);
