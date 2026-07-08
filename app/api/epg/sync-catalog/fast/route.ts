@@ -200,11 +200,35 @@ const availRows = loteNorm
       })
       .filter(Boolean) as any[];
 
+    // master_ids de séries que ganharam pelo menos 1 episódio genuinamente novo
+    // neste lote — usado depois pra "reabrir" o adicionado_em delas.
+    const masterIdsComEpisodioNovo = new Set<string>();
+
     if (epRows.length > 0) {
       for (let i = 0; i < epRows.length; i += BATCH) {
+        const lote2 = epRows.slice(i, i + BATCH);
+
+        const masterIdsDoLote = [...new Set(lote2.map((ep: any) => ep.master_id))];
+        const { data: existentes } = await supabaseAdmin
+          .from("catalog_episodes")
+          .select("master_id, temporada, episodio")
+          .eq("servidor", SERVIDOR)
+          .in("master_id", masterIdsDoLote);
+
+        const existenteSet = new Set(
+          (existentes || []).map(e => `${e.master_id}|${e.temporada}|${e.episodio}`)
+        );
+
+        for (const ep of lote2 as any[]) {
+          const key = `${ep.master_id}|${ep.temporada}|${ep.episodio}`;
+          if (!existenteSet.has(key)) {
+            masterIdsComEpisodioNovo.add(ep.master_id);
+          }
+        }
+
         const { error } = await supabaseAdmin
           .from("catalog_episodes")
-          .upsert(epRows.slice(i, i + BATCH), {
+          .upsert(lote2, {
             onConflict:       "master_id,servidor,temporada,episodio",
             ignoreDuplicates: true,
           });
@@ -214,6 +238,20 @@ const availRows = loteNorm
           return NextResponse.json({ error: error.message }, { status: 500 });
         }
       }
+    }
+
+    // Reabre o adicionado_em das séries que ganharam episódio novo neste lote —
+    // sem isso, série existente que só recebeu episódio novo nunca reaparece
+    // em "novidades" (o upsert de availability preserva adicionado_em original).
+    if (masterIdsComEpisodioNovo.size > 0) {
+      const idsArray = [...masterIdsComEpisodioNovo];
+      console.log(`[CATALOG-FAST] Reabrindo adicionado_em de ${idsArray.length} séries com episódio novo...`);
+      const { error: reopenErr } = await supabaseAdmin
+        .from("catalog_availability")
+        .update({ adicionado_em: new Date().toISOString() })
+        .eq("servidor", SERVIDOR)
+        .in("master_id", idsArray);
+      if (reopenErr) console.error(`[CATALOG-FAST] Erro ao reabrir adicionado_em:`, reopenErr.message);
     }
 
     return NextResponse.json({ ok: true, processados: epRows.length });
