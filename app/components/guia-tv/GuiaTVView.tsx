@@ -1158,12 +1158,14 @@ function AbaCatalogo({tipo,servidorAdmin,modoCliente,onJogosDoDia}:{tipo:TipoCon
   const [subDropOpen,setSubDropOpen]=useState(false);
   const catDropRef=useRef<HTMLDivElement>(null);
   const subDropRef=useRef<HTMLDivElement>(null);
+  const [novidadesPage, setNovidadesPage] = useState(1);
+
 
   useEffect(()=>{ function h(e:MouseEvent){if(catDropRef.current&&!catDropRef.current.contains(e.target as Node))setCatDropOpen(false);} document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h); },[]);
   useEffect(()=>{ function h(e:MouseEvent){if(subDropRef.current&&!subDropRef.current.contains(e.target as Node))setSubDropOpen(false);} document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h); },[]);
 
   // Lógica original preservada
-  useEffect(()=>{ setLoadingNov(true);setNovidades([]); fetch(`/api/catalogo/novidades?servidor=${servidor}&tipo=${tipo}`) .then(r=>r.json()).then(d=>{if(d.ok&&d.data)setNovidades(d.data);}).finally(()=>setLoadingNov(false)); },[servidor,tipo]);
+  useEffect(()=>{ setLoadingNov(true);setNovidades([]);setNovidadesPage(1); fetch(`/api/catalogo/novidades?servidor=${servidor}&tipo=${tipo}`) .then(r=>r.json()).then(d=>{if(d.ok&&d.data)setNovidades(d.data);}).finally(()=>setLoadingNov(false)); },[servidor,tipo]);
   useEffect(()=>{ setLoadingCats(true);setCatSelecionada(null);setSubCatSelecionada(null);setSubCategorias([]);setTitulos([]); fetch(`/api/catalogo/categorias?servidor=${servidor}&tipo=${tipo}`) .then(r=>r.json()).then(d=>{ if(d.ok){ const filtradas=(d.data as Categoria[])
             .sort((a,b)=>a.label.localeCompare(b.label,"pt-BR")); setCategorias(filtradas); } }).finally(()=>setLoadingCats(false)); },[servidor,tipo]);
   // useEffect para subcategorias - mantido vazio conforme original
@@ -1272,20 +1274,27 @@ function AbaCatalogo({tipo,servidorAdmin,modoCliente,onJogosDoDia}:{tipo:TipoCon
           {loadingTits?<div className="text-center py-20 text-muted-foreground animate-pulse flex flex-col items-center gap-4"><RefreshCw size={24} className="animate-spin text-muted-foreground/60"/> Carregando títulos...</div>:
             <GradeMiniaturas titulos={titulos} total={totalTitulos} page={page} perPage={perPage} onSelect={t=>setDetalhando(t.id)} onPage={p=>setPage(p)}/>}
         </div>
-      ):(
-        <div className="flex flex-col gap-6">
-          {loadingNov?(
-            <div className="h-60 bg-card rounded-xl border border-border animate-pulse flex items-center justify-center"><RefreshCw size={24} className="animate-spin text-muted-foreground/50"/></div>
-          ):novidades.length>0?(
-            <div className="space-y-4">
-              <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest pl-1">Adicionados recentemente (Capas TMDB)</div>
-              <Carrossel itens={novidades} onSelect={t=>setDetalhando(t.id)} tipo={tipo}/>
-            </div>
-          ):(
-            <div className="text-center py-12 p-5 text-muted-foreground/70 italic text-sm bg-card border border-border rounded-xl">Nenhum título recente com dados TMDB encontrados no banco. Rode o Sync TMDB no Catálogo.</div>
-          )}
-        </div>
-      )}
+      ) : (
+  <div className="flex flex-col gap-6">
+    {loadingNov?(
+      <div className="h-60 bg-card rounded-xl border border-border animate-pulse flex items-center justify-center"><RefreshCw size={24} className="animate-spin text-muted-foreground/50"/></div>
+    ):novidades.length>0?(
+      <div className="space-y-4">
+        <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest pl-1">Adicionados nos últimos 15 dias</div>
+        <GradeMiniaturas
+          titulos={novidades.slice((novidadesPage-1)*50, novidadesPage*50)}
+          total={novidades.length}
+          page={novidadesPage}
+          perPage={50}
+          onSelect={t=>setDetalhando(t.id)}
+          onPage={p=>setNovidadesPage(p)}
+        />
+      </div>
+    ):(
+      <div className="text-center py-12 p-5 text-muted-foreground/70 italic text-sm bg-card border border-border rounded-xl">Nenhum título adicionado nos últimos 15 dias.</div>
+    )}
+  </div>
+)}
     </div>
     {detalhando&&<ModalDetalhe id={detalhando} onClose={()=>setDetalhando(null)} modoCliente={modoCliente} servidorFiltro={servidorAdmin}/>}
   </div>
