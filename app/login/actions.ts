@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createClient as createBgClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
+import { waitUntil } from "@vercel/functions";
 
 export type LoginState = { error?: string };
 
@@ -159,8 +160,10 @@ export async function loginAction(
     const token = data.session.access_token;
     const userId = data.user.id;
 
-    // ✅ Dispara o background task sem 'await' (Fire and Forget seguro)
-    refreshFxIfNeeded(token, userId, origin).catch((err) => {});
+    // ✅ waitUntil mantém a função viva até essa Promise terminar, mesmo
+    // depois do redirect() encerrar a resposta — sem isso, a Vercel podia
+    // matar o processo no meio da chamada e a taxa nunca era atualizada.
+    waitUntil(refreshFxIfNeeded(token, userId, origin).catch((err) => {}));
 
     // ✅ Redireciona imediatamente
     redirect("/admin");
