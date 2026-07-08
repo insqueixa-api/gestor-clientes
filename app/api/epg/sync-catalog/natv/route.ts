@@ -288,14 +288,50 @@ const master_id = masterIdMap.get(normalizarTituloBusca(ep.titulo_normalizado));
       })
       .filter(Boolean) as any[];
 
+    // master_ids de séries que ganharam pelo menos 1 episódio genuinamente novo
+    // nesta sincronização — usado depois pra "reabrir" o adicionado_em delas.
+    const masterIdsComEpisodioNovo = new Set<string>();
+
     for (let i = 0; i < epRows.length; i += BATCH) {
+      const lote = epRows.slice(i, i + BATCH);
+
+      const masterIdsDoLote = [...new Set(lote.map((ep: any) => ep.master_id))];
+      const { data: existentes } = await supabaseAdmin
+        .from("catalog_episodes")
+        .select("master_id, temporada, episodio")
+        .eq("servidor", SERVIDOR)
+        .in("master_id", masterIdsDoLote);
+
+      const existenteSet = new Set(
+        (existentes || []).map(e => `${e.master_id}|${e.temporada}|${e.episodio}`)
+      );
+
+      for (const ep of lote as any[]) {
+        const key = `${ep.master_id}|${ep.temporada}|${ep.episodio}`;
+        if (!existenteSet.has(key)) {
+          masterIdsComEpisodioNovo.add(ep.master_id);
+        }
+      }
+
       const { error } = await supabaseAdmin
         .from("catalog_episodes")
-        .upsert(epRows.slice(i, i + BATCH), {
+        .upsert(lote, {
           onConflict: "master_id,servidor,temporada,episodio",
           ignoreDuplicates: true,
         });
       if (error) console.error(`[CATALOG-NATV] Erro episodes lote ${i}:`, error.message);
+    }
+
+    // ── 4d-bis. "Reabre" o adicionado_em das séries que ganharam episódio novo ─
+    if (masterIdsComEpisodioNovo.size > 0) {
+      const idsArray = [...masterIdsComEpisodioNovo];
+      console.log(`[CATALOG-NATV] Reabrindo adicionado_em de ${idsArray.length} séries com episódio novo...`);
+      const { error: reopenErr } = await supabaseAdmin
+        .from("catalog_availability")
+        .update({ adicionado_em: agora })
+        .eq("servidor", SERVIDOR)
+        .in("master_id", idsArray);
+      if (reopenErr) console.error(`[CATALOG-NATV] Erro ao reabrir adicionado_em:`, reopenErr.message);
     }
 
     // ── 4e. Contadores ────────────────────────────────────────────────────────
