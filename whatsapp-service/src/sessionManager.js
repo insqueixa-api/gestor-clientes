@@ -10,8 +10,29 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import pino from "pino";
 
+
+
 // Adiciona no topo do arquivo, após os imports:
 const processedCalls = new Map();
+
+// ── Rastreamento de mensagens enviadas pela própria API ──────────────────────
+// Resolve o problema de "humano vs sistema": quando o Baileys ecoa de volta
+// (messages.upsert com fromMe=true) uma mensagem que o PRÓPRIO sistema mandou
+// via sendMessage() — seja o bot respondendo, seja um cron de automação — não
+// pode ser confundida com você digitando manualmente no celular.
+const sentByApiMessageIds = new Map(); // messageId -> timestamp
+function markSentByApi(messageId) {
+  if (!messageId) return;
+  sentByApiMessageIds.set(messageId, Date.now());
+}
+function wasSentByApi(messageId) {
+  const now = Date.now();
+  for (const [id, ts] of sentByApiMessageIds.entries()) {
+    if (now - ts > 5 * 60_000) sentByApiMessageIds.delete(id); // limpa após 5 min
+  }
+  if (!messageId) return false;
+  return sentByApiMessageIds.has(messageId);
+}
 
 // Suprime logs verbosos de ERRO do libsignal (Bad MAC de sessões antigas — erro cosmético)
 const _origConsoleError = console.error;
@@ -157,6 +178,29 @@ function isCallAlreadyProcessed(callId) {
   if (processedCalls.has(callId)) return true;
   processedCalls.set(callId, now);
   return false;
+}
+
+// ── Marcar chat como lido/não lido (bolinha verde do WhatsApp) ───────────────
+// (1) LIDO: bot resolveu sozinho ou silenciou de propósito — você não perde
+// tempo abrindo o chat à toa.
+// (2) NÃO LIDO: escalonamento explícito ou pendência que exige ação manual
+// sua (ex: conferir comprovante) — precisa chamar sua atenção.
+async function markChatReadState(sessionKey, msg, markRead) {
+  const sess = sessions.get(sessionKey);
+  if (!sess?.socket || sess.status !== "connected") return;
+  const jid = msg?.key?.remoteJid;
+  if (!jid) return;
+  try {
+    await sess.socket.chatModify(
+      {
+        markRead,
+        lastMessages: [{ key: msg.key, messageTimestamp: msg.messageTimestamp }],
+      },
+      jid
+    );
+  } catch (e) {
+    console.error(`[WA][${sessionKey.slice(0, 8)}] Erro ao marcar chat como ${markRead ? "lido" : "não lido"}:`, e?.message);
+  }
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -650,24 +694,55 @@ if (connection === "open") {
 }
 
 // ── Debounce por contato — agrupa mensagens consecutivas ─────
-const pendingAgentCalls = new Map(); // "sessionKey:phone" -> { timer, msgs[] }
+// ✅ Dois estágios: 30s de silêncio → mostra "digitando..." → mais 15s de
+// silêncio (45s no total) → processa de fato. Se uma nova mensagem chegar em
+// qualquer momento, os dois timers resetam do zero — assim, se o Márcio (ou o
+// próprio cliente) estiver digitando aos poucos, o bot não atropela ninguém.
+const pendingAgentCalls = new Map(); // "sessionKey:phone" -> { typingTimer, processTimer, msgs[] }
+
+const TYPING_DELAY_MS = 30_000;   // 1º estágio: silêncio antes de mostrar "digitando..."
+const PROCESS_DELAY_MS = 15_000;  // 2º estágio: silêncio adicional antes de processar
 
 function scheduleBotAgent(sessionKey, phone, msg) {
   const key = `${sessionKey}:${phone}`;
   const existing = pendingAgentCalls.get(key);
 
   if (existing) {
-    // Já tem timer pendente — cancela e adiciona mensagem ao lote
-    clearTimeout(existing.timer);
+    // Já tem timers pendentes — cancela os dois e adiciona mensagem ao lote
+    clearTimeout(existing.typingTimer);
+    clearTimeout(existing.processTimer);
     existing.msgs.push(msg);
   } else {
-    pendingAgentCalls.set(key, { timer: null, msgs: [msg] });
+    pendingAgentCalls.set(key, { typingTimer: null, processTimer: null, msgs: [msg] });
   }
 
   const entry = pendingAgentCalls.get(key);
-  entry.timer = setTimeout(async () => {
+
+  function getRemoteJid() {
+    const last = entry.msgs[entry.msgs.length - 1];
+    return last?.key?.remoteJid || null;
+  }
+
+  // ── Estágio 1: após 30s de silêncio, mostra "digitando..." ────────────────
+  entry.typingTimer = setTimeout(() => {
+    const sess = sessions.get(sessionKey);
+    const jid = getRemoteJid();
+    if (sess?.socket && sess.status === "connected" && jid) {
+      sess.socket.sendPresenceUpdate("composing", jid).catch(() => {});
+    }
+  }, TYPING_DELAY_MS);
+
+  // ── Estágio 2: mais 15s depois (45s no total) → processa de fato ──────────
+  entry.processTimer = setTimeout(async () => {
     pendingAgentCalls.delete(key);
     const msgs = entry.msgs;
+
+    // Encerra o indicador de "digitando..." antes de mandar a resposta real
+    const sess = sessions.get(sessionKey);
+    const jid = getRemoteJid();
+    if (sess?.socket && sess.status === "connected" && jid) {
+      sess.socket.sendPresenceUpdate("paused", jid).catch(() => {});
+    }
 
     if (msgs.length === 1) {
       // Mensagem única — comportamento normal
@@ -680,7 +755,7 @@ function scheduleBotAgent(sessionKey, phone, msg) {
         console.error(`[BOT][${sessionKey.slice(0, 8)}] Erro ao chamar agente (batch) para ${phone}:`, e?.message)
       );
     }
-  }, 10_000); // 10 segundos de debounce
+  }, TYPING_DELAY_MS + PROCESS_DELAY_MS);
 }
 
 // ── Bot Logic Handler ─────────────────────────────────────────────────────────
@@ -722,13 +797,19 @@ if (remoteJid.includes("@lid")) {
     if (!phone || phone.length < 8) continue;
 
     // ── fromMe: só pausa se for mensagem manual (não automática do sistema)
-    // Mensagens automáticas têm source: "system" no payload ou são enviadas via /send
-    // Identificamos mensagens manuais pelo campo pushName ausente no fromMe
-    // Na prática: mensagens do Baileys via sendMessage têm key.fromMe=true mas
-    // não devem pausar — só pausar quando você digitar manualmente no celular
+    // ✅ Agora é preciso: checamos o ID da mensagem contra o registro de
+    // "mensagens que a própria API enviou" (bot + crons de automação).
+    // Se o ID bate → foi o sistema, ignora completamente, nunca pausa.
+    // Se não bate → foi você digitando direto no celular → humano real, pausa.
 if (key.fromMe) {
-      // Só pausa se o bot já havia iniciado atendimento com esse contato
-      // Evita que mensagens automáticas de cobrança disparem human takeover
+      const msgId = key.id;
+      if (wasSentByApi(msgId)) {
+        // Mensagem nossa mesma (bot ou automação) ecoada de volta — não é
+        // takeover humano, ignora silenciosamente.
+        continue;
+      }
+      // Chegou aqui: fromMe=true mas NÃO foi enviada pela nossa API →
+      // você digitou manualmente no WhatsApp do celular.
       if (botActiveContacts.has(`${sessionKey}:${phone}`)) {
         pauseContact(sessionKey, phone);
         botActiveContacts.delete(`${sessionKey}:${phone}`);
@@ -888,6 +969,28 @@ if (!res.ok) {
       console.error(`[BOT][${sessionKey.slice(0, 8)}] Agente retornou erro ${res.status}: ${err.slice(0, 200)}`);
     } else {
       const responseData = await res.json().catch(() => ({}));
+
+      // ✅ Marca o chat como lido/não lido conforme o agente decidiu.
+      if (typeof responseData?.mark_read === "boolean") {
+        markChatReadState(sessionKey, msg, responseData.mark_read).catch(() => {});
+      }
+
+      // ✅ Escalonamento — pausa o bot para este contato, igual a um takeover
+      // humano manual, e NÃO conta como "bot_responded" no monitor.
+      if (responseData?.escalate === true) {
+        console.log(`[BOT][${sessionKey.slice(0, 8)}] 🙋 Escalonamento explícito de ${phone} — pausando bot`);
+        pauseContact(sessionKey, phone);
+        botActiveContacts.delete(`${sessionKey}:${phone}`);
+        emitBotEvent({
+          type: "human_takeover",
+          phone,
+          display_name: responseData?.display_name || null,
+          server_name: responseData?.server_name || null,
+          preview: "Cliente solicitou atendimento humano — bot pausado por 4h",
+        });
+        return;
+      }
+
       console.log(`[BOT][${sessionKey.slice(0, 8)}] ✅ Agente processou mensagem de ${phone}`);
       botActiveContacts.add(`${sessionKey}:${phone}`);
       if (responseData?.bot_response?.trim()) {
@@ -1030,9 +1133,15 @@ async function sendMessage(sessionKey, phone, message, imageUrl = null) {
     });
   }
 
+  const messageId = result?.key?.id || null;
+
+  // ✅ Registra que ESTE ID veio da API — quando o Baileys ecoar de volta
+  // (messages.upsert, fromMe=true), sabemos que fomos nós, não você no celular.
+  markSentByApi(messageId);
+
   return {
     ok: true,
-    messageId: result?.key?.id || null,
+    messageId,
   };
 }
 

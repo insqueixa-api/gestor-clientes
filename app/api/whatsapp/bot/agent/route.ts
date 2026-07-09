@@ -291,6 +291,8 @@ async function generateEmbedding(apiKey: string, text: string): Promise<number[]
   }
 }
 
+
+
 async function searchBotKnowledge(
   sb: any,
   tenantId: string,
@@ -314,6 +316,71 @@ async function searchBotKnowledge(
     return "(erro ao buscar base de conhecimento)";
   }
 }
+
+// ── Item 5: classificação de mensagens automáticas recentes ──────────────────
+// O bot "lê o sistema" antes de decidir: descobre se o cliente está
+// respondendo a algo que VOCÊ (ou o sistema) já mandou, e reage de forma
+// determinística — sem depender do Gemini interpretar o contexto sozinho.
+
+type RecentJobKind =
+  | "payment_confirmation"
+  | "vencimento"
+  | "pos_venda_satisfacao"
+  | "pos_venda_fidelidade"
+  | "pos_venda_generico"
+  | "none";
+
+function classifyRecentJob(job: any): RecentJobKind {
+  if (!job) return "none";
+
+  const templateName = String(job.message_templates?.name || "");
+  const automationType = job.billing_automations?.type || null;
+  const automationName = String(job.billing_automations?.name || "");
+
+  // Disparado por evento (pagamento confirmado), sem automation_id
+  if (!job.automation_id && templateName === "Pagamento Realizado") {
+    return "payment_confirmation";
+  }
+  if (automationType === "Vencimento") {
+    return "vencimento";
+  }
+  if (automationType === "Pós-Venda") {
+    if (/pesquisa de satisfa/i.test(automationName)) return "pos_venda_satisfacao";
+    if (/fidelidade/i.test(automationName)) return "pos_venda_fidelidade";
+    return "pos_venda_generico";
+  }
+  return "none";
+}
+
+// Verifica se o texto é composto SOMENTE por saudações/agradecimentos
+// conhecidos — qualquer conteúdo fora dessa lista faz cair no fluxo normal
+// (Gemini), pra nunca engolir uma pergunta real disfarçada de cordialidade.
+const GRATITUDE_PHRASES = [
+  "bom dia", "boa tarde", "boa noite", "oi", "olá", "ola",
+  "obrigada", "obrigado", "obrigada pela paciência", "obrigado pela paciência",
+  "obrigada por tudo", "obrigado por tudo", "muito obrigada", "muito obrigado",
+  "valeu", "vlw", "tudo certo", "tudo ótimo", "tudo otimo", "perfeito",
+  "ótimo", "otimo", "obrigada viu", "obrigado viu",
+];
+
+function isGratitudeOrGreetingOnly(text: string): boolean {
+  let remaining = text
+    .toLowerCase()
+    .replace(/[!.,😊🙏❤️😄👍✅🎉]/g, "")
+    .trim();
+
+  for (const phrase of [...GRATITUDE_PHRASES].sort((a, b) => b.length - a.length)) {
+    remaining = remaining.split(phrase).join(" ");
+  }
+  remaining = remaining.replace(/\s+/g, " ").trim();
+  return remaining.length === 0 && text.trim().length > 0;
+}
+
+const POSTPONEMENT_INTENT =
+  /\b(vou pagar|pago (amanh[ãa]|hoje|depois|mais tarde|essa semana)|j[áa] vou (pagar|renovar)|assim que (puder|poss[íi]vel)|quando (chegar|puder)|semana que vem)\b/i;
+
+const PROBLEM_KEYWORDS =
+  /\b(travando|travou|ruim|p[ée]ssimo|n[ãa]o (funciona|gostei|est[áa] bom)|problema|reclama|demora|lento|sem sinal|n[ãa]o consigo)\b/i;
 
 // ── Handler principal ─────────────────────────────────────────────────────────
 
@@ -344,7 +411,8 @@ export async function POST(req: Request) {
   const jidToCheck = remoteJid || phone || "";
   if (jidToCheck.includes("@g.us")) {
     safeLog(`[BOT][agent] Mensagem de grupo ignorada: ${jidToCheck}`);
-    return NextResponse.json({ ok: true, action: "ignored_group" });
+        return NextResponse.json({ ok: true, action: "ignored_group", mark_read: true });
+
   }
 
   if (!tenant_id || !session_key || !phone) {
@@ -412,7 +480,7 @@ if (media_base64 && media_type) {
       const msg =
         `Oi ${firstName}! 😊 Recebi seu comprovante, mas sua renovação já foi processada automaticamente pelo portal — tudo certo com seu acesso!\n\nPara os próximos pagamentos pelo portal, não precisa enviar comprovante. Tudo acontece de forma automática. ✅`;
       await sendWAMessage(session_key, phone, msg);
-      return NextResponse.json({ ok: true, action: "auto_confirmed", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+      return NextResponse.json({ ok: true, action: "auto_confirmed", mark_read: true, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
     }
 
     // Caso B: No fluxo do portal, aguardando confirmação manual sua
@@ -451,11 +519,11 @@ if (media_base64 && media_type) {
         parsed = JSON.parse(rawText.replace(/```json|```/g, "").trim());
       } catch (e: any) {
         safeLog("[BOT][agent] Erro ao analisar imagem:", e?.message);
-        return NextResponse.json({ ok: true, action: "silence" });
+        return NextResponse.json({ ok: true, action: "silence", mark_read: true });
       }
 
       if (!parsed?.is_receipt) {
-        return NextResponse.json({ ok: true, action: "silence" });
+        return NextResponse.json({ ok: true, action: "silence", mark_read: true });
       }
 
       const detalhes = [
@@ -496,18 +564,108 @@ if (media_base64 && media_type) {
     return NextResponse.json({ ok: true, action: "silence" });
   }
 
+  // ✅ Item 5: verifica se o cliente está respondendo a uma mensagem
+  // automática recente (últimas 24h) antes de qualquer outro filtro.
+  try {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: recentJob } = await sb
+      .from("client_message_jobs")
+      .select(`
+        sent_at,
+        automation_id,
+        message_template_id,
+        message_templates ( name, category ),
+        billing_automations ( name, type )
+      `)
+      .eq("tenant_id", tenant_id)
+      .in("client_id", clients.map((c: any) => c.id))
+      .eq("status", "SENT")
+      .gte("sent_at", twentyFourHoursAgo)
+      .order("sent_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const jobKind = classifyRecentJob(recentJob);
+    safeLog("[BOT][agent] Item5 — job recente classificado como:", jobKind);
+
+    if (jobKind !== "none") {
+      const trimmed = text.trim();
+
+      // Confirmação de pagamento + só agradeceu/confirmou
+      if (jobKind === "payment_confirmation" && isGratitudeOrGreetingOnly(trimmed)) {
+        const msg = `Que bom, ${firstName}! 😊 Fico feliz que deu tudo certo com sua renovação. Qualquer coisa é só chamar!`;
+        await sendWAMessage(session_key, phone, msg);
+        return NextResponse.json({ ok: true, action: "payment_ack", mark_read: true, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+      }
+
+      // Lembrete de vencimento + cliente disse que vai pagar depois
+      if (jobKind === "vencimento" && POSTPONEMENT_INTENT.test(trimmed)) {
+        const msg = `Sem pressa! Pode ficar tranquilo — quando for renovar, é só acessar o portal que está tudo pronto. Se precisar de ajuda, é só chamar! 😊`;
+        await sendWAMessage(session_key, phone, msg);
+        return NextResponse.json({ ok: true, action: "vencimento_ack", mark_read: true, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+      }
+
+      // Pesquisa de satisfação + resposta positiva (sem sinal de reclamação
+      // e sem ser um feedback longo — nuance fica pro Gemini avaliar)
+      if (
+        jobKind === "pos_venda_satisfacao" &&
+        !PROBLEM_KEYWORDS.test(trimmed) &&
+        trimmed.length < 300
+      ) {
+        const msg = `Muito obrigado pelo retorno, ${firstName}! 🙏 Fico feliz que esteja gostando. Qualquer coisa, é só chamar!`;
+        await sendWAMessage(session_key, phone, msg);
+        return NextResponse.json({ ok: true, action: "satisfaction_ack", mark_read: true, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+      }
+
+      // Fidelidade e pós-venda genérico: mesmo tratamento — agradece e encerra
+      if (
+        (jobKind === "pos_venda_fidelidade" || jobKind === "pos_venda_generico") &&
+        isGratitudeOrGreetingOnly(trimmed)
+      ) {
+        const msg = `Que bom, ${firstName}! 😊 Fico feliz em saber. Qualquer coisa, é só chamar!`;
+        await sendWAMessage(session_key, phone, msg);
+        return NextResponse.json({ ok: true, action: "pos_venda_ack", mark_read: true, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+      }
+    }
+  } catch (e: any) {
+    safeLog("[BOT][agent] Erro ao ler contexto do sistema (item 5):", e?.message);
+    // Falha aqui nunca deve travar o atendimento normal.
+  }
+
   // Filtro determinístico: confirmações simples nunca chegam ao agente
   const confirmacaoSimples = /^(ok|okay|oks|👍|👌|✅|😊|🙏|blz|beleza|certo|entendi|entendido|perfeito|tá|ta|tá bom|ta bom|tudo bem|obrigad[oa]|vlw|valeu|até|ótimo|otimo|show|legal|massa|👏|🤝|😀|😄|🙂)$/i;
   if (confirmacaoSimples.test(text.trim())) {
     safeLog("[BOT][agent] Confirmação simples ignorada:", text.trim());
-    return NextResponse.json({ ok: true, action: "silence_confirmation" });
+    return NextResponse.json({ ok: true, action: "silence_confirmation", mark_read: true });
+  }
+
+  // ✅ Escalonamento determinístico — NUNCA depende do Gemini decidir sozinho.
+  // Bug real (caso Sandra, 26/06): o modelo às vezes ignorava a regra de
+  // transferência escrita no prompt e continuava respondendo como se nada
+  // tivesse acontecido. Isso aqui intercepta ANTES de qualquer chamada à IA.
+  const escalationTrigger =
+    /^(pessoal|márcio|marcio|humano|0)$/i.test(text.trim()) ||
+    /\b(falar com (o )?márcio|falar com (uma )?pessoa|atendente humano|quero (um )?humano|preciso de (uma )?pessoa)\b/i.test(text.trim());
+
+  if (escalationTrigger) {
+    safeLog("[BOT][agent] Escalonamento explícito detectado:", text.trim());
+    const msg = `Sem problema! Vou deixar sua conversa marcada aqui e o Márcio te retorna assim que possível. 🙏`;
+    await sendWAMessage(session_key, phone, msg);
+    return NextResponse.json({
+      ok: true,
+      action: "escalated",
+      escalate: true, // sinaliza para a VM pausar o bot para este contato
+      display_name: clients[0]?.display_name || null,
+      server_name: clients[0]?.server_name || null,
+    });
   }
 
   // Ignora links puros sem contexto (YouTube, Spotify, TikTok etc.)
   const isLinkOnly = /^https?:\/\/\S+$/.test(text.trim());
   if (isLinkOnly) {
     safeLog("[BOT][agent] Link puro ignorado:", text.trim().slice(0, 80));
-    return NextResponse.json({ ok: true, action: "silence" });
+    return NextResponse.json({ ok: true, action: "silence", mark_read: true });
   }
 
   // ── RAG: busca conhecimento relevante para esta mensagem ─────────────────
