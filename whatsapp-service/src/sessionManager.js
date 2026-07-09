@@ -611,10 +611,29 @@ if (connection === "open") {
         continue;
       }
 
+      // ✅ Detecta se a chamada é de um grupo (Baileys expõe isGroup, e em
+      // algumas versões também chatId/groupJid apontando para @g.us).
+      // Log temporário para você confirmar no `docker logs` qual campo veio.
+      const isGroupCall =
+        call.isGroup === true ||
+        (typeof call.chatId === "string" && call.chatId.endsWith("@g.us")) ||
+        (typeof call.groupJid === "string" && call.groupJid.endsWith("@g.us"));
+
+      if (isGroupCall) {
+        console.log(`[WA][${sessionKey.slice(0, 8)}] 👥 Chamada em grupo detectada — raw call: ${JSON.stringify(call)}`);
+      }
+
       try {
         // Rejeita usando o JID original (rejectCall precisa do JID exato que chegou)
         await sock.rejectCall(call.id, call.from);
         console.log(`[WA][${sessionKey.slice(0, 8)}] 📵 Chamada rejeitada de ${call.from}`);
+
+        // ✅ Chamada de grupo: rejeita e para por aqui — ninguém liga pro seu PV,
+        // então não faz sentido mandar mensagem para o número que originou a chamada.
+        if (isGroupCall) {
+          console.log(`[WA][${sessionKey.slice(0, 8)}] 🔇 Chamada de grupo — mensagem de rejeição NÃO enviada`);
+          continue;
+        }
 
         // ✅ Envia mensagem para o JID resolvido (número real, não LID)
         const renderedMessage = renderRejectMessage(config.rejectMessage, callerJid);
