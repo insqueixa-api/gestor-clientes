@@ -1,3 +1,4 @@
+// lib/integrations/index.ts
 import { GerenciaAppIntegration } from "./gerenciaapp"; 
 import { DupleCastIntegration } from "./duplecast";
 import { LazerPlayIntegration } from "./lazerplay"; // ✅ Importando a nova lib

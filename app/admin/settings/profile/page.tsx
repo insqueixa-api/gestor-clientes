@@ -1,4 +1,5 @@
 "use client";
+// app/admin/settings/profile/page.tsx
 import {
   Loader2,
   Pencil,

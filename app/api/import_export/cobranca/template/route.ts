@@ -1,3 +1,4 @@
+// app/api/import_export/cobranca/template/route.ts
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 

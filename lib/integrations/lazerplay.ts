@@ -1,3 +1,4 @@
+// lib/integrations/lazerplay.ts
 // /lib/integrations/apps/lazerplay.ts
 // (Ajuste o caminho se a sua pasta de integrações no front-end for diferente)
 

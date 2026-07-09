@@ -1,4 +1,5 @@
 "use client";
+// app/admin/simplebarchart.tsx
 
 import React, { useMemo, useRef, useState } from "react";
 

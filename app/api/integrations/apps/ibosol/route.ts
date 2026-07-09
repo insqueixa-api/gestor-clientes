@@ -1,4 +1,4 @@
-//app/api/integrations/apps/ibosol/ibosol.ts
+// app/api/integrations/apps/ibosol/route.ts
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";

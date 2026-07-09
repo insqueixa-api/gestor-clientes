@@ -1,3 +1,4 @@
+// app/api/client-portal/get-accounts/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 

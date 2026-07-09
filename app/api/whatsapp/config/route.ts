@@ -1,3 +1,4 @@
+// app/api/whatsapp/config/route.ts
 //app/api/whatsapp/config
 
 import { NextResponse } from "next/server";

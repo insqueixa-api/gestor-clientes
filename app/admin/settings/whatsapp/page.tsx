@@ -1,4 +1,5 @@
 "use client";
+// app/admin/settings/whatsapp/page.tsx
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
   Loader2, RefreshCcw, Plug, Ban, CheckCircle2,

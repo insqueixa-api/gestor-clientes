@@ -1,4 +1,5 @@
 ﻿"use client";
+// app/admin/gerenciador/plano/page.tsx
 import { X } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";

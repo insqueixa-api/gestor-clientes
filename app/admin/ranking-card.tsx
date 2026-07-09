@@ -1,4 +1,5 @@
 "use client";
+// app/admin/ranking-card.tsx
 
 import React, { useState } from "react";
 

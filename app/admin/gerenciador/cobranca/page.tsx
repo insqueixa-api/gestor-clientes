@@ -1,4 +1,5 @@
 ﻿"use client";
+// app/admin/gerenciador/cobranca/page.tsx
 import { MessageCircle, X } from "lucide-react";
 
 import { useState, useEffect, useMemo, useRef } from "react";

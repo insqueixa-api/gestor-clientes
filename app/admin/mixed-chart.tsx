@@ -1,4 +1,5 @@
 "use client";
+// app/admin/mixed-chart.tsx
 
 import React, { useMemo, useRef, useState, useEffect } from "react";
 import dynamic from "next/dynamic";

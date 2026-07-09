@@ -1,4 +1,5 @@
 "use client";
+// app/admin/teste/page.tsx
 import {
   Loader2,
   X,

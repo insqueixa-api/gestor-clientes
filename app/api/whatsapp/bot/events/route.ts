@@ -1,3 +1,4 @@
+// app/api/whatsapp/bot/events/route.ts
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";

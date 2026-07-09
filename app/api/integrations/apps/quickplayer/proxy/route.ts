@@ -1,3 +1,4 @@
+// app/api/integrations/apps/quickplayer/proxy/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {

@@ -1,3 +1,4 @@
+// lib/tenant.ts
 import { supabaseBrowser } from "./supabase/browser";
 
 function delay(ms: number) {

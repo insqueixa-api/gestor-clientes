@@ -1,4 +1,5 @@
 ﻿"use client";
+// app/admin/agenda/page.tsx
 import {
   Loader2,
   X,

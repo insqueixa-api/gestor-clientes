@@ -1,4 +1,5 @@
 "use client";
+// app/admin/revendedor/[id]/vincular_servidor.tsx
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";

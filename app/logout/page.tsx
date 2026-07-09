@@ -1,4 +1,5 @@
 "use client";
+// app/logout/page.tsx
 
 import { useEffect } from "react";
 import { logoutAction } from "./actions";

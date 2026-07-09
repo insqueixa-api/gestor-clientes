@@ -1,4 +1,5 @@
 "use client";
+// app/admin/gerenciador/servidor/recarga_servidor.tsx
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom"; // Faltava importar o createPortal

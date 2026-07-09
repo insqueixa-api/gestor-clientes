@@ -1,4 +1,5 @@
 "use client";
+// app/admin/settings/api-server/page.tsx
 import { Pencil, RefreshCcw } from "lucide-react";
 
 import { useEffect, useState } from "react";

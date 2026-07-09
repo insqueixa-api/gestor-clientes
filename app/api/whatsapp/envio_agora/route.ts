@@ -1,3 +1,4 @@
+// app/api/whatsapp/envio_agora/route.ts
 //app/api/whatsapp/envio_agora
 
 import { NextResponse } from "next/server";

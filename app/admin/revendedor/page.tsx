@@ -1,4 +1,5 @@
 ﻿"use client";
+// app/admin/revendedor/page.tsx
 import {
   X,
   ChevronUp,

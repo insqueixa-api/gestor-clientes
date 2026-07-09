@@ -1,4 +1,4 @@
-// lib/api/whatsapp/bot-prompt.ts
+// lib/whatsapp/bot-prompt.ts
 // ─────────────────────────────────────────────────────────────────────────────
 // Fonte única de verdade para as regras e instruções do bot de atendimento.
 // Ambas as rotas (agent e chat-admin) importam daqui.

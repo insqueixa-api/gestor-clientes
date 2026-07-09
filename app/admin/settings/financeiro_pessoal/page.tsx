@@ -1,4 +1,5 @@
 "use client";
+// app/admin/settings/financeiro_pessoal/page.tsx
 import { X, Pencil } from "lucide-react";
 
 import { useEffect, useState, useMemo, useRef, Suspense } from "react";

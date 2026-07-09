@@ -1,3 +1,4 @@
+// app/api/notifications/low-credits/route.ts
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { notify } from "@/lib/notifications/notify";

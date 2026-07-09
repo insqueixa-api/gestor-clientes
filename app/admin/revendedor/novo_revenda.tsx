@@ -1,4 +1,5 @@
 "use client";
+// app/admin/revendedor/novo_revenda.tsx
 import { Loader2 } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState } from "react";

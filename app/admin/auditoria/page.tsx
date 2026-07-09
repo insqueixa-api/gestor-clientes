@@ -1,4 +1,5 @@
 ﻿"use client";
+// app/admin/auditoria/page.tsx
 import { X } from "lucide-react";
 
 import { useEffect, useMemo, useState, Suspense } from "react";

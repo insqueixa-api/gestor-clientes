@@ -1,3 +1,4 @@
+// app/api/notifications/manual-renewal/route.ts
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 

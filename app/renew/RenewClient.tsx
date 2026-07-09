@@ -1,4 +1,5 @@
 "use client";
+// app/renew/RenewClient.tsx
 
 import { useSearchParams, useRouter } from "next/navigation"; // ✅ useRouter adicionado
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -2512,7 +2513,8 @@ export default function RenewClient() {
           </p>
         </div>
         <a
-          href={`/renew/guia-tv?servidor=${srvKey}`}
+          href={`/renew/guia-tv?servidor=${srvKey}&conta=${selectedAccount.id}`}
+
           className="shrink-0 flex items-center gap-1.5 h-9 px-4 rounded-full bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold transition-colors shadow-sm"
         >
           Ver →

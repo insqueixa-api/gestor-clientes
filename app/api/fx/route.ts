@@ -1,3 +1,4 @@
+// app/api/fx/route.ts
 import { NextResponse } from "next/server";
 
 // Cache de 1 hora para evitar floodar as APIs externas (opcional, mas recomendado)

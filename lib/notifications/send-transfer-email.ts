@@ -1,3 +1,4 @@
+// lib/notifications/send-transfer-email.ts
 import nodemailer from "nodemailer";
 
 interface TransferEmailParams {

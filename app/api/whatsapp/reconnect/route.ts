@@ -1,3 +1,4 @@
+// app/api/whatsapp/reconnect/route.ts
 import { NextResponse } from "next/server";
 import { getWAContextOrCron, proxyVM, errAuth } from "@/lib/whatsapp/wa-context";
 export const dynamic = "force-dynamic";

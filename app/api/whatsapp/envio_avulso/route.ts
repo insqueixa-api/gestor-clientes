@@ -1,3 +1,4 @@
+// app/api/whatsapp/envio_avulso/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { makeSessionKey } from "@/lib/whatsapp/wa-context";

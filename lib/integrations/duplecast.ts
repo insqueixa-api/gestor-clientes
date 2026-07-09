@@ -1,3 +1,4 @@
+// lib/integrations/duplecast.ts
 // src/lib/integrations/duplecast.ts
 
 export const DupleCastIntegration = {

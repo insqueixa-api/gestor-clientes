@@ -1,4 +1,5 @@
 "use client";
+// app/page.tsx
 
 import { Suspense, useEffect, useState } from "react";
 import LoginClient from "./LoginClient";

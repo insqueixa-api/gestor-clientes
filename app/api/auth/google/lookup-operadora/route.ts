@@ -1,3 +1,4 @@
+// app/api/auth/google/lookup-operadora/route.ts
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";

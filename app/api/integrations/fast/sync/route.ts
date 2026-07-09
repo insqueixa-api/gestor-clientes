@@ -1,3 +1,4 @@
+// app/api/integrations/fast/sync/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";

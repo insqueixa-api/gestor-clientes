@@ -1,3 +1,4 @@
+// app/api/whatsapp/validate/route.ts
 import { NextResponse } from "next/server";
 import { getWAContext, proxyVM } from "@/lib/whatsapp/wa-context";
 

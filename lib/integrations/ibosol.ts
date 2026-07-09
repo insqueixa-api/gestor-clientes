@@ -1,3 +1,4 @@
+// lib/integrations/ibosol.ts
 // src/lib/integrations/ibosol.ts
 
 export const IboSolIntegration = {

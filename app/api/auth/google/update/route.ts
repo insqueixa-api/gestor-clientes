@@ -1,3 +1,4 @@
+// app/api/auth/google/update/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 

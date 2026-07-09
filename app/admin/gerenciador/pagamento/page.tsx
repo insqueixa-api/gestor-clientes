@@ -1,4 +1,5 @@
 ﻿"use client";
+// app/admin/gerenciador/pagamento/page.tsx
 import { X, Pencil } from "lucide-react";
 
 import {

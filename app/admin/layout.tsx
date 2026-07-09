@@ -1,3 +1,4 @@
+// app/admin/layout.tsx
 // app/admin/layout.tsx (SERVER)
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";

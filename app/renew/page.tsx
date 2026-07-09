@@ -1,3 +1,4 @@
+// app/renew/page.tsx
 import { Suspense } from "react";
 import RenewClient from "./RenewClient";
 

@@ -1,4 +1,5 @@
 "use client";
+// app/admin/dashboard-filter.tsx
 import { useRouter, usePathname } from "next/navigation";
 
 const MODULES_META: Record<string, { label: string; icon: string }> = {

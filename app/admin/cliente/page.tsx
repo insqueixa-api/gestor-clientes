@@ -1,4 +1,5 @@
 ﻿"use client";
+// app/admin/cliente/page.tsx
 import {
   EyeOff,
   Eye,

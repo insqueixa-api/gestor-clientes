@@ -1,3 +1,4 @@
+// app/api/integrations/apps/ibopro/ibopro.ts
 // /app/api/integrations/apps/ibopro/ibopro.ts
 export const IboProAPI = {
   actionPrefix: "IBOPRO",

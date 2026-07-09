@@ -1,4 +1,5 @@
 "use client";
+// app/admin/gerenciador/servidor/page.tsx
 import {
   CreditCard,
   Pencil,

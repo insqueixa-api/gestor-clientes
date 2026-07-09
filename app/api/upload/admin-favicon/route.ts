@@ -1,3 +1,4 @@
+// app/api/upload/admin-favicon/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 

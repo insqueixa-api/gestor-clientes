@@ -1,3 +1,4 @@
+// app/api/integrations/apps/quickplayer/quickplayer.ts
 export const QuickPlayerAPI = {
   actionPrefix: "QUICKPLAYER",
   useApi: true, // Avisa a tela para usar o backend, não a extensão

@@ -1,4 +1,5 @@
 "use client";
+// app/admin/revendedor/[id]/page.tsx
 import { Loader2, Pencil, RefreshCcw, EyeOff, Eye } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";

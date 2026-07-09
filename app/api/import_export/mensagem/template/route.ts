@@ -1,3 +1,4 @@
+// app/api/import_export/mensagem/template/route.ts
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 

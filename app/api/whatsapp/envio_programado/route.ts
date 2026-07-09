@@ -1,3 +1,4 @@
+// app/api/whatsapp/envio_programado/route.ts
 //app/api/whatsapp/envio_programado
 
 import { NextResponse } from "next/server";

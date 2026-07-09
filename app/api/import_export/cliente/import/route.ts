@@ -1,3 +1,4 @@
+// app/api/import_export/cliente/import/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import * as XLSX from "xlsx"; // ✅ NOVO: Importação da biblioteca

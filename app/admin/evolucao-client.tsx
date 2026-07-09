@@ -1,4 +1,5 @@
 "use client";
+// app/admin/evolucao-client.tsx
 
 import React, { useEffect, useState, useMemo } from "react";
 import type { MonthData } from "./evolucao-chart";

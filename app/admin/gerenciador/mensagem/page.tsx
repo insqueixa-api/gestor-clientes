@@ -1,4 +1,5 @@
 ﻿"use client";
+// app/admin/gerenciador/mensagem/page.tsx
 import { X, Pencil, MessageCircle } from "lucide-react";
 
 import { useState, useRef, useEffect, useMemo } from "react";

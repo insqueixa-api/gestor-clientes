@@ -18,6 +18,14 @@ function GuiaTVCliente() {
   const sp = useSearchParams();
   const raw = (sp.get("servidor") ?? "").toUpperCase();
   const servidorFiltro = SERVIDOR_MAP[raw] ?? "TODOS";
+  const contaId = sp.get("conta") ?? "";
+
+  // ✅ Mesma sessão do /renew, lida direto do sessionStorage (mesma origem) —
+  // não precisa trafegar o token pela URL do Guia TV.
+  const sessionToken =
+    typeof window !== "undefined"
+      ? window.sessionStorage.getItem("cp_session") || ""
+      : "";
 
   // ✅ Loga a abertura da página uma única vez por montagem — silencioso, nunca bloqueia a UI
   const logged = useRef(false);
@@ -33,7 +41,14 @@ function GuiaTVCliente() {
     }).catch(() => {}); // falha de log nunca deve incomodar o cliente
   }, [servidorFiltro]);
 
-  return <GuiaTVView servidorFiltro={servidorFiltro} modoCliente />;
+  return (
+    <GuiaTVView
+      servidorFiltro={servidorFiltro}
+      modoCliente
+      sessionToken={sessionToken}
+      contaId={contaId}
+    />
+  );
 }
 
 export default function GuiaTVClientePage() {

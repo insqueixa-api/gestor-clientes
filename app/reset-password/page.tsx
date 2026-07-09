@@ -1,4 +1,5 @@
 "use client";
+// app/reset-password/page.tsx
 
 import { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";

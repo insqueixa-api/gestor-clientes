@@ -1,3 +1,4 @@
+// app/admin/evolucao-chart.tsx
 import { createClient } from "@/lib/supabase/server";
 import { EvolucaoFinanceiraClient } from "./evolucao-client";
 

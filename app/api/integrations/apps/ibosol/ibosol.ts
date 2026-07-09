@@ -1,3 +1,4 @@
+// app/api/integrations/apps/ibosol/ibosol.ts
 // /app/api/integrations/apps/ibosol/ibosol.ts
 
 export const IbosolAPI = {

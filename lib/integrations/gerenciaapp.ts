@@ -1,3 +1,4 @@
+// lib/integrations/gerenciaapp.ts
 // src/lib/integrations/gerenciaapp.ts
 
 // Função interna para descobrir qual é o ID correto baseado no nome do App

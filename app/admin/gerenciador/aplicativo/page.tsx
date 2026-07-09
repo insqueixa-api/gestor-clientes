@@ -1,4 +1,5 @@
 ﻿"use client";
+// app/admin/gerenciador/aplicativo/page.tsx
 import { X, Pencil } from "lucide-react";
 
 import React, { useEffect, useState, useRef } from "react";

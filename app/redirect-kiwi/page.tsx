@@ -1,4 +1,5 @@
 "use client";
+// app/redirect-kiwi/page.tsx
 
 import { useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";

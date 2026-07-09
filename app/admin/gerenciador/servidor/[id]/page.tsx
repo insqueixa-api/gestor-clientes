@@ -1,4 +1,5 @@
 "use client";
+// app/admin/gerenciador/servidor/[id]/page.tsx
 import { Loader2, CreditCard, EyeOff, Eye } from "lucide-react";
 
 import { useEffect, useState, useMemo } from "react";

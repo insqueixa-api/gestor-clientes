@@ -1,4 +1,5 @@
 "use client";
+// app/components/guia-tv/GuiaTVView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 // Importando o X que estava no seu código original
@@ -23,6 +24,8 @@ type ServidorCliente = "ELITE" | "NATV" | "FAST" | "TODOS";
 interface GuiaTVViewProps {
   servidorFiltro?: ServidorCliente;
   modoCliente?: boolean;
+  sessionToken?: string;
+  contaId?: string;
 }
 
 
@@ -1081,9 +1084,28 @@ const backdrop=detalhe?.poster_tmdb_url||detalhe?.cover_url||"";
 }
 
 // ✅ Refatorado visivelmente para Tailwind e temas claro/escuro
-function ResultadoBuscaCatalogo({resultados,loading,onSelect}:{resultados:TituloBusca[];loading:boolean;onSelect:(t:TituloCard)=>void}) {
+function ResultadoBuscaCatalogo({resultados,loading,onSelect,modoCliente,onSugerir}:{resultados:TituloBusca[];loading:boolean;onSelect:(t:TituloCard)=>void;modoCliente?:boolean;onSugerir?:()=>void}) {
   if(loading)return <div className="text-center py-20 text-muted-foreground p-5 animate-pulse flex flex-col items-center gap-4"><RefreshCw size={24} className="animate-spin text-muted-foreground/60"/> Buscando no catálogo...</div>;
-  if(resultados.length===0)return <div className="text-center py-20 text-muted-foreground p-5 border border-border bg-card/60 rounded-2xl flex flex-col items-center gap-3"><Search size={32} className="text-muted-foreground/60"/><div className="text-sm font-medium">Nenhum resultado encontrado.</div><div className="text-xs text-muted-foreground">Tente buscar por termos mais genéricos.</div></div>;
+  if(resultados.length===0)return (
+    <div className="text-center py-20 text-muted-foreground p-5 border border-border bg-card/60 rounded-2xl flex flex-col items-center gap-3">
+      <Search size={32} className="text-muted-foreground/60"/>
+      <div className="text-sm font-medium">Nenhum resultado encontrado.</div>
+      <div className="text-xs text-muted-foreground">Tente buscar por termos mais genéricos.</div>
+      {modoCliente && onSugerir && (
+        <div className="mt-4 pt-4 border-t border-border/60 w-full max-w-sm">
+          <div className="text-sm font-medium text-foreground/90 mb-3">
+            Não achou o que procura? Gostaria de sugerir a inclusão desse filme ou série?
+          </div>
+          <button
+            onClick={onSugerir}
+            className="w-full h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-sm transition-colors"
+          >
+            Sugerir conteúdo
+          </button>
+        </div>
+      )}
+    </div>
+  );
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
       {resultados.map(t=>(
@@ -1134,7 +1156,8 @@ function GradeMiniaturas({titulos,total,page,perPage=50,onSelect,onPage}:{titulo
 }
 
 // ─── Aba Catálogo Refatorada (Tailwind e Temas Claro/Escuro) ──────────────────
-function AbaCatalogo({tipo,servidorAdmin,modoCliente,onJogosDoDia}:{tipo:TipoConteudo;servidorAdmin:ServidorId|"TODOS";modoCliente?:boolean;onJogosDoDia?:()=>void}) {
+function AbaCatalogo({tipo,servidorAdmin,modoCliente,onJogosDoDia,sessionToken,contaId}:{tipo:TipoConteudo;servidorAdmin:ServidorId|"TODOS";modoCliente?:boolean;onJogosDoDia?:()=>void;sessionToken?:string;contaId?:string}) {
+
   // servidorAdmin já É o servidor do cliente quando modoCliente=true e servidorAdmin !== "TODOS"
   const [servidor,setServidor]=useState<ServidorId|"TODOS">(servidorAdmin==="TODOS"?"TODOS":servidorAdmin as ServidorId);
   const [novidades,setNovidades]=useState<TituloCard[]>([]);
@@ -1158,7 +1181,8 @@ function AbaCatalogo({tipo,servidorAdmin,modoCliente,onJogosDoDia}:{tipo:TipoCon
   const [subDropOpen,setSubDropOpen]=useState(false);
   const catDropRef=useRef<HTMLDivElement>(null);
   const subDropRef=useRef<HTMLDivElement>(null);
-  const [novidadesPage, setNovidadesPage] = useState(1);
+const [novidadesPage, setNovidadesPage] = useState(1);
+  const [showSugestao, setShowSugestao] = useState(false);
 
 
   useEffect(()=>{ function h(e:MouseEvent){if(catDropRef.current&&!catDropRef.current.contains(e.target as Node))setCatDropOpen(false);} document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h); },[]);
@@ -1262,13 +1286,6 @@ function AbaCatalogo({tipo,servidorAdmin,modoCliente,onJogosDoDia}:{tipo:TipoCon
           </div>
         )}
 
-        {(catAtiva || busca.trim() !== "") && (
-          <button onClick={()=>{setCatSelecionada(null);setSubCatSelecionada(null);setBusca("");setBuscaAtiva("");setPage(1);}}
-            className="shrink-0 flex items-center gap-1 h-8 px-3 rounded-full bg-card border border-border text-muted-foreground hover:bg-muted text-xs font-medium transition-all">
-            <X size={12} className="text-rose-500"/> Limpar
-          </button>
-        )}
-
         <div className="relative flex-1 min-w-0">
           <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 pointer-events-none"/>
           <input value={busca} onChange={e=>{setBusca(e.target.value);if(!e.target.value.trim()){setBuscaAtiva("");return;} setBuscaAtiva(normalizar(e.target.value.trim()));}} onKeyDown={e=>{ if(e.key==="Enter") setBuscaAtiva(normalizar(busca.trim())); if(e.key==="Escape"){setBusca("");setBuscaAtiva("");} }} placeholder={`Pesquisar ${tipo==="FILME"?"filmes":"séries"}...`} className="w-full h-8 pl-9 pr-8 bg-transparent border border-border rounded-full text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors" />
@@ -1279,7 +1296,13 @@ function AbaCatalogo({tipo,servidorAdmin,modoCliente,onJogosDoDia}:{tipo:TipoCon
 
     <div className="flex-1 px-4 sm:px-5 py-5 overflow-y-auto z-10 relative">
       {emBusca?(
-        <ResultadoBuscaCatalogo resultados={resultadosBusca} loading={loadingBusca} onSelect={t=>setDetalhando(t.id)}/>
+        <ResultadoBuscaCatalogo
+          resultados={resultadosBusca}
+          loading={loadingBusca}
+          onSelect={t=>setDetalhando(t.id)}
+          modoCliente={modoCliente}
+          onSugerir={()=>setShowSugestao(true)}
+        />
       ):catAtiva?(
         <div>
           <div className="flex items-center gap-2 mb-6 p-4 rounded-xl border border-border bg-card/60">
@@ -1312,7 +1335,17 @@ function AbaCatalogo({tipo,servidorAdmin,modoCliente,onJogosDoDia}:{tipo:TipoCon
   </div>
 )}
     </div>
-    {detalhando&&<ModalDetalhe id={detalhando} onClose={()=>setDetalhando(null)} modoCliente={modoCliente} servidorFiltro={servidorAdmin}/>}
+ {detalhando&&<ModalDetalhe id={detalhando} onClose={()=>setDetalhando(null)} modoCliente={modoCliente} servidorFiltro={servidorAdmin}/>}
+    {showSugestao && sessionToken && contaId && servidorAdmin !== "TODOS" && (
+      <ModalSugestaoConteudo
+        onClose={()=>setShowSugestao(false)}
+        tipo={tipo}
+        tituloInicial={busca}
+        servidor={servidorAdmin}
+        sessionToken={sessionToken}
+        contaId={contaId}
+      />
+    )}
   </div>
 );
 }
@@ -1842,9 +1875,594 @@ function ModalUsageStats({onClose}:{onClose:()=>void}) {
   );
 }
 
+// ─── Modal de Sugestão de Conteúdo (cliente) ─────────────────────────────────
+// Cole este bloco dentro de GuiaTVView.tsx, antes do `export default function GuiaTVView`.
+
+type SugestaoBuscaItem = { id: string; titulo: string };
+type SugestaoHistoricoItem = {
+  suggestion_id: string;
+  servidor: string;
+  tipo: TipoConteudo;
+  titulo: string;
+  status: "PENDENTE" | "ENVIADO_SUPORTE" | "ADICIONADO" | "REJEITADO";
+  categoria_adicionada: string | null;
+  pedido_em: string;
+  total_pedidos: number;
+};
+
+const STATUS_SUGESTAO_LABEL: Record<string, string> = {
+  PENDENTE: "Pendente",
+  ENVIADO_SUPORTE: "Enviado ao suporte",
+  ADICIONADO: "Adicionado no servidor",
+  REJEITADO: "Não foi possível adicionar",
+};
+const STATUS_SUGESTAO_COR: Record<string, string> = {
+  PENDENTE: "bg-amber-500/10 text-amber-500 border-amber-500/20",
+  ENVIADO_SUPORTE: "bg-sky-500/10 text-sky-500 border-sky-500/20",
+  ADICIONADO: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+  REJEITADO: "bg-rose-500/10 text-rose-500 border-rose-500/20",
+};
+
+function ModalSugestaoConteudo({
+  onClose,
+  tipo,
+  tituloInicial,
+  servidor,
+  sessionToken,
+  contaId,
+}: {
+  onClose: () => void;
+  tipo: TipoConteudo;
+  tituloInicial: string;
+  servidor: ServidorId;
+  sessionToken: string;
+  contaId: string;
+}) {
+  const [view, setView] = useState<"form" | "historico">("form");
+
+  // ── form de sugestão ──────────────────────────────────────────────────────
+  const [titulo, setTitulo] = useState(tituloInicial);
+  const [link, setLink] = useState("");
+  const [aceite, setAceite] = useState(false);
+  const [buscando, setBuscando] = useState(false);
+  const [encontrados, setEncontrados] = useState<SugestaoBuscaItem[]>([]);
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const [sucesso, setSucesso] = useState<string | null>(null);
+
+  // ── popup de duplicata ────────────────────────────────────────────────────
+  const [duplicata, setDuplicata] = useState<{
+    suggestion_id: string;
+    titulo_existente: string;
+    status: string;
+    total_pedidos: number;
+  } | null>(null);
+  const [confirmandoDuplicata, setConfirmandoDuplicata] = useState(false);
+
+  // ── histórico ─────────────────────────────────────────────────────────────
+  const [historico, setHistorico] = useState<SugestaoHistoricoItem[]>([]);
+  const [loadingHistorico, setLoadingHistorico] = useState(false);
+
+  // Autocomplete: checa no catálogo enquanto digita (debounce simples)
+  useEffect(() => {
+    if (view !== "form") return;
+    const termo = titulo.trim();
+    if (termo.length < 2) {
+      setEncontrados([]);
+      return;
+    }
+    setBuscando(true);
+    const t = setTimeout(() => {
+      fetch("/api/client-portal/guia-tv/sugestao/buscar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_token: sessionToken, servidor, tipo, q: termo }),
+        cache: "no-store",
+      })
+        .then((r) => r.json())
+        .then((d) => setEncontrados(d?.ok ? d.data : []))
+        .catch(() => setEncontrados([]))
+        .finally(() => setBuscando(false));
+    }, 400);
+    return () => clearTimeout(t);
+  }, [titulo, servidor, tipo, sessionToken, view]);
+
+  function carregarHistorico() {
+    setLoadingHistorico(true);
+    fetch("/api/client-portal/guia-tv/sugestao/historico", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_token: sessionToken, conta: contaId }),
+      cache: "no-store",
+    })
+      .then((r) => r.json())
+      .then((d) => setHistorico(d?.ok ? d.data : []))
+      .catch(() => setHistorico([]))
+      .finally(() => setLoadingHistorico(false));
+  }
+
+  async function enviarSugestao() {
+    setErro(null);
+    if (!titulo.trim()) {
+      setErro("Informe o nome do conteúdo.");
+      return;
+    }
+    if (!link.trim()) {
+      setErro("O link é obrigatório.");
+      return;
+    }
+    if (!aceite) {
+      setErro("Você precisa marcar a ciência antes de enviar.");
+      return;
+    }
+
+    setEnviando(true);
+    try {
+      const res = await fetch("/api/client-portal/guia-tv/sugestao", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_token: sessionToken,
+          conta: contaId,
+          servidor,
+          tipo,
+          titulo: titulo.trim(),
+          link: link.trim(),
+        }),
+        cache: "no-store",
+      });
+      const d = await res.json().catch(() => null);
+
+      if (!d?.ok) {
+        setErro(d?.error || "Não foi possível enviar sua sugestão.");
+        return;
+      }
+
+      if (d.duplicate && d.needs_confirmation) {
+        setDuplicata({
+          suggestion_id: d.suggestion_id,
+          titulo_existente: d.titulo_existente,
+          status: d.status,
+          total_pedidos: d.total_pedidos,
+        });
+        return;
+      }
+
+      if (d.already_requested_by_you) {
+        setSucesso(`Você já tinha pedido "${d.titulo}" — status atual: ${STATUS_SUGESTAO_LABEL[d.status] || d.status}.`);
+        return;
+      }
+
+      setSucesso(`Sugestão de "${d.titulo}" enviada com sucesso!`);
+    } catch {
+      setErro("Erro de conexão. Tente novamente.");
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  async function confirmarDuplicata() {
+    if (!duplicata) return;
+    setConfirmandoDuplicata(true);
+    try {
+      const res = await fetch("/api/client-portal/guia-tv/sugestao", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_token: sessionToken,
+          conta: contaId,
+          confirmar_duplicata: true,
+          suggestion_id: duplicata.suggestion_id,
+        }),
+        cache: "no-store",
+      });
+      const d = await res.json().catch(() => null);
+      if (d?.ok) {
+        setSucesso(`Pedido registrado! "${d.titulo}" já tinha sido sugerido por outra pessoa — status: ${STATUS_SUGESTAO_LABEL[d.status] || d.status}.`);
+        setDuplicata(null);
+      } else {
+        setErro(d?.error || "Não foi possível registrar seu pedido.");
+      }
+    } catch {
+      setErro("Erro de conexão. Tente novamente.");
+    } finally {
+      setConfirmandoDuplicata(false);
+    }
+  }
+
+  const jaExisteNoCatalogo = encontrados.length > 0;
+
+  return (
+    <div className="fixed inset-0 z-[9995] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-in fade-in-0 zoom-in-95 duration-300"
+      >
+        <div className="flex items-center justify-between p-5 border-b border-border shrink-0 bg-card">
+          <div className="text-lg font-bold text-foreground flex items-center gap-2.5">
+            <Sparkles size={18} className="text-emerald-500" />
+            {view === "form" ? "Sugerir conteúdo" : "Meus pedidos"}
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-rose-500 transition-colors p-1 rounded-full hover:bg-rose-500/10">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 p-5 space-y-4 bg-muted/20">
+          {view === "form" ? (
+            <>
+              {sucesso ? (
+                <div className="text-center py-8 space-y-4">
+                  <CheckCircle size={40} className="text-emerald-500 mx-auto" />
+                  <p className="text-sm font-medium text-foreground">{sucesso}</p>
+                  <button
+                    onClick={onClose}
+                    className="px-6 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-colors"
+                  >
+                    Fechar
+                  </button>
+                </div>
+              ) : duplicata ? (
+                <div className="space-y-4">
+                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-sm text-foreground/90">
+                    <p className="font-bold mb-1.5">Conteúdo já solicitado por outro usuário</p>
+                    <p className="text-muted-foreground">
+                      "{duplicata.titulo_existente}" já foi pedido {duplicata.total_pedidos}x
+                      (status atual: {STATUS_SUGESTAO_LABEL[duplicata.status] || duplicata.status}).
+                      Deseja registrar seu pedido também?
+                    </p>
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setDuplicata(null)}
+                      className="flex-1 h-10 rounded-lg border border-border text-muted-foreground hover:bg-muted text-sm font-medium transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={confirmarDuplicata}
+                      disabled={confirmandoDuplicata}
+                      className="flex-1 h-10 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-colors disabled:opacity-60"
+                    >
+                      {confirmandoDuplicata ? "Registrando..." : "Sim, registrar"}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">
+                      Nome do {tipo === "FILME" ? "Filme" : "Série"}
+                    </label>
+                    <input
+                      value={titulo}
+                      onChange={(e) => setTitulo(e.target.value)}
+                      placeholder="Digite o nome exato..."
+                      className="w-full h-11 px-3 bg-transparent border border-border rounded-xl text-foreground outline-none focus:border-emerald-500/50 transition-colors text-sm"
+                      autoFocus
+                    />
+                  </div>
+
+                  {buscando && (
+                    <div className="text-xs text-muted-foreground flex items-center gap-2">
+                      <RefreshCw size={12} className="animate-spin" /> Checando se já existe...
+                    </div>
+                  )}
+
+                  {jaExisteNoCatalogo && (
+                    <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 space-y-2">
+                      <p className="text-sm font-bold text-emerald-500 flex items-center gap-2">
+                        <CheckCircle size={14} /> Já disponível no servidor!
+                      </p>
+                      <ul className="text-xs text-foreground/80 space-y-1 pl-1">
+                        {encontrados.map((e) => (
+                          <li key={e.id}>• {e.titulo}</li>
+                        ))}
+                      </ul>
+                      <p className="text-xs text-muted-foreground">
+                        Não é possível sugerir um título que já está no catálogo.
+                      </p>
+                    </div>
+                  )}
+
+                  {!jaExisteNoCatalogo && titulo.trim().length >= 2 && !buscando && (
+                    <>
+                      <div>
+                        <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">
+                          Link comprovando disponibilidade no Brasil
+                        </label>
+                        <input
+                          value={link}
+                          onChange={(e) => setLink(e.target.value)}
+                          placeholder="https://..."
+                          className="w-full h-11 px-3 bg-transparent border border-border rounded-xl text-foreground outline-none focus:border-emerald-500/50 transition-colors text-sm"
+                        />
+                        <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed">
+                          Envie o link direto da página do filme/série (ex.: página oficial, IMDb,
+                          catálogo de streaming). Não aceitamos link de busca do Google.
+                        </p>
+                      </div>
+
+                      <label className="flex items-start gap-2.5 text-xs text-muted-foreground leading-relaxed cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={aceite}
+                          onChange={(e) => setAceite(e.target.checked)}
+                          className="mt-0.5 rounded border-border"
+                        />
+                        <span>
+                          Estou ciente de que este pedido <strong>não garante</strong> a inclusão do
+                          conteúdo. Todo pedido é enviado ao suporte do servidor, que avalia se é
+                          possível adicionar.
+                        </span>
+                      </label>
+
+                      {erro && <div className="text-xs text-rose-500 font-medium">{erro}</div>}
+
+                      <button
+                        onClick={enviarSugestao}
+                        disabled={enviando}
+                        className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-sm transition-colors disabled:opacity-60"
+                      >
+                        {enviando ? "Enviando..." : "Enviar sugestão"}
+                      </button>
+                    </>
+                  )}
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              {loadingHistorico ? (
+                <div className="text-center py-12 text-muted-foreground animate-pulse flex flex-col items-center gap-3">
+                  <RefreshCw size={20} className="animate-spin" /> Carregando seus pedidos...
+                </div>
+              ) : historico.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground/70 italic text-sm">
+                  Você ainda não fez nenhum pedido.
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {historico.map((h) => (
+                    <div key={h.suggestion_id} className="p-3.5 rounded-xl border border-border bg-card">
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <span className="text-sm font-semibold text-foreground truncate">{h.titulo}</span>
+                        <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wide ${STATUS_SUGESTAO_COR[h.status] || ""}`}>
+                          {STATUS_SUGESTAO_LABEL[h.status] || h.status}
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {h.tipo === "FILME" ? "Filme" : "Série"} · {h.servidor}
+                        {h.categoria_adicionada && ` · Categoria: ${h.categoria_adicionada}`}
+                        {h.total_pedidos > 1 && ` · Pedido por ${h.total_pedidos} pessoas`}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="p-4 border-t border-border shrink-0 bg-muted/40 text-center">
+          <button
+            onClick={() => {
+              const next = view === "form" ? "historico" : "form";
+              setView(next);
+              if (next === "historico") carregarHistorico();
+            }}
+            className="text-xs font-medium text-sky-500 hover:text-sky-400 transition-colors"
+          >
+            {view === "form" ? "Ver meus pedidos anteriores →" : "← Voltar pra sugerir novo conteúdo"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Modal Admin: Gerenciar Sugestões de Conteúdo ────────────────────────────
+// Cole este bloco dentro de GuiaTVView.tsx, antes do `export default function GuiaTVView`
+// (pode ficar logo depois do ModalSugestaoConteudo).
+
+type SugestaoAdminItem = {
+  id: string;
+  servidor: string;
+  tipo: TipoConteudo;
+  titulo: string;
+  link: string;
+  status: "PENDENTE" | "ENVIADO_SUPORTE" | "ADICIONADO" | "REJEITADO";
+  categoria_adicionada: string | null;
+  motivo_rejeicao: string | null;
+  criado_em: string;
+  total_pedidos: number;
+};
+
+function ModalGerenciarSugestoes({ onClose }: { onClose: () => void }) {
+  const [statusFiltro, setStatusFiltro] = useState<string>("PENDENTE");
+  const [itens, setItens] = useState<SugestaoAdminItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [processandoId, setProcessandoId] = useState<string | null>(null);
+  const [rejeitandoId, setRejeitandoId] = useState<string | null>(null);
+  const [motivoRejeicao, setMotivoRejeicao] = useState("");
+
+  function carregar() {
+    setLoading(true);
+    fetch(`/api/catalogo/sugestoes?status=${statusFiltro}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => setItens(d?.ok ? d.data : []))
+      .catch(() => setItens([]))
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    carregar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFiltro]);
+
+  async function atualizarStatus(id: string, status: string, extra?: Record<string, any>) {
+    setProcessandoId(id);
+    try {
+      const res = await fetch("/api/catalogo/sugestoes", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status, ...extra }),
+      });
+      const d = await res.json().catch(() => null);
+      if (d?.ok) {
+        carregar();
+        setRejeitandoId(null);
+        setMotivoRejeicao("");
+      }
+    } finally {
+      setProcessandoId(null);
+    }
+  }
+
+  const FILTROS = ["PENDENTE", "ENVIADO_SUPORTE", "ADICIONADO", "REJEITADO", "TODOS"];
+
+  return (
+    <div className="fixed inset-0 z-[9990] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-card border border-border rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-in fade-in-0 zoom-in-95 duration-300"
+      >
+        <div className="flex items-center justify-between p-5 border-b border-border shrink-0 bg-card">
+          <div>
+            <div className="text-lg font-bold text-foreground flex items-center gap-2.5">
+              <Sparkles size={18} className="text-emerald-500" /> Gerenciar Sugestões
+            </div>
+            <div className="text-xs text-muted-foreground/90 mt-1.5 leading-relaxed">
+              Pedidos de conteúdo enviados pelos clientes pelo Guia TV.
+            </div>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-rose-500 transition-colors p-1 rounded-full hover:bg-rose-500/10">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="px-5 pt-4 flex flex-wrap gap-2 bg-muted/20">
+          {FILTROS.map((f) => (
+            <button
+              key={f}
+              onClick={() => setStatusFiltro(f)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                statusFiltro === f
+                  ? "bg-emerald-600 text-white shadow"
+                  : "bg-muted text-muted-foreground hover:bg-muted/70"
+              }`}
+            >
+              {STATUS_SUGESTAO_LABEL[f] || "Todos"}
+            </button>
+          ))}
+        </div>
+
+        <div className="overflow-y-auto flex-1 p-5 space-y-3 bg-muted/20">
+          {loading ? (
+            <div className="text-center py-16 text-muted-foreground animate-pulse flex flex-col items-center gap-3">
+              <RefreshCw size={20} className="animate-spin" /> Carregando...
+            </div>
+          ) : itens.length === 0 ? (
+            <div className="text-center py-16 text-muted-foreground/70 italic text-sm">
+              Nenhuma sugestão nesse status.
+            </div>
+          ) : (
+            itens.map((item) => (
+              <div key={item.id} className="p-4 rounded-xl border border-border bg-card space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className="text-sm font-bold text-foreground">{item.titulo}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wide ${STATUS_SUGESTAO_COR[item.status] || ""}`}>
+                        {STATUS_SUGESTAO_LABEL[item.status] || item.status}
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {item.tipo === "FILME" ? "Filme" : "Série"} · {item.servidor} · {item.total_pedidos} pedido{item.total_pedidos !== 1 ? "s" : ""}
+                      {item.categoria_adicionada && ` · Categoria: ${item.categoria_adicionada}`}
+                    </div>
+                    {item.motivo_rejeicao && (
+                      <div className="text-xs text-rose-500 mt-1">Motivo: {item.motivo_rejeicao}</div>
+                    )}
+                  </div>
+                  <a
+                    href={item.link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="shrink-0 text-xs font-semibold text-sky-500 hover:text-sky-400 underline"
+                  >
+                    Ver link
+                  </a>
+                </div>
+
+                {rejeitandoId === item.id ? (
+                  <div className="space-y-2 pt-2 border-t border-border/60">
+                    <textarea
+                      value={motivoRejeicao}
+                      onChange={(e) => setMotivoRejeicao(e.target.value)}
+                      placeholder="Explique o motivo da rejeição (o cliente verá isso)..."
+                      className="w-full bg-transparent border border-border rounded-lg p-2.5 text-sm text-foreground outline-none focus:border-rose-500/50 resize-none min-h-[70px]"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { setRejeitandoId(null); setMotivoRejeicao(""); }}
+                        className="flex-1 h-8 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-muted"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={() => atualizarStatus(item.id, "REJEITADO", { motivo_rejeicao: motivoRejeicao })}
+                        disabled={processandoId === item.id || !motivoRejeicao.trim()}
+                        className="flex-1 h-8 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold disabled:opacity-50"
+                      >
+                        Confirmar Rejeição
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2 pt-2 border-t border-border/60">
+                    {item.status !== "ENVIADO_SUPORTE" && (
+                      <button
+                        onClick={() => atualizarStatus(item.id, "ENVIADO_SUPORTE")}
+                        disabled={processandoId === item.id}
+                        className="h-8 px-3 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-500 border border-sky-500/20 text-xs font-semibold disabled:opacity-50"
+                      >
+                        Marcar Enviado ao Suporte
+                      </button>
+                    )}
+                    {item.status !== "ADICIONADO" && (
+                      <button
+                        onClick={() => atualizarStatus(item.id, "ADICIONADO")}
+                        disabled={processandoId === item.id}
+                        className="h-8 px-3 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border border-emerald-500/20 text-xs font-semibold disabled:opacity-50"
+                      >
+                        Marcar Adicionado
+                      </button>
+                    )}
+                    {item.status !== "REJEITADO" && (
+                      <button
+                        onClick={() => setRejeitandoId(item.id)}
+                        disabled={processandoId === item.id}
+                        className="h-8 px-3 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 text-xs font-semibold disabled:opacity-50"
+                      >
+                        Rejeitar
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 // Configuração original preservada
-export default function GuiaTVView({ servidorFiltro, modoCliente }: GuiaTVViewProps) {
+export default function GuiaTVView({ servidorFiltro, modoCliente, sessionToken, contaId }: GuiaTVViewProps) {
+
   const SERVIDOR_ADMIN = servidorFiltro ?? "TODOS";
 
     const [tab,setTab]=useState<GuiaTVTab>("canais");
@@ -1852,8 +2470,9 @@ export default function GuiaTVView({ servidorFiltro, modoCliente }: GuiaTVViewPr
   const [loadingEpg,setLoadingEpg]=useState(true);
   const [erroEpg,setErroEpg]=useState<string|null>(null);
   const [syncing,setSyncing]=useState(false);
-  const [showCatalogo,setShowCatalogo]=useState(false);
+const [showCatalogo,setShowCatalogo]=useState(false);
   const [showUsageStats,setShowUsageStats]=useState(false);
+  const [showSugestoesAdmin,setShowSugestoesAdmin]=useState(false);
 const [jogosData, setJogosData] = useState<JogosDiaData | null>(null)
 const [loadingJogos, setLoadingJogos] = useState(false)
 const [syncingJogos, setSyncingJogos] = useState(false)
@@ -2022,6 +2641,14 @@ useEffect(()=>{
                   </div>
                   Dados de Uso
                 </button>
+                <div className="w-full h-px bg-border my-1"></div>
+                <button onClick={() => { setShowSugestoesAdmin(true); setSyncOpen(false); }}
+                  className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                  <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
+                    <Sparkles size={15} className="text-emerald-500" />
+                  </div>
+                  Gerenciar Sugestões
+                </button>
               </div>
             )}
           </div>
@@ -2047,11 +2674,12 @@ useEffect(()=>{
       />
     </div>
   )}
-      {tab==="filmes"&&<AbaCatalogo tipo="FILME" servidorAdmin={SERVIDOR_ADMIN} modoCliente={modoCliente}/>}
-{tab==="series"&&<AbaCatalogo tipo="SERIE" servidorAdmin={SERVIDOR_ADMIN} modoCliente={modoCliente}/>}
+{tab==="filmes"&&<AbaCatalogo tipo="FILME" servidorAdmin={SERVIDOR_ADMIN} modoCliente={modoCliente} sessionToken={sessionToken} contaId={contaId}/>}
+{tab==="series"&&<AbaCatalogo tipo="SERIE" servidorAdmin={SERVIDOR_ADMIN} modoCliente={modoCliente} sessionToken={sessionToken} contaId={contaId}/>}
 
 {showCatalogo&&<ModalCatalogo onClose={()=>setShowCatalogo(false)}/>}
       {showUsageStats&&<ModalUsageStats onClose={()=>setShowUsageStats(false)}/>}
+      {showSugestoesAdmin&&<ModalGerenciarSugestoes onClose={()=>setShowSugestoesAdmin(false)}/>}
       
       {/* Estilos originais preservados */}
       <style>{`

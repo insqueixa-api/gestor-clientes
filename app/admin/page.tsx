@@ -1,3 +1,4 @@
+// app/admin/page.tsx
 import { createClient } from "@/lib/supabase/server";
 import { SimpleBarChart } from "@/app/admin/simplebarchart";
 import { RankingCard } from "@/app/admin/ranking-card";
