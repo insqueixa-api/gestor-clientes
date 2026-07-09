@@ -99,9 +99,12 @@ export async function POST(req: NextRequest) {
           servidor,
           tipo,
           titulo,
+          link,
           status,
           categoria_adicionada,
-          criado_em
+          motivo_rejeicao,
+          criado_em,
+          criado_por_client_id
         )
       `)
       .eq("client_id", conta)
@@ -139,10 +142,13 @@ export async function POST(req: NextRequest) {
         servidor: s.servidor,
         tipo: s.tipo,
         titulo: s.titulo,
+        link: s.link,
         status: s.status,
         categoria_adicionada: s.categoria_adicionada,
+        motivo_rejeicao: s.motivo_rejeicao,
         pedido_em: row.criado_em,
         total_pedidos: contagemPorId.get(s.id) || 1,
+        pode_editar: s.status === "PENDENTE" && s.criado_por_client_id === conta,
       };
     });
 

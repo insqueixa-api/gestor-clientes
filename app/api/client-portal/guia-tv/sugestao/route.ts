@@ -1,19 +1,12 @@
 // app/api/client-portal/guia-tv/sugestao/route.ts
 //
-// POST — cria uma sugestão de conteúdo, ou registra mais um pedido numa
-// sugestão já existente (fluxo de duplicata em 2 etapas, ver abaixo).
+// POST   — cria sugestão (MODO A) ou confirma duplicata (MODO B) ou edita (MODO C)
+// DELETE — remove a sugestão (só quem criou, só enquanto PENDENTE)
 //
-// MODO A (padrão) — cliente digitou título novo:
-//   body: { session_token, conta, servidor, tipo, titulo, link }
-//   - Se não existir sugestão com esse título nesse servidor → cria.
-//   - Se já existir e ESTE cliente já pediu antes → avisa "já está no seu histórico".
-//   - Se já existir e for OUTRO cliente pedindo pela 1ª vez → responde
-//     { duplicate: true, ... } SEM criar nada. O front deve mostrar o popup
-//     de confirmação e, se o cliente confirmar, chamar de novo no MODO B.
-//
-// MODO B (confirmação de duplicata) — cliente confirmou o popup:
-//   body: { session_token, conta, confirmar_duplicata: true, suggestion_id }
-//   - Só registra o pedido deste cliente na sugestão já existente.
+// MODO A (padrão): { session_token, conta, servidor, tipo, titulo, link }
+// MODO B (duplicata): { session_token, conta, confirmar_duplicata: true, suggestion_id }
+// MODO C (editar): { session_token, conta, editar: true, suggestion_id, titulo, link }
+// DELETE: { session_token, conta, suggestion_id }
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
@@ -55,9 +48,6 @@ function normalizarBusca(s: string): string {
 const SERVIDORES_VALIDOS = ["ELITE", "NATV", "FAST"];
 const TIPOS_VALIDOS = ["FILME", "SERIE"];
 
-// ⚠️ Validação BÁSICA por enquanto (sem IA) — bloqueia vazio, formato de URL
-// inválido, e domínios de busca (Google e afins). Não confirma se o link
-// realmente mostra o filme/série certo — isso fica pro suporte avaliar.
 function validarLink(link: string): { ok: boolean; erro?: string } {
   const v = link.trim();
   if (!v) return { ok: false, erro: "Link é obrigatório." };
@@ -85,101 +75,124 @@ function validarLink(link: string): { ok: boolean; erro?: string } {
   return { ok: true };
 }
 
+async function validarSessaoEConta(supabaseAdmin: any, body: any) {
+  const session_token = normalizeToken(body?.session_token);
+  if (!session_token || !isPlausibleSessionToken(session_token)) {
+    return { erro: NextResponse.json({ ok: false, error: "Sessão inválida" }, { status: 401, headers: NO_STORE_HEADERS }) };
+  }
+
+  const { data: sessao, error: sessaoErr } = await supabaseAdmin
+    .from("client_portal_sessions")
+    .select("tenant_id")
+    .eq("session_token", session_token)
+    .gt("expires_at", new Date().toISOString())
+    .single();
+
+  if (sessaoErr || !sessao) {
+    return { erro: NextResponse.json({ ok: false, error: "Sessão inválida" }, { status: 401, headers: NO_STORE_HEADERS }) };
+  }
+
+  const conta = normalizeToken(body?.conta);
+  if (!conta) {
+    return { erro: NextResponse.json({ ok: false, error: "Conta obrigatória" }, { status: 400, headers: NO_STORE_HEADERS }) };
+  }
+
+  const { data: cliente, error: clienteErr } = await supabaseAdmin
+    .from("clients")
+    .select("id")
+    .eq("id", conta)
+    .eq("tenant_id", sessao.tenant_id)
+    .maybeSingle();
+
+  if (clienteErr || !cliente) {
+    return { erro: NextResponse.json({ ok: false, error: "Conta inválida para esta sessão" }, { status: 403, headers: NO_STORE_HEADERS }) };
+  }
+
+  return { tenantId: sessao.tenant_id, conta };
+}
+
 export async function POST(req: NextRequest) {
+  const supabaseAdmin = makeSupabaseAdmin();
+  if (!supabaseAdmin) {
+    return NextResponse.json({ ok: false, error: "Erro interno" }, { status: 500, headers: NO_STORE_HEADERS });
+  }
+
+  const body = await req.json().catch(() => ({}));
+  const validacao = await validarSessaoEConta(supabaseAdmin, body);
+  if ("erro" in validacao) return validacao.erro;
+  const { tenantId, conta } = validacao;
+
   try {
-    const supabaseAdmin = makeSupabaseAdmin();
-    if (!supabaseAdmin) {
-      return NextResponse.json(
-        { ok: false, error: "Erro interno" },
-        { status: 500, headers: NO_STORE_HEADERS },
-      );
-    }
+    // ─── MODO C: editar sugestão existente ───────────────────────────────
+    if (body?.editar === true) {
+      const suggestion_id = normalizeToken(body?.suggestion_id);
+      const titulo = String(body?.titulo || "").trim();
+      const link = String(body?.link || "").trim();
 
-    const body = await req.json().catch(() => ({}));
+      if (!suggestion_id) {
+        return NextResponse.json({ ok: false, error: "suggestion_id obrigatório" }, { status: 400, headers: NO_STORE_HEADERS });
+      }
+      if (!titulo || titulo.length < 2) {
+        return NextResponse.json({ ok: false, error: "Informe o nome do conteúdo." }, { status: 400, headers: NO_STORE_HEADERS });
+      }
+      const linkCheck = validarLink(link);
+      if (!linkCheck.ok) {
+        return NextResponse.json({ ok: false, error: linkCheck.erro }, { status: 400, headers: NO_STORE_HEADERS });
+      }
 
-    const session_token = normalizeToken(body?.session_token);
-    if (!session_token || !isPlausibleSessionToken(session_token)) {
-      return NextResponse.json(
-        { ok: false, error: "Sessão inválida" },
-        { status: 401, headers: NO_STORE_HEADERS },
-      );
-    }
+      const { data: existente, error: existenteErr } = await supabaseAdmin
+        .from("content_suggestions")
+        .select("id, criado_por_client_id, status")
+        .eq("id", suggestion_id)
+        .eq("tenant_id", tenantId)
+        .maybeSingle();
 
-    const { data: sessao, error: sessaoErr } = await supabaseAdmin
-      .from("client_portal_sessions")
-      .select("tenant_id")
-      .eq("session_token", session_token)
-      .gt("expires_at", new Date().toISOString())
-      .single();
+      if (existenteErr || !existente) {
+        return NextResponse.json({ ok: false, error: "Sugestão não encontrada" }, { status: 404, headers: NO_STORE_HEADERS });
+      }
+      if (existente.criado_por_client_id !== conta) {
+        return NextResponse.json({ ok: false, error: "Só quem criou o pedido pode editá-lo" }, { status: 403, headers: NO_STORE_HEADERS });
+      }
+      if (existente.status !== "PENDENTE") {
+        return NextResponse.json({ ok: false, error: "Só é possível editar pedidos ainda pendentes" }, { status: 400, headers: NO_STORE_HEADERS });
+      }
 
-    if (sessaoErr || !sessao) {
-      return NextResponse.json(
-        { ok: false, error: "Sessão inválida" },
-        { status: 401, headers: NO_STORE_HEADERS },
-      );
-    }
+      const { error: updateErr } = await supabaseAdmin
+        .from("content_suggestions")
+        .update({ titulo, titulo_busca: normalizarBusca(titulo), link, atualizado_em: new Date().toISOString() })
+        .eq("id", suggestion_id);
 
-    const conta = normalizeToken(body?.conta);
-    if (!conta) {
-      return NextResponse.json(
-        { ok: false, error: "Conta obrigatória" },
-        { status: 400, headers: NO_STORE_HEADERS },
-      );
-    }
+      if (updateErr) {
+        return NextResponse.json({ ok: false, error: "Erro ao salvar alterações" }, { status: 500, headers: NO_STORE_HEADERS });
+      }
 
-    // ✅ Confirma que essa conta (client_id) pertence mesmo ao tenant da sessão
-    // — impede alguém trocar o "conta=" na URL pra ver/mexer no histórico
-    // de outro cliente.
-    const { data: cliente, error: clienteErr } = await supabaseAdmin
-      .from("clients")
-      .select("id")
-      .eq("id", conta)
-      .eq("tenant_id", sessao.tenant_id)
-      .maybeSingle();
-
-    if (clienteErr || !cliente) {
-      return NextResponse.json(
-        { ok: false, error: "Conta inválida para esta sessão" },
-        { status: 403, headers: NO_STORE_HEADERS },
-      );
+      return NextResponse.json({ ok: true, updated: true, titulo }, { headers: NO_STORE_HEADERS });
     }
 
     // ─── MODO B: confirmação de duplicata ──────────────────────────────────
     if (body?.confirmar_duplicata === true) {
       const suggestion_id = normalizeToken(body?.suggestion_id);
       if (!suggestion_id) {
-        return NextResponse.json(
-          { ok: false, error: "suggestion_id obrigatório" },
-          { status: 400, headers: NO_STORE_HEADERS },
-        );
+        return NextResponse.json({ ok: false, error: "suggestion_id obrigatório" }, { status: 400, headers: NO_STORE_HEADERS });
       }
 
       const { data: sugestao, error: sugestaoErr } = await supabaseAdmin
         .from("content_suggestions")
         .select("id, tenant_id, titulo, status")
         .eq("id", suggestion_id)
-        .eq("tenant_id", sessao.tenant_id)
+        .eq("tenant_id", tenantId)
         .maybeSingle();
 
       if (sugestaoErr || !sugestao) {
-        return NextResponse.json(
-          { ok: false, error: "Sugestão não encontrada" },
-          { status: 404, headers: NO_STORE_HEADERS },
-        );
+        return NextResponse.json({ ok: false, error: "Sugestão não encontrada" }, { status: 404, headers: NO_STORE_HEADERS });
       }
 
       const { error: insertErr } = await supabaseAdmin
         .from("content_suggestion_requests")
-        .upsert(
-          { suggestion_id: sugestao.id, client_id: conta },
-          { onConflict: "suggestion_id,client_id", ignoreDuplicates: true },
-        );
+        .upsert({ suggestion_id: sugestao.id, client_id: conta }, { onConflict: "suggestion_id,client_id", ignoreDuplicates: true });
 
       if (insertErr) {
-        return NextResponse.json(
-          { ok: false, error: "Erro ao registrar pedido" },
-          { status: 500, headers: NO_STORE_HEADERS },
-        );
+        return NextResponse.json({ ok: false, error: "Erro ao registrar pedido" }, { status: 500, headers: NO_STORE_HEADERS });
       }
 
       return NextResponse.json(
@@ -188,37 +201,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ─── MODO A: título novo (ou primeira vez deste cliente) ───────────────
+    // ─── MODO A: título novo ────────────────────────────────────────────────
     const servidor = String(body?.servidor || "").toUpperCase();
     const tipo = String(body?.tipo || "").toUpperCase();
     const titulo = String(body?.titulo || "").trim();
     const link = String(body?.link || "").trim();
 
     if (!SERVIDORES_VALIDOS.includes(servidor)) {
-      return NextResponse.json(
-        { ok: false, error: "servidor inválido" },
-        { status: 400, headers: NO_STORE_HEADERS },
-      );
+      return NextResponse.json({ ok: false, error: "servidor inválido" }, { status: 400, headers: NO_STORE_HEADERS });
     }
     if (!TIPOS_VALIDOS.includes(tipo)) {
-      return NextResponse.json(
-        { ok: false, error: "tipo inválido" },
-        { status: 400, headers: NO_STORE_HEADERS },
-      );
+      return NextResponse.json({ ok: false, error: "tipo inválido" }, { status: 400, headers: NO_STORE_HEADERS });
     }
     if (!titulo || titulo.length < 2) {
-      return NextResponse.json(
-        { ok: false, error: "Informe o nome do conteúdo." },
-        { status: 400, headers: NO_STORE_HEADERS },
-      );
+      return NextResponse.json({ ok: false, error: "Informe o nome do conteúdo." }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const linkCheck = validarLink(link);
     if (!linkCheck.ok) {
-      return NextResponse.json(
-        { ok: false, error: linkCheck.erro },
-        { status: 400, headers: NO_STORE_HEADERS },
-      );
+      return NextResponse.json({ ok: false, error: linkCheck.erro }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const titulo_busca = normalizarBusca(titulo);
@@ -226,13 +227,12 @@ export async function POST(req: NextRequest) {
     const { data: existente } = await supabaseAdmin
       .from("content_suggestions")
       .select("id, titulo, status")
-      .eq("tenant_id", sessao.tenant_id)
+      .eq("tenant_id", tenantId)
       .eq("servidor", servidor)
       .eq("titulo_busca", titulo_busca)
       .maybeSingle();
 
     if (existente) {
-      // Esse cliente já pediu esse título antes?
       const { data: pedidoProprio } = await supabaseAdmin
         .from("content_suggestion_requests")
         .select("id")
@@ -242,17 +242,11 @@ export async function POST(req: NextRequest) {
 
       if (pedidoProprio) {
         return NextResponse.json(
-          {
-            ok: true,
-            already_requested_by_you: true,
-            titulo: existente.titulo,
-            status: existente.status,
-          },
+          { ok: true, already_requested_by_you: true, titulo: existente.titulo, status: existente.status },
           { headers: NO_STORE_HEADERS },
         );
       }
 
-      // Outro cliente já pediu — front deve confirmar antes de registrar
       const { count: totalPedidos } = await supabaseAdmin
         .from("content_suggestion_requests")
         .select("*", { count: "exact", head: true })
@@ -272,26 +266,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Título realmente novo — cria a sugestão + o pedido deste cliente
     const { data: nova, error: novaErr } = await supabaseAdmin
       .from("content_suggestions")
       .insert({
-        tenant_id: sessao.tenant_id,
+        tenant_id: tenantId,
         servidor,
         tipo,
         titulo,
         titulo_busca,
         link,
         status: "PENDENTE",
+        criado_por_client_id: conta,
       })
       .select("id, titulo, status")
       .single();
 
     if (novaErr || !nova) {
-      return NextResponse.json(
-        { ok: false, error: "Erro ao registrar sugestão" },
-        { status: 500, headers: NO_STORE_HEADERS },
-      );
+      return NextResponse.json({ ok: false, error: "Erro ao registrar sugestão" }, { status: 500, headers: NO_STORE_HEADERS });
     }
 
     const { error: reqErr } = await supabaseAdmin
@@ -299,20 +290,61 @@ export async function POST(req: NextRequest) {
       .insert({ suggestion_id: nova.id, client_id: conta });
 
     if (reqErr) {
-      return NextResponse.json(
-        { ok: false, error: "Erro ao registrar pedido" },
-        { status: 500, headers: NO_STORE_HEADERS },
-      );
+      return NextResponse.json({ ok: false, error: "Erro ao registrar pedido" }, { status: 500, headers: NO_STORE_HEADERS });
     }
 
-    return NextResponse.json(
-      { ok: true, created: true, titulo: nova.titulo, status: nova.status },
-      { headers: NO_STORE_HEADERS },
-    );
+    return NextResponse.json({ ok: true, created: true, titulo: nova.titulo, status: nova.status }, { headers: NO_STORE_HEADERS });
   } catch (err: any) {
-    return NextResponse.json(
-      { ok: false, error: "Erro interno" },
-      { status: 500, headers: NO_STORE_HEADERS },
-    );
+    return NextResponse.json({ ok: false, error: "Erro interno" }, { status: 500, headers: NO_STORE_HEADERS });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  const supabaseAdmin = makeSupabaseAdmin();
+  if (!supabaseAdmin) {
+    return NextResponse.json({ ok: false, error: "Erro interno" }, { status: 500, headers: NO_STORE_HEADERS });
+  }
+
+  const body = await req.json().catch(() => ({}));
+  const validacao = await validarSessaoEConta(supabaseAdmin, body);
+  if ("erro" in validacao) return validacao.erro;
+  const { tenantId, conta } = validacao;
+
+  const suggestion_id = normalizeToken(body?.suggestion_id);
+  if (!suggestion_id) {
+    return NextResponse.json({ ok: false, error: "suggestion_id obrigatório" }, { status: 400, headers: NO_STORE_HEADERS });
+  }
+
+  try {
+    const { data: existente, error: existenteErr } = await supabaseAdmin
+      .from("content_suggestions")
+      .select("id, criado_por_client_id, status")
+      .eq("id", suggestion_id)
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+
+    if (existenteErr || !existente) {
+      return NextResponse.json({ ok: false, error: "Sugestão não encontrada" }, { status: 404, headers: NO_STORE_HEADERS });
+    }
+    if (existente.criado_por_client_id !== conta) {
+      return NextResponse.json({ ok: false, error: "Só quem criou o pedido pode excluí-lo" }, { status: 403, headers: NO_STORE_HEADERS });
+    }
+    if (existente.status !== "PENDENTE") {
+      return NextResponse.json({ ok: false, error: "Só é possível excluir pedidos ainda pendentes" }, { status: 400, headers: NO_STORE_HEADERS });
+    }
+
+    // content_suggestion_requests tem ON DELETE CASCADE — apaga junto
+    const { error: delErr } = await supabaseAdmin
+      .from("content_suggestions")
+      .delete()
+      .eq("id", suggestion_id);
+
+    if (delErr) {
+      return NextResponse.json({ ok: false, error: "Erro ao excluir" }, { status: 500, headers: NO_STORE_HEADERS });
+    }
+
+    return NextResponse.json({ ok: true, deleted: true }, { headers: NO_STORE_HEADERS });
+  } catch (err: any) {
+    return NextResponse.json({ ok: false, error: "Erro interno" }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }
