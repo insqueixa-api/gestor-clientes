@@ -151,10 +151,10 @@ function onlyDigits(raw: string) {
 }
 
 function normalizeMacInput(raw: string) {
-  // ✅ MAC: mantém só HEX, UPPER e formata XX:XX:XX:XX:XX:XX
+  // ✅ MAC: mantém formatação XX:XX:XX:XX:XX:XX mas aceita todo o alfabeto
   const s = String(raw ?? "").toUpperCase();
-  // mantém somente 0-9 e A-F (remove :, -, espaços, etc)
-  const hex = s.replace(/[^0-9A-F]/g, "");
+  // mantém somente 0-9 e A-Z (remove :, -, espaços, etc)
+  const hex = s.replace(/[^0-9A-Z]/g, "");
   // MAC padrão = 12 hex (6 bytes)
   const trimmed = hex.slice(0, 12);
   // quebra em pares (mantém par incompleto enquanto digita)

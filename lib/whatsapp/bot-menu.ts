@@ -156,3 +156,47 @@ export const POSTPONEMENT_INTENT =
 
 export const PROBLEM_KEYWORDS =
   /\b(travando|travou|ruim|p[ée]ssimo|n[ãa]o (funciona|gostei|est[áa] bom)|problema|reclama|demora|lento|sem sinal|n[ãa]o consigo)\b/i;
+
+  // ── Checagem de pagamento recente — reaproveitável em qualquer fluxo de texto ─
+// Mesma lógica dos Casos A/B/D do fluxo de mídia, só que disparável a partir
+// de texto (ex: opção "1" do submenu pagamento), sem esperar um comprovante.
+
+export type PortalPaymentStatus = "auto_confirmed" | "manual_pending" | "fulfillment_error" | "none";
+
+export async function checkRecentPortalPayment(
+  sb: any,
+  tenantId: string,
+  clientIds: (string | null)[]
+): Promise<PortalPaymentStatus> {
+  const ids = clientIds.filter(Boolean);
+  if (!ids.length) return "none";
+
+  const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+  const { data } = await sb
+    .from("client_portal_payments")
+    .select("id, fulfillment_status, whatsapp_status")
+    .eq("tenant_id", tenantId)
+    .in("client_id", ids)
+    .gte("created_at", sixHoursAgo)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  const payment = data?.[0];
+  if (!payment) return "none";
+  if (payment.whatsapp_status === "sent") return "auto_confirmed";
+  if (payment.fulfillment_status === "manual_pending") return "manual_pending";
+  if (payment.fulfillment_status === "error") return "fulfillment_error";
+  return "none";
+}
+
+export function paymentAutoConfirmedMsg(firstName: string): string {
+  return `Tudo certo, ${firstName}! 😊 Sua renovação já foi processada automaticamente pelo portal e a confirmação já foi enviada. Não precisa mandar comprovante — já está tudo certo! ✅`;
+}
+
+export const PAYMENT_MANUAL_PENDING_MSG =
+  "Encontrei seu pagamento aqui! ✅ Está em análise e será concluído em breve.";
+
+export const PAYMENT_FULFILLMENT_ERROR_MSG =
+  "Encontrei seu pagamento aqui — está confirmado! ✅ Só tivemos uma instabilidade técnica na finalização automática, mas o Márcio já foi notificado e vai concluir sua renovação em instantes.";
+
+  
