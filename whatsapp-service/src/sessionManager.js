@@ -92,6 +92,123 @@ export function getBotEvents() {
 // Human takeover: quando você responde, bot para por 4h pra aquele contato
 const humanPausedContacts = new Map();
 
+// ── Item 6: aguardando resposta "Portal ou PIX?" ──────────────────────────
+// Estado mínimo de 1 pergunta/1 resposta — não é o menu completo (isso vem
+// no Item 7), só resolve esse fluxo específico de confirmação de pagamento.
+const pendingPaymentClarification = new Map(); // "sessionKey:phone" -> timestamp
+const PAYMENT_CLARIFICATION_TTL_MS = 15 * 60 * 1000; // 15 minutos
+
+function markPendingPaymentClarification(sessionKey, phone) {
+  pendingPaymentClarification.set(`${sessionKey}:${phone}`, Date.now());
+}
+
+function isPendingPaymentClarification(sessionKey, phone) {
+  const key = `${sessionKey}:${phone}`;
+  const ts = pendingPaymentClarification.get(key);
+  if (!ts) return false;
+  if (Date.now() - ts > PAYMENT_CLARIFICATION_TTL_MS) {
+    pendingPaymentClarification.delete(key); // expirou — trata como pergunta antiga, esquecida
+    return false;
+  }
+  return true;
+}
+
+function clearPendingPaymentClarification(sessionKey, phone) {
+  pendingPaymentClarification.delete(`${sessionKey}:${phone}`);
+}
+
+// ── Item 7: estado de menu por contato ────────────────────────────────────
+// Substitui o histórico livre por um estado explícito de "onde o cliente
+// está" na conversa guiada:
+//   null / undefined → aguardando 1ª mensagem
+//   "aguardando_resposta"   → 1ª tentativa de entender o cliente
+//   "aguardando_resposta_2" → 2ª tentativa (última — depois disso, escalona)
+//   "tecnico" / "pagamento" / "instalacao" → dentro de um submenu
+//   "geral"   → Gemini livre (TTL passivo de 2h)
+//
+// Nesta fase (Fase A), o estado só é criado/lido/expirado — ainda não
+// influencia nenhuma resposta. Isso é proposital: valida o esqueleto nos
+// logs antes de qualquer script de menu entrar em ação.
+const contactStates = new Map(); // "sessionKey:phone" -> { state, updatedAt }
+const inactivityTimers = new Map(); // "sessionKey:phone" -> timeoutId
+
+const GERAL_TTL_MS = 2 * 60 * 60 * 1000; // 2h — mesmo padrão do histórico existente
+const INACTIVITY_NUDGE_MS = 30 * 60 * 1000; // 30 min parado num submenu → nudge proativo
+
+// Estados que, se o cliente ficar parado, merecem um "cutucão" proativo do
+// bot. "geral" NÃO entra aqui — lá o cliente pode estar só pensando/ausente
+// numa conversa livre, não faz sentido cobrar resposta.
+const STATES_WITH_NUDGE = [
+  "aguardando_resposta", "aguardando_resposta_2",
+  "tecnico", "pagamento", "instalacao",
+];
+
+function getContactState(sessionKey, phone) {
+  const key = `${sessionKey}:${phone}`;
+  const entry = contactStates.get(key);
+  if (!entry) return null;
+
+  // "geral" expira sozinho depois de 2h de silêncio (TTL passivo)
+  if (entry.state === "geral" && Date.now() - entry.updatedAt > GERAL_TTL_MS) {
+    contactStates.delete(key);
+    clearInactivityTimer(key);
+    return null;
+  }
+  return entry.state;
+}
+
+function setContactState(sessionKey, phone, newState) {
+  const key = `${sessionKey}:${phone}`;
+  contactStates.set(key, { state: newState, updatedAt: Date.now() });
+
+  // Reagenda (ou cancela) o timer de inatividade conforme o novo estado
+  clearInactivityTimer(key);
+
+  if (STATES_WITH_NUDGE.includes(newState)) {
+    const timer = setTimeout(() => {
+      sendInactivityNudge(sessionKey, phone).catch((e) =>
+        console.error(`[MENU][${sessionKey.slice(0, 8)}] Erro ao enviar nudge de inatividade:`, e?.message)
+      );
+    }, INACTIVITY_NUDGE_MS);
+    inactivityTimers.set(key, timer);
+  }
+}
+
+function clearContactState(sessionKey, phone) {
+  const key = `${sessionKey}:${phone}`;
+  contactStates.delete(key);
+  clearInactivityTimer(key);
+}
+
+function clearInactivityTimer(key) {
+  const existing = inactivityTimers.get(key);
+  if (existing) {
+    clearTimeout(existing);
+    inactivityTimers.delete(key);
+  }
+}
+
+// Nudge proativo — o bot puxa a conversa de volta, sem esperar o cliente.
+// ⚠️ Nesta Fase A, essa função existe mas NUNCA é chamada de verdade ainda
+// (setContactState nunca é invocada por ninguém neste momento) — só valida
+// que o código compila e está pronto pra Fase B ligar o fio.
+async function sendInactivityNudge(sessionKey, phone) {
+  const key = `${sessionKey}:${phone}`;
+  const entry = contactStates.get(key);
+  if (!entry) return; // estado já mudou (cliente respondeu, ou expirou) — nada a fazer
+
+  const msg = "Fiquei aguardando sua resposta! 😊 Quer continuar de onde paramos, ou prefere tratar de outro assunto?";
+
+  try {
+    await sendMessage(sessionKey, phone, msg);
+  } catch (e) {
+    console.error(`[MENU][${sessionKey.slice(0, 8)}] Falha ao enviar nudge para ${phone}:`, e?.message);
+    return;
+  }
+
+  contactStates.set(key, { state: "retomada_" + entry.state, updatedAt: Date.now() });
+}
+
 // Contatos que o bot já iniciou atendimento (bot respondeu ao menos 1x)
 const botActiveContacts = new Set(); // "sessionKey:phone"
 
@@ -933,7 +1050,7 @@ async function callBotAgent(sessionKey, phone, msg) {
   // Adiciona a mensagem atual do cliente ao histórico
   if (text?.trim()) addToHistory(sessionKey, phone, "user", text.trim());
 
-  const payload = {
+const payload = {
     tenant_id: config.tenantId,
     session_key: sessionKey,
     phone,
@@ -944,6 +1061,8 @@ async function callBotAgent(sessionKey, phone, msg) {
     media_type: mediaType,
     mime_type: mimeType,
     conversation_history: conversationHistory,
+    awaiting_payment_type: isPendingPaymentClarification(sessionKey, phone), // ✅ Item 6
+    bot_state: getContactState(sessionKey, phone), // ✅ Item 7 (Fase B)
   };
 
   try {
@@ -969,6 +1088,25 @@ if (!res.ok) {
       console.error(`[BOT][${sessionKey.slice(0, 8)}] Agente retornou erro ${res.status}: ${err.slice(0, 200)}`);
     } else {
       const responseData = await res.json().catch(() => ({}));
+
+      // ✅ Item 6: mantém ou limpa o estado de "aguardando resposta Portal/PIX"
+      // conforme a decisão do agente nesta rodada.
+      if (responseData?.action === "awaiting_payment_type") {
+        markPendingPaymentClarification(sessionKey, phone);
+      } else {
+        clearPendingPaymentClarification(sessionKey, phone);
+      }
+
+      // ✅ Item 7 (Fase B): aplica o próximo estado que o agente decidiu.
+      // Se o agente não mandar next_state (ex: fluxo antigo do Item 5/6
+      // ainda não migrado), não mexe no estado atual.
+      if (typeof responseData?.next_state === "string") {
+        if (responseData.next_state === "__clear__") {
+          clearContactState(sessionKey, phone);
+        } else {
+          setContactState(sessionKey, phone, responseData.next_state);
+        }
+      }
 
       // ✅ Marca o chat como lido/não lido conforme o agente decidiu.
       if (typeof responseData?.mark_read === "boolean") {
