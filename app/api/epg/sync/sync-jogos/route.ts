@@ -47,6 +47,16 @@ const API_HEADERS = {
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36',
 }
 
+// Canais que não fazem parte do seu catálogo — jogos que só tenham transmissão
+// por eles são descartados do sync (não é canal de TV real pro seu uso: VBTV
+// e Antel são de outros países, bet365 é casa de apostas, não canal).
+const CANAIS_BLOQUEADOS = ['vbtv', 'bet365', 'antel tv internacional']
+
+function canalBloqueado(nome: string): boolean {
+  const n = nome.toLowerCase()
+  return CANAIS_BLOQUEADOS.some((b) => n.includes(b))
+}
+
 // ─── Tipos ──────────────────────────────────────────────────────────────────────
 
 interface Competitor {
@@ -289,8 +299,20 @@ export async function GET(request: Request) {
       `[sync-jogos] Detalhes obtidos: ${validos.length}/${comTV.length}`
     )
 
+    // ── 3b. Remove canais bloqueados e descarta jogo se ficar sem transmissão ──
+    const validosFiltrados = validos
+      .map((g) => ({
+        ...g,
+        tvNetworks: (g.tvNetworks ?? []).filter((tv) => !canalBloqueado(tv.name)),
+      }))
+      .filter((g) => g.tvNetworks.length > 0)
+
+    console.log(
+      `[sync-jogos] Após remover canais bloqueados: ${validosFiltrados.length}/${validos.length}`
+    )
+
     // ── 4. Converte para formato da tabela ──────────────────────────────────
-    const jogos = validos.map(toJogoDia)
+    const jogos = validosFiltrados.map(toJogoDia)
 
     // ── 5. Upsert no Supabase ───────────────────────────────────────────────
     const { error: upsertError } = await supabaseAdmin
