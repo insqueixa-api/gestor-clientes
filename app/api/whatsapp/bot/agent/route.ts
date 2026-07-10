@@ -5,7 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { generatePortalLink } from "@/lib/whatsapp/template-vars";
 // 🟢 Importando a Fonte Única de Verdade (Regras e Ferramentas unificadas)
-import { BOT_TOOL_DECLARATIONS, buildBotSystemPrompt, toBRDateTime } from "@/lib/whatsapp/bot-prompt";
+import { BOT_TOOL_DECLARATIONS, buildBotSystemPrompt, buildScopedBotSystemPrompt, toBRDateTime, type ScopedCategory } from "@/lib/whatsapp/bot-prompt";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // Vercel: máx 60s (agente pode demorar com tool calls)
@@ -384,7 +384,7 @@ const PROBLEM_KEYWORDS =
 
 // ── Item 7: arquitetura de menu (Fase B) ──────────────────────────────────
 
-type MenuContext = "tecnico" | "pagamento" | "instalacao" | null;
+type MenuContext = "tecnico" | "pagamento" | "instalacao" | "conteudo" | null;
 
 // Detecção determinística por palavra-chave — barata e previsível, sem
 // depender do Gemini pra decidir o roteamento inicial.
@@ -400,6 +400,9 @@ function detectMenuContext(text: string): MenuContext {
   if (/\b(instalar|instala[çc][ãa]o|tv nova|configurar|app|aplicativo|celular|tablet|computador|nova tv)\b/i.test(t)) {
     return "instalacao";
   }
+  if (/\b(jogo|jogos|filme|filmes|s[ée]rie|s[ée]ries|programa[çc][ãa]o|onde passa|em qual canal|sugerir|sugest[ãa]o|novidades|catálogo|catalogo)\b/i.test(t)) {
+    return "conteudo";
+  }
   return null;
 }
 
@@ -408,8 +411,9 @@ const MAIN_MENU_TEXT =
   "1️⃣ Problema técnico\n" +
   "2️⃣ Renovação / pagamento\n" +
   "3️⃣ Nova instalação\n" +
-  "4️⃣ Dúvidas gerais\n" +
-  "5️⃣ Falar com o Márcio";
+  "4️⃣ Canais, filmes ou séries\n" +
+  "5️⃣ Dúvidas gerais\n" +
+  "6️⃣ Falar com o Márcio";
 
 const TECNICO_SUBMENU_TEXT =
   "Entendido! Me conta mais:\n" +
@@ -435,12 +439,34 @@ const INSTALACAO_SUBMENU_TEXT =
   "4️⃣ Já tenho o app, preciso reconfigurar\n" +
   "5️⃣ Outro assunto sobre instalação";
 
+const CONTEUDO_INFO_TEXT =
+  "📺 Pra isso você tem uma área dedicada dentro do seu portal! Lá você encontra:\n\n" +
+  "- Jogos do dia e a programação ao vivo da TV brasileira (qual canal passa o quê)\n" +
+  "- Busca de filmes e séries — ao clicar na capa, já mostra exatamente em qual pasta o conteúdo está disponível na sua TV\n" +
+  "- Também dá pra sugerir um filme ou série que ainda não tem (é uma sugestão, não uma garantia — a equipe avalia)\n\n" +
+  "A atualização acontece todos os dias. É só entrar no seu portal e ir em 'Novidades'.\n\n" +
+  "Se não encontrar o que procura por lá, me avisa que eu vejo com o Márcio! 😊";
+
+// Palavras que indicam "já procurei no portal e não achei" — dispara
+// escalonamento (ex: jogo ao vivo cujo canal ainda não foi mapeado)
+const CONTEUDO_NOT_FOUND =
+  /\b(n[ãa]o (achei|encontrei|tem|achou|apareceu)|sem canal|n[ãa]o passa|nada aparece)\b/i;
+
 function submenuTextFor(context: MenuContext): string {
   if (context === "tecnico") return TECNICO_SUBMENU_TEXT;
   if (context === "pagamento") return PAGAMENTO_SUBMENU_TEXT;
   if (context === "instalacao") return INSTALACAO_SUBMENU_TEXT;
+  if (context === "conteudo") return CONTEUDO_INFO_TEXT;
   return MAIN_MENU_TEXT;
 }
+
+// ── Mensagens de encerramento — UMA fonte para cada caso, nunca divergir ──
+// (1) Cliente PEDE explicitamente por humano — escolha dele, tom leve.
+const HUMAN_REQUESTED_MSG = "Combinado! Vou deixar sua conversa marcada aqui e o Márcio te atende assim que possível. 🙏";
+// (2) O BOT desiste após não conseguir entender — falha do bot, não do
+// cliente. Nunca insiste mais que 2 vezes: assume a limitação com
+// gentileza e passa para o Márcio, sem mais perguntas.
+const BOT_GAVE_UP_MSG = "Desculpa por não conseguir te ajudar direito por aqui! 🙏 Já deixei tudo registrado e o Márcio vai continuar seu atendimento assim que possível.";
 
 // ── Handler principal ─────────────────────────────────────────────────────────
 
@@ -465,7 +491,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
 
-const { tenant_id, session_key, phone, remoteJid, text, media_base64, media_type, mime_type, awaiting_payment_type, bot_state } = body;
+const { tenant_id, session_key, phone, remoteJid, text, media_base64, media_type, mime_type, awaiting_payment_type, payment_clarification_attempts, bot_state } = body;
 
   // Ignora imediatamente qualquer mensagem vinda de grupos (@g.us)
   const jidToCheck = remoteJid || phone || "";
@@ -615,7 +641,7 @@ if (media_base64 && media_type) {
   // conversa. Escalonamento (Item 1) continua tendo prioridade máxima,
   // pois é checado mais abaixo e intercepta qualquer estado.
   const trimmedForMenu = text.trim();
-  const numericChoice = /^[1-5]$/.test(trimmedForMenu) ? Number(trimmedForMenu) : null;
+const numericChoice = /^[1-6]$/.test(trimmedForMenu) ? Number(trimmedForMenu) : null;
 
   if (!bot_state || bot_state === "aguardando_resposta" || bot_state === "aguardando_resposta_2") {
     const detected = detectMenuContext(trimmedForMenu);
@@ -629,22 +655,27 @@ if (media_base64 && media_type) {
     // Se já estava no menu principal (aguardando_resposta) e o cliente
     // escolheu um número válido do menu principal
     if (bot_state === "aguardando_resposta" && numericChoice) {
-      if (numericChoice === 5) {
-        const msg = "Aguarde que o Márcio já vai te atender! 🙏";
+      if (numericChoice === 6) {
+        const msg = HUMAN_REQUESTED_MSG;
         await sendWAMessage(session_key, phone, msg);
         return NextResponse.json({ ok: true, action: "escalated_menu", escalate: true, mark_read: false, bot_response: msg, next_state: "__clear__", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
       }
-      const mapped: MenuContext = numericChoice === 1 ? "tecnico" : numericChoice === 2 ? "pagamento" : numericChoice === 3 ? "instalacao" : null;
+      const mapped: MenuContext =
+        numericChoice === 1 ? "tecnico" :
+        numericChoice === 2 ? "pagamento" :
+        numericChoice === 3 ? "instalacao" :
+        numericChoice === 4 ? "conteudo" : null;
       if (mapped) {
         const msg = submenuTextFor(mapped);
         await sendWAMessage(session_key, phone, msg);
+        // "conteudo" já entrega a resposta completa — fica em "conteudo"
+        // aguardando um possível "não achei"; os outros seguem no próprio submenu.
         return NextResponse.json({ ok: true, action: `menu_${mapped}`, mark_read: true, bot_response: msg, next_state: mapped, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
       }
-      // Opção 4 (Dúvidas gerais) → Gemini livre
+      // Opção 5 (Dúvidas gerais) → Gemini livre
       return NextResponse.json({ ok: true, action: "menu_geral", mark_read: true, next_state: "geral", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
       // (cai propositalmente sem sendWAMessage aqui — a resposta real vem do
-      // fluxo Gemini mais abaixo nesta mesma request, na Fase C isso será
-      // reorganizado; por ora deixa como TODO da Fase C)
+      // fluxo Gemini mais abaixo nesta mesma request; Fase C reorganiza isso)
     }
 
     // 1ª vez que vemos esse contato (bot_state null) → sem contexto
@@ -656,9 +687,10 @@ if (media_base64 && media_type) {
       return NextResponse.json({ ok: true, action: "menu_intro", mark_read: true, bot_response: `${msg1}\n\n${MAIN_MENU_TEXT}`, next_state: "aguardando_resposta", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
     }
 
-    // 2ª tentativa (aguardando_resposta_2) também falhou → escalona, calmo
+// 2ª tentativa (aguardando_resposta_2) também falhou → o BOT desiste,
+    // não o cliente — usa a mensagem de falha, não a de pedido explícito.
     if (bot_state === "aguardando_resposta_2") {
-      const msg = "Aguarde que o Márcio já vai te atender! 🙏";
+      const msg = BOT_GAVE_UP_MSG;
       await sendWAMessage(session_key, phone, msg);
       return NextResponse.json({ ok: true, action: "escalated_menu", escalate: true, mark_read: false, bot_response: msg, next_state: "__clear__", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
     }
@@ -670,8 +702,9 @@ if (media_base64 && media_type) {
     return NextResponse.json({ ok: true, action: "menu_retry", mark_read: true, bot_response: msg, next_state: "aguardando_resposta_2", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
   }
 
-  // ✅ Item 7 (Fase B, continuação): já dentro de um submenu
-  if (bot_state === "tecnico" || bot_state === "pagamento" || bot_state === "instalacao") {
+// ✅ Item 7 (Fase B, continuação): já dentro de um submenu
+const isAwaitingConta = /^tecnico_aguardando_conta_[1-6]$/.test(bot_state || "");
+  if (bot_state === "tecnico" || bot_state === "pagamento" || bot_state === "instalacao" || bot_state === "conteudo" || isAwaitingConta) {
     // Troca de contexto a qualquer momento — regra que você definiu: "a
     // qualquer momento pode mudar o contexto, tipo novo problema"
     const newContext = detectMenuContext(trimmedForMenu);
@@ -681,8 +714,70 @@ if (media_base64 && media_type) {
       return NextResponse.json({ ok: true, action: `menu_switch_${newContext}`, mark_read: true, bot_response: msg, next_state: newContext, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
     }
 
-    if (bot_state === "tecnico" && numericChoice) {
-      if (numericChoice === 1) {
+    if (bot_state === "conteudo" && CONTEUDO_NOT_FOUND.test(trimmedForMenu)) {
+      const msg = "Entendido, vou verificar isso direto com o Márcio! Pode ser um conteúdo ainda não mapeado — ele já te retorna. 🙏";
+      await sendWAMessage(session_key, phone, msg);
+      return NextResponse.json({ ok: true, action: "conteudo_escalated", escalate: true, mark_read: false, bot_response: msg, next_state: "__clear__", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+    }
+    // "conteudo" sem match de "não achei" NÃO retorna aqui de propósito —
+    // cai pro Gemini com prompt filtrado (mesmo padrão de tecnico/pagamento/
+    // instalacao), pra responder com nuance em vez de repetir texto fixo.
+
+// ✅ Preserva a opção numérica original através da pergunta "qual conta?"
+    // codificando no próprio next_state (ex: "tecnico_aguardando_conta_2").
+    // Isso evita perder o contexto do que o cliente escolheu, sem precisar
+    // de estado extra na VM.
+    const contaRetryMatch = /^tecnico_aguardando_conta_([1-6])$/.exec(bot_state || "");
+
+    if ((bot_state === "tecnico" && numericChoice) || contaRetryMatch) {
+      const effectiveChoice = contaRetryMatch ? Number(contaRetryMatch[1]) : numericChoice!;
+
+      // ✅ Múltiplas contas: precisa saber QUAL conta antes de checar
+      // offline ou responder qualquer coisa técnica. Aceita "conta 1" ou o
+      // NOME do servidor — NUNCA um dígito sozinho (colidiria com as
+      // opções numéricas do próprio menu técnico).
+      let selectedClient = clients[0];
+      if (clients.length > 1) {
+        const lowerText = trimmedForMenu.toLowerCase();
+        const contaMatch = /conta\s*([1-9])/i.exec(trimmedForMenu);
+        let idx: number | null = contaMatch ? Math.max(0, Number(contaMatch[1]) - 1) : null;
+
+        if (idx === null) {
+          const serverMatches = clients
+            .map((c: any, i: number) => ({ i, name: String(c.server_name || "").toLowerCase() }))
+            .filter((m) => m.name && lowerText.includes(m.name));
+          if (serverMatches.length === 1) idx = serverMatches[0].i;
+          // Mais de um match (mesmo servidor, contas diferentes) também
+          // conta como "não resolvido" — cai no mesmo tratamento abaixo,
+          // sem mensagem separada (uma única lógica, sem conflito).
+        }
+
+        if (idx === null) {
+          if (contaRetryMatch) {
+            // 2ª tentativa também falhou — desiste com gentileza, nunca trava.
+            await sendWAMessage(session_key, phone, BOT_GAVE_UP_MSG);
+            return NextResponse.json({ ok: true, action: "tecnico_conta_desistiu", escalate: true, mark_read: false, bot_response: BOT_GAVE_UP_MSG, next_state: "__clear__", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+          }
+          const lista = clients
+            .map((c: any, i: number) => `- Conta ${i + 1}: ${c.display_name} (${c.server_username || "n/i"}) — ${c.server_name}`)
+            .join("\n");
+          const msg = `Você tem mais de uma conta — qual delas está com o problema? Pode responder com "conta 1", "conta 2" ou o nome do servidor:\n\n${lista}`;
+          await sendWAMessage(session_key, phone, msg);
+          return NextResponse.json({ ok: true, action: "tecnico_pede_conta", mark_read: true, bot_response: msg, next_state: `tecnico_aguardando_conta_${effectiveChoice}`, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+        }
+
+        selectedClient = clients[idx] || clients[0];
+      }
+
+      // ✅ Checagem de servidor offline — agora na conta certa — ANTES de
+      // qualquer opção. Se offline, explica isso independente do sintoma.
+      if (selectedClient?.server_is_offline) {
+        const msg = "Identificamos uma instabilidade interna no servidor que já está sendo verificada pela nossa equipe. Em breve tudo estará normalizado! Por enquanto, tente acessar de tempos em tempos — quando voltar, funciona normalmente, sem precisar fazer nada. 🙏";
+        await sendWAMessage(session_key, phone, msg);
+        return NextResponse.json({ ok: true, action: "tecnico_servidor_offline", mark_read: true, bot_response: msg, next_state: "geral", display_name: selectedClient?.display_name || null, server_name: selectedClient?.server_name || null });
+      }
+
+      if (effectiveChoice === 1) {
         const msg = "Segue um passo a passo que costuma resolver a maioria dos problemas:\n1. Desligue o modem da tomada e aguarde 5 minutos\n2. Desligue também a TV da tomada\n3. Após 5 minutos, ligue só o modem e aguarde a internet estabilizar\n4. Só então ligue a TV na tomada\n5. Ligue a TV pelo controle mas não abra o app ainda\n6. Aguarde 1 minuto\n7. Agora abra o app e teste\nSe continuar, me avisa que passo o próximo procedimento.";
         await sendWAMessage(session_key, phone, msg);
         return NextResponse.json({ ok: true, action: "tecnico_reset", mark_read: true, bot_response: msg, next_state: "tecnico", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
@@ -700,18 +795,19 @@ if (media_base64 && media_type) {
         await sendWAMessage(session_key, phone, msg);
         return NextResponse.json({ ok: true, action: "tecnico_tela_preta", mark_read: true, bot_response: msg, next_state: "geral", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
       }
-      if (numericChoice === 4) {
-        const c = clients[0];
+if (numericChoice === 4) {
+        const c = selectedClient;
+        const idxSelected = clients.indexOf(selectedClient);
         const vencido = c?.vencimento ? new Date(c.vencimento).getTime() < Date.now() : false;
         let msg: string;
         if (vencido) {
-          const portalLink = await toolGerarLinkPortal(sb, tenant_id, clientMatches[0], c.is_secondary);
+          const portalLink = await toolGerarLinkPortal(sb, tenant_id, clientMatches[idxSelected] || clientMatches[0], c.is_secondary);
           msg = `Vi aqui que seu acesso está vencido — por isso o sinal parou. 😊\n\nPara renovar:\n👉 ${portalLink}\nSenha: últimos 4 dígitos do seu WhatsApp`;
         } else {
           msg = "Seu acesso está em dia! Vamos tentar o reset padrão: desligue o modem da tomada por 5 minutos, depois a TV, e teste de novo. Se persistir, me avisa!";
         }
         await sendWAMessage(session_key, phone, msg);
-        return NextResponse.json({ ok: true, action: "tecnico_vencimento", mark_read: true, bot_response: msg, next_state: "geral", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+        return NextResponse.json({ ok: true, action: "tecnico_vencimento", mark_read: true, bot_response: msg, next_state: "geral", display_name: c?.display_name || null, server_name: c?.server_name || null });
       }
       // numericChoice === 5 (descrever problema) cai pro Gemini, mais abaixo
     }
@@ -819,8 +915,14 @@ if (media_base64 && media_type) {
       return NextResponse.json({ ok: true, action: "payment_portal_not_found", mark_read: false, bot_response: msg, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
     }
 
-    // Resposta ambígua — pergunta de novo, uma única vez (o TTL de 15min
-    // no lado da VM evita loop infinito se o cliente nunca responder claro)
+// Resposta ambígua — máximo 2 tentativas (mesmo padrão do menu
+    // principal). Se já perguntamos 2x e ainda não veio resposta clara, o
+    // BOT desiste com gentileza — nunca fica perguntando pra sempre.
+    if ((payment_clarification_attempts || 0) >= 2) {
+      await sendWAMessage(session_key, phone, BOT_GAVE_UP_MSG);
+      return NextResponse.json({ ok: true, action: "payment_type_gave_up", escalate: true, mark_read: false, bot_response: BOT_GAVE_UP_MSG, next_state: "__clear__", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+    }
+
     const msg = `Desculpa, não entendi — foi pelo portal (aquele link que te mandei) ou via PIX/transferência manual?`;
     await sendWAMessage(session_key, phone, msg);
     return NextResponse.json({ ok: true, action: "awaiting_payment_type", mark_read: true, bot_response: msg, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
@@ -926,12 +1028,16 @@ if (jobKind === "vencimento" && POSTPONEMENT_INTENT.test(trimmed)) {
 
   if (escalationTrigger) {
     safeLog("[BOT][agent] Escalonamento explícito detectado:", text.trim());
-    const msg = `Sem problema! Vou deixar sua conversa marcada aqui e o Márcio te retorna assim que possível. 🙏`;
-    await sendWAMessage(session_key, phone, msg);
+    await sendWAMessage(session_key, phone, HUMAN_REQUESTED_MSG);
     return NextResponse.json({
       ok: true,
       action: "escalated",
       escalate: true, // sinaliza para a VM pausar o bot para este contato
+      mark_read: false, // ✅ faltava — precisa da sua atenção
+      next_state: "__clear__", // ✅ faltava — sem isso, o estado do menu ficava
+      // preso (ex: "tecnico") e reaparecia quebrado quando o cliente voltasse
+      // a escrever depois das 4h de pausa.
+      bot_response: HUMAN_REQUESTED_MSG,
       display_name: clients[0]?.display_name || null,
       server_name: clients[0]?.server_name || null,
     });
@@ -1000,10 +1106,15 @@ const agoraSP = new Date().toLocaleString("pt-BR", {
   hour: "2-digit", minute: "2-digit", hour12: false,
 });
 
-const promptBase = buildBotSystemPrompt(clients, templatesText, {
-  historicoRecente,
-  agoraSP,
-});
+// ✅ Item 7 (Fase C): se o cliente está dentro de um submenu, usa o prompt
+// filtrado por categoria em vez do prompt completo — isso é o que reduz a
+// "vida própria" do bot no texto livre.
+const scopedCategories: ScopedCategory[] = ["tecnico", "pagamento", "instalacao", "conteudo"];
+const isScoped = scopedCategories.includes(bot_state as ScopedCategory);
+
+const promptBase = isScoped
+  ? buildScopedBotSystemPrompt(bot_state as ScopedCategory, clients, templatesText, { historicoRecente, agoraSP })
+  : buildBotSystemPrompt(clients, templatesText, { historicoRecente, agoraSP });
 
 // Adiciona a regra de ouro para blindar o bot contra as "legendas órfãs"
 const systemPrompt = promptBase + "\n\nREGRA DE MÍDIA: Se o cliente mencionar que enviou foto, comprovante ou imagem mas você não recebeu o conteúdo visual, responda: 'Recebi sua mensagem! Para comprovantes de pagamento, você pode renovar direto pelo portal que é automático — ou se preferir, o Márcio vai conferir assim que possível. 😊' Nunca peça para reenviar a imagem.";

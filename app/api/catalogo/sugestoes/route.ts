@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
+import { resolveNotification } from "@/lib/notifications/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -151,13 +152,18 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
-    const { error } = await supabaseAdmin
+const { error } = await supabaseAdmin
       .from("content_suggestions")
       .update(update)
       .eq("id", id)
       .eq("tenant_id", tenantId);
 
     if (error) throw error;
+
+    // ✅ Qualquer mudança de status tratada por você resolve o alerta do sino
+    if (update.status) {
+      await resolveNotification(tenantId, "sugestao_conteudo", id);
+    }
 
     return NextResponse.json({ ok: true });
   } catch (e: any) {

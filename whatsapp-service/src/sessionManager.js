@@ -93,24 +93,40 @@ export function getBotEvents() {
 const humanPausedContacts = new Map();
 
 // ── Item 6: aguardando resposta "Portal ou PIX?" ──────────────────────────
-// Estado mínimo de 1 pergunta/1 resposta — não é o menu completo (isso vem
-// no Item 7), só resolve esse fluxo específico de confirmação de pagamento.
-const pendingPaymentClarification = new Map(); // "sessionKey:phone" -> timestamp
+// Guarda TIMESTAMP + CONTADOR de tentativas — mesmo padrão de paciência do
+// menu principal (2 tentativas, depois desiste com gentileza). Nunca fica
+// perguntando pra sempre se o cliente não conseguir responder com clareza.
+const pendingPaymentClarification = new Map(); // "sessionKey:phone" -> { updatedAt, attempts }
 const PAYMENT_CLARIFICATION_TTL_MS = 15 * 60 * 1000; // 15 minutos
 
 function markPendingPaymentClarification(sessionKey, phone) {
-  pendingPaymentClarification.set(`${sessionKey}:${phone}`, Date.now());
+  const key = `${sessionKey}:${phone}`;
+  const existing = pendingPaymentClarification.get(key);
+  const stillValid = existing && Date.now() - existing.updatedAt <= PAYMENT_CLARIFICATION_TTL_MS;
+  const attempts = stillValid ? existing.attempts + 1 : 1;
+  pendingPaymentClarification.set(key, { updatedAt: Date.now(), attempts });
 }
 
 function isPendingPaymentClarification(sessionKey, phone) {
   const key = `${sessionKey}:${phone}`;
-  const ts = pendingPaymentClarification.get(key);
-  if (!ts) return false;
-  if (Date.now() - ts > PAYMENT_CLARIFICATION_TTL_MS) {
+  const entry = pendingPaymentClarification.get(key);
+  if (!entry) return false;
+  if (Date.now() - entry.updatedAt > PAYMENT_CLARIFICATION_TTL_MS) {
     pendingPaymentClarification.delete(key); // expirou — trata como pergunta antiga, esquecida
     return false;
   }
   return true;
+}
+
+function getPaymentClarificationAttempts(sessionKey, phone) {
+  const key = `${sessionKey}:${phone}`;
+  const entry = pendingPaymentClarification.get(key);
+  if (!entry) return 0;
+  if (Date.now() - entry.updatedAt > PAYMENT_CLARIFICATION_TTL_MS) {
+    pendingPaymentClarification.delete(key);
+    return 0;
+  }
+  return entry.attempts;
 }
 
 function clearPendingPaymentClarification(sessionKey, phone) {
@@ -118,17 +134,17 @@ function clearPendingPaymentClarification(sessionKey, phone) {
 }
 
 // ── Item 7: estado de menu por contato ────────────────────────────────────
-// Substitui o histórico livre por um estado explícito de "onde o cliente
-// está" na conversa guiada:
+// Estado explícito de "onde o cliente está" na conversa guiada:
 //   null / undefined → aguardando 1ª mensagem
 //   "aguardando_resposta"   → 1ª tentativa de entender o cliente
 //   "aguardando_resposta_2" → 2ª tentativa (última — depois disso, escalona)
-//   "tecnico" / "pagamento" / "instalacao" → dentro de um submenu
+//   "tecnico" / "pagamento" / "instalacao" / "conteudo" → dentro de um submenu
 //   "geral"   → Gemini livre (TTL passivo de 2h)
 //
-// Nesta fase (Fase A), o estado só é criado/lido/expirado — ainda não
-// influencia nenhuma resposta. Isso é proposital: valida o esqueleto nos
-// logs antes de qualquer script de menu entrar em ação.
+// PRINCÍPIO GERAL DO PROJETO: o bot NUNCA deixa o cliente preso esperando
+// uma resposta que não vem. Toda pergunta tem no máximo 2 tentativas —
+// depois disso (ou de silêncio prolongado), o bot se retira com gentileza,
+// avisa que o Márcio vai continuar, e marca a conversa como não lida.
 const contactStates = new Map(); // "sessionKey:phone" -> { state, updatedAt }
 const inactivityTimers = new Map(); // "sessionKey:phone" -> timeoutId
 
@@ -140,7 +156,7 @@ const INACTIVITY_NUDGE_MS = 30 * 60 * 1000; // 30 min parado num submenu → nud
 // numa conversa livre, não faz sentido cobrar resposta.
 const STATES_WITH_NUDGE = [
   "aguardando_resposta", "aguardando_resposta_2",
-  "tecnico", "pagamento", "instalacao",
+  "tecnico", "pagamento", "instalacao", "conteudo",
 ];
 
 function getContactState(sessionKey, phone) {
@@ -188,10 +204,26 @@ function clearInactivityTimer(key) {
   }
 }
 
+// Tempo extra de espera depois do nudge, antes de desistir com gentileza
+const ESCALATION_AFTER_NUDGE_MS = 20 * 60 * 1000; // 20 minutos
+
+// Marca uma conversa como não lida diretamente pelo jid (usado quando não
+// temos o objeto de mensagem original à mão, como num timer de inatividade).
+async function markJidUnread(sessionKey, jid) {
+  const sess = sessions.get(sessionKey);
+  if (!sess?.socket || sess.status !== "connected") return;
+  try {
+    await sess.socket.chatModify({ markRead: false }, jid);
+  } catch (e) {
+    console.error(`[WA][${sessionKey.slice(0, 8)}] Erro ao marcar não lido (jid):`, e?.message);
+  }
+}
+
 // Nudge proativo — o bot puxa a conversa de volta, sem esperar o cliente.
-// ⚠️ Nesta Fase A, essa função existe mas NUNCA é chamada de verdade ainda
-// (setContactState nunca é invocada por ninguém neste momento) — só valida
-// que o código compila e está pronto pra Fase B ligar o fio.
+// ✅ Importante: NÃO cria um estado novo desconhecido (o bug antigo criava
+// "retomada_X", que o agent/route.ts nunca reconhecia e fazia a conversa
+// cair no prompt completo, sem escopo). Aqui o estado permanece o MESMO —
+// o agent continua reconhecendo normalmente se o cliente responder.
 async function sendInactivityNudge(sessionKey, phone) {
   const key = `${sessionKey}:${phone}`;
   const entry = contactStates.get(key);
@@ -206,7 +238,45 @@ async function sendInactivityNudge(sessionKey, phone) {
     return;
   }
 
-  contactStates.set(key, { state: "retomada_" + entry.state, updatedAt: Date.now() });
+  // Agenda a segunda e última checagem — se nem o nudge for respondido,
+  // o bot se retira com gentileza (nunca fica esperando pra sempre).
+  const timer = setTimeout(() => {
+    escalateAfterSilence(sessionKey, phone).catch((e) =>
+      console.error(`[MENU][${sessionKey.slice(0, 8)}] Erro ao encerrar após silêncio:`, e?.message)
+    );
+  }, ESCALATION_AFTER_NUDGE_MS);
+  inactivityTimers.set(key, timer);
+}
+
+// Última etapa quando nem o nudge foi respondido: encerra com gentileza,
+// nunca deixa o cliente esperando um bot que já desistiu. Mensagem calma,
+// assume a limitação, avisa que o Márcio segue o atendimento, e marca a
+// conversa como não lida — sem mais nenhuma pergunta ou insistência.
+async function escalateAfterSilence(sessionKey, phone) {
+  const key = `${sessionKey}:${phone}`;
+  const entry = contactStates.get(key);
+  if (!entry) return; // cliente já respondeu ou o estado já mudou — nada a fazer
+
+  const msg = "Desculpa por não conseguir te ajudar direito por aqui! 🙏 Já deixei tudo registrado e o Márcio vai continuar seu atendimento assim que possível.";
+
+  try {
+    await sendMessage(sessionKey, phone, msg);
+  } catch (e) {
+    console.error(`[MENU][${sessionKey.slice(0, 8)}] Falha ao enviar mensagem de encerramento:`, e?.message);
+  }
+
+  pauseContact(sessionKey, phone);
+  botActiveContacts.delete(`${sessionKey}:${phone}`);
+  clearContactState(sessionKey, phone);
+  await markJidUnread(sessionKey, `${phone}@s.whatsapp.net`);
+
+  emitBotEvent({
+    type: "human_takeover",
+    phone,
+    display_name: null,
+    server_name: null,
+    preview: "Cliente inativo após lembrete — encerrado com gentileza, aguardando o Márcio",
+  });
 }
 
 // Contatos que o bot já iniciou atendimento (bot respondeu ao menos 1x)
@@ -973,7 +1043,7 @@ if (isContactPaused(sessionKey, phone)) continue;
       : null;
     if (msgTimestamp && Date.now() - msgTimestamp > 3 * 60 * 1000) continue;
 
-// Debounce: aguarda 8s antes de processar — agrupa mensagens consecutivas
+// Debounce em dois estágios (30s + 15s = 45s) — agrupa mensagens consecutivas
     scheduleBotAgent(sessionKey, phone, msg);
   }
 }
@@ -1061,7 +1131,8 @@ const payload = {
     media_type: mediaType,
     mime_type: mimeType,
     conversation_history: conversationHistory,
-    awaiting_payment_type: isPendingPaymentClarification(sessionKey, phone), // ✅ Item 6
+awaiting_payment_type: isPendingPaymentClarification(sessionKey, phone), // ✅ Item 6
+    payment_clarification_attempts: getPaymentClarificationAttempts(sessionKey, phone), // ✅ Item 6
     bot_state: getContactState(sessionKey, phone), // ✅ Item 7 (Fase B)
   };
 

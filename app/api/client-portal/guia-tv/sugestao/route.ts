@@ -10,6 +10,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { notify } from "@/lib/notifications/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -292,6 +293,16 @@ export async function POST(req: NextRequest) {
     if (reqErr) {
       return NextResponse.json({ ok: false, error: "Erro ao registrar pedido" }, { status: 500, headers: NO_STORE_HEADERS });
     }
+
+    // ✅ Notifica o admin no sino — só em pedido genuinamente novo
+    await notify({
+      tenantId,
+      type: "sugestao_conteudo",
+      title: "Nova sugestão de conteúdo",
+      message: `"${nova.titulo}" (${tipo === "FILME" ? "Filme" : "Série"}, ${servidor}) foi sugerido por um cliente.`,
+      link: "/admin/gerenciador/guia-tv",
+      sourceId: nova.id,
+    });
 
     return NextResponse.json({ ok: true, created: true, titulo: nova.titulo, status: nova.status }, { headers: NO_STORE_HEADERS });
   } catch (err: any) {

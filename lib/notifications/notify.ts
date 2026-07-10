@@ -7,7 +7,8 @@ type NotificationType =
   | "manual_pending"
   | "whatsapp_falha"
   | "automacao_falha"
-  | "saldo_baixo";
+  | "saldo_baixo"
+  | "sugestao_conteudo";
 
 type NotifyParams = {
   tenantId: string;

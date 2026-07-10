@@ -105,6 +105,7 @@ function getNotifEmoji(type: string): string {
     case "transfer_aguardando": return "🏦";
     case "manual_pending": return "🟣";
     case "saldo_baixo": return "🪫";
+    case "sugestao_conteudo": return "🍿";
     default: return "🔔";
   }
 }
