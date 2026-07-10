@@ -45,7 +45,19 @@ type KnowledgeItem = {
   updated_at: string;
 };
 
-type ChatMessage = { role: "user" | "bot"; text: string };
+type ChatMessage = {
+  role: "user" | "bot";
+  text: string;
+  // ✅ Metadados de depuração — só preenchidos em mensagens do bot, mostram
+  // o que o motor de menu decidiu nessa resposta (útil pra validar cada
+  // cenário no simulador, igual você pediu).
+  meta?: {
+    action?: string;
+    next_state?: string;
+    escalate?: boolean;
+    mark_read?: boolean;
+  };
+};
 
 // ── Card de sessão WhatsApp (igual ao original) ───────────────
 function WhatsAppSessionCard({
@@ -939,6 +951,13 @@ function FloatingChat({ addToast }: { addToast: (type: "success" | "error", titl
   const [savingItem, setSavingItem] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  // ✅ Estado do menu (Item 7) — o chat-admin agora tem o mesmo comportamento
+  // completo do agent real. Sem rastrear isso aqui, cada mensagem seria
+  // tratada como se fosse sempre a primeira (menu do zero toda vez).
+  const [botState, setBotState] = useState<string | null>(null);
+  const [awaitingPaymentType, setAwaitingPaymentType] = useState(false);
+  const [paymentAttempts, setPaymentAttempts] = useState(0);
+
   useEffect(() => {
     if (!isOpen) return;
     supabaseBrowser.from("clients").select("id, display_name, whatsapp_username").eq("is_archived", false).order("display_name").limit(200)
@@ -947,7 +966,15 @@ function FloatingChat({ addToast }: { addToast: (type: "success" | "error", titl
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
-  function clearChat() { setMessages([]); setHistory([]); }
+  function clearChat() {
+    setMessages([]);
+    setHistory([]);
+    // ✅ Reseta o estado do menu — cada nova simulação começa do zero,
+    // igual a um contato novo escrevendo pela primeira vez.
+    setBotState(null);
+    setAwaitingPaymentType(false);
+    setPaymentAttempts(0);
+  }
 
   async function sendMessage() {
     if (!input.trim() || loading) return;
@@ -961,12 +988,48 @@ function FloatingChat({ addToast }: { addToast: (type: "success" | "error", titl
       const res = await fetch("/api/whatsapp/bot/chat-admin", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ message: userMsg, phone: selectedPhone || undefined, conversation_history: history }),
+        body: JSON.stringify({
+          message: userMsg,
+          phone: selectedPhone || undefined,
+          conversation_history: history,
+          bot_state: botState,
+          awaiting_payment_type: awaitingPaymentType,
+          payment_clarification_attempts: paymentAttempts,
+        }),
       });
       const json = await res.json().catch(() => ({}));
       if (json.ok && json.response) {
-        setMessages((prev) => [...prev, { role: "bot", text: json.response }]);
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "bot",
+            text: json.response,
+            meta: {
+              action: json.action,
+              next_state: json.next_state,
+              escalate: json.escalate,
+              mark_read: json.mark_read,
+            },
+          },
+        ]);
         setHistory(json.updated_history || []);
+
+        // ✅ Atualiza o estado do menu com base na decisão do backend —
+        // mesmo contrato do sessionManager.js real (__clear__ → reseta).
+        if (typeof json.next_state === "string") {
+          setBotState(json.next_state === "__clear__" ? null : json.next_state);
+        }
+
+        // ✅ Item 6: contador de tentativas de "Portal ou PIX?" — o
+        // chat-admin não tem VM guardando isso, então o front assume esse
+        // papel, incrementando a cada rodada em que a pergunta se repete.
+        if (json.action === "awaiting_payment_type") {
+          setAwaitingPaymentType(true);
+          setPaymentAttempts((prev) => prev + 1);
+        } else {
+          setAwaitingPaymentType(false);
+          setPaymentAttempts(0);
+        }
       } else {
         setMessages((prev) => [...prev, { role: "bot", text: `❌ ${json.error || "sem resposta"}` }]);
       }
@@ -1059,7 +1122,10 @@ function FloatingChat({ addToast }: { addToast: (type: "success" | "error", titl
               </div>
               <div>
                 <p className="text-xs font-semibold text-foreground">Simulador do Bot</p>
-                <p className="text-[10px] text-muted-foreground">{selectedLabel || "Modo genérico"}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {selectedLabel || "Modo genérico"}
+                  {botState ? ` · estado: ${botState}` : " · estado: (novo contato)"}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-1.5">
@@ -1110,6 +1176,14 @@ function FloatingChat({ addToast }: { addToast: (type: "success" | "error", titl
                   <div className={`px-3 py-2 rounded-xl text-[11px] whitespace-pre-wrap leading-relaxed ${msg.role === "user" ? "bg-violet-600 text-white rounded-br-sm" : "bg-muted border border-border text-foreground rounded-bl-sm"}`}>
                     {msg.text}
                   </div>
+                  {msg.role === "bot" && msg.meta && (
+                    <p className="text-[9px] text-muted-foreground/70 pl-1 font-mono">
+                      {msg.meta.action}
+                      {msg.meta.next_state ? ` → ${msg.meta.next_state}` : ""}
+                      {msg.meta.escalate ? " · 🚨 escalonado" : ""}
+                      {msg.meta.mark_read === false ? " · 📌 não lido" : ""}
+                    </p>
+                  )}
                   {msg.role === "bot" && (
                     <div className="flex gap-2 pl-1">
                       <button onClick={() => saveToKnowledge(msg.text)} disabled={savingItem === msg.text} className="text-[10px] text-muted-foreground hover:text-violet-500 transition-colors">
