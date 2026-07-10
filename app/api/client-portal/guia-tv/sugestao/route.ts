@@ -10,6 +10,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { resolveNotification } from "@/lib/notifications/notify";
 import { notify } from "@/lib/notifications/notify";
 
 export const dynamic = "force-dynamic";
@@ -353,6 +354,9 @@ export async function DELETE(req: NextRequest) {
     if (delErr) {
       return NextResponse.json({ ok: false, error: "Erro ao excluir" }, { status: 500, headers: NO_STORE_HEADERS });
     }
+
+    // ✅ Some com o alerta do sino também quando o próprio cliente exclui
+    await resolveNotification(tenantId, "sugestao_conteudo", suggestion_id);
 
     return NextResponse.json({ ok: true, deleted: true }, { headers: NO_STORE_HEADERS });
   } catch (err: any) {

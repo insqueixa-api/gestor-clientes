@@ -173,6 +173,17 @@ function getContactState(sessionKey, phone) {
   return entry.state;
 }
 
+// ✅ Além dos estados fixos, os estados dinâmicos de "qual conta?"
+// (tecnico_aguardando_conta_N, pagamento_aguardando_conta_3) também
+// precisam do nudge — sem isso, o cliente pode ficar preso nesse limbo
+// indefinidamente se sumir no meio dessa pergunta.
+function shouldScheduleNudge(state) {
+  if (STATES_WITH_NUDGE.includes(state)) return true;
+  if (/^tecnico_aguardando_conta_[1-6]$/.test(state)) return true;
+  if (state === "pagamento_aguardando_conta_3") return true;
+  return false;
+}
+
 function setContactState(sessionKey, phone, newState) {
   const key = `${sessionKey}:${phone}`;
   contactStates.set(key, { state: newState, updatedAt: Date.now() });
@@ -180,7 +191,7 @@ function setContactState(sessionKey, phone, newState) {
   // Reagenda (ou cancela) o timer de inatividade conforme o novo estado
   clearInactivityTimer(key);
 
-  if (STATES_WITH_NUDGE.includes(newState)) {
+  if (shouldScheduleNudge(newState)) {
     const timer = setTimeout(() => {
       sendInactivityNudge(sessionKey, phone).catch((e) =>
         console.error(`[MENU][${sessionKey.slice(0, 8)}] Erro ao enviar nudge de inatividade:`, e?.message)
@@ -229,12 +240,26 @@ async function sendInactivityNudge(sessionKey, phone) {
   const entry = contactStates.get(key);
   if (!entry) return; // estado já mudou (cliente respondeu, ou expirou) — nada a fazer
 
+  // Marca o "momento exato" deste estado antes de enviar — usado logo
+  // abaixo para detectar se o cliente respondeu ENQUANTO o nudge estava
+  // sendo enviado (janela rara, mas fecha o loop por completo).
+  const stateTimestampAtNudge = entry.updatedAt;
+
   const msg = "Fiquei aguardando sua resposta! 😊 Quer continuar de onde paramos, ou prefere tratar de outro assunto?";
 
   try {
     await sendMessage(sessionKey, phone, msg);
   } catch (e) {
     console.error(`[MENU][${sessionKey.slice(0, 8)}] Falha ao enviar nudge para ${phone}:`, e?.message);
+    return;
+  }
+
+  // ✅ Re-checa se o estado mudou DURANTE o envio do nudge (ex: o cliente
+  // respondeu no exato instante em que a mensagem estava em trânsito). Se
+  // mudou, não agenda a desistência — evita um timer "fantasma" que
+  // interromperia uma conversa já retomada normalmente.
+  const entryAfterSend = contactStates.get(key);
+  if (!entryAfterSend || entryAfterSend.updatedAt !== stateTimestampAtNudge) {
     return;
   }
 
@@ -995,11 +1020,16 @@ if (key.fromMe) {
         // takeover humano, ignora silenciosamente.
         continue;
       }
-      // Chegou aqui: fromMe=true mas NÃO foi enviada pela nossa API →
+// Chegou aqui: fromMe=true mas NÃO foi enviada pela nossa API →
       // você digitou manualmente no WhatsApp do celular.
       if (botActiveContacts.has(`${sessionKey}:${phone}`)) {
         pauseContact(sessionKey, phone);
         botActiveContacts.delete(`${sessionKey}:${phone}`);
+        // ✅ Limpa o estado de menu e cancela qualquer timer de inatividade
+        // pendente — sem isso, um nudge automático agendado antes da sua
+        // resposta manual podia disparar minutos depois, interrompendo
+        // sua conversa já em andamento.
+        clearContactState(sessionKey, phone);
       }
       continue;
     }
@@ -1160,6 +1190,17 @@ if (!res.ok) {
     } else {
       const responseData = await res.json().catch(() => ({}));
 
+      // ✅ Toda mensagem processada com sucesso conta como "atividade" do
+      // cliente — reagenda o timer de inatividade do estado atual mesmo
+      // quando o agente não muda o estado (ex: confirmação simples tipo
+      // "obrigado"). Sem isso, o relógio ficava contando desde a ENTRADA no
+      // estado, não desde a ÚLTIMA mensagem — podendo mandar um nudge
+      // redundante logo depois do cliente já ter respondido.
+      const currentEntry = contactStates.get(`${sessionKey}:${phone}`);
+      if (currentEntry) {
+        setContactState(sessionKey, phone, currentEntry.state);
+      }
+
       // ✅ Item 6: mantém ou limpa o estado de "aguardando resposta Portal/PIX"
       // conforme a decisão do agente nesta rodada.
       if (responseData?.action === "awaiting_payment_type") {
@@ -1265,6 +1306,13 @@ async function callBotAgentBatch(sessionKey, phone, msgs) {
 async function disconnectSession(sessionKey) {
   const sess = sessions.get(sessionKey);
   if (!sess) return false;
+
+  // ✅ Limpa os timers internos da sessão ANTES de derrubá-la — sem isso,
+  // um nameTracker (setInterval a cada 5s) ou qrTimeout ainda em andamento
+  // continuava rodando pra sempre em segundo plano, mesmo com a sessão já
+  // removida do Map (a referência sobrevive no closure).
+  if (sess.nameTracker) clearInterval(sess.nameTracker);
+  if (sess.qrTimeout) clearTimeout(sess.qrTimeout);
 
   try {
     await sess.socket?.logout();

@@ -160,11 +160,11 @@ const { error } = await supabaseAdmin
 
     if (error) throw error;
 
-    // ✅ Qualquer mudança de status tratada por você resolve o alerta do sino
-    if (update.status) {
+// ✅ Só resolve o alerta se o status saiu de PENDENTE de fato — se algum dia
+    // reabrir (voltar pra PENDENTE), o alerta deve continuar/voltar a aparecer.
+    if (update.status && update.status !== "PENDENTE") {
       await resolveNotification(tenantId, "sugestao_conteudo", id);
     }
-
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e.message }, { status: 500 });
@@ -184,7 +184,7 @@ export async function DELETE(req: NextRequest) {
     const id = String(body?.id || "");
     if (!id) return NextResponse.json({ ok: false, error: "id obrigatório" }, { status: 400 });
 
-    // content_suggestion_requests tem ON DELETE CASCADE — apaga junto
+// content_suggestion_requests tem ON DELETE CASCADE — apaga junto
     const { error } = await supabaseAdmin
       .from("content_suggestions")
       .delete()
@@ -192,6 +192,9 @@ export async function DELETE(req: NextRequest) {
       .eq("tenant_id", tenantId);
 
     if (error) throw error;
+
+    // ✅ Some com o alerta do sino junto com a sugestão excluída
+    await resolveNotification(tenantId, "sugestao_conteudo", id);
 
     return NextResponse.json({ ok: true });
   } catch (e: any) {

@@ -5,7 +5,8 @@ import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { generatePortalLink } from "@/lib/whatsapp/template-vars";
 // 🟢 Importando a Fonte Única de Verdade (Regras e Ferramentas unificadas)
-import { BOT_TOOL_DECLARATIONS, buildBotSystemPrompt, buildScopedBotSystemPrompt, toBRDateTime, type ScopedCategory } from "@/lib/whatsapp/bot-prompt";
+import { BOT_TOOL_DECLARATIONS, buildBotSystemPrompt, buildScopedBotSystemPrompt, toBRDateTime, ESCALATION_TAG, type ScopedCategory } from "@/lib/whatsapp/bot-prompt";
+
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // Vercel: máx 60s (agente pode demorar com tool calls)
@@ -916,6 +917,17 @@ if (effectiveChoice === 4) {
         await sendWAMessage(session_key, phone, msg);
         return NextResponse.json({ ok: true, action: "tecnico_descrever", mark_read: true, bot_response: msg, next_state: "tecnico", display_name: selectedClient?.display_name || null, server_name: selectedClient?.server_name || null });
       }
+      // ✅ Fallback de segurança: o submenu técnico só define opções 1-5,
+      // mas o regex de numericChoice aceita até 6 (reservado pro menu
+      // principal). Se o cliente digitar "6" aqui dentro (fora do range
+      // válido), sem este fallback o código "vazava" sem retornar — e o
+      // estado dinâmico "tecnico_aguardando_conta_6" não batia com nenhuma
+      // ScopedCategory, fazendo o bot cair no prompt COMPLETO em vez do
+      // filtrado técnico. Trata como texto livre, igual à opção 5, e
+      // reseta o estado pro "tecnico" plano (sem sufixo pendurado).
+      const msg = "Pode me contar com detalhes o que está acontecendo? 😊";
+      await sendWAMessage(session_key, phone, msg);
+      return NextResponse.json({ ok: true, action: "tecnico_opcao_invalida", mark_read: true, bot_response: msg, next_state: "tecnico", display_name: selectedClient?.display_name || null, server_name: selectedClient?.server_name || null });
     }
 
     const pagamentoContaRetry = bot_state === "pagamento_aguardando_conta_3";
@@ -1320,11 +1332,40 @@ if (!finalResponse?.trim()) {
     return NextResponse.json({ ok: true, action: "silence" });
   }
 
-await sendWAMessage(session_key, phone, finalResponse);
-return NextResponse.json({
+  // ✅ Detecta a tag de escalonamento — fecha o ciclo entre o que o Gemini
+  // "promete" (encaminhar pro Márcio, marcar como não lida) e o que o
+  // sistema de fato executa. Sem isso, o modelo dizia uma coisa e o bot
+  // continuava respondendo normalmente, contradizendo a própria mensagem.
+  const shouldEscalate = finalResponse.includes(ESCALATION_TAG);
+  const cleanResponse = shouldEscalate
+    ? finalResponse.split(ESCALATION_TAG).join("").trim()
+    : finalResponse;
+
+  // Caso raro: o modelo escalonou sem deixar nenhuma mensagem visível —
+  // usa a mensagem padrão de pedido de humano em vez de mandar texto vazio.
+  const messageToSend = cleanResponse || HUMAN_REQUESTED_MSG;
+
+  await sendWAMessage(session_key, phone, messageToSend);
+
+  if (shouldEscalate) {
+    safeLog("[BOT][agent] Escalonamento via tag detectado (decisão do Gemini)");
+    return NextResponse.json({
+      ok: true,
+      action: "escalated_gemini",
+      escalate: true,
+      mark_read: false,
+      next_state: "__clear__",
+      bot_response: messageToSend,
+      display_name: clients[0]?.display_name || null,
+      server_name: clients[0]?.server_name || null,
+      server_username: clients[0]?.server_username || null,
+    });
+  }
+
+  return NextResponse.json({
     ok: true,
     action: "responded",
-    bot_response: finalResponse,
+    bot_response: messageToSend,
     next_state: "geral", // ✅ Item 7 — depois de conversar livre, não repete o menu
     display_name: clients[0]?.display_name || null,
     server_name: clients[0]?.server_name || null,
