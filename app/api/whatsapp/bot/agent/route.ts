@@ -573,7 +573,18 @@ if (media_base64 && media_type) {
       const msg =
         `Oi ${firstName}! Recebi seu comprovante. ✅\n\nSua renovação está em análise e será concluída em breve. Qualquer dúvida é só chamar!`;
       await sendWAMessage(session_key, phone, msg);
-      return NextResponse.json({ ok: true, action: "manual_pending", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+      return NextResponse.json({ ok: true, action: "manual_pending", mark_read: true, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+    }
+
+    // ✅ Caso D (recuperado do bot-prompt.ts original): pagamento CONFIRMADO,
+    // mas a finalização automática falhou (fulfillment_status = "error").
+    // Só afirma que o pagamento foi confirmado quando ele de fato foi —
+    // o que precisa de você é só concluir a renovação manualmente.
+    if (recentPayment?.fulfillment_status === "error") {
+      const msg =
+        `Oi ${firstName}! Recebi seu comprovante. ✅\n\nSeu pagamento foi confirmado! Só tivemos uma instabilidade técnica na finalização automática, mas o Márcio já foi notificado e vai concluir sua renovação em instantes.`;
+      await sendWAMessage(session_key, phone, msg);
+      return NextResponse.json({ ok: true, action: "fulfillment_error", mark_read: false, bot_response: msg, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
     }
 
     // Caso C: Sem registro no portal — pergunta Portal ou PIX antes de decidir
@@ -733,9 +744,13 @@ if (media_base64 && media_type) {
       return NextResponse.json({ ok: true, action: `menu_${detected}`, mark_read: true, bot_response: msg, next_state: detected, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
     }
 
-    // Se já estava no menu principal (aguardando_resposta) e o cliente
-    // escolheu um número válido do menu principal
-if (bot_state === "aguardando_resposta" && numericChoice) {
+    // ✅ CORREÇÃO DE BUG CRÍTICO: número válido agora é reconhecido tanto
+    // na 1ª quanto na 2ª tentativa. Antes, só "aguardando_resposta" era
+    // aceito — se o cliente respondesse um número válido na 2ª tentativa,
+    // o bot desistia dele mesmo a resposta estando certa.
+    const isRetryState = bot_state === "aguardando_resposta" || bot_state === "aguardando_resposta_2";
+
+    if (isRetryState && numericChoice) {
       if (numericChoice === 6) {
         const msg = HUMAN_REQUESTED_MSG;
         await sendWAMessage(session_key, phone, msg);
@@ -751,42 +766,40 @@ if (bot_state === "aguardando_resposta" && numericChoice) {
         await sendWAMessage(session_key, phone, msg);
         return NextResponse.json({ ok: true, action: `menu_${mapped}`, mark_read: true, bot_response: msg, next_state: mapped, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
       }
-      // ✅ CORREÇÃO DE BUG CRÍTICO: opção 5 (Dúvidas gerais) NÃO retorna
-      // aqui. Antes, um `return` prematuro fazia a função encerrar sem
-      // nunca chamar o Gemini nem enviar mensagem nenhuma — o cliente
-      // escolhia "5" e ficava em silêncio total, sem resposta.
-      // Agora: se numericChoice === 5, simplesmente não faz nada aqui — a
-      // execução sai deste `if` e do guard logo abaixo, chegando
-      // naturalmente até o bloco do Gemini completo, no fim da função.
-    }
-
-    // ✅ O guard abaixo agora SÓ roda quando a opção 5 não foi escolhida —
-    // evita que a lógica de "1ª vez" / "2ª tentativa" / fallback trate a
-    // opção 5 (válida) como se fosse uma mensagem não compreendida.
-    if (!(bot_state === "aguardando_resposta" && numericChoice === 5)) {
-      // 1ª vez que vemos esse contato (bot_state null) → sem contexto
-      // detectado → apresenta + menu, 2 mensagens separadas
-      if (!bot_state) {
-        const msg1 = "Oi! Sou o assistente do Márcio 🤖";
-        await sendWAMessage(session_key, phone, msg1);
-        await sendWAMessage(session_key, phone, MAIN_MENU_TEXT);
-        return NextResponse.json({ ok: true, action: "menu_intro", mark_read: true, bot_response: `${msg1}\n\n${MAIN_MENU_TEXT}`, next_state: "aguardando_resposta", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-      }
-
-      // 2ª tentativa (aguardando_resposta_2) também falhou → o BOT desiste,
-      // não o cliente — usa a mensagem de falha, não a de pedido explícito.
-      if (bot_state === "aguardando_resposta_2") {
-        const msg = BOT_GAVE_UP_MSG;
+      // ✅ CORREÇÃO DE BUG CRÍTICO: opção 5 (Dúvidas gerais) agora recebe
+      // uma confirmação explícita, em vez de deixar o texto "5" (o próprio
+      // dígito da escolha) ser enviado ao Gemini como se fosse a pergunta
+      // real do cliente — isso gerava respostas confusas/de baixa
+      // qualidade, indo contra o padrão de atendimento que você exige.
+      if (numericChoice === 5) {
+        const msg = "Claro! Pode me contar sua dúvida ou o que você precisa 😊";
         await sendWAMessage(session_key, phone, msg);
-        return NextResponse.json({ ok: true, action: "escalated_menu", escalate: true, mark_read: false, bot_response: msg, next_state: "__clear__", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+        return NextResponse.json({ ok: true, action: "menu_duvidas_gerais", mark_read: true, bot_response: msg, next_state: "geral", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
       }
-
-      // 1ª tentativa (aguardando_resposta) não identificou nada e não foi
-      // número válido → pergunta de novo, reformulado (paciência com idosos)
-      const msg = `Sem pressa! Pode me contar com suas palavras o que está precisando? Por exemplo: "meu canal travou", "quero pagar" ou "preciso instalar num aparelho novo" 😊`;
-      await sendWAMessage(session_key, phone, msg);
-      return NextResponse.json({ ok: true, action: "menu_retry", mark_read: true, bot_response: msg, next_state: "aguardando_resposta_2", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
     }
+
+    // 1ª vez que vemos esse contato (bot_state null) → sem contexto
+    // detectado → apresenta + menu, 2 mensagens separadas
+    if (!bot_state) {
+      const msg1 = "Oi! Sou o assistente do Márcio 🤖";
+      await sendWAMessage(session_key, phone, msg1);
+      await sendWAMessage(session_key, phone, MAIN_MENU_TEXT);
+      return NextResponse.json({ ok: true, action: "menu_intro", mark_read: true, bot_response: `${msg1}\n\n${MAIN_MENU_TEXT}`, next_state: "aguardando_resposta", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+    }
+
+    // 2ª tentativa (aguardando_resposta_2) também falhou → o BOT desiste,
+    // não o cliente — usa a mensagem de falha, não a de pedido explícito.
+    if (bot_state === "aguardando_resposta_2") {
+      const msg = BOT_GAVE_UP_MSG;
+      await sendWAMessage(session_key, phone, msg);
+      return NextResponse.json({ ok: true, action: "escalated_menu", escalate: true, mark_read: false, bot_response: msg, next_state: "__clear__", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+    }
+
+    // 1ª tentativa (aguardando_resposta) não identificou nada e não foi
+    // número válido → pergunta de novo, reformulado (paciência com idosos)
+    const msg = `Sem pressa! Pode me contar com suas palavras o que está precisando? Por exemplo: "meu canal travou", "quero pagar" ou "preciso instalar num aparelho novo" 😊`;
+    await sendWAMessage(session_key, phone, msg);
+    return NextResponse.json({ ok: true, action: "menu_retry", mark_read: true, bot_response: msg, next_state: "aguardando_resposta_2", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
   }
 
 // ✅ Item 7 (Fase B, continuação): já dentro de um submenu
@@ -896,7 +909,13 @@ if (effectiveChoice === 4) {
         await sendWAMessage(session_key, phone, msg);
         return NextResponse.json({ ok: true, action: "tecnico_vencimento", mark_read: true, bot_response: msg, next_state: "geral", display_name: c?.display_name || null, server_name: c?.server_name || null });
       }
-      // numericChoice === 5 (descrever problema) cai pro Gemini, mais abaixo
+      // ✅ Mesma correção: "5" (descrever o problema) recebe confirmação
+      // explícita — não manda o dígito cru pro Gemini.
+      if (effectiveChoice === 5) {
+        const msg = "Pode me contar com detalhes o que está acontecendo? 😊";
+        await sendWAMessage(session_key, phone, msg);
+        return NextResponse.json({ ok: true, action: "tecnico_descrever", mark_read: true, bot_response: msg, next_state: "tecnico", display_name: selectedClient?.display_name || null, server_name: selectedClient?.server_name || null });
+      }
     }
 
     const pagamentoContaRetry = bot_state === "pagamento_aguardando_conta_3";
@@ -958,7 +977,11 @@ if (effectiveChoice === 4) {
         await sendWAMessage(session_key, phone, msg);
         return NextResponse.json({ ok: true, action: "pagamento_cancelar", mark_read: true, bot_response: msg, next_state: "geral", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
       }
-      // numericChoice === 5 cai pro Gemini, mais abaixo
+      if (!pagamentoContaRetry && numericChoice === 5) {
+        const msg = "Pode me contar mais sobre o que você precisa? 😊";
+        await sendWAMessage(session_key, phone, msg);
+        return NextResponse.json({ ok: true, action: "pagamento_outro", mark_read: true, bot_response: msg, next_state: "pagamento", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+      }
     }
 
     if (bot_state === "instalacao" && numericChoice) {
@@ -982,7 +1005,11 @@ if (effectiveChoice === 4) {
         await sendWAMessage(session_key, phone, msg);
         return NextResponse.json({ ok: true, action: "instalacao_reconfigurar", mark_read: true, bot_response: msg, next_state: "instalacao", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
       }
-      // numericChoice === 5 cai pro Gemini, mais abaixo
+      if (numericChoice === 5) {
+        const msg = "Pode me contar mais sobre o que você precisa? 😊";
+        await sendWAMessage(session_key, phone, msg);
+        return NextResponse.json({ ok: true, action: "instalacao_outro", mark_read: true, bot_response: msg, next_state: "instalacao", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+      }
     }
 
 // Texto livre dentro do submenu (ou opção 5) — por ora usa o Gemini
