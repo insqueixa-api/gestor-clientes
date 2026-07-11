@@ -58,7 +58,7 @@ export async function POST(req: Request) {
   const { action } = body;
 
   if (action === "create_node") {
-    const { parent_id, slug, option_number, label, keywords, requires_account_check, special_action } = body;
+    const { parent_id, slug, option_number, label, keywords, requires_account_check, special_actions } = body;
     const { data, error } = await sb
       .from("bot_menu_nodes")
       .insert({
@@ -69,7 +69,7 @@ export async function POST(req: Request) {
         label,
         keywords: keywords || [],
         requires_account_check: !!requires_account_check,
-        special_action: special_action || null,
+        special_actions: special_actions || [],
       })
       .select().single();
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });

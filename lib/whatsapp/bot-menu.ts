@@ -209,7 +209,7 @@ export type MenuNode = {
   label: string;
   keywords: string[];
   requires_account_check: boolean;
-  special_action: string | null;
+  special_actions: string[];
   closing_message: string | null;
   transfer_situation_label: string | null;
 };
