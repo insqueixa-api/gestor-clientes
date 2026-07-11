@@ -199,4 +199,68 @@ export const PAYMENT_MANUAL_PENDING_MSG =
 export const PAYMENT_FULFILLMENT_ERROR_MSG =
   "Encontrei seu pagamento aqui — está confirmado! ✅ Só tivemos uma instabilidade técnica na finalização automática, mas o Márcio já foi notificado e vai concluir sua renovação em instantes.";
 
-  
+  // ── Motor genérico da árvore de menu (dados no banco, editável pelo painel) ──
+
+export type MenuNode = {
+  id: string;
+  parent_id: string | null;
+  slug: string | null;
+  option_number: number;
+  label: string;
+  keywords: string[];
+  requires_account_check: boolean;
+  special_action: string | null;
+  closing_message: string | null;
+  transfer_situation_label: string | null;
+};
+
+export async function getRootNodeBySlug(sb: any, tenantId: string, slug: string): Promise<MenuNode | null> {
+  const { data } = await sb
+    .from("bot_menu_nodes")
+    .select("*")
+    .eq("tenant_id", tenantId).eq("slug", slug).eq("is_active", true)
+    .maybeSingle();
+  return data || null;
+}
+
+export async function getNodeById(sb: any, nodeId: string): Promise<MenuNode | null> {
+  const { data } = await sb.from("bot_menu_nodes").select("*").eq("id", nodeId).maybeSingle();
+  return data || null;
+}
+
+export async function getChildren(sb: any, parentId: string): Promise<MenuNode[]> {
+  const { data } = await sb
+    .from("bot_menu_nodes")
+    .select("*")
+    .eq("parent_id", parentId).eq("is_active", true)
+    .order("option_number", { ascending: true });
+  return data || [];
+}
+
+export async function getSteps(sb: any, nodeId: string): Promise<string[]> {
+  const { data } = await sb
+    .from("bot_menu_steps")
+    .select("message_text")
+    .eq("node_id", nodeId)
+    .order("step_order", { ascending: true });
+  return (data || []).map((s: any) => s.message_text);
+}
+
+export function renderChildrenMenu(children: MenuNode[]): string {
+  const NUMBER_EMOJI = ["0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"];
+  return "Entendido! Me conta mais:\n" + children
+    .map((c) => `${NUMBER_EMOJI[c.option_number] || c.option_number} ${c.label}`)
+    .join("\n");
+}
+
+export function findChildByNumber(children: MenuNode[], num: number): MenuNode | null {
+  return children.find((c) => c.option_number === num) || null;
+}
+
+export function findChildByKeyword(children: MenuNode[], text: string): MenuNode | null {
+  const t = text.toLowerCase();
+  return children.find((c) => (c.keywords || []).some((k) => t.includes(k.toLowerCase()))) || null;
+}
+
+export const RESOLUTION_QUESTION =
+  "Vou deixar as opções aqui: responda **1** se resolveu, ou **2** se ainda está com o problema.";

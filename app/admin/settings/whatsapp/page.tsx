@@ -11,6 +11,9 @@ import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications
 import { useConfirm } from "@/app/admin/HookuseConfirm";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { getCurrentTenantId } from "@/lib/tenant";
+import BotMenuTreeEditor from "@/app/components/whatsapp/BotMenuTreeEditor";
+
+
 
 // ── Ícone WhatsApp ────────────────────────────────────────────
 function WhatsAppIcon({ className }: { className?: string }) {
@@ -1261,7 +1264,16 @@ export default function WhatsAppPage() {
         <WhatsAppSessionCard label="Sessão 2" apiSuffix="2" addToast={addToast} />
       </div>
 
-      {/* Base de Conhecimento RAG */}
+{/* Árvore de Atendimento — menu guiado, editável, sem depender do Gemini */}
+      <div className="bg-card border border-border rounded-2xl p-4 sm:p-5">
+        <div className="mb-4">
+          <h2 className="text-sm font-semibold text-foreground">Árvore de Atendimento</h2>
+          <p className="text-xs text-muted-foreground mt-1">Menus, submenus e respostas cadastradas — cobre a maior parte dos atendimentos sem gastar tokens do Gemini.</p>
+        </div>
+        <BotMenuTreeEditor />
+      </div>
+
+      {/* Base de Conhecimento RAG — fallback para perguntas fora da árvore */}
       <KnowledgeBase addToast={addToast} />
 
       {/* Chat flutuante */}

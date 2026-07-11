@@ -29,6 +29,18 @@ import {
   isGratitudeOrGreetingOnly,
   POSTPONEMENT_INTENT,
   PROBLEM_KEYWORDS,
+  checkRecentPortalPayment,
+  paymentAutoConfirmedMsg,
+  PAYMENT_MANUAL_PENDING_MSG,
+  PAYMENT_FULFILLMENT_ERROR_MSG,
+  getRootNodeBySlug,
+  getNodeById,
+  getChildren,
+  getSteps,
+  renderChildrenMenu,
+  findChildByNumber,
+  findChildByKeyword,
+  RESOLUTION_QUESTION,
 } from "@/lib/whatsapp/bot-menu";
 import { callGemini, generateEmbedding, searchBotKnowledge } from "@/lib/whatsapp/gemini-client";
 
@@ -296,10 +308,19 @@ export async function POST(req: Request) {
   }
 
   // ── Item 7: roteamento por estado de menu ───────────────────────────────
-  if (!bot_state || bot_state === "aguardando_resposta" || bot_state === "aguardando_resposta_2") {
+if (!bot_state || bot_state === "aguardando_resposta" || bot_state === "aguardando_resposta_2") {
     const detected = detectMenuContext(trimmed);
 
-    if (detected) {
+    // ✅ "conteudo" é diferente dos outros: não tem opções numeradas de
+    // verdade, é sempre uma pergunta aberta (que canal, que filme, etc).
+    // Em vez de responder sempre com o texto genérico do portal, deixa o
+    // Gemini TENTAR responder de verdade (prompt filtrado da categoria),
+    // e só cai no texto fixo se o Gemini não conseguir resolver.
+    if (detected === "conteudo") {
+      // Não retorna aqui — segue o fluxo normal mais abaixo (RAG + Gemini
+      // com prompt filtrado), só marcando o estado antecipadamente.
+      body.bot_state = "conteudo"; // repassa pro isScoped calcular certo lá embaixo
+    } else if (detected) {
       send(submenuTextFor(detected));
       return finish({ action: `menu_${detected}`, mark_read: true, next_state: detected });
     }
@@ -435,6 +456,23 @@ export async function POST(req: Request) {
 
     if ((bot_state === "pagamento" && numericChoice) || pagamentoContaRetry) {
       if (!pagamentoContaRetry && numericChoice === 1) {
+        // ✅ Checa o sistema ANTES de pedir comprovante — se já tiver um
+        // pagamento recente registrado, resolve na hora, sem burocracia.
+        const status = await checkRecentPortalPayment(sb, tenantId, clients.map((c: any) => c.id));
+
+        if (status === "auto_confirmed") {
+          send(paymentAutoConfirmedMsg(firstName));
+          return finish({ action: "pagamento_auto_confirmed", mark_read: true, next_state: "geral" });
+        }
+        if (status === "manual_pending") {
+          send(PAYMENT_MANUAL_PENDING_MSG);
+          return finish({ action: "pagamento_manual_pending", mark_read: true, next_state: "geral" });
+        }
+        if (status === "fulfillment_error") {
+          send(PAYMENT_FULFILLMENT_ERROR_MSG);
+          return finish({ action: "pagamento_fulfillment_error", mark_read: false, next_state: "geral" });
+        }
+
         send("Pode me mandar o comprovante por aqui, ou me contar quando fez o pagamento, que eu já verifico! 📄");
         return finish({ action: "pagamento_aguardando_comprovante", mark_read: true, next_state: "pagamento" });
       }
@@ -606,11 +644,12 @@ export async function POST(req: Request) {
   const agoraSP = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", hour12: false });
 
   // ── Prompt: filtrado por categoria (se dentro de submenu) ou completo ───
+const effectiveBotState = body.bot_state || bot_state; // ✅ pega o "conteudo" forçado acima, se houver
   const scopedCategories: ScopedCategory[] = ["tecnico", "pagamento", "instalacao", "conteudo"];
-  const isScoped = scopedCategories.includes(bot_state as ScopedCategory);
+  const isScoped = scopedCategories.includes(effectiveBotState as ScopedCategory);
 
-  const promptBase = isScoped
-    ? buildScopedBotSystemPrompt(bot_state as ScopedCategory, clients, templatesText, { historicoRecente, agoraSP })
+const promptBase = isScoped
+    ? buildScopedBotSystemPrompt(effectiveBotState as ScopedCategory, clients, templatesText, { historicoRecente, agoraSP })
     : buildBotSystemPrompt(clients, templatesText, { isTest: true, historicoRecente, agoraSP });
 
   const systemPrompt = promptBase + "\n\nREGRA DE MÍDIA: Se o cliente mencionar que enviou foto, comprovante ou imagem mas você não recebeu o conteúdo visual, responda: 'Recebi sua mensagem! Para comprovantes de pagamento, você pode renovar direto pelo portal que é automático — ou se preferir, o Márcio vai conferir assim que possível. 😊' Nunca peça para reenviar a imagem.";
@@ -696,13 +735,13 @@ export async function POST(req: Request) {
 
   const updatedHistory = [...contents, { role: "model", parts: [{ text: messageToSend }] }];
 
-  return NextResponse.json({
+return NextResponse.json({
     ok: true,
     response: messageToSend,
     updated_history: updatedHistory,
     action: shouldEscalate ? "escalated_gemini" : "responded",
     escalate: shouldEscalate,
     mark_read: shouldEscalate ? false : undefined,
-    next_state: shouldEscalate ? "__clear__" : "geral",
+    next_state: shouldEscalate ? "__clear__" : (effectiveBotState === "conteudo" ? "conteudo" : "geral"),
   });
 }
