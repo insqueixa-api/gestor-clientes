@@ -33,6 +33,7 @@ const SPECIAL_ACTIONS = [
   { value: "consultar_precos", label: "💰 Consultar tabela de preços", desc: "Disponibiliza a variável {tabela_precos}." },
   { value: "recomendar_app", label: "📱 Recomendar aplicativo", desc: "Disponibiliza a variável {apps_recomendados}." },
   { value: "free_text_rag", label: "✨ Texto livre → RAG", desc: "Fallback: busca no bot_knowledge quando nada mais se aplica." },
+  { value: "escalar_imediatamente", label: "🙋 Escalar imediatamente", desc: "Transfere pro Márcio na hora, sem mostrar opções nem passos." },
 ];
 
 // Reaproveita o mesmo conjunto de variáveis da página de mensagens, filtrado
