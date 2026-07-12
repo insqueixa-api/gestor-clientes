@@ -334,6 +334,32 @@ export function isResolutionNotResolved(text: string): boolean {
   return text.split("\n").some((line) => RESOLUTION_NOT_RESOLVED_RE.test(line.trim()));
 }
 
+// ✅ Objeção mais comum (na prática, ~99% dos casos) quando o cliente é
+// perguntado "resolveu ou não" depois de um reset: "mas minha internet está
+// boa" ou "mas o Netflix/YouTube funciona normal". Sem tratamento
+// específico, isso caía no "não entendi, responda 1 ou 2" — repetindo a
+// pergunta sem nunca explicar POR QUE o reset ainda é o caminho certo
+// mesmo com a internet "boa" (cache preso no modem/TV) e por que comparar
+// com Netflix/YouTube não vale (eles se adaptam à conexão automaticamente;
+// IPTV precisa de conexão 100% estável o tempo todo — não é a mesma coisa).
+const CONNECTIVITY_OBJECTION_RE =
+  /\b(minha\s+)?(internet|wi-?fi|wifi|conex[aã]o|net)\b[^.!?\n]{0,25}\b(boa|est[aá]vel|ok|normal|forte|r[aá]pida|funcionando)\b|\b(netflix|youtube|prime\s*video|disney\+?|globoplay)\b[^.!?\n]{0,25}\b(funciona|funcionando|abre|abrindo|normal)\b/i;
+
+export function isConnectivityObjection(text: string): boolean {
+  return CONNECTIVITY_OBJECTION_RE.test(text);
+}
+
+export const CONNECTIVITY_OBJECTION_MSG =
+  "Entendo! 😊 Mas mesmo com a internet boa, às vezes fica um cache preso no modem ou na TV que só o reset resolve — cerca de 99% dos casos voltam a funcionar só com esse processo. E sobre Netflix/YouTube funcionando normal: eles se adaptam à conexão automaticamente, por isso não travam fácil — já o IPTV precisa de conexão 100% estável o tempo todo, são sistemas bem diferentes. Vale muito a pena fazer o reset completo (desligar modem e TV da tomada por 5 minutos) antes de mais alguma coisa. Consegue tentar? 🙏";
+
+// ✅ Se a mesma objeção ("internet tá boa"/"Netflix funciona") aparecer de
+// novo depois da explicação acima, repetir a mesma mensagem soa como o bot
+// "não escutando" o cliente. Essa segunda versão reformula, é mais direta
+// (menos explicação, mais pedido) e já deixa claro o que fazer se o reset
+// não resolver — evita ficar girando em círculo com a mesma resposta.
+export const CONNECTIVITY_OBJECTION_INSISTENT_MSG =
+  "Compreendo! 🙏 Mas esse procedimento é bem importante mesmo assim — ele é sempre o primeiro passo pra resolver qualquer problema desse tipo. Por favor, desconecte o modem e a TV da tomada por uns 5 minutinhos e teste de novo. Se mesmo assim não funcionar, volta aqui e me conta que aí o Márcio já entra pra te ajudar direto! 😊";
+
 // ── Detecção de categoria a partir da árvore (Fase 1 do motor) ───────────────
 
 export async function getRootNodes(sb: any, tenantId: string, provider?: ServerProvider | null): Promise<MenuNode[]> {

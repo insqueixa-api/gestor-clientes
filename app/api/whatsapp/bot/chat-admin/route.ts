@@ -36,6 +36,9 @@ import {
   RESOLUTION_QUESTION,
   isResolutionResolved,
   isResolutionNotResolved,
+  isConnectivityObjection,
+  CONNECTIVITY_OBJECTION_MSG,
+  CONNECTIVITY_OBJECTION_INSISTENT_MSG,
   isConfirmSwitchYes,
   resolveClientProvider,
   pickCompatibleSemanticMatch,
@@ -342,11 +345,16 @@ export async function POST(req: Request) {
       const origin = await getNodeById(sb, originId);
       return `Confirmando troca para: ${target?.label || "nó removido"} (estava em: ${origin?.label || "nó removido"})`;
     }
-    const m = /^(menunode_retry|menunode|conta|awaiting_resolution):([a-f0-9-]+)$/.exec(nextState);
+    const m = /^(menunode_retry|menunode|conta|awaiting_resolution_retry|awaiting_resolution):([a-f0-9-]+)$/.exec(nextState);
     if (m) {
       const node = await getNodeById(sb, m[2]);
       const label = node?.label || "nó removido";
-      const prefix = m[1] === "menunode" ? "Dentro de" : m[1] === "menunode_retry" ? "Dentro de (2ª tentativa)" : m[1] === "conta" ? "Perguntando qual conta em" : "Aguardando se resolveu em";
+      const prefix =
+        m[1] === "menunode" ? "Dentro de"
+        : m[1] === "menunode_retry" ? "Dentro de (2ª tentativa)"
+        : m[1] === "conta" ? "Perguntando qual conta em"
+        : m[1] === "awaiting_resolution_retry" ? "Aguardando se resolveu (após objeção) em"
+        : "Aguardando se resolveu em";
       return `${prefix}: ${label}`;
     }
     return nextState;
@@ -538,8 +546,11 @@ export async function POST(req: Request) {
 
   // ── Estado: aguardando "resolveu ou não" ─────────────────────────────────
   const resolutionMatch = /^awaiting_resolution:([a-f0-9-]+)$/.exec(bot_state || "");
-  if (resolutionMatch) {
-    const node = await getNodeById(sb, resolutionMatch[1]);
+  const resolutionRetryMatch = /^awaiting_resolution_retry:([a-f0-9-]+)$/.exec(bot_state || "");
+  if (resolutionMatch || resolutionRetryMatch) {
+    const nodeId = (resolutionMatch || resolutionRetryMatch)![1];
+    const alreadyObjected = !!resolutionRetryMatch;
+    const node = await getNodeById(sb, nodeId);
     if (isResolutionResolved(trimmed)) {
       send(node?.closing_message || "Que bom! Fico feliz que resolveu 😊");
       return finish({ action: "resolvido", mark_read: true, next_state: "geral" });
@@ -548,6 +559,17 @@ export async function POST(req: Request) {
       safeLog("[BOT][chat-admin] Transferência:", node?.transfer_situation_label);
       send(BOT_GAVE_UP_MSG);
       return finish({ action: "nao_resolvido_escalado", escalate: true, mark_read: false, next_state: "__clear__", transfer_reason: node?.transfer_situation_label || null });
+    }
+    // ✅ Objeção mais comum na prática (mesma correção do agent/route.ts):
+    // "mas minha internet está boa" ou "mas Netflix/YouTube funciona
+    // normal" — a 2ª vez em diante usa uma versão mais direta e insistente
+    // em vez de repetir a mesma explicação.
+    if (isConnectivityObjection(trimmed)) {
+      const msg = alreadyObjected
+        ? CONNECTIVITY_OBJECTION_INSISTENT_MSG
+        : `${CONNECTIVITY_OBJECTION_MSG}\n\n${RESOLUTION_QUESTION}`;
+      send(msg);
+      return finish({ action: "resolution_objection", mark_read: true, next_state: `awaiting_resolution_retry:${nodeId}` });
     }
     send(RESOLUTION_QUESTION);
     return finish({ action: "resolution_retry", mark_read: true, next_state: bot_state });

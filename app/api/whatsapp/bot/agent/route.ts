@@ -40,6 +40,9 @@ import {
   RESOLUTION_QUESTION,
   isResolutionResolved,
   isResolutionNotResolved,
+  isConnectivityObjection,
+  CONNECTIVITY_OBJECTION_MSG,
+  CONNECTIVITY_OBJECTION_INSISTENT_MSG,
   isConfirmSwitchYes,
   resolveClientProvider,
   pickCompatibleSemanticMatch,
@@ -651,8 +654,11 @@ const msg = askAccountMessage();
 
   // ── Estado: aguardando "resolveu ou não" ─────────────────────────────────
   const resolutionMatch = /^awaiting_resolution:([a-f0-9-]+)$/.exec(bot_state || "");
-  if (resolutionMatch) {
-    const node = await getNodeById(sb, resolutionMatch[1]);
+  const resolutionRetryMatch = /^awaiting_resolution_retry:([a-f0-9-]+)$/.exec(bot_state || "");
+  if (resolutionMatch || resolutionRetryMatch) {
+    const nodeId = (resolutionMatch || resolutionRetryMatch)![1];
+    const alreadyObjected = !!resolutionRetryMatch;
+    const node = await getNodeById(sb, nodeId);
     if (isResolutionResolved(trimmed)) {
       const msg = node?.closing_message || "Que bom! Fico feliz que resolveu 😊";
       await sendWAMessage(session_key, phone, msg);
@@ -664,6 +670,19 @@ const msg = askAccountMessage();
       // ✅ transfer_situation_label agora viaja até o evento do Monitor
       // (sessionManager.js) em vez de morrer só no safeLog.
       return NextResponse.json({ ok: true, action: "nao_resolvido_escalado", escalate: true, mark_read: false, bot_response: BOT_GAVE_UP_MSG, next_state: "__clear__", transfer_reason: node?.transfer_situation_label || null, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+    }
+    // ✅ Objeção mais comum na prática: "mas minha internet está boa" ou
+    // "mas Netflix/YouTube funciona normal" — antes caía direto no
+    // "responda 1 ou 2" sem nunca explicar por que o reset continua sendo
+    // o caminho certo mesmo assim. Se a MESMA objeção voltar depois dessa
+    // explicação, repetir a mesma mensagem soa como o bot não escutando —
+    // a 2ª vez em diante usa uma versão mais direta e insistente.
+    if (isConnectivityObjection(trimmed)) {
+      const msg = alreadyObjected
+        ? CONNECTIVITY_OBJECTION_INSISTENT_MSG
+        : `${CONNECTIVITY_OBJECTION_MSG}\n\n${RESOLUTION_QUESTION}`;
+      await sendWAMessage(session_key, phone, msg);
+      return NextResponse.json({ ok: true, action: "resolution_objection", mark_read: true, bot_response: msg, next_state: `awaiting_resolution_retry:${nodeId}`, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
     }
     await sendWAMessage(session_key, phone, RESOLUTION_QUESTION);
     return NextResponse.json({ ok: true, action: "resolution_retry", mark_read: true, bot_response: RESOLUTION_QUESTION, next_state: bot_state, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
