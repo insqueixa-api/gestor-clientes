@@ -24,6 +24,8 @@ import {
   PAYMENT_FULFILLMENT_ERROR_MSG,
   detectMenuContextFromTree,
   getAllRootsAsMenuText,
+  getRootNodes,
+  findRootByNumber,
   getNodeById,
   getChildren,
   getSteps,
@@ -36,7 +38,7 @@ import {
   RESOLUTION_RESOLVED,
   RESOLUTION_NOT_RESOLVED,
 } from "@/lib/whatsapp/bot-menu";
-import { callGemini, generateEmbedding, searchBotKnowledgeTop, classifyIsAcknowledgment } from "@/lib/whatsapp/gemini-client";
+import { callGemini, generateEmbedding, searchBotKnowledgeTop, searchMenuIntentTop, classifyIsAcknowledgment } from "@/lib/whatsapp/gemini-client";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -611,7 +613,7 @@ const msg = askAccountMessage();
 
     if (chosen) return enterNode(chosen, null, 1);
 
-    const msg = `Não entendi — pode escolher uma das opções acima, por favor? 😊\n\n${renderChildrenMenu(children)}`;
+    const msg = renderChildrenMenu(children, "Não entendi — pode escolher uma das opções abaixo, por favor? 😊");
     await sendWAMessage(session_key, phone, msg);
     return NextResponse.json({ ok: true, action: "menu_retry", mark_read: true, bot_response: msg, next_state: bot_state, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
   }
@@ -719,8 +721,33 @@ const msg = askAccountMessage();
   }
 
   // ── Primeira mensagem / paciência de 2 tentativas ────────────────────────
+  // ✅ Seleção por número no menu raiz — antes só funcionava dentro de
+  // submenus. Checada primeiro por ser a via mais barata e sem ambiguidade
+  // nenhuma: nem precisa de palavra-chave, nem de Gemini.
+  if (/^[1-9]$/.test(trimmed)) {
+    const roots = await getRootNodes(sb, tenant_id);
+    const chosenRoot = findRootByNumber(roots, trimmed);
+    if (chosenRoot) return enterNode(chosenRoot, null, 1);
+  }
+
   const detected = await detectMenuContextFromTree(sb, tenant_id, trimmed);
   if (detected) return enterNode(detected, null, 1);
+
+  // ✅ Fallback semântico: nenhuma palavra-chave bateu — antes de desistir/
+  // mostrar o menu genérico, tenta por SIGNIFICADO (embedding) contra os
+  // nós raiz. Cobre frases naturais como "estou com problemas na minha tv,
+  // pode me ajudar?", que não contém nenhuma palavra-chave exata cadastrada
+  // mas claramente significa "Problema técnico".
+  try {
+    const embedding = await generateEmbedding(geminiKey, trimmed);
+    const semanticMatch = embedding ? await searchMenuIntentTop(sb, tenant_id, embedding) : null;
+    if (semanticMatch) {
+      const node = await getNodeById(sb, semanticMatch.id);
+      if (node) return enterNode(node, null, 1);
+    }
+  } catch (e: any) {
+    safeLog("[BOT][agent] Erro na detecção semântica de categoria:", e?.message);
+  }
 
   if (bot_state === "aguardando_resposta_2") {
     await sendWAMessage(session_key, phone, BOT_GAVE_UP_MSG);
@@ -729,13 +756,17 @@ const msg = askAccountMessage();
 
   if (!bot_state || bot_state === "aguardando_resposta") {
     if (!bot_state) {
-      const msg1 = "Oi! Sou o assistente do Márcio 🤖";
+      const msg1 = "Olá! 😊 Sou o assistente do Márcio. Me diga, como posso te ajudar?";
       await sendWAMessage(session_key, phone, msg1);
       const menuMsg = await getAllRootsAsMenuText(sb, tenant_id);
       await sendWAMessage(session_key, phone, menuMsg);
       return NextResponse.json({ ok: true, action: "menu_intro", mark_read: true, bot_response: `${msg1}\n\n${menuMsg}`, next_state: "aguardando_resposta", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
     }
-    const msg = `Sem pressa! Pode me contar com suas palavras o que está precisando? 😊`;
+    // ✅ Reforça a seleção por número (em vez de convidar texto livre, que
+    // dispararia o fallback semântico à toa) e mostra o menu de novo, caso
+    // o cliente tenha perdido a lista original.
+    const retryMenu = await getAllRootsAsMenuText(sb, tenant_id);
+    const msg = `Sem pressa! 😊 ${retryMenu}`;
     await sendWAMessage(session_key, phone, msg);
     return NextResponse.json({ ok: true, action: "menu_retry", mark_read: true, bot_response: msg, next_state: "aguardando_resposta_2", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
   }

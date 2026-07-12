@@ -150,7 +150,12 @@ export async function getSteps(sb: any, nodeId: string): Promise<string[]> {
   return (data || []).map((s: any) => s.message_text);
 }
 
-export function renderChildrenMenu(children: MenuNode[]): string {
+// ✅ "intro" é configurável: "Entendido! Me conta mais:" só faz sentido quando
+// o cliente JÁ disse algo que bateu com uma categoria (ex: "problema técnico")
+// e o bot está confirmando entendimento antes de aprofundar. No primeiro
+// contato (getAllRootsAsMenuText) nada foi dito ainda — usar essa mesma frase
+// lá soava como o bot "entendendo" uma saudação qualquer, sem sentido nenhum.
+export function renderChildrenMenu(children: MenuNode[], intro: string = "Entendido! Me conta mais:"): string {
   const NUMBER_EMOJI = ["0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"];
   // ✅ "0" é o atalho reservado (ex: Assuntos Pessoais / falar com humano) —
   // sempre exibido por último na lista, mesmo sendo o menor número.
@@ -159,7 +164,7 @@ export function renderChildrenMenu(children: MenuNode[]): string {
     if (b.option_number === 0) return -1;
     return a.option_number - b.option_number;
   });
-  return "Entendido! Me conta mais:\n" + ordered
+  return `${intro}\n` + ordered
     .map((c) => `${NUMBER_EMOJI[c.option_number] || c.option_number} ${c.label}`)
     .join("\n");
 }
@@ -181,25 +186,37 @@ export const RESOLUTION_NOT_RESOLVED = /^(2|não|nao|não resolveu|nao resolveu|
 
 // ── Detecção de categoria a partir da árvore (Fase 1 do motor) ───────────────
 
-export async function detectMenuContextFromTree(sb: any, tenantId: string, text: string): Promise<MenuNode | null> {
+export async function getRootNodes(sb: any, tenantId: string): Promise<MenuNode[]> {
   const { data: roots } = await sb
     .from("bot_menu_nodes")
     .select("*")
     .eq("tenant_id", tenantId).is("parent_id", null).eq("is_active", true)
     .order("option_number", { ascending: true });
+  return roots || [];
+}
 
-  if (!roots?.length) return null;
+// ✅ Seleção por número no menu raiz — antes só existia dentro de submenus
+// (findChildByNumber). O menu principal sempre mostrou números (1️⃣, 2️⃣...)
+// mas digitar "1" nunca selecionava nada na prática, porque nada chamava
+// findChildByNumber pra ele. Checado ANTES de palavra-chave/semântica de
+// propósito: é a via mais barata e sem ambiguidade — não precisa gastar
+// Gemini pra saber que "1" significa a primeira opção.
+export function findRootByNumber(roots: MenuNode[], text: string): MenuNode | null {
+  const numeric = /^[1-9]$/.test(text.trim()) ? Number(text.trim()) : null;
+  if (numeric === null) return null;
+  return findChildByNumber(roots, numeric);
+}
+
+export async function detectMenuContextFromTree(sb: any, tenantId: string, text: string): Promise<MenuNode | null> {
+  const roots = await getRootNodes(sb, tenantId);
+  if (!roots.length) return null;
   const t = text.toLowerCase();
   return roots.find((r: any) => (r.keywords || []).some((k: string) => t.includes(k.toLowerCase()))) || null;
 }
 
 export async function getAllRootsAsMenuText(sb: any, tenantId: string): Promise<string> {
-  const { data: roots } = await sb
-    .from("bot_menu_nodes")
-    .select("*")
-    .eq("tenant_id", tenantId).is("parent_id", null).eq("is_active", true)
-    .order("option_number", { ascending: true });
-  return renderChildrenMenu(roots || []);
+  const roots = await getRootNodes(sb, tenantId);
+  return renderChildrenMenu(roots, "Escolha uma das opções abaixo, digitando o número correspondente:");
 }
 
 // ── Resolução de conta (múltiplas contas) ────────────────────────────────────

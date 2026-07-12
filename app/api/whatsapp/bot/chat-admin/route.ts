@@ -20,6 +20,8 @@ import {
   PAYMENT_FULFILLMENT_ERROR_MSG,
   detectMenuContextFromTree,
   getAllRootsAsMenuText,
+  getRootNodes,
+  findRootByNumber,
   getNodeById,
   getChildren,
   getSteps,
@@ -32,7 +34,7 @@ import {
   RESOLUTION_RESOLVED,
   RESOLUTION_NOT_RESOLVED,
 } from "@/lib/whatsapp/bot-menu";
-import { generateEmbedding, searchBotKnowledgeTop, classifyIsAcknowledgment } from "@/lib/whatsapp/gemini-client";
+import { generateEmbedding, searchBotKnowledgeTop, searchMenuIntentTop, classifyIsAcknowledgment } from "@/lib/whatsapp/gemini-client";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -493,7 +495,7 @@ export async function POST(req: Request) {
 
     if (chosen) return enterNode(chosen, null, 1);
 
-    send(`Não entendi — pode escolher uma das opções acima, por favor? 😊\n\n${renderChildrenMenu(children)}`);
+    send(renderChildrenMenu(children, "Não entendi — pode escolher uma das opções abaixo, por favor? 😊"));
     return finish({ action: "menu_retry", mark_read: true, next_state: bot_state });
   }
 
@@ -531,8 +533,29 @@ export async function POST(req: Request) {
   }
 
   // ── Primeira mensagem / paciência de 2 tentativas ────────────────────────
+  // ✅ Seleção por número no menu raiz — mesma correção do agent/route.ts.
+  if (/^[1-9]$/.test(trimmed)) {
+    const roots = await getRootNodes(sb, tenantId);
+    const chosenRoot = findRootByNumber(roots, trimmed);
+    if (chosenRoot) return enterNode(chosenRoot, null, 1);
+  }
+
   const detected = await detectMenuContextFromTree(sb, tenantId, trimmed);
   if (detected) return enterNode(detected, null, 1);
+
+  // ✅ Fallback semântico — mesma correção do agent/route.ts. Nenhuma
+  // palavra-chave bateu, tenta por significado (embedding) antes de
+  // desistir/mostrar o menu genérico.
+  try {
+    const embedding = await generateEmbedding(geminiKey, trimmed);
+    const semanticMatch = embedding ? await searchMenuIntentTop(sb, tenantId, embedding) : null;
+    if (semanticMatch) {
+      const node = await getNodeById(sb, semanticMatch.id);
+      if (node) return enterNode(node, null, 1);
+    }
+  } catch (e: any) {
+    safeLog("[BOT][chat-admin] Erro na detecção semântica de categoria:", e?.message);
+  }
 
   if (bot_state === "aguardando_resposta_2") {
     send(BOT_GAVE_UP_MSG);
@@ -541,11 +564,14 @@ export async function POST(req: Request) {
 
   if (!bot_state || bot_state === "aguardando_resposta") {
     if (!bot_state) {
-      send("Oi! Sou o assistente do Márcio 🤖");
+      send("Olá! 😊 Sou o assistente do Márcio. Me diga, como posso te ajudar?");
       send(await getAllRootsAsMenuText(sb, tenantId));
       return finish({ action: "menu_intro", mark_read: true, next_state: "aguardando_resposta" });
     }
-    send(`Sem pressa! Pode me contar com suas palavras o que está precisando? 😊`);
+    // ✅ Reforça a seleção por número (em vez de convidar texto livre, que
+    // dispararia o fallback semântico à toa) e mostra o menu de novo, caso
+    // o cliente tenha perdido a lista original.
+    send(`Sem pressa! 😊 ${await getAllRootsAsMenuText(sb, tenantId)}`);
     return finish({ action: "menu_retry", mark_read: true, next_state: "aguardando_resposta_2" });
   }
 

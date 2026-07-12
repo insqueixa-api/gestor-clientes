@@ -104,6 +104,35 @@ export async function searchBotKnowledgeTop(
     return null;
   }
 }
+
+// ── Detecção semântica de categoria raiz — fallback quando NENHUMA palavra-
+// chave bate na 1ª mensagem do cliente (ex: "estou com problemas na minha
+// tv, pode me ajudar?" não contém nenhuma das palavras exatas cadastradas em
+// "Problema técnico", mas o SIGNIFICADO bate). Mesmo mecanismo de embedding +
+// similaridade já usado no RAG da base de conhecimento, aplicado aos nós
+// raiz da árvore em vez de artigos — cada nó tem seu próprio embedding
+// (gerado a partir de label + palavras-chave), atualizado sempre que o
+// admin salva o nó em menu-tree/route.ts.
+export async function searchMenuIntentTop(
+  sb: any,
+  tenantId: string,
+  embedding: number[],
+  threshold = 0.55
+): Promise<{ id: string; label: string; similarity: number } | null> {
+  try {
+    const { data, error } = await sb.rpc("search_menu_intent", {
+      p_tenant_id: tenantId,
+      p_embedding: `[${embedding.join(",")}]`,
+      p_limit: 1,
+      p_threshold: threshold,
+    });
+    if (error || !data?.length) return null;
+    return data[0];
+  } catch {
+    return null;
+  }
+}
+
 // ── Classificação barata: "isso é só cordialidade, ou é um pedido real?" ────
 // Usada no Item 5, quando o cliente responde a uma mensagem automática
 // recente. Não gera texto — só decide true/false, com contexto mínimo.
