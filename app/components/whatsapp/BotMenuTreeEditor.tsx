@@ -345,12 +345,15 @@ export default function BotMenuTreeEditor() {
           {(node.special_actions || []).length > 0 && (
             <span title={node.special_actions.join(", ")} className="text-[10px] text-amber-500">{node.special_actions.length} ação(ões)</span>
           )}
-          {(node.applies_to_servers || []).length > 0 && (
+          {/* ✅ null = universal (todos marcados), não mostra selo nenhum.
+              Lista com todos os 3 também é universal na prática — só mostra
+              selo quando é de fato restrito (parcial ou "nenhum"). */}
+          {node.applies_to_servers !== null && node.applies_to_servers !== undefined && node.applies_to_servers.length < SERVER_OPTIONS.length && (
             <span
-              title={`Só aparece pra clientes de: ${node.applies_to_servers!.join(", ")}`}
-              className="text-[10px] text-sky-500 bg-sky-500/10 border border-sky-500/20 px-1.5 py-0.5 rounded"
+              title={node.applies_to_servers.length === 0 ? "Não aparece pra nenhum servidor — confira as marcações" : `Só aparece pra clientes de: ${node.applies_to_servers.join(", ")}`}
+              className={`text-[10px] px-1.5 py-0.5 rounded border ${node.applies_to_servers.length === 0 ? "text-rose-500 bg-rose-500/10 border-rose-500/20" : "text-sky-500 bg-sky-500/10 border-sky-500/20"}`}
             >
-              {node.applies_to_servers!.join("/")}
+              {node.applies_to_servers.length === 0 ? "nenhum servidor" : node.applies_to_servers.join("/")}
             </span>
           )}
           {isLeaf && node.steps.length > 0 && <span className="text-[10px] text-muted-foreground">{node.steps.length} passo(s)</span>}
@@ -468,7 +471,14 @@ function NodeEditor({
   const [specialActions, setSpecialActions] = useState<string[]>(node.special_actions || []);
   const [closingMsg, setClosingMsg] = useState(node.closing_message || "");
   const [transferLabel, setTransferLabel] = useState(node.transfer_situation_label || "");
-  const [appliesToServers, setAppliesToServers] = useState<string[]>(node.applies_to_servers || []);
+  // ✅ null (nunca restringido) carrega como TUDO marcado — representa
+  // visualmente "funciona em todos os servidores", igual o usuário espera
+  // ver ao abrir um item que nunca foi restringido.
+  const [appliesToServers, setAppliesToServers] = useState<string[]>(
+    node.applies_to_servers === null || node.applies_to_servers === undefined
+      ? SERVER_OPTIONS.map((s) => s.value)
+      : node.applies_to_servers
+  );
   const [isActive, setIsActive] = useState(node.is_active);
   const [steps, setSteps] = useState<string[]>(node.steps.map((s) => s.message_text));
   const [showPreview, setShowPreview] = useState(false);
@@ -503,7 +513,10 @@ function NodeEditor({
       special_actions: specialActions,
       closing_message: closingMsg || null,
       transfer_situation_label: transferLabel || null,
-      applies_to_servers: appliesToServers.length ? appliesToServers : null,
+      // ✅ Manda exatamente o que está marcado — inclusive vazio (o backend
+      // normaliza "todos marcados" pra null; vazio continua vazio de
+      // propósito, significando "não aparece pra nenhum servidor").
+      applies_to_servers: appliesToServers,
       is_active: isActive,
     });
 onSaveSteps(steps.filter((s) => s.trim()));

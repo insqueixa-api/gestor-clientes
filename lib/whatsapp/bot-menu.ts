@@ -134,14 +134,28 @@ export async function resolveClientProvider(sb: any, serverId: string | null | u
   }
 }
 
-// Um nó/artigo "aplica-se" ao cliente se não tiver restrição (universal, lista
-// vazia/nula) ou se a lista incluir o provider do servidor do cliente. Se o
-// nó É restrito mas não sabemos o provider do cliente, escondemos por
+// ✅ Regra pensada pra bater com o que se espera olhando os checkboxes na
+// tela: "marcado = funciona pra esse servidor". Pra funcionar em todos, TODOS
+// os servidores precisam estar marcados (nesse caso salvamos NULL, que
+// representa "nunca restringido" = universal). Uma lista VAZIA não é a mesma
+// coisa que null — é o cliente ter desmarcado todos de propósito, o que
+// significa "não funciona pra nenhum servidor" (não aparece pra ninguém).
+// Se o item É restrito mas não sabemos o provider do cliente, escondemos por
 // segurança — melhor mostrar menos do que arriscar mostrar instrução errada.
 export function appliesToProvider(applies_to_servers: string[] | null | undefined, provider: ServerProvider | null): boolean {
-  if (!applies_to_servers || applies_to_servers.length === 0) return true;
+  if (applies_to_servers === null || applies_to_servers === undefined) return true; // nunca restringido = universal
   if (!provider) return false;
   return applies_to_servers.includes(provider);
+}
+
+// ✅ Normaliza o que vem do formulário (checkboxes marcados) pro formato de
+// armazenamento: todos os 3 servidores marcados = null (universal, forma
+// mais limpa de guardar "sem restrição"). Qualquer outra combinação —
+// incluindo lista vazia (nada marcado) — é guardada exatamente como veio.
+export function normalizeAppliesToServers(checked: unknown): string[] | null {
+  if (!Array.isArray(checked)) return null;
+  const valid = checked.filter((v): v is ServerProvider => (VALID_PROVIDERS as string[]).includes(v));
+  return valid.length >= VALID_PROVIDERS.length ? null : valid;
 }
 
 // ── Motor genérico da árvore de menu (dados no banco, editável pelo painel) ──

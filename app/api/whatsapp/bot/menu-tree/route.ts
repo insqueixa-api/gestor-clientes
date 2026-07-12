@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { generateDocumentEmbedding } from "@/lib/whatsapp/gemini-client";
+import { normalizeAppliesToServers } from "@/lib/whatsapp/bot-menu";
 
 function makeSupabaseAdmin() {
   const url = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
@@ -112,7 +113,7 @@ export async function POST(req: Request) {
         special_actions: special_actions || [],
         // ✅ null/vazio = aplica a todos os servidores; array com valores
         // (NATV/FAST/ELITE) restringe a exibição só a esses.
-        applies_to_servers: Array.isArray(applies_to_servers) && applies_to_servers.length ? applies_to_servers : null,
+        applies_to_servers: normalizeAppliesToServers(applies_to_servers),
         ...(embedding ? { intent_embedding: `[${embedding.join(",")}]` } : {}),
       })
       .select().single();
@@ -130,7 +131,7 @@ export async function POST(req: Request) {
     // ✅ Normaliza lista vazia pra null — "nenhum servidor marcado" sempre
     // significa "aplica a todos", nunca "não aplica a nenhum".
     if (fields.applies_to_servers !== undefined) {
-      fields.applies_to_servers = Array.isArray(fields.applies_to_servers) && fields.applies_to_servers.length ? fields.applies_to_servers : null;
+      fields.applies_to_servers = normalizeAppliesToServers(fields.applies_to_servers);
     }
     // ✅ Regenera o embedding de intenção sempre que o rótulo ou as
     // palavras-chave mudam — busca os valores atuais pra completar o que

@@ -7,6 +7,7 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { normalizeAppliesToServers } from "@/lib/whatsapp/bot-menu";
 
 function makeSupabaseAdmin() {
   const url = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
@@ -119,7 +120,7 @@ export async function POST(req: Request) {
     content: content.trim(),
     embedding: embedding ? `[${embedding.join(",")}]` : null,
     // ✅ null/vazio = aplica a todos os servidores (NaTV/Fast/Elite).
-    applies_to_servers: Array.isArray(applies_to_servers) && applies_to_servers.length ? applies_to_servers : null,
+    applies_to_servers: normalizeAppliesToServers(applies_to_servers),
     is_active: true,
   }).select("id, title, category, content, is_active, applies_to_servers, created_at").single();
 
@@ -154,7 +155,7 @@ export async function PUT(req: Request) {
   if (content !== undefined) updatePayload.content = content.trim();
   if (is_active !== undefined) updatePayload.is_active = is_active;
   if (applies_to_servers !== undefined) {
-    updatePayload.applies_to_servers = Array.isArray(applies_to_servers) && applies_to_servers.length ? applies_to_servers : null;
+    updatePayload.applies_to_servers = normalizeAppliesToServers(applies_to_servers);
   }
 
   // Regenera embedding sempre que chamado com geminiKey disponível

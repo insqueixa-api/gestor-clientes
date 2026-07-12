@@ -688,7 +688,10 @@ const [editActive, setEditActive] = useState(true);
     setEditCategory(filterCategory || "Geral");
     setEditContent("");
     setEditActive(true);
-    setEditAppliesTo([]);
+    // ✅ Novo item sempre começa com tudo marcado (universal) — o save
+    // sempre envia o campo explicitamente, então não dá pra confiar em
+    // "omitir = todos" do lado do servidor aqui.
+    setEditAppliesTo(SERVER_OPTIONS.map((s) => s.value));
   }
 
   function openEdit(item: KnowledgeItem) {
@@ -698,7 +701,12 @@ const [editActive, setEditActive] = useState(true);
     setEditCategory(item.category);
     setEditContent(item.content);
     setEditActive(item.is_active);
-    setEditAppliesTo(item.applies_to_servers || []);
+    // ✅ null/undefined = universal (nunca restringido) → mostra tudo marcado
+    setEditAppliesTo(
+      item.applies_to_servers === null || item.applies_to_servers === undefined
+        ? SERVER_OPTIONS.map((s) => s.value)
+        : item.applies_to_servers
+    );
   }
 
   function closeEditor() { setSelected(null); setIsNew(false); }
@@ -712,7 +720,7 @@ const [editActive, setEditActive] = useState(true);
         const res = await fetch("/api/whatsapp/bot/knowledge", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ title: editTitle, category: editCategory, content: editContent, applies_to_servers: editAppliesTo.length ? editAppliesTo : null }),
+          body: JSON.stringify({ title: editTitle, category: editCategory, content: editContent, applies_to_servers: editAppliesTo }),
         });
         const json = await res.json();
         if (!json.ok) throw new Error(json.error);
@@ -721,7 +729,7 @@ const [editActive, setEditActive] = useState(true);
         const res = await fetch("/api/whatsapp/bot/knowledge", {
           method: "PUT",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ id: selected!.id, title: editTitle, category: editCategory, content: editContent, is_active: editActive, applies_to_servers: editAppliesTo.length ? editAppliesTo : null }),
+          body: JSON.stringify({ id: selected!.id, title: editTitle, category: editCategory, content: editContent, is_active: editActive, applies_to_servers: editAppliesTo }),
         });
         const json = await res.json();
         if (!json.ok) throw new Error(json.error);
@@ -850,12 +858,12 @@ const [editActive, setEditActive] = useState(true);
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] text-violet-500 bg-violet-500/10 px-1.5 py-0.5 rounded font-medium whitespace-nowrap shrink-0">{item.category}</span>
-                        {(item.applies_to_servers || []).length > 0 && (
+                        {item.applies_to_servers !== null && item.applies_to_servers !== undefined && item.applies_to_servers.length < SERVER_OPTIONS.length && (
                           <span
-                            title={`Só aparece pra clientes de: ${item.applies_to_servers!.join(", ")}`}
-                            className="text-[10px] text-sky-500 bg-sky-500/10 px-1.5 py-0.5 rounded font-medium whitespace-nowrap shrink-0"
+                            title={item.applies_to_servers.length === 0 ? "Não aparece pra nenhum servidor — confira as marcações" : `Só aparece pra clientes de: ${item.applies_to_servers.join(", ")}`}
+                            className={`text-[10px] px-1.5 py-0.5 rounded font-medium whitespace-nowrap shrink-0 ${item.applies_to_servers.length === 0 ? "text-rose-500 bg-rose-500/10" : "text-sky-500 bg-sky-500/10"}`}
                           >
-                            {item.applies_to_servers!.join("/")}
+                            {item.applies_to_servers.length === 0 ? "nenhum servidor" : item.applies_to_servers.join("/")}
                           </span>
                         )}
                         <p className="text-[10px] text-muted-foreground truncate">{item.content.slice(0, 120)}...</p>
