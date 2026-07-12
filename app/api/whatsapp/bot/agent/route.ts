@@ -27,6 +27,7 @@ import {
   getAllRootsAsMenuText,
   getRootNodes,
   findRootByNumber,
+  extractSingleDigitSelection,
   getNodeById,
   getChildren,
   getSteps,
@@ -36,9 +37,9 @@ import {
   matchAccountFromText,
   nodeNeedsAccount,
   RESOLUTION_QUESTION,
-  RESOLUTION_RESOLVED,
-  RESOLUTION_NOT_RESOLVED,
-  CONFIRM_SWITCH_YES,
+  isResolutionResolved,
+  isResolutionNotResolved,
+  isConfirmSwitchYes,
   resolveClientProvider,
   pickCompatibleSemanticMatch,
   type ServerProvider,
@@ -620,7 +621,7 @@ const msg = askAccountMessage();
   const confirmSwitchMatch = /^confirm_switch:([a-f0-9-]+):([a-f0-9-]+)$/.exec(bot_state || "");
   if (confirmSwitchMatch) {
     const [, targetId, originId] = confirmSwitchMatch;
-    if (CONFIRM_SWITCH_YES.test(trimmed)) {
+    if (isConfirmSwitchYes(trimmed)) {
       const target = await getNodeById(sb, targetId);
       if (target) return enterNode(target, null, 1);
     }
@@ -651,12 +652,12 @@ const msg = askAccountMessage();
   const resolutionMatch = /^awaiting_resolution:([a-f0-9-]+)$/.exec(bot_state || "");
   if (resolutionMatch) {
     const node = await getNodeById(sb, resolutionMatch[1]);
-    if (RESOLUTION_RESOLVED.test(trimmed)) {
+    if (isResolutionResolved(trimmed)) {
       const msg = node?.closing_message || "Que bom! Fico feliz que resolveu 😊";
       await sendWAMessage(session_key, phone, msg);
       return NextResponse.json({ ok: true, action: "resolvido", mark_read: true, bot_response: msg, next_state: "geral", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
     }
-    if (RESOLUTION_NOT_RESOLVED.test(trimmed)) {
+    if (isResolutionNotResolved(trimmed)) {
       safeLog("[BOT][agent] Transferência:", node?.transfer_situation_label);
       await sendWAMessage(session_key, phone, BOT_GAVE_UP_MSG);
       // ✅ transfer_situation_label agora viaja até o evento do Monitor
@@ -682,7 +683,7 @@ const msg = askAccountMessage();
     }
 
     const children = await getChildren(sb, currentNode.id, clientProvider);
-    const numeric = /^[1-9]$/.test(trimmed) ? Number(trimmed) : null;
+    const numeric = extractSingleDigitSelection(trimmed);
     const chosen = (numeric ? findChildByNumber(children, numeric) : null) || findChildByKeyword(children, trimmed);
 
     if (chosen) return enterNode(chosen, null, 1);
@@ -820,7 +821,7 @@ const msg = askAccountMessage();
   // ✅ Seleção por número no menu raiz — antes só funcionava dentro de
   // submenus. Checada primeiro por ser a via mais barata e sem ambiguidade
   // nenhuma: nem precisa de palavra-chave, nem de Gemini.
-  if (/^[1-9]$/.test(trimmed)) {
+  if (extractSingleDigitSelection(trimmed) !== null) {
     const roots = await getRootNodes(sb, tenant_id, clientProvider);
     const chosenRoot = findRootByNumber(roots, trimmed);
     if (chosenRoot) return enterNode(chosenRoot, null, 1);

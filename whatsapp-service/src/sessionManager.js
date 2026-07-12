@@ -958,18 +958,43 @@ if (connection === "open") {
       }
     }
   });
+
+  // ── Detecção de "digitando..." do cliente ───────────────────────────────
+  // ✅ Só entrega eventos pra contatos que assinamos via presenceSubscribe
+  // (feito em scheduleBotAgent, ao abrir um novo lote de debounce). Se o
+  // contato não tem lote pendente, não há nada pra resetar — ignora.
+  sock.ev.on("presence.update", ({ id, presences }) => {
+    const phone = id.split("@")[0].split(":")[0].replace(/\D/g, "");
+    const key = `${sessionKey}:${phone}`;
+    const entry = pendingAgentCalls.get(key);
+    if (!entry) return;
+    if (presences?.[id]?.lastKnownPresence !== "composing") return;
+    // Teto de segurança — ignora sinais de digitação além do limite máximo,
+    // pra não esperar pra sempre um contato que nunca solta o "paused".
+    if (Date.now() - entry.firstMsgAt >= MAX_TYPING_WAIT_MS) return;
+    resetDebounceTimers(sessionKey, phone, entry);
+  });
+
   return sessData;
 }
 
 // ── Debounce por contato — agrupa mensagens consecutivas ─────
-// ✅ Dois estágios: 30s de silêncio → mostra "digitando..." → mais 15s de
-// silêncio (45s no total) → processa de fato. Se uma nova mensagem chegar em
-// qualquer momento, os dois timers resetam do zero — assim, se o Márcio (ou o
-// próprio cliente) estiver digitando aos poucos, o bot não atropela ninguém.
-const pendingAgentCalls = new Map(); // "sessionKey:phone" -> { typingTimer, processTimer, msgs[] }
+// ✅ Dois estágios: 15s de silêncio → mostra "digitando..." → mais 15s de
+// silêncio (30s no total) → processa de fato. Os timers resetam do zero
+// quando: (a) chega mensagem nova, OU (b) o PRÓPRIO CLIENTE liga o
+// indicador "digitando..." dele (via presence.update, ver abaixo) — assim
+// o bot espera ele terminar de escrever em vez de atropelar uma mensagem
+// longa digitada aos poucos.
+const pendingAgentCalls = new Map(); // "sessionKey:phone" -> { typingTimer, processTimer, msgs[], firstMsgAt }
 
-const TYPING_DELAY_MS = 30_000;   // 1º estágio: silêncio antes de mostrar "digitando..."
+const TYPING_DELAY_MS = 15_000;   // 1º estágio: silêncio antes de mostrar "digitando..."
 const PROCESS_DELAY_MS = 15_000;  // 2º estágio: silêncio adicional antes de processar
+// ✅ Teto de segurança: nem todo contato emite o evento "composing" (depende
+// da configuração de privacidade dele no WhatsApp) — sem um limite, um
+// contato que nunca solta o "paused" travaria o lote pra sempre. Passado
+// esse tempo desde a 1ª mensagem do lote, sinais de digitação são ignorados
+// e o processamento segue seu curso normal.
+const MAX_TYPING_WAIT_MS = 90_000;
 
 // ── Exclusividade por contato ──────────────────────────────────────────────
 // ✅ Sem isso, se a chamada ao agente demorar muito (Gemini lento, perto do
@@ -1007,43 +1032,36 @@ async function runBotAgentExclusive(sessionKey, phone, msgs) {
   }
 }
 
-function scheduleBotAgent(sessionKey, phone, msg) {
+function getEntryRemoteJid(entry) {
+  const last = entry.msgs[entry.msgs.length - 1];
+  return last?.key?.remoteJid || null;
+}
+
+// ✅ (Re)agenda os dois estágios do debounce pra uma entry já existente —
+// usada tanto quando chega mensagem nova quanto quando detectamos o cliente
+// digitando (presence.update). Sempre cancela os timers antigos antes.
+function resetDebounceTimers(sessionKey, phone, entry) {
   const key = `${sessionKey}:${phone}`;
-  const existing = pendingAgentCalls.get(key);
+  clearTimeout(entry.typingTimer);
+  clearTimeout(entry.processTimer);
 
-  if (existing) {
-    // Já tem timers pendentes — cancela os dois e adiciona mensagem ao lote
-    clearTimeout(existing.typingTimer);
-    clearTimeout(existing.processTimer);
-    existing.msgs.push(msg);
-  } else {
-    pendingAgentCalls.set(key, { typingTimer: null, processTimer: null, msgs: [msg] });
-  }
-
-  const entry = pendingAgentCalls.get(key);
-
-  function getRemoteJid() {
-    const last = entry.msgs[entry.msgs.length - 1];
-    return last?.key?.remoteJid || null;
-  }
-
-  // ── Estágio 1: após 30s de silêncio, mostra "digitando..." ────────────────
+  // ── Estágio 1: após 15s de silêncio, mostra "digitando..." ────────────────
   entry.typingTimer = setTimeout(() => {
     const sess = sessions.get(sessionKey);
-    const jid = getRemoteJid();
+    const jid = getEntryRemoteJid(entry);
     if (sess?.socket && sess.status === "connected" && jid) {
       sess.socket.sendPresenceUpdate("composing", jid).catch(() => {});
     }
   }, TYPING_DELAY_MS);
 
-  // ── Estágio 2: mais 15s depois (45s no total) → processa de fato ──────────
+  // ── Estágio 2: mais 15s depois (30s no total) → processa de fato ──────────
   entry.processTimer = setTimeout(async () => {
     pendingAgentCalls.delete(key);
     const msgs = entry.msgs;
 
     // Encerra o indicador de "digitando..." antes de mandar a resposta real
     const sess = sessions.get(sessionKey);
-    const jid = getRemoteJid();
+    const jid = getEntryRemoteJid(entry);
     if (sess?.socket && sess.status === "connected" && jid) {
       sess.socket.sendPresenceUpdate("paused", jid).catch(() => {});
     }
@@ -1057,6 +1075,31 @@ function scheduleBotAgent(sessionKey, phone, msg) {
     }
     runBotAgentExclusive(sessionKey, phone, msgs);
   }, TYPING_DELAY_MS + PROCESS_DELAY_MS);
+}
+
+function scheduleBotAgent(sessionKey, phone, msg) {
+  const key = `${sessionKey}:${phone}`;
+  const existing = pendingAgentCalls.get(key);
+
+  if (existing) {
+    // Já tem timers pendentes — adiciona mensagem ao lote (reset acontece embaixo)
+    existing.msgs.push(msg);
+  } else {
+    pendingAgentCalls.set(key, { typingTimer: null, processTimer: null, msgs: [msg], firstMsgAt: Date.now() });
+
+    // ✅ Assina presence desse contato — sem isso o Baileys nunca entrega
+    // eventos de "digitando..." dele pro nosso socket. Reassinar a cada
+    // novo lote é seguro (idempotente) e garante que a assinatura esteja
+    // sempre "fresca" pro contato atual.
+    const sess = sessions.get(sessionKey);
+    const jid = msg?.key?.remoteJid;
+    if (sess?.socket && sess.status === "connected" && jid) {
+      sess.socket.presenceSubscribe(jid).catch(() => {});
+    }
+  }
+
+  const entry = pendingAgentCalls.get(key);
+  resetDebounceTimers(sessionKey, phone, entry);
 }
 
 // ── Bot Logic Handler ─────────────────────────────────────────────────────────

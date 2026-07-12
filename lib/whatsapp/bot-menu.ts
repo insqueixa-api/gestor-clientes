@@ -15,12 +15,19 @@ export const BOT_GAVE_UP_MSG =
 
 // ── Escalonamento explícito por texto do cliente ──────────────────────────────
 
+// ✅ Linha-a-linha, não a string inteira: quando o debounce agrupa várias
+// mensagens do cliente numa só (separadas por "\n" — ver callBotAgentBatch
+// no sessionManager.js e o buffer do chat-admin), um "0" digitado sozinho
+// seguido de outra frase ("0\nquero falar com alguém") deixava de bater com
+// esse gatilho, porque o match antigo exigia a string INTEIRA ser "0". Isso
+// silenciava o pedido de humano bem na hora que ele mais importa. A frase
+// livre (2º ramo) já funcionava embutida em qualquer lugar do texto — só o
+// comando "solto" precisava virar checagem por linha.
 export function isEscalationTrigger(text: string): boolean {
-  const t = text.trim();
-  return (
-    /^(pessoal|márcio|marcio|humano|0)$/i.test(t) ||
-    /\b(falar com (o )?márcio|falar com (uma )?pessoa|atendente humano|quero (um )?humano|preciso de (uma )?pessoa)\b/i.test(t)
-  );
+  if (/\b(falar com (o )?márcio|falar com (uma )?pessoa|atendente humano|quero (um )?humano|preciso de (uma )?pessoa)\b/i.test(text)) {
+    return true;
+  }
+  return text.split("\n").some((line) => /^(pessoal|márcio|marcio|humano|0)$/i.test(line.trim()));
 }
 
 // ── Confirmação simples / link puro ───────────────────────────────────────────
@@ -30,9 +37,11 @@ export function isEscalationTrigger(text: string): boolean {
 // aguardando resolução, ou até na conversa livre) — sempre reseta o cliente
 // pro menu raiz. Checado logo depois de isEscalationTrigger, também com
 // prioridade máxima.
+// ✅ Mesma checagem por linha do isEscalationTrigger, e pelo mesmo motivo —
+// "9\nquero ver outra coisa" precisa continuar reconhecendo o "9" mesmo
+// combinado com outra mensagem pelo debounce.
 export function isBackToMenuTrigger(text: string): boolean {
-  const t = text.trim();
-  return /^(9|menu|menu principal|voltar|voltar ao menu|voltar pro menu)$/i.test(t);
+  return text.split("\n").some((line) => /^(9|menu|menu principal|voltar|voltar ao menu|voltar pro menu)$/i.test(line.trim()));
 }
 
 export function isSimpleConfirmation(text: string): boolean {
@@ -241,6 +250,21 @@ export function findChildByNumber(children: MenuNode[], num: number): MenuNode |
   return children.find((c) => c.option_number === num) || null;
 }
 
+// ✅ Extrai uma seleção numérica (1-9) de dentro do texto — olhando linha
+// por linha, não a string inteira. Sem isso, um lote combinado pelo
+// debounce (ex: "6\nminha tv não liga", duas mensagens do cliente viradas
+// uma só) nunca reconhecia o "6", porque o match antigo exigia que o texto
+// INTEIRO fosse só o dígito. Pega a primeira linha "solta" que seja
+// exatamente um número — a mesma lógica vale tanto pro menu raiz
+// (findRootByNumber) quanto pra seleção dentro de um submenu.
+export function extractSingleDigitSelection(text: string): number | null {
+  for (const line of text.split("\n")) {
+    const t = line.trim();
+    if (/^[1-9]$/.test(t)) return Number(t);
+  }
+  return null;
+}
+
 export function findChildByKeyword(children: MenuNode[], text: string): MenuNode | null {
   const t = text.toLowerCase();
   return children.find((c) => (c.keywords || []).some((k) => t.includes(k.toLowerCase()))) || null;
@@ -255,10 +279,25 @@ export const RESOLUTION_QUESTION =
 // (inclusive "não" ou uma resposta pouco clara) mantém ele onde estava, por
 // segurança: é melhor perguntar de novo do que arrancar o cliente do
 // assunto certo por causa de uma interpretação errada.
-export const CONFIRM_SWITCH_YES = /^(1|sim|s|isso|isso mesmo|exato|correto|quero|pode ser|é isso|é sim)$/i;
+// ✅ As três a seguir eram RegExp exportadas testadas direto contra o texto
+// inteiro (`REGEX.test(trimmed)`) — quebravam do mesmo jeito que os
+// triggers acima quando o cliente respondia "sim" (ou "1"/"2") e emendava
+// outra mensagem logo em seguida, agrupada pelo debounce. Viraram funções
+// que checam linha por linha, mesma lógica de isEscalationTrigger.
+const CONFIRM_SWITCH_YES_RE = /^(1|sim|s|isso|isso mesmo|exato|correto|quero|pode ser|é isso|é sim)$/i;
+export function isConfirmSwitchYes(text: string): boolean {
+  return text.split("\n").some((line) => CONFIRM_SWITCH_YES_RE.test(line.trim()));
+}
 
-export const RESOLUTION_RESOLVED = /^(1|sim|resolveu|resolvido|deu certo|funcionou)$/i;
-export const RESOLUTION_NOT_RESOLVED = /^(2|não|nao|não resolveu|nao resolveu|continua|ainda não|ainda nao)$/i;
+const RESOLUTION_RESOLVED_RE = /^(1|sim|resolveu|resolvido|deu certo|funcionou)$/i;
+export function isResolutionResolved(text: string): boolean {
+  return text.split("\n").some((line) => RESOLUTION_RESOLVED_RE.test(line.trim()));
+}
+
+const RESOLUTION_NOT_RESOLVED_RE = /^(2|não|nao|não resolveu|nao resolveu|continua|ainda não|ainda nao)$/i;
+export function isResolutionNotResolved(text: string): boolean {
+  return text.split("\n").some((line) => RESOLUTION_NOT_RESOLVED_RE.test(line.trim()));
+}
 
 // ── Detecção de categoria a partir da árvore (Fase 1 do motor) ───────────────
 
@@ -280,7 +319,7 @@ export async function getRootNodes(sb: any, tenantId: string, provider?: ServerP
 // propósito: é a via mais barata e sem ambiguidade — não precisa gastar
 // Gemini pra saber que "1" significa a primeira opção.
 export function findRootByNumber(roots: MenuNode[], text: string): MenuNode | null {
-  const numeric = /^[1-9]$/.test(text.trim()) ? Number(text.trim()) : null;
+  const numeric = extractSingleDigitSelection(text);
   if (numeric === null) return null;
   return findChildByNumber(roots, numeric);
 }

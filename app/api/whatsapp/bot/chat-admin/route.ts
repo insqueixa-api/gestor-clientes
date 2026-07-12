@@ -23,6 +23,7 @@ import {
   getAllRootsAsMenuText,
   getRootNodes,
   findRootByNumber,
+  extractSingleDigitSelection,
   getNodeById,
   getChildren,
   getSteps,
@@ -32,9 +33,9 @@ import {
   matchAccountFromText,
   nodeNeedsAccount,
   RESOLUTION_QUESTION,
-  RESOLUTION_RESOLVED,
-  RESOLUTION_NOT_RESOLVED,
-  CONFIRM_SWITCH_YES,
+  isResolutionResolved,
+  isResolutionNotResolved,
+  isConfirmSwitchYes,
   resolveClientProvider,
   pickCompatibleSemanticMatch,
   type ServerProvider,
@@ -501,7 +502,7 @@ export async function POST(req: Request) {
   const confirmSwitchMatch = /^confirm_switch:([a-f0-9-]+):([a-f0-9-]+)$/.exec(bot_state || "");
   if (confirmSwitchMatch) {
     const [, targetId, originId] = confirmSwitchMatch;
-    if (CONFIRM_SWITCH_YES.test(trimmed)) {
+    if (isConfirmSwitchYes(trimmed)) {
       const target = await getNodeById(sb, targetId);
       if (target) return enterNode(target, null, 1);
     }
@@ -531,11 +532,11 @@ export async function POST(req: Request) {
   const resolutionMatch = /^awaiting_resolution:([a-f0-9-]+)$/.exec(bot_state || "");
   if (resolutionMatch) {
     const node = await getNodeById(sb, resolutionMatch[1]);
-    if (RESOLUTION_RESOLVED.test(trimmed)) {
+    if (isResolutionResolved(trimmed)) {
       send(node?.closing_message || "Que bom! Fico feliz que resolveu 😊");
       return finish({ action: "resolvido", mark_read: true, next_state: "geral" });
     }
-    if (RESOLUTION_NOT_RESOLVED.test(trimmed)) {
+    if (isResolutionNotResolved(trimmed)) {
       safeLog("[BOT][chat-admin] Transferência:", node?.transfer_situation_label);
       send(BOT_GAVE_UP_MSG);
       return finish({ action: "nao_resolvido_escalado", escalate: true, mark_read: false, next_state: "__clear__", transfer_reason: node?.transfer_situation_label || null });
@@ -557,7 +558,7 @@ export async function POST(req: Request) {
     }
 
     const children = await getChildren(sb, currentNode.id, clientProvider);
-    const numeric = /^[1-9]$/.test(trimmed) ? Number(trimmed) : null;
+    const numeric = extractSingleDigitSelection(trimmed);
     const chosen = (numeric ? findChildByNumber(children, numeric) : null) || findChildByKeyword(children, trimmed);
 
     if (chosen) return enterNode(chosen, null, 1);
@@ -620,7 +621,7 @@ export async function POST(req: Request) {
 
   // ── Primeira mensagem / paciência de 2 tentativas ────────────────────────
   // ✅ Seleção por número no menu raiz — mesma correção do agent/route.ts.
-  if (/^[1-9]$/.test(trimmed)) {
+  if (extractSingleDigitSelection(trimmed) !== null) {
     const roots = await getRootNodes(sb, tenantId, clientProvider);
     const chosenRoot = findRootByNumber(roots, trimmed);
     if (chosenRoot) return enterNode(chosenRoot, null, 1);

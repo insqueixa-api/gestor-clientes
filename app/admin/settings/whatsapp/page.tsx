@@ -1009,6 +1009,38 @@ function FloatingChat({ addToast }: { addToast: (type: "success" | "error", titl
   const [awaitingPaymentType, setAwaitingPaymentType] = useState(false);
   const [paymentAttempts, setPaymentAttempts] = useState(0);
 
+  // ✅ Debounce igual ao bot real (sessionManager.js): mensagens digitadas
+  // ficam num buffer em vez de disparar na hora — 10s de silêncio mostra
+  // "digitando...", mais 5s (15s no total) processa o lote combinado. Digitar
+  // de novo no campo durante a espera reseta o cronômetro, igual detectar o
+  // cliente "digitando..." reseta o debounce em produção. Sem isso, o
+  // chat-admin nunca se comportaria como o WhatsApp real pra testar.
+  const ADMIN_STAGE1_MS = 10_000;
+  const ADMIN_STAGE2_MS = 5_000;
+  const bufferRef = useRef<string[]>([]);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [waitingToSend, setWaitingToSend] = useState(false);
+  const stage1TimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stage2TimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function clearAdminTimers() {
+    if (stage1TimerRef.current) clearTimeout(stage1TimerRef.current);
+    if (stage2TimerRef.current) clearTimeout(stage2TimerRef.current);
+  }
+
+  function resetAdminTimers() {
+    clearAdminTimers();
+    setWaitingToSend(false);
+    stage1TimerRef.current = setTimeout(() => {
+      setWaitingToSend(true);
+      stage2TimerRef.current = setTimeout(() => { void flushAndSend(); }, ADMIN_STAGE2_MS);
+    }, ADMIN_STAGE1_MS);
+  }
+
+  useEffect(() => {
+    return () => clearAdminTimers();
+  }, []);
+
   useEffect(() => {
     if (!isOpen) return;
     supabaseBrowser.from("clients").select("id, display_name, whatsapp_username").eq("is_archived", false).order("display_name").limit(200)
@@ -1018,6 +1050,10 @@ function FloatingChat({ addToast }: { addToast: (type: "success" | "error", titl
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
   function clearChat() {
+    clearAdminTimers();
+    bufferRef.current = [];
+    setPendingCount(0);
+    setWaitingToSend(false);
     setMessages([]);
     setHistory([]);
     // ✅ Reseta o estado do menu — cada nova simulação começa do zero,
@@ -1027,11 +1063,33 @@ function FloatingChat({ addToast }: { addToast: (type: "success" | "error", titl
     setPaymentAttempts(0);
   }
 
-  async function sendMessage() {
-    if (!input.trim() || loading) return;
-    const userMsg = input.trim();
+  // ✅ Só empilha no buffer e reseta o cronômetro — quem realmente dispara o
+  // request é flushAndSend, chamado pelo estágio 2 do debounce (ou na hora,
+  // pelo botão "Enviar agora").
+  function queueMessage(text: string) {
+    setMessages((prev) => [...prev, { role: "user", text }]);
+    bufferRef.current = [...bufferRef.current, text];
+    setPendingCount(bufferRef.current.length);
+    resetAdminTimers();
+  }
+
+  function handleSubmit() {
+    if (!input.trim()) return;
+    const text = input.trim();
     setInput("");
-    setMessages((prev) => [...prev, { role: "user", text: userMsg }]);
+    queueMessage(text);
+  }
+
+  async function flushAndSend() {
+    clearAdminTimers();
+    setWaitingToSend(false);
+    // ✅ Junta o lote com quebra de linha — mesmo padrão de callBotAgentBatch
+    // no sessionManager.js real, pra tratar várias mensagens seguidas como
+    // um só pedido.
+    const combined = bufferRef.current.join("\n");
+    bufferRef.current = [];
+    setPendingCount(0);
+    if (!combined.trim() || loading) return;
     setLoading(true);
     try {
       const { data: { session } } = await supabaseBrowser.auth.getSession();
@@ -1040,7 +1098,7 @@ function FloatingChat({ addToast }: { addToast: (type: "success" | "error", titl
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          message: userMsg,
+          message: combined,
           phone: selectedPhone || undefined,
           conversation_history: history,
           bot_state: botState,
@@ -1253,10 +1311,11 @@ function FloatingChat({ addToast }: { addToast: (type: "success" | "error", titl
                 </div>
               </div>
             ))}
-            {loading && (
+            {(waitingToSend || loading) && (
               <div className="flex justify-start">
-                <div className="bg-muted border border-border px-3 py-2 rounded-xl rounded-bl-sm">
+                <div className="bg-muted border border-border px-3 py-2 rounded-xl rounded-bl-sm flex items-center gap-1.5">
                   <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+                  {waitingToSend && !loading && <span className="text-[10px] text-muted-foreground">digitando...</span>}
                 </div>
               </div>
             )}
@@ -1264,17 +1323,34 @@ function FloatingChat({ addToast }: { addToast: (type: "success" | "error", titl
           </div>
 
           {/* Input */}
-          <div className="border-t border-border p-2.5 flex gap-2 bg-muted/10 shrink-0">
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void sendMessage(); } }}
-              placeholder="Mensagem do cliente..."
-              className="flex-1 h-9 px-3 text-[11px] bg-card border border-border rounded-xl outline-none focus:border-violet-500/50"
-            />
-            <button onClick={() => void sendMessage()} disabled={loading || !input.trim()} className="h-9 px-4 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-[11px] font-bold disabled:opacity-50 transition-all">
-              Enviar
-            </button>
+          <div className="border-t border-border p-2.5 flex flex-col gap-1.5 bg-muted/10 shrink-0">
+            {pendingCount > 0 && (
+              <div className="flex items-center justify-between px-0.5">
+                <span className="text-[10px] text-muted-foreground">
+                  {pendingCount} mensagem{pendingCount > 1 ? "ns" : ""} aguardando envio...
+                </span>
+                <button onClick={() => void flushAndSend()} className="text-[10px] text-violet-500 hover:underline font-medium">
+                  Enviar agora
+                </button>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <input
+                value={input}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  // ✅ Digitar de novo (com o lote ainda pendente) reseta o
+                  // cronômetro — mesmo papel do "composing" real do cliente.
+                  if (bufferRef.current.length > 0 && e.target.value.trim()) resetAdminTimers();
+                }}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }}
+                placeholder="Mensagem do cliente..."
+                className="flex-1 h-9 px-3 text-[11px] bg-card border border-border rounded-xl outline-none focus:border-violet-500/50"
+              />
+              <button onClick={handleSubmit} disabled={!input.trim()} className="h-9 px-4 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-[11px] font-bold disabled:opacity-50 transition-all">
+                Enviar
+              </button>
+            </div>
           </div>
         </div>
       )}
