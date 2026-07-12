@@ -24,6 +24,7 @@ import {
   getRootNodes,
   findRootByNumber,
   extractSingleDigitSelection,
+  hasSemanticSignal,
   getNodeById,
   getChildren,
   getSteps,
@@ -567,7 +568,7 @@ export async function POST(req: Request) {
     // última vez por SIGNIFICADO — cobre o cliente mudando de assunto de
     // verdade enquanto está dentro de um submenu (ex: pergunta de preço no
     // meio do fluxo de instalação).
-    const hasEnoughSignal = trimmed.split(/\s+/).filter(Boolean).length >= 4;
+    const hasEnoughSignal = hasSemanticSignal(trimmed);
     if (hasEnoughSignal) {
       try {
         const embedding = await generateEmbedding(geminiKey, trimmed);
@@ -635,7 +636,7 @@ export async function POST(req: Request) {
   // desistir/mostrar o menu genérico.
   // ⚠️ Piso de tamanho: saudações/small talk não carregam sinal suficiente
   // pra comparar — nem tenta, evita gastar Gemini à toa e falso positivo.
-  const hasEnoughSignal = trimmed.split(/\s+/).filter(Boolean).length >= 4;
+  const hasEnoughSignal = hasSemanticSignal(trimmed);
   try {
     const embedding = hasEnoughSignal ? await generateEmbedding(geminiKey, trimmed) : null;
     const candidates = embedding ? await searchMenuIntentCandidates(sb, tenantId, embedding) : [];

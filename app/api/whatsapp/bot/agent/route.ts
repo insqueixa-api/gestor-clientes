@@ -28,6 +28,7 @@ import {
   getRootNodes,
   findRootByNumber,
   extractSingleDigitSelection,
+  hasSemanticSignal,
   getNodeById,
   getChildren,
   getSteps,
@@ -695,7 +696,7 @@ const msg = askAccountMessage();
     // dentro de um submenu (ex: pergunta de preço no meio do fluxo de
     // instalação) — sem isso, ele ficava preso repetindo "Não entendi" no
     // submenu errado.
-    const hasEnoughSignal = trimmed.split(/\s+/).filter(Boolean).length >= 4;
+    const hasEnoughSignal = hasSemanticSignal(trimmed);
     if (hasEnoughSignal) {
       try {
         const embedding = await generateEmbedding(geminiKey, trimmed);
@@ -838,7 +839,7 @@ const msg = askAccountMessage();
   // ⚠️ Piso de tamanho: saudações/small talk ("Olá, tudo bem?") são curtas
   // e não carregam sinal semântico suficiente pra comparar com nada — nem
   // tenta nesse caso, evita gastar Gemini à toa e falso positivo.
-  const hasEnoughSignal = trimmed.split(/\s+/).filter(Boolean).length >= 4;
+  const hasEnoughSignal = hasSemanticSignal(trimmed);
   try {
     const embedding = hasEnoughSignal ? await generateEmbedding(geminiKey, trimmed) : null;
     const candidates = embedding ? await searchMenuIntentCandidates(sb, tenant_id, embedding) : [];

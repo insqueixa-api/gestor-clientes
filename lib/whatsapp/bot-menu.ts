@@ -270,6 +270,41 @@ export function findChildByKeyword(children: MenuNode[], text: string): MenuNode
   return children.find((c) => (c.keywords || []).some((k) => t.includes(k.toLowerCase()))) || null;
 }
 
+// ✅ Uma saudação pura (ex: "Oi Marcio, tudo bem?\nbom dia!") não é sinal de
+// NENHUMA categoria — mas o matching de keyword é um `.includes()` cru, sem
+// threshold nem contexto algum. Se algum nó tiver "márcio"/"marcio" (ou
+// qualquer outra palavra comum) cadastrado como keyword — o que é natural
+// de acontecer, já que o bot se apresenta como "assistente do Márcio" e as
+// pessoas naturalmente o cumprimentam pelo nome — uma saudação inofensiva
+// dispara esse nó na hora, sem nem mostrar o menu principal primeiro. Essa
+// checagem tira "márcio"/"marcio" da equação antes de comparar com o
+// vocabulário de saudação, então cumprimentar pelo nome continua sendo só
+// educação — quem realmente quer falar com ele usa uma frase de pedido
+// ("falar com o márcio"), já coberta com prioridade máxima por
+// isEscalationTrigger, chamada bem antes de qualquer coisa da árvore.
+const GREETING_WORD_RE = /^(oi+|ol[aá]|opa|eae|e\s*a[ií]|salve|bom\s*dia|boa\s*tarde|boa\s*noite|tudo\s*bem|tudo\s*bom|tudo\s*certo|td\s*bem|como\s*vai|como\s*(voc[eê]|c[eê])\s*(est[aá]|t[aá])|blz|beleza|obrigad[oa]|vlw|valeu)$/i;
+
+export function isGreetingOnly(text: string): boolean {
+  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  if (!lines.length) return false;
+  return lines.every((line) => {
+    const withoutName = line.replace(/\bm[aá]rcio\b/gi, " ");
+    const parts = withoutName.split(/[,;.!?]+/).map((p) => p.trim()).filter(Boolean);
+    if (!parts.length) return true; // linha era só o nome e/ou pontuação
+    return parts.every((p) => GREETING_WORD_RE.test(p));
+  });
+}
+
+// ✅ Piso comum antes de gastar Gemini com busca semântica: mensagens curtas
+// (menos de 4 palavras) ou saudações puras não carregam sinal suficiente
+// pra comparar com nada — evita tanto custo à toa quanto falso positivo.
+// Centralizado aqui porque é usado em 4 lugares (detecção de categoria raiz
+// e troca de contexto dentro de submenu, nos dois arquivos de rota).
+export function hasSemanticSignal(text: string): boolean {
+  if (isGreetingOnly(text)) return false;
+  return text.split(/\s+/).filter(Boolean).length >= 4;
+}
+
 export const RESOLUTION_QUESTION =
   "Vou deixar as opções aqui: responda **1** se resolveu, ou **2** se ainda está com o problema.";
 
@@ -325,6 +360,8 @@ export function findRootByNumber(roots: MenuNode[], text: string): MenuNode | nu
 }
 
 export async function detectMenuContextFromTree(sb: any, tenantId: string, text: string, provider?: ServerProvider | null): Promise<MenuNode | null> {
+  // ✅ Saudação pura nunca deve casar com keyword nenhuma — ver isGreetingOnly.
+  if (isGreetingOnly(text)) return null;
   const roots = await getRootNodes(sb, tenantId, provider);
   if (!roots.length) return null;
   const t = text.toLowerCase();
