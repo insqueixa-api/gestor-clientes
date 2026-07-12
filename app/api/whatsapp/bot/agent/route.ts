@@ -537,6 +537,14 @@ const msg = askAccountMessage();
         for (const m of gate.messages) await sendWAMessage(session_key, phone, m);
         return NextResponse.json({ ok: true, action: "gate_resolved", mark_read: gate.markRead ?? true, bot_response: gate.messages.join("\n\n"), next_state: "geral", display_name: client?.display_name || null, server_name: client?.server_name || null });
       }
+      // ✅ Se a MESMA mensagem que trouxe até aqui já é específica o
+      // suficiente pra bater com um filho direto (ex: "tela preta" bate na
+      // raiz "Problema técnico" E no filho "Tela preta com som"), pula a
+      // etapa de mostrar o submenu e entra direto nele — sem pular os gate
+      // checks da raiz, que já rodaram normalmente acima.
+      const directChild = findChildByKeyword(children, trimmed);
+      if (directChild) return enterNode(directChild, null, 1);
+
       const vars = await buildVarsForNode(sb, tenant_id, node, client, rawClient);
       const preMsgs = (await getSteps(sb, node.id)).map((s) => renderTemplate(s, vars));
       for (const m of preMsgs) await sendWAMessage(session_key, phone, m);
@@ -738,8 +746,12 @@ const msg = askAccountMessage();
   // nós raiz. Cobre frases naturais como "estou com problemas na minha tv,
   // pode me ajudar?", que não contém nenhuma palavra-chave exata cadastrada
   // mas claramente significa "Problema técnico".
+  // ⚠️ Piso de tamanho: saudações/small talk ("Olá, tudo bem?") são curtas
+  // e não carregam sinal semântico suficiente pra comparar com nada — nem
+  // tenta nesse caso, evita gastar Gemini à toa e falso positivo.
+  const hasEnoughSignal = trimmed.split(/\s+/).filter(Boolean).length >= 4;
   try {
-    const embedding = await generateEmbedding(geminiKey, trimmed);
+    const embedding = hasEnoughSignal ? await generateEmbedding(geminiKey, trimmed) : null;
     const semanticMatch = embedding ? await searchMenuIntentTop(sb, tenant_id, embedding) : null;
     if (semanticMatch) {
       const node = await getNodeById(sb, semanticMatch.id);

@@ -57,6 +57,7 @@ type ChatMessage = {
   meta?: {
     action?: string;
     next_state?: string;
+    next_state_label?: string | null;
     escalate?: boolean;
     mark_read?: boolean;
   };
@@ -1010,6 +1011,7 @@ function FloatingChat({ addToast }: { addToast: (type: "success" | "error", titl
             meta: {
               action: json.action,
               next_state: json.next_state,
+              next_state_label: json.next_state_label,
               escalate: json.escalate,
               mark_read: json.mark_read,
             },
@@ -1182,7 +1184,11 @@ function FloatingChat({ addToast }: { addToast: (type: "success" | "error", titl
                   {msg.role === "bot" && msg.meta && (
                     <p className="text-[9px] text-muted-foreground/70 pl-1 font-mono">
                       {msg.meta.action}
-                      {msg.meta.next_state ? ` → ${msg.meta.next_state}` : ""}
+                      {msg.meta.next_state_label
+                        ? ` → ${msg.meta.next_state_label}`
+                        : msg.meta.next_state
+                          ? ` → ${msg.meta.next_state}`
+                          : ""}
                       {msg.meta.escalate ? " · 🚨 escalonado" : ""}
                       {msg.meta.mark_read === false ? " · 📌 não lido" : ""}
                     </p>

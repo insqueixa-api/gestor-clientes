@@ -313,7 +313,28 @@ export async function POST(req: Request) {
   const history: any[] = []; // reservado (não usamos mais Gemini conversacional aqui)
   const sentMessages: string[] = [];
   function send(text: string) { sentMessages.push(text); }
-  function finish(opts: { action: string; next_state?: string; escalate?: boolean; mark_read?: boolean; transfer_reason?: string | null }) {
+
+  // ✅ Traduz o next_state técnico (ex: "menunode:6d0aea8b-...") pra algo que
+  // você reconhece na hora (o nome do nó), em vez do UUID cru — só pra
+  // exibição no rodapé de debug do simulador, o valor técnico continua
+  // indo normalmente em next_state pro front controlar o fluxo.
+  async function resolveStateLabel(nextState: string | undefined | null): Promise<string | null> {
+    if (!nextState || nextState === "__clear__") return null;
+    if (nextState === "geral") return "Conversa livre";
+    if (nextState === "geral_retry") return "Conversa livre (2ª tentativa)";
+    if (nextState === "aguardando_resposta") return "Aguardando 1ª resposta do menu";
+    if (nextState === "aguardando_resposta_2") return "Aguardando resposta (última tentativa)";
+    const m = /^(menunode|conta|awaiting_resolution):([a-f0-9-]+)$/.exec(nextState);
+    if (m) {
+      const node = await getNodeById(sb, m[2]);
+      const label = node?.label || "nó removido";
+      const prefix = m[1] === "menunode" ? "Dentro de" : m[1] === "conta" ? "Perguntando qual conta em" : "Aguardando se resolveu em";
+      return `${prefix}: ${label}`;
+    }
+    return nextState;
+  }
+
+  async function finish(opts: { action: string; next_state?: string; escalate?: boolean; mark_read?: boolean; transfer_reason?: string | null }) {
     return NextResponse.json({
       ok: true,
       response: sentMessages.join("\n\n"),
@@ -322,6 +343,7 @@ export async function POST(req: Request) {
       escalate: opts.escalate ?? false,
       mark_read: opts.mark_read,
       next_state: opts.next_state,
+      next_state_label: await resolveStateLabel(opts.next_state),
       transfer_reason: opts.transfer_reason ?? null,
     });
   }
@@ -426,6 +448,12 @@ export async function POST(req: Request) {
         gate.messages.forEach(send);
         return finish({ action: "gate_resolved", mark_read: gate.markRead ?? true, next_state: "geral" });
       }
+      // ✅ Mesma correção do agent/route.ts: se a mensagem já é específica o
+      // suficiente pra bater com um filho direto, pula o submenu e entra
+      // direto nele — os gate checks da raiz já rodaram normalmente acima.
+      const directChild = findChildByKeyword(children, trimmed);
+      if (directChild) return enterNode(directChild, null, 1);
+
       const vars = await buildVarsForNode(sb, tenantId, node, client, rawClient);
       (await getSteps(sb, node.id)).map((s) => renderTemplate(s, vars)).forEach(send);
       send(renderChildrenMenu(children));
@@ -546,8 +574,11 @@ export async function POST(req: Request) {
   // ✅ Fallback semântico — mesma correção do agent/route.ts. Nenhuma
   // palavra-chave bateu, tenta por significado (embedding) antes de
   // desistir/mostrar o menu genérico.
+  // ⚠️ Piso de tamanho: saudações/small talk não carregam sinal suficiente
+  // pra comparar — nem tenta, evita gastar Gemini à toa e falso positivo.
+  const hasEnoughSignal = trimmed.split(/\s+/).filter(Boolean).length >= 4;
   try {
-    const embedding = await generateEmbedding(geminiKey, trimmed);
+    const embedding = hasEnoughSignal ? await generateEmbedding(geminiKey, trimmed) : null;
     const semanticMatch = embedding ? await searchMenuIntentTop(sb, tenantId, embedding) : null;
     if (semanticMatch) {
       const node = await getNodeById(sb, semanticMatch.id);

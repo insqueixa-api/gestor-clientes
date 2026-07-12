@@ -147,11 +147,17 @@ export async function searchBotKnowledgeTop(
 // raiz da árvore em vez de artigos — cada nó tem seu próprio embedding
 // (gerado a partir de label + palavras-chave), atualizado sempre que o
 // admin salva o nó em menu-tree/route.ts.
+// ⚠️ Limiar bem mais rigoroso que o do RAG de conhecimento (0.55). As
+// "documentos" aqui são descrições curtas de categoria (rótulo + palavras-
+// chave), não artigos longos — com pouco texto pra ancorar o significado,
+// até saudações genéricas passavam no 0.55 (ex: "Olá, tudo bem?" batendo
+// com "Nova instalação"). 0.78 é conservador de propósito: prefere não
+// achar nada (cai no menu normal, sem risco) a arriscar rotear errado.
 export async function searchMenuIntentTop(
   sb: any,
   tenantId: string,
   embedding: number[],
-  threshold = 0.55
+  threshold = 0.78
 ): Promise<{ id: string; label: string; similarity: number } | null> {
   try {
     const { data, error } = await sb.rpc("search_menu_intent", {
