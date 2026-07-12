@@ -32,6 +32,12 @@ export async function callGemini(apiKey: string, payload: any, timeoutMs = 55_00
   return res.json();
 }
 
+// ✅ Modo "consulta" — usado pra embutir o TEXTO DE BUSCA (o que o cliente
+// escreveu). Gemini otimiza o vetor de forma diferente pra consulta vs pra
+// documento indexado — usar o modo errado num dos dois lados degrada a
+// qualidade da similaridade (é exatamente o bug que corrigimos: categorias
+// da árvore indexadas em modo consulta faziam saudações genéricas tipo
+// "Olá, tudo bem?" parecerem parecidas o suficiente com "Nova instalação").
 export async function generateEmbedding(apiKey: string, text: string): Promise<number[] | null> {
   try {
     const res = await fetch(
@@ -43,6 +49,34 @@ export async function generateEmbedding(apiKey: string, text: string): Promise<n
           model: "models/gemini-embedding-001",
           content: { parts: [{ text }] },
           taskType: "RETRIEVAL_QUERY",
+          outputDimensionality: 768,
+        }),
+        signal: AbortSignal.timeout(10_000),
+      }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data?.embedding?.values ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// ✅ Modo "documento" — usado pra embutir CONTEÚDO QUE SERÁ ENCONTRADO depois
+// (artigos da base de conhecimento, e agora também a intenção de cada
+// categoria da árvore). Mesmo padrão que knowledge/route.ts já usa há tempo
+// pra indexar os artigos do RAG — mantido separado de propósito.
+export async function generateDocumentEmbedding(apiKey: string, text: string): Promise<number[] | null> {
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "models/gemini-embedding-001",
+          content: { parts: [{ text }] },
+          taskType: "RETRIEVAL_DOCUMENT",
           outputDimensionality: 768,
         }),
         signal: AbortSignal.timeout(10_000),

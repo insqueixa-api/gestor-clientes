@@ -1,7 +1,7 @@
 // app/api/whatsapp/bot/menu-tree/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { generateEmbedding } from "@/lib/whatsapp/gemini-client";
+import { generateDocumentEmbedding } from "@/lib/whatsapp/gemini-client";
 
 function makeSupabaseAdmin() {
   const url = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
@@ -26,7 +26,11 @@ async function tryGenerateIntentEmbedding(label: string, keywords: string[]): Pr
   const geminiKey = String(process.env.GEMINI_API_KEY || "").trim();
   if (!geminiKey || !label?.trim()) return null;
   try {
-    return await generateEmbedding(geminiKey, buildIntentText(label, keywords));
+    // ✅ Modo "documento" (RETRIEVAL_DOCUMENT) — a categoria é o conteúdo que
+    // será ENCONTRADO depois. Usar o modo "consulta" aqui foi o bug que
+    // fazia mensagens sem relação nenhuma (ex: "Olá, tudo bem?") passarem no
+    // threshold de similaridade contra categorias como "Nova instalação".
+    return await generateDocumentEmbedding(geminiKey, buildIntentText(label, keywords));
   } catch {
     return null;
   }
