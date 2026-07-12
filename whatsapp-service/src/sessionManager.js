@@ -156,7 +156,6 @@ const INACTIVITY_NUDGE_MS = 30 * 60 * 1000; // 30 min parado num submenu → nud
 // numa conversa livre, não faz sentido cobrar resposta.
 const STATES_WITH_NUDGE = [
   "aguardando_resposta", "aguardando_resposta_2",
-  "tecnico", "pagamento", "instalacao", "conteudo",
 ];
 
 function getContactState(sessionKey, phone) {
@@ -173,14 +172,15 @@ function getContactState(sessionKey, phone) {
   return entry.state;
 }
 
-// ✅ Além dos estados fixos, os estados dinâmicos de "qual conta?"
-// (tecnico_aguardando_conta_N, pagamento_aguardando_conta_3) também
-// precisam do nudge — sem isso, o cliente pode ficar preso nesse limbo
-// indefinidamente se sumir no meio dessa pergunta.
+// ✅ Corrigido pro motor de árvore: os estados dinâmicos que o agent/
+// chat-admin geram hoje são "menunode:<uuid>", "conta:<uuid>" e
+// "awaiting_resolution:<uuid>" — sem isso, o cliente ficava preso sem
+// limite de tempo em qualquer um desses. "geral" nunca entra aqui de
+// propósito (conversa livre, sem cobrança de resposta).
 function shouldScheduleNudge(state) {
+  if (!state) return false;
   if (STATES_WITH_NUDGE.includes(state)) return true;
-  if (/^tecnico_aguardando_conta_[1-6]$/.test(state)) return true;
-  if (state === "pagamento_aguardando_conta_3") return true;
+  if (/^(menunode|conta|conta2|awaiting_resolution):/.test(state)) return true;
   return false;
 }
 
@@ -370,6 +370,7 @@ function pauseContact(sessionKey, phone) {
   }
   const until = Date.now() + 4 * 60 * 60 * 1000;
   humanPausedContacts.get(sessionKey).set(phone, until);
+  saveHumanPaused(sessionKey); // ✅ persiste em disco — sobrevive a "Reiniciar Serviço"
   clearHistory(sessionKey, phone); // limpa histórico quando humano assume
   console.log(`[BOT][${sessionKey.slice(0, 8)}] ⏸️ Atendimento humano ativo para ${phone} até ${new Date(until).toLocaleTimeString("pt-BR")}`);
   emitBotEvent({
@@ -534,6 +535,42 @@ function loadLidMap(sessionKey) {
   } catch {}
 }
 
+// ── Persistência das pausas humanas (atendimento manual assumido) ────────────
+// Mesmo padrão do lid-map: sem isso, "Reiniciar Serviço"/"Reiniciar VM"
+// apagava a pausa de 4h e o bot podia voltar a responder um contato que
+// você estava atendendo pessoalmente, sem nenhum aviso.
+function getHumanPausedPath(sessionKey) {
+  return path.join(CONFIG_DIR, sessionKey, "human-paused.json");
+}
+
+function saveHumanPaused(sessionKey) {
+  try {
+    const map = humanPausedContacts.get(sessionKey);
+    if (!map) return;
+    const obj = Object.fromEntries(map);
+    const dir = path.join(CONFIG_DIR, sessionKey);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(getHumanPausedPath(sessionKey), JSON.stringify(obj));
+  } catch {}
+}
+
+function loadHumanPaused(sessionKey) {
+  try {
+    const file = getHumanPausedPath(sessionKey);
+    if (!fs.existsSync(file)) return;
+    const obj = JSON.parse(fs.readFileSync(file, "utf-8"));
+    if (!humanPausedContacts.has(sessionKey)) humanPausedContacts.set(sessionKey, new Map());
+    const map = humanPausedContacts.get(sessionKey);
+    const now = Date.now();
+    for (const [phone, until] of Object.entries(obj)) {
+      // Só restaura pausas ainda válidas — ignora as que já expiraram
+      // enquanto o serviço estava fora do ar.
+      if (typeof until === "number" && until > now) map.set(phone, until);
+    }
+    if (map.size) console.log(`[WA][${sessionKey.slice(0, 8)}] ⏸️ ${map.size} pausa(s) humana(s) restaurada(s) do disco`);
+  } catch {}
+}
+
 const TZ_SP = "America/Sao_Paulo";
 
 function renderRejectMessage(template, fromJid) {
@@ -659,6 +696,8 @@ sessData.socket = sock;
 
   // carrega mapa lid→phone salvo no disco
   loadLidMap(sessionKey);
+  // carrega pausas humanas ativas salvas no disco (sobrevive a restart)
+  loadHumanPaused(sessionKey);
 
   // ── Credenciais ──────────────────────────────────────────────
   sock.ev.on("creds.update", saveCreds);
@@ -799,6 +838,18 @@ if (connection === "open") {
     }
 
     if (connection === "close") {
+      // ✅ Esse listener pertence ao socket ANTIGO. Se sessions.get(sessionKey)
+      // já não é mais esta sessData (por exemplo, reconnectSession() já
+      // substituiu por uma sessão nova enquanto esse evento "close" ainda
+      // estava a caminho), é um evento obsoleto — não agenda reconexão, quem
+      // substituiu já está cuidando disso. Sem essa checagem, dois
+      // createSession() concorrentes para a mesma sessionKey podiam brigar
+      // pelo mesmo diretório de credenciais.
+      if (sessions.get(sessionKey) !== sessData) {
+        console.log(`[WA][${sessionKey.slice(0, 8)}] Evento de conexão obsoleto ignorado (sessão já substituída)`);
+        return;
+      }
+
       const statusCode = (lastDisconnect?.error instanceof Boom)
         ? lastDisconnect.error.output?.statusCode
         : null;
@@ -807,7 +858,7 @@ if (connection === "open") {
       const shouldReconnect =
         statusCode !== DisconnectReason.loggedOut &&
         statusCode !== DisconnectReason.forbidden &&
-        sessData.retries < 10; 
+        sessData.retries < 10;
 
       console.log(`[WA][${sessionKey.slice(0, 8)}] Desconectado (${statusCode}), reconectar: ${shouldReconnect}`);
 
@@ -816,8 +867,13 @@ if (connection === "open") {
         sessData.retries++;
         // ✅ Espera 10 segundos na primeira tentativa, até o limite de 30s nas próximas.
         // Isso impede que ele tente reconectar num loop desesperado que trava o Baileys.
-        const delay = Math.min(sessData.retries * 10000, 30000); 
-        setTimeout(() => createSession(sessionKey), delay);
+        const delay = Math.min(sessData.retries * 10000, 30000);
+        setTimeout(() => {
+          // ✅ Checa de novo no momento de disparar — a sessão pode ter sido
+          // substituída enquanto esse timer estava correndo.
+          if (sessions.get(sessionKey) !== sessData) return;
+          createSession(sessionKey);
+        }, delay);
       } else {
         sessData.status = "disconnected";
         // Se foi logout, apaga credenciais
@@ -915,6 +971,42 @@ const pendingAgentCalls = new Map(); // "sessionKey:phone" -> { typingTimer, pro
 const TYPING_DELAY_MS = 30_000;   // 1º estágio: silêncio antes de mostrar "digitando..."
 const PROCESS_DELAY_MS = 15_000;  // 2º estágio: silêncio adicional antes de processar
 
+// ── Exclusividade por contato ──────────────────────────────────────────────
+// ✅ Sem isso, se a chamada ao agente demorar muito (Gemini lento, perto do
+// timeout de 55s) e o cliente mandar outra mensagem nesse meio-tempo, um
+// SEGUNDO ciclo de debounce terminava e chamava o agente de novo em paralelo
+// pro mesmo contato — risco real de duas respostas fora de ordem, ou o
+// estado final "vencendo" por qual chamada terminasse por último.
+// Aqui só corre UMA chamada por vez por contato; mensagens que chegarem
+// enquanto uma já está em andamento ficam na fila e são processadas assim
+// que a atual terminar — nada é descartado, nada roda em paralelo.
+const inFlightAgentCalls = new Set(); // "sessionKey:phone" em processamento agora
+const queuedWhileInFlight = new Map(); // "sessionKey:phone" -> msgs[] acumuladas durante o in-flight
+
+async function runBotAgentExclusive(sessionKey, phone, msgs) {
+  const key = `${sessionKey}:${phone}`;
+  inFlightAgentCalls.add(key);
+  try {
+    if (msgs.length === 1) {
+      await callBotAgent(sessionKey, phone, msgs[0]).catch(e =>
+        console.error(`[BOT][${sessionKey.slice(0, 8)}] Erro ao chamar agente para ${phone}:`, e?.message)
+      );
+    } else {
+      await callBotAgentBatch(sessionKey, phone, msgs).catch(e =>
+        console.error(`[BOT][${sessionKey.slice(0, 8)}] Erro ao chamar agente (batch) para ${phone}:`, e?.message)
+      );
+    }
+  } finally {
+    inFlightAgentCalls.delete(key);
+    // Chegou mensagem nova enquanto essa chamada estava em andamento — processa agora.
+    const queued = queuedWhileInFlight.get(key);
+    if (queued?.length) {
+      queuedWhileInFlight.delete(key);
+      runBotAgentExclusive(sessionKey, phone, queued);
+    }
+  }
+}
+
 function scheduleBotAgent(sessionKey, phone, msg) {
   const key = `${sessionKey}:${phone}`;
   const existing = pendingAgentCalls.get(key);
@@ -956,17 +1048,14 @@ function scheduleBotAgent(sessionKey, phone, msg) {
       sess.socket.sendPresenceUpdate("paused", jid).catch(() => {});
     }
 
-    if (msgs.length === 1) {
-      // Mensagem única — comportamento normal
-      callBotAgent(sessionKey, phone, msgs[0]).catch(e =>
-        console.error(`[BOT][${sessionKey.slice(0, 8)}] Erro ao chamar agente para ${phone}:`, e?.message)
-      );
-    } else {
-      // Múltiplas mensagens — monta mensagem combinada
-      callBotAgentBatch(sessionKey, phone, msgs).catch(e =>
-        console.error(`[BOT][${sessionKey.slice(0, 8)}] Erro ao chamar agente (batch) para ${phone}:`, e?.message)
-      );
+    // ✅ Se já tem uma chamada em andamento pra esse contato, não dispara
+    // outra em paralelo — enfileira e processa assim que a atual terminar.
+    if (inFlightAgentCalls.has(key)) {
+      const queued = queuedWhileInFlight.get(key) || [];
+      queuedWhileInFlight.set(key, queued.concat(msgs));
+      return;
     }
+    runBotAgentExclusive(sessionKey, phone, msgs);
   }, TYPING_DELAY_MS + PROCESS_DELAY_MS);
 }
 
@@ -1046,11 +1135,12 @@ if (!config.botEnabled) {
 if (isContactPaused(sessionKey, phone)) continue;
 
     // Tem conteúdo que vale processar? (Capturando texto/legenda e ignorando imagens)
-    const hasText = !!(
+const hasText = !!(
       msgContent.conversation ||
       msgContent.extendedTextMessage?.text ||
       msgContent.imageMessage?.caption ||
       msgContent.documentMessage?.caption ||
+      msgContent.videoMessage?.caption ||
       msgContent.viewOnceMessageV2?.message?.imageMessage?.caption
     );
     
@@ -1114,11 +1204,12 @@ async function callBotAgent(sessionKey, phone, msg) {
   }
 
   // Extrai texto da mensagem (incluindo legendas de fotos)
-  const text =
+const text =
     msg.message?.conversation ||
     msg.message?.extendedTextMessage?.text ||
     msg.message?.imageMessage?.caption ||
     msg.message?.documentMessage?.caption ||
+    msg.message?.videoMessage?.caption ||
     msg.message?.viewOnceMessageV2?.message?.imageMessage?.caption ||
     null;
 
@@ -1231,12 +1322,15 @@ if (!res.ok) {
         console.log(`[BOT][${sessionKey.slice(0, 8)}] 🙋 Escalonamento explícito de ${phone} — pausando bot`);
         pauseContact(sessionKey, phone);
         botActiveContacts.delete(`${sessionKey}:${phone}`);
+        // ✅ Usa o transfer_situation_label do nó (quando existe) como preview
+        // do evento — antes esse motivo só ia pro log de dev e nunca chegava
+        // até você no Monitor.
         emitBotEvent({
           type: "human_takeover",
           phone,
           display_name: responseData?.display_name || null,
           server_name: responseData?.server_name || null,
-          preview: "Cliente solicitou atendimento humano — bot pausado por 4h",
+          preview: responseData?.transfer_reason || "Cliente solicitou atendimento humano — bot pausado por 4h",
         });
         return;
       }
@@ -1270,12 +1364,13 @@ if (!res.ok) {
 // Variante do callBotAgent para múltiplas mensagens agrupadas
 async function callBotAgentBatch(sessionKey, phone, msgs) {
   // Extrai texto de todas as mensagens e combina
-  const textos = msgs
+const textos = msgs
     .map(msg =>
       msg.message?.conversation ||
       msg.message?.extendedTextMessage?.text ||
       msg.message?.imageMessage?.caption ||
       msg.message?.documentMessage?.caption ||
+      msg.message?.videoMessage?.caption ||
       null
     )
     .filter(Boolean);
@@ -1354,12 +1449,17 @@ function deleteSessionFiles(sessionKey, fullDelete = false) {
     sessions.delete(sessionKey);
     sessionConfigs.delete(sessionKey);
     lidPhoneMap.delete(sessionKey);
+    // ✅ Sem isso, pausas humanas de uma sessão já deslogada ficavam presas
+    // na memória pra sempre — e se o mesmo sessionKey for reusado depois
+    // (mesmo tenant+usuário+número de sessão logando de novo), essas pausas
+    // velhas podiam reaparecer pra contatos sem relação nenhuma com o login novo.
+    humanPausedContacts.delete(sessionKey);
     console.log(`[WA][${sessionKey.slice(0, 8)}] Pasta de sessão removida completamente`);
     return;
   }
 
-  // Disconnect simples: preserva config e lid-map
-  const PRESERVE = new Set(["wa-config.json", "lid-map.json"]);
+  // Disconnect simples: preserva config, lid-map e pausas humanas
+  const PRESERVE = new Set(["wa-config.json", "lid-map.json", "human-paused.json"]);
   for (const entry of fs.readdirSync(dir)) {
     if (PRESERVE.has(entry)) continue;
     fs.rmSync(path.join(dir, entry), { recursive: true, force: true });

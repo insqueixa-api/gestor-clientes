@@ -1127,7 +1127,7 @@ function FloatingChat({ addToast }: { addToast: (type: "success" | "error", titl
                 <p className="text-xs font-semibold text-foreground">Simulador do Bot</p>
                 <p className="text-[10px] text-muted-foreground">
                   {selectedLabel || "Modo genérico"}
-                  {botState ? ` · estado: ${botState}` : " · estado: (novo contato)"}
+                  {botState ? ` · estado: ${botState.split(":")[0]}` : " · estado: (novo contato)"}
                 </p>
               </div>
             </div>

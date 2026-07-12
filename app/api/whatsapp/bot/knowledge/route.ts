@@ -62,7 +62,11 @@ export async function GET(req: Request) {
   if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const url = new URL(req.url);
-  const search = url.searchParams.get("q")?.trim() || "";
+  // ✅ Remove vírgula/parênteses antes de interpolar no filtro .or() do
+  // PostgREST — sem isso, esses caracteres no termo de busca podiam
+  // distorcer a sintaxe do filtro (comma separa condições, parênteses
+  // agrupam).
+  const search = (url.searchParams.get("q")?.trim() || "").replace(/[,()]/g, "");
   const category = url.searchParams.get("category")?.trim() || "";
 
   let query = sb
@@ -135,9 +139,6 @@ export async function PUT(req: Request) {
   if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const geminiKey = String(process.env.GEMINI_API_KEY || "").trim();
-  
-  // DEBUG TEMPORÁRIO — remover após confirmar
-  console.log("[KNOWLEDGE PUT] geminiKey presente:", !!geminiKey, "length:", geminiKey.length);
 
   let body: any;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "JSON inválido" }, { status: 400 }); }
@@ -163,12 +164,8 @@ export async function PUT(req: Request) {
     const finalTitle = updatePayload.title ?? current?.title ?? "";
     const finalContent = updatePayload.content ?? current?.content ?? "";
     const textToEmbed = `${finalTitle}\n\n${finalContent}`;
-    console.log("[KNOWLEDGE PUT] Gerando embedding para:", finalTitle.slice(0, 50));
     const embedding = await generateEmbedding(geminiKey, textToEmbed);
-    console.log("[KNOWLEDGE PUT] Embedding gerado:", embedding ? `${embedding.length} dimensões` : "FALHOU");
     if (embedding) updatePayload.embedding = `[${embedding.join(",")}]`;
-  } else {
-    console.log("[KNOWLEDGE PUT] geminiKey ausente — embedding não gerado");
   }
 
   const { data, error } = await sb

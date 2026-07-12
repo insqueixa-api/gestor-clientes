@@ -59,6 +59,12 @@ export async function POST(req: Request) {
 
   if (action === "create_node") {
     const { parent_id, slug, option_number, label, keywords, requires_account_check, special_actions } = body;
+    // ✅ "0" é reservado como atalho global de "falar com humano"
+    // (isEscalationTrigger, em bot-menu.ts) — uma opção de árvore com esse
+    // número nunca seria alcançável por dígito.
+    if (Number(option_number) === 0) {
+      return NextResponse.json({ error: "O número 0 é reservado para 'falar com humano' — use 1 ou maior." }, { status: 400 });
+    }
     const { data, error } = await sb
       .from("bot_menu_nodes")
       .insert({
@@ -79,6 +85,9 @@ export async function POST(req: Request) {
   if (action === "update_node") {
     const { id, ...fields } = body;
     delete fields.action;
+    if (fields.option_number !== undefined && Number(fields.option_number) === 0) {
+      return NextResponse.json({ error: "O número 0 é reservado para 'falar com humano' — use 1 ou maior." }, { status: 400 });
+    }
     const { data, error } = await sb
       .from("bot_menu_nodes")
       .update({ ...fields, updated_at: new Date().toISOString() })
@@ -97,6 +106,9 @@ export async function POST(req: Request) {
 
   if (action === "reorder_node") {
     const { id, option_number } = body;
+    if (Number(option_number) === 0) {
+      return NextResponse.json({ error: "O número 0 é reservado para 'falar com humano' — use 1 ou maior." }, { status: 400 });
+    }
     const { error } = await sb.from("bot_menu_nodes").update({ option_number }).eq("id", id).eq("tenant_id", tenantId);
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json({ ok: true });

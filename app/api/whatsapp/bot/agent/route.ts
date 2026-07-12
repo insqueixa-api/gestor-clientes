@@ -1,15 +1,45 @@
 // app/api/whatsapp/bot/agent/route.ts
+// ─────────────────────────────────────────────────────────────────────────────
+// Migrado pro motor de árvore (bot_menu_nodes/bot_menu_steps) + RAG de resposta
+// direta — mesma arquitetura já validada no chat-admin. O Gemini aqui só é
+// usado para: (1) gerar embeddings de busca, e (2) classificar se uma imagem
+// é comprovante de pagamento. Nenhuma geração de texto livre acontece mais.
+// ─────────────────────────────────────────────────────────────────────────────
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
-import { generatePortalLink } from "@/lib/whatsapp/template-vars";
-// 🟢 Importando a Fonte Única de Verdade (Regras e Ferramentas unificadas)
-import { BOT_TOOL_DECLARATIONS, buildBotSystemPrompt, buildScopedBotSystemPrompt, toBRDateTime, ESCALATION_TAG, type ScopedCategory } from "@/lib/whatsapp/bot-prompt";
-
+import { generatePortalLink, renderTemplate, buildClientTemplateVars } from "@/lib/whatsapp/template-vars";
+import {
+  type MenuNode,
+  HUMAN_REQUESTED_MSG,
+  BOT_GAVE_UP_MSG,
+  isEscalationTrigger,
+  isSimpleConfirmation,
+  isLinkOnly,
+  classifyRecentJob,
+  checkRecentPortalPayment,
+  paymentAutoConfirmedMsg,
+  PAYMENT_MANUAL_PENDING_MSG,
+  PAYMENT_FULFILLMENT_ERROR_MSG,
+  detectMenuContextFromTree,
+  getAllRootsAsMenuText,
+  getNodeById,
+  getChildren,
+  getSteps,
+  renderChildrenMenu,
+  findChildByNumber,
+  findChildByKeyword,
+  matchAccountFromText,
+  nodeNeedsAccount,
+  RESOLUTION_QUESTION,
+  RESOLUTION_RESOLVED,
+  RESOLUTION_NOT_RESOLVED,
+} from "@/lib/whatsapp/bot-menu";
+import { callGemini, generateEmbedding, searchBotKnowledgeTop, classifyIsAcknowledgment } from "@/lib/whatsapp/gemini-client";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60; // Vercel: máx 60s (agente pode demorar com tool calls)
+export const maxDuration = 60;
 
 // ── Helpers internos ──────────────────────────────────────────────────────────
 
@@ -34,38 +64,7 @@ function makeSupabaseAdmin() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-// ── Gemini API ────────────────────────────────────────────────────────────────
-
-// Usa a tag -latest para garantir que a API v1beta encontre o modelo
-const GEMINI_MODEL = "gemini-flash-latest";
-const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
-
-async function callGemini(apiKey: string, payload: any): Promise<any> {
-  const url = `${GEMINI_BASE}/${GEMINI_MODEL}:generateContent`;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 55_000);
-  let res: Response;
-  try {
-    res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey,
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timeout);
-  }
-  if (!res.ok) {
-    const err = await res.text().catch(() => "");
-    throw new Error(`Gemini ${res.status}: ${err.slice(0, 300)}`);
-  }
-  return res.json();
-}
-
-// ── Envio de resposta via WA service ─────────────────────────────────────────
+// ── Envio de resposta via WA service (real, produção) ────────────────────────
 
 async function sendWAMessage(sessionKey: string, phone: string, message: string) {
   const baseUrl = String(process.env.UNIGESTOR_WA_BASE_URL || "").trim();
@@ -97,18 +96,11 @@ async function sendWAMessage(sessionKey: string, phone: string, message: string)
   }
 }
 
-// ── Implementações das ferramentas (Lógica de Negócio do Backend) ─────────────
+// ── Ferramentas (chamadas diretas, disparadas pelas special_actions da árvore) ─
 
-async function toolGerarLinkPortal(
-  sb: any,
-  tenantId: string,
-  rawClient: any,
-  isSecondary: boolean
-): Promise<string> {
-  const phone = isSecondary
-    ? rawClient.secondary_whatsapp_username
-    : rawClient.whatsapp_username;
-  if (!phone) return "";
+async function toolGerarLinkPortal(sb: any, tenantId: string, rawClient: any, isSecondary: boolean): Promise<string> {
+  const phone = isSecondary ? rawClient.secondary_whatsapp_username : rawClient.whatsapp_username;
+  if (!phone) return "(link não disponível — cliente sem WhatsApp)";
   return generatePortalLink(sb, {
     tenantId,
     contact: { number: phone, username: phone, is_secondary: isSecondary },
@@ -119,40 +111,31 @@ async function toolGerarLinkPortal(
   });
 }
 
-async function toolConsultarPrecos(
-  sb: any,
-  tenantId: string,
-  client: any
-): Promise<any> {
+// Mantém a lógica completa original (checagem Elite excluindo ANNUAL) —
+// mais completa que a versão simplificada usada no chat-admin.
+async function toolConsultarPrecosTexto(sb: any, tenantId: string, client: any): Promise<string> {
   const PERIOD_LABELS: Record<string, string> = {
     MONTHLY: "Mensal", BIMONTHLY: "Bimestral", QUARTERLY: "Trimestral",
     SEMIANNUAL: "Semestral", ANNUAL: "Anual",
   };
   const ORDER = ["MONTHLY", "BIMONTHLY", "QUARTERLY", "SEMIANNUAL", "ANNUAL"];
 
-  // Resolve plan_table_id
   let planTableId = client.plan_table_id;
   if (!planTableId) {
     const { data: def } = await sb
-      .from("plan_tables")
-      .select("id")
-      .eq("tenant_id", tenantId)
-      .eq("is_system_default", true)
-      .eq("currency", client.price_currency || "BRL")
-      .eq("is_active", true)
+      .from("plan_tables").select("id")
+      .eq("tenant_id", tenantId).eq("is_system_default", true)
+      .eq("currency", client.price_currency || "BRL").eq("is_active", true)
       .maybeSingle();
     if (def) planTableId = def.id;
   }
-  if (!planTableId) return { error: "Tabela de preços não encontrada" };
+  if (!planTableId) return "(tabela de preços não encontrada)";
 
-  // Verifica se é Elite (sem ANNUAL)
   let isElite = false;
   if (client.server_id) {
-    const { data: srv } = await sb
-      .from("servers").select("panel_integration").eq("id", client.server_id).single();
+    const { data: srv } = await sb.from("servers").select("panel_integration").eq("id", client.server_id).single();
     if (srv?.panel_integration) {
-      const { data: integ } = await sb
-        .from("server_integrations").select("provider").eq("id", srv.panel_integration).single();
+      const { data: integ } = await sb.from("server_integrations").select("provider").eq("id", srv.panel_integration).single();
       if (integ?.provider?.toUpperCase() === "ELITE") isElite = true;
     }
   }
@@ -164,310 +147,152 @@ async function toolConsultarPrecos(
 
   const screens = Number(client.screens || 1);
 
-  // Preços da configuração atual
-  const precoAtual = (items || [])
+  const linhas = (items || [])
     .filter((item: any) => !isElite || item.period !== "ANNUAL")
     .map((item: any) => {
-      // Override: aplica só quando é o mesmo período E mesmas telas do plano atual
       let valor = 0;
-      if (
-        client.price_amount > 0 &&
-        PERIOD_LABELS[item.period] === client.plan_label
-      ) {
+      if (client.price_amount > 0 && PERIOD_LABELS[item.period] === client.plan_label) {
         valor = client.price_amount;
       } else {
-        const exact = item.plan_table_item_prices?.find(
-          (p: any) => p.screens_count === screens
-        );
+        const exact = item.plan_table_item_prices?.find((p: any) => p.screens_count === screens);
         if (exact) valor = exact.price_amount;
       }
-      return { periodo: PERIOD_LABELS[item.period] || item.period, valor };
+      return { periodo: PERIOD_LABELS[item.period] || item.period, valor, order: ORDER.indexOf(item.period) };
     })
     .filter((p: any) => p.valor > 0)
-    .sort((a: any, b: any) => ORDER.indexOf(a.period) - ORDER.indexOf(b.period));
+    .sort((a: any, b: any) => a.order - b.order)
+    .map((p: any) => `- ${p.periodo}: ${client.price_currency || "BRL"} ${Number(p.valor).toFixed(2)}`);
 
-  // Preços com +1 tela — SEMPRE da tabela, nunca override (é hipotético)
-  const precoTelasExtra = (items || [])
-    .filter((item: any) => !isElite || item.period !== "ANNUAL")
-    .map((item: any) => {
-      const extra = item.plan_table_item_prices?.find(
-        (p: any) => p.screens_count === screens + 1
-      );
-      return {
-        periodo: PERIOD_LABELS[item.period] || item.period,
-        valor: extra?.price_amount || 0,
-        telas: screens + 1,
-      };
-    })
-    .filter((p: any) => p.valor > 0)
-    .sort((a: any, b: any) => ORDER.indexOf(a.period) - ORDER.indexOf(b.period));
-
-  return {
-    moeda: client.price_currency || "BRL",
-    telas_atuais: screens,
-    precos_configuracao_atual: precoAtual,
-    precos_com_tela_extra: precoTelasExtra,
-    observacao: "precos_com_tela_extra são hipotéticos — não aplica override do cliente",
-  };
+  return linhas.length ? linhas.join("\n") : "(nenhum preço configurado)";
 }
 
-async function toolVerificarCloudflare(): Promise<any> {
+async function toolVerificarCloudflare(): Promise<{ operacional: boolean }> {
   try {
-    const res = await fetch("https://www.cloudflarestatus.com/api/v2/status.json", {
-      signal: AbortSignal.timeout(5_000),
-    });
+    const res = await fetch("https://www.cloudflarestatus.com/api/v2/status.json", { signal: AbortSignal.timeout(5_000) });
     const data = await res.json();
-    return {
-      operacional: data?.status?.indicator === "none",
-      indicator: data?.status?.indicator || "unknown",
-      descricao: data?.status?.description || "",
-    };
+    return { operacional: data?.status?.indicator === "none" };
   } catch {
-    // Se não conseguiu checar, assume operacional (não alarmar o cliente à toa)
-    return { operacional: true, indicator: "unknown", descricao: "Não foi possível verificar" };
+    return { operacional: true };
   }
 }
 
-async function toolRecomendarApplicativo(
-  sb: any,
-  tenantId: string,
-  serverId: string | null
-): Promise<any> {
+async function toolRecomendarAppsTexto(sb: any, tenantId: string, serverId: string | null): Promise<string> {
   const { data: apps } = await sb
-    .from("apps")
-    .select("name, cost_type, partner_server_id, license_price, license_period")
-    .eq("tenant_id", tenantId)
-    .eq("is_hidden", false);
+    .from("apps").select("name, cost_type, partner_server_id, license_price, license_period")
+    .eq("tenant_id", tenantId).eq("is_hidden", false);
+  if (!apps) return "(nenhum app configurado)";
 
-  if (!apps) return { apps_parceiros: [], apps_gratis: [], apps_pagos: [] };
+  const parceiros = (apps as any[]).filter(a => a.cost_type === "partnership" && a.partner_server_id === serverId).map(a => a.name);
+  const gratis = (apps as any[]).filter(a => a.cost_type === "free" && !a.partner_server_id).map(a => a.name);
+  const pagos = (apps as any[]).filter(a => a.cost_type === "paid" && !a.partner_server_id).map(a => {
+    const preco = a.license_price ? `R$ ${Number(a.license_price).toFixed(2).replace(".", ",")}` : "";
+    const periodo = a.license_period === "annual" ? "/ano" : a.license_period === "lifetime" ? " (vitalício)" : "";
+    return `${a.name}${preco ? ` (${preco}${periodo})` : ""}`;
+  });
 
-  const parceiros = (apps as any[])
-    .filter((a) => a.cost_type === "partnership" && a.partner_server_id === serverId)
-    .map((a) => ({ nome: a.name }));
-
-  const gratis = (apps as any[])
-    .filter((a) => a.cost_type === "free" && !a.partner_server_id)
-    .map((a) => ({ nome: a.name }));
-
-  const pagos = (apps as any[])
-    .filter((a) => a.cost_type === "paid" && !a.partner_server_id)
-    .map((a) => ({
-      nome: a.name,
-      valor: a.license_price
-        ? `R$ ${Number(a.license_price).toFixed(2).replace(".", ",")}`
-        : null,
-      periodo: a.license_period === "annual"
-        ? "anuidade"
-        : a.license_period === "lifetime"
-        ? "vitalício"
-        : null,
-    }));
-
-  return { apps_parceiros_do_servidor: parceiros, apps_universais_gratis: gratis, apps_universais_pagos: pagos };
+  const linhas = [
+    parceiros.length ? `Parceiros do seu servidor: ${parceiros.join(", ")}` : null,
+    gratis.length ? `Gratuitos: ${gratis.join(", ")}` : null,
+    pagos.length ? `Pagos: ${pagos.join(", ")}` : null,
+  ].filter(Boolean);
+  return linhas.join("\n") || "(nenhuma recomendação disponível)";
 }
 
-// ── RAG: Gerar embedding e buscar conhecimento relevante ─────────────────────
+// ── Variáveis de template pra um nó específico ───────────────────────────────
 
-async function generateEmbedding(apiKey: string, text: string): Promise<number[] | null> {
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "models/gemini-embedding-001",
-          content: { parts: [{ text }] },
-          taskType: "RETRIEVAL_QUERY",
-          outputDimensionality: 768,
-        }),
-        signal: AbortSignal.timeout(10_000),
-      }
-    );
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data?.embedding?.values ?? null;
-  } catch {
-    return null;
+async function buildVarsForNode(sb: any, tenantId: string, node: MenuNode, client: any, rawClient: any): Promise<Record<string, any>> {
+  const vars = buildClientTemplateVars({ clientRow: rawClient, isSecondary: client.is_secondary }) as Record<string, any>;
+  // ✅ Correção: buildClientTemplateVars espera nomes de coluna diferentes
+  // dos que a tabela `clients` realmente usa (row.username, row.plan_name,
+  // row.server_name) — sem isso, essas 3 variáveis ficavam vazias em
+  // silêncio, sem erro nenhum. Sobrescreve com os valores certos.
+  vars.usuario_app = client.server_username || "";
+  vars.plano_nome = client.plan_label || "";
+  vars.servidor_nome = client.server_name || "";
+  const actions = node.special_actions || [];
+  if (actions.includes("gerar_link_portal")) {
+    vars.link_pagamento = await toolGerarLinkPortal(sb, tenantId, rawClient, client.is_secondary);
   }
+  if (actions.includes("consultar_precos")) {
+    vars.tabela_precos = await toolConsultarPrecosTexto(sb, tenantId, client);
+  }
+  if (actions.includes("recomendar_app")) {
+    vars.apps_recomendados = await toolRecomendarAppsTexto(sb, tenantId, client.server_id || null);
+  }
+  return vars;
 }
 
+// ── Gate checks — rodam antes de mostrar os filhos de um nó ─────────────────
 
+async function runGateChecks(node: MenuNode, client: any, sb: any, tenantId: string): Promise<{ messages: string[]; markRead?: boolean } | null> {
+  const actions = node.special_actions || [];
 
-async function searchBotKnowledge(
-  sb: any,
-  tenantId: string,
-  embedding: number[],
-  limit = 5
-): Promise<string> {
-  try {
-    const { data, error } = await sb.rpc("search_bot_knowledge", {
-      p_tenant_id: tenantId,
-      p_embedding: `[${embedding.join(",")}]`,
-      p_limit: limit,
-      p_threshold: 0.5,
-    });
-
-    if (error || !data?.length) return "(nenhum conhecimento relevante encontrado)";
-
-    return data
-      .map((row: any) => `### [${row.category}] ${row.title}\n${row.content}`)
-      .join("\n\n---\n\n");
-  } catch {
-    return "(erro ao buscar base de conhecimento)";
+  if (actions.includes("check_servidor_vencimento") && client?.server_is_offline) {
+    return { messages: ["Identificamos uma instabilidade interna no servidor que já está sendo verificada pela nossa equipe. Em breve tudo estará normalizado! Por enquanto, tente acessar de tempos em tempos — quando voltar, funciona normalmente, sem precisar fazer nada. 🙏"], markRead: true };
   }
-}
 
-// ── Item 5: classificação de mensagens automáticas recentes ──────────────────
-// O bot "lê o sistema" antes de decidir: descobre se o cliente está
-// respondendo a algo que VOCÊ (ou o sistema) já mandou, e reage de forma
-// determinística — sem depender do Gemini interpretar o contexto sozinho.
-
-type RecentJobKind =
-  | "payment_confirmation"
-  | "vencimento"
-  | "pos_venda_satisfacao"
-  | "pos_venda_fidelidade"
-  | "pos_venda_generico"
-  | "none";
-
-function classifyRecentJob(job: any, templateInfo: { name?: string; category?: string } | null): RecentJobKind {
-  if (!job) return "none";
-
-  const templateName = String(templateInfo?.name || "");
-  const automationType = job.billing_automations?.type || null;
-  const automationName = String(job.billing_automations?.name || "");
-
-  // Disparado por evento (pagamento confirmado), sem automation_id
-  if (!job.automation_id && templateName === "Pagamento Realizado") {
-    return "payment_confirmation";
+  if (actions.includes("check_renovacao_recente")) {
+    const status = await checkRecentPortalPayment(sb, tenantId, [client?.id].filter(Boolean));
+    if (status === "auto_confirmed") return { messages: [paymentAutoConfirmedMsg(client.display_name?.split(" ")[0] || "")], markRead: true };
+    if (status === "manual_pending") return { messages: [PAYMENT_MANUAL_PENDING_MSG], markRead: true };
+    if (status === "fulfillment_error") return { messages: [PAYMENT_FULFILLMENT_ERROR_MSG], markRead: false };
   }
-  if (automationType === "Vencimento") {
-    return "vencimento";
-  }
-  if (automationType === "Pós-Venda") {
-    if (/pesquisa de satisfa/i.test(automationName)) return "pos_venda_satisfacao";
-    if (/fidelidade/i.test(automationName)) return "pos_venda_fidelidade";
-    return "pos_venda_generico";
-  }
-  return "none";
-}
 
-// Verifica se o texto é composto SOMENTE por saudações/agradecimentos
-// conhecidos — qualquer conteúdo fora dessa lista faz cair no fluxo normal
-// (Gemini), pra nunca engolir uma pergunta real disfarçada de cordialidade.
-const GRATITUDE_PHRASES = [
-  "bom dia", "boa tarde", "boa noite", "oi", "olá", "ola",
-  "obrigada", "obrigado", "obrigada pela paciência", "obrigado pela paciência",
-  "obrigada por tudo", "obrigado por tudo", "muito obrigada", "muito obrigado",
-  "valeu", "vlw", "tudo certo", "tudo ótimo", "tudo otimo", "perfeito",
-  "ótimo", "otimo", "obrigada viu", "obrigado viu",
-];
-
-function isGratitudeOrGreetingOnly(text: string): boolean {
-  let remaining = text
-    .toLowerCase()
-    .replace(/[!.,😊🙏❤️😄👍✅🎉]/g, "")
-    .trim();
-
-  for (const phrase of [...GRATITUDE_PHRASES].sort((a, b) => b.length - a.length)) {
-    remaining = remaining.split(phrase).join(" ");
-  }
-  remaining = remaining.replace(/\s+/g, " ").trim();
-  return remaining.length === 0 && text.trim().length > 0;
-}
-
-const POSTPONEMENT_INTENT =
-  /\b(vou pagar|pago (amanh[ãa]|hoje|depois|mais tarde|essa semana)|j[áa] vou (pagar|renovar)|assim que (puder|poss[íi]vel)|quando (chegar|puder)|semana que vem)\b/i;
-
-const PROBLEM_KEYWORDS =
-  /\b(travando|travou|ruim|p[ée]ssimo|n[ãa]o (funciona|gostei|est[áa] bom)|problema|reclama|demora|lento|sem sinal|n[ãa]o consigo)\b/i;
-
-// ── Item 7: arquitetura de menu (Fase B) ──────────────────────────────────
-
-type MenuContext = "tecnico" | "pagamento" | "instalacao" | "conteudo" | null;
-
-// Detecção determinística por palavra-chave — barata e previsível, sem
-// depender do Gemini pra decidir o roteamento inicial.
-function detectMenuContext(text: string): MenuContext {
-  const t = text.toLowerCase();
-
-  if (/\b(travando|travou|trava|congela|buffer|tela preta|sem sinal|não abre|nao abre|não funciona|nao funciona|erro|não conecta|nao conecta|canal)\b/i.test(t)) {
-    return "tecnico";
-  }
-  if (/\b(pagar|pagamento|renovar|renova[çc][ãa]o|pix|vencimento|venceu|cobran[çc]a|boleto|cancelar|plano)\b/i.test(t)) {
-    return "pagamento";
-  }
-  if (/\b(instalar|instala[çc][ãa]o|tv nova|configurar|app|aplicativo|celular|tablet|computador|nova tv)\b/i.test(t)) {
-    return "instalacao";
-  }
-  if (/\b(jogo|jogos|filme|filmes|s[ée]rie|s[ée]ries|programa[çc][ãa]o|onde passa|em qual canal|sugerir|sugest[ãa]o|novidades|catálogo|catalogo)\b/i.test(t)) {
-    return "conteudo";
-  }
   return null;
 }
 
-const MAIN_MENU_TEXT =
-  "Me conta o que você precisa:\n" +
-  "1️⃣ Problema técnico\n" +
-  "2️⃣ Renovação / pagamento\n" +
-  "3️⃣ Nova instalação\n" +
-  "4️⃣ Canais, filmes ou séries\n" +
-  "5️⃣ Dúvidas gerais\n" +
-  "6️⃣ Falar com o Márcio";
+// ── Execução de um nó folha ──────────────────────────────────────────────────
 
-const TECNICO_SUBMENU_TEXT =
-  "Entendido! Me conta mais:\n" +
-  "1️⃣ Canal travando / buffering\n" +
-  "2️⃣ Aplicativo não abre\n" +
-  "3️⃣ Tela preta com som\n" +
-  "4️⃣ Sem sinal / vencimento\n" +
-  "5️⃣ Descrever o problema";
+async function executeLeaf(node: MenuNode, client: any, rawClient: any, sb: any, tenantId: string): Promise<{ messages: string[]; escalate?: boolean; markRead?: boolean; nextState: string; transferReason?: string | null }> {
+  const actions = node.special_actions || [];
 
-const PAGAMENTO_SUBMENU_TEXT =
-  "Entendido! Me conta mais:\n" +
-  "1️⃣ Já paguei, aguardando confirmação\n" +
-  "2️⃣ Quero renovar agora\n" +
-  "3️⃣ Dúvida sobre valores / trocar plano\n" +
-  "4️⃣ Cancelar\n" +
-  "5️⃣ Outro assunto sobre pagamento";
+  if (actions.includes("escalar_imediatamente") || actions.includes("coletar_relato_e_escalar")) {
+    const vars = await buildVarsForNode(sb, tenantId, node, client, rawClient);
+    const steps = (await getSteps(sb, node.id)).map((s) => renderTemplate(s, vars));
+    // ✅ Repassa transfer_situation_label pro Márcio ver o motivo real da
+    // transferência — antes esse campo só ia pro safeLog (silenciado em
+    // produção) e nunca chegava a lugar nenhum.
+    return { messages: steps.length ? steps : [HUMAN_REQUESTED_MSG], escalate: true, markRead: false, nextState: "__clear__", transferReason: node.transfer_situation_label || null };
+  }
 
-const INSTALACAO_SUBMENU_TEXT =
-  "Entendido! Me conta mais:\n" +
-  "1️⃣ TV nova\n" +
-  "2️⃣ Celular / tablet\n" +
-  "3️⃣ Computador\n" +
-  "4️⃣ Já tenho o app, preciso reconfigurar\n" +
-  "5️⃣ Outro assunto sobre instalação";
+  if (actions.includes("redirecionar_instalacao")) {
+    const vars = await buildVarsForNode(sb, tenantId, node, client, rawClient);
+    const steps = (await getSteps(sb, node.id)).map((s) => renderTemplate(s, vars));
+    return { messages: steps, escalate: false, nextState: "__redirect_instalacao__" };
+  }
 
-const CONTEUDO_INFO_TEXT =
-  "📺 Pra isso você tem uma área dedicada dentro do seu portal! Lá você encontra:\n\n" +
-  "- Jogos do dia e a programação ao vivo da TV brasileira (qual canal passa o quê)\n" +
-  "- Busca de filmes e séries — ao clicar na capa, já mostra exatamente em qual pasta o conteúdo está disponível na sua TV\n" +
-  "- Também dá pra sugerir um filme ou série que ainda não tem (é uma sugestão, não uma garantia — a equipe avalia)\n\n" +
-  "A atualização acontece todos os dias. É só entrar no seu portal e ir em 'Novidades'.\n\n" +
-  "Se não encontrar o que procura por lá, me avisa que eu vejo com o Márcio! 😊";
+  if (actions.includes("verificar_cloudflare")) {
+    const cf = await toolVerificarCloudflare();
+    const msg = cf.operacional
+      ? "Verifiquei aqui e não identificamos instabilidade externa no momento. Vamos tentar: desligue o modem da tomada por 5 minutos e reabra o aplicativo. Se persistir, me avisa!"
+      : "Identificamos que a instabilidade vem de um serviço externo chamado Cloudflare, que faz a ponte entre você e nosso servidor. O time deles já está atuando para corrigir. A normalização deve ocorrer em breve. Obrigado pela paciência! 💙";
+    return { messages: [msg], nextState: node.closing_message ? `awaiting_resolution:${node.id}` : "geral" };
+  }
 
-// Palavras que indicam "já procurei no portal e não achei" — dispara
-// escalonamento (ex: jogo ao vivo cujo canal ainda não foi mapeado)
-const CONTEUDO_NOT_FOUND =
-  /\b(n[ãa]o (achei|encontrei|tem|achou|apareceu)|sem canal|n[ãa]o passa|nada aparece)\b/i;
+  if (actions.includes("check_servidor_vencimento")) {
+    const vencido = client?.vencimento ? new Date(client.vencimento).getTime() < Date.now() : false;
+    let msg: string;
+    if (vencido) {
+      const link = await toolGerarLinkPortal(sb, tenantId, rawClient, client.is_secondary);
+      msg = `Vi aqui que seu acesso está vencido — por isso o sinal parou. 😊\n\nPara renovar:\n👉 ${link}\nSenha: últimos 4 dígitos do seu WhatsApp`;
+    } else {
+      msg = "Seu acesso está em dia! Vamos tentar o reset padrão: desligue o modem da tomada por 5 minutos, depois a TV, e teste de novo. Se persistir, me avisa!";
+    }
+    return { messages: [msg], nextState: node.closing_message ? `awaiting_resolution:${node.id}` : "geral" };
+  }
 
-function submenuTextFor(context: MenuContext): string {
-  if (context === "tecnico") return TECNICO_SUBMENU_TEXT;
-  if (context === "pagamento") return PAGAMENTO_SUBMENU_TEXT;
-  if (context === "instalacao") return INSTALACAO_SUBMENU_TEXT;
-  if (context === "conteudo") return CONTEUDO_INFO_TEXT;
-  return MAIN_MENU_TEXT;
+  if (actions.includes("free_text_rag")) {
+    const steps = await getSteps(sb, node.id);
+    return { messages: steps.length ? steps : ["Pode me contar com detalhes o que está acontecendo? 😊"], nextState: "geral" };
+  }
+
+  const vars = await buildVarsForNode(sb, tenantId, node, client, rawClient);
+  const steps = (await getSteps(sb, node.id)).map((s) => renderTemplate(s, vars));
+  return {
+    messages: steps.length ? steps : ["(nenhuma resposta cadastrada — avise o Márcio)"],
+    nextState: node.closing_message ? `awaiting_resolution:${node.id}` : "geral",
+  };
 }
-
-// ── Mensagens de encerramento — UMA fonte para cada caso, nunca divergir ──
-// (1) Cliente PEDE explicitamente por humano — escolha dele, tom leve.
-const HUMAN_REQUESTED_MSG = "Combinado! Vou deixar sua conversa marcada aqui e o Márcio te atende assim que possível. 🙏";
-// (2) O BOT desiste após não conseguir entender — falha do bot, não do
-// cliente. Nunca insiste mais que 2 vezes: assume a limitação com
-// gentileza e passa para o Márcio, sem mais perguntas.
-const BOT_GAVE_UP_MSG = "Desculpa por não conseguir te ajudar direito por aqui! 🙏 Já deixei tudo registrado e o Márcio vai continuar seu atendimento assim que possível.";
 
 // ── Handler principal ─────────────────────────────────────────────────────────
 
@@ -492,11 +317,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
 
-const { tenant_id, session_key, phone, remoteJid, text, media_base64, media_type, mime_type, awaiting_payment_type, payment_clarification_attempts, bot_state } = body;
+  const { tenant_id, session_key, phone, remoteJid, text, media_base64, media_type, mime_type, awaiting_payment_type, payment_clarification_attempts, bot_state } = body;
 
-  // Ignora imediatamente qualquer mensagem vinda de grupos (@g.us)
   const jidToCheck = remoteJid || phone || "";
-if (jidToCheck.includes("@g.us")) {
+  if (jidToCheck.includes("@g.us")) {
     safeLog(`[BOT][agent] Mensagem de grupo ignorada: ${jidToCheck}`);
     return NextResponse.json({ ok: true, action: "ignored_group" });
   }
@@ -505,51 +329,47 @@ if (jidToCheck.includes("@g.us")) {
     return NextResponse.json({ error: "Parâmetros obrigatórios ausentes" }, { status: 400 });
   }
 
-  // ── 1. Identificar cliente ────────────────────────────────────────────────
-
+  // ── 1. Identificar cliente ──────────────────────────────────────────────
   const { data: clientMatches, error: clientErr } = await sb
-  .from("clients")
-  .select(`
-    id, display_name, secondary_display_name,
-    whatsapp_username, secondary_whatsapp_username,
-    server_username, server_password,
-    vencimento, screens, plan_label, plan_table_id,
-    price_amount, price_currency, technology,
-    server_id, is_trial, is_archived,
-    servers (name, dns, is_offline, offline_since, offline_reason)
-  `)
-  .eq("tenant_id", tenant_id)
-  .or(`whatsapp_username.eq.${phone},secondary_whatsapp_username.eq.${phone}`);
+    .from("clients")
+    .select(`
+      id, display_name, secondary_display_name,
+      whatsapp_username, secondary_whatsapp_username,
+      server_username, server_password,
+      vencimento, screens, plan_label, plan_table_id,
+      price_amount, price_currency, technology,
+      server_id, is_trial, is_archived,
+      servers (name, dns, is_offline, offline_since, offline_reason)
+    `)
+    .eq("tenant_id", tenant_id)
+    .or(`whatsapp_username.eq.${phone},secondary_whatsapp_username.eq.${phone}`);
 
-if (clientErr || !clientMatches?.length) {
+  if (clientErr || !clientMatches?.length) {
     safeLog("[BOT][agent] Número não identificado como cliente:", phone);
     return NextResponse.json({ ok: true, action: "silence" });
   }
 
-  // ── Mapeia TODAS as contas encontradas ──
   const clients = clientMatches.map((raw) => {
-  const isSec = raw.secondary_whatsapp_username === phone;
-  const dnsArray: string[] = (raw.servers as any)?.dns || [];
-  const srv = raw.servers as any;
-  return {
-    ...raw,
-    display_name: isSec ? (raw.secondary_display_name || raw.display_name || "Cliente") : (raw.display_name || "Cliente"),
-    server_name: srv?.name || "Servidor",
-    server_dns: dnsArray,
-    server_is_offline: srv?.is_offline ?? false,
-    server_offline_since: srv?.offline_since ?? null,
-    server_offline_reason: srv?.offline_reason ?? null,
-    is_secondary: isSec,
-  };
-});
+    const isSec = raw.secondary_whatsapp_username === phone;
+    const dnsArray: string[] = (raw.servers as any)?.dns || [];
+    const srv = raw.servers as any;
+    return {
+      ...raw,
+      display_name: isSec ? (raw.secondary_display_name || raw.display_name || "Cliente") : (raw.display_name || "Cliente"),
+      server_name: srv?.name || "Servidor",
+      server_dns: dnsArray,
+      server_is_offline: srv?.is_offline ?? false,
+      server_offline_since: srv?.offline_since ?? null,
+      server_offline_reason: srv?.offline_reason ?? null,
+      is_secondary: isSec,
+    };
+  });
 
-const firstName = clients[0].display_name.split(" ")[0];
+  const firstName = clients[0].display_name.split(" ")[0];
 
-  // ── 2. Mídia — lógica determinística (sem IA pra decidir o status) ────────
-
-if (media_base64 && media_type) {
+  // ── 2. Mídia — lógica determinística (inalterada) ────────────────────────
+  if (media_base64 && media_type) {
     const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
-
     const { data: recentPayments } = await sb
       .from("client_portal_payments")
       .select("id, fulfillment_status, whatsapp_status")
@@ -561,52 +381,31 @@ if (media_base64 && media_type) {
 
     const recentPayment = recentPayments?.[0];
 
-    // Caso A: Renovado via portal — confirmação automática já aconteceu
     if (recentPayment?.whatsapp_status === "sent") {
-      const msg =
-        `Oi ${firstName}! 😊 Recebi seu comprovante, mas sua renovação já foi processada automaticamente pelo portal — tudo certo com seu acesso!\n\nPara os próximos pagamentos pelo portal, não precisa enviar comprovante. Tudo acontece de forma automática. ✅`;
+      const msg = `Oi ${firstName}! 😊 Recebi seu comprovante, mas sua renovação já foi processada automaticamente pelo portal — tudo certo com seu acesso!\n\nPara os próximos pagamentos pelo portal, não precisa enviar comprovante. Tudo acontece de forma automática. ✅`;
       await sendWAMessage(session_key, phone, msg);
-      return NextResponse.json({ ok: true, action: "auto_confirmed", mark_read: true, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+      return NextResponse.json({ ok: true, action: "auto_confirmed", mark_read: true, bot_response: msg, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
     }
 
-    // Caso B: No fluxo do portal, aguardando confirmação manual sua
     if (recentPayment?.fulfillment_status === "manual_pending") {
-      const msg =
-        `Oi ${firstName}! Recebi seu comprovante. ✅\n\nSua renovação está em análise e será concluída em breve. Qualquer dúvida é só chamar!`;
+      const msg = `Oi ${firstName}! Recebi seu comprovante. ✅\n\nSua renovação está em análise e será concluída em breve. Qualquer dúvida é só chamar!`;
       await sendWAMessage(session_key, phone, msg);
-      return NextResponse.json({ ok: true, action: "manual_pending", mark_read: true, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+      return NextResponse.json({ ok: true, action: "manual_pending", mark_read: true, bot_response: msg, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
     }
 
-    // ✅ Caso D (recuperado do bot-prompt.ts original): pagamento CONFIRMADO,
-    // mas a finalização automática falhou (fulfillment_status = "error").
-    // Só afirma que o pagamento foi confirmado quando ele de fato foi —
-    // o que precisa de você é só concluir a renovação manualmente.
     if (recentPayment?.fulfillment_status === "error") {
-      const msg =
-        `Oi ${firstName}! Recebi seu comprovante. ✅\n\nSeu pagamento foi confirmado! Só tivemos uma instabilidade técnica na finalização automática, mas o Márcio já foi notificado e vai concluir sua renovação em instantes.`;
+      const msg = `Oi ${firstName}! Recebi seu comprovante. ✅\n\nSeu pagamento foi confirmado! Só tivemos uma instabilidade técnica na finalização automática, mas o Márcio já foi notificado e vai concluir sua renovação em instantes.`;
       await sendWAMessage(session_key, phone, msg);
       return NextResponse.json({ ok: true, action: "fulfillment_error", mark_read: false, bot_response: msg, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
     }
 
-    // Caso C: Sem registro no portal — pergunta Portal ou PIX antes de decidir
-    // (Item 6). A extração detalhada do comprovante (chave PIX, valor, etc.)
-    // foi removida daqui — quando o Márcio conferir a conversa manualmente
-    // (mark_read: false na resposta "PIX"), ele já vê a imagem/PDF original
-    // direto no WhatsApp, sem precisar do texto extraído pelo Gemini.
     if (!recentPayment) {
       let analysisPayload: any = {
         contents: [{
           role: "user",
           parts: [
-            {
-              inlineData: {
-                mimeType: mime_type || (media_type === "image" ? "image/jpeg" : "application/pdf"),
-                data: media_base64,
-              },
-            },
-            {
-              text: `Analise esta imagem/documento. É um comprovante de pagamento financeiro (transferência PIX, TED, DOC, recibo bancário ou similar)?\n\nResponda SOMENTE com este JSON:\n{"is_receipt":true}\nou\n{"is_receipt":false}\n\nResponda APENAS o JSON, sem markdown, sem explicação.`,
-            },
+            { inlineData: { mimeType: mime_type || (media_type === "image" ? "image/jpeg" : "application/pdf"), data: media_base64 } },
+            { text: `Analise esta imagem/documento. É um comprovante de pagamento financeiro (transferência PIX, TED, DOC, recibo bancário ou similar)?\n\nResponda SOMENTE com este JSON:\n{"is_receipt":true}\nou\n{"is_receipt":false}\n\nResponda APENAS o JSON, sem markdown, sem explicação.` },
           ],
         }],
         generationConfig: { temperature: 0, maxOutputTokens: 64 },
@@ -614,7 +413,7 @@ if (media_base64 && media_type) {
 
       let parsed: any = null;
       try {
-        const analysisResult = await callGemini(geminiKey, analysisPayload);
+        const analysisResult = await callGemini(geminiKey, analysisPayload, 20_000);
         const rawText = analysisResult?.candidates?.[0]?.content?.parts?.[0]?.text || "";
         parsed = JSON.parse(rawText.replace(/```json|```/g, "").trim());
       } catch (e: any) {
@@ -629,58 +428,33 @@ if (media_base64 && media_type) {
       const msg = `Vi que você informou que está pago! Só confirma uma coisa: foi feito direto pelo portal ou via PIX/transferência manual?`;
       await sendWAMessage(session_key, phone, msg);
       return NextResponse.json({
-        ok: true,
-        action: "awaiting_payment_type",
-        mark_read: true, // ainda é só uma pergunta do bot — não precisa da sua atenção agora
-        bot_response: msg,
-        display_name: clients[0]?.display_name || null,
-        server_name: clients[0]?.server_name || null,
+        ok: true, action: "awaiting_payment_type", mark_read: true, bot_response: msg,
+        display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null,
       });
     }
 
     return NextResponse.json({ ok: true, action: "silence" });
   }
 
-// ── 3. Mensagem de texto — agente Gemini com ferramentas ─────────────────
-
+  // ── 3. Mensagem de texto ─────────────────────────────────────────────────
   if (!text?.trim()) {
     return NextResponse.json({ ok: true, action: "silence" });
   }
+  const trimmed = text.trim();
 
-// ✅ Escalonamento determinístico — verificado AQUI, antes de qualquer
-  // roteamento de menu, pra ter prioridade máxima de verdade em TODOS os
-  // estados. (Correção de bug real: antes, "pessoal" digitado logo na
-  // primeira mensagem não escalonava na hora — ficava preso no fallback de
-  // "não entendi" do menu, porque aquele bloco sempre retornava antes de
-  // chegar no escalonamento, que ficava mais abaixo no arquivo.)
-  const escalationTrigger =
-    /^(pessoal|márcio|marcio|humano|0)$/i.test(text.trim()) ||
-    /\b(falar com (o )?márcio|falar com (uma )?pessoa|atendente humano|quero (um )?humano|preciso de (uma )?pessoa)\b/i.test(text.trim());
-
-  if (escalationTrigger) {
-    safeLog("[BOT][agent] Escalonamento explícito detectado:", text.trim());
+  // ── Escalonamento explícito — prioridade máxima ─────────────────────────
+  if (isEscalationTrigger(trimmed)) {
+    safeLog("[BOT][agent] Escalonamento explícito detectado:", trimmed);
     await sendWAMessage(session_key, phone, HUMAN_REQUESTED_MSG);
     return NextResponse.json({
-      ok: true,
-      action: "escalated",
-      escalate: true,
-      mark_read: false,
-      next_state: "__clear__",
+      ok: true, action: "escalated", escalate: true, mark_read: false, next_state: "__clear__",
       bot_response: HUMAN_REQUESTED_MSG,
-      display_name: clients[0]?.display_name || null,
-      server_name: clients[0]?.server_name || null,
+      display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null,
     });
   }
 
-// ✅ CORREÇÃO DE BUG CRÍTICO: "Portal ou PIX?" (Item 6) precisa ser
-  // checado ANTES do roteamento de menu. Antes, se o cliente mandasse um
-  // comprovante como primeira mensagem (bot_state ainda null, pois essa
-  // pergunta não seta next_state), a resposta dele ("pix"/"portal") caía
-  // no bloco de menu, que — vendo bot_state null — tratava como se fosse
-  // a primeiríssima mensagem e mandava a introdução + menu principal,
-  // ignorando completamente a pergunta pendente sobre o pagamento.
+  // ── "Portal ou PIX?" — checado antes do roteamento de menu ──────────────
   if (awaiting_payment_type === true) {
-    const trimmed = text.trim();
     const mentionsPix = /\b(pix|transfer[eê]ncia|manual|ted|doc|dep[oó]sito)\b/i.test(trimmed);
     const mentionsPortal = /\b(portal|link|site)\b/i.test(trimmed);
 
@@ -690,12 +464,8 @@ if (media_base64 && media_type) {
       const msg2 = `Já fica a dica: se renovar direto pelo portal usando o link que te mandei, o processo é automático — você nem precisa enviar comprovante nem esperar a confirmação manual. #FicaADica`;
       await sendWAMessage(session_key, phone, msg2);
       return NextResponse.json({
-        ok: true,
-        action: "payment_pix_confirmed",
-        mark_read: false,
-        bot_response: `${msg1}\n\n${msg2}`,
-        display_name: clients[0]?.display_name || null,
-        server_name: clients[0]?.server_name || null,
+        ok: true, action: "payment_pix_confirmed", mark_read: false, bot_response: `${msg1}\n\n${msg2}`,
+        display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null,
       });
     }
 
@@ -704,11 +474,8 @@ if (media_base64 && media_type) {
       const { data: recheck } = await sb
         .from("client_portal_payments")
         .select("id, fulfillment_status, whatsapp_status")
-        .eq("tenant_id", tenant_id)
-        .in("client_id", clients.map((c: any) => c.id))
-        .gte("created_at", sixHoursAgo)
-        .order("created_at", { ascending: false })
-        .limit(1);
+        .eq("tenant_id", tenant_id).in("client_id", clients.map((c: any) => c.id))
+        .gte("created_at", sixHoursAgo).order("created_at", { ascending: false }).limit(1);
 
       const found = recheck?.[0];
       if (found?.whatsapp_status === "sent") {
@@ -732,643 +499,248 @@ if (media_base64 && media_type) {
     return NextResponse.json({ ok: true, action: "awaiting_payment_type", mark_read: true, bot_response: msg, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
   }
 
-  // ✅ Item 7 (Fase B): roteamento por estado de menu.
-  const trimmedForMenu = text.trim();
-  const numericChoice = /^[1-6]$/.test(trimmedForMenu) ? Number(trimmedForMenu) : null;
+  // ── Helpers de conta ──────────────────────────────────────────────────────
+  function resolveAccount(t: string): { client: any; rawClient: any } | null {
+    if (clients.length <= 1) return { client: clients[0], rawClient: clientMatches[0] };
+    const idx = matchAccountFromText(clients, t);
+    if (idx === null) return null;
+    return { client: clients[idx], rawClient: clientMatches[idx] };
+  }
+  function askAccountMessage(): string {
+    const lista = clients.map((c: any, i: number) => `- Conta ${i + 1}: ${c.display_name} (${c.server_username || "n/i"}) — ${c.server_name}`).join("\n");
+    return `Você tem mais de uma conta — qual delas se refere? Pode responder com "conta 1", "conta 2" ou o nome do servidor:\n\n${lista}`;
+  }
 
-  if (!bot_state || bot_state === "aguardando_resposta" || bot_state === "aguardando_resposta_2") {
-    const detected = detectMenuContext(trimmedForMenu);
+  async function enterNode(node: MenuNode, resolved: { client: any; rawClient: any } | null, attempt: 1 | 2): Promise<any> {
+    if (nodeNeedsAccount(node) && !resolved) {
+      resolved = resolveAccount(trimmed);
+      if (!resolved) {
+        if (attempt === 2) {
+          await sendWAMessage(session_key, phone, BOT_GAVE_UP_MSG);
+          return NextResponse.json({ ok: true, action: "conta_desistiu", escalate: true, mark_read: false, bot_response: BOT_GAVE_UP_MSG, next_state: "__clear__", transfer_reason: node.transfer_situation_label || null, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+        }
+const msg = askAccountMessage();
+        await sendWAMessage(session_key, phone, msg);
+        return NextResponse.json({ ok: true, action: "pede_conta", mark_read: true, bot_response: msg, next_state: `conta:${node.id}`, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+      }
+    }
+    const client = resolved?.client || clients[0];
+    const rawClient = resolved?.rawClient || clientMatches[0];
 
-    if (detected) {
-      const msg = submenuTextFor(detected);
+    const children = await getChildren(sb, node.id);
+
+    if (children.length > 0) {
+      const gate = await runGateChecks(node, client, sb, tenant_id);
+      if (gate) {
+        for (const m of gate.messages) await sendWAMessage(session_key, phone, m);
+        return NextResponse.json({ ok: true, action: "gate_resolved", mark_read: gate.markRead ?? true, bot_response: gate.messages.join("\n\n"), next_state: "geral", display_name: client?.display_name || null, server_name: client?.server_name || null });
+      }
+      const vars = await buildVarsForNode(sb, tenant_id, node, client, rawClient);
+      const preMsgs = (await getSteps(sb, node.id)).map((s) => renderTemplate(s, vars));
+      for (const m of preMsgs) await sendWAMessage(session_key, phone, m);
+      const menuMsg = renderChildrenMenu(children);
+      await sendWAMessage(session_key, phone, menuMsg);
+      return NextResponse.json({ ok: true, action: "menu_shown", mark_read: true, bot_response: [...preMsgs, menuMsg].join("\n\n"), next_state: `menunode:${node.id}`, display_name: client?.display_name || null, server_name: client?.server_name || null });
+    }
+
+    const result = await executeLeaf(node, client, rawClient, sb, tenant_id);
+
+    if (result.nextState === "__redirect_instalacao__") {
+      for (const m of result.messages) await sendWAMessage(session_key, phone, m);
+      const { data: instalacaoRoot } = await sb.from("bot_menu_nodes").select("*").eq("tenant_id", tenant_id).eq("slug", "instalacao").maybeSingle();
+      if (instalacaoRoot) return enterNode(instalacaoRoot as MenuNode, null, 1);
+      await sendWAMessage(session_key, phone, BOT_GAVE_UP_MSG);
+      return NextResponse.json({ ok: true, action: "instalacao_nao_encontrada", escalate: true, mark_read: false, bot_response: BOT_GAVE_UP_MSG, next_state: "__clear__", display_name: client?.display_name || null, server_name: client?.server_name || null });
+    }
+
+    for (const m of result.messages) await sendWAMessage(session_key, phone, m);
+    return NextResponse.json({
+      ok: true, action: "leaf_executed", escalate: result.escalate, mark_read: result.markRead ?? true,
+      bot_response: result.messages.join("\n\n"), next_state: result.nextState,
+      transfer_reason: result.transferReason || null,
+      display_name: client?.display_name || null, server_name: client?.server_name || null,
+    });
+  }
+
+  // ── Estado: aguardando resolução de conta ────────────────────────────────
+  // ✅ Corrigido: se chegamos aqui com bot_state = "conta:<id>", significa
+  // que JÁ perguntamos uma vez — esta resposta do cliente é a última
+  // chance antes de escalonar. Sem essa correção, o cálculo de attempt
+  // nunca avançava, e o bot podia perguntar "qual conta?" pra sempre.
+  const contaMatch = /^conta:([a-f0-9-]+)$/.exec(bot_state || "");
+  if (contaMatch) {
+    const node = await getNodeById(sb, contaMatch[1]);
+    if (!node) return NextResponse.json({ ok: true, action: "erro_no_estado", mark_read: true, next_state: "__clear__" });
+    return enterNode(node, null, 2);
+  }
+
+  // ── Estado: aguardando "resolveu ou não" ─────────────────────────────────
+  const resolutionMatch = /^awaiting_resolution:([a-f0-9-]+)$/.exec(bot_state || "");
+  if (resolutionMatch) {
+    const node = await getNodeById(sb, resolutionMatch[1]);
+    if (RESOLUTION_RESOLVED.test(trimmed)) {
+      const msg = node?.closing_message || "Que bom! Fico feliz que resolveu 😊";
       await sendWAMessage(session_key, phone, msg);
-      return NextResponse.json({ ok: true, action: `menu_${detected}`, mark_read: true, bot_response: msg, next_state: detected, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+      return NextResponse.json({ ok: true, action: "resolvido", mark_read: true, bot_response: msg, next_state: "geral", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+    }
+    if (RESOLUTION_NOT_RESOLVED.test(trimmed)) {
+      safeLog("[BOT][agent] Transferência:", node?.transfer_situation_label);
+      await sendWAMessage(session_key, phone, BOT_GAVE_UP_MSG);
+      // ✅ transfer_situation_label agora viaja até o evento do Monitor
+      // (sessionManager.js) em vez de morrer só no safeLog.
+      return NextResponse.json({ ok: true, action: "nao_resolvido_escalado", escalate: true, mark_read: false, bot_response: BOT_GAVE_UP_MSG, next_state: "__clear__", transfer_reason: node?.transfer_situation_label || null, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+    }
+    await sendWAMessage(session_key, phone, RESOLUTION_QUESTION);
+    return NextResponse.json({ ok: true, action: "resolution_retry", mark_read: true, bot_response: RESOLUTION_QUESTION, next_state: bot_state, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+  }
+
+  // ── Estado: dentro de um nó com filhos (escolhendo opção) ────────────────
+  const menuNodeMatch = /^menunode:([a-f0-9-]+)$/.exec(bot_state || "");
+  if (menuNodeMatch) {
+    const currentNode = await getNodeById(sb, menuNodeMatch[1]);
+    if (!currentNode) return NextResponse.json({ ok: true, action: "erro_no_estado", mark_read: true, next_state: "__clear__" });
+
+    const switched = await detectMenuContextFromTree(sb, tenant_id, trimmed);
+    if (switched && switched.id !== currentNode.id && switched.parent_id === null) {
+      return enterNode(switched, null, 1);
     }
 
-    // ✅ CORREÇÃO DE BUG CRÍTICO: número válido agora é reconhecido tanto
-    // na 1ª quanto na 2ª tentativa. Antes, só "aguardando_resposta" era
-    // aceito — se o cliente respondesse um número válido na 2ª tentativa,
-    // o bot desistia dele mesmo a resposta estando certa.
-    const isRetryState = bot_state === "aguardando_resposta" || bot_state === "aguardando_resposta_2";
+    const children = await getChildren(sb, currentNode.id);
+    const numeric = /^[1-9]$/.test(trimmed) ? Number(trimmed) : null;
+    const chosen = (numeric ? findChildByNumber(children, numeric) : null) || findChildByKeyword(children, trimmed);
 
-    if (isRetryState && numericChoice) {
-      if (numericChoice === 6) {
-        const msg = HUMAN_REQUESTED_MSG;
+    if (chosen) return enterNode(chosen, null, 1);
+
+    const msg = `Não entendi — pode escolher uma das opções acima, por favor? 😊\n\n${renderChildrenMenu(children)}`;
+    await sendWAMessage(session_key, phone, msg);
+    return NextResponse.json({ ok: true, action: "menu_retry", mark_read: true, bot_response: msg, next_state: bot_state, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+  }
+
+  // ── Item 5: reação a mensagem automática recente ─────────────────────────
+  // ✅ Redesenhado: em vez de regex tentando adivinhar "isso é só
+  // cordialidade?" (que falhava em mensagens reais com o nome da pessoa —
+  // ex: "Boa tarde Márcio, ótimo sábado!"), uma chamada mínima ao Gemini
+  // decide true/false com o contexto certo. Zero geração de texto livre.
+  try {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: recentJob } = await sb
+      .from("client_message_jobs")
+      .select(`sent_at, automation_id, message_template_id, billing_automations ( name, type )`)
+      .eq("tenant_id", tenant_id).in("client_id", clients.map((c: any) => c.id))
+      .eq("status", "SENT").gte("sent_at", twentyFourHoursAgo)
+      .order("sent_at", { ascending: false }).limit(1).maybeSingle();
+
+    let templateInfo: any = null;
+    if (recentJob?.message_template_id) {
+      const { data: tpl } = await sb.from("message_templates").select("name, category").eq("id", recentJob.message_template_id).maybeSingle();
+      templateInfo = tpl || null;
+    }
+    const jobKind = classifyRecentJob(recentJob, templateInfo);
+    safeLog("[BOT][agent] Item5 — job recente classificado como:", jobKind);
+
+    const JOB_CONTEXT: Record<string, string> = {
+      payment_confirmation: "Confirmação automática de que o pagamento/renovação foi processado com sucesso.",
+      vencimento: "Lembrete automático de que o acesso está vencendo em breve.",
+      pos_venda_satisfacao: "Pesquisa de satisfação perguntando como está sendo a experiência do cliente.",
+      pos_venda_fidelidade: "Mensagem automática de acompanhamento de fidelidade do cliente.",
+      pos_venda_generico: "Mensagem automática de acompanhamento pós-venda.",
+    };
+
+    if (jobKind !== "none" && JOB_CONTEXT[jobKind]) {
+      const isAck = await classifyIsAcknowledgment(geminiKey, JOB_CONTEXT[jobKind], trimmed);
+
+      if (isAck) {
+        const ACK_MESSAGES: Record<string, string> = {
+          payment_confirmation: `Que bom, ${firstName}! 😊 Fico feliz que deu tudo certo com sua renovação. Qualquer coisa é só chamar!`,
+          vencimento: `Sem pressa! Pode ficar tranquilo — quando for renovar, é só acessar o portal que está tudo pronto. Se precisar de ajuda, é só chamar! 😊`,
+          pos_venda_satisfacao: `Muito obrigado pelo retorno, ${firstName}! 🙏 Fico feliz que esteja gostando. Qualquer coisa, é só chamar!`,
+          pos_venda_fidelidade: `Que bom, ${firstName}! 😊 Fico feliz em saber. Qualquer coisa, é só chamar!`,
+          pos_venda_generico: `Que bom, ${firstName}! 😊 Fico feliz em saber. Qualquer coisa, é só chamar!`,
+        };
+        const ACK_ACTIONS: Record<string, string> = {
+          payment_confirmation: "payment_ack",
+          vencimento: "vencimento_ack",
+          pos_venda_satisfacao: "satisfaction_ack",
+          pos_venda_fidelidade: "pos_venda_ack",
+          pos_venda_generico: "pos_venda_ack",
+        };
+        const msg = ACK_MESSAGES[jobKind];
         await sendWAMessage(session_key, phone, msg);
-        return NextResponse.json({ ok: true, action: "escalated_menu", escalate: true, mark_read: false, bot_response: msg, next_state: "__clear__", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-      }
-      const mapped: MenuContext =
-        numericChoice === 1 ? "tecnico" :
-        numericChoice === 2 ? "pagamento" :
-        numericChoice === 3 ? "instalacao" :
-        numericChoice === 4 ? "conteudo" : null;
-      if (mapped) {
-        const msg = submenuTextFor(mapped);
-        await sendWAMessage(session_key, phone, msg);
-        return NextResponse.json({ ok: true, action: `menu_${mapped}`, mark_read: true, bot_response: msg, next_state: mapped, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-      }
-      // ✅ CORREÇÃO DE BUG CRÍTICO: opção 5 (Dúvidas gerais) agora recebe
-      // uma confirmação explícita, em vez de deixar o texto "5" (o próprio
-      // dígito da escolha) ser enviado ao Gemini como se fosse a pergunta
-      // real do cliente — isso gerava respostas confusas/de baixa
-      // qualidade, indo contra o padrão de atendimento que você exige.
-      if (numericChoice === 5) {
-        const msg = "Claro! Pode me contar sua dúvida ou o que você precisa 😊";
-        await sendWAMessage(session_key, phone, msg);
-        return NextResponse.json({ ok: true, action: "menu_duvidas_gerais", mark_read: true, bot_response: msg, next_state: "geral", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+        return NextResponse.json({ ok: true, action: ACK_ACTIONS[jobKind], mark_read: true, bot_response: msg, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
       }
     }
+  } catch (e: any) {
+    safeLog("[BOT][agent] Erro Item5:", e?.message);
+  }
 
-    // 1ª vez que vemos esse contato (bot_state null) → sem contexto
-    // detectado → apresenta + menu, 2 mensagens separadas
+  // ── Confirmação simples / link puro ─────────────────────────────────────
+  if (isSimpleConfirmation(trimmed)) {
+    safeLog("[BOT][agent] Confirmação simples ignorada:", trimmed);
+    return NextResponse.json({ ok: true, action: "silence_confirmation", mark_read: true });
+  }
+  if (isLinkOnly(trimmed)) {
+    safeLog("[BOT][agent] Link puro ignorado:", trimmed.slice(0, 80));
+    return NextResponse.json({ ok: true, action: "silence", mark_read: true });
+  }
+
+  // ── Estado "geral" / "geral_retry" — resposta direta do RAG ──────────────
+  // ✅ Agora com 1 chance de reformular antes de escalonar, no mesmo padrão
+  // de paciência usado no resto da árvore — antes, qualquer falta de match
+  // no RAG (ou falha passageira do Gemini) escalonava na 1ª tentativa.
+  if (bot_state === "geral" || bot_state === "geral_retry") {
+    const isRetry = bot_state === "geral_retry";
+    try {
+      const embedding = await generateEmbedding(geminiKey, trimmed);
+      const top = embedding ? await searchBotKnowledgeTop(sb, tenant_id, embedding) : null;
+      if (top) {
+        const vars = buildClientTemplateVars({ clientRow: clientMatches[0], isSecondary: clients[0]?.is_secondary }) as any;
+        // ✅ Mesma correção do buildVarsForNode — sem isso, {usuario_app},
+        // {plano_nome} e {servidor_nome} ficariam vazios em qualquer
+        // resposta vinda do RAG direto (estado "geral").
+        vars.usuario_app = clients[0]?.server_username || "";
+        vars.plano_nome = clients[0]?.plan_label || "";
+        vars.servidor_nome = clients[0]?.server_name || "";
+        const msg = renderTemplate(top.content, vars);
+        await sendWAMessage(session_key, phone, msg);
+        return NextResponse.json({ ok: true, action: "rag_direct", mark_read: true, bot_response: msg, next_state: "geral", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+      }
+    } catch (e: any) {
+      safeLog("[BOT][agent] Erro RAG:", e?.message);
+    }
+
+    if (!isRetry) {
+      const msg = "Não encontrei uma resposta certeira pra isso 🤔 Pode tentar explicar de outro jeito ou com mais detalhes?";
+      await sendWAMessage(session_key, phone, msg);
+      return NextResponse.json({ ok: true, action: "rag_sem_match_retry", mark_read: true, bot_response: msg, next_state: "geral_retry", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+    }
+
+    await sendWAMessage(session_key, phone, BOT_GAVE_UP_MSG);
+    return NextResponse.json({ ok: true, action: "rag_sem_match", escalate: true, mark_read: false, bot_response: BOT_GAVE_UP_MSG, next_state: "__clear__", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+  }
+
+  // ── Primeira mensagem / paciência de 2 tentativas ────────────────────────
+  const detected = await detectMenuContextFromTree(sb, tenant_id, trimmed);
+  if (detected) return enterNode(detected, null, 1);
+
+  if (bot_state === "aguardando_resposta_2") {
+    await sendWAMessage(session_key, phone, BOT_GAVE_UP_MSG);
+    return NextResponse.json({ ok: true, action: "escalated_menu", escalate: true, mark_read: false, bot_response: BOT_GAVE_UP_MSG, next_state: "__clear__", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+  }
+
+  if (!bot_state || bot_state === "aguardando_resposta") {
     if (!bot_state) {
       const msg1 = "Oi! Sou o assistente do Márcio 🤖";
       await sendWAMessage(session_key, phone, msg1);
-      await sendWAMessage(session_key, phone, MAIN_MENU_TEXT);
-      return NextResponse.json({ ok: true, action: "menu_intro", mark_read: true, bot_response: `${msg1}\n\n${MAIN_MENU_TEXT}`, next_state: "aguardando_resposta", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+      const menuMsg = await getAllRootsAsMenuText(sb, tenant_id);
+      await sendWAMessage(session_key, phone, menuMsg);
+      return NextResponse.json({ ok: true, action: "menu_intro", mark_read: true, bot_response: `${msg1}\n\n${menuMsg}`, next_state: "aguardando_resposta", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
     }
-
-    // 2ª tentativa (aguardando_resposta_2) também falhou → o BOT desiste,
-    // não o cliente — usa a mensagem de falha, não a de pedido explícito.
-    if (bot_state === "aguardando_resposta_2") {
-      const msg = BOT_GAVE_UP_MSG;
-      await sendWAMessage(session_key, phone, msg);
-      return NextResponse.json({ ok: true, action: "escalated_menu", escalate: true, mark_read: false, bot_response: msg, next_state: "__clear__", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-    }
-
-    // 1ª tentativa (aguardando_resposta) não identificou nada e não foi
-    // número válido → pergunta de novo, reformulado (paciência com idosos)
-    const msg = `Sem pressa! Pode me contar com suas palavras o que está precisando? Por exemplo: "meu canal travou", "quero pagar" ou "preciso instalar num aparelho novo" 😊`;
+    const msg = `Sem pressa! Pode me contar com suas palavras o que está precisando? 😊`;
     await sendWAMessage(session_key, phone, msg);
     return NextResponse.json({ ok: true, action: "menu_retry", mark_read: true, bot_response: msg, next_state: "aguardando_resposta_2", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
   }
 
-// ✅ Item 7 (Fase B, continuação): já dentro de um submenu
-const isAwaitingConta = /^tecnico_aguardando_conta_[1-6]$/.test(bot_state || "") || bot_state === "pagamento_aguardando_conta_3";
-  if (bot_state === "tecnico" || bot_state === "pagamento" || bot_state === "instalacao" || bot_state === "conteudo" || isAwaitingConta) {
-    // Troca de contexto a qualquer momento — regra que você definiu: "a
-    // qualquer momento pode mudar o contexto, tipo novo problema"
-    const newContext = detectMenuContext(trimmedForMenu);
-    if (newContext && newContext !== bot_state) {
-      const msg = submenuTextFor(newContext);
-      await sendWAMessage(session_key, phone, msg);
-      return NextResponse.json({ ok: true, action: `menu_switch_${newContext}`, mark_read: true, bot_response: msg, next_state: newContext, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-    }
-
-    if (bot_state === "conteudo" && CONTEUDO_NOT_FOUND.test(trimmedForMenu)) {
-      const msg = "Entendido, vou verificar isso direto com o Márcio! Pode ser um conteúdo ainda não mapeado — ele já te retorna. 🙏";
-      await sendWAMessage(session_key, phone, msg);
-      return NextResponse.json({ ok: true, action: "conteudo_escalated", escalate: true, mark_read: false, bot_response: msg, next_state: "__clear__", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-    }
-    // "conteudo" sem match de "não achei" NÃO retorna aqui de propósito —
-    // cai pro Gemini com prompt filtrado (mesmo padrão de tecnico/pagamento/
-    // instalacao), pra responder com nuance em vez de repetir texto fixo.
-
-// ✅ Preserva a opção numérica original através da pergunta "qual conta?"
-    // codificando no próprio next_state (ex: "tecnico_aguardando_conta_2").
-    // Isso evita perder o contexto do que o cliente escolheu, sem precisar
-    // de estado extra na VM.
-    const contaRetryMatch = /^tecnico_aguardando_conta_([1-6])$/.exec(bot_state || "");
-
-    if ((bot_state === "tecnico" && numericChoice) || contaRetryMatch) {
-      const effectiveChoice = contaRetryMatch ? Number(contaRetryMatch[1]) : numericChoice!;
-
-      // ✅ Múltiplas contas: precisa saber QUAL conta antes de checar
-      // offline ou responder qualquer coisa técnica. Aceita "conta 1" ou o
-      // NOME do servidor — NUNCA um dígito sozinho (colidiria com as
-      // opções numéricas do próprio menu técnico).
-      let selectedClient = clients[0];
-      if (clients.length > 1) {
-        const lowerText = trimmedForMenu.toLowerCase();
-        const contaMatch = /conta\s*([1-9])/i.exec(trimmedForMenu);
-        let idx: number | null = contaMatch ? Math.max(0, Number(contaMatch[1]) - 1) : null;
-
-        if (idx === null) {
-          const serverMatches = clients
-            .map((c: any, i: number) => ({ i, name: String(c.server_name || "").toLowerCase() }))
-            .filter((m) => m.name && lowerText.includes(m.name));
-          if (serverMatches.length === 1) idx = serverMatches[0].i;
-          // Mais de um match (mesmo servidor, contas diferentes) também
-          // conta como "não resolvido" — cai no mesmo tratamento abaixo,
-          // sem mensagem separada (uma única lógica, sem conflito).
-        }
-
-        if (idx === null) {
-          if (contaRetryMatch) {
-            // 2ª tentativa também falhou — desiste com gentileza, nunca trava.
-            await sendWAMessage(session_key, phone, BOT_GAVE_UP_MSG);
-            return NextResponse.json({ ok: true, action: "tecnico_conta_desistiu", escalate: true, mark_read: false, bot_response: BOT_GAVE_UP_MSG, next_state: "__clear__", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-          }
-          const lista = clients
-            .map((c: any, i: number) => `- Conta ${i + 1}: ${c.display_name} (${c.server_username || "n/i"}) — ${c.server_name}`)
-            .join("\n");
-          const msg = `Você tem mais de uma conta — qual delas está com o problema? Pode responder com "conta 1", "conta 2" ou o nome do servidor:\n\n${lista}`;
-          await sendWAMessage(session_key, phone, msg);
-          return NextResponse.json({ ok: true, action: "tecnico_pede_conta", mark_read: true, bot_response: msg, next_state: `tecnico_aguardando_conta_${effectiveChoice}`, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-        }
-
-        selectedClient = clients[idx] || clients[0];
-      }
-
-      // ✅ Checagem de servidor offline — agora na conta certa — ANTES de
-      // qualquer opção. Se offline, explica isso independente do sintoma.
-      if (selectedClient?.server_is_offline) {
-        const msg = "Identificamos uma instabilidade interna no servidor que já está sendo verificada pela nossa equipe. Em breve tudo estará normalizado! Por enquanto, tente acessar de tempos em tempos — quando voltar, funciona normalmente, sem precisar fazer nada. 🙏";
-        await sendWAMessage(session_key, phone, msg);
-        return NextResponse.json({ ok: true, action: "tecnico_servidor_offline", mark_read: true, bot_response: msg, next_state: "geral", display_name: selectedClient?.display_name || null, server_name: selectedClient?.server_name || null });
-      }
-
-      if (effectiveChoice === 1) {
-        const msg = "Segue um passo a passo que costuma resolver a maioria dos problemas:\n1. Desligue o modem da tomada e aguarde 5 minutos\n2. Desligue também a TV da tomada\n3. Após 5 minutos, ligue só o modem e aguarde a internet estabilizar\n4. Só então ligue a TV na tomada\n5. Ligue a TV pelo controle mas não abra o app ainda\n6. Aguarde 1 minuto\n7. Agora abra o app e teste\nSe continuar, me avisa que passo o próximo procedimento.";
-        await sendWAMessage(session_key, phone, msg);
-        return NextResponse.json({ ok: true, action: "tecnico_reset", mark_read: true, bot_response: msg, next_state: "tecnico", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-      }
-if (effectiveChoice === 2) {
-        const cf = await toolVerificarCloudflare();
-        const msg = cf.operacional
-          ? "Verifiquei aqui e não identificamos instabilidade externa no momento. Vamos tentar: desligue o modem da tomada por 5 minutos e reabra o aplicativo. Se persistir, me avisa!"
-          : "Identificamos que a instabilidade vem de um serviço externo chamado Cloudflare, que faz a ponte entre você e nosso servidor. O time deles já está atuando para corrigir. A normalização deve ocorrer em breve. Obrigado pela paciência! 💙";
-        await sendWAMessage(session_key, phone, msg);
-        return NextResponse.json({ ok: true, action: "tecnico_cloudflare", mark_read: true, bot_response: msg, next_state: "geral", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-      }
-if (effectiveChoice === 3) {
-        const msg = "Isso geralmente é um conflito no reprodutor de vídeo do aplicativo. Vá nas configurações do app (Settings), procure 'Media Player' ou 'Player de Vídeo' e altere de Hardware (HW) para Software (SW) — ou vice-versa. Reinicie o app e teste! 📺";
-        await sendWAMessage(session_key, phone, msg);
-        return NextResponse.json({ ok: true, action: "tecnico_tela_preta", mark_read: true, bot_response: msg, next_state: "geral", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-      }
-if (effectiveChoice === 4) {
-        const c = selectedClient;
-        const idxSelected = clients.indexOf(selectedClient);
-        const vencido = c?.vencimento ? new Date(c.vencimento).getTime() < Date.now() : false;
-        let msg: string;
-        if (vencido) {
-          const portalLink = await toolGerarLinkPortal(sb, tenant_id, clientMatches[idxSelected] || clientMatches[0], c.is_secondary);
-          msg = `Vi aqui que seu acesso está vencido — por isso o sinal parou. 😊\n\nPara renovar:\n👉 ${portalLink}\nSenha: últimos 4 dígitos do seu WhatsApp`;
-        } else {
-          msg = "Seu acesso está em dia! Vamos tentar o reset padrão: desligue o modem da tomada por 5 minutos, depois a TV, e teste de novo. Se persistir, me avisa!";
-        }
-        await sendWAMessage(session_key, phone, msg);
-        return NextResponse.json({ ok: true, action: "tecnico_vencimento", mark_read: true, bot_response: msg, next_state: "geral", display_name: c?.display_name || null, server_name: c?.server_name || null });
-      }
-      // ✅ Mesma correção: "5" (descrever o problema) recebe confirmação
-      // explícita — não manda o dígito cru pro Gemini.
-      if (effectiveChoice === 5) {
-        const msg = "Pode me contar com detalhes o que está acontecendo? 😊";
-        await sendWAMessage(session_key, phone, msg);
-        return NextResponse.json({ ok: true, action: "tecnico_descrever", mark_read: true, bot_response: msg, next_state: "tecnico", display_name: selectedClient?.display_name || null, server_name: selectedClient?.server_name || null });
-      }
-      // ✅ Fallback de segurança: o submenu técnico só define opções 1-5,
-      // mas o regex de numericChoice aceita até 6 (reservado pro menu
-      // principal). Se o cliente digitar "6" aqui dentro (fora do range
-      // válido), sem este fallback o código "vazava" sem retornar — e o
-      // estado dinâmico "tecnico_aguardando_conta_6" não batia com nenhuma
-      // ScopedCategory, fazendo o bot cair no prompt COMPLETO em vez do
-      // filtrado técnico. Trata como texto livre, igual à opção 5, e
-      // reseta o estado pro "tecnico" plano (sem sufixo pendurado).
-      const msg = "Pode me contar com detalhes o que está acontecendo? 😊";
-      await sendWAMessage(session_key, phone, msg);
-      return NextResponse.json({ ok: true, action: "tecnico_opcao_invalida", mark_read: true, bot_response: msg, next_state: "tecnico", display_name: selectedClient?.display_name || null, server_name: selectedClient?.server_name || null });
-    }
-
-    const pagamentoContaRetry = bot_state === "pagamento_aguardando_conta_3";
-
-    if ((bot_state === "pagamento" && numericChoice) || pagamentoContaRetry) {
-      if (!pagamentoContaRetry && numericChoice === 1) {
-        const msg = "Pode me mandar o comprovante por aqui, ou me contar quando fez o pagamento, que eu já verifico! 📄";
-        await sendWAMessage(session_key, phone, msg);
-        return NextResponse.json({ ok: true, action: "pagamento_aguardando_comprovante", mark_read: true, bot_response: msg, next_state: "pagamento", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-      }
-      if (!pagamentoContaRetry && numericChoice === 2) {
-        // ✅ Link do portal é único e universal — o cliente escolhe a conta
-        // lá dentro, não precisa perguntar qual conta aqui.
-        const portalLink = await toolGerarLinkPortal(sb, tenant_id, clientMatches[0], clients[0].is_secondary);
-        const msg = `Claro! 😊 Acesse o portal para concluir a renovação:\n👉 ${portalLink}\nSenha: últimos 4 dígitos do seu WhatsApp`;
-        await sendWAMessage(session_key, phone, msg);
-        return NextResponse.json({ ok: true, action: "pagamento_renovar", mark_read: true, bot_response: msg, next_state: "geral", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-      }
-      if (pagamentoContaRetry || numericChoice === 3) {
-        // ✅ Preços variam por conta (plano/servidor/moeda podem ser
-        // diferentes) — precisa saber qual conta antes de consultar.
-        let selectedClient = clients[0];
-        if (clients.length > 1) {
-          const lowerText = trimmedForMenu.toLowerCase();
-          const contaMatch = /conta\s*([1-9])/i.exec(trimmedForMenu);
-          let idx: number | null = contaMatch ? Math.max(0, Number(contaMatch[1]) - 1) : null;
-
-          if (idx === null) {
-            const serverMatches = clients
-              .map((c: any, i: number) => ({ i, name: String(c.server_name || "").toLowerCase() }))
-              .filter((m) => m.name && lowerText.includes(m.name));
-            if (serverMatches.length === 1) idx = serverMatches[0].i;
-          }
-
-          if (idx === null) {
-            if (pagamentoContaRetry) {
-              await sendWAMessage(session_key, phone, BOT_GAVE_UP_MSG);
-              return NextResponse.json({ ok: true, action: "pagamento_conta_desistiu", escalate: true, mark_read: false, bot_response: BOT_GAVE_UP_MSG, next_state: "__clear__", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-            }
-            const lista = clients
-              .map((c: any, i: number) => `- Conta ${i + 1}: ${c.display_name} (${c.server_username || "n/i"}) — ${c.server_name}`)
-              .join("\n");
-            const msg = `Você tem mais de uma conta — qual delas você quer consultar? Pode responder com "conta 1", "conta 2" ou o nome do servidor:\n\n${lista}`;
-            await sendWAMessage(session_key, phone, msg);
-            return NextResponse.json({ ok: true, action: "pagamento_pede_conta", mark_read: true, bot_response: msg, next_state: "pagamento_aguardando_conta_3", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-          }
-
-          selectedClient = clients[idx] || clients[0];
-        }
-
-        const precos = await toolConsultarPrecos(sb, tenant_id, selectedClient);
-        const linhas = (precos.precos_configuracao_atual || []).map((p: any) => `- ${p.periodo}: ${precos.moeda} ${Number(p.valor).toFixed(2)}`);
-        const msg = linhas.length ? `Segue a tabela de valores da sua conta:\n${linhas.join("\n")}` : "Não encontrei a tabela de preços da sua conta agora — vou encaminhar pro Márcio verificar. 🙏";
-        await sendWAMessage(session_key, phone, msg);
-        return NextResponse.json({ ok: true, action: "pagamento_precos", mark_read: !linhas.length ? false : true, bot_response: msg, next_state: "geral", display_name: selectedClient?.display_name || null, server_name: selectedClient?.server_name || null });
-      }
-      if (!pagamentoContaRetry && numericChoice === 4) {
-        const msg = "Seu sinal fica ativo até a data de vencimento, sem fidelidade nem multa. Se decidir cancelar, é só não renovar — nenhuma ação extra é necessária. Se mudar de ideia, estarei por aqui! 😊";
-        await sendWAMessage(session_key, phone, msg);
-        return NextResponse.json({ ok: true, action: "pagamento_cancelar", mark_read: true, bot_response: msg, next_state: "geral", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-      }
-      if (!pagamentoContaRetry && numericChoice === 5) {
-        const msg = "Pode me contar mais sobre o que você precisa? 😊";
-        await sendWAMessage(session_key, phone, msg);
-        return NextResponse.json({ ok: true, action: "pagamento_outro", mark_read: true, bot_response: msg, next_state: "pagamento", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-      }
-    }
-
-    if (bot_state === "instalacao" && numericChoice) {
-      if (numericChoice === 1) {
-        const msg = "Legal! 📺 Me diz a marca da sua TV (Samsung, LG, TCL, Philips, Android TV...) que já te indico o aplicativo certo!";
-        await sendWAMessage(session_key, phone, msg);
-        return NextResponse.json({ ok: true, action: "instalacao_tv_nova", mark_read: true, bot_response: msg, next_state: "instalacao", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-      }
-      if (numericChoice === 2) {
-        const msg = "Show! 📱 É iPhone/iPad ou Android?";
-        await sendWAMessage(session_key, phone, msg);
-        return NextResponse.json({ ok: true, action: "instalacao_mobile", mark_read: true, bot_response: msg, next_state: "instalacao", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-      }
-      if (numericChoice === 3) {
-        const msg = "Para computador (Windows ou Mac), use o Web Player:\n👉 https://gpcpro.com.br/\nCódigo: 1366067\nUsuário e senha são os mesmos do seu servidor.";
-        await sendWAMessage(session_key, phone, msg);
-        return NextResponse.json({ ok: true, action: "instalacao_computador", mark_read: true, bot_response: msg, next_state: "geral", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-      }
-      if (numericChoice === 4) {
-        const msg = "Sem problema! Me conta qual aplicativo você já usa que eu te ajudo a reconfigurar.";
-        await sendWAMessage(session_key, phone, msg);
-        return NextResponse.json({ ok: true, action: "instalacao_reconfigurar", mark_read: true, bot_response: msg, next_state: "instalacao", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-      }
-      if (numericChoice === 5) {
-        const msg = "Pode me contar mais sobre o que você precisa? 😊";
-        await sendWAMessage(session_key, phone, msg);
-        return NextResponse.json({ ok: true, action: "instalacao_outro", mark_read: true, bot_response: msg, next_state: "instalacao", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-      }
-    }
-
-// Texto livre dentro do submenu (ou opção 5) — por ora usa o Gemini
-    // completo mais abaixo (Fase C ainda não implementada: prompt filtrado
-    // por categoria). Não retorna aqui de propósito — deixa cair no fluxo.
-  }
-
-  // ✅ Item 5: verifica se o cliente está respondendo a uma mensagem
-  // automática recente (últimas 24h) antes de qualquer outro filtro.
-  try {
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-
-    const { data: recentJob } = await sb
-      .from("client_message_jobs")
-      .select(`
-        sent_at,
-        automation_id,
-        message_template_id,
-        billing_automations ( name, type )
-      `)
-      .eq("tenant_id", tenant_id)
-      .in("client_id", clients.map((c: any) => c.id))
-      .eq("status", "SENT")
-      .gte("sent_at", twentyFourHoursAgo)
-      .order("sent_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    // A FK fk_jobs_message_template já existe no banco (criada como proteção
-    // de integridade de dados), mas o select aninhado combinando as duas
-    // relações no mesmo objeto gerou erro de build — mantendo a busca manual
-    // e explícita aqui, que é a versão comprovadamente estável.
-    let templateInfo: { name?: string; category?: string } | null = null;
-    if (recentJob?.message_template_id) {
-      const { data: tpl } = await sb
-        .from("message_templates")
-        .select("name, category")
-        .eq("id", recentJob.message_template_id)
-        .maybeSingle();
-      templateInfo = tpl || null;
-    }
-
-    const jobKind = classifyRecentJob(recentJob, templateInfo);
-    safeLog("[BOT][agent] Item5 — job recente classificado como:", jobKind);
-
-    if (jobKind !== "none") {
-      const trimmed = text.trim();
-
-      // Confirmação de pagamento + só agradeceu/confirmou
-if (jobKind === "payment_confirmation" && isGratitudeOrGreetingOnly(trimmed)) {
-        const msg = `Que bom, ${firstName}! 😊 Fico feliz que deu tudo certo com sua renovação. Qualquer coisa é só chamar!`;
-        await sendWAMessage(session_key, phone, msg);
-        return NextResponse.json({ ok: true, action: "payment_ack", mark_read: true, bot_response: msg, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-      }
-
-      // Lembrete de vencimento + cliente disse que vai pagar depois
-if (jobKind === "vencimento" && POSTPONEMENT_INTENT.test(trimmed)) {
-        const msg = `Sem pressa! Pode ficar tranquilo — quando for renovar, é só acessar o portal que está tudo pronto. Se precisar de ajuda, é só chamar! 😊`;
-        await sendWAMessage(session_key, phone, msg);
-        return NextResponse.json({ ok: true, action: "vencimento_ack", mark_read: true, bot_response: msg, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-      }
-
-      // Pesquisa de satisfação + resposta positiva (sem sinal de reclamação
-      // e sem ser um feedback longo — nuance fica pro Gemini avaliar)
-      if (
-        jobKind === "pos_venda_satisfacao" &&
-        !PROBLEM_KEYWORDS.test(trimmed) &&
-        trimmed.length < 300
-      ) {
-        const msg = `Muito obrigado pelo retorno, ${firstName}! 🙏 Fico feliz que esteja gostando. Qualquer coisa, é só chamar!`;
-        await sendWAMessage(session_key, phone, msg);
-        return NextResponse.json({ ok: true, action: "satisfaction_ack", mark_read: true, bot_response: msg, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-      }
-
-      // Fidelidade e pós-venda genérico: mesmo tratamento — agradece e encerra
-      if (
-        (jobKind === "pos_venda_fidelidade" || jobKind === "pos_venda_generico") &&
-        isGratitudeOrGreetingOnly(trimmed)
-      ) {
-        const msg = `Que bom, ${firstName}! 😊 Fico feliz em saber. Qualquer coisa, é só chamar!`;
-        await sendWAMessage(session_key, phone, msg);
-        return NextResponse.json({ ok: true, action: "pos_venda_ack", mark_read: true, bot_response: msg, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-      }
-    }
-  } catch (e: any) {
-    safeLog("[BOT][agent] Erro ao ler contexto do sistema (item 5):", e?.message);
-    // Falha aqui nunca deve travar o atendimento normal.
-  }
-
-  // Filtro determinístico: confirmações simples nunca chegam ao agente
-  const confirmacaoSimples = /^(ok|okay|oks|👍|👌|✅|😊|🙏|blz|beleza|certo|entendi|entendido|perfeito|tá|ta|tá bom|ta bom|tudo bem|obrigad[oa]|vlw|valeu|até|ótimo|otimo|show|legal|massa|👏|🤝|😀|😄|🙂)$/i;
-  if (confirmacaoSimples.test(text.trim())) {
-    safeLog("[BOT][agent] Confirmação simples ignorada:", text.trim());
-    return NextResponse.json({ ok: true, action: "silence_confirmation", mark_read: true });
-  }
-
-  
-  // Ignora links puros sem contexto (YouTube, Spotify, TikTok etc.)
-  const isLinkOnly = /^https?:\/\/\S+$/.test(text.trim());
-  if (isLinkOnly) {
-    safeLog("[BOT][agent] Link puro ignorado:", text.trim().slice(0, 80));
-    return NextResponse.json({ ok: true, action: "silence", mark_read: true });
-  }
-
-  // ── RAG: busca conhecimento relevante para esta mensagem ─────────────────
-  let templatesText = "(nenhum conhecimento relevante encontrado)";
-  try {
-    const embedding = await generateEmbedding(geminiKey, text.trim());
-    if (embedding) {
-      // Mensagens simples não precisam de RAG completo
-const isSimpleQuery = /^(ol[aá]|oi|bom dia|boa tarde|boa noite|quando vence|meu vencimento|renovar|pagar|quanto custa)$/i.test(text.trim());
-templatesText = await searchBotKnowledge(sb, tenant_id, embedding, isSimpleQuery ? 2 : 5);
-      safeLog("[BOT][agent] RAG: conhecimento buscado com sucesso");
-    } else {
-      safeLog("[BOT][agent] RAG: falha ao gerar embedding — usando fallback vazio");
-    }
-  } catch (e: any) {
-    safeLog("[BOT][agent] RAG: erro inesperado —", e?.message);
-  }
-
-  // ── Histórico recente: últimos jobs enviados + últimos pagamentos ─────────
-const [{ data: recentJobs }, { data: recentPayments }] = await Promise.all([
-  sb
-    .from("client_message_jobs")
-    .select("sent_at, message_template_id, status")
-    .eq("tenant_id", tenant_id)
-    .in("client_id", clients.map((c: any) => c.id))
-    .eq("status", "SENT")
-    .order("sent_at", { ascending: false })
-    .limit(3),
-  sb
-    .from("client_portal_payments")
-    .select("created_at, status, fulfillment_status, whatsapp_status, new_vencimento, price_amount, price_currency, period")
-    .eq("tenant_id", tenant_id)
-    .in("client_id", clients.map((c: any) => c.id))
-    .order("created_at", { ascending: false })
-    .limit(3),
-]);
-
-const historicoRecente = [
-  "### Últimos envios automáticos:",
-  ...(recentJobs && recentJobs.length > 0
-    ? recentJobs.map((j: any) =>
-        `- ${j.message_template_id ? "Lembrete automático" : "Mensagem manual"} enviado em ${toBRDateTime(j.sent_at)}`
-      )
-    : ["- Nenhum envio recente encontrado"]),
-  "",
-  "### Últimos pagamentos no portal:",
-  ...(recentPayments && recentPayments.length > 0
-    ? recentPayments.map((p: any) =>
-        `- ${toBRDateTime(p.created_at)} | ${p.price_currency} ${Number(p.price_amount).toFixed(2)} | status=${p.status} | fulfillment=${p.fulfillment_status} | whatsapp=${p.whatsapp_status ?? "n/a"}${p.new_vencimento ? ` | novo_vencimento=${toBRDateTime(p.new_vencimento)}` : ""}`
-      )
-    : ["- Nenhum pagamento recente encontrado"]),
-].join("\n");
-
-const agoraSP = new Date().toLocaleString("pt-BR", {
-  timeZone: "America/Sao_Paulo",
-  hour: "2-digit", minute: "2-digit", hour12: false,
-});
-
-// ✅ Item 7 (Fase C): se o cliente está dentro de um submenu, usa o prompt
-// filtrado por categoria em vez do prompt completo — isso é o que reduz a
-// "vida própria" do bot no texto livre.
-const scopedCategories: ScopedCategory[] = ["tecnico", "pagamento", "instalacao", "conteudo"];
-const isScoped = scopedCategories.includes(bot_state as ScopedCategory);
-
-const promptBase = isScoped
-  ? buildScopedBotSystemPrompt(bot_state as ScopedCategory, clients, templatesText, { historicoRecente, agoraSP })
-  : buildBotSystemPrompt(clients, templatesText, { historicoRecente, agoraSP });
-
-// Adiciona a regra de ouro para blindar o bot contra as "legendas órfãs"
-const systemPrompt = promptBase + "\n\nREGRA DE MÍDIA: Se o cliente mencionar que enviou foto, comprovante ou imagem mas você não recebeu o conteúdo visual, responda: 'Recebi sua mensagem! Para comprovantes de pagamento, você pode renovar direto pelo portal que é automático — ou se preferir, o Márcio vai conferir assim que possível. 😊' Nunca peça para reenviar a imagem.";
-
-  // Histórico vem do sessionManager (em memória, sem banco)
-  const history = Array.isArray(body.conversation_history) ? body.conversation_history : [];
-  
-  // Monta conversa: histórico anterior + mensagem atual
-  const conversation: any[] = [
-    ...history,
-    { role: "user", parts: [{ text: text.trim() }] },
-  ];
-
-  const geminiPayload: any = {
-    systemInstruction: { parts: [{ text: systemPrompt }] },
-    tools: [{ functionDeclarations: BOT_TOOL_DECLARATIONS }], // 🟢 Ferramentas unificadas
-    contents: conversation,
-generationConfig: {
-      temperature: 0.7,
-      maxOutputTokens: 2048,
-    },
-  };
-
-  // Loop de tool calling — máx 5 iterações pra evitar loop infinito
-  let finalResponse = "";
-
-  try {
-    for (let i = 0; i < 5; i++) {
-      safeLog(`[BOT][agent] Gemini iteração ${i + 1}`);
-
-      const result = await callGemini(geminiKey, geminiPayload);
-      const parts = result?.candidates?.[0]?.content?.parts || [];
-
-      const toolCalls = parts.filter((p: any) => p.functionCall);
-      const textPart = parts.find((p: any) => typeof p.text === "string" && p.text.trim());
-
-      // Modelo deu resposta de texto sem tool calls → fim do loop
-      if (textPart && !toolCalls.length) {
-        finalResponse = textPart.text.trim();
-        break;
-      }
-
-      // Sem tool calls e sem texto → algo errado, sai
-      if (!toolCalls.length) {
-        safeLog("[BOT][agent] Gemini não retornou texto nem tool calls");
-        break;
-      }
-
-      // Adiciona resposta do modelo à conversa antes de executar ferramentas
-      geminiPayload.contents.push({ role: "model", parts });
-
-      // Executa cada ferramenta solicitada
-      const toolResults: any[] = [];
-      for (const part of toolCalls) {
-        const fn = part.functionCall;
-        let toolResult: any;
-
-        try {
-          switch (fn.name) {
-            case "gerar_link_portal": {
-              const idx = Math.max(0, (fn.args?.conta_index || 1) - 1);
-              // IMPORTANTE: Mantém a distinção de rawClient para gerarLinkPortal como estava antes
-              const selectedRaw = clientMatches[idx] || clientMatches[0];
-              const selectedClient = clients[idx] || clients[0];
-              toolResult = {
-                link: await toolGerarLinkPortal(sb, tenant_id, selectedRaw, selectedClient.is_secondary),
-              };
-              break;
-            }
-
-            case "consultar_precos": {
-              const idx = Math.max(0, (fn.args?.conta_index || 1) - 1);
-              const selectedClient = clients[idx] || clients[0];
-              toolResult = await toolConsultarPrecos(sb, tenant_id, selectedClient);
-              break;
-            }
-
-            case "verificar_cloudflare":
-              toolResult = await toolVerificarCloudflare();
-              break;
-
-            case "recomendar_aplicativo": {
-              const idx = Math.max(0, (fn.args?.conta_index || 1) - 1);
-              const selectedClient = clients[idx] || clients[0];
-              toolResult = await toolRecomendarApplicativo(sb, tenant_id, selectedClient.server_id || null);
-              break;
-            }
-
-            default:
-              toolResult = { error: `Ferramenta desconhecida: ${fn.name}` };
-          }
-        } catch (e: any) {
-          safeLog(`[BOT][agent] Erro na ferramenta ${fn.name}:`, e?.message);
-          toolResult = { error: e?.message || "Erro ao executar ferramenta" };
-        }
-
-        safeLog(`[BOT][agent] Tool ${fn.name}:`, JSON.stringify(toolResult).slice(0, 200));
-
-        toolResults.push({
-          functionResponse: {
-            name: fn.name,
-            response: toolResult,
-          },
-        });
-      }
-
-      // Adiciona resultados das ferramentas à conversa
-      geminiPayload.contents.push({ role: "user", parts: toolResults });
-    }
-  } catch (e: any) {
-    safeLog("[BOT][agent] Falha ao comunicar com Google Gemini:", e?.message);
-    return NextResponse.json({ ok: false, error: e?.message }, { status: 502 });
-  }
-
-if (!finalResponse?.trim()) {
-    safeLog("[BOT][agent] Agente não retornou resposta após 5 iterações");
-    return NextResponse.json({ ok: true, action: "no_response" });
-  }
-
-  // Nunca envia texto técnico ou de controle como resposta real
-  const blockedResponses = ["do_not_respond", "silence", "no_response", "ignored"];
-  if (blockedResponses.some(b => finalResponse.trim().toLowerCase() === b)) {
-    safeLog("[BOT][agent] Resposta bloqueada (controle interno):", finalResponse.trim());
-    return NextResponse.json({ ok: true, action: "silence" });
-  }
-
-  // Bloqueia raciocínio interno vazando como resposta
-  const isInternalThinking = (
-    finalResponse.includes("Portanto, devo ignorar") ||
-    finalResponse.includes("devo ignorar esta mensagem") ||
-    finalResponse.includes("não devo responder nada") ||
-    finalResponse.includes("* Portanto, devo") ||
-    finalResponse.includes("Analisando a mensagem, devo") ||
-    finalResponse.includes("Com base nas regras, devo") ||
-    /^\*[\s\S]*\*$/.test(finalResponse.trim())
-  );
-  if (isInternalThinking) {
-    safeLog("[BOT][agent] Raciocínio interno bloqueado:", finalResponse.slice(0, 100));
-    return NextResponse.json({ ok: true, action: "silence" });
-  }
-
-  // ✅ Detecta a tag de escalonamento — fecha o ciclo entre o que o Gemini
-  // "promete" (encaminhar pro Márcio, marcar como não lida) e o que o
-  // sistema de fato executa. Sem isso, o modelo dizia uma coisa e o bot
-  // continuava respondendo normalmente, contradizendo a própria mensagem.
-  const shouldEscalate = finalResponse.includes(ESCALATION_TAG);
-  const cleanResponse = shouldEscalate
-    ? finalResponse.split(ESCALATION_TAG).join("").trim()
-    : finalResponse;
-
-  // Caso raro: o modelo escalonou sem deixar nenhuma mensagem visível —
-  // usa a mensagem padrão de pedido de humano em vez de mandar texto vazio.
-  const messageToSend = cleanResponse || HUMAN_REQUESTED_MSG;
-
-  await sendWAMessage(session_key, phone, messageToSend);
-
-  if (shouldEscalate) {
-    safeLog("[BOT][agent] Escalonamento via tag detectado (decisão do Gemini)");
-    return NextResponse.json({
-      ok: true,
-      action: "escalated_gemini",
-      escalate: true,
-      mark_read: false,
-      next_state: "__clear__",
-      bot_response: messageToSend,
-      display_name: clients[0]?.display_name || null,
-      server_name: clients[0]?.server_name || null,
-      server_username: clients[0]?.server_username || null,
-    });
-  }
-
-  return NextResponse.json({
-    ok: true,
-    action: "responded",
-    bot_response: messageToSend,
-    next_state: "geral", // ✅ Item 7 — depois de conversar livre, não repete o menu
-    display_name: clients[0]?.display_name || null,
-    server_name: clients[0]?.server_name || null,
-    server_username: clients[0]?.server_username || null,
-  });
+  // fallback de segurança — nunca deveria chegar aqui
+  await sendWAMessage(session_key, phone, BOT_GAVE_UP_MSG);
+  return NextResponse.json({ ok: true, action: "estado_desconhecido", escalate: true, mark_read: false, bot_response: BOT_GAVE_UP_MSG, next_state: "__clear__", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
 }

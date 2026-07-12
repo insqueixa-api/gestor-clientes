@@ -18,6 +18,20 @@ if (!API_TOKEN) {
   process.exit(1);
 }
 
+// ── Rede de segurança de processo ──────────────────────────────────────────
+// Antes disto, um erro não tratado em QUALQUER lugar do código (um evento
+// assíncrono do Baileys, uma promise esquecida) derrubava o processo inteiro
+// sem nenhum log específico — só o crash dump padrão do Node. O Docker já
+// reinicia o container sozinho (restart: unless-stopped), então isso não é
+// sobre "impedir o crash", é sobre DEIXAR RASTRO de por que ele aconteceu,
+// e não sacrificar TODAS as sessões/tenants por um erro isolado numa só.
+process.on("unhandledRejection", (reason) => {
+  console.error("[FATAL] unhandledRejection:", reason?.stack || reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("[FATAL] uncaughtException:", err?.stack || err);
+});
+
 app.use(express.json());
 
 // ── Logs de acesso inteligentes (Silencia o Polling e 404) ───────────

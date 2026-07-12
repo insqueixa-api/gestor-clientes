@@ -1,3 +1,4 @@
+// app/components/whatsapp/BotMenuTreeEditor.tsx
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -7,6 +8,7 @@ import {
   ShieldCheck, Sparkles, ArrowUp, ArrowDown, Eye, Tag,
 } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { ACCOUNT_DEPENDENT_ACTIONS } from "@/lib/whatsapp/bot-menu";
 
 type MenuNode = {
   id: string;
@@ -32,8 +34,10 @@ const SPECIAL_ACTIONS = [
   { value: "gerar_link_portal", label: "🔗 Gerar link do portal", desc: "Disponibiliza a variável {link_pagamento}." },
   { value: "consultar_precos", label: "💰 Consultar tabela de preços", desc: "Disponibiliza a variável {tabela_precos}." },
   { value: "recomendar_app", label: "📱 Recomendar aplicativo", desc: "Disponibiliza a variável {apps_recomendados}." },
-  { value: "free_text_rag", label: "✨ Texto livre → RAG", desc: "Fallback: busca no bot_knowledge quando nada mais se aplica." },
+{ value: "free_text_rag", label: "✨ Texto livre → RAG", desc: "Fallback: busca no bot_knowledge quando nada mais se aplica." },
   { value: "escalar_imediatamente", label: "🙋 Escalar imediatamente", desc: "Transfere pro Márcio na hora, sem mostrar opções nem passos." },
+{ value: "coletar_relato_e_escalar", label: "📝 Coletar relato e escalar", desc: "Manda a mensagem pedindo o relato e já transfere na sequência — não espera resposta." },
+  { value: "redirecionar_instalacao", label: "↪️ Redirecionar pra Nova Instalação", desc: "Pula direto pro fluxo de instalação (marca/dispositivo)." },
 ];
 
 // Reaproveita o mesmo conjunto de variáveis da página de mensagens, filtrado
@@ -90,7 +94,13 @@ function buildTree(nodes: MenuNode[], steps: MenuStep[]): TreeNode[] {
     if (n.parent_id && map.has(n.parent_id)) map.get(n.parent_id)!.children.push(t);
     else if (!n.parent_id) roots.push(t);
   });
-  return roots.sort((a, b) => a.option_number - b.option_number);
+  // ✅ "0" (atalho reservado, ex: Assuntos Pessoais) sempre por último —
+  // mesmo critério usado no texto real do menu (renderChildrenMenu).
+  return roots.sort((a, b) => {
+    if (a.option_number === 0) return 1;
+    if (b.option_number === 0) return -1;
+    return a.option_number - b.option_number;
+  });
 }
 
 async function authHeader() {
@@ -284,6 +294,11 @@ export default function BotMenuTreeEditor() {
     const idx = siblings.findIndex((s) => s.id === node.id);
     const swapWith = siblings[idx + direction];
     if (!swapWith) return;
+    // ✅ "0" é fixo (atalho reservado) — nunca participa de troca de posição.
+    // Sem isso, mover o vizinho pra baixo/cima tentaria jogar ele pro 0
+    // (a API rejeita essa metade da troca, mas a outra metade já teria ido —
+    // resultando em dois nós com o mesmo número).
+    if (node.option_number === 0 || swapWith.option_number === 0) return;
     setSaving(true);
     await Promise.all([
       callApi({ action: "reorder_node", id: node.id, option_number: swapWith.option_number }),
@@ -297,6 +312,11 @@ export default function BotMenuTreeEditor() {
     const isLeaf = node.children.length === 0;
     const isExpanded = expanded.has(node.id);
     const NUMBER_EMOJI = ["0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"];
+    // ✅ requires_account_check nunca é salvo pelo editor (nem lido pelo motor
+    // de roteamento) — quem decide de verdade se o nó precisa de conta é a
+    // presença de uma ação especial "dependente de conta". O ícone agora
+    // reflete essa mesma regra, em vez da coluna estática/desatualizada.
+    const needsAccount = (node.special_actions || []).some((a) => ACCOUNT_DEPENDENT_ACTIONS.includes(a));
 
     return (
       <div key={node.id} style={{ marginLeft: depth * 20 }}>
@@ -309,18 +329,20 @@ export default function BotMenuTreeEditor() {
           </button>
           <span className="text-xs font-mono text-muted-foreground">{NUMBER_EMOJI[node.option_number] || node.option_number}</span>
           <span className="text-sm text-foreground flex-1">{node.label}</span>
-          {node.requires_account_check && (
-            <span title="Checa conta/servidor"><ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /></span>
+          {needsAccount && (
+            <span title="Checa conta/servidor (derivado das ações especiais)"><ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /></span>
           )}
           {(node.special_actions || []).length > 0 && (
             <span title={node.special_actions.join(", ")} className="text-[10px] text-amber-500">{node.special_actions.length} ação(ões)</span>
           )}
           {isLeaf && node.steps.length > 0 && <span className="text-[10px] text-muted-foreground">{node.steps.length} passo(s)</span>}
           {!node.is_active && <span className="text-[10px] text-rose-500">inativo</span>}
-          <div className="flex items-center gap-1">
-            <button onClick={(e) => { e.stopPropagation(); move(node, siblings, -1); }} className="text-muted-foreground hover:text-foreground"><ArrowUp className="w-3 h-3" /></button>
-            <button onClick={(e) => { e.stopPropagation(); move(node, siblings, 1); }} className="text-muted-foreground hover:text-foreground"><ArrowDown className="w-3 h-3" /></button>
-          </div>
+          {node.option_number !== 0 && (
+            <div className="flex items-center gap-1">
+              <button onClick={(e) => { e.stopPropagation(); move(node, siblings, -1); }} className="text-muted-foreground hover:text-foreground"><ArrowUp className="w-3 h-3" /></button>
+              <button onClick={(e) => { e.stopPropagation(); move(node, siblings, 1); }} className="text-muted-foreground hover:text-foreground"><ArrowDown className="w-3 h-3" /></button>
+            </div>
+          )}
         </div>
         {isExpanded && (
           <div>
@@ -455,13 +477,12 @@ function NodeEditor({
     onSave({
       label,
       keywords: keywordsText.split(",").map((k) => k.trim()).filter(Boolean),
-      requires_account_check: requiresCheck,
       special_actions: specialActions,
       closing_message: closingMsg || null,
       transfer_situation_label: transferLabel || null,
       is_active: isActive,
     });
-    if (isLeaf) onSaveSteps(steps.filter((s) => s.trim()));
+onSaveSteps(steps.filter((s) => s.trim()));
   }
 
   return (
@@ -478,9 +499,11 @@ function NodeEditor({
 
       {showPreview && (
         <div className="bg-muted border border-border rounded-lg p-3 text-xs whitespace-pre-wrap">
-          {isLeaf
-            ? [...steps.filter(Boolean), specialActions.length ? `[ações: ${specialActions.join(", ")}]` : null].filter(Boolean).join("\n\n")
-            : `Entendido! Me conta mais:\n(as opções filhas aparecem aqui)`}
+          {[
+            ...steps.filter(Boolean),
+            !isLeaf ? "Entendido! Me conta mais:\n(as opções filhas aparecem aqui)" : null,
+            isLeaf && specialActions.length ? `[ações: ${specialActions.join(", ")}]` : null,
+          ].filter(Boolean).join("\n\n")}
         </div>
       )}
 
@@ -494,12 +517,7 @@ function NodeEditor({
         <input value={keywordsText} onChange={(e) => setKeywordsText(e.target.value)} placeholder="travando, travou, buffer" className={inputCls} />
       </div>
 
-      {!node.parent_id && (
-        <label className="flex items-center gap-2 text-xs text-foreground">
-          <input type="checkbox" checked={requiresCheck} onChange={(e) => setRequiresCheck(e.target.checked)} />
-          Identificar a conta primeiro (pergunta automaticamente se houver mais de uma)
-        </label>
-      )}
+      
 
       <div>
         <label className={labelCls}>Ações especiais (pode marcar mais de uma)</label>
@@ -516,9 +534,9 @@ function NodeEditor({
         </div>
       </div>
 
-      {isLeaf && !specialActions.includes("free_text_rag") && (
+{!specialActions.includes("free_text_rag") && (
         <div>
-          <label className={labelCls}>Passos sequenciais</label>
+          <label className={labelCls}>{isLeaf ? "Passos sequenciais" : "Mensagens antes de mostrar as opções filhas (opcional)"}</label>
           <div className="space-y-2 mt-1">
             {steps.map((s, i) => (
               <div key={i} className="border border-border rounded-lg p-2 space-y-1">
