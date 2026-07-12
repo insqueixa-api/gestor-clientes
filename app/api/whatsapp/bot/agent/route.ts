@@ -670,18 +670,22 @@ const msg = askAccountMessage();
   }
 
   // ── Estado: dentro de um nó com filhos (escolhendo opção) ────────────────
+  // ✅ Redesenhado: na 1ª resposta que não bate número nem palavra-chave do
+  // submenu atual, o bot NÃO tenta mais interpretar/trocar de assunto — só
+  // pede pra escolher uma das opções. Antes, qualquer texto livre já
+  // disparava a detecção de troca de contexto (keyword de outro assunto ou
+  // significado), o que dava margem pra interpretação errada logo de cara
+  // (ex: "acho que venceu o aplicativo" batendo com a keyword "venceu" de
+  // Renovação/pagamento). Só na 2ª tentativa seguida sem bater nada é que o
+  // bot tenta detectar troca de assunto — e se isso também falhar, escalona
+  // (mesmo padrão de paciência de 2 tentativas usado no resto do bot).
   const menuNodeMatch = /^menunode:([a-f0-9-]+)$/.exec(bot_state || "");
-  if (menuNodeMatch) {
-    const currentNode = await getNodeById(sb, menuNodeMatch[1]);
+  const menuNodeRetryMatch = /^menunode_retry:([a-f0-9-]+)$/.exec(bot_state || "");
+  if (menuNodeMatch || menuNodeRetryMatch) {
+    const nodeId = (menuNodeMatch || menuNodeRetryMatch)![1];
+    const isSecondMiss = !!menuNodeRetryMatch;
+    const currentNode = await getNodeById(sb, nodeId);
     if (!currentNode) return NextResponse.json({ ok: true, action: "erro_no_estado", mark_read: true, next_state: "__clear__" });
-
-    // ✅ Antes trocava direto — agora pergunta primeiro (askConfirmSwitch),
-    // já que o cliente pode só ter mencionado a palavra de passagem, sem
-    // querer sair de fato do que estava tratando.
-    const switched = await detectMenuContextFromTree(sb, tenant_id, trimmed, clientProvider);
-    if (switched && switched.id !== currentNode.id && switched.parent_id === null) {
-      return askConfirmSwitch(switched, currentNode);
-    }
 
     const children = await getChildren(sb, currentNode.id, clientProvider);
     const numeric = extractSingleDigitSelection(trimmed);
@@ -689,15 +693,21 @@ const msg = askAccountMessage();
 
     if (chosen) return enterNode(chosen, null, 1);
 
-    // ✅ Nem número, nem palavra-chave do submenu atual, nem troca de
-    // contexto por palavra-chave bateram — antes de desistir, tenta uma
-    // última vez por SIGNIFICADO (mesmo fallback semântico da 1ª mensagem).
-    // Cobre o caso de o cliente mudar de assunto de verdade enquanto está
-    // dentro de um submenu (ex: pergunta de preço no meio do fluxo de
-    // instalação) — sem isso, ele ficava preso repetindo "Não entendi" no
-    // submenu errado.
-    const hasEnoughSignal = hasSemanticSignal(trimmed);
-    if (hasEnoughSignal) {
+    if (!isSecondMiss) {
+      const msg = renderChildrenMenu(children, "Não entendi — pode escolher uma das opções abaixo, por favor? 😊", true);
+      await sendWAMessage(session_key, phone, msg);
+      return NextResponse.json({ ok: true, action: "menu_retry", mark_read: true, bot_response: msg, next_state: `menunode_retry:${currentNode.id}`, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+    }
+
+    // ✅ 2ª tentativa seguida sem bater número/keyword — agora sim tenta
+    // detectar troca de assunto de verdade (palavra-chave de outro nó raiz,
+    // ou por significado), antes de desistir e escalonar.
+    const switched = await detectMenuContextFromTree(sb, tenant_id, trimmed, clientProvider);
+    if (switched && switched.id !== currentNode.id && switched.parent_id === null) {
+      return askConfirmSwitch(switched, currentNode);
+    }
+
+    if (hasSemanticSignal(trimmed)) {
       try {
         const embedding = await generateEmbedding(geminiKey, trimmed);
         const candidates = embedding ? await searchMenuIntentCandidates(sb, tenant_id, embedding) : [];
@@ -710,9 +720,8 @@ const msg = askAccountMessage();
       }
     }
 
-    const msg = renderChildrenMenu(children, "Não entendi — pode escolher uma das opções abaixo, por favor? 😊", true);
-    await sendWAMessage(session_key, phone, msg);
-    return NextResponse.json({ ok: true, action: "menu_retry", mark_read: true, bot_response: msg, next_state: bot_state, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+    await sendWAMessage(session_key, phone, BOT_GAVE_UP_MSG);
+    return NextResponse.json({ ok: true, action: "menu_retry_escalado", escalate: true, mark_read: false, bot_response: BOT_GAVE_UP_MSG, next_state: "__clear__", transfer_reason: currentNode.transfer_situation_label || null, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
   }
 
   // ── Item 5: reação a mensagem automática recente ─────────────────────────

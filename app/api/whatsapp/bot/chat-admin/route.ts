@@ -335,11 +335,18 @@ export async function POST(req: Request) {
     if (nextState === "geral_retry") return "Conversa livre (2ª tentativa)";
     if (nextState === "aguardando_resposta") return "Aguardando 1ª resposta do menu";
     if (nextState === "aguardando_resposta_2") return "Aguardando resposta (última tentativa)";
-    const m = /^(menunode|conta|awaiting_resolution):([a-f0-9-]+)$/.exec(nextState);
+    const confirmSwitchM = /^confirm_switch:([a-f0-9-]+):([a-f0-9-]+)$/.exec(nextState);
+    if (confirmSwitchM) {
+      const [, targetId, originId] = confirmSwitchM;
+      const target = await getNodeById(sb, targetId);
+      const origin = await getNodeById(sb, originId);
+      return `Confirmando troca para: ${target?.label || "nó removido"} (estava em: ${origin?.label || "nó removido"})`;
+    }
+    const m = /^(menunode_retry|menunode|conta|awaiting_resolution):([a-f0-9-]+)$/.exec(nextState);
     if (m) {
       const node = await getNodeById(sb, m[2]);
       const label = node?.label || "nó removido";
-      const prefix = m[1] === "menunode" ? "Dentro de" : m[1] === "conta" ? "Perguntando qual conta em" : "Aguardando se resolveu em";
+      const prefix = m[1] === "menunode" ? "Dentro de" : m[1] === "menunode_retry" ? "Dentro de (2ª tentativa)" : m[1] === "conta" ? "Perguntando qual conta em" : "Aguardando se resolveu em";
       return `${prefix}: ${label}`;
     }
     return nextState;
@@ -547,16 +554,18 @@ export async function POST(req: Request) {
   }
 
   // ── Estado: dentro de um nó com filhos (escolhendo opção) ────────────────
+  // ✅ Redesenhado (mesma correção do agent/route.ts): na 1ª resposta que não
+  // bate número nem palavra-chave do submenu atual, o bot NÃO tenta mais
+  // interpretar/trocar de assunto — só pede pra escolher uma opção. Só na 2ª
+  // tentativa seguida sem bater nada é que tenta detectar troca de contexto,
+  // e se isso também falhar, escalona.
   const menuNodeMatch = /^menunode:([a-f0-9-]+)$/.exec(bot_state || "");
-  if (menuNodeMatch) {
-    const currentNode = await getNodeById(sb, menuNodeMatch[1]);
+  const menuNodeRetryMatch = /^menunode_retry:([a-f0-9-]+)$/.exec(bot_state || "");
+  if (menuNodeMatch || menuNodeRetryMatch) {
+    const nodeId = (menuNodeMatch || menuNodeRetryMatch)![1];
+    const isSecondMiss = !!menuNodeRetryMatch;
+    const currentNode = await getNodeById(sb, nodeId);
     if (!currentNode) return finish({ action: "erro_no_estado", mark_read: true, next_state: "__clear__" });
-
-    // Troca de contexto a qualquer momento
-    const switched = await detectMenuContextFromTree(sb, tenantId, trimmed, clientProvider);
-    if (switched && switched.id !== currentNode.id && switched.parent_id === null) {
-      return askConfirmSwitch(switched, currentNode);
-    }
 
     const children = await getChildren(sb, currentNode.id, clientProvider);
     const numeric = extractSingleDigitSelection(trimmed);
@@ -564,12 +573,19 @@ export async function POST(req: Request) {
 
     if (chosen) return enterNode(chosen, null, 1);
 
-    // ✅ Mesma correção do agent/route.ts: antes de desistir, tenta uma
-    // última vez por SIGNIFICADO — cobre o cliente mudando de assunto de
-    // verdade enquanto está dentro de um submenu (ex: pergunta de preço no
-    // meio do fluxo de instalação).
-    const hasEnoughSignal = hasSemanticSignal(trimmed);
-    if (hasEnoughSignal) {
+    if (!isSecondMiss) {
+      send(renderChildrenMenu(children, "Não entendi — pode escolher uma das opções abaixo, por favor? 😊", true));
+      return finish({ action: "menu_retry", mark_read: true, next_state: `menunode_retry:${currentNode.id}` });
+    }
+
+    // ✅ 2ª tentativa seguida sem bater número/keyword — agora sim tenta
+    // detectar troca de assunto de verdade, antes de desistir e escalonar.
+    const switched = await detectMenuContextFromTree(sb, tenantId, trimmed, clientProvider);
+    if (switched && switched.id !== currentNode.id && switched.parent_id === null) {
+      return askConfirmSwitch(switched, currentNode);
+    }
+
+    if (hasSemanticSignal(trimmed)) {
       try {
         const embedding = await generateEmbedding(geminiKey, trimmed);
         const candidates = embedding ? await searchMenuIntentCandidates(sb, tenantId, embedding) : [];
@@ -582,8 +598,8 @@ export async function POST(req: Request) {
       }
     }
 
-    send(renderChildrenMenu(children, "Não entendi — pode escolher uma das opções abaixo, por favor? 😊", true));
-    return finish({ action: "menu_retry", mark_read: true, next_state: bot_state });
+    send(BOT_GAVE_UP_MSG);
+    return finish({ action: "menu_retry_escalado", escalate: true, mark_read: false, next_state: "__clear__", transfer_reason: currentNode.transfer_situation_label || null });
   }
 
   // ── Estado "geral" / "geral_retry" — resposta direta do RAG ──────────────
