@@ -11,6 +11,7 @@ import {
   HUMAN_REQUESTED_MSG,
   BOT_GAVE_UP_MSG,
   isEscalationTrigger,
+  isBackToMenuTrigger,
   isSimpleConfirmation,
   isLinkOnly,
   classifyRecentJob,
@@ -33,8 +34,12 @@ import {
   RESOLUTION_QUESTION,
   RESOLUTION_RESOLVED,
   RESOLUTION_NOT_RESOLVED,
+  CONFIRM_SWITCH_YES,
+  resolveClientProvider,
+  pickCompatibleSemanticMatch,
+  type ServerProvider,
 } from "@/lib/whatsapp/bot-menu";
-import { generateEmbedding, searchBotKnowledgeTop, searchMenuIntentTop, classifyIsAcknowledgment } from "@/lib/whatsapp/gemini-client";
+import { generateEmbedding, searchBotKnowledgeCandidates, pickCompatibleKnowledgeMatch, searchMenuIntentCandidates, classifyIsAcknowledgment } from "@/lib/whatsapp/gemini-client";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -310,6 +315,10 @@ export async function POST(req: Request) {
   }
   const firstName = clients[0].display_name.split(" ")[0];
 
+  // ✅ Provider do servidor do cliente — mesma correção do agent/route.ts,
+  // usado pra filtrar conteúdo restrito a um servidor específico.
+  const clientProvider: ServerProvider | null = await resolveClientProvider(sb, clients[0]?.server_id || null);
+
   const history: any[] = []; // reservado (não usamos mais Gemini conversacional aqui)
   const sentMessages: string[] = [];
   function send(text: string) { sentMessages.push(text); }
@@ -352,6 +361,13 @@ export async function POST(req: Request) {
   if (isEscalationTrigger(trimmed)) {
     send(HUMAN_REQUESTED_MSG);
     return finish({ action: "escalated", escalate: true, mark_read: false, next_state: "__clear__" });
+  }
+
+  // ── Voltar ao menu principal — atalho reservado, mesma prioridade máxima
+  // do escalonamento. Funciona em qualquer estado.
+  if (isBackToMenuTrigger(trimmed)) {
+    send(`Voltando ao menu principal! 😊\n\n${await getAllRootsAsMenuText(sb, tenantId, clientProvider)}`);
+    return finish({ action: "back_to_menu", mark_read: true, next_state: "aguardando_resposta" });
   }
 
   // ── Item 5: reação a mensagem automática recente — antes de qualquer menu ─
@@ -440,7 +456,7 @@ export async function POST(req: Request) {
     const client = resolved?.client || clients[0];
     const rawClient = resolved?.rawClient || clientMatchesRaw[0];
 
-    const children = await getChildren(sb, node.id);
+    const children = await getChildren(sb, node.id, clientProvider);
 
     if (children.length > 0) {
       const gate = await runGateChecks(node, client, sb, tenantId);
@@ -456,7 +472,7 @@ export async function POST(req: Request) {
 
       const vars = await buildVarsForNode(sb, tenantId, node, client, rawClient);
       (await getSteps(sb, node.id)).map((s) => renderTemplate(s, vars)).forEach(send);
-      send(renderChildrenMenu(children));
+      send(renderChildrenMenu(children, undefined, true));
       return finish({ action: "menu_shown", mark_read: true, next_state: `menunode:${node.id}` });
     }
 
@@ -472,6 +488,29 @@ export async function POST(req: Request) {
 
     result.messages.forEach(send);
     return finish({ action: "leaf_executed", escalate: result.escalate, mark_read: result.markRead ?? true, next_state: result.nextState, transfer_reason: result.transferReason || null });
+  }
+
+  // ✅ Pergunta antes de trocar de assunto no meio de um submenu, em vez de
+  // já trocar direto — mesma correção do agent/route.ts.
+  async function askConfirmSwitch(targetNode: MenuNode, originNode: MenuNode) {
+    send(`Antes de mudar de assunto: você quer saber sobre *${targetNode.label}* agora? Responda **sim** pra mudar, ou continue me contando sobre o que estávamos vendo. 😊`);
+    return finish({ action: "confirm_switch_asked", mark_read: true, next_state: `confirm_switch:${targetNode.id}:${originNode.id}` });
+  }
+
+  // ── Estado: confirmação antes de trocar de assunto ───────────────────────
+  const confirmSwitchMatch = /^confirm_switch:([a-f0-9-]+):([a-f0-9-]+)$/.exec(bot_state || "");
+  if (confirmSwitchMatch) {
+    const [, targetId, originId] = confirmSwitchMatch;
+    if (CONFIRM_SWITCH_YES.test(trimmed)) {
+      const target = await getNodeById(sb, targetId);
+      if (target) return enterNode(target, null, 1);
+    }
+    // Não confirmou — por segurança, volta pro submenu de onde saiu.
+    const origin = await getNodeById(sb, originId);
+    if (!origin) return finish({ action: "erro_no_estado", mark_read: true, next_state: "__clear__" });
+    const originChildren = await getChildren(sb, origin.id, clientProvider);
+    send(renderChildrenMenu(originChildren, "Combinado, seguimos por aqui! Escolha uma das opções:", true));
+    return finish({ action: "confirm_switch_declined", mark_read: true, next_state: `menunode:${origin.id}` });
   }
 
   // ── Estado: aguardando resolução de conta ────────────────────────────────
@@ -512,18 +551,36 @@ export async function POST(req: Request) {
     if (!currentNode) return finish({ action: "erro_no_estado", mark_read: true, next_state: "__clear__" });
 
     // Troca de contexto a qualquer momento
-    const switched = await detectMenuContextFromTree(sb, tenantId, trimmed);
+    const switched = await detectMenuContextFromTree(sb, tenantId, trimmed, clientProvider);
     if (switched && switched.id !== currentNode.id && switched.parent_id === null) {
-      return enterNode(switched, null, 1);
+      return askConfirmSwitch(switched, currentNode);
     }
 
-    const children = await getChildren(sb, currentNode.id);
+    const children = await getChildren(sb, currentNode.id, clientProvider);
     const numeric = /^[1-9]$/.test(trimmed) ? Number(trimmed) : null;
     const chosen = (numeric ? findChildByNumber(children, numeric) : null) || findChildByKeyword(children, trimmed);
 
     if (chosen) return enterNode(chosen, null, 1);
 
-    send(renderChildrenMenu(children, "Não entendi — pode escolher uma das opções abaixo, por favor? 😊"));
+    // ✅ Mesma correção do agent/route.ts: antes de desistir, tenta uma
+    // última vez por SIGNIFICADO — cobre o cliente mudando de assunto de
+    // verdade enquanto está dentro de um submenu (ex: pergunta de preço no
+    // meio do fluxo de instalação).
+    const hasEnoughSignal = trimmed.split(/\s+/).filter(Boolean).length >= 4;
+    if (hasEnoughSignal) {
+      try {
+        const embedding = await generateEmbedding(geminiKey, trimmed);
+        const candidates = embedding ? await searchMenuIntentCandidates(sb, tenantId, embedding) : [];
+        const node = await pickCompatibleSemanticMatch(sb, candidates, clientProvider);
+        if (node && node.id !== currentNode.id) {
+          return askConfirmSwitch(node, currentNode);
+        }
+      } catch (e: any) {
+        safeLog("[BOT][chat-admin] Erro na detecção semântica (troca de contexto):", e?.message);
+      }
+    }
+
+    send(renderChildrenMenu(children, "Não entendi — pode escolher uma das opções abaixo, por favor? 😊", true));
     return finish({ action: "menu_retry", mark_read: true, next_state: bot_state });
   }
 
@@ -535,7 +592,8 @@ export async function POST(req: Request) {
     const isRetry = bot_state === "geral_retry";
     try {
       const embedding = await generateEmbedding(geminiKey, trimmed);
-      const top = embedding ? await searchBotKnowledgeTop(sb, tenantId, embedding) : null;
+      const candidates = embedding ? await searchBotKnowledgeCandidates(sb, tenantId, embedding) : [];
+      const top = await pickCompatibleKnowledgeMatch(sb, candidates, clientProvider);
       if (top) {
         const vars = buildClientTemplateVars({ clientRow: clientMatchesRaw[0], isSecondary: clients[0]?.is_secondary }) as any;
         // ✅ Mesma correção do buildVarsForNode — sem isso, {usuario_app},
@@ -563,12 +621,12 @@ export async function POST(req: Request) {
   // ── Primeira mensagem / paciência de 2 tentativas ────────────────────────
   // ✅ Seleção por número no menu raiz — mesma correção do agent/route.ts.
   if (/^[1-9]$/.test(trimmed)) {
-    const roots = await getRootNodes(sb, tenantId);
+    const roots = await getRootNodes(sb, tenantId, clientProvider);
     const chosenRoot = findRootByNumber(roots, trimmed);
     if (chosenRoot) return enterNode(chosenRoot, null, 1);
   }
 
-  const detected = await detectMenuContextFromTree(sb, tenantId, trimmed);
+  const detected = await detectMenuContextFromTree(sb, tenantId, trimmed, clientProvider);
   if (detected) return enterNode(detected, null, 1);
 
   // ✅ Fallback semântico — mesma correção do agent/route.ts. Nenhuma
@@ -579,10 +637,10 @@ export async function POST(req: Request) {
   const hasEnoughSignal = trimmed.split(/\s+/).filter(Boolean).length >= 4;
   try {
     const embedding = hasEnoughSignal ? await generateEmbedding(geminiKey, trimmed) : null;
-    const semanticMatch = embedding ? await searchMenuIntentTop(sb, tenantId, embedding) : null;
-    if (semanticMatch) {
-      const node = await getNodeById(sb, semanticMatch.id);
-      if (node) return enterNode(node, null, 1);
+    const candidates = embedding ? await searchMenuIntentCandidates(sb, tenantId, embedding) : [];
+    const node = await pickCompatibleSemanticMatch(sb, candidates, clientProvider);
+    if (node) {
+      return enterNode(node, null, 1);
     }
   } catch (e: any) {
     safeLog("[BOT][chat-admin] Erro na detecção semântica de categoria:", e?.message);
@@ -596,13 +654,13 @@ export async function POST(req: Request) {
   if (!bot_state || bot_state === "aguardando_resposta") {
     if (!bot_state) {
       send("Olá! 😊 Sou o assistente do Márcio. Me diga, como posso te ajudar?");
-      send(await getAllRootsAsMenuText(sb, tenantId));
+      send(await getAllRootsAsMenuText(sb, tenantId, clientProvider));
       return finish({ action: "menu_intro", mark_read: true, next_state: "aguardando_resposta" });
     }
     // ✅ Reforça a seleção por número (em vez de convidar texto livre, que
     // dispararia o fallback semântico à toa) e mostra o menu de novo, caso
     // o cliente tenha perdido a lista original.
-    send(`Sem pressa! 😊 ${await getAllRootsAsMenuText(sb, tenantId)}`);
+    send(`Sem pressa! 😊 ${await getAllRootsAsMenuText(sb, tenantId, clientProvider)}`);
     return finish({ action: "menu_retry", mark_read: true, next_state: "aguardando_resposta_2" });
   }
 

@@ -44,9 +44,17 @@ type KnowledgeItem = {
   category: string;
   content: string;
   is_active: boolean;
+  applies_to_servers: string[] | null;
   created_at: string;
   updated_at: string;
 };
+
+// ✅ Enum fechado do sistema — os únicos providers de servidor suportados.
+const SERVER_OPTIONS = [
+  { value: "NATV", label: "NaTV" },
+  { value: "FAST", label: "Fast" },
+  { value: "ELITE", label: "Elite" },
+];
 
 type ChatMessage = {
   role: "user" | "bot";
@@ -643,7 +651,12 @@ function KnowledgeBase({ addToast }: { addToast: (type: "success" | "error", tit
   const [editCategory, setEditCategory] = useState("");
   const [editContent, setEditContent] = useState("");
 const [editActive, setEditActive] = useState(true);
+  const [editAppliesTo, setEditAppliesTo] = useState<string[]>([]);
   const [showMonitor, setShowMonitor] = useState(false);
+
+  function toggleEditServer(value: string) {
+    setEditAppliesTo((prev) => prev.includes(value) ? prev.filter((s) => s !== value) : [...prev, value]);
+  }
 
   const categories = [...new Set(items.map((i) => i.category))].sort();
 
@@ -675,6 +688,7 @@ const [editActive, setEditActive] = useState(true);
     setEditCategory(filterCategory || "Geral");
     setEditContent("");
     setEditActive(true);
+    setEditAppliesTo([]);
   }
 
   function openEdit(item: KnowledgeItem) {
@@ -684,6 +698,7 @@ const [editActive, setEditActive] = useState(true);
     setEditCategory(item.category);
     setEditContent(item.content);
     setEditActive(item.is_active);
+    setEditAppliesTo(item.applies_to_servers || []);
   }
 
   function closeEditor() { setSelected(null); setIsNew(false); }
@@ -697,7 +712,7 @@ const [editActive, setEditActive] = useState(true);
         const res = await fetch("/api/whatsapp/bot/knowledge", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ title: editTitle, category: editCategory, content: editContent }),
+          body: JSON.stringify({ title: editTitle, category: editCategory, content: editContent, applies_to_servers: editAppliesTo.length ? editAppliesTo : null }),
         });
         const json = await res.json();
         if (!json.ok) throw new Error(json.error);
@@ -706,7 +721,7 @@ const [editActive, setEditActive] = useState(true);
         const res = await fetch("/api/whatsapp/bot/knowledge", {
           method: "PUT",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ id: selected!.id, title: editTitle, category: editCategory, content: editContent, is_active: editActive }),
+          body: JSON.stringify({ id: selected!.id, title: editTitle, category: editCategory, content: editContent, is_active: editActive, applies_to_servers: editAppliesTo.length ? editAppliesTo : null }),
         });
         const json = await res.json();
         if (!json.ok) throw new Error(json.error);
@@ -835,6 +850,14 @@ const [editActive, setEditActive] = useState(true);
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] text-violet-500 bg-violet-500/10 px-1.5 py-0.5 rounded font-medium whitespace-nowrap shrink-0">{item.category}</span>
+                        {(item.applies_to_servers || []).length > 0 && (
+                          <span
+                            title={`Só aparece pra clientes de: ${item.applies_to_servers!.join(", ")}`}
+                            className="text-[10px] text-sky-500 bg-sky-500/10 px-1.5 py-0.5 rounded font-medium whitespace-nowrap shrink-0"
+                          >
+                            {item.applies_to_servers!.join("/")}
+                          </span>
+                        )}
                         <p className="text-[10px] text-muted-foreground truncate">{item.content.slice(0, 120)}...</p>
                       </div>
                     </div>
@@ -885,6 +908,22 @@ const [editActive, setEditActive] = useState(true);
                       <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Aplica-se a (deixe tudo desmarcado = todos os servidores)</label>
+                <p className="text-[10px] text-muted-foreground/70">
+                  Marque só se esse conteúdo for específico de um servidor (ex: código de ativação
+                  diferente por servidor) — o bot só mostra pra clientes desses servidores.
+                </p>
+                <div className="flex flex-wrap gap-3 pt-0.5">
+                  {SERVER_OPTIONS.map((s) => (
+                    <label key={s.value} className="flex items-center gap-1.5 text-xs text-foreground cursor-pointer">
+                      <input type="checkbox" checked={editAppliesTo.includes(s.value)} onChange={() => toggleEditServer(s.value)} />
+                      {s.label}
+                    </label>
+                  ))}
                 </div>
               </div>
 

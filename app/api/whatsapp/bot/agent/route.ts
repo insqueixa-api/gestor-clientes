@@ -15,6 +15,7 @@ import {
   HUMAN_REQUESTED_MSG,
   BOT_GAVE_UP_MSG,
   isEscalationTrigger,
+  isBackToMenuTrigger,
   isSimpleConfirmation,
   isLinkOnly,
   classifyRecentJob,
@@ -37,8 +38,12 @@ import {
   RESOLUTION_QUESTION,
   RESOLUTION_RESOLVED,
   RESOLUTION_NOT_RESOLVED,
+  CONFIRM_SWITCH_YES,
+  resolveClientProvider,
+  pickCompatibleSemanticMatch,
+  type ServerProvider,
 } from "@/lib/whatsapp/bot-menu";
-import { callGemini, generateEmbedding, searchBotKnowledgeTop, searchMenuIntentTop, classifyIsAcknowledgment } from "@/lib/whatsapp/gemini-client";
+import { callGemini, generateEmbedding, searchBotKnowledgeCandidates, pickCompatibleKnowledgeMatch, searchMenuIntentCandidates, classifyIsAcknowledgment } from "@/lib/whatsapp/gemini-client";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -369,6 +374,15 @@ export async function POST(req: Request) {
 
   const firstName = clients[0].display_name.split(" ")[0];
 
+  // ✅ Provider do servidor do cliente (NATV/FAST/ELITE) — usado pra filtrar
+  // conteúdo restrito a um servidor específico, tanto na árvore quanto no
+  // RAG da base de conhecimento (ex: "Dados de acesso FastTV" só deve
+  // aparecer pra clientes de servidor Fast). Baseado na 1ª conta do
+  // cliente — clientes com múltiplas contas em servidores diferentes usam a
+  // conta principal como referência (mesma simplificação já usada em
+  // `firstName`/`clients[0]` pelo resto do arquivo).
+  const clientProvider: ServerProvider | null = await resolveClientProvider(sb, clients[0]?.server_id || null);
+
   // ── 2. Mídia — lógica determinística (inalterada) ────────────────────────
   if (media_base64 && media_type) {
     const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
@@ -455,6 +469,21 @@ export async function POST(req: Request) {
     });
   }
 
+  // ── Voltar ao menu principal — atalho reservado, mesma prioridade máxima
+  // do escalonamento. Funciona em qualquer estado (dentro de submenu,
+  // aguardando conta, aguardando resolução, ou até na conversa livre).
+  if (isBackToMenuTrigger(trimmed)) {
+    safeLog("[BOT][agent] Voltar ao menu principal detectado:", trimmed);
+    const menuMsg = await getAllRootsAsMenuText(sb, tenant_id, clientProvider);
+    const msg = `Voltando ao menu principal! 😊\n\n${menuMsg}`;
+    await sendWAMessage(session_key, phone, msg);
+    return NextResponse.json({
+      ok: true, action: "back_to_menu", mark_read: true, next_state: "aguardando_resposta",
+      bot_response: msg,
+      display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null,
+    });
+  }
+
   // ── "Portal ou PIX?" — checado antes do roteamento de menu ──────────────
   if (awaiting_payment_type === true) {
     const mentionsPix = /\b(pix|transfer[eê]ncia|manual|ted|doc|dep[oó]sito)\b/i.test(trimmed);
@@ -529,7 +558,7 @@ const msg = askAccountMessage();
     const client = resolved?.client || clients[0];
     const rawClient = resolved?.rawClient || clientMatches[0];
 
-    const children = await getChildren(sb, node.id);
+    const children = await getChildren(sb, node.id, clientProvider);
 
     if (children.length > 0) {
       const gate = await runGateChecks(node, client, sb, tenant_id);
@@ -548,7 +577,7 @@ const msg = askAccountMessage();
       const vars = await buildVarsForNode(sb, tenant_id, node, client, rawClient);
       const preMsgs = (await getSteps(sb, node.id)).map((s) => renderTemplate(s, vars));
       for (const m of preMsgs) await sendWAMessage(session_key, phone, m);
-      const menuMsg = renderChildrenMenu(children);
+      const menuMsg = renderChildrenMenu(children, undefined, true);
       await sendWAMessage(session_key, phone, menuMsg);
       return NextResponse.json({ ok: true, action: "menu_shown", mark_read: true, bot_response: [...preMsgs, menuMsg].join("\n\n"), next_state: `menunode:${node.id}`, display_name: client?.display_name || null, server_name: client?.server_name || null });
     }
@@ -570,6 +599,40 @@ const msg = askAccountMessage();
       transfer_reason: result.transferReason || null,
       display_name: client?.display_name || null, server_name: client?.server_name || null,
     });
+  }
+
+  // ✅ Pergunta antes de trocar de assunto no meio de um submenu, em vez de
+  // já trocar direto — o bot pode estar interpretando errado (por palavra-
+  // chave ou por significado). Só troca se o cliente confirmar de propósito;
+  // qualquer coisa diferente disso mantém ele onde estava.
+  function askConfirmSwitch(targetNode: MenuNode, originNode: MenuNode) {
+    const msg = `Antes de mudar de assunto: você quer saber sobre *${targetNode.label}* agora? Responda **sim** pra mudar, ou continue me contando sobre o que estávamos vendo. 😊`;
+    return sendWAMessage(session_key, phone, msg).then(() =>
+      NextResponse.json({
+        ok: true, action: "confirm_switch_asked", mark_read: true, bot_response: msg,
+        next_state: `confirm_switch:${targetNode.id}:${originNode.id}`,
+        display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null,
+      })
+    );
+  }
+
+  // ── Estado: confirmação antes de trocar de assunto ───────────────────────
+  const confirmSwitchMatch = /^confirm_switch:([a-f0-9-]+):([a-f0-9-]+)$/.exec(bot_state || "");
+  if (confirmSwitchMatch) {
+    const [, targetId, originId] = confirmSwitchMatch;
+    if (CONFIRM_SWITCH_YES.test(trimmed)) {
+      const target = await getNodeById(sb, targetId);
+      if (target) return enterNode(target, null, 1);
+    }
+    // Não confirmou (respondeu "não" ou qualquer coisa pouco clara) — por
+    // segurança, volta pro submenu de onde saiu em vez de arriscar mudar de
+    // assunto sem certeza.
+    const origin = await getNodeById(sb, originId);
+    if (!origin) return NextResponse.json({ ok: true, action: "erro_no_estado", mark_read: true, next_state: "__clear__" });
+    const originChildren = await getChildren(sb, origin.id, clientProvider);
+    const msg = renderChildrenMenu(originChildren, "Combinado, seguimos por aqui! Escolha uma das opções:", true);
+    await sendWAMessage(session_key, phone, msg);
+    return NextResponse.json({ ok: true, action: "confirm_switch_declined", mark_read: true, bot_response: msg, next_state: `menunode:${origin.id}`, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
   }
 
   // ── Estado: aguardando resolução de conta ────────────────────────────────
@@ -610,18 +673,42 @@ const msg = askAccountMessage();
     const currentNode = await getNodeById(sb, menuNodeMatch[1]);
     if (!currentNode) return NextResponse.json({ ok: true, action: "erro_no_estado", mark_read: true, next_state: "__clear__" });
 
-    const switched = await detectMenuContextFromTree(sb, tenant_id, trimmed);
+    // ✅ Antes trocava direto — agora pergunta primeiro (askConfirmSwitch),
+    // já que o cliente pode só ter mencionado a palavra de passagem, sem
+    // querer sair de fato do que estava tratando.
+    const switched = await detectMenuContextFromTree(sb, tenant_id, trimmed, clientProvider);
     if (switched && switched.id !== currentNode.id && switched.parent_id === null) {
-      return enterNode(switched, null, 1);
+      return askConfirmSwitch(switched, currentNode);
     }
 
-    const children = await getChildren(sb, currentNode.id);
+    const children = await getChildren(sb, currentNode.id, clientProvider);
     const numeric = /^[1-9]$/.test(trimmed) ? Number(trimmed) : null;
     const chosen = (numeric ? findChildByNumber(children, numeric) : null) || findChildByKeyword(children, trimmed);
 
     if (chosen) return enterNode(chosen, null, 1);
 
-    const msg = renderChildrenMenu(children, "Não entendi — pode escolher uma das opções abaixo, por favor? 😊");
+    // ✅ Nem número, nem palavra-chave do submenu atual, nem troca de
+    // contexto por palavra-chave bateram — antes de desistir, tenta uma
+    // última vez por SIGNIFICADO (mesmo fallback semântico da 1ª mensagem).
+    // Cobre o caso de o cliente mudar de assunto de verdade enquanto está
+    // dentro de um submenu (ex: pergunta de preço no meio do fluxo de
+    // instalação) — sem isso, ele ficava preso repetindo "Não entendi" no
+    // submenu errado.
+    const hasEnoughSignal = trimmed.split(/\s+/).filter(Boolean).length >= 4;
+    if (hasEnoughSignal) {
+      try {
+        const embedding = await generateEmbedding(geminiKey, trimmed);
+        const candidates = embedding ? await searchMenuIntentCandidates(sb, tenant_id, embedding) : [];
+        const node = await pickCompatibleSemanticMatch(sb, candidates, clientProvider);
+        if (node && node.id !== currentNode.id) {
+          return askConfirmSwitch(node, currentNode);
+        }
+      } catch (e: any) {
+        safeLog("[BOT][agent] Erro na detecção semântica (troca de contexto):", e?.message);
+      }
+    }
+
+    const msg = renderChildrenMenu(children, "Não entendi — pode escolher uma das opções abaixo, por favor? 😊", true);
     await sendWAMessage(session_key, phone, msg);
     return NextResponse.json({ ok: true, action: "menu_retry", mark_read: true, bot_response: msg, next_state: bot_state, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
   }
@@ -701,7 +788,8 @@ const msg = askAccountMessage();
     const isRetry = bot_state === "geral_retry";
     try {
       const embedding = await generateEmbedding(geminiKey, trimmed);
-      const top = embedding ? await searchBotKnowledgeTop(sb, tenant_id, embedding) : null;
+      const candidates = embedding ? await searchBotKnowledgeCandidates(sb, tenant_id, embedding) : [];
+      const top = await pickCompatibleKnowledgeMatch(sb, candidates, clientProvider);
       if (top) {
         const vars = buildClientTemplateVars({ clientRow: clientMatches[0], isSecondary: clients[0]?.is_secondary }) as any;
         // ✅ Mesma correção do buildVarsForNode — sem isso, {usuario_app},
@@ -733,12 +821,12 @@ const msg = askAccountMessage();
   // submenus. Checada primeiro por ser a via mais barata e sem ambiguidade
   // nenhuma: nem precisa de palavra-chave, nem de Gemini.
   if (/^[1-9]$/.test(trimmed)) {
-    const roots = await getRootNodes(sb, tenant_id);
+    const roots = await getRootNodes(sb, tenant_id, clientProvider);
     const chosenRoot = findRootByNumber(roots, trimmed);
     if (chosenRoot) return enterNode(chosenRoot, null, 1);
   }
 
-  const detected = await detectMenuContextFromTree(sb, tenant_id, trimmed);
+  const detected = await detectMenuContextFromTree(sb, tenant_id, trimmed, clientProvider);
   if (detected) return enterNode(detected, null, 1);
 
   // ✅ Fallback semântico: nenhuma palavra-chave bateu — antes de desistir/
@@ -752,11 +840,9 @@ const msg = askAccountMessage();
   const hasEnoughSignal = trimmed.split(/\s+/).filter(Boolean).length >= 4;
   try {
     const embedding = hasEnoughSignal ? await generateEmbedding(geminiKey, trimmed) : null;
-    const semanticMatch = embedding ? await searchMenuIntentTop(sb, tenant_id, embedding) : null;
-    if (semanticMatch) {
-      const node = await getNodeById(sb, semanticMatch.id);
-      if (node) return enterNode(node, null, 1);
-    }
+    const candidates = embedding ? await searchMenuIntentCandidates(sb, tenant_id, embedding) : [];
+    const node = await pickCompatibleSemanticMatch(sb, candidates, clientProvider);
+    if (node) return enterNode(node, null, 1);
   } catch (e: any) {
     safeLog("[BOT][agent] Erro na detecção semântica de categoria:", e?.message);
   }
@@ -770,14 +856,14 @@ const msg = askAccountMessage();
     if (!bot_state) {
       const msg1 = "Olá! 😊 Sou o assistente do Márcio. Me diga, como posso te ajudar?";
       await sendWAMessage(session_key, phone, msg1);
-      const menuMsg = await getAllRootsAsMenuText(sb, tenant_id);
+      const menuMsg = await getAllRootsAsMenuText(sb, tenant_id, clientProvider);
       await sendWAMessage(session_key, phone, menuMsg);
       return NextResponse.json({ ok: true, action: "menu_intro", mark_read: true, bot_response: `${msg1}\n\n${menuMsg}`, next_state: "aguardando_resposta", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
     }
     // ✅ Reforça a seleção por número (em vez de convidar texto livre, que
     // dispararia o fallback semântico à toa) e mostra o menu de novo, caso
     // o cliente tenha perdido a lista original.
-    const retryMenu = await getAllRootsAsMenuText(sb, tenant_id);
+    const retryMenu = await getAllRootsAsMenuText(sb, tenant_id, clientProvider);
     const msg = `Sem pressa! 😊 ${retryMenu}`;
     await sendWAMessage(session_key, phone, msg);
     return NextResponse.json({ ok: true, action: "menu_retry", mark_read: true, bot_response: msg, next_state: "aguardando_resposta_2", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });

@@ -7,6 +7,8 @@
 // (3) classificar se uma resposta é só cordialidade (Item 5).
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { appliesToProvider, type ServerProvider } from "./bot-menu";
+
 const GEMINI_MODEL = "gemini-flash-latest";
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
@@ -91,9 +93,9 @@ export async function generateDocumentEmbedding(apiKey: string, text: string): P
 }
 
 // ── ⚠️ Não usada em nenhuma rota hoje (nem agent nem chat-admin) — os dois
-// já usam searchBotKnowledgeTop, que devolve o conteúdo direto sem o Gemini
-// gerar texto em cima. Mantida por enquanto caso algum fluxo futuro volte a
-// precisar de um prompt com múltiplos resultados de contexto.
+// já usam searchBotKnowledgeCandidates, que devolve o conteúdo direto sem o
+// Gemini gerar texto em cima. Mantida por enquanto caso algum fluxo futuro
+// volte a precisar de um prompt com múltiplos resultados de contexto.
 export async function searchBotKnowledge(
   sb: any,
   tenantId: string,
@@ -116,27 +118,48 @@ export async function searchBotKnowledge(
   }
 }
 
-// ── Usado pelo chat-admin (motor de árvore) — retorna o item mais similar
-// SEM passar por geração de texto do Gemini. A resposta é o próprio
-// conteúdo cadastrado (com variáveis substituídas depois pelo renderTemplate).
-export async function searchBotKnowledgeTop(
+// ── Retorna VÁRIOS candidatos (ordenados por similaridade), sem passar por
+// geração de texto do Gemini — a resposta é o próprio conteúdo cadastrado
+// (com variáveis substituídas depois pelo renderTemplate). Devolver uma
+// lista (em vez de só o melhor) permite ao chamador pular candidatos que não
+// se aplicam ao servidor do cliente (ver pickCompatibleKnowledgeMatch).
+export async function searchBotKnowledgeCandidates(
   sb: any,
   tenantId: string,
   embedding: number[],
-  threshold = 0.55
-): Promise<{ id: string; title: string; category: string; content: string; similarity: number } | null> {
+  threshold = 0.55,
+  limit = 5
+): Promise<{ id: string; title: string; category: string; content: string; similarity: number }[]> {
   try {
     const { data, error } = await sb.rpc("search_bot_knowledge", {
       p_tenant_id: tenantId,
       p_embedding: `[${embedding.join(",")}]`,
-      p_limit: 1,
+      p_limit: limit,
       p_threshold: threshold,
     });
-    if (error || !data?.length) return null;
-    return data[0];
+    if (error || !data?.length) return [];
+    return data;
   } catch {
-    return null;
+    return [];
   }
+}
+
+// ✅ Escolhe o primeiro candidato compatível com o servidor do cliente — um
+// artigo restrito (ex: "Dados de acesso FastTV") só é considerado se o
+// provider do cliente bater, mesmo que tenha vindo com mais similaridade
+// que um artigo universal mais abaixo na lista. Precisa de uma consulta
+// extra por candidato (a RPC de busca não devolve applies_to_servers), mas
+// como o limite é pequeno (5), o custo é desprezível.
+export async function pickCompatibleKnowledgeMatch(
+  sb: any,
+  candidates: { id: string; title: string; category: string; content: string; similarity: number }[],
+  provider: ServerProvider | null
+): Promise<{ id: string; title: string; category: string; content: string; similarity: number } | null> {
+  for (const c of candidates) {
+    const { data } = await sb.from("bot_knowledge").select("applies_to_servers").eq("id", c.id).maybeSingle();
+    if (appliesToProvider(data?.applies_to_servers, provider)) return c;
+  }
+  return null;
 }
 
 // ── Detecção semântica de categoria raiz — fallback quando NENHUMA palavra-
@@ -153,23 +176,27 @@ export async function searchBotKnowledgeTop(
 // até saudações genéricas passavam no 0.55 (ex: "Olá, tudo bem?" batendo
 // com "Nova instalação"). 0.78 é conservador de propósito: prefere não
 // achar nada (cai no menu normal, sem risco) a arriscar rotear errado.
-export async function searchMenuIntentTop(
+// ✅ Devolve VÁRIOS candidatos (não só o melhor) — o chamador usa
+// pickCompatibleSemanticMatch (em bot-menu.ts) pra pular categorias
+// restritas a outro servidor, igual já fazemos com a base de conhecimento.
+export async function searchMenuIntentCandidates(
   sb: any,
   tenantId: string,
   embedding: number[],
-  threshold = 0.78
-): Promise<{ id: string; label: string; similarity: number } | null> {
+  threshold = 0.78,
+  limit = 5
+): Promise<{ id: string; label: string; similarity: number }[]> {
   try {
     const { data, error } = await sb.rpc("search_menu_intent", {
       p_tenant_id: tenantId,
       p_embedding: `[${embedding.join(",")}]`,
-      p_limit: 1,
+      p_limit: limit,
       p_threshold: threshold,
     });
-    if (error || !data?.length) return null;
-    return data[0];
+    if (error || !data?.length) return [];
+    return data;
   } catch {
-    return null;
+    return [];
   }
 }
 

@@ -21,8 +21,16 @@ type MenuNode = {
   special_actions: string[];
   closing_message: string | null;
   transfer_situation_label: string | null;
+  applies_to_servers: string[] | null;
   is_active: boolean;
 };
+
+// ✅ Enum fechado do sistema — os únicos providers de servidor suportados.
+const SERVER_OPTIONS = [
+  { value: "NATV", label: "NaTV" },
+  { value: "FAST", label: "Fast" },
+  { value: "ELITE", label: "Elite" },
+];
 
 type MenuStep = { id: string; node_id: string; step_order: number; message_text: string };
 type TreeNode = MenuNode & { children: TreeNode[]; steps: MenuStep[] };
@@ -294,11 +302,13 @@ export default function BotMenuTreeEditor() {
     const idx = siblings.findIndex((s) => s.id === node.id);
     const swapWith = siblings[idx + direction];
     if (!swapWith) return;
-    // ✅ "0" é fixo (atalho reservado) — nunca participa de troca de posição.
-    // Sem isso, mover o vizinho pra baixo/cima tentaria jogar ele pro 0
-    // (a API rejeita essa metade da troca, mas a outra metade já teria ido —
-    // resultando em dois nós com o mesmo número).
-    if (node.option_number === 0 || swapWith.option_number === 0) return;
+    // ✅ "0" (falar com humano) e "9" (voltar ao menu) são fixos — nunca
+    // participam de troca de posição. Sem isso, mover o vizinho pra baixo/
+    // cima tentaria jogar ele pro número reservado (a API rejeita essa
+    // metade da troca, mas a outra metade já teria ido — resultando em
+    // dois nós com o mesmo número).
+    const RESERVED = [0, 9];
+    if (RESERVED.includes(node.option_number) || RESERVED.includes(swapWith.option_number)) return;
     setSaving(true);
     await Promise.all([
       callApi({ action: "reorder_node", id: node.id, option_number: swapWith.option_number }),
@@ -334,6 +344,14 @@ export default function BotMenuTreeEditor() {
           )}
           {(node.special_actions || []).length > 0 && (
             <span title={node.special_actions.join(", ")} className="text-[10px] text-amber-500">{node.special_actions.length} ação(ões)</span>
+          )}
+          {(node.applies_to_servers || []).length > 0 && (
+            <span
+              title={`Só aparece pra clientes de: ${node.applies_to_servers!.join(", ")}`}
+              className="text-[10px] text-sky-500 bg-sky-500/10 border border-sky-500/20 px-1.5 py-0.5 rounded"
+            >
+              {node.applies_to_servers!.join("/")}
+            </span>
           )}
           {isLeaf && node.steps.length > 0 && <span className="text-[10px] text-muted-foreground">{node.steps.length} passo(s)</span>}
           {!node.is_active && <span className="text-[10px] text-rose-500">inativo</span>}
@@ -450,6 +468,7 @@ function NodeEditor({
   const [specialActions, setSpecialActions] = useState<string[]>(node.special_actions || []);
   const [closingMsg, setClosingMsg] = useState(node.closing_message || "");
   const [transferLabel, setTransferLabel] = useState(node.transfer_situation_label || "");
+  const [appliesToServers, setAppliesToServers] = useState<string[]>(node.applies_to_servers || []);
   const [isActive, setIsActive] = useState(node.is_active);
   const [steps, setSteps] = useState<string[]>(node.steps.map((s) => s.message_text));
   const [showPreview, setShowPreview] = useState(false);
@@ -457,6 +476,10 @@ function NodeEditor({
 
   function toggleAction(value: string) {
     setSpecialActions((prev) => prev.includes(value) ? prev.filter((a) => a !== value) : [...prev, value]);
+  }
+
+  function toggleServer(value: string) {
+    setAppliesToServers((prev) => prev.includes(value) ? prev.filter((s) => s !== value) : [...prev, value]);
   }
 
   function insertTagAt(stepIndex: number, tag: string) {
@@ -480,6 +503,7 @@ function NodeEditor({
       special_actions: specialActions,
       closing_message: closingMsg || null,
       transfer_situation_label: transferLabel || null,
+      applies_to_servers: appliesToServers.length ? appliesToServers : null,
       is_active: isActive,
     });
 onSaveSteps(steps.filter((s) => s.trim()));
@@ -529,6 +553,23 @@ onSaveSteps(steps.filter((s) => s.trim()));
                 <span className="block">{a.label}</span>
                 <span className="block text-[10px] text-muted-foreground">{a.desc}</span>
               </span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <label className={labelCls}>Aplica-se a (deixe tudo desmarcado = todos os servidores)</label>
+        <p className="text-[10px] text-muted-foreground mt-0.5 mb-1.5">
+          Marque um ou mais se essa opção só fizer sentido pra clientes de um servidor específico
+          (ex: código de ativação diferente por servidor). O bot já sabe a qual servidor o cliente
+          pertence e só mostra essa opção pra quem bate — mesmo que outra opção use o mesmo número.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          {SERVER_OPTIONS.map((s) => (
+            <label key={s.value} className="flex items-center gap-1.5 text-xs text-foreground cursor-pointer">
+              <input type="checkbox" checked={appliesToServers.includes(s.value)} onChange={() => toggleServer(s.value)} />
+              {s.label}
             </label>
           ))}
         </div>

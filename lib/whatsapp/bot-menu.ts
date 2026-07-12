@@ -25,6 +25,16 @@ export function isEscalationTrigger(text: string): boolean {
 
 // ── Confirmação simples / link puro ───────────────────────────────────────────
 
+// ── Voltar ao menu principal — atalho reservado, mesmo padrão do "0" ─────────
+// Funciona em QUALQUER estado (dentro de submenu, aguardando conta,
+// aguardando resolução, ou até na conversa livre) — sempre reseta o cliente
+// pro menu raiz. Checado logo depois de isEscalationTrigger, também com
+// prioridade máxima.
+export function isBackToMenuTrigger(text: string): boolean {
+  const t = text.trim();
+  return /^(9|menu|menu principal|voltar|voltar ao menu|voltar pro menu)$/i.test(t);
+}
+
 export function isSimpleConfirmation(text: string): boolean {
   return /^(ok|okay|oks|👍|👌|✅|😊|🙏|blz|beleza|certo|entendi|entendido|perfeito|tá|ta|tá bom|ta bom|tudo bem|obrigad[oa]|vlw|valeu|até|ótimo|otimo|show|legal|massa|👏|🤝|😀|😄|🙂)$/i.test(text.trim());
 }
@@ -102,6 +112,38 @@ export const PAYMENT_MANUAL_PENDING_MSG =
 export const PAYMENT_FULFILLMENT_ERROR_MSG =
   "Encontrei seu pagamento aqui — está confirmado! ✅ Só tivemos uma instabilidade técnica na finalização automática, mas o Márcio já foi notificado e vai concluir sua renovação em instantes.";
 
+// ── Servidor do cliente (NaTV / Fast / Elite) — usado pra filtrar conteúdo
+// específico de servidor, tanto na árvore quanto na base de conhecimento. ──
+
+export type ServerProvider = "NATV" | "FAST" | "ELITE";
+const VALID_PROVIDERS: ServerProvider[] = ["NATV", "FAST", "ELITE"];
+
+// Resolve o provider real do servidor de uma conta (mesmo caminho já usado
+// em toolConsultarPrecosTexto: servers.panel_integration -> server_integrations.provider).
+// Centralizado aqui pra não duplicar em agent/route.ts e chat-admin/route.ts.
+export async function resolveClientProvider(sb: any, serverId: string | null | undefined): Promise<ServerProvider | null> {
+  if (!serverId) return null;
+  try {
+    const { data: srv } = await sb.from("servers").select("panel_integration").eq("id", serverId).maybeSingle();
+    if (!srv?.panel_integration) return null;
+    const { data: integ } = await sb.from("server_integrations").select("provider").eq("id", srv.panel_integration).maybeSingle();
+    const p = String(integ?.provider || "").toUpperCase();
+    return (VALID_PROVIDERS as string[]).includes(p) ? (p as ServerProvider) : null;
+  } catch {
+    return null;
+  }
+}
+
+// Um nó/artigo "aplica-se" ao cliente se não tiver restrição (universal, lista
+// vazia/nula) ou se a lista incluir o provider do servidor do cliente. Se o
+// nó É restrito mas não sabemos o provider do cliente, escondemos por
+// segurança — melhor mostrar menos do que arriscar mostrar instrução errada.
+export function appliesToProvider(applies_to_servers: string[] | null | undefined, provider: ServerProvider | null): boolean {
+  if (!applies_to_servers || applies_to_servers.length === 0) return true;
+  if (!provider) return false;
+  return applies_to_servers.includes(provider);
+}
+
 // ── Motor genérico da árvore de menu (dados no banco, editável pelo painel) ──
 
 export type MenuNode = {
@@ -115,6 +157,7 @@ export type MenuNode = {
   special_actions: string[];
   closing_message: string | null;
   transfer_situation_label: string | null;
+  applies_to_servers?: string[] | null;
   is_active?: boolean;
 };
 
@@ -132,13 +175,20 @@ export async function getNodeById(sb: any, nodeId: string): Promise<MenuNode | n
   return data || null;
 }
 
-export async function getChildren(sb: any, parentId: string): Promise<MenuNode[]> {
+// ✅ "provider": quando informado (mesmo que null), filtra fora os nós
+// restritos a outro servidor — permite ter DUAS variantes com o MESMO
+// option_number (uma por servidor), já que só uma sobrevive ao filtro pra
+// cada cliente. Quando omitido (undefined — usado pelo editor visual, que
+// não tem "cliente" nenhum), retorna tudo, sem filtrar.
+export async function getChildren(sb: any, parentId: string, provider?: ServerProvider | null): Promise<MenuNode[]> {
   const { data } = await sb
     .from("bot_menu_nodes")
     .select("*")
     .eq("parent_id", parentId).eq("is_active", true)
     .order("option_number", { ascending: true });
-  return data || [];
+  const all: MenuNode[] = data || [];
+  if (provider === undefined) return all;
+  return all.filter((n) => appliesToProvider(n.applies_to_servers, provider));
 }
 
 export async function getSteps(sb: any, nodeId: string): Promise<string[]> {
@@ -155,7 +205,11 @@ export async function getSteps(sb: any, nodeId: string): Promise<string[]> {
 // e o bot está confirmando entendimento antes de aprofundar. No primeiro
 // contato (getAllRootsAsMenuText) nada foi dito ainda — usar essa mesma frase
 // lá soava como o bot "entendendo" uma saudação qualquer, sem sentido nenhum.
-export function renderChildrenMenu(children: MenuNode[], intro: string = "Entendido! Me conta mais:"): string {
+// ✅ "showBackHint" acrescenta a linha "9️⃣ Voltar ao menu principal" — só
+// faz sentido dentro de um SUBMENU de verdade (não na listagem raiz, onde
+// seria redundante já estar ali). "9" já funciona como atalho global
+// (isBackToMenuTrigger) mesmo sem essa linha; ela é só a dica visual.
+export function renderChildrenMenu(children: MenuNode[], intro: string = "Entendido! Me conta mais:", showBackHint: boolean = false): string {
   const NUMBER_EMOJI = ["0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"];
   // ✅ "0" é o atalho reservado (ex: Assuntos Pessoais / falar com humano) —
   // sempre exibido por último na lista, mesmo sendo o menor número.
@@ -164,9 +218,9 @@ export function renderChildrenMenu(children: MenuNode[], intro: string = "Entend
     if (b.option_number === 0) return -1;
     return a.option_number - b.option_number;
   });
-  return `${intro}\n` + ordered
-    .map((c) => `${NUMBER_EMOJI[c.option_number] || c.option_number} ${c.label}`)
-    .join("\n");
+  const lines = ordered.map((c) => `${NUMBER_EMOJI[c.option_number] || c.option_number} ${c.label}`);
+  if (showBackHint) lines.push("9️⃣ Voltar ao menu principal");
+  return `${intro}\n` + lines.join("\n");
 }
 
 export function findChildByNumber(children: MenuNode[], num: number): MenuNode | null {
@@ -181,18 +235,28 @@ export function findChildByKeyword(children: MenuNode[], text: string): MenuNode
 export const RESOLUTION_QUESTION =
   "Vou deixar as opções aqui: responda **1** se resolveu, ou **2** se ainda está com o problema.";
 
+// ── Confirmação sim/não — usada antes de trocar de assunto no meio de um
+// submenu (troca de contexto por palavra-chave ou por significado). Só troca
+// se o cliente confirmar de propósito — qualquer coisa diferente de "sim"
+// (inclusive "não" ou uma resposta pouco clara) mantém ele onde estava, por
+// segurança: é melhor perguntar de novo do que arrancar o cliente do
+// assunto certo por causa de uma interpretação errada.
+export const CONFIRM_SWITCH_YES = /^(1|sim|s|isso|isso mesmo|exato|correto|quero|pode ser|é isso|é sim)$/i;
+
 export const RESOLUTION_RESOLVED = /^(1|sim|resolveu|resolvido|deu certo|funcionou)$/i;
 export const RESOLUTION_NOT_RESOLVED = /^(2|não|nao|não resolveu|nao resolveu|continua|ainda não|ainda nao)$/i;
 
 // ── Detecção de categoria a partir da árvore (Fase 1 do motor) ───────────────
 
-export async function getRootNodes(sb: any, tenantId: string): Promise<MenuNode[]> {
+export async function getRootNodes(sb: any, tenantId: string, provider?: ServerProvider | null): Promise<MenuNode[]> {
   const { data: roots } = await sb
     .from("bot_menu_nodes")
     .select("*")
     .eq("tenant_id", tenantId).is("parent_id", null).eq("is_active", true)
     .order("option_number", { ascending: true });
-  return roots || [];
+  const all: MenuNode[] = roots || [];
+  if (provider === undefined) return all;
+  return all.filter((n) => appliesToProvider(n.applies_to_servers, provider));
 }
 
 // ✅ Seleção por número no menu raiz — antes só existia dentro de submenus
@@ -207,16 +271,32 @@ export function findRootByNumber(roots: MenuNode[], text: string): MenuNode | nu
   return findChildByNumber(roots, numeric);
 }
 
-export async function detectMenuContextFromTree(sb: any, tenantId: string, text: string): Promise<MenuNode | null> {
-  const roots = await getRootNodes(sb, tenantId);
+export async function detectMenuContextFromTree(sb: any, tenantId: string, text: string, provider?: ServerProvider | null): Promise<MenuNode | null> {
+  const roots = await getRootNodes(sb, tenantId, provider);
   if (!roots.length) return null;
   const t = text.toLowerCase();
   return roots.find((r: any) => (r.keywords || []).some((k: string) => t.includes(k.toLowerCase()))) || null;
 }
 
-export async function getAllRootsAsMenuText(sb: any, tenantId: string): Promise<string> {
-  const roots = await getRootNodes(sb, tenantId);
+export async function getAllRootsAsMenuText(sb: any, tenantId: string, provider?: ServerProvider | null): Promise<string> {
+  const roots = await getRootNodes(sb, tenantId, provider);
   return renderChildrenMenu(roots, "Escolha uma das opções abaixo, digitando o número correspondente:");
+}
+
+// ✅ Pega vários candidatos da busca semântica (ordenados por similaridade) e
+// devolve o PRIMEIRO que seja compatível com o servidor do cliente — nunca
+// devolve um nó restrito a outro servidor, mesmo que ele tenha vindo com
+// mais similaridade que um candidato mais abaixo na lista.
+export async function pickCompatibleSemanticMatch(
+  sb: any,
+  candidates: { id: string; label: string; similarity: number }[],
+  provider: ServerProvider | null
+): Promise<MenuNode | null> {
+  for (const c of candidates) {
+    const node = await getNodeById(sb, c.id);
+    if (node && appliesToProvider(node.applies_to_servers, provider)) return node;
+  }
+  return null;
 }
 
 // ── Resolução de conta (múltiplas contas) ────────────────────────────────────

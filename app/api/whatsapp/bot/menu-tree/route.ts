@@ -11,7 +11,7 @@ function makeSupabaseAdmin() {
 }
 
 // ── Embedding de intenção do nó (rótulo + palavras-chave) ────────────────────
-// Alimenta o fallback semântico (searchMenuIntentTop) usado quando o cliente
+// Alimenta o fallback semântico (searchMenuIntentCandidates) usado quando o cliente
 // escreve algo que não bate literalmente com nenhuma palavra-chave cadastrada.
 // Falha aberta: se faltar GEMINI_API_KEY ou a chamada falhar, o nó salva
 // normalmente sem embedding — a detecção por palavra-chave continua
@@ -34,6 +34,16 @@ async function tryGenerateIntentEmbedding(label: string, keywords: string[]): Pr
   } catch {
     return null;
   }
+}
+
+// ✅ "0" (falar com humano) e "9" (voltar ao menu principal) são atalhos
+// globais reservados em bot-menu.ts (isEscalationTrigger/isBackToMenuTrigger)
+// — um nó de árvore com um desses números nunca seria alcançável por dígito.
+function reservedOptionNumberError(n: unknown): string | null {
+  const num = Number(n);
+  if (num === 0) return "O número 0 é reservado para 'falar com humano' — use 1 ou maior.";
+  if (num === 9) return "O número 9 é reservado para 'voltar ao menu principal' — escolha outro número.";
+  return null;
 }
 
 async function getTenantId(sb: any, req: Request): Promise<string | null> {
@@ -85,13 +95,9 @@ export async function POST(req: Request) {
   const { action } = body;
 
   if (action === "create_node") {
-    const { parent_id, slug, option_number, label, keywords, requires_account_check, special_actions } = body;
-    // ✅ "0" é reservado como atalho global de "falar com humano"
-    // (isEscalationTrigger, em bot-menu.ts) — uma opção de árvore com esse
-    // número nunca seria alcançável por dígito.
-    if (Number(option_number) === 0) {
-      return NextResponse.json({ error: "O número 0 é reservado para 'falar com humano' — use 1 ou maior." }, { status: 400 });
-    }
+    const { parent_id, slug, option_number, label, keywords, requires_account_check, special_actions, applies_to_servers } = body;
+    const reservedErr = reservedOptionNumberError(option_number);
+    if (reservedErr) return NextResponse.json({ error: reservedErr }, { status: 400 });
     const embedding = await tryGenerateIntentEmbedding(label, keywords || []);
     const { data, error } = await sb
       .from("bot_menu_nodes")
@@ -104,6 +110,9 @@ export async function POST(req: Request) {
         keywords: keywords || [],
         requires_account_check: !!requires_account_check,
         special_actions: special_actions || [],
+        // ✅ null/vazio = aplica a todos os servidores; array com valores
+        // (NATV/FAST/ELITE) restringe a exibição só a esses.
+        applies_to_servers: Array.isArray(applies_to_servers) && applies_to_servers.length ? applies_to_servers : null,
         ...(embedding ? { intent_embedding: `[${embedding.join(",")}]` } : {}),
       })
       .select().single();
@@ -114,8 +123,14 @@ export async function POST(req: Request) {
   if (action === "update_node") {
     const { id, ...fields } = body;
     delete fields.action;
-    if (fields.option_number !== undefined && Number(fields.option_number) === 0) {
-      return NextResponse.json({ error: "O número 0 é reservado para 'falar com humano' — use 1 ou maior." }, { status: 400 });
+    if (fields.option_number !== undefined) {
+      const reservedErr = reservedOptionNumberError(fields.option_number);
+      if (reservedErr) return NextResponse.json({ error: reservedErr }, { status: 400 });
+    }
+    // ✅ Normaliza lista vazia pra null — "nenhum servidor marcado" sempre
+    // significa "aplica a todos", nunca "não aplica a nenhum".
+    if (fields.applies_to_servers !== undefined) {
+      fields.applies_to_servers = Array.isArray(fields.applies_to_servers) && fields.applies_to_servers.length ? fields.applies_to_servers : null;
     }
     // ✅ Regenera o embedding de intenção sempre que o rótulo ou as
     // palavras-chave mudam — busca os valores atuais pra completar o que
@@ -146,9 +161,8 @@ export async function POST(req: Request) {
 
   if (action === "reorder_node") {
     const { id, option_number } = body;
-    if (Number(option_number) === 0) {
-      return NextResponse.json({ error: "O número 0 é reservado para 'falar com humano' — use 1 ou maior." }, { status: 400 });
-    }
+    const reservedErr = reservedOptionNumberError(option_number);
+    if (reservedErr) return NextResponse.json({ error: reservedErr }, { status: 400 });
     const { error } = await sb.from("bot_menu_nodes").update({ option_number }).eq("id", id).eq("tenant_id", tenantId);
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json({ ok: true });

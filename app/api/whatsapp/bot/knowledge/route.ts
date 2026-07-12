@@ -71,7 +71,7 @@ export async function GET(req: Request) {
 
   let query = sb
     .from("bot_knowledge")
-    .select("id, title, category, content, is_active, created_at, updated_at")
+    .select("id, title, category, content, is_active, applies_to_servers, created_at, updated_at")
     .eq("tenant_id", tenantId)
     .order("category", { ascending: true })
     .order("title", { ascending: true });
@@ -103,7 +103,7 @@ export async function POST(req: Request) {
   let body: any;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "JSON inválido" }, { status: 400 }); }
 
-  const { title, category, content } = body;
+  const { title, category, content, applies_to_servers } = body;
   if (!title?.trim() || !content?.trim()) {
     return NextResponse.json({ error: "title e content são obrigatórios" }, { status: 400 });
   }
@@ -118,8 +118,10 @@ export async function POST(req: Request) {
     category: (category || "Geral").trim(),
     content: content.trim(),
     embedding: embedding ? `[${embedding.join(",")}]` : null,
+    // ✅ null/vazio = aplica a todos os servidores (NaTV/Fast/Elite).
+    applies_to_servers: Array.isArray(applies_to_servers) && applies_to_servers.length ? applies_to_servers : null,
     is_active: true,
-  }).select("id, title, category, content, is_active, created_at").single();
+  }).select("id, title, category, content, is_active, applies_to_servers, created_at").single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -143,7 +145,7 @@ export async function PUT(req: Request) {
   let body: any;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "JSON inválido" }, { status: 400 }); }
 
-  const { id, title, category, content, is_active } = body;
+  const { id, title, category, content, is_active, applies_to_servers } = body;
   if (!id) return NextResponse.json({ error: "id é obrigatório" }, { status: 400 });
 
   const updatePayload: any = {};
@@ -151,6 +153,9 @@ export async function PUT(req: Request) {
   if (category !== undefined) updatePayload.category = category.trim();
   if (content !== undefined) updatePayload.content = content.trim();
   if (is_active !== undefined) updatePayload.is_active = is_active;
+  if (applies_to_servers !== undefined) {
+    updatePayload.applies_to_servers = Array.isArray(applies_to_servers) && applies_to_servers.length ? applies_to_servers : null;
+  }
 
   // Regenera embedding sempre que chamado com geminiKey disponível
   if (geminiKey) {
@@ -173,7 +178,7 @@ export async function PUT(req: Request) {
     .update(updatePayload)
     .eq("id", id)
     .eq("tenant_id", tenantId)
-    .select("id, title, category, content, is_active, updated_at")
+    .select("id, title, category, content, is_active, applies_to_servers, updated_at")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
