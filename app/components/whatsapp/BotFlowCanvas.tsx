@@ -32,9 +32,9 @@ export type FlowLink =
 type Pos = { x: number; y: number };
 type Port = "in" | "out_menu" | "out_next" | "out_ok" | "out_fail";
 
-const NODE_W = 176;
-const NODE_H = 96;
-const POS_KEY = "bot_flow_canvas_pos_v3";
+const NODE_W = 168;
+const NODE_H = 78;
+const POS_KEY = "bot_flow_canvas_pos_v4";
 
 const SYSTEM_NODES: CanvasNode[] = [
   { id: "__start__", label: "▶ Início", parent_id: null, option_number: 0, isSystem: true, systemKind: "start" },
@@ -57,12 +57,14 @@ function savePositions(p: Record<string, Pos>) {
 }
 
 /**
- * 5 colunas fixas (mesmo espaçamento entre cada uma):
- *  0 Início | 1 Menu principal | 2 Filhos | 3 Netos+ | 4 Sucesso/Márcio
+ * 6 colunas com o mesmo espaçamento horizontal:
+ *  0 Início | 1 Menu | 2 Filhos | 3 Netos | 4 Bisnetos+ | 5 Sucesso/Márcio
  */
-const COL_X = [48, 300, 552, 804, 1056] as const;
-const ROW_GAP = NODE_H + 40; // folga vertical entre cartões
-const TOP_Y = 56;
+const COL_GAP = 220; // distância entre inícios de coluna (NODE_W 168 + folga)
+const COL_X = [40, 40 + COL_GAP, 40 + COL_GAP * 2, 40 + COL_GAP * 3, 40 + COL_GAP * 4, 40 + COL_GAP * 5] as const;
+/** Altura compacta entre cartões (página menos “alta”) */
+const ROW_GAP = NODE_H + 14;
+const TOP_Y = 40;
 
 function depthOfNode(id: string, byId: Map<string, CanvasNode>): number {
   let d = 0;
@@ -76,29 +78,29 @@ function depthOfNode(id: string, byId: Map<string, CanvasNode>): number {
   return d;
 }
 
-/** depth 0 → col 1, depth 1 → col 2, depth 2+ → col 3 */
+/** depth 0 menu | 1 filhos | 2 netos | 3+ bisnetos */
 function depthToCol(depth: number): number {
   if (depth <= 0) return 1;
   if (depth === 1) return 2;
-  return 3;
+  if (depth === 2) return 3;
+  return 4;
 }
 
 /**
- * Layout em grade de 5 colunas.
- * Só posiciona nós em `onlyIds` se passado (foco); senão todos.
- * Nunca empilha: cada coluna é uma lista vertical com ROW_GAP.
+ * Grade por profundidade (parent_id).
+ * Cada geração numa coluna diferente — nunca junta filho/neto/bisneto na mesma.
  */
 function columnLayout(nodes: CanvasNode[], onlyIds?: Set<string> | null): Record<string, Pos> {
-  const data = nodes.filter((n) => !n.isSystem && (!onlyIds || onlyIds.has(n.id)));
+  // byId SEMPRE com a árvore inteira (senão depth quebra e tudo cai na mesma coluna)
   const byId = new Map(nodes.filter((n) => !n.isSystem).map((n) => [n.id, n]));
+  const data = nodes.filter((n) => !n.isSystem && (!onlyIds || onlyIds.has(n.id)));
 
-  const cols: CanvasNode[][] = [[], [], [], [], []];
+  const cols: CanvasNode[][] = [[], [], [], [], [], []];
   for (const n of data) {
     const d = depthOfNode(n.id, byId);
     cols[depthToCol(d)].push(n);
   }
 
-  // ordena: por pai (raiz do grupo) e option_number
   const rootOrder = new Map<string, number>();
   nodes
     .filter((n) => !n.isSystem && !n.parent_id)
@@ -115,7 +117,7 @@ function columnLayout(nodes: CanvasNode[], onlyIds?: Set<string> | null): Record
     return rootOrder.get(cur?.id || n.id) ?? 999;
   }
 
-  for (let c = 1; c <= 3; c++) {
+  for (let c = 1; c <= 4; c++) {
     cols[c].sort(
       (a, b) =>
         rootKey(a) - rootKey(b) ||
@@ -127,7 +129,7 @@ function columnLayout(nodes: CanvasNode[], onlyIds?: Set<string> | null): Record
   const pos: Record<string, Pos> = {};
   let maxY = TOP_Y;
 
-  for (let c = 1; c <= 3; c++) {
+  for (let c = 1; c <= 4; c++) {
     cols[c].forEach((n, i) => {
       const y = TOP_Y + i * ROW_GAP;
       pos[n.id] = { x: COL_X[c], y };
@@ -137,23 +139,17 @@ function columnLayout(nodes: CanvasNode[], onlyIds?: Set<string> | null): Record
 
   const midY = Math.max(TOP_Y, (maxY + TOP_Y) / 2 - NODE_H / 2);
   pos.__start__ = { x: COL_X[0], y: midY };
-  pos.__success__ = { x: COL_X[4], y: TOP_Y };
-  pos.__escalate__ = { x: COL_X[4], y: Math.max(TOP_Y + ROW_GAP * 2, midY + 20) };
-
-  // preenche ids do sistema se onlyIds
-  if (!pos.__start__) pos.__start__ = { x: COL_X[0], y: midY };
-  if (!pos.__success__) pos.__success__ = { x: COL_X[4], y: TOP_Y };
-  if (!pos.__escalate__) pos.__escalate__ = { x: COL_X[4], y: midY + 40 };
+  pos.__success__ = { x: COL_X[5], y: TOP_Y };
+  pos.__escalate__ = { x: COL_X[5], y: Math.max(TOP_Y + ROW_GAP * 2, midY) };
 
   return pos;
 }
 
-/** Alias usado no resto do arquivo */
 function defaultLayout(nodes: CanvasNode[]): Record<string, Pos> {
   return columnLayout(nodes, null);
 }
 
-/** Layout reverso: predecessores nas colunas 1–3, só o destino clicado na 4 */
+/** Layout reverso: predecessores nas colunas 1–4, só o destino clicado na 5 */
 function reverseLayout(
   targetId: "__success__" | "__escalate__",
   predIds: string[],
@@ -161,18 +157,15 @@ function reverseLayout(
 ): Record<string, Pos> {
   const only = new Set(predIds);
   const pos = columnLayout(nodes, only);
-  // só o endpoint focado (o outro some da tela)
   const midY = Math.max(
     TOP_Y,
-    predIds.length > 0
-      ? TOP_Y + ((predIds.length - 1) * ROW_GAP) / 2
-      : TOP_Y + ROW_GAP
+    predIds.length > 0 ? TOP_Y + ((Math.min(predIds.length, 6) - 1) * ROW_GAP) / 2 : TOP_Y + ROW_GAP
   );
   if (targetId === "__success__") {
-    pos.__success__ = { x: COL_X[4], y: midY };
+    pos.__success__ = { x: COL_X[5], y: midY };
     delete pos.__escalate__;
   } else {
-    pos.__escalate__ = { x: COL_X[4], y: midY };
+    pos.__escalate__ = { x: COL_X[5], y: midY };
     delete pos.__success__;
   }
   return pos;
@@ -536,8 +529,8 @@ export default function BotFlowCanvas({
     return () => window.removeEventListener("keydown", onKey);
   }, [selectedLinkKey, visibleLinks, onUnlink]);
 
-  const boardH = Math.max(520, ...Object.values(positions).map((p) => p.y + NODE_H + 120));
-  const boardW = Math.max(COL_X[4] + NODE_W + 80, ...Object.values(positions).map((p) => p.x + NODE_W + 80));
+  const boardH = Math.max(420, ...Object.values(positions).map((p) => p.y + NODE_H + 80));
+  const boardW = Math.max(COL_X[5] + NODE_W + 64, ...Object.values(positions).map((p) => p.x + NODE_W + 64));
 
   // posição do botão flutuante "Apagar" no meio da linha selecionada
   const deleteBtnPos = useMemo(() => {
@@ -659,7 +652,7 @@ export default function BotFlowCanvas({
           <span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> não
         </span>
         <span className="hidden md:inline text-[10px] opacity-70 border-l border-border pl-3 ml-1">
-          Colunas: Início → Menu → Filhos → Netos → Sucesso/Márcio
+          Colunas: Início → Menu → Filhos → Netos → Bisnetos → Sucesso/Márcio
         </span>
         <span className="text-[10px] opacity-80 ml-auto hidden sm:inline">
           linha = selecionar · Del = apagar
