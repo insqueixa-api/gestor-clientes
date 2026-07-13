@@ -4580,7 +4580,7 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
 
                   {
                     key: "pagamento",
-                    label: isTrialMode ? "SERVIDOR" : "PAGAMENTO",
+                    label: isTrialMode ? "SERVIDOR" : "SERVIDOR",
                   },
 
                   { key: "apps", label: "APLICATIVOS" },

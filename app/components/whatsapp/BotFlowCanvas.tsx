@@ -4,7 +4,7 @@
 // Duplo clique = editar (callback).
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Plus, Unlink } from "lucide-react";
 
 export type CanvasNode = {
@@ -62,23 +62,28 @@ function savePositions(p: Record<string, Pos>) {
 }
 
 /**
- * Layout completo (Exibir tudo / foco profundo) — 6 colunas:
- *  0 Início | 1 Menu | 2 Filhos | 3 Netos | 4 Bisnetos+ | 5 Sucesso/Márcio
+ * Colunas por geração, sempre nas MESMAS posições X em qualquer modo
+ * (visão geral, foco, mapa completo) — só muda quem está visível, nunca
+ * onde cada coluna fica. 6 posições: Início (âncora, fora da grade) +
+ * 5 colunas reais e igualmente espaçadas usando a largura toda do canvas:
+ *  0 Início | 1 Menu (pai) | 2 Filhos | 3 Netos | 4 Bisnetos | 5 Sucesso/Márcio
  */
-const COL_GAP = 210;
-const COL_X = [40, 40 + COL_GAP, 40 + COL_GAP * 2, 40 + COL_GAP * 3, 40 + COL_GAP * 4, 40 + COL_GAP * 5] as const;
+const COL_MARGIN = 24;
+const COL_START_OFFSET = COL_MARGIN + NODE_W + 90;
+const MIN_COL_STEP = 190;
 
-/**
- * Visão geral (nada clicado) — só 3 grupos, mas espalhados pela largura toda
- * do board (mesmas posições-âncora das colunas 0/2/5 do mapa completo), pra
- * não sobrar vazio à direita e dar mais respiro horizontal entre os cards.
- *  Início | Menus principais | Sucesso + Márcio
- */
-const OVERVIEW_X = {
-  start: COL_X[0],
-  menu: COL_X[2],
-  end: COL_X[5],
-} as const;
+function buildColX(containerWidth: number): number[] {
+  const usable = Math.max(MIN_COL_STEP * 4, containerWidth - COL_START_OFFSET - NODE_W - COL_MARGIN);
+  const step = usable / 4; // 5 colunas → 4 intervalos
+  return [
+    COL_MARGIN,
+    COL_START_OFFSET,
+    COL_START_OFFSET + step,
+    COL_START_OFFSET + step * 2,
+    COL_START_OFFSET + step * 3,
+    COL_START_OFFSET + step * 4,
+  ];
+}
 
 const ROW_GAP = NODE_H + 12;
 const TOP_Y = 36;
@@ -128,94 +133,80 @@ function sortNodesInCol(nodes: CanvasNode[], byId: Map<string, CanvasNode>, allN
   );
 }
 
-/** Visão inicial: Início à esquerda (centro da lista), menus no meio, finais à direita perto */
-function overviewLayout(nodes: CanvasNode[]): Record<string, Pos> {
-  // Só menu principal real (parent null e não é só destino de fluxo)
-  const roots = nodes
-    .filter((n) => !n.isSystem && !n.parent_id && !isLinkTargetOnly(n))
-    .sort((a, b) => a.option_number - b.option_number);
-
-  const pos: Record<string, Pos> = {};
-  roots.forEach((n, i) => {
-    pos[n.id] = { x: OVERVIEW_X.menu, y: TOP_Y + i * ROW_GAP };
-  });
-
-  const firstY = roots.length ? pos[roots[0].id].y : TOP_Y;
-  const lastY = roots.length ? pos[roots[roots.length - 1].id].y : TOP_Y;
-  const midY = (firstY + lastY) / 2;
-
-  // Início alinhado ao meio da coluna de menus (não embaixo)
-  pos.__start__ = { x: OVERVIEW_X.start, y: midY };
-  pos.__success__ = { x: OVERVIEW_X.end, y: firstY };
-  pos.__escalate__ = { x: OVERVIEW_X.end, y: Math.max(firstY + ROW_GAP * 2, lastY) };
-
-  return pos;
-}
-
 /**
- * Grade completa por profundidade (Exibir tudo / drill-down).
+ * Layout ÚNICO pra todos os modos (visão geral, foco, mapa completo): cada
+ * nó fica sempre na coluna da sua geração (pai/filho/neto/bisneto) e
+ * Sucesso/Márcio sempre na coluna final — só o CONJUNTO de nós visíveis
+ * muda entre os modos, nunca a posição X de cada um. É isso que evita o
+ * "pula tudo de lugar" ao trocar de foco.
  */
-function columnLayout(nodes: CanvasNode[], onlyIds?: Set<string> | null): Record<string, Pos> {
-  const byId = new Map(nodes.filter((n) => !n.isSystem).map((n) => [n.id, n]));
-  const data = nodes.filter((n) => !n.isSystem && (!onlyIds || onlyIds.has(n.id)));
+function computeLayout(
+  allNodes: CanvasNode[],
+  visibleIds: Set<string>,
+  links: FlowLink[],
+  colX: number[]
+): Record<string, Pos> {
+  const byId = new Map(allNodes.filter((n) => !n.isSystem).map((n) => [n.id, n]));
+  const data = allNodes.filter((n) => !n.isSystem && visibleIds.has(n.id));
 
-  const cols: CanvasNode[][] = [[], [], [], [], [], []];
+  const cols: CanvasNode[][] = [[], [], [], []];
   for (const n of data) {
-    cols[depthToCol(depthOfNode(n.id, byId))].push(n);
+    cols[depthToCol(depthOfNode(n.id, byId)) - 1].push(n);
   }
-
-  for (let c = 1; c <= 4; c++) {
-    cols[c] = sortNodesInCol(cols[c], byId, nodes);
+  for (let c = 0; c < 4; c++) {
+    cols[c] = sortNodesInCol(cols[c], byId, allNodes);
   }
 
   const pos: Record<string, Pos> = {};
-  let maxY = TOP_Y;
-
-  for (let c = 1; c <= 4; c++) {
+  for (let c = 0; c < 4; c++) {
     cols[c].forEach((n, i) => {
-      const y = TOP_Y + i * ROW_GAP;
-      pos[n.id] = { x: COL_X[c], y };
-      maxY = Math.max(maxY, y + NODE_H);
+      pos[n.id] = { x: colX[c + 1], y: TOP_Y + i * ROW_GAP };
     });
   }
 
-  // Início no meio da coluna de menus (se houver raízes na col 1)
-  const roots = cols[1];
-  const midY =
-    roots.length > 0
-      ? (pos[roots[0].id].y + pos[roots[roots.length - 1].id].y) / 2
-      : Math.max(TOP_Y, (maxY + TOP_Y) / 2 - NODE_H / 2);
-
-  pos.__start__ = { x: COL_X[0], y: midY };
-  pos.__success__ = { x: COL_X[5], y: TOP_Y };
-  pos.__escalate__ = { x: COL_X[5], y: Math.max(TOP_Y + ROW_GAP * 2, midY) };
-
-  return pos;
-}
-
-function defaultLayout(nodes: CanvasNode[]): Record<string, Pos> {
-  return columnLayout(nodes, null);
-}
-
-/** Layout reverso: predecessores nas colunas de conteúdo, só o destino clicado no fim */
-function reverseLayout(
-  targetId: "__success__" | "__escalate__",
-  predIds: string[],
-  nodes: CanvasNode[]
-): Record<string, Pos> {
-  const only = new Set(predIds);
-  const pos = columnLayout(nodes, only);
-  const midY = Math.max(
-    TOP_Y,
-    predIds.length > 0 ? TOP_Y + ((Math.min(predIds.length, 6) - 1) * ROW_GAP) / 2 : TOP_Y + ROW_GAP
-  );
-  if (targetId === "__success__") {
-    pos.__success__ = { x: COL_X[5], y: midY };
-    delete pos.__escalate__;
-  } else {
-    pos.__escalate__ = { x: COL_X[5], y: midY };
-    delete pos.__success__;
+  // Início: meio vertical da coluna 1 (Menu) visível
+  if (visibleIds.has("__start__")) {
+    const roots = cols[0];
+    const startY =
+      roots.length > 0
+        ? (pos[roots[0].id].y + pos[roots[roots.length - 1].id].y) / 2
+        : TOP_Y;
+    pos.__start__ = { x: colX[0], y: startY };
   }
+
+  // Sucesso/Márcio: Y baseado na mediana dos predecessores visíveis
+  // (aproxima o card final do "centro de massa" de quem chega nele,
+  // reduzindo o cruzamento de linhas mesmo no mapa completo).
+  function medianYOfPredecessors(targetId: string, fallback: number): number {
+    const preds = predecessorsOf(targetId, allNodes, links).filter(
+      (id) => visibleIds.has(id) && !id.startsWith("__")
+    );
+    const ys = preds.map((id) => pos[id]?.y).filter((y): y is number => y != null);
+    if (!ys.length) return fallback;
+    ys.sort((a, b) => a - b);
+    return ys[Math.floor(ys.length / 2)];
+  }
+
+  const successVisible = visibleIds.has("__success__");
+  const escalateVisible = visibleIds.has("__escalate__");
+  if (successVisible) {
+    pos.__success__ = { x: colX[5], y: medianYOfPredecessors("__success__", TOP_Y) };
+  }
+  if (escalateVisible) {
+    pos.__escalate__ = {
+      x: colX[5],
+      y: medianYOfPredecessors("__escalate__", TOP_Y + ROW_GAP * 2),
+    };
+  }
+  // Evita os dois cards finais se sobrepondo quando as medianas colidem
+  if (successVisible && escalateVisible) {
+    const sY = pos.__success__.y;
+    const eY = pos.__escalate__.y;
+    if (Math.abs(sY - eY) < ROW_GAP) {
+      pos.__escalate__ = { x: colX[5], y: sY + ROW_GAP * 1.4 };
+    }
+  }
+
   return pos;
 }
 
@@ -451,6 +442,22 @@ export default function BotFlowCanvas({
   const allNodes = useMemo(() => [...SYSTEM_NODES, ...dataNodes], [dataNodes]);
   const allLinks = useMemo(() => buildLinks(allNodes), [allNodes]);
 
+  // ✅ Colunas sempre usam a largura real do canvas (5 colunas iguais,
+  // Início como âncora à esquerda) — nunca mais colunas fixas em pixel.
+  const boardRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(1180);
+  useLayoutEffect(() => {
+    const el = boardRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width;
+      if (w) setContainerWidth(w);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const colX = useMemo(() => buildColX(containerWidth), [containerWidth]);
+
   const [positions, setPositions] = useState<Record<string, Pos>>({});
   const [linking, setLinking] = useState<{ fromId: string; port: Exclude<Port, "in"> } | null>(null);
   const [drag, setDrag] = useState<{ id: string; ox: number; oy: number } | null>(null);
@@ -484,29 +491,16 @@ export default function BotFlowCanvas({
     );
   }, [allLinks, visibleIds, focusId, showAll]);
 
-  // Visão geral = 3 colunas compactas; Exibir tudo / foco = grade por profundidade
+  // ✅ Um único layout pra todos os modos — a coluna de cada nó nunca muda,
+  // só o conjunto de nós visíveis (calculado à parte, em visibleIds).
   useEffect(() => {
-    if (forceShowAll) {
-      setPositions(columnLayout(allNodes, null));
-      return;
-    }
-    if (!focusId) {
-      setPositions(overviewLayout(allNodes));
-      return;
-    }
-    if (focusId === "__success__" || focusId === "__escalate__") {
-      const preds = predecessorsOf(focusId, allNodes, allLinks).filter((id) => !id.startsWith("__"));
-      setPositions(reverseLayout(focusId, preds, allNodes));
-      return;
-    }
-    if (focusId === "__start__") {
-      setPositions(overviewLayout(allNodes));
-      return;
-    }
-    // foco num menu/filho: colunas por profundidade só com o ramo visível
-    const vis = visibleNodeIds(allNodes, focusId, false, allLinks);
-    setPositions(columnLayout(allNodes, vis));
-  }, [allNodes.map((n) => n.id).join(","), focusId, forceShowAll, allLinks]); // eslint-disable-line react-hooks/exhaustive-deps
+    setPositions(computeLayout(allNodes, visibleIds, allLinks, colX));
+  }, [
+    allNodes.map((n) => n.id).join(","),
+    Array.from(visibleIds).sort().join(","),
+    allLinks,
+    colX,
+  ]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updatePos = useCallback((id: string, x: number, y: number) => {
     setPositions((prev) => {
@@ -593,7 +587,9 @@ export default function BotFlowCanvas({
   }, [selectedLinkKey, visibleLinks, onUnlink]);
 
   const boardH = Math.max(420, ...Object.values(positions).map((p) => p.y + NODE_H + 80));
-  const boardW = Math.max(COL_X[5] + NODE_W + 64, ...Object.values(positions).map((p) => p.x + NODE_W + 64));
+  // ✅ preenche a largura real do container; só cresce além disso se algum
+  // nó foi arrastado manualmente pra fora da grade automática.
+  const boardW = Math.max(containerWidth, ...Object.values(positions).map((p) => p.x + NODE_W + 64));
 
   // posição do botão flutuante "Apagar" no meio da linha selecionada
   const deleteBtnPos = useMemo(() => {
@@ -715,9 +711,7 @@ export default function BotFlowCanvas({
           <span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> não
         </span>
         <span className="hidden md:inline text-[10px] opacity-70 border-l border-border pl-3 ml-1">
-          {forceShowAll || (focusId && !focusId.startsWith("__"))
-            ? "Colunas: Início → Menu → Filhos → Netos → Bisnetos → Fim"
-            : "Visão geral: Início → Menus → Sucesso/Márcio  ·  Exibir tudo = mapa completo"}
+          Colunas fixas: Início → Menu → Filhos → Netos → Bisnetos → Fim
         </span>
         <span className="text-[10px] opacity-80 ml-auto hidden sm:inline">
           linha = selecionar · Del = apagar
@@ -725,6 +719,7 @@ export default function BotFlowCanvas({
       </div>
 
       <div
+        ref={boardRef}
         className="relative flex-1 overflow-auto bg-[radial-gradient(circle_at_1px_1px,hsl(var(--border))_1px,transparent_0)] [background-size:18px_18px]"
         onClick={() => {
           if (!linking) onFocus(null);
