@@ -275,6 +275,15 @@ const PORT_COLORS: Record<string, string> = {
   out_fail: "#f59e0b",
 };
 
+/** Mesmos offsets Y usados por portXY() — a bolinha visual TEM que
+ * ficar exatamente onde a linha (SVG) calcula que a porta está. */
+const OUT_PORT_Y: Record<"out_menu" | "out_next" | "out_ok" | "out_fail", number> = {
+  out_menu: 24,
+  out_next: 44,
+  out_ok: 64,
+  out_fail: 84,
+};
+
 const LINK_COLORS: Record<FlowLink["kind"], string> = {
   menu: "#8b5cf6",
   next: "#06b6d4",
@@ -844,7 +853,7 @@ const boardH = Math.max(420, ...Object.values(positions).map((p) => p.y + NODE_H
                 </div>
 
                 {(!isSys || n.systemKind === "start") && (
-                  <div className="absolute -right-2 top-0 bottom-0 flex flex-col justify-center gap-1.5 py-1">
+                  <div className="absolute -right-2 top-0 left-auto" style={{ width: 14, height: NODE_H }}>
                     {(n.systemKind === "start"
                       ? (["out_menu"] as const)
                       : (["out_menu", "out_next", "out_ok", "out_fail"] as const)
@@ -865,10 +874,14 @@ const boardH = Math.max(420, ...Object.values(positions).map((p) => p.y + NODE_H
                           data-port={port}
                           title={title}
                           onClick={(e) => onPortClick(e, n.id, port)}
-                          className={`w-3.5 h-3.5 rounded-full border-2 border-background hover:scale-125 transition-transform ${
+                          className={`absolute w-3.5 h-3.5 rounded-full border-2 border-background hover:scale-125 transition-transform ${
                             active ? "ring-2 ring-offset-1 ring-violet-400 scale-125" : ""
                           }`}
-                          style={{ background: PORT_COLORS[port] }}
+                          style={{
+                            background: PORT_COLORS[port],
+                            top: OUT_PORT_Y[port] - 7,
+                            left: 0,
+                          }}
                         />
                       );
                     })}
