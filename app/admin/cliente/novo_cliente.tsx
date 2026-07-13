@@ -1595,7 +1595,8 @@ const canSyncAgenda = !isEditing && isTrialMode && !isQuickTrial;
           )
           .eq("tenant_id", tid)
           .eq("is_active", true)
-          .eq("table_type", "iptv");
+          .eq("table_type", "iptv")
+          .order("name", { ascending: true });
         if (!alive) return;
 
         // ✅ 4) Templates (para mensagem automática / teste)
@@ -1692,16 +1693,55 @@ const canSyncAgenda = !isEditing && isTrialMode && !isQuickTrial;
         // ✅ 1) define qual tabela deve ficar selecionada
         // ✅ prioridade absoluta: tabela do cliente (se existir/ativa)
         const clientTableId = (clientToEdit as any)?.plan_table_id || "";
-        const clientTableExists = clientTableId
+        let clientTableExists = clientTableId
           ? allTables.some((t) => t.id === clientTableId)
           : false;
-          
+
+        // ✅ Rede de segurança: se o cliente TEM uma tabela salva mas ela não veio
+        // na lista filtrada (is_active/table_type), busca ela DIRETO pelo ID antes
+        // de desistir. Evita cair no Padrão BRL por causa de um filtro, não de dado ausente.
+        if (clientTableId && !clientTableExists) {
+          try {
+            const { data: directTable } = await supabaseBrowser
+              .from("plan_tables")
+              .select(
+                `id, name, currency, is_system_default, table_type, is_active,
+                 items:plan_table_items (id, period, credits_base, prices:plan_table_item_prices (screens_count, price_amount))`,
+              )
+              .eq("id", clientTableId)
+              .eq("tenant_id", tid)
+              .maybeSingle();
+
+            if (directTable) {
+              allTables.push(directTable as unknown as PlanTable);
+              clientTableExists = true;
+              if ((directTable as any).is_active === false) {
+                addToast(
+                  "warning",
+                  "Tabela do cliente está inativa",
+                  `A tabela "${(directTable as any).name}" foi reativada nesta edição pois é a tabela salva do cliente.`,
+                );
+              }
+            }
+          } catch {
+            // segue pro fallback abaixo
+          }
+        }
+
         let initialTableId = "";
         if (clientTableExists) {
           initialTableId = clientTableId;
+        } else if (clientTableId) {
+          // ✅ Tinha ID salvo mas não foi encontrado nem direto no banco: isso é
+          // uma inconsistência real, não pode cair silenciosamente pro Padrão BRL.
+          addToast(
+            "error",
+            "Tabela de preço não encontrada",
+            "A tabela salva deste cliente não existe mais no banco. Selecione a tabela correta manualmente antes de salvar.",
+          );
         } else if (clientToEdit?.price_currency) {
           // ✅ Fallback Inteligente para Testes: se o ID da tabela não vier, busca a tabela pela moeda!
-          const fallbackTable = allTables.find((t) => t.currency === clientToEdit.price_currency && t.is_system_default) 
+          const fallbackTable = allTables.find((t) => t.currency === clientToEdit.price_currency && t.is_system_default)
                              || allTables.find((t) => t.currency === clientToEdit.price_currency);
           if (fallbackTable) initialTableId = fallbackTable.id;
         }
@@ -3017,6 +3057,19 @@ const vRes = await fetch("/api/whatsapp/validate", {
 
   async function executeSave() {
     setConfirmModal(null); // Fecha o popup se estiver aberto
+
+    // ✅ Trava de segurança: nunca grava plan_table_id vazio/null por engano.
+    // Se isso disparar, é porque a tabela do cliente não foi resolvida no load
+    // (veja os toasts de aviso/erro no prefill) — bloqueia o save em vez de
+    // sobrescrever silenciosamente a tabela real do cliente no banco.
+    if (!selectedTableId) {
+      addToast(
+        "error",
+        "Tabela de preço não selecionada",
+        "Não foi possível confirmar a tabela de preço deste cliente. Selecione a tabela manualmente antes de salvar.",
+      );
+      return;
+    }
 
     setLoading(true);
 

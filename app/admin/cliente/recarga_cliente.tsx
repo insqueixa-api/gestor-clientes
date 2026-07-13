@@ -328,7 +328,7 @@ export default function RecargaCliente({
   // Toast Local
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const addToast = (
-    type: "success" | "error",
+    type: "success" | "error" | "warning",
     title: string,
     message?: string,
   ) => {
@@ -642,14 +642,14 @@ export default function RecargaCliente({
           )
           .eq("tenant_id", tid)
           .eq("is_active", true)
-          .eq("table_type", "iptv");
+          .eq("table_type", "iptv")
+          .order("name", { ascending: true });
 
         if (tErr) {
           addToast("error", "Falha ao carregar tabelas", tErr.message);
         }
 
         const allTables = (tData || []) as unknown as PlanTable[];
-        setTables(allTables);
 
         // 5) Seleção inicial de tabela (✅ respeita a tabela real do cliente,
         // ou a moeda paga no portal se vier via Auditoria)
@@ -659,9 +659,48 @@ export default function RecargaCliente({
           "BRL";
 
         // 5.1) tenta usar a tabela REAL salva no cliente
-        const fromClient = cFixed.plan_table_id
+        let fromClient = cFixed.plan_table_id
           ? allTables.find((t) => t.id === cFixed.plan_table_id)
           : null;
+
+        // ✅ Rede de segurança: cliente tem plan_table_id mas ela não veio na lista
+        // filtrada (is_active/table_type) — busca direto pelo ID antes de cair
+        // no fallback por moeda, pra nunca trocar silenciosamente pro Padrão.
+        if (cFixed.plan_table_id && !fromClient) {
+          try {
+            const { data: directTable } = await supabaseBrowser
+              .from("plan_tables")
+              .select(
+                `id, name, currency, is_system_default, table_type, is_active,
+                 items:plan_table_items (id, period, credits_base, prices:plan_table_item_prices (screens_count, price_amount))`,
+              )
+              .eq("id", cFixed.plan_table_id)
+              .eq("tenant_id", tid)
+              .maybeSingle();
+
+            if (directTable) {
+              allTables.push(directTable as unknown as PlanTable);
+              fromClient = directTable as unknown as PlanTable;
+              if ((directTable as any).is_active === false) {
+                addToast(
+                  "warning",
+                  "Tabela do cliente está inativa",
+                  `A tabela "${(directTable as any).name}" foi reativada nesta renovação pois é a tabela salva do cliente.`,
+                );
+              }
+            } else if (!paymentLog) {
+              addToast(
+                "error",
+                "Tabela de preço não encontrada",
+                "A tabela salva deste cliente não existe mais no banco. Selecione a tabela correta manualmente antes de renovar.",
+              );
+            }
+          } catch {
+            // segue pro fallback abaixo
+          }
+        }
+
+        setTables(allTables);
 
         // 5.2) fallback: mesma lógica antiga (default por moeda)
         const fallbackByCurrency =
@@ -1020,6 +1059,20 @@ export default function RecargaCliente({
   const executeSave = async () => {
     // ✅ TRANCA 2: Aborta imediatamente se já iniciou a gravação
     if (isSavingRef.current) return;
+
+    // ✅ Trava de segurança: nunca grava plan_table_id vazio/null por engano.
+    // Se isso disparar, é porque a tabela do cliente não foi resolvida no load
+    // (veja os toasts de aviso/erro no prefill) — bloqueia o save em vez de
+    // sobrescrever silenciosamente a tabela real do cliente no banco.
+    if (!selectedTableId) {
+      addToast(
+        "error",
+        "Tabela de preço não selecionada",
+        "Não foi possível confirmar a tabela de preço deste cliente. Selecione a tabela manualmente antes de renovar.",
+      );
+      return;
+    }
+
     isSavingRef.current = true;
 
     setLoading(true);

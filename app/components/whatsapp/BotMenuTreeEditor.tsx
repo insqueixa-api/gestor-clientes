@@ -156,42 +156,114 @@ const btnDanger = "px-4 py-2.5 sm:py-2 rounded-lg bg-rose-600 hover:bg-rose-500 
 const inputCls = "w-full text-sm bg-background border border-border rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-violet-500/40";
 const labelCls = "text-[11px] font-medium text-muted-foreground";
 
-// ── Modal: criar categoria principal ────────────────────────────────────────
-function CreateCategoryModal({ onClose, onCreate }: { onClose: () => void; onCreate: (name: string, slug: string) => Promise<void> }) {
+type CreateLinkKind = "menu" | "next" | "ok" | "fail";
+
+// ── Modal: criar nó já conectado ao focado (ou menu principal) ───────────────
+function CreateNodeModal({
+  onClose,
+  onCreate,
+  asChildOf,
+}: {
+  onClose: () => void;
+  onCreate: (name: string, slug: string, linkKind: CreateLinkKind) => Promise<void>;
+  /** Nó focado — novo nó será ligado a ele */
+  asChildOf: { id: string; label: string } | null;
+}) {
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [slugEdited, setSlugEdited] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [linkKind, setLinkKind] = useState<CreateLinkKind>("menu");
 
   useEffect(() => { if (!slugEdited) setSlug(slugify(name)); }, [name, slugEdited]);
 
+  const hasFocus = !!asChildOf;
+
+  const LINK_OPTIONS: { value: CreateLinkKind; color: string; title: string; desc: string }[] = [
+    { value: "menu", color: "bg-violet-500", title: "Menu (opção filha)", desc: "Aparece como escolha 1–8 dentro deste nó" },
+    { value: "next", color: "bg-cyan-500", title: "Continuar", desc: "Depois das mensagens, vai direto pra este novo fluxo" },
+    { value: "ok", color: "bg-emerald-500", title: "Resolveu", desc: "Se o cliente disser que resolveu (1) → este nó" },
+    { value: "fail", color: "bg-amber-500", title: "Não resolveu", desc: "Se não resolveu (2) → este nó" },
+  ];
+
   return (
     <ModalShell
-      title="Nova categoria principal"
+      title={hasFocus ? `Novo nó a partir de “${asChildOf!.label}”` : "Novo menu principal"}
       onClose={onClose}
       footer={
         <>
           <button onClick={onClose} className={btnGhost}>Cancelar</button>
           <button
-            onClick={async () => { setSaving(true); await onCreate(name, slug); setSaving(false); }}
-            disabled={!name.trim() || !slug.trim() || saving}
+            onClick={async () => {
+              setSaving(true);
+              try {
+                await onCreate(name, slug, hasFocus ? linkKind : "menu");
+              } finally {
+                setSaving(false);
+              }
+            }}
+            disabled={!name.trim() || (!hasFocus && !slug.trim()) || saving}
             className={btnPrimary}
           >
-            <Save className="w-3.5 h-3.5" /> {saving ? "Criando..." : "Criar categoria"}
+            <Save className="w-3.5 h-3.5" /> {saving ? "Criando..." : "Criar e conectar"}
           </button>
         </>
       }
     >
       <div className="space-y-4">
         <div>
-          <label className={labelCls}>Nome da categoria (aparece no WhatsApp do cliente)</label>
-          <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Problema técnico" className={inputCls} />
+          <label className={labelCls}>Nome (aparece no WhatsApp)</label>
+          <input
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={hasFocus ? "Ex: Tela preta" : "Ex: Problema técnico"}
+            className={inputCls}
+          />
         </div>
-        <div>
-          <label className={labelCls}>Slug técnico (identificador interno)</label>
-          <input value={slug} onChange={(e) => { setSlug(e.target.value); setSlugEdited(true); }} className={`${inputCls} font-mono`} />
-          <p className="text-[10px] text-muted-foreground mt-1">Preenchido automaticamente pelo nome — pode alterar se quiser.</p>
-        </div>
+
+        {hasFocus ? (
+          <div>
+            <label className={labelCls}>Como liga em “{asChildOf!.label}”?</label>
+            <div className="mt-2 space-y-2">
+              {LINK_OPTIONS.map((o) => (
+                <label
+                  key={o.value}
+                  className={`flex items-start gap-2.5 p-2.5 rounded-xl border cursor-pointer transition-colors ${
+                    linkKind === o.value
+                      ? "border-violet-500/50 bg-violet-500/10"
+                      : "border-border hover:bg-muted/40"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="linkKind"
+                    className="mt-1"
+                    checked={linkKind === o.value}
+                    onChange={() => setLinkKind(o.value)}
+                  />
+                  <span className={`mt-1 w-2.5 h-2.5 rounded-full shrink-0 ${o.color}`} />
+                  <span className="min-w-0">
+                    <span className="block text-xs font-medium text-foreground">{o.title}</span>
+                    <span className="block text-[10px] text-muted-foreground mt-0.5">{o.desc}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div>
+            <label className={labelCls}>Slug técnico (interno)</label>
+            <input
+              value={slug}
+              onChange={(e) => { setSlug(e.target.value); setSlugEdited(true); }}
+              className={`${inputCls} font-mono`}
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Menu principal (coluna 2). Depois clique nele e use + para criar opções ligadas.
+            </p>
+          </div>
+        )}
       </div>
     </ModalShell>
   );
@@ -263,7 +335,13 @@ export default function BotMenuTreeEditor() {
   const [flowSettings, setFlowSettings] = useState<FlowSettings | null>(null);
   const [flowSaving, setFlowSaving] = useState(false);
   const [flowError, setFlowError] = useState<string | null>(null);
-  const [modal, setModal] = useState<{ type: "create_category" } | { type: "create_option"; parent: TreeNode } | { type: "delete"; node: TreeNode } | null>(null);
+  const [modal, setModal] = useState<
+    | { type: "create_node"; asChild: boolean }
+    | { type: "delete"; node: TreeNode }
+    | null
+  >(null);
+  /** Força o canvas a mostrar todos os nós (após criar, etc.) */
+  const [canvasShowAll, setCanvasShowAll] = useState(false);
 
   const loadTree = useCallback(async () => {
     setLoading(true);
@@ -317,18 +395,103 @@ export default function BotMenuTreeEditor() {
     return res.json();
   }
 
-  async function handleCreateCategory(name: string, slug: string) {
-    const maxNum = flatNodes.filter((n) => !n.parent_id).reduce((m, n) => Math.max(m, n.option_number), 0);
-    await callApi({ action: "create_node", parent_id: null, slug, option_number: maxNum + 1, label: name, keywords: [], requires_account_check: false, special_actions: [] });
-    setModal(null);
-    loadTree();
+  function nextOptionNumber(parentId: string | null): number {
+    const siblings = flatNodes.filter((n) =>
+      parentId ? n.parent_id === parentId : !n.parent_id
+    );
+    const used = new Set(siblings.map((s) => s.option_number));
+    for (let i = 1; i <= 8; i++) {
+      if (!used.has(i)) return i;
+    }
+    return 1;
   }
 
-  async function handleCreateOption(parent: TreeNode, label: string) {
-    const maxNum = parent.children.reduce((m, n) => Math.max(m, n.option_number), 0);
-    await callApi({ action: "create_node", parent_id: parent.id, option_number: maxNum + 1, label, keywords: [], special_actions: [] });
+  /**
+   * Cria nó e já conecta no focado conforme o tipo:
+   * menu = filho | next = continuar | ok = resolveu | fail = não resolveu
+   */
+  async function handleCreateNode(name: string, slug: string, linkKind: CreateLinkKind) {
+    const focusIsReal = !!(focusId && !focusId.startsWith("__"));
+    const fromId = focusIsReal ? focusId! : null;
+
+    // menu → parent_id = focado; outros → nó solto (raiz) e ligação no nó focado
+    const parentId = fromId && linkKind === "menu" ? fromId : null;
+
+    const body: any = {
+      action: "create_node",
+      parent_id: parentId,
+      option_number: nextOptionNumber(parentId),
+      label: name.trim(),
+      keywords: [],
+      requires_account_check: false,
+      special_actions: [],
+    };
+    if (!parentId) {
+      body.slug = slugify(slug || name);
+    }
+
+    const r = await callApi(body);
     setModal(null);
-    loadTree();
+
+    if (r?.error) {
+      alert(r.error);
+      return;
+    }
+
+    const created = r?.node;
+    if (!created?.id) {
+      await loadTree();
+      return;
+    }
+
+    // Liga no nó de origem (quando não é só "menu" via parent_id)
+    if (fromId && linkKind !== "menu") {
+      if (linkKind === "next") {
+        await callApi({
+          action: "update_node",
+          id: fromId,
+          redirect_to_node_id: created.id,
+          ask_resolution: false,
+          on_resolved_target: null,
+          on_not_resolved_target: null,
+        });
+      } else if (linkKind === "ok") {
+        await callApi({
+          action: "update_node",
+          id: fromId,
+          ask_resolution: true,
+          redirect_to_node_id: null,
+          on_resolved_target: created.id,
+        });
+      } else if (linkKind === "fail") {
+        await callApi({
+          action: "update_node",
+          id: fromId,
+          ask_resolution: true,
+          redirect_to_node_id: null,
+          on_not_resolved_target: created.id,
+        });
+      }
+    }
+
+    await loadTree();
+
+    setCanvasShowAll(true);
+    // mantém o pai/foco de origem pra ver o fio; se não tinha foco, foca o novo
+    setFocusId(fromId || created.id);
+
+    setSelectedNode({
+      ...created,
+      children: [],
+      steps: [],
+      keywords: created.keywords || [],
+      special_actions: created.special_actions || [],
+      closing_message: created.closing_message ?? null,
+      transfer_situation_label: created.transfer_situation_label ?? null,
+      applies_to_servers: created.applies_to_servers ?? null,
+      is_active: created.is_active !== false,
+    } as TreeNode);
+    setEditOpen(true);
   }
 
   async function handleDelete(node: TreeNode) {
@@ -545,9 +708,28 @@ export default function BotMenuTreeEditor() {
         <BotFlowCanvas
           nodes={canvasNodes}
           focusId={focusId}
-          onFocus={setFocusId}
+          onFocus={(id) => {
+            setFocusId(id);
+            if (id) setCanvasShowAll(false);
+          }}
           onEdit={openEdit}
-          onCreateNode={() => setModal({ type: "create_category" })}
+          forceShowAll={canvasShowAll}
+          onForceShowAllChange={setCanvasShowAll}
+          onCreateNode={() => {
+            // Com nó focado → pergunta o tipo de ligação; sem foco → menu principal
+            const asChild = !!(focusId && !focusId.startsWith("__"));
+            setModal({ type: "create_node", asChild });
+          }}
+          onCreateChild={
+            focusId && !focusId.startsWith("__")
+              ? () => setModal({ type: "create_node", asChild: true })
+              : undefined
+          }
+          focusLabel={
+            focusId && !focusId.startsWith("__")
+              ? flatNodes.find((n) => n.id === focusId)?.label
+              : undefined
+          }
           onLink={handleCanvasLink}
           onUnlink={handleCanvasUnlink}
         />
@@ -722,11 +904,19 @@ export default function BotMenuTreeEditor() {
       </ModalShell>
     )}
 
-    {modal?.type === "create_category" && (
-      <CreateCategoryModal onClose={() => setModal(null)} onCreate={handleCreateCategory} />
-    )}
-    {modal?.type === "create_option" && (
-      <CreateOptionModal onClose={() => setModal(null)} onCreate={(label) => handleCreateOption(modal.parent, label)} />
+    {modal?.type === "create_node" && (
+      <CreateNodeModal
+        onClose={() => setModal(null)}
+        asChildOf={
+          modal.asChild && focusId && !focusId.startsWith("__")
+            ? {
+                id: focusId,
+                label: flatNodes.find((n) => n.id === focusId)?.label || "nó",
+              }
+            : null
+        }
+        onCreate={(name, slug, linkKind) => handleCreateNode(name, slug, linkKind)}
+      />
     )}
     {modal?.type === "delete" && (
       <ConfirmDeleteModal
