@@ -137,6 +137,14 @@ export async function POST(req: Request) {
       if (ALLOWED.has(k)) fields[k] = v;
     }
 
+    // parent_id pode ser null (vira categoria raiz / ligado ao Início)
+    if (fields.parent_id !== undefined) {
+      fields.parent_id = fields.parent_id == null || fields.parent_id === "" ? null : String(fields.parent_id);
+      if (fields.parent_id === id) {
+        return NextResponse.json({ error: "Um nó não pode ser pai de si mesmo." }, { status: 400 });
+      }
+    }
+
     if (fields.option_number !== undefined) {
       const reservedErr = reservedOptionNumberError(fields.option_number);
       if (reservedErr) return NextResponse.json({ error: reservedErr }, { status: 400 });

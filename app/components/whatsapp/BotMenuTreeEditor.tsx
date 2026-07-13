@@ -1,14 +1,13 @@
 // app/components/whatsapp/BotMenuTreeEditor.tsx
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
-  ChevronRight, ChevronDown, Plus, Trash2, Save, X, MessageSquare,
-  ShieldCheck, ArrowUp, ArrowDown, Tag,
+  ChevronRight, ChevronDown, Plus, Trash2, Save, X, Tag,
 } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import { ACCOUNT_DEPENDENT_ACTIONS, ACCOUNT_DEPENDENT_VARS } from "@/lib/whatsapp/bot-menu";
+import BotFlowCanvas, { type CanvasNode, type FlowLink } from "./BotFlowCanvas";
 
 type MenuNode = {
   id: string;
@@ -252,7 +251,7 @@ function ConfirmDeleteModal({ label, onClose, onConfirm }: { label: string; onCl
 export default function BotMenuTreeEditor() {
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [flatNodes, setFlatNodes] = useState<MenuNode[]>([]);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [allSteps, setAllSteps] = useState<MenuStep[]>([]);
   const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -270,8 +269,25 @@ export default function BotMenuTreeEditor() {
       const res = await fetch("/api/whatsapp/bot/menu-tree", { headers });
       const json = await res.json();
       if (json.ok) {
-        setFlatNodes(json.nodes || []);
-        setTree(buildTree(json.nodes, json.steps));
+        const nodes: MenuNode[] = json.nodes || [];
+        const steps: MenuStep[] = json.steps || [];
+        setFlatNodes(nodes);
+        setAllSteps(steps);
+        const t = buildTree(nodes, steps);
+        setTree(t);
+        setSelectedNode((sel) => {
+          if (!sel) return null;
+          // re-resolve seleção após reload
+          const find = (list: TreeNode[]): TreeNode | null => {
+            for (const n of list) {
+              if (n.id === sel.id) return n;
+              const c = find(n.children);
+              if (c) return c;
+            }
+            return null;
+          };
+          return find(t);
+        });
       }
     } finally {
       setLoading(false);
@@ -292,14 +308,6 @@ export default function BotMenuTreeEditor() {
 
   useEffect(() => { loadTree(); loadFlowSettings(); }, [loadTree, loadFlowSettings]);
 
-  function toggleExpand(id: string) {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  }
-
   async function callApi(body: any) {
     const headers = await authHeader();
     const res = await fetch("/api/whatsapp/bot/menu-tree", { method: "POST", headers, body: JSON.stringify(body) });
@@ -307,7 +315,7 @@ export default function BotMenuTreeEditor() {
   }
 
   async function handleCreateCategory(name: string, slug: string) {
-    const maxNum = tree.reduce((m, n) => Math.max(m, n.option_number), 0);
+    const maxNum = flatNodes.filter((n) => !n.parent_id).reduce((m, n) => Math.max(m, n.option_number), 0);
     await callApi({ action: "create_node", parent_id: null, slug, option_number: maxNum + 1, label: name, keywords: [], requires_account_check: false, special_actions: [] });
     setModal(null);
     loadTree();
@@ -318,7 +326,6 @@ export default function BotMenuTreeEditor() {
     await callApi({ action: "create_node", parent_id: parent.id, option_number: maxNum + 1, label, keywords: [], special_actions: [] });
     setModal(null);
     loadTree();
-    setExpanded((prev) => new Set(prev).add(parent.id));
   }
 
   async function handleDelete(node: TreeNode) {
@@ -328,91 +335,157 @@ export default function BotMenuTreeEditor() {
     loadTree();
   }
 
-  async function move(node: TreeNode, siblings: TreeNode[], direction: -1 | 1) {
-    const idx = siblings.findIndex((s) => s.id === node.id);
-    const swapWith = siblings[idx + direction];
-    if (!swapWith) return;
-    // ✅ "0" (falar com humano) e "9" (voltar ao menu) são fixos — nunca
-    // participam de troca de posição. Sem isso, mover o vizinho pra baixo/
-    // cima tentaria jogar ele pro número reservado (a API rejeita essa
-    // metade da troca, mas a outra metade já teria ido — resultando em
-    // dois nós com o mesmo número).
-    const RESERVED = [0, 9];
-    if (RESERVED.includes(node.option_number) || RESERVED.includes(swapWith.option_number)) return;
-    setSaving(true);
-    await Promise.all([
-      callApi({ action: "reorder_node", id: node.id, option_number: swapWith.option_number }),
-      callApi({ action: "reorder_node", id: swapWith.id, option_number: node.option_number }),
-    ]);
-    setSaving(false);
-    loadTree();
+  const canvasNodes: CanvasNode[] = useMemo(() => {
+    return flatNodes.map((n) => ({
+      id: n.id,
+      label: n.label,
+      parent_id: n.parent_id,
+      option_number: n.option_number,
+      redirect_to_node_id: n.redirect_to_node_id,
+      on_resolved_target: n.on_resolved_target,
+      on_not_resolved_target: n.on_not_resolved_target,
+      ask_resolution: n.ask_resolution,
+      closing_message: n.closing_message,
+      is_active: n.is_active,
+      stepsCount: allSteps.filter((s) => s.node_id === n.id).length,
+    }));
+  }, [flatNodes, allSteps]);
+
+  async function handleCanvasLink(payload: {
+    fromId: string;
+    port: "out_menu" | "out_next" | "out_ok" | "out_fail";
+    toId: string;
+  }) {
+    const { fromId, port, toId } = payload;
+    // Sistema → só menu (início vira raiz)
+    if (fromId === "__start__") {
+      if (toId.startsWith("__")) return;
+      const to = flatNodes.find((n) => n.id === toId);
+      if (!to) return;
+      const maxNum = flatNodes.filter((n) => !n.parent_id && n.id !== toId).reduce((m, n) => Math.max(m, n.option_number), 0);
+      await callApi({
+        action: "update_node",
+        id: toId,
+        parent_id: null,
+        option_number: to.parent_id ? maxNum + 1 : to.option_number,
+      });
+      loadTree();
+      return;
+    }
+    if (fromId.startsWith("__")) return;
+    if (toId === "__start__") return;
+
+    if (port === "out_menu") {
+      if (toId.startsWith("__")) return;
+      const siblings = flatNodes.filter((n) => n.parent_id === fromId && n.id !== toId);
+      const maxNum = siblings.reduce((m, n) => Math.max(m, n.option_number), 0);
+      const nextNum = Math.min(8, maxNum + 1) || 1;
+      await callApi({ action: "update_node", id: toId, parent_id: fromId, option_number: nextNum });
+      loadTree();
+      return;
+    }
+
+    if (port === "out_next") {
+      if (toId.startsWith("__")) return;
+      await callApi({
+        action: "update_node",
+        id: fromId,
+        redirect_to_node_id: toId,
+        ask_resolution: false,
+        on_resolved_target: null,
+        on_not_resolved_target: null,
+      });
+      loadTree();
+      return;
+    }
+
+    if (port === "out_ok") {
+      const target = toId === "__success__" ? null : toId === "__escalate__" ? "__escalate__" : toId;
+      await callApi({
+        action: "update_node",
+        id: fromId,
+        ask_resolution: true,
+        redirect_to_node_id: null,
+        on_resolved_target: target, // null = sucesso global
+      });
+      loadTree();
+      return;
+    }
+
+    if (port === "out_fail") {
+      const target = toId === "__escalate__" ? null : toId === "__success__" ? "__success__" : toId;
+      await callApi({
+        action: "update_node",
+        id: fromId,
+        ask_resolution: true,
+        redirect_to_node_id: null,
+        on_not_resolved_target: target, // null = escalar global
+      });
+      loadTree();
+    }
   }
 
-  function renderNode(node: TreeNode, siblings: TreeNode[], depth: number) {
-    const isLeaf = node.children.length === 0;
-    const isExpanded = expanded.has(node.id);
-    const NUMBER_EMOJI = ["0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"];
-    // ✅ requires_account_check nunca é salvo pelo editor (nem lido pelo motor
-    // de roteamento) — quem decide de verdade se o nó precisa de conta é a
-    // presença de uma ação especial "dependente de conta" OU o uso de
-    // {link_pagamento}/{tabela_precos} no texto dos passos (essas duas
-    // viraram automáticas, sem checkbox — mesma regra do backend em
-    // nodeNeedsAccount, lib/whatsapp/bot-menu.ts).
-    const stepsTextForBadge = (node.steps || []).map((s) => s.message_text).join(" ");
-    const needsAccount =
-      (node.special_actions || []).some((a) => ACCOUNT_DEPENDENT_ACTIONS.includes(a)) ||
-      ACCOUNT_DEPENDENT_VARS.some((v) => stepsTextForBadge.includes(v));
+  async function handleCanvasUnlink(link: FlowLink) {
+    if (link.kind === "menu") {
+      // desliga: vira nó raiz (sem pai)
+      const roots = flatNodes.filter((n) => !n.parent_id && n.id !== link.to);
+      const maxNum = roots.reduce((m, n) => Math.max(m, n.option_number), 0);
+      await callApi({ action: "update_node", id: link.to, parent_id: null, option_number: maxNum + 1 });
+      loadTree();
+      return;
+    }
+    if (link.kind === "next") {
+      await callApi({ action: "update_node", id: link.from, redirect_to_node_id: null });
+      loadTree();
+      return;
+    }
+    if (link.kind === "ok") {
+      await callApi({ action: "update_node", id: link.from, on_resolved_target: null });
+      // se não tem fail custom e não quer mais resolveu, limpa ask só se ambos null
+      const node = flatNodes.find((n) => n.id === link.from);
+      if (node && !node.on_not_resolved_target && !node.closing_message) {
+        await callApi({ action: "update_node", id: link.from, ask_resolution: false });
+      }
+      loadTree();
+      return;
+    }
+    if (link.kind === "fail") {
+      await callApi({ action: "update_node", id: link.from, on_not_resolved_target: null });
+      const node = flatNodes.find((n) => n.id === link.from);
+      if (node && !node.on_resolved_target && !node.closing_message) {
+        await callApi({ action: "update_node", id: link.from, ask_resolution: false });
+      }
+      loadTree();
+    }
+  }
 
-    return (
-      <div key={node.id} style={{ marginLeft: depth * 20 }}>
-        <div
-          className={`flex items-center gap-2 py-1.5 px-2 rounded-lg cursor-pointer hover:bg-muted/60 transition-colors ${selectedNode?.id === node.id ? "bg-violet-500/10 border border-violet-500/30" : ""}`}
-          onClick={() => setSelectedNode(node)}
-        >
-          <button onClick={(e) => { e.stopPropagation(); toggleExpand(node.id); }} className="text-muted-foreground">
-            {isLeaf ? <MessageSquare className="w-3.5 h-3.5" /> : isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-          </button>
-          <span className="text-xs font-mono text-muted-foreground">{NUMBER_EMOJI[node.option_number] || node.option_number}</span>
-          <span className="text-sm text-foreground flex-1">{node.label}</span>
-          {needsAccount && (
-            <span title="Checa conta/servidor (derivado das ações especiais)"><ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /></span>
-          )}
-          {(node.special_actions || []).length > 0 && (
-            <span title={node.special_actions.join(", ")} className="text-[10px] text-amber-500">{node.special_actions.length} ação(ões)</span>
-          )}
-          {node.redirect_to_node_id && (
-            <span title="Continua em outro fluxo" className="text-[10px] text-violet-500">↪️</span>
-          )}
-          {/* ✅ null = universal (todos marcados), não mostra selo nenhum.
-              Lista com todos os 3 também é universal na prática — só mostra
-              selo quando é de fato restrito (parcial ou "nenhum"). */}
-          {node.applies_to_servers !== null && node.applies_to_servers !== undefined && node.applies_to_servers.length < SERVER_OPTIONS.length && (
-            <span
-              title={node.applies_to_servers.length === 0 ? "Não aparece pra nenhum servidor — confira as marcações" : `Só aparece pra clientes de: ${node.applies_to_servers.join(", ")}`}
-              className={`text-[10px] px-1.5 py-0.5 rounded border ${node.applies_to_servers.length === 0 ? "text-rose-500 bg-rose-500/10 border-rose-500/20" : "text-sky-500 bg-sky-500/10 border-sky-500/20"}`}
-            >
-              {node.applies_to_servers.length === 0 ? "nenhum servidor" : node.applies_to_servers.join("/")}
-            </span>
-          )}
-          {isLeaf && node.steps.length > 0 && <span className="text-[10px] text-muted-foreground">{node.steps.length} passo(s)</span>}
-          {!node.is_active && <span className="text-[10px] text-rose-500">inativo</span>}
-          {node.option_number !== 0 && (
-            <div className="flex items-center gap-1">
-              <button onClick={(e) => { e.stopPropagation(); move(node, siblings, -1); }} className="text-muted-foreground hover:text-foreground"><ArrowUp className="w-3 h-3" /></button>
-              <button onClick={(e) => { e.stopPropagation(); move(node, siblings, 1); }} className="text-muted-foreground hover:text-foreground"><ArrowDown className="w-3 h-3" /></button>
-            </div>
-          )}
-        </div>
-        {isExpanded && (
-          <div>
-            {node.children.map((c) => renderNode(c, node.children, depth + 1))}
-            <button onClick={() => setModal({ type: "create_option", parent: node })} className="flex items-center gap-1 text-[11px] text-violet-500 hover:text-violet-400 pl-8 py-1">
-              <Plus className="w-3 h-3" /> Adicionar opção aqui
-            </button>
-          </div>
-        )}
-      </div>
-    );
+  function selectById(id: string | null) {
+    if (!id) {
+      setSelectedNode(null);
+      return;
+    }
+    const find = (list: TreeNode[]): TreeNode | null => {
+      for (const n of list) {
+        if (n.id === id) return n;
+        const c = find(n.children);
+        if (c) return c;
+      }
+      return null;
+    };
+    // se não estiver na árvore (ex: órfão), monta TreeNode mínimo a partir do flat
+    const found = find(tree);
+    if (found) {
+      setSelectedNode(found);
+      return;
+    }
+    const raw = flatNodes.find((n) => n.id === id);
+    if (raw) {
+      setSelectedNode({
+        ...raw,
+        children: flatNodes.filter((c) => c.parent_id === raw.id).map((c) => ({ ...c, children: [], steps: allSteps.filter((s) => s.node_id === c.id) })),
+        steps: allSteps.filter((s) => s.node_id === raw.id),
+      });
+    }
   }
 
   async function saveFlowSettings() {
@@ -514,24 +587,23 @@ export default function BotMenuTreeEditor() {
         )}
       </div>
 
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:h-[560px]">
-      <div className="border border-border rounded-xl p-3 overflow-y-auto">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-foreground">Menu</h3>
-          <button onClick={() => setModal({ type: "create_category" })} className="flex items-center gap-1 text-xs bg-violet-600 text-white px-2 py-1 rounded-lg hover:bg-violet-500">
-            <Plus className="w-3.5 h-3.5" /> Nova categoria
-          </button>
-        </div>
+    <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_1fr] gap-4 min-h-[560px]">
+      <div className="border border-border rounded-xl overflow-hidden flex flex-col min-h-[520px]">
         {loading ? (
-          <p className="text-xs text-muted-foreground">Carregando...</p>
-        ) : tree.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Nenhuma categoria ainda. Clique em “Nova categoria”.</p>
+          <p className="text-xs text-muted-foreground p-4">Carregando fluxo…</p>
         ) : (
-          tree.map((n) => renderNode(n, tree, 0))
+          <BotFlowCanvas
+            nodes={canvasNodes}
+            selectedId={selectedNode?.id ?? null}
+            onSelect={selectById}
+            onCreateNode={() => setModal({ type: "create_category" })}
+            onLink={handleCanvasLink}
+            onUnlink={handleCanvasUnlink}
+          />
         )}
       </div>
 
-      <div className="border border-border rounded-xl p-4 overflow-y-auto">
+      <div className="border border-border rounded-xl p-4 overflow-y-auto max-h-[70vh]">
         {selectedNode ? (
           <NodeEditor
             key={selectedNode.id}
@@ -544,7 +616,17 @@ export default function BotMenuTreeEditor() {
             saving={saving}
           />
         ) : (
-          <p className="text-xs text-muted-foreground">Selecione um item à esquerda para editar.</p>
+          <div className="text-xs text-muted-foreground space-y-2">
+            <p className="font-medium text-foreground">Como usar o canvas</p>
+            <ol className="list-decimal pl-4 space-y-1">
+              <li>Clique <strong>+ Nó</strong> para criar</li>
+              <li>Arraste os cartões pra organizar</li>
+              <li>Clique numa bolinha <strong>à direita</strong> (saída)</li>
+              <li>Depois clique na bolinha <strong>à esquerda</strong> do destino (entrada)</li>
+              <li>Clique numa <strong>linha</strong> e em Desligar pra remover</li>
+            </ol>
+            <p className="text-[10px] pt-2">Roxo = menu · Ciano = continuar · Verde = resolveu · Âmbar = não resolveu</p>
+          </div>
         )}
       </div>
 
