@@ -182,6 +182,11 @@ export type MenuNode = {
   transfer_situation_label: string | null;
   applies_to_servers?: string[] | null;
   is_active?: boolean;
+  /**
+   * Nós criados só como destino de "continuar/resolveu/não" — ficam na árvore
+   * pro layout/canvas, mas NÃO aparecem como opção de menu pro cliente.
+   */
+  // (flag em special_actions: "link_target_only")
   /** Após executar a folha, entra neste nó (várias folhas podem apontar pro mesmo). */
   redirect_to_node_id?: string | null;
   /** __success__ | __escalate__ | __end__ | uuid | null */
@@ -213,13 +218,18 @@ export async function getNodeById(sb: any, nodeId: string): Promise<MenuNode | n
 // option_number (uma por servidor), já que só uma sobrevive ao filtro pra
 // cada cliente. Quando omitido (undefined — usado pelo editor visual, que
 // não tem "cliente" nenhum), retorna tudo, sem filtrar.
+/** Destinos de fluxo (continuar/ok/fail) — não listar como opção no WhatsApp */
+export function isLinkTargetOnly(node: { special_actions?: string[] | null }): boolean {
+  return (node.special_actions || []).includes("link_target_only");
+}
+
 export async function getChildren(sb: any, parentId: string, provider?: ServerProvider | null): Promise<MenuNode[]> {
   const { data } = await sb
     .from("bot_menu_nodes")
     .select("*")
     .eq("parent_id", parentId).eq("is_active", true)
     .order("option_number", { ascending: true });
-  const all: MenuNode[] = data || [];
+  let all: MenuNode[] = (data || []).filter((n: MenuNode) => !isLinkTargetOnly(n));
   if (provider === undefined) return all;
   return all.filter((n) => appliesToProvider(n.applies_to_servers, provider));
 }
@@ -396,7 +406,7 @@ export async function getRootNodes(sb: any, tenantId: string, provider?: ServerP
     .select("*")
     .eq("tenant_id", tenantId).is("parent_id", null).eq("is_active", true)
     .order("option_number", { ascending: true });
-  const all: MenuNode[] = roots || [];
+  let all: MenuNode[] = (roots || []).filter((n: MenuNode) => !isLinkTargetOnly(n));
   if (provider === undefined) return all;
   return all.filter((n) => appliesToProvider(n.applies_to_servers, provider));
 }

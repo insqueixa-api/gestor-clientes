@@ -395,10 +395,15 @@ export default function BotMenuTreeEditor() {
     return res.json();
   }
 
-  function nextOptionNumber(parentId: string | null): number {
+  function nextOptionNumber(parentId: string | null, forFlowTarget = false): number {
     const siblings = flatNodes.filter((n) =>
       parentId ? n.parent_id === parentId : !n.parent_id
     );
+    if (forFlowTarget) {
+      // fora de 1–8 pra não roubar número de opção do menu do cliente
+      const max = siblings.reduce((m, n) => Math.max(m, Number(n.option_number) || 0), 10);
+      return Math.max(11, max + 1);
+    }
     const used = new Set(siblings.map((s) => s.option_number));
     for (let i = 1; i <= 8; i++) {
       if (!used.has(i)) return i;
@@ -407,25 +412,29 @@ export default function BotMenuTreeEditor() {
   }
 
   /**
-   * Cria nó e já conecta no focado conforme o tipo:
-   * menu = filho | next = continuar | ok = resolveu | fail = não resolveu
+   * Cria nó e já conecta no focado:
+   * - menu → filho real (parent_id), aparece no WhatsApp como opção
+   * - next/ok/fail → filho de layout (parent_id) + flag link_target_only
+   *   (NÃO vira opção de menu nem pluga no Início; só fio ciano/verde/âmbar)
    */
   async function handleCreateNode(name: string, slug: string, linkKind: CreateLinkKind) {
     const focusIsReal = !!(focusId && !focusId.startsWith("__"));
     const fromId = focusIsReal ? focusId! : null;
 
-    // menu → parent_id = focado; outros → nó solto (raiz) e ligação no nó focado
-    const parentId = fromId && linkKind === "menu" ? fromId : null;
+    // Sempre amarra no focado quando houver (hierarquia correta no canvas)
+    const parentId = fromId;
+    const isFlowTarget = !!(fromId && linkKind !== "menu");
 
     const body: any = {
       action: "create_node",
       parent_id: parentId,
-      option_number: nextOptionNumber(parentId),
+      option_number: nextOptionNumber(parentId, isFlowTarget),
       label: name.trim(),
       keywords: [],
       requires_account_check: false,
-      special_actions: [],
+      special_actions: isFlowTarget ? ["link_target_only"] : [],
     };
+    // slug só em menu principal (sem pai)
     if (!parentId) {
       body.slug = slugify(slug || name);
     }
@@ -444,40 +453,38 @@ export default function BotMenuTreeEditor() {
       return;
     }
 
-    // Liga no nó de origem (quando não é só "menu" via parent_id)
-    if (fromId && linkKind !== "menu") {
-      if (linkKind === "next") {
-        await callApi({
-          action: "update_node",
-          id: fromId,
-          redirect_to_node_id: created.id,
-          ask_resolution: false,
-          on_resolved_target: null,
-          on_not_resolved_target: null,
-        });
-      } else if (linkKind === "ok") {
-        await callApi({
-          action: "update_node",
-          id: fromId,
-          ask_resolution: true,
-          redirect_to_node_id: null,
-          on_resolved_target: created.id,
-        });
-      } else if (linkKind === "fail") {
-        await callApi({
-          action: "update_node",
-          id: fromId,
-          ask_resolution: true,
-          redirect_to_node_id: null,
-          on_not_resolved_target: created.id,
-        });
-      }
+    // Fios de fluxo no nó de origem
+    if (fromId && linkKind === "next") {
+      await callApi({
+        action: "update_node",
+        id: fromId,
+        redirect_to_node_id: created.id,
+        ask_resolution: false,
+        on_resolved_target: null,
+        on_not_resolved_target: null,
+      });
+    } else if (fromId && linkKind === "ok") {
+      await callApi({
+        action: "update_node",
+        id: fromId,
+        ask_resolution: true,
+        redirect_to_node_id: null,
+        on_resolved_target: created.id,
+      });
+    } else if (fromId && linkKind === "fail") {
+      await callApi({
+        action: "update_node",
+        id: fromId,
+        ask_resolution: true,
+        redirect_to_node_id: null,
+        on_not_resolved_target: created.id,
+      });
     }
+    // linkKind === "menu": já está com parent_id = fromId (fio roxo pai→filho)
 
     await loadTree();
 
     setCanvasShowAll(true);
-    // mantém o pai/foco de origem pra ver o fio; se não tinha foco, foca o novo
     setFocusId(fromId || created.id);
 
     setSelectedNode({
@@ -507,8 +514,9 @@ export default function BotMenuTreeEditor() {
     return flatNodes.map((n) => ({
       id: n.id,
       label: n.label,
-      parent_id: n.parent_id,
+      parent_id: n.parent_id || null,
       option_number: n.option_number,
+      special_actions: n.special_actions || [],
       redirect_to_node_id: n.redirect_to_node_id,
       on_resolved_target: n.on_resolved_target,
       on_not_resolved_target: n.on_not_resolved_target,

@@ -17,11 +17,16 @@ export type CanvasNode = {
   on_not_resolved_target?: string | null;
   ask_resolution?: boolean | null;
   closing_message?: string | null;
+  special_actions?: string[];
   is_active?: boolean;
   stepsCount?: number;
   isSystem?: boolean;
   systemKind?: "start" | "success" | "escalate";
 };
+
+function isLinkTargetOnly(n: CanvasNode): boolean {
+  return (n.special_actions || []).includes("link_target_only");
+}
 
 export type FlowLink =
   | { kind: "menu"; from: string; to: string; option: number }
@@ -57,14 +62,24 @@ function savePositions(p: Record<string, Pos>) {
 }
 
 /**
- * 6 colunas com o mesmo espaçamento horizontal:
+ * Layout completo (Exibir tudo / foco profundo) — 6 colunas:
  *  0 Início | 1 Menu | 2 Filhos | 3 Netos | 4 Bisnetos+ | 5 Sucesso/Márcio
  */
-const COL_GAP = 220; // distância entre inícios de coluna (NODE_W 168 + folga)
+const COL_GAP = 210;
 const COL_X = [40, 40 + COL_GAP, 40 + COL_GAP * 2, 40 + COL_GAP * 3, 40 + COL_GAP * 4, 40 + COL_GAP * 5] as const;
-/** Altura compacta entre cartões (página menos “alta”) */
-const ROW_GAP = NODE_H + 14;
-const TOP_Y = 40;
+
+/**
+ * Visão geral (nada clicado) — só 3 colunas, compacta, sem vazio no meio:
+ *  Início | Menus principais | Sucesso + Márcio
+ */
+const OVERVIEW_X = {
+  start: 48,
+  menu: 300,
+  end: 620,
+} as const;
+
+const ROW_GAP = NODE_H + 12;
+const TOP_Y = 36;
 
 function depthOfNode(id: string, byId: Map<string, CanvasNode>): number {
   let d = 0;
@@ -86,23 +101,9 @@ function depthToCol(depth: number): number {
   return 4;
 }
 
-/**
- * Grade por profundidade (parent_id).
- * Cada geração numa coluna diferente — nunca junta filho/neto/bisneto na mesma.
- */
-function columnLayout(nodes: CanvasNode[], onlyIds?: Set<string> | null): Record<string, Pos> {
-  // byId SEMPRE com a árvore inteira (senão depth quebra e tudo cai na mesma coluna)
-  const byId = new Map(nodes.filter((n) => !n.isSystem).map((n) => [n.id, n]));
-  const data = nodes.filter((n) => !n.isSystem && (!onlyIds || onlyIds.has(n.id)));
-
-  const cols: CanvasNode[][] = [[], [], [], [], [], []];
-  for (const n of data) {
-    const d = depthOfNode(n.id, byId);
-    cols[depthToCol(d)].push(n);
-  }
-
+function sortNodesInCol(nodes: CanvasNode[], byId: Map<string, CanvasNode>, allNodes: CanvasNode[]) {
   const rootOrder = new Map<string, number>();
-  nodes
+  allNodes
     .filter((n) => !n.isSystem && !n.parent_id)
     .sort((a, b) => a.option_number - b.option_number)
     .forEach((n, i) => rootOrder.set(n.id, i));
@@ -117,13 +118,52 @@ function columnLayout(nodes: CanvasNode[], onlyIds?: Set<string> | null): Record
     return rootOrder.get(cur?.id || n.id) ?? 999;
   }
 
+  return [...nodes].sort(
+    (a, b) =>
+      rootKey(a) - rootKey(b) ||
+      a.option_number - b.option_number ||
+      a.label.localeCompare(b.label)
+  );
+}
+
+/** Visão inicial: Início à esquerda (centro da lista), menus no meio, finais à direita perto */
+function overviewLayout(nodes: CanvasNode[]): Record<string, Pos> {
+  // Só menu principal real (parent null e não é só destino de fluxo)
+  const roots = nodes
+    .filter((n) => !n.isSystem && !n.parent_id && !isLinkTargetOnly(n))
+    .sort((a, b) => a.option_number - b.option_number);
+
+  const pos: Record<string, Pos> = {};
+  roots.forEach((n, i) => {
+    pos[n.id] = { x: OVERVIEW_X.menu, y: TOP_Y + i * ROW_GAP };
+  });
+
+  const firstY = roots.length ? pos[roots[0].id].y : TOP_Y;
+  const lastY = roots.length ? pos[roots[roots.length - 1].id].y : TOP_Y;
+  const midY = (firstY + lastY) / 2;
+
+  // Início alinhado ao meio da coluna de menus (não embaixo)
+  pos.__start__ = { x: OVERVIEW_X.start, y: midY };
+  pos.__success__ = { x: OVERVIEW_X.end, y: firstY };
+  pos.__escalate__ = { x: OVERVIEW_X.end, y: Math.max(firstY + ROW_GAP * 2, lastY) };
+
+  return pos;
+}
+
+/**
+ * Grade completa por profundidade (Exibir tudo / drill-down).
+ */
+function columnLayout(nodes: CanvasNode[], onlyIds?: Set<string> | null): Record<string, Pos> {
+  const byId = new Map(nodes.filter((n) => !n.isSystem).map((n) => [n.id, n]));
+  const data = nodes.filter((n) => !n.isSystem && (!onlyIds || onlyIds.has(n.id)));
+
+  const cols: CanvasNode[][] = [[], [], [], [], [], []];
+  for (const n of data) {
+    cols[depthToCol(depthOfNode(n.id, byId))].push(n);
+  }
+
   for (let c = 1; c <= 4; c++) {
-    cols[c].sort(
-      (a, b) =>
-        rootKey(a) - rootKey(b) ||
-        a.option_number - b.option_number ||
-        a.label.localeCompare(b.label)
-    );
+    cols[c] = sortNodesInCol(cols[c], byId, nodes);
   }
 
   const pos: Record<string, Pos> = {};
@@ -137,7 +177,13 @@ function columnLayout(nodes: CanvasNode[], onlyIds?: Set<string> | null): Record
     });
   }
 
-  const midY = Math.max(TOP_Y, (maxY + TOP_Y) / 2 - NODE_H / 2);
+  // Início no meio da coluna de menus (se houver raízes na col 1)
+  const roots = cols[1];
+  const midY =
+    roots.length > 0
+      ? (pos[roots[0].id].y + pos[roots[roots.length - 1].id].y) / 2
+      : Math.max(TOP_Y, (maxY + TOP_Y) / 2 - NODE_H / 2);
+
   pos.__start__ = { x: COL_X[0], y: midY };
   pos.__success__ = { x: COL_X[5], y: TOP_Y };
   pos.__escalate__ = { x: COL_X[5], y: Math.max(TOP_Y + ROW_GAP * 2, midY) };
@@ -149,7 +195,7 @@ function defaultLayout(nodes: CanvasNode[]): Record<string, Pos> {
   return columnLayout(nodes, null);
 }
 
-/** Layout reverso: predecessores nas colunas 1–4, só o destino clicado na 5 */
+/** Layout reverso: predecessores nas colunas de conteúdo, só o destino clicado no fim */
 function reverseLayout(
   targetId: "__success__" | "__escalate__",
   predIds: string[],
@@ -218,11 +264,18 @@ function buildLinks(nodes: CanvasNode[]): FlowLink[] {
 
   for (const n of nodes) {
     if (n.isSystem) continue;
-    if (!n.parent_id) {
-      links.push({ kind: "menu", from: "__start__", to: n.id, option: n.option_number });
-    } else if (byId.has(n.parent_id)) {
-      links.push({ kind: "menu", from: n.parent_id, to: n.id, option: n.option_number });
+    const parentId = n.parent_id && String(n.parent_id).trim() ? String(n.parent_id) : null;
+
+    // Menu roxo: só opções reais de menu — NUNCA destino de continuar/ok/fail
+    // e NUNCA plugar submenu no Início (só raízes com parent null).
+    if (!isLinkTargetOnly(n)) {
+      if (!parentId) {
+        links.push({ kind: "menu", from: "__start__", to: n.id, option: n.option_number });
+      } else if (byId.has(parentId)) {
+        links.push({ kind: "menu", from: parentId, to: n.id, option: n.option_number });
+      }
     }
+
     if (n.redirect_to_node_id && byId.has(n.redirect_to_node_id)) {
       links.push({ kind: "next", from: n.id, to: n.redirect_to_node_id });
     }
@@ -270,10 +323,12 @@ function visibleNodeIds(
     return ids;
   }
 
-  // overview: Início + raízes + os dois finais (sem fios entre finais)
+  // overview: Início + raízes de menu reais + finais
   if (!focusId) {
     const ids = new Set<string>(["__start__", "__success__", "__escalate__"]);
-    all.filter((n) => !n.isSystem && !n.parent_id).forEach((n) => ids.add(n.id));
+    all
+      .filter((n) => !n.isSystem && !n.parent_id && !isLinkTargetOnly(n))
+      .forEach((n) => ids.add(n.id));
     return ids;
   }
 
@@ -288,7 +343,9 @@ function visibleNodeIds(
 
   if (focusId === "__start__") {
     const ids = new Set<string>(["__start__", "__success__", "__escalate__"]);
-    all.filter((n) => !n.isSystem && !n.parent_id).forEach((n) => ids.add(n.id));
+    all
+      .filter((n) => !n.isSystem && !n.parent_id && !isLinkTargetOnly(n))
+      .forEach((n) => ids.add(n.id));
     return ids;
   }
 
@@ -425,24 +482,28 @@ export default function BotFlowCanvas({
     );
   }, [allLinks, visibleIds, focusId, showAll]);
 
-  // Sempre grade de 5 colunas (nunca empilha)
+  // Visão geral = 3 colunas compactas; Exibir tudo / foco = grade por profundidade
   useEffect(() => {
-    if (forceShowAll || !focusId) {
-      const base = columnLayout(allNodes, null);
-      setPositions(base);
-      savePositions(base);
+    if (forceShowAll) {
+      setPositions(columnLayout(allNodes, null));
+      return;
+    }
+    if (!focusId) {
+      setPositions(overviewLayout(allNodes));
       return;
     }
     if (focusId === "__success__" || focusId === "__escalate__") {
       const preds = predecessorsOf(focusId, allNodes, allLinks).filter((id) => !id.startsWith("__"));
-      const base = reverseLayout(focusId, preds, allNodes);
-      setPositions(base);
+      setPositions(reverseLayout(focusId, preds, allNodes));
       return;
     }
-    // foco: só nós visíveis, ainda nas 5 colunas
+    if (focusId === "__start__") {
+      setPositions(overviewLayout(allNodes));
+      return;
+    }
+    // foco num menu/filho: colunas por profundidade só com o ramo visível
     const vis = visibleNodeIds(allNodes, focusId, false, allLinks);
-    const base = columnLayout(allNodes, vis);
-    setPositions(base);
+    setPositions(columnLayout(allNodes, vis));
   }, [allNodes.map((n) => n.id).join(","), focusId, forceShowAll, allLinks]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updatePos = useCallback((id: string, x: number, y: number) => {
@@ -652,7 +713,9 @@ export default function BotFlowCanvas({
           <span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> não
         </span>
         <span className="hidden md:inline text-[10px] opacity-70 border-l border-border pl-3 ml-1">
-          Colunas: Início → Menu → Filhos → Netos → Bisnetos → Sucesso/Márcio
+          {forceShowAll || (focusId && !focusId.startsWith("__"))
+            ? "Colunas: Início → Menu → Filhos → Netos → Bisnetos → Fim"
+            : "Visão geral: Início → Menus → Sucesso/Márcio  ·  Exibir tudo = mapa completo"}
         </span>
         <span className="text-[10px] opacity-80 ml-auto hidden sm:inline">
           linha = selecionar · Del = apagar
@@ -685,8 +748,12 @@ export default function BotFlowCanvas({
               const selected = selectedLinkKey === key;
               const label =
                 link.kind === "menu" ? String(link.option) : link.kind === "next" ? "→" : link.kind === "ok" ? "ok" : "não";
-              const mx = (a.x + b.x) / 2;
-              const my = (a.y + b.y) / 2;
+              // Início → menus: número perto do card (evita pilha 1–8 no meio)
+              const fromStart = link.from === "__start__" && link.kind === "menu";
+              const t = fromStart ? 0.82 : 0.5;
+              const mx = a.x + (b.x - a.x) * t;
+              const my = a.y + (b.y - a.y) * t;
+              const badgeR = fromStart ? (selected ? 10 : 8) : selected ? 12 : 10;
               return (
                 <g
                   key={key}
@@ -707,25 +774,24 @@ export default function BotFlowCanvas({
                     d={edgePath(a.x, a.y, b.x, b.y)}
                     fill="none"
                     stroke={LINK_COLORS[link.kind]}
-                    strokeWidth={selected ? 4 : 2.5}
-                    strokeOpacity={selected ? 1 : 0.85}
+                    strokeWidth={selected ? 3.5 : fromStart ? 1.75 : 2.25}
+                    strokeOpacity={selected ? 1 : fromStart ? 0.55 : 0.8}
                     markerEnd={`url(#arr-${link.kind})`}
                   />
-                  {/* área clicável larga */}
-                  <path d={edgePath(a.x, a.y, b.x, b.y)} fill="none" stroke="transparent" strokeWidth={20} />
+                  <path d={edgePath(a.x, a.y, b.x, b.y)} fill="none" stroke="transparent" strokeWidth={18} />
                   <circle
                     cx={mx}
                     cy={my}
-                    r={selected ? 14 : 11}
+                    r={badgeR}
                     fill={selected ? LINK_COLORS[link.kind] : "hsl(var(--card))"}
                     stroke={LINK_COLORS[link.kind]}
-                    strokeWidth={1.5}
+                    strokeWidth={1.25}
                   />
                   <text
                     x={mx}
-                    y={my + 3.5}
+                    y={my + 3}
                     textAnchor="middle"
-                    fontSize="9"
+                    fontSize={fromStart ? "8" : "9"}
                     fill={selected ? "#fff" : LINK_COLORS[link.kind]}
                     className="pointer-events-none select-none"
                   >
