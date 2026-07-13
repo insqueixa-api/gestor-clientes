@@ -182,6 +182,16 @@ export type MenuNode = {
   transfer_situation_label: string | null;
   applies_to_servers?: string[] | null;
   is_active?: boolean;
+  /** Após executar a folha, entra neste nó (várias folhas podem apontar pro mesmo). */
+  redirect_to_node_id?: string | null;
+  /** __success__ | __escalate__ | __end__ | uuid | null */
+  on_resolved_target?: string | null;
+  on_not_resolved_target?: string | null;
+  /** true/false força; null = auto se closing/targets. */
+  ask_resolution?: boolean | null;
+  /** Override local da 1ª resposta inválida neste menu (pai com filhos). */
+  invalid_retry_message_1?: string | null;
+  invalid_retry_message_2?: string | null;
 };
 
 export async function getRootNodeBySlug(sb: any, tenantId: string, slug: string): Promise<MenuNode | null> {
@@ -307,6 +317,24 @@ export function hasSemanticSignal(text: string): boolean {
 
 export const RESOLUTION_QUESTION =
   "Vou deixar as opções aqui: responda **1** se resolveu, ou **2** se ainda está com o problema.";
+
+/** Evita mandar a pergunta 1/2 se os passos do nó já pediram a mesma coisa. */
+export function stepsAlreadyAskResolution(messages: string[]): boolean {
+  const joined = (messages || []).join("\n");
+  if (!joined.trim()) return false;
+  // Heurística conservadora: só suprime se o texto já menciona 1 e 2 no
+  // contexto de "resolveu" / "responda" / opção numérica de resolução.
+  if (/\b(responda|digite|escolha)\b[\s\S]{0,40}\b1\b[\s\S]{0,40}\b2\b/i.test(joined)) return true;
+  if (/\b1\b[\s\S]{0,30}\b(resolveu|resolvido)\b[\s\S]{0,40}\b2\b/i.test(joined)) return true;
+  if (/\b(resolveu|resolvido)\b[\s\S]{0,40}\b1\b[\s\S]{0,40}\b2\b/i.test(joined)) return true;
+  return false;
+}
+
+/** Anexa RESOLUTION_QUESTION só se ainda não estiver nos passos. */
+export function withResolutionQuestionIfNeeded(messages: string[]): string[] {
+  if (stepsAlreadyAskResolution(messages)) return messages;
+  return [...messages, RESOLUTION_QUESTION];
+}
 
 // ── Confirmação sim/não — usada antes de trocar de assunto no meio de um
 // submenu (troca de contexto por palavra-chave ou por significado). Só troca
@@ -455,4 +483,30 @@ export async function nodeNeedsAccount(sb: any, node: MenuNode): Promise<boolean
   if (actions.some((a) => ACCOUNT_DEPENDENT_ACTIONS.includes(a))) return true;
   const stepsText = (await getSteps(sb, node.id)).join(" ");
   return ACCOUNT_DEPENDENT_VARS.some((v) => stepsText.includes(v));
+}
+
+/** Monta texto de retry inválido: intro (configurável) + lista de opções. */
+export function buildInvalidMenuRetry(
+  children: MenuNode[],
+  intro: string,
+  showBackHint: boolean = true
+): string {
+  const cleanIntro = (intro || "").trim() || "Não entendi — escolha uma das opções:";
+  // Se o intro já contém as opções (raro), não duplica — senão sempre anexa o menu.
+  return renderChildrenMenu(children, cleanIntro, showBackHint);
+}
+
+/** Intro de retry: prioriza override do nó, senão settings globais. */
+export function pickInvalidIntro(
+  node: MenuNode | null | undefined,
+  attempt: 1 | 2,
+  global1: string,
+  global2: string
+): string {
+  if (attempt === 1) {
+    const local = node?.invalid_retry_message_1?.trim();
+    return local || global1;
+  }
+  const local = node?.invalid_retry_message_2?.trim();
+  return local || global2;
 }

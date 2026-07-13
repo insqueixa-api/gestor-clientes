@@ -47,7 +47,6 @@ import {
   pickCompatibleSemanticMatch,
   buildInvalidMenuRetry,
   pickInvalidIntro,
-  withResolutionQuestionIfNeeded,
   type ServerProvider,
 } from "@/lib/whatsapp/bot-menu";
 import {
@@ -683,13 +682,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, action: "redirect_destino_ausente", escalate: true, mark_read: false, bot_response: [...result.messages, flow.escalate_message].join("\n\n"), next_state: "__clear__", display_name: client?.display_name || null, server_name: client?.server_name || null });
     }
 
-    // Após passos, se pediu resolução, anexa a pergunta 1/2 — só se os
-    // passos ainda não pedirem a mesma coisa (evita mensagem duplicada).
+    for (const m of result.messages) await sendWAMessage(session_key, phone, m);
+    // Após passos, se pediu resolução, anexa a pergunta 1/2
     let allMsgs = result.messages;
     if ((result.nextState || "").startsWith("awaiting_resolution:")) {
-      allMsgs = withResolutionQuestionIfNeeded(result.messages);
+      await sendWAMessage(session_key, phone, RESOLUTION_QUESTION);
+      allMsgs = [...result.messages, RESOLUTION_QUESTION];
     }
-    for (const m of allMsgs) await sendWAMessage(session_key, phone, m);
     return NextResponse.json({
       ok: true, action: "leaf_executed", escalate: result.escalate, mark_read: result.markRead ?? true,
       bot_response: allMsgs.join("\n\n"), next_state: result.nextState,
@@ -721,11 +720,7 @@ export async function POST(req: Request) {
       });
     }
     if (kind === "success") {
-      // closing_message só entra no "padrão"; __success__ força a mensagem global
-      const msg =
-        target.kind === "default" && resolvedMsg?.trim()
-          ? resolvedMsg.trim()
-          : flow.success_message;
+      const msg = (resolvedMsg && resolvedMsg.trim()) || flow.success_message;
       await sendWAMessage(session_key, phone, msg);
       return NextResponse.json({
         ok: true, action: "resolvido", mark_read: true, bot_response: msg, next_state: "geral",
@@ -1033,16 +1028,8 @@ export async function POST(req: Request) {
   }
 
   if (bot_state === "aguardando_resposta_2") {
-    // 2ª inválida no menu raiz: intro diferente (invalid_retry_message_2) + menu, depois escala
-    const roots = await getRootNodes(sb, tenant_id, clientProvider);
-    const retry2 = buildInvalidMenuRetry(roots, flow.invalid_retry_message_2, false);
-    await sendWAMessage(session_key, phone, retry2);
     await sendWAMessage(session_key, phone, flow.escalate_message);
-    return NextResponse.json({
-      ok: true, action: "escalated_menu", escalate: true, mark_read: false,
-      bot_response: `${retry2}\n\n${flow.escalate_message}`, next_state: "__clear__",
-      display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null,
-    });
+    return NextResponse.json({ ok: true, action: "escalated_menu", escalate: true, mark_read: false, bot_response: flow.escalate_message, next_state: "__clear__", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
   }
 
   if (!bot_state || bot_state === "aguardando_resposta") {
@@ -1055,9 +1042,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, action: "menu_intro", mark_read: true, bot_response: `${msg1}\n\n${menuMsg}`, next_state: "aguardando_resposta", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
     }
     // 1ª inválida no menu raiz: re-pergunta de outro jeito + menu de novo
+    const retryMenu = await getAllRootsAsMenuText(sb, tenant_id, clientProvider);
+    const intro = flow.invalid_retry_message_1;
+    // getAllRootsAsMenuText já traz intro próprio — substitui o intro padrão pelo configurável
     const roots = await getRootNodes(sb, tenant_id, clientProvider);
-    const msg = buildInvalidMenuRetry(roots, flow.invalid_retry_message_1, false);
-    await sendWAMessage(session_key, phone, msg);
+    const msg = buildInvalidMenuRetry(roots, intro, false);
+    await sendWAMessage(session_key, phone, msg.length > intro.length ? msg : `${intro}\n\n${retryMenu}`);
     return NextResponse.json({ ok: true, action: "menu_retry", mark_read: true, bot_response: msg, next_state: "aguardando_resposta_2", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
   }
 

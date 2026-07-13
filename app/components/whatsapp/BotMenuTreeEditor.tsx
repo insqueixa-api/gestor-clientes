@@ -23,6 +23,23 @@ type MenuNode = {
   transfer_situation_label: string | null;
   applies_to_servers: string[] | null;
   is_active: boolean;
+  redirect_to_node_id?: string | null;
+  on_resolved_target?: string | null;
+  on_not_resolved_target?: string | null;
+  ask_resolution?: boolean | null;
+  invalid_retry_message_1?: string | null;
+  invalid_retry_message_2?: string | null;
+};
+
+type FlowSettings = {
+  greeting_message: string;
+  success_message: string;
+  escalate_message: string;
+  human_requested_message: string;
+  invalid_retry_message_1: string;
+  invalid_retry_message_2: string;
+  menu_invalid_intro_1: string;
+  menu_invalid_intro_2: string;
 };
 
 // ✅ Enum fechado do sistema — os únicos providers de servidor suportados.
@@ -35,25 +52,20 @@ const SERVER_OPTIONS = [
 type MenuStep = { id: string; node_id: string; step_order: number; message_text: string };
 type TreeNode = MenuNode & { children: TreeNode[]; steps: MenuStep[] };
 
-// ✅ "Checar servidor offline/vencimento" saiu daqui — virou checagem
-// automática e global (roda antes de qualquer roteamento de menu, pra
-// qualquer cliente, sem precisar marcar em nenhum nó). "Verificar
-// Cloudflare" também saiu — no lugar de checar uma API externa em tempo
-// real, marque o servidor como offline (com a justificativa) na tela de
-// Servidores; o bot já avisa todo mundo sozinho, qualquer que seja a
-// causa. "Gerar link do portal"/"Consultar tabela de preços" saíram
-// porque agora são automáticos: o bot detecta sozinho se {link_pagamento}
-// ou {tabela_precos} aparece no texto do nó e resolve na hora — não tem
-// mais nada pra marcar, só usar a variável. "Recomendar aplicativo" e
-// "Texto livre → RAG" saíram porque devem virar ramificação própria na
-// árvore (cada servidor/situação tem seu fluxo explícito). Nenhuma dessas
-// é mais oferecida pra nós novos, mas nós antigos que já usavam continuam
-// funcionando exatamente como configurados.
+// ✅ "Redirecionar pra Nova Instalação" saiu: use "Continuar em outro fluxo"
+// (redirect_to_node_id) e ligue em qualquer nó — instalação, renovação, etc.
+// Legado redirecionar_instalacao ainda funciona no backend se já estiver salvo.
 const SPECIAL_ACTIONS = [
   { value: "check_renovacao_recente", label: "💳 Checar renovação automática recente", desc: "Se já tiver pagamento confirmado, responde direto (sem pedir comprovante)." },
   { value: "escalar_imediatamente", label: "🙋 Escalar imediatamente", desc: "Transfere pro Márcio na hora, sem mostrar opções nem passos." },
-{ value: "coletar_relato_e_escalar", label: "📝 Coletar relato e escalar", desc: "Manda a mensagem pedindo o relato e já transfere na sequência — não espera resposta." },
-  { value: "redirecionar_instalacao", label: "↪️ Redirecionar pra Nova Instalação", desc: "Pula direto pro fluxo de instalação (marca/dispositivo)." },
+  { value: "coletar_relato_e_escalar", label: "📝 Coletar relato e escalar", desc: "Manda a mensagem pedindo o relato e já transfere na sequência — não espera resposta." },
+];
+
+const FLOW_TARGET_SPECIAL = [
+  { value: "", label: "— Padrão do sistema —" },
+  { value: "__success__", label: "✅ Mensagem de sucesso global" },
+  { value: "__escalate__", label: "🙋 Escalar (mensagem global)" },
+  { value: "__end__", label: "⏹ Encerrar sem mensagem extra" },
 ];
 
 // Reaproveita o mesmo conjunto de variáveis da página de mensagens, filtrado
@@ -249,10 +261,15 @@ function ConfirmDeleteModal({ label, onClose, onConfirm }: { label: string; onCl
 
 export default function BotMenuTreeEditor() {
   const [tree, setTree] = useState<TreeNode[]>([]);
+  const [flatNodes, setFlatNodes] = useState<MenuNode[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showFlowSettings, setShowFlowSettings] = useState(false);
+  const [flowSettings, setFlowSettings] = useState<FlowSettings | null>(null);
+  const [flowSaving, setFlowSaving] = useState(false);
+  const [flowError, setFlowError] = useState<string | null>(null);
   const [modal, setModal] = useState<{ type: "create_category" } | { type: "create_option"; parent: TreeNode } | { type: "delete"; node: TreeNode } | null>(null);
 
   const loadTree = useCallback(async () => {
@@ -261,13 +278,28 @@ export default function BotMenuTreeEditor() {
       const headers = await authHeader();
       const res = await fetch("/api/whatsapp/bot/menu-tree", { headers });
       const json = await res.json();
-      if (json.ok) setTree(buildTree(json.nodes, json.steps));
+      if (json.ok) {
+        setFlatNodes(json.nodes || []);
+        setTree(buildTree(json.nodes, json.steps));
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { loadTree(); }, [loadTree]);
+  const loadFlowSettings = useCallback(async () => {
+    try {
+      const headers = await authHeader();
+      const res = await fetch("/api/whatsapp/bot/flow-settings", { headers });
+      const json = await res.json();
+      if (json.ok) setFlowSettings(json.settings);
+      else setFlowError(json.error || "Falha ao carregar mensagens globais");
+    } catch (e: any) {
+      setFlowError(e?.message || "Falha ao carregar mensagens globais");
+    }
+  }, []);
+
+  useEffect(() => { loadTree(); loadFlowSettings(); }, [loadTree, loadFlowSettings]);
 
   function toggleExpand(id: string) {
     setExpanded((prev) => {
@@ -357,6 +389,9 @@ export default function BotMenuTreeEditor() {
           {(node.special_actions || []).length > 0 && (
             <span title={node.special_actions.join(", ")} className="text-[10px] text-amber-500">{node.special_actions.length} ação(ões)</span>
           )}
+          {node.redirect_to_node_id && (
+            <span title="Continua em outro fluxo" className="text-[10px] text-violet-500">↪️</span>
+          )}
           {/* ✅ null = universal (todos marcados), não mostra selo nenhum.
               Lista com todos os 3 também é universal na prática — só mostra
               selo quando é de fato restrito (parcial ou "nenhum"). */}
@@ -389,7 +424,82 @@ export default function BotMenuTreeEditor() {
     );
   }
 
+  async function saveFlowSettings() {
+    if (!flowSettings) return;
+    setFlowSaving(true);
+    setFlowError(null);
+    try {
+      const headers = await authHeader();
+      const res = await fetch("/api/whatsapp/bot/flow-settings", {
+        method: "POST",
+        headers,
+        body: JSON.stringify(flowSettings),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        setFlowError(json.error || "Erro ao salvar");
+      } else {
+        setFlowSettings(json.settings);
+      }
+    } catch (e: any) {
+      setFlowError(e?.message || "Erro ao salvar");
+    } finally {
+      setFlowSaving(false);
+    }
+  }
+
   return (
+    <div className="space-y-4">
+      {/* Mensagens globais reutilizáveis (saudação, sucesso, escala, retry) */}
+      <div className="border border-border rounded-xl overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowFlowSettings((v) => !v)}
+          className="w-full flex items-center justify-between px-4 py-3 bg-muted/30 hover:bg-muted/50 transition-colors"
+        >
+          <div className="text-left">
+            <h3 className="text-sm font-semibold text-foreground">Mensagens globais do fluxo</h3>
+            <p className="text-[11px] text-muted-foreground">Saudação, sucesso, escalonamento e “não entendi” — reutilizadas em todos os nós</p>
+          </div>
+          {showFlowSettings ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+        </button>
+        {showFlowSettings && flowSettings && (
+          <div className="p-4 space-y-3 border-t border-border">
+            {flowError && (
+              <p className="text-xs text-rose-500 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">{flowError}</p>
+            )}
+            {([
+              ["greeting_message", "Saudação (antes do menu principal)"],
+              ["success_message", "Mensagem de sucesso (quando resolveu)"],
+              ["escalate_message", "Escalonamento (bot desistiu / não resolveu)"],
+              ["human_requested_message", "Cliente pediu humano (0 / “falar com Márcio”)"],
+              ["invalid_retry_message_1", "Menu raiz — 1ª resposta inválida (intro)"],
+              ["invalid_retry_message_2", "Menu raiz — 2ª resposta inválida (intro, antes de escalar)"],
+              ["menu_invalid_intro_1", "Submenu — 1ª resposta inválida (intro)"],
+              ["menu_invalid_intro_2", "Submenu — 2ª resposta inválida (intro, antes de escalar)"],
+            ] as const).map(([key, label]) => (
+              <div key={key}>
+                <label className={labelCls}>{label}</label>
+                <textarea
+                  value={flowSettings[key]}
+                  onChange={(e) => setFlowSettings((s) => s ? { ...s, [key]: e.target.value } : s)}
+                  rows={key === "greeting_message" ? 3 : 2}
+                  className="w-full text-xs bg-background border border-border rounded-lg px-2 py-1.5 mt-1"
+                />
+              </div>
+            ))}
+            <button onClick={() => void saveFlowSettings()} disabled={flowSaving} className={btnPrimary}>
+              <Save className="w-3.5 h-3.5" /> {flowSaving ? "Salvando..." : "Salvar mensagens globais"}
+            </button>
+          </div>
+        )}
+        {showFlowSettings && !flowSettings && (
+          <div className="p-4 text-xs text-muted-foreground border-t border-border">
+            {flowError || "Carregando… Se a tabela não existir, rode docs/sql/bot_flow_graph.sql no Supabase."}
+          </div>
+        )}
+      </div>
+
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:h-[600px]">
       <div className="border border-border rounded-xl p-3 overflow-y-auto">
         <div className="flex items-center justify-between mb-3">
@@ -413,13 +523,14 @@ export default function BotMenuTreeEditor() {
             key={selectedNode.id}
             node={selectedNode}
             isLeaf={selectedNode.children.length === 0}
-            onSave={async (fields) => { setSaving(true); await callApi({ action: "update_node", id: selectedNode.id, ...fields }); setSaving(false); loadTree(); }}
+            allNodes={flatNodes}
+            onSave={async (fields) => { setSaving(true); const r = await callApi({ action: "update_node", id: selectedNode.id, ...fields }); setSaving(false); if (r?.error) alert(r.error); loadTree(); }}
             onSaveSteps={async (steps) => { setSaving(true); await callApi({ action: "set_steps", node_id: selectedNode.id, steps }); setSaving(false); loadTree(); }}
             onDelete={() => setModal({ type: "delete", node: selectedNode })}
             saving={saving}
           />
         ) : (
-          <p className="text-xs text-muted-foreground">Selecione um item da árvore à esquerda pra editar.</p>
+          <p className="text-xs text-muted-foreground">Selecione um item da árvore à esquerda pra editar. Use as ligações (continuar em / se resolveu) para reutilizar fluxos sem copiar texto.</p>
         )}
       </div>
 
@@ -432,6 +543,7 @@ export default function BotMenuTreeEditor() {
       {modal?.type === "delete" && (
         <ConfirmDeleteModal label={modal.node.label} onClose={() => setModal(null)} onConfirm={() => handleDelete(modal.node)} />
       )}
+    </div>
     </div>
   );
 }
@@ -488,9 +600,10 @@ function VariablePanel({ onInsert }: { onInsert: (tag: string) => void }) {
 }
 
 function NodeEditor({
-  node, isLeaf, onSave, onSaveSteps, onDelete, saving,
+  node, isLeaf, allNodes, onSave, onSaveSteps, onDelete, saving,
 }: {
   node: TreeNode; isLeaf: boolean;
+  allNodes: MenuNode[];
   onSave: (fields: any) => void;
   onSaveSteps: (steps: string[]) => void;
   onDelete: () => void;
@@ -498,10 +611,17 @@ function NodeEditor({
 }) {
   const [label, setLabel] = useState(node.label);
   const [keywordsText, setKeywordsText] = useState((node.keywords || []).join(", "));
-  const [requiresCheck, setRequiresCheck] = useState(node.requires_account_check);
   const [specialActions, setSpecialActions] = useState<string[]>(node.special_actions || []);
   const [closingMsg, setClosingMsg] = useState(node.closing_message || "");
   const [transferLabel, setTransferLabel] = useState(node.transfer_situation_label || "");
+  const [redirectTo, setRedirectTo] = useState(node.redirect_to_node_id || "");
+  const [onResolved, setOnResolved] = useState(node.on_resolved_target || "");
+  const [onNotResolved, setOnNotResolved] = useState(node.on_not_resolved_target || "");
+  const [askResolution, setAskResolution] = useState<boolean>(
+    node.ask_resolution === true || !!(node.closing_message || node.on_resolved_target || node.on_not_resolved_target)
+  );
+  const [invalidRetry1, setInvalidRetry1] = useState(node.invalid_retry_message_1 || "");
+  const [invalidRetry2, setInvalidRetry2] = useState(node.invalid_retry_message_2 || "");
   // ✅ null (nunca restringido) carrega como TUDO marcado — representa
   // visualmente "funciona em todos os servidores", igual o usuário espera
   // ver ao abrir um item que nunca foi restringido.
@@ -518,6 +638,8 @@ function NodeEditor({
   // textarea que ganhou foco. Sem isso, um painel único (em vez de um por
   // passo) não saberia onde inserir.
   const [activeStepIndex, setActiveStepIndex] = useState(0);
+
+  const otherNodes = allNodes.filter((n) => n.id !== node.id);
 
   function toggleAction(value: string) {
     setSpecialActions((prev) => prev.includes(value) ? prev.filter((a) => a !== value) : [...prev, value]);
@@ -550,19 +672,30 @@ function NodeEditor({
   }
 
   function saveAll() {
+    // Remove legado redirecionar_instalacao se o usuário escolheu redirect genérico
+    let actions = [...specialActions];
+    if (redirectTo) {
+      actions = actions.filter((a) => a !== "redirecionar_instalacao");
+    }
+    // Redirect tem prioridade no motor: se há destino, não grava ask_resolution
+    // (evita config confusa no banco — “perguntar se resolveu” só vale sem redirect).
+    const effectiveAsk = redirectTo ? false : askResolution;
     onSave({
       label,
       keywords: keywordsText.split(",").map((k) => k.trim()).filter(Boolean),
-      special_actions: specialActions,
+      special_actions: actions,
       closing_message: closingMsg || null,
       transfer_situation_label: transferLabel || null,
-      // ✅ Manda exatamente o que está marcado — inclusive vazio (o backend
-      // normaliza "todos marcados" pra null; vazio continua vazio de
-      // propósito, significando "não aparece pra nenhum servidor").
       applies_to_servers: appliesToServers,
       is_active: isActive,
+      redirect_to_node_id: redirectTo || null,
+      on_resolved_target: effectiveAsk ? (onResolved || null) : null,
+      on_not_resolved_target: effectiveAsk ? (onNotResolved || null) : null,
+      ask_resolution: effectiveAsk,
+      invalid_retry_message_1: invalidRetry1.trim() || null,
+      invalid_retry_message_2: invalidRetry2.trim() || null,
     });
-onSaveSteps(steps.filter((s) => s.trim()));
+    onSaveSteps(steps.filter((s) => s.trim()));
   }
 
   return (
@@ -661,17 +794,89 @@ onSaveSteps(steps.filter((s) => s.trim()));
         </div>
       )}
 
+      {/* Ligações estilo n8n — saída deste nó → outro nó / sucesso / escalar */}
       {isLeaf && (
-        <>
+        <div className="border border-violet-500/30 bg-violet-500/5 rounded-xl p-3 space-y-3">
+          <p className="text-[11px] font-semibold text-violet-600 dark:text-violet-400">Ligações de fluxo (entradas/saídas)</p>
           <div>
-            <label className={labelCls}>Mensagem de encerramento (se o cliente disser que resolveu)</label>
-            <textarea value={closingMsg} onChange={(e) => setClosingMsg(e.target.value)} rows={2} className="w-full text-xs bg-background border border-border rounded-lg px-2 py-1.5 mt-1" />
+            <label className={labelCls}>Após os passos, continuar em outro fluxo</label>
+            <select
+              value={redirectTo}
+              onChange={(e) => setRedirectTo(e.target.value)}
+              className={`${inputCls} font-normal`}
+            >
+              <option value="">— Não (fica neste nó / pergunta resolveu) —</option>
+              {otherNodes.map((n) => (
+                <option key={n.id} value={n.id}>{n.label}{n.slug ? ` (${n.slug})` : ""}</option>
+              ))}
+            </select>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Substitui o antigo “Redirecionar pra Nova Instalação”. Vários nós podem apontar pro mesmo destino.
+              Se preencher isto, o bot <strong>não</strong> pergunta “resolveu 1/2” neste nó — vai direto ao destino.
+            </p>
+            {(node.special_actions || []).includes("redirecionar_instalacao") && !redirectTo && (
+              <p className="text-[10px] text-amber-600 mt-1">Este nó ainda tem a action legada “redirecionar_instalacao”. Escolha um destino acima e salve pra migrar.</p>
+            )}
+          </div>
+
+          {!redirectTo && (
+          <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
+            <input type="checkbox" checked={askResolution} onChange={(e) => setAskResolution(e.target.checked)} />
+            Perguntar se resolveu (1 / 2) depois dos passos
+          </label>
+          )}
+
+          {askResolution && !redirectTo && (
+            <>
+              <div>
+                <label className={labelCls}>Se resolveu (1) →</label>
+                <select value={onResolved} onChange={(e) => setOnResolved(e.target.value)} className={inputCls}>
+                  {FLOW_TARGET_SPECIAL.map((o) => (
+                    <option key={o.value || "def"} value={o.value}>{o.label}</option>
+                  ))}
+                  {otherNodes.map((n) => (
+                    <option key={n.id} value={n.id}>↪️ Ir para: {n.label}</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-muted-foreground mt-1">Padrão = mensagem de encerramento abaixo, ou sucesso global se vazia.</p>
+              </div>
+              <div>
+                <label className={labelCls}>Mensagem se resolveu (opcional — sobrescreve a global)</label>
+                <textarea value={closingMsg} onChange={(e) => setClosingMsg(e.target.value)} rows={2} className="w-full text-xs bg-background border border-border rounded-lg px-2 py-1.5 mt-1" placeholder="Vazio = usa mensagem de sucesso global" />
+              </div>
+              <div>
+                <label className={labelCls}>Se NÃO resolveu (2) →</label>
+                <select value={onNotResolved} onChange={(e) => setOnNotResolved(e.target.value)} className={inputCls}>
+                  {FLOW_TARGET_SPECIAL.map((o) => (
+                    <option key={o.value || "def2"} value={o.value}>{o.label}</option>
+                  ))}
+                  {otherNodes.map((n) => (
+                    <option key={n.id} value={n.id}>↪️ Ir para: {n.label}</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-muted-foreground mt-1">Padrão = escalar com mensagem global.</p>
+              </div>
+              <div>
+                <label className={labelCls}>Situação (resumo no monitor se escalar)</label>
+                <input value={transferLabel} onChange={(e) => setTransferLabel(e.target.value)} className="w-full text-xs bg-background border border-border rounded-lg px-2 py-1.5 mt-1" />
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {!isLeaf && (
+        <div className="border border-border rounded-xl p-3 space-y-2">
+          <p className="text-[11px] font-semibold text-muted-foreground">Resposta inválida neste submenu (opcional)</p>
+          <div>
+            <label className={labelCls}>1ª vez que digitar errado (intro)</label>
+            <input value={invalidRetry1} onChange={(e) => setInvalidRetry1(e.target.value)} placeholder="Vazio = usa global" className={inputCls} />
           </div>
           <div>
-            <label className={labelCls}>Situação (aparece no resumo de transferência, se não resolver)</label>
-            <input value={transferLabel} onChange={(e) => setTransferLabel(e.target.value)} className="w-full text-xs bg-background border border-border rounded-lg px-2 py-1.5 mt-1" />
+            <label className={labelCls}>2ª vez (intro)</label>
+            <input value={invalidRetry2} onChange={(e) => setInvalidRetry2(e.target.value)} placeholder="Vazio = usa global" className={inputCls} />
           </div>
-        </>
+        </div>
       )}
 
       <label className="flex items-center gap-2 text-xs text-foreground">

@@ -8,8 +8,6 @@ import { createClient } from "@supabase/supabase-js";
 import { generatePortalLink, renderTemplate, buildClientTemplateVars } from "@/lib/whatsapp/template-vars";
 import {
   type MenuNode,
-  HUMAN_REQUESTED_MSG,
-  BOT_GAVE_UP_MSG,
   isEscalationTrigger,
   isBackToMenuTrigger,
   isSimpleConfirmation,
@@ -43,8 +41,19 @@ import {
   isConfirmSwitchYes,
   resolveClientProvider,
   pickCompatibleSemanticMatch,
+  buildInvalidMenuRetry,
+  pickInvalidIntro,
+  withResolutionQuestionIfNeeded,
   type ServerProvider,
 } from "@/lib/whatsapp/bot-menu";
+import {
+  getFlowSettings,
+  nodeAsksResolution,
+  parseFlowTarget,
+  makeRedirectState,
+  MAX_REDIRECT_DEPTH,
+  type FlowSettings,
+} from "@/lib/whatsapp/bot-flow-settings";
 import { generateEmbedding, searchBotKnowledgeCandidates, pickCompatibleKnowledgeMatch, searchMenuIntentCandidates, classifyIsAcknowledgment } from "@/lib/whatsapp/gemini-client";
 
 export const dynamic = "force-dynamic";
@@ -176,25 +185,77 @@ async function runGateChecks(node: MenuNode, client: any, sb: any, tenantId: str
 }
 
 // ── Execução de um nó FOLHA (sem filhos) ─────────────────────────────────────
-async function executeLeaf(node: MenuNode, client: any, rawClient: any, sb: any, tenantId: string): Promise<{ messages: string[]; escalate?: boolean; markRead?: boolean; nextState: string; transferReason?: string | null }> {
+function leafAfterMessages(
+  node: MenuNode,
+  messages: string[],
+  opts: { escalate?: boolean; markRead?: boolean; transferReason?: string | null; forceState?: string } = {}
+): { messages: string[]; escalate?: boolean; markRead?: boolean; nextState: string; transferReason?: string | null } {
+  if (opts.forceState) {
+    return {
+      messages,
+      escalate: opts.escalate,
+      markRead: opts.markRead,
+      nextState: opts.forceState,
+      transferReason: opts.transferReason || null,
+    };
+  }
+  if (node.redirect_to_node_id) {
+    return {
+      messages,
+      escalate: false,
+      markRead: opts.markRead ?? true,
+      nextState: makeRedirectState(node.redirect_to_node_id),
+      transferReason: opts.transferReason || null,
+    };
+  }
+  if ((node.special_actions || []).includes("redirecionar_instalacao")) {
+    return {
+      messages,
+      escalate: false,
+      markRead: opts.markRead ?? true,
+      nextState: "__redirect_instalacao__",
+      transferReason: opts.transferReason || null,
+    };
+  }
+  if (nodeAsksResolution(node)) {
+    return {
+      messages,
+      escalate: opts.escalate,
+      markRead: opts.markRead ?? true,
+      nextState: `awaiting_resolution:${node.id}`,
+      transferReason: opts.transferReason || null,
+    };
+  }
+  return {
+    messages,
+    escalate: opts.escalate,
+    markRead: opts.markRead ?? true,
+    nextState: opts.escalate ? "__clear__" : "geral",
+    transferReason: opts.transferReason || null,
+  };
+}
+
+async function executeLeaf(
+  node: MenuNode,
+  client: any,
+  rawClient: any,
+  sb: any,
+  tenantId: string,
+  flow: FlowSettings
+): Promise<{ messages: string[]; escalate?: boolean; markRead?: boolean; nextState: string; transferReason?: string | null }> {
   const actions = node.special_actions || [];
 
-  // Escalonamento direto — manda os passos cadastrados e transfere.
   if (actions.includes("escalar_imediatamente") || actions.includes("coletar_relato_e_escalar")) {
     const vars = await buildVarsForNode(sb, tenantId, node, client, rawClient);
     const steps = (await getSteps(sb, node.id)).map((s) => renderTemplate(s, vars));
-    // ✅ Repassa transfer_situation_label — mesma correção do agent/route.ts.
-    return { messages: steps.length ? steps : [HUMAN_REQUESTED_MSG], escalate: true, markRead: false, nextState: "__clear__", transferReason: node.transfer_situation_label || null };
+    return leafAfterMessages(node, steps.length ? steps : [flow.human_requested_message], {
+      escalate: true,
+      markRead: false,
+      transferReason: node.transfer_situation_label || null,
+      forceState: "__clear__",
+    });
   }
 
-  // Redireciona pro fluxo de instalação
-  if (actions.includes("redirecionar_instalacao")) {
-    const vars = await buildVarsForNode(sb, tenantId, node, client, rawClient);
-    const steps = (await getSteps(sb, node.id)).map((s) => renderTemplate(s, vars));
-    return { messages: steps, escalate: false, nextState: "__redirect_instalacao__" };
-  }
-
-  // Sem sinal/vencimento — decide dinamicamente se está vencido
   if (actions.includes("check_servidor_vencimento")) {
     const vencido = client?.vencimento ? new Date(client.vencimento).getTime() < Date.now() : false;
     let msg: string;
@@ -204,22 +265,19 @@ async function executeLeaf(node: MenuNode, client: any, rawClient: any, sb: any,
     } else {
       msg = "Seu acesso está em dia! Vamos tentar o reset padrão: desligue o modem da tomada por 5 minutos, depois a TV, e teste de novo. Se persistir, me avisa!";
     }
-    return { messages: [msg], nextState: node.closing_message ? `awaiting_resolution:${node.id}` : "geral" };
+    return leafAfterMessages(node, [msg]);
   }
 
-  // Texto livre → RAG (a próxima mensagem cai no fallback de "geral")
   if (actions.includes("free_text_rag")) {
     const steps = await getSteps(sb, node.id);
-    return { messages: steps.length ? steps : ["Pode me contar com detalhes o que está acontecendo? 😊"], nextState: "geral" };
+    return leafAfterMessages(node, steps.length ? steps : ["Pode me contar com detalhes o que está acontecendo? 😊"], {
+      forceState: "geral",
+    });
   }
 
-  // Caso padrão — só renderiza os passos com variáveis
   const vars = await buildVarsForNode(sb, tenantId, node, client, rawClient);
   const steps = (await getSteps(sb, node.id)).map((s) => renderTemplate(s, vars));
-  return {
-    messages: steps.length ? steps : ["(nenhuma resposta cadastrada — avise o Márcio)"],
-    nextState: node.closing_message ? `awaiting_resolution:${node.id}` : "geral",
-  };
+  return leafAfterMessages(node, steps.length ? steps : ["(nenhuma resposta cadastrada — avise o Márcio)"]);
 }
 
 // ── Handler ──────────────────────────────────────────────────────────────────
@@ -281,13 +339,15 @@ export async function POST(req: Request) {
   }
   const firstName = clients[0].display_name.split(" ")[0];
 
+  const flow = await getFlowSettings(sb, tenantId);
+
   // ✅ Provider do servidor do cliente — mesma correção do agent/route.ts,
   // usado pra filtrar conteúdo restrito a um servidor específico.
   const clientProvider: ServerProvider | null = await resolveClientProvider(sb, clients[0]?.server_id || null);
 
   const history: any[] = []; // reservado (não usamos mais Gemini conversacional aqui)
   const sentMessages: string[] = [];
-  function send(text: string) { sentMessages.push(text); }
+  function send(text: string) { if (text?.trim()) sentMessages.push(text); }
 
   // ✅ Traduz o next_state técnico (ex: "menunode:6d0aea8b-...") pra algo que
   // você reconhece na hora (o nome do nó), em vez do UUID cru — só pra
@@ -337,7 +397,7 @@ export async function POST(req: Request) {
 
   // ── Item 1: escalonamento explícito — prioridade máxima ─────────────────
   if (isEscalationTrigger(trimmed)) {
-    send(HUMAN_REQUESTED_MSG);
+    send(flow.human_requested_message);
     return finish({ action: "escalated", escalate: true, mark_read: false, next_state: "__clear__" });
   }
 
@@ -445,12 +505,22 @@ export async function POST(req: Request) {
   }
 
   // ── Executa um nó (root ou folha), incluindo gate checks e resolução de conta ──
-  async function enterNode(node: MenuNode, resolved: { client: any; rawClient: any } | null, attempt: 1 | 2): Promise<any> {
+  async function enterNode(
+    node: MenuNode,
+    resolved: { client: any; rawClient: any } | null,
+    attempt: 1 | 2,
+    redirectDepth: number = 0
+  ): Promise<any> {
+    if (redirectDepth > MAX_REDIRECT_DEPTH) {
+      send(flow.escalate_message);
+      return finish({ action: "redirect_loop", escalate: true, mark_read: false, next_state: "__clear__" });
+    }
+
     if ((await nodeNeedsAccount(sb, node)) && !resolved) {
       resolved = resolveAccount(trimmed);
       if (!resolved) {
         if (attempt === 2) {
-          send(BOT_GAVE_UP_MSG);
+          send(flow.escalate_message);
           return finish({ action: "conta_desistiu", escalate: true, mark_read: false, next_state: "__clear__", transfer_reason: node.transfer_situation_label || null });
         }
         send(askAccountMessage());
@@ -468,11 +538,8 @@ export async function POST(req: Request) {
         gate.messages.forEach(send);
         return finish({ action: "gate_resolved", mark_read: gate.markRead ?? true, next_state: "geral" });
       }
-      // ✅ Mesma correção do agent/route.ts: se a mensagem já é específica o
-      // suficiente pra bater com um filho direto, pula o submenu e entra
-      // direto nele — os gate checks da raiz já rodaram normalmente acima.
       const directChild = findChildByKeyword(children, trimmed);
-      if (directChild) return enterNode(directChild, null, 1);
+      if (directChild) return enterNode(directChild, null, 1, redirectDepth);
 
       const vars = await buildVarsForNode(sb, tenantId, node, client, rawClient);
       (await getSteps(sb, node.id)).map((s) => renderTemplate(s, vars)).forEach(send);
@@ -480,18 +547,55 @@ export async function POST(req: Request) {
       return finish({ action: "menu_shown", mark_read: true, next_state: `menunode:${node.id}` });
     }
 
-    const result = await executeLeaf(node, client, rawClient, sb, tenantId);
+    const result = await executeLeaf(node, client, rawClient, sb, tenantId, flow);
 
-    if (result.nextState === "__redirect_instalacao__") {
-      const { data: instalacaoRoot } = await sb.from("bot_menu_nodes").select("*").eq("tenant_id", tenantId).eq("slug", "instalacao").maybeSingle();
+    const redirectMatch = /^__redirect_node__:([0-9a-f-]{36})$/i.exec(result.nextState || "");
+    if (redirectMatch || result.nextState === "__redirect_instalacao__") {
       result.messages.forEach(send);
-      if (instalacaoRoot) return enterNode(instalacaoRoot as MenuNode, null, 1);
-      send(BOT_GAVE_UP_MSG);
-      return finish({ action: "instalacao_nao_encontrada", escalate: true, mark_read: false, next_state: "__clear__" });
+      let target: MenuNode | null = null;
+      if (redirectMatch) {
+        target = await getNodeById(sb, redirectMatch[1]);
+      } else {
+        const { data: instalacaoRoot } = await sb.from("bot_menu_nodes").select("*").eq("tenant_id", tenantId).eq("slug", "instalacao").maybeSingle();
+        target = (instalacaoRoot as MenuNode) || null;
+      }
+      if (target) return enterNode(target, null, 1, redirectDepth + 1);
+      send(flow.escalate_message);
+      return finish({ action: "redirect_destino_ausente", escalate: true, mark_read: false, next_state: "__clear__" });
     }
 
-    result.messages.forEach(send);
+    let allMsgs = result.messages;
+    if ((result.nextState || "").startsWith("awaiting_resolution:")) {
+      allMsgs = withResolutionQuestionIfNeeded(result.messages);
+    }
+    allMsgs.forEach(send);
     return finish({ action: "leaf_executed", escalate: result.escalate, mark_read: result.markRead ?? true, next_state: result.nextState, transfer_reason: result.transferReason || null });
+  }
+
+  async function applyFlowTarget(
+    rawTarget: string | null | undefined,
+    fallback: "success" | "escalate",
+    node: MenuNode | null,
+    resolvedMsg?: string
+  ): Promise<any> {
+    const target = parseFlowTarget(rawTarget);
+    const kind = target.kind === "default" ? fallback : target.kind;
+
+    if (kind === "node" && target.kind === "node") {
+      const dest = await getNodeById(sb, target.nodeId);
+      if (dest) return enterNode(dest, null, 1, 0);
+      send(flow.escalate_message);
+      return finish({ action: "target_node_missing", escalate: true, mark_read: false, next_state: "__clear__", transfer_reason: node?.transfer_situation_label || null });
+    }
+    if (kind === "success") {
+      send(target.kind === "default" && resolvedMsg?.trim() ? resolvedMsg.trim() : flow.success_message);
+      return finish({ action: "resolvido", mark_read: true, next_state: "geral" });
+    }
+    if (kind === "end") {
+      return finish({ action: "flow_end", mark_read: true, next_state: "geral" });
+    }
+    send(flow.escalate_message);
+    return finish({ action: "nao_resolvido_escalado", escalate: true, mark_read: false, next_state: "__clear__", transfer_reason: node?.transfer_situation_label || null });
   }
 
   // ✅ Pergunta antes de trocar de assunto no meio de um submenu, em vez de
@@ -539,13 +643,11 @@ export async function POST(req: Request) {
     const alreadyObjected = !!resolutionRetryMatch;
     const node = await getNodeById(sb, nodeId);
     if (isResolutionResolved(trimmed)) {
-      send(node?.closing_message || "Que bom! Fico feliz que resolveu 😊");
-      return finish({ action: "resolvido", mark_read: true, next_state: "geral" });
+      return applyFlowTarget(node?.on_resolved_target, "success", node, node?.closing_message || undefined);
     }
     if (isResolutionNotResolved(trimmed)) {
       safeLog("[BOT][chat-admin] Transferência:", node?.transfer_situation_label);
-      send(BOT_GAVE_UP_MSG);
-      return finish({ action: "nao_resolvido_escalado", escalate: true, mark_read: false, next_state: "__clear__", transfer_reason: node?.transfer_situation_label || null });
+      return applyFlowTarget(node?.on_not_resolved_target, "escalate", node);
     }
     // ✅ Objeção mais comum na prática (mesma correção do agent/route.ts):
     // "mas minha internet está boa" ou "mas Netflix/YouTube funciona
@@ -583,12 +685,11 @@ export async function POST(req: Request) {
     if (chosen) return enterNode(chosen, null, 1);
 
     if (!isSecondMiss) {
-      send(renderChildrenMenu(children, "Não entendi — pode escolher uma das opções abaixo, por favor? 😊", true));
+      const intro = pickInvalidIntro(currentNode, 1, flow.menu_invalid_intro_1, flow.menu_invalid_intro_2);
+      send(buildInvalidMenuRetry(children, intro, true));
       return finish({ action: "menu_retry", mark_read: true, next_state: `menunode_retry:${currentNode.id}` });
     }
 
-    // ✅ 2ª tentativa seguida sem bater número/keyword — agora sim tenta
-    // detectar troca de assunto de verdade, antes de desistir e escalonar.
     const switched = await detectMenuContextFromTree(sb, tenantId, trimmed, clientProvider);
     if (switched && switched.id !== currentNode.id && switched.parent_id === null) {
       return askConfirmSwitch(switched, currentNode);
@@ -607,7 +708,9 @@ export async function POST(req: Request) {
       }
     }
 
-    send(BOT_GAVE_UP_MSG);
+    const intro2 = pickInvalidIntro(currentNode, 2, flow.menu_invalid_intro_1, flow.menu_invalid_intro_2);
+    send(buildInvalidMenuRetry(children, intro2, true));
+    send(flow.escalate_message);
     return finish({ action: "menu_retry_escalado", escalate: true, mark_read: false, next_state: "__clear__", transfer_reason: currentNode.transfer_situation_label || null });
   }
 
@@ -641,12 +744,11 @@ export async function POST(req: Request) {
       return finish({ action: "rag_sem_match_retry", mark_read: true, next_state: "geral_retry" });
     }
 
-    send(BOT_GAVE_UP_MSG);
+    send(flow.escalate_message);
     return finish({ action: "rag_sem_match", escalate: true, mark_read: false, next_state: "__clear__" });
   }
 
   // ── Primeira mensagem / paciência de 2 tentativas ────────────────────────
-  // ✅ Seleção por número no menu raiz — mesma correção do agent/route.ts.
   if (extractSingleDigitSelection(trimmed) !== null) {
     const roots = await getRootNodes(sb, tenantId, clientProvider);
     const chosenRoot = findRootByNumber(roots, trimmed);
@@ -656,11 +758,6 @@ export async function POST(req: Request) {
   const detected = await detectMenuContextFromTree(sb, tenantId, trimmed, clientProvider);
   if (detected) return enterNode(detected, null, 1);
 
-  // ✅ Fallback semântico — mesma correção do agent/route.ts. Nenhuma
-  // palavra-chave bateu, tenta por significado (embedding) antes de
-  // desistir/mostrar o menu genérico.
-  // ⚠️ Piso de tamanho: saudações/small talk não carregam sinal suficiente
-  // pra comparar — nem tenta, evita gastar Gemini à toa e falso positivo.
   const hasEnoughSignal = hasSemanticSignal(trimmed);
   try {
     const embedding = hasEnoughSignal ? await generateEmbedding(geminiKey, trimmed) : null;
@@ -674,24 +771,24 @@ export async function POST(req: Request) {
   }
 
   if (bot_state === "aguardando_resposta_2") {
-    send(BOT_GAVE_UP_MSG);
+    // 2ª inválida no menu raiz: intro diferente + menu, depois escala
+    const roots = await getRootNodes(sb, tenantId, clientProvider);
+    send(buildInvalidMenuRetry(roots, flow.invalid_retry_message_2, false));
+    send(flow.escalate_message);
     return finish({ action: "escalated_menu", escalate: true, mark_read: false, next_state: "__clear__" });
   }
 
   if (!bot_state || bot_state === "aguardando_resposta") {
     if (!bot_state) {
-      send("Olá! 😊 Sou o assistente do Márcio. Me diga, como posso te ajudar?");
+      send(flow.greeting_message);
       send(await getAllRootsAsMenuText(sb, tenantId, clientProvider));
       return finish({ action: "menu_intro", mark_read: true, next_state: "aguardando_resposta" });
     }
-    // ✅ Reforça a seleção por número (em vez de convidar texto livre, que
-    // dispararia o fallback semântico à toa) e mostra o menu de novo, caso
-    // o cliente tenha perdido a lista original.
-    send(`Sem pressa! 😊 ${await getAllRootsAsMenuText(sb, tenantId, clientProvider)}`);
+    const roots = await getRootNodes(sb, tenantId, clientProvider);
+    send(buildInvalidMenuRetry(roots, flow.invalid_retry_message_1, false));
     return finish({ action: "menu_retry", mark_read: true, next_state: "aguardando_resposta_2" });
   }
 
-  // fallback de segurança — nunca deveria chegar aqui
-  send(BOT_GAVE_UP_MSG);
+  send(flow.escalate_message);
   return finish({ action: "estado_desconhecido", escalate: true, mark_read: false, next_state: "__clear__" });
 }

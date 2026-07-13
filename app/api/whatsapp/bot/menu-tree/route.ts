@@ -122,21 +122,54 @@ export async function POST(req: Request) {
   }
 
   if (action === "update_node") {
-    const { id, ...fields } = body;
-    delete fields.action;
+    const { id, ...rawFields } = body;
+    delete rawFields.action;
+    // Whitelist — evita o front gravar colunas inventadas / quebrar o row
+    const ALLOWED = new Set([
+      "label", "keywords", "option_number", "slug", "parent_id",
+      "requires_account_check", "special_actions", "closing_message",
+      "transfer_situation_label", "applies_to_servers", "is_active",
+      "redirect_to_node_id", "on_resolved_target", "on_not_resolved_target",
+      "ask_resolution", "invalid_retry_message_1", "invalid_retry_message_2",
+    ]);
+    const fields: Record<string, any> = {};
+    for (const [k, v] of Object.entries(rawFields)) {
+      if (ALLOWED.has(k)) fields[k] = v;
+    }
+
     if (fields.option_number !== undefined) {
       const reservedErr = reservedOptionNumberError(fields.option_number);
       if (reservedErr) return NextResponse.json({ error: reservedErr }, { status: 400 });
     }
-    // ✅ Normaliza lista vazia pra null — "nenhum servidor marcado" sempre
-    // significa "aplica a todos", nunca "não aplica a nenhum".
     if (fields.applies_to_servers !== undefined) {
       fields.applies_to_servers = normalizeAppliesToServers(fields.applies_to_servers);
     }
-    // ✅ Regenera o embedding de intenção sempre que o rótulo ou as
-    // palavras-chave mudam — busca os valores atuais pra completar o que
-    // não veio nesse payload específico (ex: salvar só passos não deveria
-    // apagar o embedding existente).
+    // Normaliza alvos de fluxo: string vazia → null; self-redirect proibido
+    for (const key of ["redirect_to_node_id", "on_resolved_target", "on_not_resolved_target"] as const) {
+      if (fields[key] !== undefined) {
+        const v = fields[key] == null || fields[key] === "" || fields[key] === "__default__" ? null : String(fields[key]);
+        fields[key] = v;
+        if (v && v === id) {
+          return NextResponse.json({ error: "Um nó não pode apontar para si mesmo." }, { status: 400 });
+        }
+      }
+    }
+    if (fields.redirect_to_node_id) {
+      const { data: dest } = await sb.from("bot_menu_nodes").select("id").eq("id", fields.redirect_to_node_id).eq("tenant_id", tenantId).maybeSingle();
+      if (!dest) return NextResponse.json({ error: "Nó de destino (continuar em) não encontrado." }, { status: 400 });
+    }
+    for (const key of ["on_resolved_target", "on_not_resolved_target"] as const) {
+      const v = fields[key];
+      if (!v) continue;
+      if (v === "__success__" || v === "__escalate__" || v === "__end__") continue;
+      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRe.test(v)) {
+        return NextResponse.json({ error: `Alvo inválido em ${key}.` }, { status: 400 });
+      }
+      const { data: dest } = await sb.from("bot_menu_nodes").select("id").eq("id", v).eq("tenant_id", tenantId).maybeSingle();
+      if (!dest) return NextResponse.json({ error: `Nó de destino em ${key} não encontrado.` }, { status: 400 });
+    }
+
     if (fields.label !== undefined || fields.keywords !== undefined) {
       const { data: current } = await sb.from("bot_menu_nodes").select("label, keywords").eq("id", id).eq("tenant_id", tenantId).maybeSingle();
       const finalLabel = fields.label ?? current?.label ?? "";
@@ -149,7 +182,12 @@ export async function POST(req: Request) {
       .update({ ...fields, updated_at: new Date().toISOString() })
       .eq("id", id).eq("tenant_id", tenantId)
       .select().single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (error) {
+      const msg = /redirect_to_node_id|on_resolved_target|column/.test(error.message)
+        ? `${error.message} — rode o SQL em docs/sql/bot_flow_graph.sql no Supabase.`
+        : error.message;
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
     return NextResponse.json({ ok: true, node: data });
   }
 
