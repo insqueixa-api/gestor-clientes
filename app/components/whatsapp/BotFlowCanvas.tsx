@@ -58,8 +58,11 @@ function savePositions(p: Record<string, Pos>) {
 
 const CHILD_GAP_Y = NODE_H + 28;
 const CHILD_GAP_X = 260;
+/** Zona reservada à direita para Sucesso / Márcio — conteúdo nunca invade */
+const SYSTEM_END_X = 1000;
+const CONTENT_MAX_X = SYSTEM_END_X - NODE_W - 48; // ~776
 
-/** Coloca filhos em coluna à direita do pai, sem sobrepor */
+/** Coloca filhos em coluna à direita do pai, sem sobrepor e sem invadir Sucesso/Márcio */
 function layoutChildrenOf(
   parentId: string,
   pos: Record<string, Pos>,
@@ -72,38 +75,135 @@ function layoutChildrenOf(
   const parentPos = pos[parentId] || { x: 320, y: 100 };
   const totalH = (children.length - 1) * CHILD_GAP_Y;
   const startY = Math.max(24, parentPos.y + NODE_H / 2 - totalH / 2 - NODE_H / 2);
+  const childX = Math.min(parentPos.x + CHILD_GAP_X, CONTENT_MAX_X);
   children.forEach((c, i) => {
     pos[c.id] = {
-      x: parentPos.x + CHILD_GAP_X,
+      x: childX,
       y: startY + i * CHILD_GAP_Y,
     };
   });
 }
 
-/** Layout limpo: Início → menus raiz → Sucesso / Márcio no fim */
-function defaultLayout(nodes: CanvasNode[]): Record<string, Pos> {
-  const roots = nodes
-    .filter((n) => !n.isSystem && !n.parent_id)
-    .sort((a, b) => a.option_number - b.option_number);
-  const midY = Math.max(200, 40 + ((roots.length - 1) * 120) / 2);
-  const pos: Record<string, Pos> = {
-    __start__: { x: 48, y: midY },
-    __success__: { x: 900, y: 48 },
-    __escalate__: { x: 900, y: midY + 100 },
-  };
-  roots.forEach((n, i) => {
-    pos[n.id] = { x: 320, y: 48 + i * 120 };
-  });
-  // filhos por pai, em coluna (nunca um em cima do outro)
-  const parentIds = new Set(
-    nodes.filter((n) => n.parent_id).map((n) => n.parent_id as string)
-  );
-  parentIds.forEach((pid) => layoutChildrenOf(pid, pos, nodes));
+/** Subárvore: filhos e netos em colunas */
+function layoutSubtree(rootId: string, pos: Record<string, Pos>, nodes: CanvasNode[], depth = 0) {
+  if (depth > 8) return;
+  layoutChildrenOf(rootId, pos, nodes);
+  const children = nodes.filter((n) => n.parent_id === rootId);
+  for (const c of children) {
+    layoutSubtree(c.id, pos, nodes, depth + 1);
+  }
+}
 
-  nodes.filter((n) => !n.isSystem && !pos[n.id]).forEach((n, i) => {
-    pos[n.id] = { x: 560, y: 48 + i * CHILD_GAP_Y };
+/** Garante que nenhum nó de conteúdo fique em cima de Sucesso/Márcio */
+function pinSystemEnds(pos: Record<string, Pos>, contentHeight: number) {
+  pos.__success__ = { x: SYSTEM_END_X, y: 40 };
+  pos.__escalate__ = { x: SYSTEM_END_X, y: Math.max(200, contentHeight * 0.45) };
+  for (const [id, p] of Object.entries(pos)) {
+    if (id.startsWith("__")) continue;
+    if (p.x + NODE_W > SYSTEM_END_X - 24) {
+      p.x = CONTENT_MAX_X;
+    }
+  }
+}
+
+/** Layout limpo: Início → menus por profundidade → Sucesso / Márcio no fim (fixos) */
+function defaultLayout(nodes: CanvasNode[]): Record<string, Pos> {
+  const data = nodes.filter((n) => !n.isSystem);
+  const byId = new Map(data.map((n) => [n.id, n]));
+
+  function depthOf(id: string): number {
+    let d = 0;
+    let cur = byId.get(id);
+    const seen = new Set<string>();
+    while (cur?.parent_id && byId.has(cur.parent_id) && !seen.has(cur.id)) {
+      seen.add(cur.id);
+      d++;
+      cur = byId.get(cur.parent_id);
+    }
+    return d;
+  }
+
+  const byDepth = new Map<number, CanvasNode[]>();
+  for (const n of data) {
+    const d = depthOf(n.id);
+    if (!byDepth.has(d)) byDepth.set(d, []);
+    byDepth.get(d)!.push(n);
+  }
+  for (const list of byDepth.values()) {
+    list.sort((a, b) => a.option_number - b.option_number || a.label.localeCompare(b.label));
+  }
+
+  const maxDepth = Math.max(0, ...byDepth.keys());
+  const pos: Record<string, Pos> = {};
+  let maxY = 100;
+
+  for (let d = 0; d <= maxDepth; d++) {
+    const list = byDepth.get(d) || [];
+    const x = Math.min(320 + d * CHILD_GAP_X, CONTENT_MAX_X);
+    list.forEach((n, i) => {
+      // se tem pai, alinha perto do pai; senão coluna do nível
+      const parentPos = n.parent_id ? pos[n.parent_id] : null;
+      let y: number;
+      if (parentPos && d > 0) {
+        // será refinado por layoutChildrenOf; placeholder
+        y = parentPos.y + i * 8;
+      } else {
+        y = 48 + i * CHILD_GAP_Y;
+      }
+      pos[n.id] = { x, y };
+      maxY = Math.max(maxY, y + NODE_H);
+    });
+  }
+
+  // refina por pai (filhos em coluna real)
+  const roots = data.filter((n) => !n.parent_id).sort((a, b) => a.option_number - b.option_number);
+  roots.forEach((n, i) => {
+    pos[n.id] = { x: 320, y: 48 + i * CHILD_GAP_Y };
   });
+  roots.forEach((r) => layoutSubtree(r.id, pos, nodes));
+
+  maxY = Math.max(100, ...Object.values(pos).map((p) => p.y + NODE_H));
+  const midY = Math.max(120, maxY / 2 - NODE_H / 2);
+  pos.__start__ = { x: 40, y: midY };
+  pinSystemEnds(pos, maxY);
+
   return pos;
+}
+
+/** Lista nós que apontam para um destino (rota reversa) */
+function predecessorsOf(targetId: string, nodes: CanvasNode[], links: FlowLink[]): string[] {
+  const set = new Set<string>();
+  for (const l of links) {
+    if (l.to === targetId) set.add(l.from);
+  }
+  // se for sucesso/escalar implícito via ask_resolution
+  if (targetId === "__success__" || targetId === "__escalate__") {
+    for (const n of nodes) {
+      if (n.isSystem) continue;
+      const showRes =
+        n.ask_resolution === true ||
+        (n.ask_resolution !== false &&
+          !!(n.closing_message?.trim() || n.on_resolved_target || n.on_not_resolved_target));
+      if (!showRes) continue;
+      if (targetId === "__success__") {
+        const t = resolveTarget(n.on_resolved_target, "__success__");
+        if (t === "__success__") set.add(n.id);
+      } else {
+        const t = resolveTarget(n.on_not_resolved_target, "__escalate__");
+        if (t === "__escalate__") set.add(n.id);
+      }
+    }
+  }
+  // inclui ancestrais de cada predecessor
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  for (const id of [...set]) {
+    let cur = byId.get(id);
+    while (cur?.parent_id) {
+      set.add(cur.parent_id);
+      cur = byId.get(cur.parent_id);
+    }
+  }
+  return [...set];
 }
 
 function resolveTarget(raw: string | null | undefined, fallback: string): string {
@@ -156,11 +256,12 @@ const LINK_COLORS: Record<FlowLink["kind"], string> = {
   fail: "#f59e0b",
 };
 
-/** IDs visíveis conforme o foco (visão limpa vs drill-down) */
+/** IDs visíveis conforme o foco (visão limpa vs drill-down vs reverso) */
 function visibleNodeIds(
   all: CanvasNode[],
   focusId: string | null,
-  showAll: boolean
+  showAll: boolean,
+  links: FlowLink[]
 ): Set<string> {
   const ids = new Set<string>(["__start__", "__success__", "__escalate__"]);
   if (showAll) {
@@ -168,33 +269,71 @@ function visibleNodeIds(
     return ids;
   }
   // overview: só raízes
-  if (!focusId || focusId.startsWith("__")) {
+  if (!focusId) {
     all.filter((n) => !n.isSystem && !n.parent_id).forEach((n) => ids.add(n.id));
     return ids;
   }
-  // foco: nó + filhos diretos + ancestrais até a raiz
+  // Sucesso / Márcio: rota ao contrário — quem chega neles
+  if (focusId === "__success__" || focusId === "__escalate__") {
+    predecessorsOf(focusId, all, links).forEach((id) => ids.add(id));
+    ids.add(focusId);
+    return ids;
+  }
+  if (focusId === "__start__") {
+    all.filter((n) => !n.isSystem && !n.parent_id).forEach((n) => ids.add(n.id));
+    return ids;
+  }
+  // foco normal: nó + filhos + netos (1 nível extra) + ancestrais
   ids.add(focusId);
-  all.filter((n) => n.parent_id === focusId).forEach((n) => ids.add(n.id));
+  const children = all.filter((n) => n.parent_id === focusId);
+  children.forEach((n) => {
+    ids.add(n.id);
+    all.filter((g) => g.parent_id === n.id).forEach((g) => ids.add(g.id));
+  });
   let cur = all.find((n) => n.id === focusId);
   while (cur?.parent_id) {
     ids.add(cur.parent_id);
     cur = all.find((n) => n.id === cur!.parent_id);
   }
-  // destinos de redirect / resolve do foco
   const f = all.find((n) => n.id === focusId);
   if (f?.redirect_to_node_id) ids.add(f.redirect_to_node_id);
-  if (f?.on_resolved_target && !f.on_resolved_target.startsWith("__")) ids.add(f.on_resolved_target);
-  if (f?.on_not_resolved_target && !f.on_not_resolved_target.startsWith("__")) ids.add(f.on_not_resolved_target);
+  if (f?.on_resolved_target) ids.add(resolveTarget(f.on_resolved_target, "__success__"));
+  if (f?.on_not_resolved_target) ids.add(resolveTarget(f.on_not_resolved_target, "__escalate__"));
+  // se tem ask_resolution, mostra destinos padrão
+  if (
+    f &&
+    (f.ask_resolution === true ||
+      (f.ask_resolution !== false && !!(f.closing_message?.trim() || f.on_resolved_target || f.on_not_resolved_target)))
+  ) {
+    ids.add("__success__");
+    ids.add("__escalate__");
+  }
   return ids;
 }
 
-function linkTouchesFocus(link: FlowLink, focusId: string | null, showAll: boolean): boolean {
+function linkTouchesFocus(
+  link: FlowLink,
+  focusId: string | null,
+  showAll: boolean,
+  visibleIds: Set<string>
+): boolean {
   if (showAll) return true;
-  if (!focusId || focusId.startsWith("__")) {
-    // overview: só Início → raízes
+  if (!focusId) {
     return link.kind === "menu" && link.from === "__start__";
   }
-  return link.from === focusId || link.to === focusId;
+  if (focusId === "__start__") {
+    return link.kind === "menu" && link.from === "__start__";
+  }
+  // reverso: linhas que chegam no Sucesso/Márcio (ou ligam predecessores entre si no caminho)
+  if (focusId === "__success__" || focusId === "__escalate__") {
+    return link.to === focusId || (visibleIds.has(link.from) && visibleIds.has(link.to));
+  }
+  // foco normal: linhas do nó, filhos, ou entre nós visíveis da subárvore
+  return (
+    link.from === focusId ||
+    link.to === focusId ||
+    (visibleIds.has(link.from) && visibleIds.has(link.to) && (link.kind === "menu" || link.kind === "next" || link.kind === "ok" || link.kind === "fail"))
+  );
 }
 
 type Props = {
@@ -228,66 +367,86 @@ export default function BotFlowCanvas({
   const [drag, setDrag] = useState<{ id: string; ox: number; oy: number } | null>(null);
   /** Identidade estável da linha (não índice — índice muda com o foco) */
   const [selectedLinkKey, setSelectedLinkKey] = useState<string | null>(null);
+  /** Botão "Exibir tudo" — mapa completo independente do foco */
+  const [forceShowAll, setForceShowAll] = useState(false);
 
-  const showAll = !!linking;
+  const showAll = forceShowAll || !!linking;
   const visibleIds = useMemo(
-    () => visibleNodeIds(allNodes, focusId, showAll),
-    [allNodes, focusId, showAll]
+    () => visibleNodeIds(allNodes, focusId, showAll, allLinks),
+    [allNodes, focusId, showAll, allLinks]
   );
   const visibleNodes = useMemo(
     () => allNodes.filter((n) => visibleIds.has(n.id)),
     [allNodes, visibleIds]
   );
   const visibleLinks = useMemo(() => {
-    const list = allLinks.filter(
+    return allLinks.filter(
       (l) =>
         visibleIds.has(l.from) &&
         visibleIds.has(l.to) &&
-        linkTouchesFocus(l, focusId, showAll)
+        linkTouchesFocus(l, focusId, showAll, visibleIds)
     );
-    return list;
   }, [allLinks, visibleIds, focusId, showAll]);
 
   useEffect(() => {
-    const saved = loadPositions();
     const base = defaultLayout(allNodes);
-    // posições salvas só para raízes/sistema — filhos sempre relayout
-    const merged = { ...base };
-    for (const n of allNodes) {
-      if (n.isSystem || !n.parent_id) {
-        if (saved[n.id]) merged[n.id] = saved[n.id];
-      }
-    }
-    // re-aplica colunas de filhos com base nos pais (evita stack um em cima do outro)
-    const parentIds = new Set(
-      allNodes.filter((n) => n.parent_id).map((n) => n.parent_id as string)
-    );
-    parentIds.forEach((pid) => layoutChildrenOf(pid, merged, allNodes));
-
-    for (const n of allNodes) {
-      if (!merged[n.id]) {
-        merged[n.id] = { x: 560, y: 48 };
-      }
-    }
-    setPositions(merged);
-    savePositions(merged);
+    setPositions(base);
+    savePositions(base);
   }, [allNodes.map((n) => n.id).join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Ao focar um menu, reorganiza os filhos em coluna à direita
+  // Ao focar: reorganiza subárvore (filhos+netos) e mantém Sucesso/Márcio à direita
   useEffect(() => {
-    if (!focusId || focusId.startsWith("__")) return;
+    if (forceShowAll) {
+      setPositions(defaultLayout(allNodes));
+      return;
+    }
+    if (!focusId) return;
+
     setPositions((prev) => {
       const next = { ...prev };
-      layoutChildrenOf(focusId, next, allNodes);
-      // se o foco tem pai, mantém pai e irmãos organizados também
+
+      if (focusId === "__success__" || focusId === "__escalate__") {
+        // reverso: predecessores em coluna à esquerda do destino
+        const preds = predecessorsOf(focusId, allNodes, allLinks).filter(
+          (id) => !id.startsWith("__")
+        );
+        const endY = focusId === "__success__" ? 40 : Math.max(200, preds.length * 40);
+        next[focusId] = { x: SYSTEM_END_X, y: endY };
+        const other = focusId === "__success__" ? "__escalate__" : "__success__";
+        next[other] = {
+          x: SYSTEM_END_X,
+          y: focusId === "__success__" ? endY + 160 : 40,
+        };
+        const colX = Math.min(CONTENT_MAX_X, SYSTEM_END_X - CHILD_GAP_X);
+        preds.forEach((id, i) => {
+          next[id] = { x: colX, y: 48 + i * CHILD_GAP_Y };
+        });
+        // ancestrais um nível mais à esquerda
+        const predSet = new Set(preds);
+        const parents = preds
+          .map((id) => allNodes.find((n) => n.id === id)?.parent_id)
+          .filter((p): p is string => !!p && !predSet.has(p));
+        [...new Set(parents)].forEach((pid, i) => {
+          next[pid] = { x: Math.max(320, colX - CHILD_GAP_X), y: 48 + i * CHILD_GAP_Y };
+        });
+        pinSystemEnds(next, 48 + preds.length * CHILD_GAP_Y);
+        return next;
+      }
+
+      if (focusId.startsWith("__")) return next;
+
+      // subárvore completa do foco (filhos e netos)
+      layoutSubtree(focusId, next, allNodes);
       const self = allNodes.find((n) => n.id === focusId);
       if (self?.parent_id) {
         layoutChildrenOf(self.parent_id, next, allNodes);
       }
+      const maxY = Math.max(200, ...Object.values(next).map((p) => p.y + NODE_H));
+      pinSystemEnds(next, maxY);
       savePositions(next);
       return next;
     });
-  }, [focusId, allNodes]);
+  }, [focusId, allNodes, allLinks, forceShowAll]);
 
   const updatePos = useCallback((id: string, x: number, y: number) => {
     setPositions((prev) => {
@@ -399,22 +558,47 @@ export default function BotFlowCanvas({
           <h3 className="text-sm font-semibold text-foreground">Fluxo de atendimento</h3>
           <p className="text-[10px] text-muted-foreground truncate">
             {selectedLink
-              ? "Linha selecionada · clique em Apagar (ou tecla Del) · Esc cancela"
+              ? "Linha selecionada · Apagar ou Del"
               : linking
-                ? "Ligando… clique na bolinha à esquerda do destino"
-                : focusId && !focusId.startsWith("__")
-                  ? "Foco no nó · clique na linha pra selecionar/apagar · duplo clique = editar"
-                  : "Clique na linha pra selecionar · Apagar remove a ligação"}
+                ? "Ligando… clique na entrada do destino"
+                : forceShowAll
+                  ? "Mapa completo · clique num nó pra focar"
+                  : focusId === "__success__" || focusId === "__escalate__"
+                    ? "Rota reversa · quem chega neste destino"
+                    : focusId && !focusId.startsWith("__")
+                      ? "Foco no nó · filhos/netos à direita · Sucesso/Márcio fixos no fim"
+                      : "Visão geral · Exibir tudo = mapa completo"}
           </p>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
           {linking && (
             <button type="button" onClick={() => setLinking(null)} className="text-[10px] px-2 py-1 rounded-lg border border-border hover:bg-muted">
               Cancelar
             </button>
           )}
-          {focusId && !linking && (
-            <button type="button" onClick={() => onFocus(null)} className="text-[10px] px-2 py-1 rounded-lg border border-border hover:bg-muted">
+          <button
+            type="button"
+            onClick={() => {
+              setForceShowAll((v) => !v);
+              if (!forceShowAll) onFocus(null);
+            }}
+            className={`text-[10px] px-2.5 py-1 rounded-lg border font-medium transition-colors ${
+              forceShowAll
+                ? "bg-violet-600 text-white border-violet-600"
+                : "border-border text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            {forceShowAll ? "Sair do mapa completo" : "Exibir tudo"}
+          </button>
+          {(focusId || forceShowAll) && !linking && (
+            <button
+              type="button"
+              onClick={() => {
+                setForceShowAll(false);
+                onFocus(null);
+              }}
+              className="text-[10px] px-2 py-1 rounded-lg border border-border hover:bg-muted"
+            >
               Visão geral
             </button>
           )}
@@ -583,8 +767,9 @@ export default function BotFlowCanvas({
                 onPointerUp={onNodePointerUp}
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (!isSys) onFocus(n.id);
-                  else onFocus(null);
+                  setForceShowAll(false);
+                  // Início / Sucesso / Márcio também recebem foco (reverso nos dois últimos)
+                  onFocus(n.id);
                 }}
                 onDoubleClick={(e) => {
                   e.stopPropagation();
