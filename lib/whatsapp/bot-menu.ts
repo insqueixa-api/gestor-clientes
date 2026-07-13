@@ -431,7 +431,9 @@ export function matchAccountFromText(clients: any[], text: string): number | nul
   return null;
 }
 
-// Ações que precisam saber qual conta usar quando há múltiplas
+// Ações que precisam saber qual conta usar quando há múltiplas — mantido
+// pra nós legados que ainda têm esses valores salvos em special_actions
+// (de antes de virarem automáticos).
 export const ACCOUNT_DEPENDENT_ACTIONS = [
   "check_servidor_vencimento",
   "check_renovacao_recente",
@@ -440,6 +442,17 @@ export const ACCOUNT_DEPENDENT_ACTIONS = [
   "recomendar_app",
 ];
 
-export function nodeNeedsAccount(node: MenuNode): boolean {
-  return (node.special_actions || []).some((a) => ACCOUNT_DEPENDENT_ACTIONS.includes(a));
+// ✅ {link_pagamento}/{tabela_precos} viraram automáticos (detectados no
+// texto do nó, ver buildVarsForNode nas rotas) — não têm mais checkbox
+// próprio, então não aparecem mais em special_actions pra nós NOVOS. Sem
+// essa checagem por texto, um nó novo com {link_pagamento} nunca
+// perguntaria "qual conta?" antes de gerar o link — geraria sempre pra
+// primeira conta, errado pra quem tem mais de uma.
+export const ACCOUNT_DEPENDENT_VARS = ["{link_pagamento}", "{tabela_precos}"];
+
+export async function nodeNeedsAccount(sb: any, node: MenuNode): Promise<boolean> {
+  const actions = node.special_actions || [];
+  if (actions.some((a) => ACCOUNT_DEPENDENT_ACTIONS.includes(a))) return true;
+  const stepsText = (await getSteps(sb, node.id)).join(" ");
+  return ACCOUNT_DEPENDENT_VARS.some((v) => stepsText.includes(v));
 }

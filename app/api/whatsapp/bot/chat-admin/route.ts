@@ -14,6 +14,7 @@ import {
   isBackToMenuTrigger,
   isSimpleConfirmation,
   isLinkOnly,
+  isGreetingOnly,
   classifyRecentJob,
   checkRecentPortalPayment,
   paymentAutoConfirmedMsg,
@@ -130,38 +131,6 @@ async function toolConsultarPrecosTexto(sb: any, tenantId: string, client: any):
   return linhas.length ? linhas.join("\n") : "(nenhum preço configurado)";
 }
 
-async function toolVerificarCloudflare(): Promise<{ operacional: boolean }> {
-  try {
-    const res = await fetch("https://www.cloudflarestatus.com/api/v2/status.json", { signal: AbortSignal.timeout(5_000) });
-    const data = await res.json();
-    return { operacional: data?.status?.indicator === "none" };
-  } catch {
-    return { operacional: true };
-  }
-}
-
-async function toolRecomendarAppsTexto(sb: any, tenantId: string, serverId: string | null): Promise<string> {
-  const { data: apps } = await sb
-    .from("apps").select("name, cost_type, partner_server_id, license_price, license_period")
-    .eq("tenant_id", tenantId).eq("is_hidden", false);
-  if (!apps) return "(nenhum app configurado)";
-  const parceiros = (apps as any[]).filter(a => a.cost_type === "partnership" && a.partner_server_id === serverId).map(a => a.name);
-  const gratis = (apps as any[]).filter(a => a.cost_type === "free" && !a.partner_server_id).map(a => a.name);
-  // ✅ Alinhado com agent/route.ts — faltava a lista de apps pagos aqui, o
-  // simulador nunca mostrava essa parte da recomendação (divergia da produção).
-  const pagos = (apps as any[]).filter(a => a.cost_type === "paid" && !a.partner_server_id).map(a => {
-    const preco = a.license_price ? `R$ ${Number(a.license_price).toFixed(2).replace(".", ",")}` : "";
-    const periodo = a.license_period === "annual" ? "/ano" : a.license_period === "lifetime" ? " (vitalício)" : "";
-    return `${a.name}${preco ? ` (${preco}${periodo})` : ""}`;
-  });
-  const linhas = [
-    parceiros.length ? `Parceiros do seu servidor: ${parceiros.join(", ")}` : null,
-    gratis.length ? `Gratuitos: ${gratis.join(", ")}` : null,
-    pagos.length ? `Pagos: ${pagos.join(", ")}` : null,
-  ].filter(Boolean);
-  return linhas.join("\n") || "(nenhuma recomendação disponível)";
-}
-
 // ── Variáveis de template ────────────────────────────────────────────────────
 
 async function buildVarsForNode(sb: any, tenantId: string, node: MenuNode, client: any, rawClient: any): Promise<Record<string, any>> {
@@ -173,15 +142,15 @@ async function buildVarsForNode(sb: any, tenantId: string, node: MenuNode, clien
   vars.usuario_app = client.server_username || "";
   vars.plano_nome = client.plan_label || "";
   vars.servidor_nome = client.server_name || "";
-  const actions = node.special_actions || [];
-if (actions.includes("gerar_link_portal")) {
+  // ✅ Mesma correção do agent/route.ts: em vez de exigir marcar "Gerar
+  // link do portal"/"Consultar tabela de preços" no nó, o bot detecta
+  // sozinho pela presença de {link_pagamento}/{tabela_precos} no texto.
+  const stepsText = (await getSteps(sb, node.id)).join(" ");
+  if (stepsText.includes("{link_pagamento}")) {
     vars.link_pagamento = await toolGerarLinkPortal(sb, tenantId, rawClient, client.is_secondary);
   }
-  if (actions.includes("consultar_precos")) {
+  if (stepsText.includes("{tabela_precos}")) {
     vars.tabela_precos = await toolConsultarPrecosTexto(sb, tenantId, client);
-  }
-  if (actions.includes("recomendar_app")) {
-    vars.apps_recomendados = await toolRecomendarAppsTexto(sb, tenantId, client.server_id || null);
   }
   return vars;
 }
@@ -223,15 +192,6 @@ async function executeLeaf(node: MenuNode, client: any, rawClient: any, sb: any,
     const vars = await buildVarsForNode(sb, tenantId, node, client, rawClient);
     const steps = (await getSteps(sb, node.id)).map((s) => renderTemplate(s, vars));
     return { messages: steps, escalate: false, nextState: "__redirect_instalacao__" };
-  }
-
-  // App não abre — decide dinamicamente com Cloudflare real
-  if (actions.includes("verificar_cloudflare")) {
-    const cf = await toolVerificarCloudflare();
-    const msg = cf.operacional
-      ? "Verifiquei aqui e não identificamos instabilidade externa no momento. Vamos tentar: desligue o modem da tomada por 5 minutos e reabra o aplicativo. Se persistir, me avisa!"
-      : "Identificamos que a instabilidade vem de um serviço externo chamado Cloudflare, que faz a ponte entre você e nosso servidor. O time deles já está atuando para corrigir. A normalização deve ocorrer em breve. Obrigado pela paciência! 💙";
-    return { messages: [msg], nextState: node.closing_message ? `awaiting_resolution:${node.id}` : "geral" };
   }
 
   // Sem sinal/vencimento — decide dinamicamente se está vencido
@@ -295,7 +255,7 @@ export async function POST(req: Request) {
   if (phone) {
     const { data: clientMatches } = await sb
       .from("clients")
-      .select(`id, display_name, secondary_display_name, whatsapp_username, secondary_whatsapp_username, server_username, server_password, vencimento, screens, plan_label, plan_table_id, price_amount, price_currency, technology, server_id, servers (name, dns, is_offline)`)
+      .select(`id, display_name, secondary_display_name, whatsapp_username, secondary_whatsapp_username, server_username, server_password, vencimento, screens, plan_label, plan_table_id, price_amount, price_currency, technology, server_id, servers (name, dns, is_offline, offline_reason)`)
       .eq("tenant_id", tenantId)
       .or(`whatsapp_username.eq.${phone},secondary_whatsapp_username.eq.${phone}`);
 
@@ -309,13 +269,14 @@ export async function POST(req: Request) {
           display_name: isSec ? (raw.secondary_display_name || raw.display_name || "Cliente") : (raw.display_name || "Cliente"),
           server_name: srv?.name || "Servidor",
           server_is_offline: srv?.is_offline ?? false,
+          server_offline_reason: srv?.offline_reason ?? null,
           is_secondary: isSec,
         };
       });
     }
   }
   if (!clients.length) {
-    clients = [{ id: null, display_name: "Cliente Teste", server_name: "Servidor Teste", plan_label: "Mensal", screens: 1, vencimento: null, price_currency: "BRL", price_amount: 0, plan_table_id: null, server_id: null, whatsapp_username: null, server_is_offline: false }];
+    clients = [{ id: null, display_name: "Cliente Teste", server_name: "Servidor Teste", plan_label: "Mensal", screens: 1, vencimento: null, price_currency: "BRL", price_amount: 0, plan_table_id: null, server_id: null, whatsapp_username: null, server_is_offline: false, server_offline_reason: null }];
     clientMatchesRaw = [clients[0]];
   }
   const firstName = clients[0].display_name.split(" ")[0];
@@ -385,6 +346,32 @@ export async function POST(req: Request) {
   if (isBackToMenuTrigger(trimmed)) {
     send(`Voltando ao menu principal! 😊\n\n${await getAllRootsAsMenuText(sb, tenantId, clientProvider)}`);
     return finish({ action: "back_to_menu", mark_read: true, next_state: "aguardando_resposta" });
+  }
+
+  // ── Checagem global: servidor offline ou acesso vencido ─────────────────
+  // ✅ Mesma correção do agent/route.ts: antes só rodava se o nó específico
+  // tivesse o checkbox marcado — agora roda sempre, antes de qualquer
+  // roteamento de menu, exceto quando já está no meio de um fluxo
+  // específico ou quando a mensagem é só uma saudação pura.
+  const FRESH_STATES = new Set([null, undefined, "", "geral", "geral_retry", "aguardando_resposta", "aguardando_resposta_2"]);
+  if (FRESH_STATES.has(bot_state) && !isGreetingOnly(trimmed)) {
+    if (clients[0]?.server_is_offline) {
+      // ✅ Mesma correção do agent/route.ts: usa a justificativa cadastrada
+      // no servidor (offline_reason) quando existir.
+      const reason = clients[0]?.server_offline_reason?.trim();
+      const msg = reason
+        ? `Identificamos uma instabilidade: ${reason}. Já está sendo verificada pela nossa equipe — assim que normalizar, volta a funcionar sozinho, sem precisar fazer nada. 🙏`
+        : "Identificamos uma instabilidade interna no servidor que já está sendo verificada pela nossa equipe. Em breve tudo estará normalizado! Por enquanto, tente acessar de tempos em tempos — quando voltar, funciona normalmente, sem precisar fazer nada. 🙏";
+      send(msg);
+      return finish({ action: "gate_offline_global", mark_read: true, next_state: "geral" });
+    }
+    const vencido = clients[0]?.vencimento ? new Date(clients[0].vencimento).getTime() < Date.now() : false;
+    if (vencido) {
+      const link = await toolGerarLinkPortal(sb, tenantId, clientMatchesRaw[0], clients[0].is_secondary);
+      const msg = `Vi aqui que seu acesso está vencido — por isso o sinal parou. 😊\n\nPara renovar:\n👉 ${link}\nSenha: últimos 4 dígitos do seu WhatsApp`;
+      send(msg);
+      return finish({ action: "gate_vencido_global", mark_read: true, next_state: "geral" });
+    }
   }
 
   // ── Item 5: reação a mensagem automática recente — antes de qualquer menu ─
@@ -459,7 +446,7 @@ export async function POST(req: Request) {
 
   // ── Executa um nó (root ou folha), incluindo gate checks e resolução de conta ──
   async function enterNode(node: MenuNode, resolved: { client: any; rawClient: any } | null, attempt: 1 | 2): Promise<any> {
-    if (nodeNeedsAccount(node) && !resolved) {
+    if ((await nodeNeedsAccount(sb, node)) && !resolved) {
       resolved = resolveAccount(trimmed);
       if (!resolved) {
         if (attempt === 2) {

@@ -8,7 +8,7 @@ import {
   ShieldCheck, Sparkles, ArrowUp, ArrowDown, Eye, Tag,
 } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import { ACCOUNT_DEPENDENT_ACTIONS } from "@/lib/whatsapp/bot-menu";
+import { ACCOUNT_DEPENDENT_ACTIONS, ACCOUNT_DEPENDENT_VARS } from "@/lib/whatsapp/bot-menu";
 
 type MenuNode = {
   id: string;
@@ -35,14 +35,22 @@ const SERVER_OPTIONS = [
 type MenuStep = { id: string; node_id: string; step_order: number; message_text: string };
 type TreeNode = MenuNode & { children: TreeNode[]; steps: MenuStep[] };
 
+// ✅ "Checar servidor offline/vencimento" saiu daqui — virou checagem
+// automática e global (roda antes de qualquer roteamento de menu, pra
+// qualquer cliente, sem precisar marcar em nenhum nó). "Verificar
+// Cloudflare" também saiu — no lugar de checar uma API externa em tempo
+// real, marque o servidor como offline (com a justificativa) na tela de
+// Servidores; o bot já avisa todo mundo sozinho, qualquer que seja a
+// causa. "Gerar link do portal"/"Consultar tabela de preços" saíram
+// porque agora são automáticos: o bot detecta sozinho se {link_pagamento}
+// ou {tabela_precos} aparece no texto do nó e resolve na hora — não tem
+// mais nada pra marcar, só usar a variável. "Recomendar aplicativo" e
+// "Texto livre → RAG" saíram porque devem virar ramificação própria na
+// árvore (cada servidor/situação tem seu fluxo explícito). Nenhuma dessas
+// é mais oferecida pra nós novos, mas nós antigos que já usavam continuam
+// funcionando exatamente como configurados.
 const SPECIAL_ACTIONS = [
-  { value: "check_servidor_vencimento", label: "🔌 Checar servidor offline / vencimento", desc: "Se detectar problema, responde direto e nem mostra as opções." },
   { value: "check_renovacao_recente", label: "💳 Checar renovação automática recente", desc: "Se já tiver pagamento confirmado, responde direto (sem pedir comprovante)." },
-  { value: "verificar_cloudflare", label: "☁️ Verificar Cloudflare", desc: "Checa instabilidade externa em tempo real." },
-  { value: "gerar_link_portal", label: "🔗 Gerar link do portal", desc: "Disponibiliza a variável {link_pagamento}." },
-  { value: "consultar_precos", label: "💰 Consultar tabela de preços", desc: "Disponibiliza a variável {tabela_precos}." },
-  { value: "recomendar_app", label: "📱 Recomendar aplicativo", desc: "Disponibiliza a variável {apps_recomendados}." },
-{ value: "free_text_rag", label: "✨ Texto livre → RAG", desc: "Fallback: busca no bot_knowledge quando nada mais se aplica." },
   { value: "escalar_imediatamente", label: "🙋 Escalar imediatamente", desc: "Transfere pro Márcio na hora, sem mostrar opções nem passos." },
 { value: "coletar_relato_e_escalar", label: "📝 Coletar relato e escalar", desc: "Manda a mensagem pedindo o relato e já transfere na sequência — não espera resposta." },
   { value: "redirecionar_instalacao", label: "↪️ Redirecionar pra Nova Instalação", desc: "Pula direto pro fluxo de instalação (marca/dispositivo)." },
@@ -81,12 +89,11 @@ const TAG_GROUPS = [
     ],
   },
   {
-    title: "💰 Financeiro (requer ação especial marcada)",
+    title: "💰 Financeiro (resolvido automaticamente se usado no texto)",
     color: "bg-amber-500/10 text-amber-500",
     tags: [
-      { label: "{link_pagamento}", desc: "Requer: Gerar link do portal" },
-      { label: "{tabela_precos}", desc: "Requer: Consultar tabela de preços" },
-      { label: "{apps_recomendados}", desc: "Requer: Recomendar aplicativo" },
+      { label: "{link_pagamento}", desc: "Gera o link do portal na hora" },
+      { label: "{tabela_precos}", desc: "Busca a tabela de preços na hora" },
       { label: "{valor_fatura}", desc: "Valor da renovação" },
       { label: "{moeda_cliente}", desc: "BRL/USD/EUR" },
     ],
@@ -324,9 +331,14 @@ export default function BotMenuTreeEditor() {
     const NUMBER_EMOJI = ["0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"];
     // ✅ requires_account_check nunca é salvo pelo editor (nem lido pelo motor
     // de roteamento) — quem decide de verdade se o nó precisa de conta é a
-    // presença de uma ação especial "dependente de conta". O ícone agora
-    // reflete essa mesma regra, em vez da coluna estática/desatualizada.
-    const needsAccount = (node.special_actions || []).some((a) => ACCOUNT_DEPENDENT_ACTIONS.includes(a));
+    // presença de uma ação especial "dependente de conta" OU o uso de
+    // {link_pagamento}/{tabela_precos} no texto dos passos (essas duas
+    // viraram automáticas, sem checkbox — mesma regra do backend em
+    // nodeNeedsAccount, lib/whatsapp/bot-menu.ts).
+    const stepsTextForBadge = (node.steps || []).map((s) => s.message_text).join(" ");
+    const needsAccount =
+      (node.special_actions || []).some((a) => ACCOUNT_DEPENDENT_ACTIONS.includes(a)) ||
+      ACCOUNT_DEPENDENT_VARS.some((v) => stepsTextForBadge.includes(v));
 
     return (
       <div key={node.id} style={{ marginLeft: depth * 20 }}>
@@ -425,33 +437,52 @@ export default function BotMenuTreeEditor() {
 }
 
 // ── Painel de variáveis clicáveis (mesmo mecanismo do insertTag da página de mensagens) ──
-function TagPicker({ onInsert }: { onInsert: (tag: string) => void }) {
-  const [open, setOpen] = useState(false);
+// ✅ Painel de variáveis sempre visível, mesmo padrão do admin/mensagens
+// (grupos colapsáveis com cards clicáveis) — em vez de esconder atrás de um
+// clique num dropdown, os grupos ficam ali, só fechados por padrão pra não
+// ocupar espaço demais. Insere na textarea que estiver "ativa" (a última
+// focada), rastreada pelo NodeEditor.
+function VariablePanel({ onInsert }: { onInsert: (tag: string) => void }) {
+  const [openGroups, setOpenGroups] = useState<number[]>([]);
+  function toggleGroup(idx: number) {
+    setOpenGroups((prev) => (prev.includes(idx) ? prev.filter((i) => i !== idx) : [...prev, idx]));
+  }
   return (
-    <div className="relative inline-block">
-      <button type="button" onClick={() => setOpen(!open)} className="flex items-center gap-1 text-[11px] text-violet-500 hover:text-violet-400">
-        <Tag className="w-3 h-3" /> Inserir variável
-      </button>
-      {open && (
-        <div className="absolute z-50 top-full mt-1 right-0 w-72 max-h-72 overflow-y-auto bg-card border border-border rounded-xl shadow-2xl p-2">
-          {TAG_GROUPS.map((group) => (
-            <div key={group.title} className="mb-2">
-              <p className={`text-[10px] font-semibold px-2 py-1 rounded ${group.color}`}>{group.title}</p>
-              {group.tags.map((t) => (
-                <button
-                  key={t.label}
-                  type="button"
-                  onClick={() => { onInsert(t.label); setOpen(false); }}
-                  className="w-full text-left px-2 py-1 rounded hover:bg-muted transition-colors"
-                >
-                  <span className="text-xs font-mono text-foreground">{t.label}</span>
-                  <span className="text-[10px] text-muted-foreground block">{t.desc}</span>
-                </button>
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
+    <div className="border border-border rounded-lg overflow-hidden divide-y divide-border">
+      <div className="px-2.5 py-1.5 bg-muted/30 flex items-center gap-1.5">
+        <Tag className="w-3 h-3 text-muted-foreground" />
+        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Variáveis — clique pra inserir</span>
+      </div>
+      {TAG_GROUPS.map((group, idx) => {
+        const isOpen = openGroups.includes(idx);
+        return (
+          <div key={group.title}>
+            <button
+              type="button"
+              onClick={() => toggleGroup(idx)}
+              className={`w-full flex items-center justify-between px-2.5 py-1.5 text-left transition-colors ${isOpen ? "bg-muted/40" : "hover:bg-muted/20"}`}
+            >
+              <span className="text-[10px] font-semibold text-foreground">{group.title}</span>
+              <span className="text-[9px] text-muted-foreground">{isOpen ? "▲" : "▼"}</span>
+            </button>
+            {isOpen && (
+              <div className="p-2 grid grid-cols-2 gap-1.5 bg-background/40">
+                {group.tags.map((t) => (
+                  <button
+                    key={t.label}
+                    type="button"
+                    onClick={() => onInsert(t.label)}
+                    className={`text-left px-2 py-1.5 rounded-lg border border-border hover:brightness-95 active:scale-95 transition-all ${group.color}`}
+                  >
+                    <span className="block text-[10px] font-mono font-medium">{t.label}</span>
+                    <span className="block text-[9px] opacity-70 mt-0.5">{t.desc}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -483,6 +514,10 @@ function NodeEditor({
   const [steps, setSteps] = useState<string[]>(node.steps.map((s) => s.message_text));
   const [showPreview, setShowPreview] = useState(false);
   const textareaRefs = useRef<Record<number, HTMLTextAreaElement | null>>({});
+  // ✅ Qual passo recebe a variável quando clicada no painel — a última
+  // textarea que ganhou foco. Sem isso, um painel único (em vez de um por
+  // passo) não saberia onde inserir.
+  const [activeStepIndex, setActiveStepIndex] = useState(0);
 
   function toggleAction(value: string) {
     setSpecialActions((prev) => prev.includes(value) ? prev.filter((a) => a !== value) : [...prev, value]);
@@ -493,16 +528,24 @@ function NodeEditor({
   }
 
   function insertTagAt(stepIndex: number, tag: string) {
-    const el = textareaRefs.current[stepIndex];
+    // ✅ Sem nenhum passo ainda, cria um novo já com a variável em vez de
+    // não fazer nada (não existe textarea nenhuma pra focar/inserir).
+    if (steps.length === 0) {
+      setSteps([tag]);
+      setActiveStepIndex(0);
+      return;
+    }
+    const idx = Math.min(stepIndex, steps.length - 1);
+    const el = textareaRefs.current[idx];
     if (!el) {
-      setSteps((prev) => prev.map((s, i) => i === stepIndex ? s + tag : s));
+      setSteps((prev) => prev.map((s, i) => i === idx ? s + tag : s));
       return;
     }
     const start = el.selectionStart;
     const end = el.selectionEnd;
     const text = el.value;
     const newText = text.substring(0, start) + tag + text.substring(end);
-    setSteps((prev) => prev.map((s, i) => i === stepIndex ? newText : s));
+    setSteps((prev) => prev.map((s, i) => i === idx ? newText : s));
     setTimeout(() => { el.focus(); el.setSelectionRange(start + tag.length, start + tag.length); }, 0);
   }
 
@@ -591,26 +634,27 @@ onSaveSteps(steps.filter((s) => s.trim()));
 {!specialActions.includes("free_text_rag") && (
         <div>
           <label className={labelCls}>{isLeaf ? "Passos sequenciais" : "Mensagens antes de mostrar as opções filhas (opcional)"}</label>
-          <div className="space-y-2 mt-1">
+          <div className="mt-1.5 mb-2">
+            <VariablePanel onInsert={(tag) => insertTagAt(activeStepIndex, tag)} />
+          </div>
+          <div className="space-y-2">
             {steps.map((s, i) => (
-              <div key={i} className="border border-border rounded-lg p-2 space-y-1">
+              <div key={i} className={`border rounded-lg p-2 space-y-1 transition-colors ${activeStepIndex === i ? "border-violet-500/50" : "border-border"}`}>
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] text-muted-foreground">Passo {i + 1}</span>
-                  <div className="flex items-center gap-2">
-                    <TagPicker onInsert={(tag) => insertTagAt(i, tag)} />
-                    <button onClick={() => setSteps((prev) => prev.filter((_, idx) => idx !== i))} className="text-rose-500"><X className="w-3.5 h-3.5" /></button>
-                  </div>
+                  <button onClick={() => setSteps((prev) => prev.filter((_, idx) => idx !== i))} className="text-rose-500"><X className="w-3.5 h-3.5" /></button>
                 </div>
                 <textarea
                   ref={(el) => { textareaRefs.current[i] = el; }}
                   value={s}
+                  onFocus={() => setActiveStepIndex(i)}
                   onChange={(e) => setSteps((prev) => prev.map((p, idx) => idx === i ? e.target.value : p))}
                   className="w-full text-xs bg-background border border-border rounded-lg px-2 py-1.5"
                   rows={3}
                 />
               </div>
             ))}
-            <button onClick={() => setSteps((prev) => [...prev, ""])} className="flex items-center gap-1 text-[11px] text-violet-500">
+            <button onClick={() => { setSteps((prev) => [...prev, ""]); setActiveStepIndex(steps.length); }} className="flex items-center gap-1 text-[11px] text-violet-500">
               <Plus className="w-3 h-3" /> Adicionar passo
             </button>
           </div>

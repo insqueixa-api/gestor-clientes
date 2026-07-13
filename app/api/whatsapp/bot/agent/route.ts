@@ -18,6 +18,7 @@ import {
   isBackToMenuTrigger,
   isSimpleConfirmation,
   isLinkOnly,
+  isGreetingOnly,
   classifyRecentJob,
   checkRecentPortalPayment,
   paymentAutoConfirmedMsg,
@@ -178,38 +179,6 @@ async function toolConsultarPrecosTexto(sb: any, tenantId: string, client: any):
   return linhas.length ? linhas.join("\n") : "(nenhum preço configurado)";
 }
 
-async function toolVerificarCloudflare(): Promise<{ operacional: boolean }> {
-  try {
-    const res = await fetch("https://www.cloudflarestatus.com/api/v2/status.json", { signal: AbortSignal.timeout(5_000) });
-    const data = await res.json();
-    return { operacional: data?.status?.indicator === "none" };
-  } catch {
-    return { operacional: true };
-  }
-}
-
-async function toolRecomendarAppsTexto(sb: any, tenantId: string, serverId: string | null): Promise<string> {
-  const { data: apps } = await sb
-    .from("apps").select("name, cost_type, partner_server_id, license_price, license_period")
-    .eq("tenant_id", tenantId).eq("is_hidden", false);
-  if (!apps) return "(nenhum app configurado)";
-
-  const parceiros = (apps as any[]).filter(a => a.cost_type === "partnership" && a.partner_server_id === serverId).map(a => a.name);
-  const gratis = (apps as any[]).filter(a => a.cost_type === "free" && !a.partner_server_id).map(a => a.name);
-  const pagos = (apps as any[]).filter(a => a.cost_type === "paid" && !a.partner_server_id).map(a => {
-    const preco = a.license_price ? `R$ ${Number(a.license_price).toFixed(2).replace(".", ",")}` : "";
-    const periodo = a.license_period === "annual" ? "/ano" : a.license_period === "lifetime" ? " (vitalício)" : "";
-    return `${a.name}${preco ? ` (${preco}${periodo})` : ""}`;
-  });
-
-  const linhas = [
-    parceiros.length ? `Parceiros do seu servidor: ${parceiros.join(", ")}` : null,
-    gratis.length ? `Gratuitos: ${gratis.join(", ")}` : null,
-    pagos.length ? `Pagos: ${pagos.join(", ")}` : null,
-  ].filter(Boolean);
-  return linhas.join("\n") || "(nenhuma recomendação disponível)";
-}
-
 // ── Variáveis de template pra um nó específico ───────────────────────────────
 
 async function buildVarsForNode(sb: any, tenantId: string, node: MenuNode, client: any, rawClient: any): Promise<Record<string, any>> {
@@ -221,15 +190,18 @@ async function buildVarsForNode(sb: any, tenantId: string, node: MenuNode, clien
   vars.usuario_app = client.server_username || "";
   vars.plano_nome = client.plan_label || "";
   vars.servidor_nome = client.server_name || "";
-  const actions = node.special_actions || [];
-  if (actions.includes("gerar_link_portal")) {
+  // ✅ Antes exigia marcar "Gerar link do portal"/"Consultar tabela de
+  // preços" no nó pra essas variáveis funcionarem — mais um checkbox fácil
+  // de esquecer. Agora o bot detecta sozinho: se o texto do nó (passos)
+  // menciona {link_pagamento} ou {tabela_precos}, resolve na hora, sem
+  // precisar marcar nada — mesmo espírito de como envio_agora/envio
+  // agendado já resolvem variáveis (lib/whatsapp/template-vars.ts).
+  const stepsText = (await getSteps(sb, node.id)).join(" ");
+  if (stepsText.includes("{link_pagamento}")) {
     vars.link_pagamento = await toolGerarLinkPortal(sb, tenantId, rawClient, client.is_secondary);
   }
-  if (actions.includes("consultar_precos")) {
+  if (stepsText.includes("{tabela_precos}")) {
     vars.tabela_precos = await toolConsultarPrecosTexto(sb, tenantId, client);
-  }
-  if (actions.includes("recomendar_app")) {
-    vars.apps_recomendados = await toolRecomendarAppsTexto(sb, tenantId, client.server_id || null);
   }
   return vars;
 }
@@ -271,14 +243,6 @@ async function executeLeaf(node: MenuNode, client: any, rawClient: any, sb: any,
     const vars = await buildVarsForNode(sb, tenantId, node, client, rawClient);
     const steps = (await getSteps(sb, node.id)).map((s) => renderTemplate(s, vars));
     return { messages: steps, escalate: false, nextState: "__redirect_instalacao__" };
-  }
-
-  if (actions.includes("verificar_cloudflare")) {
-    const cf = await toolVerificarCloudflare();
-    const msg = cf.operacional
-      ? "Verifiquei aqui e não identificamos instabilidade externa no momento. Vamos tentar: desligue o modem da tomada por 5 minutos e reabra o aplicativo. Se persistir, me avisa!"
-      : "Identificamos que a instabilidade vem de um serviço externo chamado Cloudflare, que faz a ponte entre você e nosso servidor. O time deles já está atuando para corrigir. A normalização deve ocorrer em breve. Obrigado pela paciência! 💙";
-    return { messages: [msg], nextState: node.closing_message ? `awaiting_resolution:${node.id}` : "geral" };
   }
 
   if (actions.includes("check_servidor_vencimento")) {
@@ -489,6 +453,40 @@ export async function POST(req: Request) {
     });
   }
 
+  // ── Checagem global: servidor offline ou acesso vencido ─────────────────
+  // ✅ Simplificação pedida: antes, isso só rodava se o nó específico
+  // tivesse o checkbox "Checar servidor offline/vencimento" marcado —
+  // passava batido em qualquer outro caminho da árvore, e em qualquer nó
+  // novo que esquecesse de marcar. Agora roda sempre, antes de qualquer
+  // roteamento de menu — só não interrompe quem já está no meio de um
+  // fluxo específico (pagamento, aguardando resolução, escolhendo conta,
+  // dentro de um submenu) nem quem só mandou uma saudação pura, pra não
+  // parecer o bot ignorando um "oi" pra já cobrar ou pedir desculpa por um
+  // problema que a pessoa nem mencionou.
+  const FRESH_STATES = new Set([null, undefined, "", "geral", "geral_retry", "aguardando_resposta", "aguardando_resposta_2"]);
+  if (FRESH_STATES.has(bot_state) && awaiting_payment_type !== true && !isGreetingOnly(trimmed)) {
+    if (clients[0]?.server_is_offline) {
+      // ✅ Usa a justificativa cadastrada no servidor (offline_reason) quando
+      // existir — é o que substitui o antigo "Verificar Cloudflare": em vez
+      // do bot checar uma API externa em tempo real, o Márcio marca o
+      // servidor como offline e escreve o motivo uma vez só, e o bot já
+      // avisa todo mundo com a justificativa certa, seja qual for a causa.
+      const reason = clients[0]?.server_offline_reason?.trim();
+      const msg = reason
+        ? `Identificamos uma instabilidade: ${reason}. Já está sendo verificada pela nossa equipe — assim que normalizar, volta a funcionar sozinho, sem precisar fazer nada. 🙏`
+        : "Identificamos uma instabilidade interna no servidor que já está sendo verificada pela nossa equipe. Em breve tudo estará normalizado! Por enquanto, tente acessar de tempos em tempos — quando voltar, funciona normalmente, sem precisar fazer nada. 🙏";
+      await sendWAMessage(session_key, phone, msg);
+      return NextResponse.json({ ok: true, action: "gate_offline_global", mark_read: true, bot_response: msg, next_state: "geral", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+    }
+    const vencido = clients[0]?.vencimento ? new Date(clients[0].vencimento).getTime() < Date.now() : false;
+    if (vencido) {
+      const link = await toolGerarLinkPortal(sb, tenant_id, clientMatches[0], clients[0].is_secondary);
+      const msg = `Vi aqui que seu acesso está vencido — por isso o sinal parou. 😊\n\nPara renovar:\n👉 ${link}\nSenha: últimos 4 dígitos do seu WhatsApp`;
+      await sendWAMessage(session_key, phone, msg);
+      return NextResponse.json({ ok: true, action: "gate_vencido_global", mark_read: true, bot_response: msg, next_state: "geral", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+    }
+  }
+
   // ── "Portal ou PIX?" — checado antes do roteamento de menu ──────────────
   if (awaiting_payment_type === true) {
     const mentionsPix = /\b(pix|transfer[eê]ncia|manual|ted|doc|dep[oó]sito)\b/i.test(trimmed);
@@ -548,7 +546,7 @@ export async function POST(req: Request) {
   }
 
   async function enterNode(node: MenuNode, resolved: { client: any; rawClient: any } | null, attempt: 1 | 2): Promise<any> {
-    if (nodeNeedsAccount(node) && !resolved) {
+    if ((await nodeNeedsAccount(sb, node)) && !resolved) {
       resolved = resolveAccount(trimmed);
       if (!resolved) {
         if (attempt === 2) {
