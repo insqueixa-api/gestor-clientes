@@ -69,13 +69,15 @@ const COL_GAP = 210;
 const COL_X = [40, 40 + COL_GAP, 40 + COL_GAP * 2, 40 + COL_GAP * 3, 40 + COL_GAP * 4, 40 + COL_GAP * 5] as const;
 
 /**
- * Visão geral (nada clicado) — só 3 colunas, compacta, sem vazio no meio:
+ * Visão geral (nada clicado) — só 3 grupos, mas espalhados pela largura toda
+ * do board (mesmas posições-âncora das colunas 0/2/5 do mapa completo), pra
+ * não sobrar vazio à direita e dar mais respiro horizontal entre os cards.
  *  Início | Menus principais | Sucesso + Márcio
  */
 const OVERVIEW_X = {
-  start: 48,
-  menu: 300,
-  end: 620,
+  start: COL_X[0],
+  menu: COL_X[2],
+  end: COL_X[5],
 } as const;
 
 const ROW_GAP = NODE_H + 12;
@@ -753,7 +755,7 @@ export default function BotFlowCanvas({
               const t = fromStart ? 0.82 : 0.5;
               const mx = a.x + (b.x - a.x) * t;
               const my = a.y + (b.y - a.y) * t;
-              const badgeR = fromStart ? (selected ? 10 : 8) : selected ? 12 : 10;
+              const badgeR = fromStart ? (selected ? 11 : 10) : selected ? 12 : 10;
               return (
                 <g
                   key={key}
@@ -779,20 +781,24 @@ export default function BotFlowCanvas({
                     markerEnd={`url(#arr-${link.kind})`}
                   />
                   <path d={edgePath(a.x, a.y, b.x, b.y)} fill="none" stroke="transparent" strokeWidth={18} />
+                  {/* ✅ Badge sempre com fundo sólido da cor do fio + texto branco:
+                      texto colorido em cima do fundo do card tinha contraste
+                      ruim no dark mode (ex: roxo do menu quase ilegível). */}
                   <circle
                     cx={mx}
                     cy={my}
                     r={badgeR}
-                    fill={selected ? LINK_COLORS[link.kind] : "hsl(var(--card))"}
-                    stroke={LINK_COLORS[link.kind]}
-                    strokeWidth={1.25}
+                    fill={LINK_COLORS[link.kind]}
+                    stroke="hsl(var(--card))"
+                    strokeWidth={selected ? 2 : 1.5}
                   />
                   <text
                     x={mx}
-                    y={my + 3}
+                    y={my + 3.5}
                     textAnchor="middle"
-                    fontSize={fromStart ? "8" : "9"}
-                    fill={selected ? "#fff" : LINK_COLORS[link.kind]}
+                    fontSize={fromStart ? "9.5" : "10"}
+                    fontWeight={600}
+                    fill="#fff"
                     className="pointer-events-none select-none"
                   >
                     {label}
@@ -885,7 +891,7 @@ export default function BotFlowCanvas({
                       {n.systemKind === "escalate" && "passa pra você"}
                     </p>
                   )}
-                  <p className="text-[9px] text-muted-foreground/80 mt-0.5">
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
                     {isSys ? "duplo clique = textos" : "duplo clique = editar"}
                   </p>
                 </div>
