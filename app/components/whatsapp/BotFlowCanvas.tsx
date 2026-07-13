@@ -56,28 +56,52 @@ function savePositions(p: Record<string, Pos>) {
   } catch { /* ignore */ }
 }
 
+const CHILD_GAP_Y = NODE_H + 28;
+const CHILD_GAP_X = 260;
+
+/** Coloca filhos em coluna à direita do pai, sem sobrepor */
+function layoutChildrenOf(
+  parentId: string,
+  pos: Record<string, Pos>,
+  nodes: CanvasNode[]
+) {
+  const children = nodes
+    .filter((n) => !n.isSystem && n.parent_id === parentId)
+    .sort((a, b) => a.option_number - b.option_number);
+  if (!children.length) return;
+  const parentPos = pos[parentId] || { x: 320, y: 100 };
+  const totalH = (children.length - 1) * CHILD_GAP_Y;
+  const startY = Math.max(24, parentPos.y + NODE_H / 2 - totalH / 2 - NODE_H / 2);
+  children.forEach((c, i) => {
+    pos[c.id] = {
+      x: parentPos.x + CHILD_GAP_X,
+      y: startY + i * CHILD_GAP_Y,
+    };
+  });
+}
+
 /** Layout limpo: Início → menus raiz → Sucesso / Márcio no fim */
 function defaultLayout(nodes: CanvasNode[]): Record<string, Pos> {
-  const roots = nodes.filter((n) => !n.isSystem && !n.parent_id);
-  const midY = Math.max(200, 40 + (roots.length * 110) / 2);
+  const roots = nodes
+    .filter((n) => !n.isSystem && !n.parent_id)
+    .sort((a, b) => a.option_number - b.option_number);
+  const midY = Math.max(200, 40 + ((roots.length - 1) * 120) / 2);
   const pos: Record<string, Pos> = {
-    __start__: { x: 48, y: midY - NODE_H / 2 },
-    __success__: { x: 780, y: 48 },
-    __escalate__: { x: 780, y: midY + 80 },
+    __start__: { x: 48, y: midY },
+    __success__: { x: 900, y: 48 },
+    __escalate__: { x: 900, y: midY + 100 },
   };
   roots.forEach((n, i) => {
     pos[n.id] = { x: 320, y: 48 + i * 120 };
   });
-  // filhos: à direita do pai (se pai tiver pos)
-  const kids = nodes.filter((n) => !n.isSystem && n.parent_id);
-  kids.forEach((n, i) => {
-    const parentPos = n.parent_id ? pos[n.parent_id] : null;
-    pos[n.id] = parentPos
-      ? { x: parentPos.x + 240, y: parentPos.y + (i % 4) * 24 }
-      : { x: 560, y: 48 + i * 100 };
-  });
+  // filhos por pai, em coluna (nunca um em cima do outro)
+  const parentIds = new Set(
+    nodes.filter((n) => n.parent_id).map((n) => n.parent_id as string)
+  );
+  parentIds.forEach((pid) => layoutChildrenOf(pid, pos, nodes));
+
   nodes.filter((n) => !n.isSystem && !pos[n.id]).forEach((n, i) => {
-    pos[n.id] = { x: 500, y: 48 + i * 100 };
+    pos[n.id] = { x: 560, y: 48 + i * CHILD_GAP_Y };
   });
   return pos;
 }
@@ -227,14 +251,43 @@ export default function BotFlowCanvas({
   useEffect(() => {
     const saved = loadPositions();
     const base = defaultLayout(allNodes);
-    const merged = { ...base, ...saved };
+    // posições salvas só para raízes/sistema — filhos sempre relayout
+    const merged = { ...base };
+    for (const n of allNodes) {
+      if (n.isSystem || !n.parent_id) {
+        if (saved[n.id]) merged[n.id] = saved[n.id];
+      }
+    }
+    // re-aplica colunas de filhos com base nos pais (evita stack um em cima do outro)
+    const parentIds = new Set(
+      allNodes.filter((n) => n.parent_id).map((n) => n.parent_id as string)
+    );
+    parentIds.forEach((pid) => layoutChildrenOf(pid, merged, allNodes));
+
     for (const n of allNodes) {
       if (!merged[n.id]) {
-        merged[n.id] = { x: 280 + Math.random() * 120, y: 80 + Math.random() * 160 };
+        merged[n.id] = { x: 560, y: 48 };
       }
     }
     setPositions(merged);
+    savePositions(merged);
   }, [allNodes.map((n) => n.id).join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Ao focar um menu, reorganiza os filhos em coluna à direita
+  useEffect(() => {
+    if (!focusId || focusId.startsWith("__")) return;
+    setPositions((prev) => {
+      const next = { ...prev };
+      layoutChildrenOf(focusId, next, allNodes);
+      // se o foco tem pai, mantém pai e irmãos organizados também
+      const self = allNodes.find((n) => n.id === focusId);
+      if (self?.parent_id) {
+        layoutChildrenOf(self.parent_id, next, allNodes);
+      }
+      savePositions(next);
+      return next;
+    });
+  }, [focusId, allNodes]);
 
   const updatePos = useCallback((id: string, x: number, y: number) => {
     setPositions((prev) => {
@@ -385,6 +438,26 @@ export default function BotFlowCanvas({
             <Plus className="w-3.5 h-3.5" /> Nó
           </button>
         </div>
+      </div>
+
+      {/* Legenda de cores no topo do chart */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-1.5 border-b border-border bg-muted/30 text-[11px] text-muted-foreground shrink-0">
+        <span className="font-medium text-foreground/80">Saídas:</span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-violet-500" /> menu
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-cyan-500" /> continuar
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> resolveu
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> não
+        </span>
+        <span className="text-[10px] opacity-80 ml-auto hidden sm:inline">
+          clique na linha = selecionar · Del / Apagar = remover
+        </span>
       </div>
 
       <div
