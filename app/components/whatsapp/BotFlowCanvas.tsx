@@ -270,7 +270,7 @@ export default function BotFlowCanvas({
       return;
     }
     setLinking({ fromId: nodeId, port });
-    setSelectedLink(null);
+    setSelectedLinkKey(null);
   }
 
   function onNodePointerDown(e: React.PointerEvent, id: string) {
