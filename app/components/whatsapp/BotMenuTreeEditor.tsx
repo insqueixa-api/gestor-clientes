@@ -7,7 +7,7 @@ import {
   ChevronRight, ChevronDown, Plus, Trash2, Save, X, Tag,
 } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import BotFlowCanvas, { type CanvasNode, type FlowLink } from "./BotFlowCanvas";
+import BotFlowCanvas, { FlowPortLegend, type CanvasNode, type FlowLink } from "./BotFlowCanvas";
 
 type MenuNode = {
   id: string;
@@ -253,10 +253,13 @@ export default function BotMenuTreeEditor() {
   const [flatNodes, setFlatNodes] = useState<MenuNode[]>([]);
   const [allSteps, setAllSteps] = useState<MenuStep[]>([]);
   const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
+  const [focusId, setFocusId] = useState<string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  /** Modal textos padrão: start = Início/saudação; end = Sucesso/Márcio */
+  const [flowSettingsOpen, setFlowSettingsOpen] = useState<null | "start" | "end">(null);
+  const [showFlowAdvanced, setShowFlowAdvanced] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [showFlowSettings, setShowFlowSettings] = useState(false);
-  const [showFlowAdvanced, setShowFlowAdvanced] = useState(false);
   const [flowSettings, setFlowSettings] = useState<FlowSettings | null>(null);
   const [flowSaving, setFlowSaving] = useState(false);
   const [flowError, setFlowError] = useState<string | null>(null);
@@ -332,6 +335,8 @@ export default function BotMenuTreeEditor() {
     await callApi({ action: "delete_node", id: node.id });
     setModal(null);
     setSelectedNode((sel) => (sel?.id === node.id ? null : sel));
+    setFocusId((id) => (id === node.id ? null : id));
+    setEditOpen(false);
     loadTree();
   }
 
@@ -430,40 +435,36 @@ export default function BotMenuTreeEditor() {
       // desliga: vira nó raiz (sem pai)
       const roots = flatNodes.filter((n) => !n.parent_id && n.id !== link.to);
       const maxNum = roots.reduce((m, n) => Math.max(m, n.option_number), 0);
-      await callApi({ action: "update_node", id: link.to, parent_id: null, option_number: maxNum + 1 });
-      loadTree();
+      await callApi({
+        action: "update_node",
+        id: link.to,
+        parent_id: null,
+        option_number: Math.min(8, Math.max(1, maxNum + 1)),
+      });
+      await loadTree();
       return;
     }
     if (link.kind === "next") {
       await callApi({ action: "update_node", id: link.from, redirect_to_node_id: null });
-      loadTree();
+      await loadTree();
       return;
     }
-    if (link.kind === "ok") {
-      await callApi({ action: "update_node", id: link.from, on_resolved_target: null });
-      // se não tem fail custom e não quer mais resolveu, limpa ask só se ambos null
-      const node = flatNodes.find((n) => n.id === link.from);
-      if (node && !node.on_not_resolved_target && !node.closing_message) {
-        await callApi({ action: "update_node", id: link.from, ask_resolution: false });
-      }
-      loadTree();
-      return;
-    }
-    if (link.kind === "fail") {
-      await callApi({ action: "update_node", id: link.from, on_not_resolved_target: null });
-      const node = flatNodes.find((n) => n.id === link.from);
-      if (node && !node.on_resolved_target && !node.closing_message) {
-        await callApi({ action: "update_node", id: link.from, ask_resolution: false });
-      }
-      loadTree();
+    // ok / fail: o motor redesenha sucesso/escalar se ask_resolution continuar true.
+    // Apagar qualquer uma das duas desliga o "perguntar se resolveu" por completo.
+    if (link.kind === "ok" || link.kind === "fail") {
+      await callApi({
+        action: "update_node",
+        id: link.from,
+        ask_resolution: false,
+        on_resolved_target: null,
+        on_not_resolved_target: null,
+        closing_message: null,
+      });
+      await loadTree();
     }
   }
 
-  function selectById(id: string | null) {
-    if (!id) {
-      setSelectedNode(null);
-      return;
-    }
+  function resolveTreeNode(id: string): TreeNode | null {
     const find = (list: TreeNode[]): TreeNode | null => {
       for (const n of list) {
         if (n.id === id) return n;
@@ -472,20 +473,40 @@ export default function BotMenuTreeEditor() {
       }
       return null;
     };
-    // se não estiver na árvore (ex: órfão), monta TreeNode mínimo a partir do flat
     const found = find(tree);
-    if (found) {
-      setSelectedNode(found);
+    if (found) return found;
+    const raw = flatNodes.find((n) => n.id === id);
+    if (!raw) return null;
+    return {
+      ...raw,
+      children: flatNodes
+        .filter((c) => c.parent_id === raw.id)
+        .map((c) => ({ ...c, children: [], steps: allSteps.filter((s) => s.node_id === c.id) })),
+      steps: allSteps.filter((s) => s.node_id === raw.id),
+    };
+  }
+
+  function openEdit(id: string) {
+    // Nós do sistema → textos padrão (mesmo modal/hook dos outros)
+    if (id === "__start__") {
+      setFlowSettingsOpen("start");
+      setShowFlowAdvanced(false);
       return;
     }
-    const raw = flatNodes.find((n) => n.id === id);
-    if (raw) {
-      setSelectedNode({
-        ...raw,
-        children: flatNodes.filter((c) => c.parent_id === raw.id).map((c) => ({ ...c, children: [], steps: allSteps.filter((s) => s.node_id === c.id) })),
-        steps: allSteps.filter((s) => s.node_id === raw.id),
-      });
+    if (id === "__success__" || id === "__escalate__") {
+      setFlowSettingsOpen("end");
+      setShowFlowAdvanced(false);
+      return;
     }
+    const node = resolveTreeNode(id);
+    if (!node) return;
+    setSelectedNode(node);
+    setFocusId(id);
+    setEditOpen(true);
+  }
+
+  function closeEdit() {
+    setEditOpen(false);
   }
 
   async function saveFlowSettings() {
@@ -504,6 +525,7 @@ export default function BotMenuTreeEditor() {
         setFlowError(json.error || "Erro ao salvar");
       } else {
         setFlowSettings(json.settings);
+        setFlowSettingsOpen(null);
       }
     } catch (e: any) {
       setFlowError(e?.message || "Erro ao salvar");
@@ -512,134 +534,210 @@ export default function BotMenuTreeEditor() {
     }
   }
 
+  const flowFocus = flowSettingsOpen; // "start" | "end"
+
   return (
     <div className="space-y-4">
-      {/* Textos padrão — só o essencial à vista */}
-      <div className="border border-border rounded-xl overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setShowFlowSettings((v) => !v)}
-          className="w-full flex items-center justify-between px-4 py-3 bg-muted/30 hover:bg-muted/50 transition-colors"
-        >
-          <div className="text-left">
-            <h3 className="text-sm font-semibold text-foreground">Textos padrão do bot</h3>
-            <p className="text-[11px] text-muted-foreground">Saudação, sucesso e quando passa pro Márcio</p>
-          </div>
-          {showFlowSettings ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
-        </button>
-        {showFlowSettings && flowSettings && (
-          <div className="p-4 space-y-3 border-t border-border">
-            {flowError && (
-              <p className="text-xs text-rose-500 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">{flowError}</p>
-            )}
-            {([
-              ["greeting_message", "Saudação (1ª mensagem)"],
-              ["success_message", "Quando deu certo"],
-              ["escalate_message", "Quando não resolveu / bot desiste"],
-              ["human_requested_message", "Quando pediu pra falar com você"],
-            ] as const).map(([key, label]) => (
-              <div key={key}>
-                <label className={labelCls}>{label}</label>
-                <textarea
-                  value={flowSettings[key]}
-                  onChange={(e) => setFlowSettings((s) => s ? { ...s, [key]: e.target.value } : s)}
-                  rows={2}
-                  className="w-full text-xs bg-background border border-border rounded-lg px-2 py-1.5 mt-1"
-                />
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={() => setShowFlowAdvanced((v) => !v)}
-              className="text-[11px] text-muted-foreground hover:text-foreground"
-            >
-              {showFlowAdvanced ? "▾" : "▸"} Textos de “não entendi” (opcional)
-            </button>
-            {showFlowAdvanced && (
-              <div className="space-y-2 pl-1 border-l-2 border-border">
-                {([
-                  ["invalid_retry_message_1", "Não entendi (1ª vez)"],
-                  ["invalid_retry_message_2", "Não entendi (2ª vez)"],
-                  ["menu_invalid_intro_1", "Não entendi no submenu (1ª)"],
-                  ["menu_invalid_intro_2", "Não entendi no submenu (2ª)"],
-                ] as const).map(([key, label]) => (
-                  <div key={key}>
-                    <label className={labelCls}>{label}</label>
-                    <textarea
-                      value={flowSettings[key]}
-                      onChange={(e) => setFlowSettings((s) => s ? { ...s, [key]: e.target.value } : s)}
-                      rows={2}
-                      className="w-full text-xs bg-background border border-border rounded-lg px-2 py-1.5 mt-1"
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-            <button onClick={() => void saveFlowSettings()} disabled={flowSaving} className={btnPrimary}>
-              <Save className="w-3.5 h-3.5" /> {flowSaving ? "Salvando..." : "Salvar textos"}
-            </button>
-          </div>
-        )}
-        {showFlowSettings && !flowSettings && (
-          <div className="p-4 text-xs text-muted-foreground border-t border-border">
-            {flowError || "Carregando…"}
-          </div>
-        )}
-      </div>
-
-    <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_1fr] gap-4 min-h-[560px]">
-      <div className="border border-border rounded-xl overflow-hidden flex flex-col min-h-[520px]">
-        {loading ? (
-          <p className="text-xs text-muted-foreground p-4">Carregando fluxo…</p>
-        ) : (
-          <BotFlowCanvas
-            nodes={canvasNodes}
-            selectedId={selectedNode?.id ?? null}
-            onSelect={selectById}
-            onCreateNode={() => setModal({ type: "create_category" })}
-            onLink={handleCanvasLink}
-            onUnlink={handleCanvasUnlink}
-          />
-        )}
-      </div>
-
-      <div className="border border-border rounded-xl p-4 overflow-y-auto max-h-[70vh]">
-        {selectedNode ? (
-          <NodeEditor
-            key={selectedNode.id}
-            node={selectedNode}
-            isLeaf={selectedNode.children.length === 0}
-            allNodes={flatNodes}
-            onSave={async (fields) => { setSaving(true); const r = await callApi({ action: "update_node", id: selectedNode.id, ...fields }); setSaving(false); if (r?.error) alert(r.error); loadTree(); }}
-            onSaveSteps={async (steps) => { setSaving(true); await callApi({ action: "set_steps", node_id: selectedNode.id, steps }); setSaving(false); loadTree(); }}
-            onDelete={() => setModal({ type: "delete", node: selectedNode })}
-            saving={saving}
-          />
-        ) : (
-          <div className="text-xs text-muted-foreground space-y-2">
-            <p className="font-medium text-foreground">Como usar o canvas</p>
-            <ol className="list-decimal pl-4 space-y-1">
-              <li>Clique <strong>+ Nó</strong> para criar</li>
-              <li>Arraste os cartões pra organizar</li>
-              <li>Clique numa bolinha <strong>à direita</strong> (saída)</li>
-              <li>Depois clique na bolinha <strong>à esquerda</strong> do destino (entrada)</li>
-              <li>Clique numa <strong>linha</strong> e em Desligar pra remover</li>
-            </ol>
-            <p className="text-[10px] pt-2">Roxo = menu · Ciano = continuar · Verde = resolveu · Âmbar = não resolveu</p>
-          </div>
-        )}
-      </div>
-
-      {modal?.type === "create_category" && (
-        <CreateCategoryModal onClose={() => setModal(null)} onCreate={handleCreateCategory} />
-      )}
-      {modal?.type === "create_option" && (
-        <CreateOptionModal onClose={() => setModal(null)} onCreate={(label) => handleCreateOption(modal.parent, label)} />
-      )}
-      {modal?.type === "delete" && (
-        <ConfirmDeleteModal label={modal.node.label} onClose={() => setModal(null)} onConfirm={() => handleDelete(modal.node)} />
+    <div className="border border-border rounded-xl overflow-hidden flex flex-col min-h-[580px] w-full">
+      {loading ? (
+        <p className="text-xs text-muted-foreground p-4">Carregando fluxo…</p>
+      ) : (
+        <BotFlowCanvas
+          nodes={canvasNodes}
+          focusId={focusId}
+          onFocus={setFocusId}
+          onEdit={openEdit}
+          onCreateNode={() => setModal({ type: "create_category" })}
+          onLink={handleCanvasLink}
+          onUnlink={handleCanvasUnlink}
+        />
       )}
     </div>
+
+    {/* Duplo clique em Início / Sucesso / Márcio → textos padrão */}
+    {flowSettingsOpen && (
+      <ModalShell
+        title={
+          flowFocus === "start"
+            ? "▶ Início — textos de entrada"
+            : "Sucesso / Márcio — textos de saída"
+        }
+        wide
+        onClose={() => setFlowSettingsOpen(null)}
+        footer={
+          <>
+            <button type="button" onClick={() => setFlowSettingsOpen(null)} className={btnGhost}>
+              Cancelar
+            </button>
+            <button type="button" onClick={() => void saveFlowSettings()} disabled={flowSaving || !flowSettings} className={btnPrimary}>
+              <Save className="w-3.5 h-3.5" /> {flowSaving ? "Salvando..." : "Salvar"}
+            </button>
+          </>
+        }
+      >
+        <div className="relative">
+          <div className="absolute top-0 right-0 z-10 hidden sm:block">
+            <FlowPortLegend />
+          </div>
+          <div className="sm:pr-28 space-y-4">
+            {!flowSettings ? (
+              <p className="text-xs text-muted-foreground">{flowError || "Carregando…"}</p>
+            ) : (
+              <>
+                {flowError && (
+                  <p className="text-xs text-rose-500 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">{flowError}</p>
+                )}
+
+                {/* Início → saudação em destaque */}
+                {flowFocus === "start" && (
+                  <div className="space-y-3">
+                    <div className="rounded-xl border border-sky-500/30 bg-sky-500/5 p-3 space-y-2">
+                      <label className={labelCls}>Saudação (1ª mensagem, depois do Início)</label>
+                      <textarea
+                        autoFocus
+                        value={flowSettings.greeting_message}
+                        onChange={(e) => setFlowSettings((s) => s ? { ...s, greeting_message: e.target.value } : s)}
+                        rows={4}
+                        className="w-full text-sm bg-background border border-border rounded-lg px-3 py-2"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowFlowAdvanced((v) => !v)}
+                      className="text-[11px] text-muted-foreground hover:text-foreground"
+                    >
+                      {showFlowAdvanced ? "▾" : "▸"} Textos de “não entendi” (opcional)
+                    </button>
+                    {showFlowAdvanced && (
+                      <div className="space-y-2 pl-2 border-l-2 border-border">
+                        {([
+                          ["invalid_retry_message_1", "Não entendi (1ª vez)"],
+                          ["invalid_retry_message_2", "Não entendi (2ª vez)"],
+                          ["menu_invalid_intro_1", "Não entendi no submenu (1ª)"],
+                          ["menu_invalid_intro_2", "Não entendi no submenu (2ª)"],
+                        ] as const).map(([key, label]) => (
+                          <div key={key}>
+                            <label className={labelCls}>{label}</label>
+                            <textarea
+                              value={flowSettings[key]}
+                              onChange={(e) => setFlowSettings((s) => s ? { ...s, [key]: e.target.value } : s)}
+                              rows={2}
+                              className="w-full text-xs bg-background border border-border rounded-lg px-2 py-1.5 mt-1"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Sucesso / Márcio → textos de encerramento */}
+                {flowFocus === "end" && (
+                  <div className="space-y-3">
+                    <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-2">
+                      <label className={labelCls}>✅ Quando deu certo (Sucesso)</label>
+                      <textarea
+                        autoFocus
+                        value={flowSettings.success_message}
+                        onChange={(e) => setFlowSettings((s) => s ? { ...s, success_message: e.target.value } : s)}
+                        rows={3}
+                        className="w-full text-sm bg-background border border-border rounded-lg px-3 py-2"
+                      />
+                    </div>
+                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
+                      <label className={labelCls}>🙋 Quando não resolveu / bot desiste (Márcio)</label>
+                      <textarea
+                        value={flowSettings.escalate_message}
+                        onChange={(e) => setFlowSettings((s) => s ? { ...s, escalate_message: e.target.value } : s)}
+                        rows={3}
+                        className="w-full text-sm bg-background border border-border rounded-lg px-3 py-2"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Quando o cliente pediu pra falar com você (0 / humano)</label>
+                      <textarea
+                        value={flowSettings.human_requested_message}
+                        onChange={(e) => setFlowSettings((s) => s ? { ...s, human_requested_message: e.target.value } : s)}
+                        rows={2}
+                        className="w-full text-xs bg-background border border-border rounded-lg px-2 py-1.5 mt-1"
+                      />
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </ModalShell>
+    )}
+
+    {/* Duplo clique no nó normal → modal de edição */}
+    {editOpen && selectedNode && (
+      <ModalShell
+        title={`Editar: ${selectedNode.label}`}
+        wide
+        onClose={closeEdit}
+        footer={
+          <>
+            <button type="button" onClick={() => setModal({ type: "delete", node: selectedNode })} className={btnDanger}>
+              Excluir
+            </button>
+            <button type="button" onClick={closeEdit} className={btnGhost}>
+              Fechar
+            </button>
+          </>
+        }
+      >
+        <div className="relative">
+          <div className="absolute top-0 right-0 z-10 hidden sm:block">
+            <FlowPortLegend />
+          </div>
+          <div className="sm:pr-28">
+            <NodeEditor
+              key={selectedNode.id}
+              node={selectedNode}
+              isLeaf={selectedNode.children.length === 0}
+              allNodes={flatNodes}
+              onSave={async (fields) => {
+                setSaving(true);
+                const r = await callApi({ action: "update_node", id: selectedNode.id, ...fields });
+                if (r?.error) {
+                  setSaving(false);
+                  alert(r.error);
+                  throw new Error(r.error);
+                }
+              }}
+              onSaveSteps={async (steps) => {
+                await callApi({ action: "set_steps", node_id: selectedNode.id, steps });
+                setSaving(false);
+                await loadTree();
+                closeEdit();
+              }}
+              onDelete={() => setModal({ type: "delete", node: selectedNode })}
+              saving={saving}
+              hideDelete
+            />
+          </div>
+        </div>
+      </ModalShell>
+    )}
+
+    {modal?.type === "create_category" && (
+      <CreateCategoryModal onClose={() => setModal(null)} onCreate={handleCreateCategory} />
+    )}
+    {modal?.type === "create_option" && (
+      <CreateOptionModal onClose={() => setModal(null)} onCreate={(label) => handleCreateOption(modal.parent, label)} />
+    )}
+    {modal?.type === "delete" && (
+      <ConfirmDeleteModal
+        label={modal.node.label}
+        onClose={() => setModal(null)}
+        onConfirm={async () => {
+          await handleDelete(modal.node);
+          setEditOpen(false);
+        }}
+      />
+    )}
     </div>
   );
 }
@@ -696,14 +794,15 @@ function VariablePanel({ onInsert }: { onInsert: (tag: string) => void }) {
 }
 
 function NodeEditor({
-  node, isLeaf, allNodes, onSave, onSaveSteps, onDelete, saving,
+  node, isLeaf, allNodes, onSave, onSaveSteps, onDelete, saving, hideDelete,
 }: {
   node: TreeNode; isLeaf: boolean;
   allNodes: MenuNode[];
-  onSave: (fields: any) => void;
-  onSaveSteps: (steps: string[]) => void;
+  onSave: (fields: any) => void | Promise<void>;
+  onSaveSteps: (steps: string[]) => void | Promise<void>;
   onDelete: () => void;
   saving: boolean;
+  hideDelete?: boolean;
 }) {
   const [label, setLabel] = useState(node.label);
   const [keywordsText, setKeywordsText] = useState((node.keywords || []).join(", "));
@@ -758,13 +857,13 @@ function NodeEditor({
     setTimeout(() => { el.focus(); el.setSelectionRange(start + tag.length, start + tag.length); }, 0);
   }
 
-  function saveAll() {
+  async function saveAll() {
     let actions = [...specialActions];
     if (redirectTo) {
       actions = actions.filter((a) => a !== "redirecionar_instalacao");
     }
     const effectiveAsk = redirectTo ? false : askResolution;
-    onSave({
+    await onSave({
       label,
       keywords: keywordsText.split(",").map((k) => k.trim()).filter(Boolean),
       special_actions: actions,
@@ -773,22 +872,23 @@ function NodeEditor({
       applies_to_servers: appliesToServers,
       is_active: isActive,
       redirect_to_node_id: redirectTo || null,
-      // Padrão fixo no UI: resolveu → sucesso global; não → escalar.
       on_resolved_target: null,
       on_not_resolved_target: null,
       ask_resolution: effectiveAsk,
     });
-    onSaveSteps(steps.filter((s) => s.trim()));
+    await onSaveSteps(steps.filter((s) => s.trim()));
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <h4 className="text-sm font-semibold text-foreground truncate">Editando: {node.label}</h4>
-        <button onClick={onDelete} className="text-rose-500 hover:text-rose-400 shrink-0" title="Excluir">
-          <Trash2 className="w-4 h-4" />
-        </button>
-      </div>
+      {!hideDelete && (
+        <div className="flex items-center justify-between gap-2">
+          <h4 className="text-sm font-semibold text-foreground truncate">Editando: {node.label}</h4>
+          <button onClick={onDelete} className="text-rose-500 hover:text-rose-400 shrink-0" title="Excluir">
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       <div>
         <label className={labelCls}>Nome (o que o cliente vê no menu)</label>

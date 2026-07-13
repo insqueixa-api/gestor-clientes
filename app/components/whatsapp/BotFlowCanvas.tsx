@@ -1,9 +1,11 @@
 // app/components/whatsapp/BotFlowCanvas.tsx
-// Canvas estilo n8n: nós soltos + linhas de saída → entrada (sem árvore aninhada).
+// Canvas full-width: visão limpa (Início → menu → Sucesso/Márcio).
+// Clique num nó = foca filhos/linhas. Bolinha de ligar = mostra tudo.
+// Duplo clique = editar (callback).
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link2, Plus, Unlink } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Plus, Unlink } from "lucide-react";
 
 export type CanvasNode = {
   id: string;
@@ -30,9 +32,9 @@ export type FlowLink =
 type Pos = { x: number; y: number };
 type Port = "in" | "out_menu" | "out_next" | "out_ok" | "out_fail";
 
-const NODE_W = 168;
-const NODE_H = 88;
-const POS_KEY = "bot_flow_canvas_pos_v1";
+const NODE_W = 176;
+const NODE_H = 96;
+const POS_KEY = "bot_flow_canvas_pos_v2";
 
 const SYSTEM_NODES: CanvasNode[] = [
   { id: "__start__", label: "▶ Início", parent_id: null, option_number: 0, isSystem: true, systemKind: "start" },
@@ -54,23 +56,28 @@ function savePositions(p: Record<string, Pos>) {
   } catch { /* ignore */ }
 }
 
+/** Layout limpo: Início → menus raiz → Sucesso / Márcio no fim */
 function defaultLayout(nodes: CanvasNode[]): Record<string, Pos> {
-  const pos: Record<string, Pos> = {
-    __start__: { x: 40, y: 160 },
-    __success__: { x: 720, y: 60 },
-    __escalate__: { x: 720, y: 280 },
-  };
   const roots = nodes.filter((n) => !n.isSystem && !n.parent_id);
-  const kids = nodes.filter((n) => !n.isSystem && n.parent_id);
+  const midY = Math.max(200, 40 + (roots.length * 110) / 2);
+  const pos: Record<string, Pos> = {
+    __start__: { x: 48, y: midY - NODE_H / 2 },
+    __success__: { x: 780, y: 48 },
+    __escalate__: { x: 780, y: midY + 80 },
+  };
   roots.forEach((n, i) => {
-    pos[n.id] = { x: 260, y: 40 + i * 110 };
+    pos[n.id] = { x: 320, y: 48 + i * 120 };
   });
+  // filhos: à direita do pai (se pai tiver pos)
+  const kids = nodes.filter((n) => !n.isSystem && n.parent_id);
   kids.forEach((n, i) => {
-    pos[n.id] = { x: 480, y: 40 + i * 100 };
+    const parentPos = n.parent_id ? pos[n.parent_id] : null;
+    pos[n.id] = parentPos
+      ? { x: parentPos.x + 240, y: parentPos.y + (i % 4) * 24 }
+      : { x: 560, y: 48 + i * 100 };
   });
-  // nós soltos sem pai e sem posição
   nodes.filter((n) => !n.isSystem && !pos[n.id]).forEach((n, i) => {
-    pos[n.id] = { x: 360, y: 40 + (roots.length + i) * 100 };
+    pos[n.id] = { x: 500, y: 48 + i * 100 };
   });
   return pos;
 }
@@ -107,7 +114,7 @@ function buildLinks(nodes: CanvasNode[]): FlowLink[] {
 }
 
 function edgePath(x1: number, y1: number, x2: number, y2: number) {
-  const dx = Math.max(40, Math.abs(x2 - x1) * 0.45);
+  const dx = Math.max(48, Math.abs(x2 - x1) * 0.45);
   return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
 }
 
@@ -116,7 +123,6 @@ const PORT_COLORS: Record<string, string> = {
   out_next: "#06b6d4",
   out_ok: "#22c55e",
   out_fail: "#f59e0b",
-  in: "#94a3b8",
 };
 
 const LINK_COLORS: Record<FlowLink["kind"], string> = {
@@ -126,10 +132,52 @@ const LINK_COLORS: Record<FlowLink["kind"], string> = {
   fail: "#f59e0b",
 };
 
+/** IDs visíveis conforme o foco (visão limpa vs drill-down) */
+function visibleNodeIds(
+  all: CanvasNode[],
+  focusId: string | null,
+  showAll: boolean
+): Set<string> {
+  const ids = new Set<string>(["__start__", "__success__", "__escalate__"]);
+  if (showAll) {
+    all.forEach((n) => ids.add(n.id));
+    return ids;
+  }
+  // overview: só raízes
+  if (!focusId || focusId.startsWith("__")) {
+    all.filter((n) => !n.isSystem && !n.parent_id).forEach((n) => ids.add(n.id));
+    return ids;
+  }
+  // foco: nó + filhos diretos + ancestrais até a raiz
+  ids.add(focusId);
+  all.filter((n) => n.parent_id === focusId).forEach((n) => ids.add(n.id));
+  let cur = all.find((n) => n.id === focusId);
+  while (cur?.parent_id) {
+    ids.add(cur.parent_id);
+    cur = all.find((n) => n.id === cur!.parent_id);
+  }
+  // destinos de redirect / resolve do foco
+  const f = all.find((n) => n.id === focusId);
+  if (f?.redirect_to_node_id) ids.add(f.redirect_to_node_id);
+  if (f?.on_resolved_target && !f.on_resolved_target.startsWith("__")) ids.add(f.on_resolved_target);
+  if (f?.on_not_resolved_target && !f.on_not_resolved_target.startsWith("__")) ids.add(f.on_not_resolved_target);
+  return ids;
+}
+
+function linkTouchesFocus(link: FlowLink, focusId: string | null, showAll: boolean): boolean {
+  if (showAll) return true;
+  if (!focusId || focusId.startsWith("__")) {
+    // overview: só Início → raízes
+    return link.kind === "menu" && link.from === "__start__";
+  }
+  return link.from === focusId || link.to === focusId;
+}
+
 type Props = {
   nodes: CanvasNode[];
-  selectedId: string | null;
-  onSelect: (id: string | null) => void;
+  focusId: string | null;
+  onFocus: (id: string | null) => void;
+  onEdit: (id: string) => void;
   onCreateNode: () => void;
   onLink: (payload: {
     fromId: string;
@@ -141,29 +189,48 @@ type Props = {
 
 export default function BotFlowCanvas({
   nodes: dataNodes,
-  selectedId,
-  onSelect,
+  focusId,
+  onFocus,
+  onEdit,
   onCreateNode,
   onLink,
   onUnlink,
 }: Props) {
   const allNodes = useMemo(() => [...SYSTEM_NODES, ...dataNodes], [dataNodes]);
-  const links = useMemo(() => buildLinks(allNodes), [allNodes]);
+  const allLinks = useMemo(() => buildLinks(allNodes), [allNodes]);
 
   const [positions, setPositions] = useState<Record<string, Pos>>({});
   const [linking, setLinking] = useState<{ fromId: string; port: Exclude<Port, "in"> } | null>(null);
   const [drag, setDrag] = useState<{ id: string; ox: number; oy: number } | null>(null);
-  const [selectedLink, setSelectedLink] = useState<number | null>(null);
-  const boardRef = useRef<HTMLDivElement>(null);
+  /** Identidade estável da linha (não índice — índice muda com o foco) */
+  const [selectedLinkKey, setSelectedLinkKey] = useState<string | null>(null);
+
+  const showAll = !!linking;
+  const visibleIds = useMemo(
+    () => visibleNodeIds(allNodes, focusId, showAll),
+    [allNodes, focusId, showAll]
+  );
+  const visibleNodes = useMemo(
+    () => allNodes.filter((n) => visibleIds.has(n.id)),
+    [allNodes, visibleIds]
+  );
+  const visibleLinks = useMemo(() => {
+    const list = allLinks.filter(
+      (l) =>
+        visibleIds.has(l.from) &&
+        visibleIds.has(l.to) &&
+        linkTouchesFocus(l, focusId, showAll)
+    );
+    return list;
+  }, [allLinks, visibleIds, focusId, showAll]);
 
   useEffect(() => {
     const saved = loadPositions();
     const base = defaultLayout(allNodes);
     const merged = { ...base, ...saved };
-    // garante pos pra nós novos
     for (const n of allNodes) {
       if (!merged[n.id]) {
-        merged[n.id] = { x: 200 + Math.random() * 200, y: 100 + Math.random() * 200 };
+        merged[n.id] = { x: 280 + Math.random() * 120, y: 80 + Math.random() * 160 };
       }
     }
     setPositions(merged);
@@ -180,10 +247,10 @@ export default function BotFlowCanvas({
   function portXY(nodeId: string, port: Port): { x: number; y: number } {
     const p = positions[nodeId] || { x: 0, y: 0 };
     if (port === "in") return { x: p.x, y: p.y + NODE_H / 2 };
-    if (port === "out_menu") return { x: p.x + NODE_W, y: p.y + 22 };
+    if (port === "out_menu") return { x: p.x + NODE_W, y: p.y + 24 };
     if (port === "out_next") return { x: p.x + NODE_W, y: p.y + 44 };
-    if (port === "out_ok") return { x: p.x + NODE_W, y: p.y + 66 };
-    return { x: p.x + NODE_W, y: p.y + NODE_H - 12 }; // out_fail
+    if (port === "out_ok") return { x: p.x + NODE_W, y: p.y + 64 };
+    return { x: p.x + NODE_W, y: p.y + 84 };
   }
 
   function onPortClick(e: React.MouseEvent, nodeId: string, port: Port) {
@@ -198,7 +265,6 @@ export default function BotFlowCanvas({
       setLinking(null);
       return;
     }
-    // saída
     if (linking?.fromId === nodeId && linking.port === port) {
       setLinking(null);
       return;
@@ -209,8 +275,6 @@ export default function BotFlowCanvas({
 
   function onNodePointerDown(e: React.PointerEvent, id: string) {
     if ((e.target as HTMLElement).closest("[data-port]")) return;
-    onSelect(id.startsWith("__") ? null : id);
-    setSelectedLink(null);
     const p = positions[id] || { x: 0, y: 0 };
     setDrag({ id, ox: e.clientX - p.x, oy: e.clientY - p.y });
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -225,52 +289,98 @@ export default function BotFlowCanvas({
     setDrag(null);
   }
 
-  const boardH = Math.max(
-    520,
-    ...Object.values(positions).map((p) => p.y + NODE_H + 80)
-  );
-  const boardW = Math.max(
-    900,
-    ...Object.values(positions).map((p) => p.x + NODE_W + 80)
+  function linkKey(link: FlowLink): string {
+    return `${link.kind}:${link.from}:${link.to}`;
+  }
+
+  const selectedLink = useMemo(
+    () => (selectedLinkKey ? visibleLinks.find((l) => linkKey(l) === selectedLinkKey) ?? null : null),
+    [selectedLinkKey, visibleLinks]
   );
 
+  // Delete / Backspace remove a linha selecionada
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (!selectedLinkKey) return;
+      if (e.key === "Escape") {
+        setSelectedLinkKey(null);
+        return;
+      }
+      if (e.key === "Delete" || e.key === "Backspace") {
+        const tag = (e.target as HTMLElement)?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA") return;
+        const link = visibleLinks.find((l) => linkKey(l) === selectedLinkKey);
+        if (!link) return;
+        e.preventDefault();
+        void onUnlink(link);
+        setSelectedLinkKey(null);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedLinkKey, visibleLinks, onUnlink]);
+
+  const boardH = Math.max(480, ...Object.values(positions).map((p) => p.y + NODE_H + 100));
+  const boardW = Math.max(980, ...Object.values(positions).map((p) => p.x + NODE_W + 100));
+
+  // posição do botão flutuante "Apagar" no meio da linha selecionada
+  const deleteBtnPos = useMemo(() => {
+    if (!selectedLink) return null;
+    const fromPort =
+      selectedLink.kind === "menu"
+        ? "out_menu"
+        : selectedLink.kind === "next"
+          ? "out_next"
+          : selectedLink.kind === "ok"
+            ? "out_ok"
+            : "out_fail";
+    const a = portXY(selectedLink.from, fromPort as Port);
+    const b = portXY(selectedLink.to, "in");
+    return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  }, [selectedLink, positions]);
+
   return (
-    <div className="flex flex-col h-full min-h-[520px]">
-      <div className="flex items-center justify-between gap-2 px-2 py-2 border-b border-border shrink-0">
+    <div className="flex flex-col h-full min-h-[560px] w-full">
+      <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border shrink-0 bg-card/50">
         <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-foreground">Fluxo (nós)</h3>
+          <h3 className="text-sm font-semibold text-foreground">Fluxo de atendimento</h3>
           <p className="text-[10px] text-muted-foreground truncate">
-            {linking
-              ? `Ligando saída… clique na entrada (bolinha à esquerda) do destino`
-              : "Arraste nós · clique na bolinha da direita e depois na da esquerda pra ligar"}
+            {selectedLink
+              ? "Linha selecionada · clique em Apagar (ou tecla Del) · Esc cancela"
+              : linking
+                ? "Ligando… clique na bolinha à esquerda do destino"
+                : focusId && !focusId.startsWith("__")
+                  ? "Foco no nó · clique na linha pra selecionar/apagar · duplo clique = editar"
+                  : "Clique na linha pra selecionar · Apagar remove a ligação"}
           </p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           {linking && (
-            <button
-              type="button"
-              onClick={() => setLinking(null)}
-              className="text-[10px] px-2 py-1 rounded-lg border border-border text-muted-foreground hover:bg-muted"
-            >
+            <button type="button" onClick={() => setLinking(null)} className="text-[10px] px-2 py-1 rounded-lg border border-border hover:bg-muted">
               Cancelar
             </button>
           )}
-          {selectedLink != null && links[selectedLink] && (
+          {focusId && !linking && (
+            <button type="button" onClick={() => onFocus(null)} className="text-[10px] px-2 py-1 rounded-lg border border-border hover:bg-muted">
+              Visão geral
+            </button>
+          )}
+          {selectedLink && (
             <button
               type="button"
               onClick={() => {
-                void onUnlink(links[selectedLink]);
-                setSelectedLink(null);
+                void onUnlink(selectedLink);
+                setSelectedLinkKey(null);
               }}
-              className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg border border-rose-500/30 text-rose-500 hover:bg-rose-500/10"
+              className="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg bg-rose-600 text-white hover:bg-rose-500 shadow-sm"
             >
-              <Unlink className="w-3 h-3" /> Desligar
+              <Unlink className="w-3.5 h-3.5" /> Apagar ligação
             </button>
           )}
           <button
             type="button"
             onClick={onCreateNode}
-            className="flex items-center gap-1 text-xs bg-violet-600 text-white px-2 py-1 rounded-lg hover:bg-violet-500"
+            className="flex items-center gap-1 text-xs bg-violet-600 text-white px-2.5 py-1.5 rounded-lg hover:bg-violet-500"
           >
             <Plus className="w-3.5 h-3.5" /> Nó
           </button>
@@ -278,76 +388,75 @@ export default function BotFlowCanvas({
       </div>
 
       <div
-        ref={boardRef}
-        className="relative flex-1 overflow-auto bg-[radial-gradient(circle_at_1px_1px,hsl(var(--border))_1px,transparent_0)] [background-size:16px_16px]"
+        className="relative flex-1 overflow-auto bg-[radial-gradient(circle_at_1px_1px,hsl(var(--border))_1px,transparent_0)] [background-size:18px_18px]"
         onClick={() => {
-          onSelect(null);
+          if (!linking) onFocus(null);
           setLinking(null);
-          setSelectedLink(null);
+          setSelectedLinkKey(null);
         }}
       >
         <div style={{ width: boardW, height: boardH, position: "relative" }}>
           <svg className="absolute inset-0 pointer-events-none" width={boardW} height={boardH}>
             <defs>
               {(["menu", "next", "ok", "fail"] as const).map((k) => (
-                <marker
-                  key={k}
-                  id={`arrow-${k}`}
-                  markerWidth="8"
-                  markerHeight="8"
-                  refX="6"
-                  refY="3"
-                  orient="auto"
-                >
+                <marker key={k} id={`arr-${k}`} markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
                   <path d="M0,0 L6,3 L0,6 Z" fill={LINK_COLORS[k]} />
                 </marker>
               ))}
             </defs>
-            {links.map((link, i) => {
+            {visibleLinks.map((link) => {
               const fromPort =
-                link.kind === "menu"
-                  ? "out_menu"
-                  : link.kind === "next"
-                    ? "out_next"
-                    : link.kind === "ok"
-                      ? "out_ok"
-                      : "out_fail";
+                link.kind === "menu" ? "out_menu" : link.kind === "next" ? "out_next" : link.kind === "ok" ? "out_ok" : "out_fail";
               const a = portXY(link.from, fromPort as Port);
               const b = portXY(link.to, "in");
-              const selected = selectedLink === i;
+              const key = linkKey(link);
+              const selected = selectedLinkKey === key;
               const label =
-                link.kind === "menu"
-                  ? String(link.option)
-                  : link.kind === "next"
-                    ? "→"
-                    : link.kind === "ok"
-                      ? "ok"
-                      : "não";
+                link.kind === "menu" ? String(link.option) : link.kind === "next" ? "→" : link.kind === "ok" ? "ok" : "não";
               const mx = (a.x + b.x) / 2;
               const my = (a.y + b.y) / 2;
               return (
-                <g key={i} className="pointer-events-auto cursor-pointer" onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedLink(i);
-                  setLinking(null);
-                }}>
+                <g
+                  key={key}
+                  className="pointer-events-auto cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedLinkKey(key);
+                    setLinking(null);
+                  }}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedLinkKey(key);
+                    void onUnlink(link);
+                    setSelectedLinkKey(null);
+                  }}
+                >
                   <path
                     d={edgePath(a.x, a.y, b.x, b.y)}
                     fill="none"
                     stroke={LINK_COLORS[link.kind]}
-                    strokeWidth={selected ? 3 : 2}
-                    strokeOpacity={selected ? 1 : 0.75}
-                    markerEnd={`url(#arrow-${link.kind})`}
+                    strokeWidth={selected ? 4 : 2.5}
+                    strokeOpacity={selected ? 1 : 0.85}
+                    markerEnd={`url(#arr-${link.kind})`}
                   />
-                  {/* hit area */}
-                  <path
-                    d={edgePath(a.x, a.y, b.x, b.y)}
-                    fill="none"
-                    stroke="transparent"
-                    strokeWidth={12}
+                  {/* área clicável larga */}
+                  <path d={edgePath(a.x, a.y, b.x, b.y)} fill="none" stroke="transparent" strokeWidth={20} />
+                  <circle
+                    cx={mx}
+                    cy={my}
+                    r={selected ? 14 : 11}
+                    fill={selected ? LINK_COLORS[link.kind] : "hsl(var(--card))"}
+                    stroke={LINK_COLORS[link.kind]}
+                    strokeWidth={1.5}
                   />
-                  <circle cx={mx} cy={my} r={10} fill="hsl(var(--card))" stroke={LINK_COLORS[link.kind]} strokeWidth={1.5} />
-                  <text x={mx} y={my + 3} textAnchor="middle" fontSize="9" fill={LINK_COLORS[link.kind]} className="select-none">
+                  <text
+                    x={mx}
+                    y={my + 3.5}
+                    textAnchor="middle"
+                    fontSize="9"
+                    fill={selected ? "#fff" : LINK_COLORS[link.kind]}
+                    className="pointer-events-none select-none"
+                  >
                     {label}
                   </text>
                 </g>
@@ -355,64 +464,114 @@ export default function BotFlowCanvas({
             })}
           </svg>
 
-          {allNodes.map((n) => {
+          {/* Botão flutuante em cima da linha selecionada */}
+          {selectedLink && deleteBtnPos && (
+            <button
+              type="button"
+              className="absolute z-30 flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-full bg-rose-600 text-white shadow-lg hover:bg-rose-500 border-2 border-background"
+              style={{
+                left: deleteBtnPos.x,
+                top: deleteBtnPos.y + 18,
+                transform: "translateX(-50%)",
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!selectedLink) return;
+                void onUnlink(selectedLink);
+                setSelectedLinkKey(null);
+              }}
+            >
+              <Unlink className="w-3.5 h-3.5" /> Apagar
+            </button>
+          )}
+
+          {visibleNodes.map((n) => {
             const p = positions[n.id] || { x: 0, y: 0 };
-            const selected = selectedId === n.id;
+            const focused = focusId === n.id;
             const isSys = !!n.isSystem;
             const bg =
               n.systemKind === "start"
-                ? "bg-sky-500/15 border-sky-500/40"
+                ? "bg-sky-500/15 border-sky-500/50"
                 : n.systemKind === "success"
-                  ? "bg-emerald-500/15 border-emerald-500/40"
+                  ? "bg-emerald-500/15 border-emerald-500/50"
                   : n.systemKind === "escalate"
-                    ? "bg-amber-500/15 border-amber-500/40"
-                    : selected
-                      ? "bg-violet-500/10 border-violet-500/50"
+                    ? "bg-amber-500/15 border-amber-500/50"
+                    : focused
+                      ? "bg-violet-500/15 border-violet-500/60 shadow-md"
                       : "bg-card border-border";
 
             return (
               <div
                 key={n.id}
-                className={`absolute rounded-xl border-2 shadow-sm select-none ${bg} ${drag?.id === n.id ? "z-20" : "z-10"}`}
+                className={`absolute rounded-2xl border-2 shadow-sm select-none ${bg} ${drag?.id === n.id ? "z-20" : "z-10"}`}
                 style={{ left: p.x, top: p.y, width: NODE_W, height: NODE_H }}
                 onPointerDown={(e) => onNodePointerDown(e, n.id)}
                 onPointerMove={onNodePointerMove}
                 onPointerUp={onNodePointerUp}
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!isSys) onFocus(n.id);
+                  else onFocus(null);
+                }}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  // Início / Sucesso / Márcio → textos padrão; demais → editar nó
+                  onEdit(n.id);
+                }}
               >
-                {/* entrada */}
-                {!isSys || n.systemKind !== "start" ? (
+                {(!isSys || n.systemKind !== "start") && (
                   <button
                     type="button"
                     data-port="in"
-                    title="Entrada — clique aqui pra receber uma ligação"
+                    title="Entrada"
                     onClick={(e) => onPortClick(e, n.id, "in")}
                     className={`absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border-2 border-background ${
-                      linking ? "bg-violet-500 ring-2 ring-violet-400/50 scale-110" : "bg-slate-400"
-                    } hover:scale-125 transition-transform`}
+                      linking ? "bg-violet-500 ring-2 ring-violet-400/40 scale-110" : "bg-slate-400"
+                    } hover:scale-125 transition-transform z-10`}
                   />
-                ) : null}
+                )}
 
-                <div className="px-3 py-2 h-full flex flex-col justify-center pointer-events-none">
-                  <p className="text-xs font-semibold text-foreground truncate">{n.label}</p>
+                <div className="px-3 py-2.5 h-full flex flex-col justify-center pointer-events-none">
+                  <p className="text-xs font-semibold text-foreground truncate leading-tight">{n.label}</p>
                   {!isSys && (
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                    <p className="text-[10px] text-muted-foreground mt-1">
                       {n.stepsCount ? `${n.stepsCount} msg` : "sem texto"}
-                      {!n.is_active ? " · inativo" : ""}
+                      {focused ? " · focado" : ""}
                     </p>
                   )}
                   {isSys && (
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                      {n.systemKind === "start" && "começa aqui"}
-                      {n.systemKind === "success" && "texto de sucesso"}
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      {n.systemKind === "start" && "entrada do cliente"}
+                      {n.systemKind === "success" && "quando deu certo"}
                       {n.systemKind === "escalate" && "passa pra você"}
                     </p>
                   )}
+                  <p className="text-[9px] text-muted-foreground/80 mt-0.5">
+                    {isSys ? "duplo clique = textos" : "duplo clique = editar"}
+                  </p>
                 </div>
 
-                {/* saídas */}
+                {/* Legenda das bolinhas abaixo do nó (só se tem saídas e está focado ou ligando) */}
+                {(!isSys || n.systemKind === "start") && (focused || linking?.fromId === n.id || showAll) && (
+                  <div className="absolute left-0 right-0 -bottom-5 flex justify-center gap-2 pointer-events-none">
+                    {(n.systemKind === "start"
+                      ? [{ p: "out_menu" as const, t: "menu" }]
+                      : [
+                          { p: "out_menu" as const, t: "menu" },
+                          { p: "out_next" as const, t: "→" },
+                          { p: "out_ok" as const, t: "ok" },
+                          { p: "out_fail" as const, t: "não" },
+                        ]
+                    ).map(({ p: port, t }) => (
+                      <span key={port} className="text-[8px] font-medium" style={{ color: PORT_COLORS[port] }}>
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 {(!isSys || n.systemKind === "start") && (
-                  <div className="absolute -right-2 top-0 bottom-0 flex flex-col justify-center gap-1 py-1">
+                  <div className="absolute -right-2 top-0 bottom-0 flex flex-col justify-center gap-1.5 py-1">
                     {(n.systemKind === "start"
                       ? (["out_menu"] as const)
                       : (["out_menu", "out_next", "out_ok", "out_fail"] as const)
@@ -420,12 +579,12 @@ export default function BotFlowCanvas({
                       const active = linking?.fromId === n.id && linking.port === port;
                       const title =
                         port === "out_menu"
-                          ? "Menu / opção →"
+                          ? "Menu / opção"
                           : port === "out_next"
-                            ? "Continuar em →"
+                            ? "Continuar"
                             : port === "out_ok"
-                              ? "Se resolveu →"
-                              : "Se não resolveu →";
+                              ? "Resolveu"
+                              : "Não resolveu";
                       return (
                         <button
                           key={port}
@@ -447,14 +606,19 @@ export default function BotFlowCanvas({
           })}
         </div>
       </div>
+    </div>
+  );
+}
 
-      <div className="flex flex-wrap gap-3 px-2 py-1.5 border-t border-border text-[10px] text-muted-foreground shrink-0">
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-violet-500" /> menu</span>
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-cyan-500" /> continuar</span>
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> resolveu</span>
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" /> não resolveu</span>
-        <span className="flex items-center gap-1 ml-auto"><Link2 className="w-3 h-3" /> clique na linha pra desligar</span>
-      </div>
+/** Legenda pra colar no modal de edição (canto superior direito) */
+export function FlowPortLegend() {
+  return (
+    <div className="text-[10px] space-y-1 text-right">
+      <p className="font-semibold text-muted-foreground mb-1">Saídas</p>
+      <p><span className="inline-block w-2 h-2 rounded-full bg-violet-500 mr-1.5 align-middle" />menu</p>
+      <p><span className="inline-block w-2 h-2 rounded-full bg-cyan-500 mr-1.5 align-middle" />continuar</p>
+      <p><span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1.5 align-middle" />resolveu</p>
+      <p><span className="inline-block w-2 h-2 rounded-full bg-amber-500 mr-1.5 align-middle" />não</p>
     </div>
   );
 }
