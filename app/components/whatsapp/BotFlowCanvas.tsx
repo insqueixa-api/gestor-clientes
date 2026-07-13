@@ -47,14 +47,6 @@ const SYSTEM_NODES: CanvasNode[] = [
   { id: "__escalate__", label: "🙋 Márcio", parent_id: null, option_number: 0, isSystem: true, systemKind: "escalate" },
 ];
 
-function loadPositions(): Record<string, Pos> {
-  try {
-    return JSON.parse(localStorage.getItem(POS_KEY) || "{}");
-  } catch {
-    return {};
-  }
-}
-
 function savePositions(p: Record<string, Pos>) {
   try {
     localStorage.setItem(POS_KEY, JSON.stringify(p));
@@ -62,28 +54,14 @@ function savePositions(p: Record<string, Pos>) {
 }
 
 /**
- * Colunas por geração, sempre nas MESMAS posições X em qualquer modo
- * (visão geral, foco, mapa completo) — só muda quem está visível, nunca
- * onde cada coluna fica. 6 posições: Início (âncora, fora da grade) +
- * 5 colunas reais e igualmente espaçadas usando a largura toda do canvas:
- *  0 Início | 1 Menu (pai) | 2 Filhos | 3 Netos | 4 Bisnetos | 5 Sucesso/Márcio
+ * Colunas por geração (pai/filho/neto/bisneto/fim), na ordem certa sempre —
+ * mas só reservam espaço as colunas que TÊM nó visível no momento. Isso
+ * evita colunas vazias "comendo" a largura no meio e empurrando tudo pra
+ * esquerda: as colunas ocupadas se espalham pela largura TOTAL do canvas,
+ * do fim do card Início até a borda direita real.
  */
 const COL_MARGIN = 24;
 const COL_START_OFFSET = COL_MARGIN + NODE_W + 90;
-const MIN_COL_STEP = 190;
-
-function buildColX(containerWidth: number): number[] {
-  const usable = Math.max(MIN_COL_STEP * 4, containerWidth - COL_START_OFFSET - NODE_W - COL_MARGIN);
-  const step = usable / 4; // 5 colunas → 4 intervalos
-  return [
-    COL_MARGIN,
-    COL_START_OFFSET,
-    COL_START_OFFSET + step,
-    COL_START_OFFSET + step * 2,
-    COL_START_OFFSET + step * 3,
-    COL_START_OFFSET + step * 4,
-  ];
-}
 
 const ROW_GAP = NODE_H + 12;
 const TOP_Y = 36;
@@ -135,16 +113,17 @@ function sortNodesInCol(nodes: CanvasNode[], byId: Map<string, CanvasNode>, allN
 
 /**
  * Layout ÚNICO pra todos os modos (visão geral, foco, mapa completo): cada
- * nó fica sempre na coluna da sua geração (pai/filho/neto/bisneto) e
- * Sucesso/Márcio sempre na coluna final — só o CONJUNTO de nós visíveis
- * muda entre os modos, nunca a posição X de cada um. É isso que evita o
- * "pula tudo de lugar" ao trocar de foco.
+ * nó fica sempre na coluna da sua geração, na mesma ORDEM (pai → filho →
+ * neto → bisneto → fim), e Sucesso/Márcio sempre no último slot ocupado —
+ * mas só as colunas com nó visível ganham espaço, espalhadas pela largura
+ * inteira do canvas. Evita tanto o "pula tudo de lugar" ao trocar de foco
+ * quanto colunas vazias empurrando o conteúdo pra esquerda.
  */
 function computeLayout(
   allNodes: CanvasNode[],
   visibleIds: Set<string>,
   links: FlowLink[],
-  colX: number[]
+  containerWidth: number
 ): Record<string, Pos> {
   const byId = new Map(allNodes.filter((n) => !n.isSystem).map((n) => [n.id, n]));
   const data = allNodes.filter((n) => !n.isSystem && visibleIds.has(n.id));
@@ -157,26 +136,40 @@ function computeLayout(
     cols[c] = sortNodesInCol(cols[c], byId, allNodes);
   }
 
+  const successVisible = visibleIds.has("__success__");
+  const escalateVisible = visibleIds.has("__escalate__");
+  const finVisible = successVisible || escalateVisible;
+
+  // ✅ só as gerações com nó visível "ganham" uma coluna — nada de reservar
+  // slot vazio no meio, que é o que empurrava tudo pra esquerda.
+  const occupied = [0, 1, 2, 3].filter((c) => cols[c].length > 0);
+  const slotCount = occupied.length + (finVisible ? 1 : 0);
+
+  const startX = COL_START_OFFSET;
+  const endX = Math.max(startX + 220, containerWidth - NODE_W - COL_MARGIN);
+  const step = slotCount > 1 ? (endX - startX) / (slotCount - 1) : 0;
+
   const pos: Record<string, Pos> = {};
-  for (let c = 0; c < 4; c++) {
+  occupied.forEach((c, slotIdx) => {
+    const x = startX + step * slotIdx;
     cols[c].forEach((n, i) => {
-      pos[n.id] = { x: colX[c + 1], y: TOP_Y + i * ROW_GAP };
+      pos[n.id] = { x, y: TOP_Y + i * ROW_GAP };
     });
-  }
+  });
 
-  // Início: meio vertical da coluna 1 (Menu) visível
+  // Início: meio vertical da 1ª coluna ocupada (normalmente Menu)
   if (visibleIds.has("__start__")) {
-    const roots = cols[0];
+    const firstCol = occupied.length ? cols[occupied[0]] : [];
     const startY =
-      roots.length > 0
-        ? (pos[roots[0].id].y + pos[roots[roots.length - 1].id].y) / 2
+      firstCol.length > 0
+        ? (pos[firstCol[0].id].y + pos[firstCol[firstCol.length - 1].id].y) / 2
         : TOP_Y;
-    pos.__start__ = { x: colX[0], y: startY };
+    pos.__start__ = { x: COL_MARGIN, y: startY };
   }
 
-  // Sucesso/Márcio: Y baseado na mediana dos predecessores visíveis
-  // (aproxima o card final do "centro de massa" de quem chega nele,
-  // reduzindo o cruzamento de linhas mesmo no mapa completo).
+  // Sucesso/Márcio: sempre no último slot ocupado = borda direita real do
+  // canvas. Y baseado na mediana dos predecessores visíveis (aproxima o
+  // card final do "centro de massa" de quem chega nele).
   function medianYOfPredecessors(targetId: string, fallback: number): number {
     const preds = predecessorsOf(targetId, allNodes, links).filter(
       (id) => visibleIds.has(id) && !id.startsWith("__")
@@ -187,14 +180,13 @@ function computeLayout(
     return ys[Math.floor(ys.length / 2)];
   }
 
-  const successVisible = visibleIds.has("__success__");
-  const escalateVisible = visibleIds.has("__escalate__");
+  const finX = startX + step * (slotCount - 1);
   if (successVisible) {
-    pos.__success__ = { x: colX[5], y: medianYOfPredecessors("__success__", TOP_Y) };
+    pos.__success__ = { x: finX, y: medianYOfPredecessors("__success__", TOP_Y) };
   }
   if (escalateVisible) {
     pos.__escalate__ = {
-      x: colX[5],
+      x: finX,
       y: medianYOfPredecessors("__escalate__", TOP_Y + ROW_GAP * 2),
     };
   }
@@ -203,7 +195,7 @@ function computeLayout(
     const sY = pos.__success__.y;
     const eY = pos.__escalate__.y;
     if (Math.abs(sY - eY) < ROW_GAP) {
-      pos.__escalate__ = { x: colX[5], y: sY + ROW_GAP * 1.4 };
+      pos.__escalate__ = { x: finX, y: sY + ROW_GAP * 1.4 };
     }
   }
 
@@ -442,8 +434,8 @@ export default function BotFlowCanvas({
   const allNodes = useMemo(() => [...SYSTEM_NODES, ...dataNodes], [dataNodes]);
   const allLinks = useMemo(() => buildLinks(allNodes), [allNodes]);
 
-  // ✅ Colunas sempre usam a largura real do canvas (5 colunas iguais,
-  // Início como âncora à esquerda) — nunca mais colunas fixas em pixel.
+  // ✅ Mede a largura real do canvas pra distribuir as colunas ocupadas
+  // por ela inteira (nunca mais colunas fixas em pixel).
   const boardRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(1180);
   useLayoutEffect(() => {
@@ -456,18 +448,16 @@ export default function BotFlowCanvas({
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  const colX = useMemo(() => buildColX(containerWidth), [containerWidth]);
 
-  const [positions, setPositions] = useState<Record<string, Pos>>({});
   const [linking, setLinking] = useState<{ fromId: string; port: Exclude<Port, "in"> } | null>(null);
   const [drag, setDrag] = useState<{ id: string; ox: number; oy: number } | null>(null);
   /** Identidade estável da linha (não índice — índice muda com o foco) */
   const [selectedLinkKey, setSelectedLinkKey] = useState<string | null>(null);
-  const [forceShowAllLocal, setForceShowAllLocal] = useState(false);
+  // ✅ forceShowAllProp é sempre controlado pelo pai neste app (nunca vem
+  // undefined em uso real); forceShowAllLocal só serve de fallback pro caso
+  // não-controlado, sem precisar espelhar a prop via effect.
+  const [forceShowAllLocal, setForceShowAllLocal] = useState(forceShowAllProp ?? false);
   const forceShowAll = forceShowAllProp ?? forceShowAllLocal;
-  useEffect(() => {
-    if (typeof forceShowAllProp === "boolean") setForceShowAllLocal(forceShowAllProp);
-  }, [forceShowAllProp]);
   const setForceShowAll = (v: boolean) => {
     setForceShowAllLocal(v);
     onForceShowAllChange?.(v);
@@ -491,16 +481,27 @@ export default function BotFlowCanvas({
     );
   }, [allLinks, visibleIds, focusId, showAll]);
 
-  // ✅ Um único layout pra todos os modos — a coluna de cada nó nunca muda,
-  // só o conjunto de nós visíveis (calculado à parte, em visibleIds).
-  useEffect(() => {
-    setPositions(computeLayout(allNodes, visibleIds, allLinks, colX));
-  }, [
-    allNodes.map((n) => n.id).join(","),
-    Array.from(visibleIds).sort().join(","),
-    allLinks,
-    colX,
-  ]); // eslint-disable-line react-hooks/exhaustive-deps
+  // ✅ Um único layout pra todos os modos: a ORDEM das colunas (geração de
+  // cada nó) nunca muda, só quantas colunas existem e o quanto elas se
+  // espalham — depende de quais nós estão visíveis (visibleIds).
+  // Recalculado durante o render (não num useEffect) quando a "chave" do
+  // layout muda — padrão recomendado pelo React pra ajustar estado a
+  // partir de props/derivados sem disparar setState num efeito à parte.
+  // Continua editável depois (arrastar nó) via updatePos/setPositions.
+  const layoutKey =
+    allNodes.map((n) => n.id).join(",") +
+    "::" +
+    Array.from(visibleIds).sort().join(",") +
+    "::" +
+    containerWidth;
+  const [positions, setPositions] = useState<Record<string, Pos>>(() =>
+    computeLayout(allNodes, visibleIds, allLinks, containerWidth)
+  );
+  const [lastLayoutKey, setLastLayoutKey] = useState(layoutKey);
+  if (layoutKey !== lastLayoutKey) {
+    setLastLayoutKey(layoutKey);
+    setPositions(computeLayout(allNodes, visibleIds, allLinks, containerWidth));
+  }
 
   const updatePos = useCallback((id: string, x: number, y: number) => {
     setPositions((prev) => {
@@ -592,8 +593,10 @@ export default function BotFlowCanvas({
   const boardW = Math.max(containerWidth, ...Object.values(positions).map((p) => p.x + NODE_W + 64));
 
   // posição do botão flutuante "Apagar" no meio da linha selecionada
-  const deleteBtnPos = useMemo(() => {
-    if (!selectedLink) return null;
+  // (cálculo trivial — não precisa de useMemo; evita depender de portXY,
+  // que fecha sobre `positions` e não é ele mesmo memoizado)
+  let deleteBtnPos: { x: number; y: number } | null = null;
+  if (selectedLink) {
     const fromPort =
       selectedLink.kind === "menu"
         ? "out_menu"
@@ -604,8 +607,8 @@ export default function BotFlowCanvas({
             : "out_fail";
     const a = portXY(selectedLink.from, fromPort as Port);
     const b = portXY(selectedLink.to, "in");
-    return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-  }, [selectedLink, positions]);
+    deleteBtnPos = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  }
 
   return (
     <div className="flex flex-col h-full min-h-[560px] w-full">
@@ -890,25 +893,6 @@ export default function BotFlowCanvas({
                     {isSys ? "duplo clique = textos" : "duplo clique = editar"}
                   </p>
                 </div>
-
-                {/* Legenda das bolinhas abaixo do nó (só se tem saídas e está focado ou ligando) */}
-                {(!isSys || n.systemKind === "start") && (focused || linking?.fromId === n.id || showAll) && (
-                  <div className="absolute left-0 right-0 -bottom-5 flex justify-center gap-2 pointer-events-none">
-                    {(n.systemKind === "start"
-                      ? [{ p: "out_menu" as const, t: "menu" }]
-                      : [
-                          { p: "out_menu" as const, t: "menu" },
-                          { p: "out_next" as const, t: "→" },
-                          { p: "out_ok" as const, t: "ok" },
-                          { p: "out_fail" as const, t: "não" },
-                        ]
-                    ).map(({ p: port, t }) => (
-                      <span key={port} className="text-[8px] font-medium" style={{ color: PORT_COLORS[port] }}>
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                )}
 
                 {(!isSys || n.systemKind === "start") && (
                   <div className="absolute -right-2 top-0 bottom-0 flex flex-col justify-center gap-1.5 py-1">
