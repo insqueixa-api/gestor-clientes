@@ -6,7 +6,7 @@
 // sincronia manualmente; agora uma fonte única. Edite APENAS aqui.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { generatePortalLink, renderTemplate, buildClientTemplateVars } from "@/lib/whatsapp/template-vars";
+import { generatePortalLink, renderTemplate, buildClientTemplateVars, toBRDate } from "@/lib/whatsapp/template-vars";
 import {
   type MenuNode,
   isEscalationTrigger,
@@ -177,6 +177,20 @@ async function buildVarsForNode(
   return vars;
 }
 
+// ✅ Busca o vencimento ATUAL do cliente (pode já ter sido estendido pela
+// renovação automática que gerou o "auto_confirmed") pra confirmar a data
+// certa na mensagem, em vez de repetir só um "tudo certo" genérico.
+async function fetchFreshDueDate(sb: any, clientId: string | null | undefined): Promise<string | null> {
+  if (!clientId) return null;
+  try {
+    const { data } = await sb.from("clients").select("vencimento").eq("id", clientId).maybeSingle();
+    if (!data?.vencimento) return null;
+    return toBRDate(new Date(data.vencimento));
+  } catch {
+    return null;
+  }
+}
+
 // ── Gate checks — rodam antes de mostrar os filhos de um nó com children ────
 async function runGateChecks(node: MenuNode, client: any, sb: any, tenantId: string): Promise<{ messages: string[]; markRead?: boolean } | null> {
   const actions = node.special_actions || [];
@@ -187,7 +201,10 @@ async function runGateChecks(node: MenuNode, client: any, sb: any, tenantId: str
 
   if (actions.includes("check_renovacao_recente")) {
     const status = await checkRecentPortalPayment(sb, tenantId, [client?.id].filter(Boolean));
-    if (status === "auto_confirmed") return { messages: [paymentAutoConfirmedMsg(client.display_name?.split(" ")[0] || "")], markRead: true };
+    if (status === "auto_confirmed") {
+      const dueStr = await fetchFreshDueDate(sb, client?.id);
+      return { messages: [paymentAutoConfirmedMsg(client.display_name?.split(" ")[0] || "", dueStr)], markRead: true };
+    }
     if (status === "manual_pending") return { messages: [PAYMENT_MANUAL_PENDING_MSG], markRead: true };
     if (status === "fulfillment_error") return { messages: [PAYMENT_FULFILLMENT_ERROR_MSG], markRead: false };
   }
@@ -219,6 +236,26 @@ async function executeLeaf(
   node: MenuNode, client: any, rawClient: any, sb: any, tenantId: string, flow: FlowSettings, provider: ServerProvider | null
 ): Promise<{ messages: string[]; escalate?: boolean; markRead?: boolean; nextState: string; transferReason?: string | null }> {
   const actions = node.special_actions || [];
+
+  // ✅ Antes só funcionava como gate ANTES de mostrar submenu (nó com filhos)
+  // — num nó FOLHA (ex: "Já paguei, aguardando confirmação") essa checagem
+  // nunca rodava. Confirma automaticamente pagamento + confirmação já
+  // enviada (com o vencimento atualizado); só cai pro resto (coletar
+  // relato e escalar pro Márcio) se realmente não achar nada.
+  if (actions.includes("check_renovacao_recente")) {
+    const status = await checkRecentPortalPayment(sb, tenantId, [client?.id].filter(Boolean));
+    if (status === "auto_confirmed") {
+      const dueStr = await fetchFreshDueDate(sb, client?.id);
+      return leafAfterMessages(node, [paymentAutoConfirmedMsg(client.display_name?.split(" ")[0] || "", dueStr)], { forceState: "geral" });
+    }
+    if (status === "manual_pending") {
+      return leafAfterMessages(node, [PAYMENT_MANUAL_PENDING_MSG], { forceState: "geral" });
+    }
+    if (status === "fulfillment_error") {
+      return leafAfterMessages(node, [PAYMENT_FULFILLMENT_ERROR_MSG], { markRead: false, forceState: "geral" });
+    }
+    // status === "none" → segue pro resto (ex: coletar_relato_e_escalar)
+  }
 
   if (actions.includes("escalar_imediatamente") || actions.includes("coletar_relato_e_escalar")) {
     const vars = await buildVarsForNode(sb, tenantId, node, client, rawClient, provider);

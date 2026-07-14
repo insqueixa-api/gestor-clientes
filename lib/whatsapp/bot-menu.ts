@@ -44,8 +44,54 @@ export function isBackToMenuTrigger(text: string): boolean {
   return text.split("\n").some((line) => /^(9|menu|menu principal|voltar|voltar ao menu|voltar pro menu)$/i.test(line.trim()));
 }
 
+// Vocabulário de confirmação/despedida curta, usado tanto no match exato
+// (palavra sozinha) quanto por-parte (ver isSimpleConfirmation abaixo).
+const ACK_WORD_RE = /^(ok|okay|oks|blz|beleza|certo|entendi|entendido|perfeito|t[áa]|t[áa]\s*bom|est[áa]\s*bem|tudo\s*bem|tudo\s*certo|obrigad[oa]|muito\s*obrigad[oa]|vlw|valeu|at[ée]|[óo]timo|show|legal|massa|foi|feito|deu\s*certo|combinado|fechado|qualquer\s*coisa)$/i;
+const EMOJI_ONLY_RE = /^[👍👌✅😊🙏👏🤝😀😄🙂❤️🥰]+$/u;
+
 export function isSimpleConfirmation(text: string): boolean {
-  return /^(ok|okay|oks|👍|👌|✅|😊|🙏|blz|beleza|certo|entendi|entendido|perfeito|tá|ta|tá bom|ta bom|tudo bem|obrigad[oa]|vlw|valeu|até|ótimo|otimo|show|legal|massa|👏|🤝|😀|😄|🙂)$/i.test(text.trim());
+  const t = text.trim();
+  if (EMOJI_ONLY_RE.test(t) || ACK_WORD_RE.test(t)) return true;
+
+  // ✅ Agradecimento/despedida de verdade, mas com "recheio" em volta (nome,
+  // "meu amigo", emoji) em vez de só a palavra sozinha — casos reais vistos:
+  // "Vlw meu amigo, super obrigado", "Muito obrigado pela atenção, meu
+  // amigo 🤝🤝", "Qualquer coisa estou por aqui". Sem isso o bot tratava
+  // como pergunta nova e reabria o menu pra um simples "obrigado".
+  // Blindagem: nem todo mundo digita "?" numa pergunta real ("Obrigado por
+  // avisar, mas quero saber quando volta") — por isso, além do limite de
+  // tamanho e da ausência de "?", a frase não pode ter nenhuma palavra de
+  // continuação/pedido (mas, ainda, quero, quando, pode...), senão é
+  // tratada como pergunta de verdade, não como despedida.
+  const hasContinuationWord = /\b(mas|por[ée]m|só que|ainda|quero|queria|preciso|precisava|gostaria|pode|poderia|consegue|quando|como|cad[eê]|por\s*que|pra\s*que|onde)\b/i.test(t);
+  if (t.includes("?") || hasContinuationWord) return false;
+
+  if (t.length <= 60) {
+    if (/^(vlw|valeu|obrigad[oa]|muito\s+obrigad[oa])\b/i.test(t)) return true;
+    if (/^qualquer\s+coisa\b/i.test(t)) return true;
+  }
+
+  // ✅ Saudação/nome + despedida curta combinados — nenhuma parte sozinha bate
+  // nos padrões acima, mas juntas são só cordialidade. Casos reais: "Está bem
+  // Marcio", "Boa tarde Marcio! Feito 🙏", "oi márcio, boa noite! obrigada
+  // por avisar 😊" (resposta a mensagens automáticas de cobrança/pós-venda).
+  if (t.length <= 80) {
+    const withoutName = t.replace(/\bm[aá]rcio\b/gi, " ");
+    const parts = withoutName
+      .split(/[,;.!?]+/)
+      .map((p) => p.replace(/[\p{Extended_Pictographic}]/gu, "").trim())
+      .filter(Boolean);
+    if (
+      parts.length &&
+      parts.every(
+        (p) => GREETING_WORD_RE.test(p) || ACK_WORD_RE.test(p) || /^(vlw|valeu|obrigad[oa]|muito\s+obrigad[oa])\b/i.test(p)
+      )
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export function isLinkOnly(text: string): boolean {
@@ -111,8 +157,9 @@ export async function checkRecentPortalPayment(
   return "none";
 }
 
-export function paymentAutoConfirmedMsg(firstName: string): string {
-  return `Tudo certo, ${firstName}! 😊 Sua renovação já foi processada automaticamente pelo portal e a confirmação já foi enviada. Não precisa mandar comprovante — já está tudo certo! ✅`;
+export function paymentAutoConfirmedMsg(firstName: string, dueDateStr?: string | null): string {
+  const dueSuffix = dueDateStr ? ` Seu acesso está confirmado até ${dueDateStr}.` : "";
+  return `Tudo certo, ${firstName}! 😊 Sua renovação já foi processada automaticamente pelo portal e a confirmação já foi enviada.${dueSuffix} Não precisa mandar comprovante — já está tudo certo! ✅`;
 }
 
 export const PAYMENT_MANUAL_PENDING_MSG =
