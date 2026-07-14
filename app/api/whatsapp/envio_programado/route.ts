@@ -395,11 +395,6 @@ export async function POST(req: Request) {
 
           Object.assign(vars, manualPaymentVars);
 
-          // ⚠️ Preserva o comportamento ORIGINAL do agendamento/cron: pin_cliente aqui
-          // sempre foi os últimos 4 dígitos do telefone, nunca o PIN real (diferente
-          // do envio manual). Mantido de propósito — não é descuido.
-          vars.pin_cliente = contact.number && contact.number.length >= 4 ? contact.number.slice(-4) : "";
-
           // Gera o link do portal — SEM expiração (igual ao envio manual).
           // ⚠️ O original tinha 30 dias aqui; removido a pedido — o link nunca deve expirar.
           // ✅ Usa safeUuidOrNull internamente: corrige o caso de job.created_by vir

@@ -895,6 +895,20 @@ if (connection === "open") {
         continue;
       }
 
+      // ✅ Rejeita primeiro — dispara o quanto antes, antes de qualquer outra
+      // checagem/log, pra minimizar a corrida contra o toque nativo no celular
+      // (que já começa a tocar assim que o WhatsApp empurra a notificação).
+      try {
+        // Rejeita usando o JID original (rejectCall precisa do JID exato que chegou)
+        await sock.rejectCall(call.id, call.from);
+        console.log(`[WA][${sessionKey.slice(0, 8)}] 📵 Chamada rejeitada de ${call.from}`);
+      } catch (e) {
+        console.error(`[WA][${sessionKey.slice(0, 8)}] Erro ao rejeitar chamada:`, e?.message);
+        // ✅ Remove do cache se falhou — permite tentar novamente se reemitido
+        processedCalls.delete(call.id);
+        continue;
+      }
+
       // ✅ Detecta se a chamada é de um grupo (Baileys expõe isGroup, e em
       // algumas versões também chatId/groupJid apontando para @g.us).
       // Log temporário para você confirmar no `docker logs` qual campo veio.
@@ -903,30 +917,21 @@ if (connection === "open") {
         (typeof call.chatId === "string" && call.chatId.endsWith("@g.us")) ||
         (typeof call.groupJid === "string" && call.groupJid.endsWith("@g.us"));
 
+      // ✅ Chamada de grupo: já rejeitou e para por aqui — ninguém liga pro seu PV,
+      // então não faz sentido mandar mensagem para o número que originou a chamada.
       if (isGroupCall) {
         console.log(`[WA][${sessionKey.slice(0, 8)}] 👥 Chamada em grupo detectada — raw call: ${JSON.stringify(call)}`);
+        console.log(`[WA][${sessionKey.slice(0, 8)}] 🔇 Chamada de grupo — mensagem de rejeição NÃO enviada`);
+        continue;
       }
 
       try {
-        // Rejeita usando o JID original (rejectCall precisa do JID exato que chegou)
-        await sock.rejectCall(call.id, call.from);
-        console.log(`[WA][${sessionKey.slice(0, 8)}] 📵 Chamada rejeitada de ${call.from}`);
-
-        // ✅ Chamada de grupo: rejeita e para por aqui — ninguém liga pro seu PV,
-        // então não faz sentido mandar mensagem para o número que originou a chamada.
-        if (isGroupCall) {
-          console.log(`[WA][${sessionKey.slice(0, 8)}] 🔇 Chamada de grupo — mensagem de rejeição NÃO enviada`);
-          continue;
-        }
-
         // ✅ Envia mensagem para o JID resolvido (número real, não LID)
         const renderedMessage = renderRejectMessage(config.rejectMessage, callerJid);
         await sock.sendMessage(callerJid, { text: renderedMessage });
         console.log(`[WA][${sessionKey.slice(0, 8)}] ✉️  Mensagem enviada para ${callerJid}`);
       } catch (e) {
-        console.error(`[WA][${sessionKey.slice(0, 8)}] Erro ao rejeitar chamada:`, e?.message);
-        // ✅ Remove do cache se falhou — permite tentar novamente se reemitido
-        processedCalls.delete(call.id);
+        console.error(`[WA][${sessionKey.slice(0, 8)}] Erro ao enviar mensagem de rejeição:`, e?.message);
       }
     }
   });

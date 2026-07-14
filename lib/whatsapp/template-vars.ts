@@ -137,16 +137,8 @@ export function buildClientTemplateVars(params: { clientRow: any; isSecondary?: 
     else diasAtraso = String(Math.abs(d));
   }
 
-  const rawPhone = params.isSecondary
-    ? row.secondary_whatsapp_username || ""
-    : row.whatsapp_username || row.whatsapp_e164 || "";
-  const cleanPhone = normalizeToPhone(rawPhone);
-
   const priceVal = row.price_amount ? Number(row.price_amount) : 0;
   const valorFaturaStr = priceVal > 0 ? `${priceVal.toFixed(2).replace(".", ",")}` : "";
-
-  // ✅ Usa o PIN real (preenchido por fetchClientWhatsApp); cai nos últimos 4 dígitos do telefone se não existir
-  const pinCliente = row.portal_pin || (cleanPhone && cleanPhone.length >= 4 ? cleanPhone.slice(-4) : "");
 
   return {
     // 🤖 Automação & Prazos
@@ -189,7 +181,6 @@ export function buildClientTemplateVars(params: { clientRow: any; isSecondary?: 
 
     // 💰 Financeiro
     link_pagamento: "", // preenchido depois via generatePortalLink (precisa do contato específico)
-    pin_cliente: pinCliente,
     valor_fatura: valorFaturaStr,
     moeda_cliente: String(row.price_currency || row.currency || "").trim(),
     pix_copia_cola: row.pix_code || "",
@@ -457,7 +448,6 @@ export function buildResellerTemplateVars(params: { resellerRow: any }): Record<
     else diasAtraso = String(Math.abs(d));
   }
 
-  const cleanPhone = normalizeToPhone(row.whatsapp_username || row.whatsapp_e164 || "");
   const priceVal = row.price_amount ? Number(row.price_amount) : 0;
   const valorFaturaStr = priceVal > 0 ? `${priceVal.toFixed(2).replace(".", ",")}` : "";
 
@@ -497,7 +487,6 @@ export function buildResellerTemplateVars(params: { resellerRow: any }): Record<
     venda_creditos: row.venda_creditos != null ? String(row.venda_creditos) : "",
 
     link_pagamento: "",
-    pin_cliente: cleanPhone && cleanPhone.length >= 4 ? cleanPhone.slice(-4) : "",
     valor_fatura: valorFaturaStr,
     moeda_cliente: String(row.price_currency || "").trim(),
     pix_copia_cola: row.pix_code || "",

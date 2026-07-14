@@ -159,7 +159,6 @@ const TAG_GROUPS = [
     tags: [
       { label: "{venda_creditos}", desc: "Qtd. de Créditos da Última Recarga" },
       { label: "{link_pagamento}", desc: "Link Área do Cliente / Fatura" },
-      { label: "{pin_cliente}", desc: "PIN da Área do Cliente (4 dígitos)" },
       { label: "{valor_fatura}", desc: "Valor da renovação" },
       { label: "{moeda_cliente}", desc: "BRL/USD/EUR" },
       { label: "{pix_copia_cola}", desc: "Código PIX copia-e-cola automático (gateway online)" },

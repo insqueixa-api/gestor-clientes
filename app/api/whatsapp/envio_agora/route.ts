@@ -337,22 +337,7 @@ export async function POST(req: Request) {
 
     Object.assign(vars, manualPaymentVars); // ✅ Injeta o PIX e o IBAN na mensagem final
 
-    // ✅ 1. CORREÇÃO DO PIN: Tenta pegar o PIN real do banco (ignora os 4 últimos dígitos se a senha tiver sido alterada)
-    // Nota: pra cliente isso já vem resolvido por fetchClientWhatsApp/buildClientTemplateVars — mantido aqui
-    // por segurança e paridade exata de comportamento com a versão original.
-    try {
-      const realPin = wa.row?.portal_pin;
-      if (realPin) {
-        vars.pin_cliente = realPin;
-      } else if (wa.row?.id) {
-        const { data: pinData } = await sb.from("clients").select("portal_pin").eq("id", wa.row.id).single();
-        if (pinData?.portal_pin) {
-          vars.pin_cliente = pinData.portal_pin;
-        }
-      }
-    } catch (e) {}
-
-    // ✅ 2. LINK DO PORTAL — crítico, gerado via lib (mesmo RPC, mesmos logs, mesmo fallback)
+    // ✅ LINK DO PORTAL — crítico, gerado via lib (mesmo RPC, mesmos logs, mesmo fallback)
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(authedUserId);
     const safeUserId = isUuid ? authedUserId : null;
     const actionLabel = internal ? "Envio automático" : "Envio manual";

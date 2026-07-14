@@ -50,7 +50,6 @@ export async function GET() {
     ["{revenda_site}", "Link do Painel Web"],
     ["{venda_creditos}", "Qtd. de Créditos da Última Recarga"],
     ["{link_pagamento}", "Link Área do Cliente / Fatura"],
-    ["{pin_cliente}", "PIN da Área do Cliente (4 dígitos)"],
     ["{valor_fatura}", "Valor da renovação (Ex: R$ 40,00)"],
     ["{pix_manual_cnpj}", "Chave PIX (CNPJ)"],
     ["{pix_manual_cpf}", "Chave PIX (CPF)"],
