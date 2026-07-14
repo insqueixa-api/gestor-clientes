@@ -294,20 +294,34 @@ function highlightPathIds(id: string, allNodes: CanvasNode[]): Set<string> {
     frontier = next;
   }
 
-  // Destino final (continuar / resolveu / não resolveu) de cada nó no
-  // caminho — fecha a rota em Sucesso/Márcio ou no nó de redirecionamento.
-  for (const nid of [...set]) {
-    const n = byId.get(nid);
-    if (!n) continue;
-    if (n.redirect_to_node_id) set.add(n.redirect_to_node_id);
-    const showRes =
-      n.ask_resolution === true ||
-      (n.ask_resolution !== false &&
-        !!(n.closing_message?.trim() || n.on_resolved_target || n.on_not_resolved_target));
-    if (showRes) {
-      set.add(resolveTarget(n.on_resolved_target, "__success__"));
-      set.add(resolveTarget(n.on_not_resolved_target, "__escalate__"));
+  // Destino final de fluxo (continuar / resolveu / não resolveu) — encadeado:
+  // um nó pode redirecionar pra outro que só então resolve pra Sucesso/
+  // Márcio, então segue a cadeia toda até não sobrar destino novo (sem isso,
+  // só o 1º salto acendia — a rota parava no meio do caminho).
+  let flowFrontier = [...set];
+  while (flowFrontier.length) {
+    const nextFlow: string[] = [];
+    for (const nid of flowFrontier) {
+      const n = byId.get(nid);
+      if (!n) continue;
+      const targets: string[] = [];
+      if (n.redirect_to_node_id) targets.push(n.redirect_to_node_id);
+      const showRes =
+        n.ask_resolution === true ||
+        (n.ask_resolution !== false &&
+          !!(n.closing_message?.trim() || n.on_resolved_target || n.on_not_resolved_target));
+      if (showRes) {
+        targets.push(resolveTarget(n.on_resolved_target, "__success__"));
+        targets.push(resolveTarget(n.on_not_resolved_target, "__escalate__"));
+      }
+      for (const t of targets) {
+        if (!set.has(t)) {
+          set.add(t);
+          nextFlow.push(t);
+        }
+      }
     }
+    flowFrontier = nextFlow;
   }
 
   return set;
