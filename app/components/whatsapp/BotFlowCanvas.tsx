@@ -332,6 +332,21 @@ function edgePath(x1: number, y1: number, x2: number, y2: number) {
   return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
 }
 
+/** Ponto EM CIMA da mesma curva bezier desenhada por edgePath() — usado pra
+ * posicionar o badge do número. Interpolação linear (reta) entre origem/destino
+ * não serve aqui: quando várias linhas saem do mesmo ponto (ex.: Início → menus)
+ * e se curvam com intensidades diferentes, o ponto "reto" cai fora da curva
+ * real e o número acaba visualmente mais perto de uma linha vizinha. */
+function bezierPoint(x1: number, y1: number, x2: number, y2: number, t: number) {
+  const dx = Math.max(48, Math.abs(x2 - x1) * 0.45);
+  const p1x = x1 + dx, p1y = y1;
+  const p2x = x2 - dx, p2y = y2;
+  const mt = 1 - t;
+  const x = mt * mt * mt * x1 + 3 * mt * mt * t * p1x + 3 * mt * t * t * p2x + t * t * t * x2;
+  const y = mt * mt * mt * y1 + 3 * mt * mt * t * p1y + 3 * mt * t * t * p2y + t * t * t * y2;
+  return { x, y };
+}
+
 const PORT_COLORS: Record<string, string> = {
   out_menu: "#8b5cf6",
   out_next: "#06b6d4",
@@ -794,8 +809,7 @@ const boardH = Math.max(420, ...Object.values(positions).map((p) => p.y + NODE_H
               // Início → menus: número perto do card (evita pilha 1–8 no meio)
               const fromStart = link.from === "__start__" && link.kind === "menu";
               const t = fromStart ? 0.82 : 0.5;
-              const mx = a.x + (b.x - a.x) * t;
-              const my = a.y + (b.y - a.y) * t;
+              const { x: mx, y: my } = bezierPoint(a.x, a.y, b.x, b.y, t);
 const badgeR = fromStart ? (selected ? 11 : 10) : selected ? 12 : 10;
               const dimmed = !!highlightSet && !(highlightSet.has(link.from) && highlightSet.has(link.to));
               return (
