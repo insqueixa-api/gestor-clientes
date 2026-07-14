@@ -234,13 +234,28 @@ export async function getChildren(sb: any, parentId: string, provider?: ServerPr
   return all.filter((n) => appliesToProvider(n.applies_to_servers, provider));
 }
 
-export async function getSteps(sb: any, nodeId: string): Promise<string[]> {
+// ✅ "provider": nó pode ter uma única mensagem universal (server = null em
+// todas as linhas) OU variantes por servidor. Com variantes, prioriza a do
+// provider do cliente (se ativa); sem provider conhecido, ou sem variante
+// ativa pra ele, cai pras linhas universais (server IS NULL) — mesma
+// filosofia de "esconde/some quando não sabe o servidor" de appliesToProvider.
+export async function getSteps(sb: any, nodeId: string, provider?: ServerProvider | null): Promise<string[]> {
   const { data } = await sb
     .from("bot_menu_steps")
-    .select("message_text")
+    .select("message_text, server, is_active")
     .eq("node_id", nodeId)
     .order("step_order", { ascending: true });
-  return (data || []).map((s: any) => s.message_text);
+  const rows: any[] = data || [];
+  if (!rows.length) return [];
+
+  const hasVariants = rows.some((r) => r.server);
+  if (!hasVariants) return rows.map((r) => r.message_text);
+
+  if (provider) {
+    const forProvider = rows.filter((r) => r.server === provider && r.is_active !== false);
+    if (forProvider.length) return forProvider.map((r) => r.message_text);
+  }
+  return rows.filter((r) => r.server === null).map((r) => r.message_text);
 }
 
 // ✅ "intro" é configurável: "Entendido! Me conta mais:" só faz sentido quando
@@ -488,10 +503,10 @@ export const ACCOUNT_DEPENDENT_ACTIONS = [
 // primeira conta, errado pra quem tem mais de uma.
 export const ACCOUNT_DEPENDENT_VARS = ["{link_pagamento}", "{tabela_precos}"];
 
-export async function nodeNeedsAccount(sb: any, node: MenuNode): Promise<boolean> {
+export async function nodeNeedsAccount(sb: any, node: MenuNode, provider?: ServerProvider | null): Promise<boolean> {
   const actions = node.special_actions || [];
   if (actions.some((a) => ACCOUNT_DEPENDENT_ACTIONS.includes(a))) return true;
-  const stepsText = (await getSteps(sb, node.id)).join(" ");
+  const stepsText = (await getSteps(sb, node.id, provider)).join(" ");
   return ACCOUNT_DEPENDENT_VARS.some((v) => stepsText.includes(v));
 }
 

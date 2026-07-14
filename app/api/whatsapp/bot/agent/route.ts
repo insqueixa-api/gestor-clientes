@@ -1,69 +1,23 @@
 // app/api/whatsapp/bot/agent/route.ts
 // ─────────────────────────────────────────────────────────────────────────────
-// Migrado pro motor de árvore (bot_menu_nodes/bot_menu_steps) + RAG de resposta
-// direta — mesma arquitetura já validada no chat-admin. O Gemini aqui só é
-// usado para: (1) gerar embeddings de busca, e (2) classificar se uma imagem
-// é comprovante de pagamento. Nenhuma geração de texto livre acontece mais.
+// Rota de produção (webhook real, chamada por whatsapp-service/src/sessionManager.js).
+// Usa o mesmo motor de árvore do simulador (lib/whatsapp/bot-engine.ts) — antes
+// duplicado aqui inteiro, mantido em sincronia manualmente com chat-admin/route.ts.
+// Aqui ficam só as partes exclusivas de produção: autenticação interna, leitura
+// mais completa do cliente, análise de comprovante (mídia) e o fluxo "Portal ou
+// PIX?" — nada disso existe no simulador.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
-import { generatePortalLink, renderTemplate, buildClientTemplateVars } from "@/lib/whatsapp/template-vars";
-import {
-  type MenuNode,
-  isEscalationTrigger,
-  isBackToMenuTrigger,
-  isSimpleConfirmation,
-  isLinkOnly,
-  isGreetingOnly,
-  classifyRecentJob,
-  checkRecentPortalPayment,
-  paymentAutoConfirmedMsg,
-  PAYMENT_MANUAL_PENDING_MSG,
-  PAYMENT_FULFILLMENT_ERROR_MSG,
-  detectMenuContextFromTree,
-  getAllRootsAsMenuText,
-  getRootNodes,
-  findRootByNumber,
-  extractSingleDigitSelection,
-  hasSemanticSignal,
-  getNodeById,
-  getChildren,
-  getSteps,
-  renderChildrenMenu,
-  findChildByNumber,
-  findChildByKeyword,
-  matchAccountFromText,
-  nodeNeedsAccount,
-  RESOLUTION_QUESTION,
-  isResolutionResolved,
-  isResolutionNotResolved,
-  isConnectivityObjection,
-  CONNECTIVITY_OBJECTION_MSG,
-  CONNECTIVITY_OBJECTION_INSISTENT_MSG,
-  isConfirmSwitchYes,
-  resolveClientProvider,
-  pickCompatibleSemanticMatch,
-  buildInvalidMenuRetry,
-  pickInvalidIntro,
-  withResolutionQuestionIfNeeded,
-  type ServerProvider,
-} from "@/lib/whatsapp/bot-menu";
-import {
-  getFlowSettings,
-  nodeAsksResolution,
-  parseFlowTarget,
-  makeRedirectState,
-  MAX_REDIRECT_DEPTH,
-  type FlowSettings,
-} from "@/lib/whatsapp/bot-flow-settings";
-import { callGemini, generateEmbedding, searchBotKnowledgeCandidates, pickCompatibleKnowledgeMatch, searchMenuIntentCandidates, classifyIsAcknowledgment } from "@/lib/whatsapp/gemini-client";
+import { resolveClientProvider, type ServerProvider } from "@/lib/whatsapp/bot-menu";
+import { getFlowSettings } from "@/lib/whatsapp/bot-flow-settings";
+import { runBotEngine } from "@/lib/whatsapp/bot-engine";
+import { callGemini } from "@/lib/whatsapp/gemini-client";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
-
-// ── Helpers internos ──────────────────────────────────────────────────────────
 
 function safeLog(...args: any[]) {
   if (process.env.NODE_ENV !== "production") console.log(...args);
@@ -116,221 +70,6 @@ async function sendWAMessage(sessionKey: string, phone: string, message: string)
   } finally {
     clearTimeout(timeout);
   }
-}
-
-// ── Ferramentas (chamadas diretas, disparadas pelas special_actions da árvore) ─
-
-async function toolGerarLinkPortal(sb: any, tenantId: string, rawClient: any, isSecondary: boolean): Promise<string> {
-  const phone = isSecondary ? rawClient.secondary_whatsapp_username : rawClient.whatsapp_username;
-  if (!phone) return "(link não disponível — cliente sem WhatsApp)";
-  return generatePortalLink(sb, {
-    tenantId,
-    contact: { number: phone, username: phone, is_secondary: isSecondary },
-    createdBy: null,
-    label: "Bot de atendimento",
-    expiresAt: null,
-    onLog: safeLog,
-  });
-}
-
-// Mantém a lógica completa original (checagem Elite excluindo ANNUAL) —
-// mais completa que a versão simplificada usada no chat-admin.
-async function toolConsultarPrecosTexto(sb: any, tenantId: string, client: any): Promise<string> {
-  const PERIOD_LABELS: Record<string, string> = {
-    MONTHLY: "Mensal", BIMONTHLY: "Bimestral", QUARTERLY: "Trimestral",
-    SEMIANNUAL: "Semestral", ANNUAL: "Anual",
-  };
-  const ORDER = ["MONTHLY", "BIMONTHLY", "QUARTERLY", "SEMIANNUAL", "ANNUAL"];
-
-  let planTableId = client.plan_table_id;
-  if (!planTableId) {
-    const { data: def } = await sb
-      .from("plan_tables").select("id")
-      .eq("tenant_id", tenantId).eq("is_system_default", true)
-      .eq("currency", client.price_currency || "BRL").eq("is_active", true)
-      .maybeSingle();
-    if (def) planTableId = def.id;
-  }
-  if (!planTableId) return "(tabela de preços não encontrada)";
-
-  let isElite = false;
-  if (client.server_id) {
-    const { data: srv } = await sb.from("servers").select("panel_integration").eq("id", client.server_id).single();
-    if (srv?.panel_integration) {
-      const { data: integ } = await sb.from("server_integrations").select("provider").eq("id", srv.panel_integration).single();
-      if (integ?.provider?.toUpperCase() === "ELITE") isElite = true;
-    }
-  }
-
-  const { data: items } = await sb
-    .from("plan_table_items")
-    .select("period, plan_table_item_prices(screens_count, price_amount)")
-    .eq("plan_table_id", planTableId);
-
-  const screens = Number(client.screens || 1);
-
-  const linhas = (items || [])
-    .filter((item: any) => !isElite || item.period !== "ANNUAL")
-    .map((item: any) => {
-      let valor = 0;
-      if (client.price_amount > 0 && PERIOD_LABELS[item.period] === client.plan_label) {
-        valor = client.price_amount;
-      } else {
-        const exact = item.plan_table_item_prices?.find((p: any) => p.screens_count === screens);
-        if (exact) valor = exact.price_amount;
-      }
-      return { periodo: PERIOD_LABELS[item.period] || item.period, valor, order: ORDER.indexOf(item.period) };
-    })
-    .filter((p: any) => p.valor > 0)
-    .sort((a: any, b: any) => a.order - b.order)
-    .map((p: any) => `- ${p.periodo}: ${client.price_currency || "BRL"} ${Number(p.valor).toFixed(2)}`);
-
-  return linhas.length ? linhas.join("\n") : "(nenhum preço configurado)";
-}
-
-// ── Variáveis de template pra um nó específico ───────────────────────────────
-
-async function buildVarsForNode(sb: any, tenantId: string, node: MenuNode, client: any, rawClient: any): Promise<Record<string, any>> {
-  const vars = buildClientTemplateVars({ clientRow: rawClient, isSecondary: client.is_secondary }) as Record<string, any>;
-  // ✅ Correção: buildClientTemplateVars espera nomes de coluna diferentes
-  // dos que a tabela `clients` realmente usa (row.username, row.plan_name,
-  // row.server_name) — sem isso, essas 3 variáveis ficavam vazias em
-  // silêncio, sem erro nenhum. Sobrescreve com os valores certos.
-  vars.usuario_app = client.server_username || "";
-  vars.plano_nome = client.plan_label || "";
-  vars.servidor_nome = client.server_name || "";
-  // ✅ Antes exigia marcar "Gerar link do portal"/"Consultar tabela de
-  // preços" no nó pra essas variáveis funcionarem — mais um checkbox fácil
-  // de esquecer. Agora o bot detecta sozinho: se o texto do nó (passos)
-  // menciona {link_pagamento} ou {tabela_precos}, resolve na hora, sem
-  // precisar marcar nada — mesmo espírito de como envio_agora/envio
-  // agendado já resolvem variáveis (lib/whatsapp/template-vars.ts).
-  const stepsText = (await getSteps(sb, node.id)).join(" ");
-  if (stepsText.includes("{link_pagamento}")) {
-    vars.link_pagamento = await toolGerarLinkPortal(sb, tenantId, rawClient, client.is_secondary);
-  }
-  if (stepsText.includes("{tabela_precos}")) {
-    vars.tabela_precos = await toolConsultarPrecosTexto(sb, tenantId, client);
-  }
-  return vars;
-}
-
-// ── Gate checks — rodam antes de mostrar os filhos de um nó ─────────────────
-
-async function runGateChecks(node: MenuNode, client: any, sb: any, tenantId: string): Promise<{ messages: string[]; markRead?: boolean } | null> {
-  const actions = node.special_actions || [];
-
-  if (actions.includes("check_servidor_vencimento") && client?.server_is_offline) {
-    return { messages: ["Identificamos uma instabilidade interna no servidor que já está sendo verificada pela nossa equipe. Em breve tudo estará normalizado! Por enquanto, tente acessar de tempos em tempos — quando voltar, funciona normalmente, sem precisar fazer nada. 🙏"], markRead: true };
-  }
-
-  if (actions.includes("check_renovacao_recente")) {
-    const status = await checkRecentPortalPayment(sb, tenantId, [client?.id].filter(Boolean));
-    if (status === "auto_confirmed") return { messages: [paymentAutoConfirmedMsg(client.display_name?.split(" ")[0] || "")], markRead: true };
-    if (status === "manual_pending") return { messages: [PAYMENT_MANUAL_PENDING_MSG], markRead: true };
-    if (status === "fulfillment_error") return { messages: [PAYMENT_FULFILLMENT_ERROR_MSG], markRead: false };
-  }
-
-  return null;
-}
-
-// ── Execução de um nó folha ──────────────────────────────────────────────────
-
-function leafAfterMessages(
-  node: MenuNode,
-  messages: string[],
-  opts: { escalate?: boolean; markRead?: boolean; transferReason?: string | null; forceState?: string } = {}
-): { messages: string[]; escalate?: boolean; markRead?: boolean; nextState: string; transferReason?: string | null } {
-  if (opts.forceState) {
-    return {
-      messages,
-      escalate: opts.escalate,
-      markRead: opts.markRead,
-      nextState: opts.forceState,
-      transferReason: opts.transferReason || null,
-    };
-  }
-  // Ligação genérica (estilo n8n): várias folhas podem apontar pro mesmo destino.
-  if (node.redirect_to_node_id) {
-    return {
-      messages,
-      escalate: false,
-      markRead: opts.markRead ?? true,
-      nextState: makeRedirectState(node.redirect_to_node_id),
-      transferReason: opts.transferReason || null,
-    };
-  }
-  // Legado: checkbox "Redirecionar pra Nova Instalação"
-  if ((node.special_actions || []).includes("redirecionar_instalacao")) {
-    return {
-      messages,
-      escalate: false,
-      markRead: opts.markRead ?? true,
-      nextState: "__redirect_instalacao__",
-      transferReason: opts.transferReason || null,
-    };
-  }
-  if (nodeAsksResolution(node)) {
-    return {
-      messages,
-      escalate: opts.escalate,
-      markRead: opts.markRead ?? true,
-      nextState: `awaiting_resolution:${node.id}`,
-      transferReason: opts.transferReason || null,
-    };
-  }
-  return {
-    messages,
-    escalate: opts.escalate,
-    markRead: opts.markRead ?? true,
-    nextState: opts.escalate ? "__clear__" : "geral",
-    transferReason: opts.transferReason || null,
-  };
-}
-
-async function executeLeaf(
-  node: MenuNode,
-  client: any,
-  rawClient: any,
-  sb: any,
-  tenantId: string,
-  flow: FlowSettings
-): Promise<{ messages: string[]; escalate?: boolean; markRead?: boolean; nextState: string; transferReason?: string | null }> {
-  const actions = node.special_actions || [];
-
-  if (actions.includes("escalar_imediatamente") || actions.includes("coletar_relato_e_escalar")) {
-    const vars = await buildVarsForNode(sb, tenantId, node, client, rawClient);
-    const steps = (await getSteps(sb, node.id)).map((s) => renderTemplate(s, vars));
-    return leafAfterMessages(node, steps.length ? steps : [flow.human_requested_message], {
-      escalate: true,
-      markRead: false,
-      transferReason: node.transfer_situation_label || null,
-      forceState: "__clear__",
-    });
-  }
-
-  if (actions.includes("check_servidor_vencimento")) {
-    const vencido = client?.vencimento ? new Date(client.vencimento).getTime() < Date.now() : false;
-    let msg: string;
-    if (vencido) {
-      const link = await toolGerarLinkPortal(sb, tenantId, rawClient, client.is_secondary);
-      msg = `Vi aqui que seu acesso está vencido — por isso o sinal parou. 😊\n\nPara renovar:\n👉 ${link}\nSenha: últimos 4 dígitos do seu WhatsApp`;
-    } else {
-      msg = "Seu acesso está em dia! Vamos tentar o reset padrão: desligue o modem da tomada por 5 minutos, depois a TV, e teste de novo. Se persistir, me avisa!";
-    }
-    return leafAfterMessages(node, [msg]);
-  }
-
-  if (actions.includes("free_text_rag")) {
-    const steps = await getSteps(sb, node.id);
-    return leafAfterMessages(node, steps.length ? steps : ["Pode me contar com detalhes o que está acontecendo? 😊"], {
-      forceState: "geral",
-    });
-  }
-
-  const vars = await buildVarsForNode(sb, tenantId, node, client, rawClient);
-  const steps = (await getSteps(sb, node.id)).map((s) => renderTemplate(s, vars));
-  return leafAfterMessages(node, steps.length ? steps : ["(nenhuma resposta cadastrada — avise o Márcio)"]);
 }
 
 // ── Handler principal ─────────────────────────────────────────────────────────
@@ -411,14 +150,12 @@ export async function POST(req: Request) {
 
   // ✅ Provider do servidor do cliente (NATV/FAST/ELITE) — usado pra filtrar
   // conteúdo restrito a um servidor específico, tanto na árvore quanto no
-  // RAG da base de conhecimento (ex: "Dados de acesso FastTV" só deve
-  // aparecer pra clientes de servidor Fast). Baseado na 1ª conta do
-  // cliente — clientes com múltiplas contas em servidores diferentes usam a
-  // conta principal como referência (mesma simplificação já usada em
-  // `firstName`/`clients[0]` pelo resto do arquivo).
+  // RAG da base de conhecimento. Baseado na 1ª conta do cliente — clientes
+  // com múltiplas contas em servidores diferentes usam a conta principal
+  // como referência (mesma simplificação já usada em `firstName`/`clients[0]`).
   const clientProvider: ServerProvider | null = await resolveClientProvider(sb, clients[0]?.server_id || null);
 
-  // ── 2. Mídia — lógica determinística (inalterada) ────────────────────────
+  // ── 2. Mídia — lógica determinística (exclusiva da produção) ─────────────
   if (media_base64 && media_type) {
     const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
     const { data: recentPayments } = await sb
@@ -493,67 +230,8 @@ export async function POST(req: Request) {
   }
   const trimmed = text.trim();
 
-  // ── Escalonamento explícito — prioridade máxima ─────────────────────────
-  if (isEscalationTrigger(trimmed)) {
-    safeLog("[BOT][agent] Escalonamento explícito detectado:", trimmed);
-    await sendWAMessage(session_key, phone, flow.human_requested_message);
-    return NextResponse.json({
-      ok: true, action: "escalated", escalate: true, mark_read: false, next_state: "__clear__",
-      bot_response: flow.human_requested_message,
-      display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null,
-    });
-  }
-
-  // ── Voltar ao menu principal — atalho reservado, mesma prioridade máxima
-  // do escalonamento. Funciona em qualquer estado (dentro de submenu,
-  // aguardando conta, aguardando resolução, ou até na conversa livre).
-  if (isBackToMenuTrigger(trimmed)) {
-    safeLog("[BOT][agent] Voltar ao menu principal detectado:", trimmed);
-    const menuMsg = await getAllRootsAsMenuText(sb, tenant_id, clientProvider);
-    const msg = `Voltando ao menu principal! 😊\n\n${menuMsg}`;
-    await sendWAMessage(session_key, phone, msg);
-    return NextResponse.json({
-      ok: true, action: "back_to_menu", mark_read: true, next_state: "aguardando_resposta",
-      bot_response: msg,
-      display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null,
-    });
-  }
-
-  // ── Checagem global: servidor offline ou acesso vencido ─────────────────
-  // ✅ Simplificação pedida: antes, isso só rodava se o nó específico
-  // tivesse o checkbox "Checar servidor offline/vencimento" marcado —
-  // passava batido em qualquer outro caminho da árvore, e em qualquer nó
-  // novo que esquecesse de marcar. Agora roda sempre, antes de qualquer
-  // roteamento de menu — só não interrompe quem já está no meio de um
-  // fluxo específico (pagamento, aguardando resolução, escolhendo conta,
-  // dentro de um submenu) nem quem só mandou uma saudação pura, pra não
-  // parecer o bot ignorando um "oi" pra já cobrar ou pedir desculpa por um
-  // problema que a pessoa nem mencionou.
-  const FRESH_STATES = new Set([null, undefined, "", "geral", "geral_retry", "aguardando_resposta", "aguardando_resposta_2"]);
-  if (FRESH_STATES.has(bot_state) && awaiting_payment_type !== true && !isGreetingOnly(trimmed)) {
-    if (clients[0]?.server_is_offline) {
-      // ✅ Usa a justificativa cadastrada no servidor (offline_reason) quando
-      // existir — é o que substitui o antigo "Verificar Cloudflare": em vez
-      // do bot checar uma API externa em tempo real, o Márcio marca o
-      // servidor como offline e escreve o motivo uma vez só, e o bot já
-      // avisa todo mundo com a justificativa certa, seja qual for a causa.
-      const reason = clients[0]?.server_offline_reason?.trim();
-      const msg = reason
-        ? `Identificamos uma instabilidade: ${reason}. Já está sendo verificada pela nossa equipe — assim que normalizar, volta a funcionar sozinho, sem precisar fazer nada. 🙏`
-        : "Identificamos uma instabilidade interna no servidor que já está sendo verificada pela nossa equipe. Em breve tudo estará normalizado! Por enquanto, tente acessar de tempos em tempos — quando voltar, funciona normalmente, sem precisar fazer nada. 🙏";
-      await sendWAMessage(session_key, phone, msg);
-      return NextResponse.json({ ok: true, action: "gate_offline_global", mark_read: true, bot_response: msg, next_state: "geral", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-    }
-    const vencido = clients[0]?.vencimento ? new Date(clients[0].vencimento).getTime() < Date.now() : false;
-    if (vencido) {
-      const link = await toolGerarLinkPortal(sb, tenant_id, clientMatches[0], clients[0].is_secondary);
-      const msg = `Vi aqui que seu acesso está vencido — por isso o sinal parou. 😊\n\nPara renovar:\n👉 ${link}\nSenha: últimos 4 dígitos do seu WhatsApp`;
-      await sendWAMessage(session_key, phone, msg);
-      return NextResponse.json({ ok: true, action: "gate_vencido_global", mark_read: true, bot_response: msg, next_state: "geral", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-    }
-  }
-
-  // ── "Portal ou PIX?" — checado antes do roteamento de menu ──────────────
+  // ── "Portal ou PIX?" — checado antes do roteamento de menu (exclusivo da
+  // produção; só existe porque só aqui há upload de comprovante) ───────────
   if (awaiting_payment_type === true) {
     const mentionsPix = /\b(pix|transfer[eê]ncia|manual|ted|doc|dep[oó]sito)\b/i.test(trimmed);
     const mentionsPortal = /\b(portal|link|site)\b/i.test(trimmed);
@@ -599,469 +277,42 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, action: "awaiting_payment_type", mark_read: true, bot_response: msg, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
   }
 
-  // ── Helpers de conta ──────────────────────────────────────────────────────
-  function resolveAccount(t: string): { client: any; rawClient: any } | null {
-    if (clients.length <= 1) return { client: clients[0], rawClient: clientMatches[0] };
-    const idx = matchAccountFromText(clients, t);
-    if (idx === null) return null;
-    return { client: clients[idx], rawClient: clientMatches[idx] };
-  }
-  function askAccountMessage(): string {
-    const lista = clients.map((c: any, i: number) => `- Conta ${i + 1}: ${c.display_name} (${c.server_username || "n/i"}) — ${c.server_name}`).join("\n");
-    return `Você tem mais de uma conta — qual delas se refere? Pode responder com "conta 1", "conta 2" ou o nome do servidor:\n\n${lista}`;
-  }
-
-  async function enterNode(
-    node: MenuNode,
-    resolved: { client: any; rawClient: any } | null,
-    attempt: 1 | 2,
-    redirectDepth: number = 0
-  ): Promise<any> {
-    if (redirectDepth > MAX_REDIRECT_DEPTH) {
-      await sendWAMessage(session_key, phone, flow.escalate_message);
-      return NextResponse.json({
-        ok: true, action: "redirect_loop", escalate: true, mark_read: false,
-        bot_response: flow.escalate_message, next_state: "__clear__",
-        display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null,
-      });
-    }
-
-    if ((await nodeNeedsAccount(sb, node)) && !resolved) {
-      resolved = resolveAccount(trimmed);
-      if (!resolved) {
-        if (attempt === 2) {
-          await sendWAMessage(session_key, phone, flow.escalate_message);
-          return NextResponse.json({ ok: true, action: "conta_desistiu", escalate: true, mark_read: false, bot_response: flow.escalate_message, next_state: "__clear__", transfer_reason: node.transfer_situation_label || null, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-        }
-        const msg = askAccountMessage();
-        await sendWAMessage(session_key, phone, msg);
-        return NextResponse.json({ ok: true, action: "pede_conta", mark_read: true, bot_response: msg, next_state: `conta:${node.id}`, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-      }
-    }
-    const client = resolved?.client || clients[0];
-    const rawClient = resolved?.rawClient || clientMatches[0];
-
-    const children = await getChildren(sb, node.id, clientProvider);
-
-    if (children.length > 0) {
-      const gate = await runGateChecks(node, client, sb, tenant_id);
-      if (gate) {
-        for (const m of gate.messages) await sendWAMessage(session_key, phone, m);
-        return NextResponse.json({ ok: true, action: "gate_resolved", mark_read: gate.markRead ?? true, bot_response: gate.messages.join("\n\n"), next_state: "geral", display_name: client?.display_name || null, server_name: client?.server_name || null });
-      }
-      // ✅ Se a MESMA mensagem que trouxe até aqui já é específica o
-      // suficiente pra bater com um filho direto (ex: "tela preta" bate na
-      // raiz "Problema técnico" E no filho "Tela preta com som"), pula a
-      // etapa de mostrar o submenu e entra direto nele — sem pular os gate
-      // checks da raiz, que já rodaram normalmente acima.
-      const directChild = findChildByKeyword(children, trimmed);
-      if (directChild) return enterNode(directChild, null, 1, redirectDepth);
-
-      const vars = await buildVarsForNode(sb, tenant_id, node, client, rawClient);
-      const preMsgs = (await getSteps(sb, node.id)).map((s) => renderTemplate(s, vars));
-      for (const m of preMsgs) await sendWAMessage(session_key, phone, m);
-      const menuMsg = renderChildrenMenu(children, undefined, true);
-      await sendWAMessage(session_key, phone, menuMsg);
-      return NextResponse.json({ ok: true, action: "menu_shown", mark_read: true, bot_response: [...preMsgs, menuMsg].join("\n\n"), next_state: `menunode:${node.id}`, display_name: client?.display_name || null, server_name: client?.server_name || null });
-    }
-
-    const result = await executeLeaf(node, client, rawClient, sb, tenant_id, flow);
-
-    // Redirect genérico (redirect_to_node_id) ou legado (slug instalacao)
-    const redirectMatch = /^__redirect_node__:([0-9a-f-]{36})$/i.exec(result.nextState || "");
-    if (redirectMatch || result.nextState === "__redirect_instalacao__") {
-      for (const m of result.messages) await sendWAMessage(session_key, phone, m);
-      let target: MenuNode | null = null;
-      if (redirectMatch) {
-        target = await getNodeById(sb, redirectMatch[1]);
-      } else {
-        const { data: instalacaoRoot } = await sb.from("bot_menu_nodes").select("*").eq("tenant_id", tenant_id).eq("slug", "instalacao").maybeSingle();
-        target = (instalacaoRoot as MenuNode) || null;
-      }
-      if (target) return enterNode(target, null, 1, redirectDepth + 1);
-      await sendWAMessage(session_key, phone, flow.escalate_message);
-      return NextResponse.json({ ok: true, action: "redirect_destino_ausente", escalate: true, mark_read: false, bot_response: [...result.messages, flow.escalate_message].join("\n\n"), next_state: "__clear__", display_name: client?.display_name || null, server_name: client?.server_name || null });
-    }
-
-    // Após passos, se pediu resolução, anexa a pergunta 1/2 — só se os
-    // passos ainda não pedirem a mesma coisa (evita mensagem duplicada).
-    let allMsgs = result.messages;
-    if ((result.nextState || "").startsWith("awaiting_resolution:")) {
-      allMsgs = withResolutionQuestionIfNeeded(result.messages);
-    }
-    for (const m of allMsgs) await sendWAMessage(session_key, phone, m);
-    return NextResponse.json({
-      ok: true, action: "leaf_executed", escalate: result.escalate, mark_read: result.markRead ?? true,
-      bot_response: allMsgs.join("\n\n"), next_state: result.nextState,
-      transfer_reason: result.transferReason || null,
-      display_name: client?.display_name || null, server_name: client?.server_name || null,
-    });
-  }
-
-  /** Aplica saída de fluxo (sucesso / escalar / fim / outro nó). */
-  async function applyFlowTarget(
-    rawTarget: string | null | undefined,
-    fallback: "success" | "escalate",
-    node: MenuNode | null,
-    resolvedMsg?: string
-  ): Promise<any> {
-    const target = parseFlowTarget(rawTarget);
-    const kind = target.kind === "default" ? fallback : target.kind;
-
-    if (kind === "node" && target.kind === "node") {
-      const dest = await getNodeById(sb, target.nodeId);
-      if (dest) return enterNode(dest, null, 1, 0);
-      // destino sumiu → escala com segurança
-      await sendWAMessage(session_key, phone, flow.escalate_message);
-      return NextResponse.json({
-        ok: true, action: "target_node_missing", escalate: true, mark_read: false,
-        bot_response: flow.escalate_message, next_state: "__clear__",
-        transfer_reason: node?.transfer_situation_label || null,
-        display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null,
-      });
-    }
-    if (kind === "success") {
-      // closing_message só entra no "padrão"; __success__ força a mensagem global
-      const msg =
-        target.kind === "default" && resolvedMsg?.trim()
-          ? resolvedMsg.trim()
-          : flow.success_message;
-      await sendWAMessage(session_key, phone, msg);
-      return NextResponse.json({
-        ok: true, action: "resolvido", mark_read: true, bot_response: msg, next_state: "geral",
-        display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null,
-      });
-    }
-    if (kind === "end") {
-      return NextResponse.json({
-        ok: true, action: "flow_end", mark_read: true, bot_response: "", next_state: "geral",
-        display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null,
-      });
-    }
-    // escalate
-    await sendWAMessage(session_key, phone, flow.escalate_message);
-    return NextResponse.json({
-      ok: true, action: "nao_resolvido_escalado", escalate: true, mark_read: false,
-      bot_response: flow.escalate_message, next_state: "__clear__",
-      transfer_reason: node?.transfer_situation_label || null,
-      display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null,
-    });
-  }
-
-  // ✅ Pergunta antes de trocar de assunto no meio de um submenu, em vez de
-  // já trocar direto — o bot pode estar interpretando errado (por palavra-
-  // chave ou por significado). Só troca se o cliente confirmar de propósito;
-  // qualquer coisa diferente disso mantém ele onde estava.
-  function askConfirmSwitch(targetNode: MenuNode, originNode: MenuNode) {
-    const msg = `Antes de mudar de assunto: você quer saber sobre *${targetNode.label}* agora? Responda **sim** pra mudar, ou continue me contando sobre o que estávamos vendo. 😊`;
-    return sendWAMessage(session_key, phone, msg).then(() =>
-      NextResponse.json({
-        ok: true, action: "confirm_switch_asked", mark_read: true, bot_response: msg,
-        next_state: `confirm_switch:${targetNode.id}:${originNode.id}`,
-        display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null,
-      })
-    );
-  }
-
-  // ── Estado: confirmação antes de trocar de assunto ───────────────────────
-  const confirmSwitchMatch = /^confirm_switch:([a-f0-9-]+):([a-f0-9-]+)$/.exec(bot_state || "");
-  if (confirmSwitchMatch) {
-    const [, targetId, originId] = confirmSwitchMatch;
-    if (isConfirmSwitchYes(trimmed)) {
-      const target = await getNodeById(sb, targetId);
-      if (target) return enterNode(target, null, 1);
-    }
-    // Não confirmou (respondeu "não" ou qualquer coisa pouco clara) — por
-    // segurança, volta pro submenu de onde saiu em vez de arriscar mudar de
-    // assunto sem certeza.
-    const origin = await getNodeById(sb, originId);
-    if (!origin) return NextResponse.json({ ok: true, action: "erro_no_estado", mark_read: true, next_state: "__clear__" });
-    const originChildren = await getChildren(sb, origin.id, clientProvider);
-    const msg = renderChildrenMenu(originChildren, "Combinado, seguimos por aqui! Escolha uma das opções:", true);
+  // ── 4. Motor de árvore compartilhado (idêntico ao simulador) ─────────────
+  const sentMessages: string[] = [];
+  const send = async (msg: string) => {
+    if (!msg?.trim()) return;
+    sentMessages.push(msg);
     await sendWAMessage(session_key, phone, msg);
-    return NextResponse.json({ ok: true, action: "confirm_switch_declined", mark_read: true, bot_response: msg, next_state: `menunode:${origin.id}`, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-  }
+  };
 
-  // ── Estado: aguardando resolução de conta ────────────────────────────────
-  // ✅ Corrigido: se chegamos aqui com bot_state = "conta:<id>", significa
-  // que JÁ perguntamos uma vez — esta resposta do cliente é a última
-  // chance antes de escalonar. Sem essa correção, o cálculo de attempt
-  // nunca avançava, e o bot podia perguntar "qual conta?" pra sempre.
-  const contaMatch = /^conta:([a-f0-9-]+)$/.exec(bot_state || "");
-  if (contaMatch) {
-    const node = await getNodeById(sb, contaMatch[1]);
-    if (!node) return NextResponse.json({ ok: true, action: "erro_no_estado", mark_read: true, next_state: "__clear__" });
-    return enterNode(node, null, 2);
-  }
+  const result = await runBotEngine({
+    sb,
+    tenantId: tenant_id,
+    geminiKey,
+    flow,
+    clients,
+    clientMatchesRaw: clientMatches,
+    clientProvider,
+    trimmed,
+    botState: bot_state,
+    awaitingPaymentType: awaiting_payment_type === true,
+    send,
+    logPrefix: "[BOT][agent]",
+  });
 
-  // ── Estado: aguardando "resolveu ou não" ─────────────────────────────────
-  const resolutionMatch = /^awaiting_resolution:([a-f0-9-]+)$/.exec(bot_state || "");
-  const resolutionRetryMatch = /^awaiting_resolution_retry:([a-f0-9-]+)$/.exec(bot_state || "");
-  if (resolutionMatch || resolutionRetryMatch) {
-    const nodeId = (resolutionMatch || resolutionRetryMatch)![1];
-    const alreadyObjected = !!resolutionRetryMatch;
-    const node = await getNodeById(sb, nodeId);
-    if (isResolutionResolved(trimmed)) {
-      // Saída "sucesso": target do nó OU mensagem de encerramento local OU global
-      return applyFlowTarget(
-        node?.on_resolved_target,
-        "success",
-        node,
-        node?.closing_message || undefined
-      );
-    }
-    if (isResolutionNotResolved(trimmed)) {
-      safeLog("[BOT][agent] Transferência:", node?.transfer_situation_label);
-      // Saída "não resolveu": por padrão escala (mensagem global editável)
-      return applyFlowTarget(node?.on_not_resolved_target, "escalate", node);
-    }
-    // ✅ Objeção mais comum na prática: "mas minha internet está boa" ou
-    // "mas Netflix/YouTube funciona normal" — antes caía direto no
-    // "responda 1 ou 2" sem nunca explicar por que o reset continua sendo
-    // o caminho certo mesmo assim. Se a MESMA objeção voltar depois dessa
-    // explicação, repetir a mesma mensagem soa como o bot não escutando —
-    // a 2ª vez em diante usa uma versão mais direta e insistente.
-    if (isConnectivityObjection(trimmed)) {
-      const msg = alreadyObjected
-        ? CONNECTIVITY_OBJECTION_INSISTENT_MSG
-        : `${CONNECTIVITY_OBJECTION_MSG}\n\n${RESOLUTION_QUESTION}`;
-      await sendWAMessage(session_key, phone, msg);
-      return NextResponse.json({ ok: true, action: "resolution_objection", mark_read: true, bot_response: msg, next_state: `awaiting_resolution_retry:${nodeId}`, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-    }
-    await sendWAMessage(session_key, phone, RESOLUTION_QUESTION);
-    return NextResponse.json({ ok: true, action: "resolution_retry", mark_read: true, bot_response: RESOLUTION_QUESTION, next_state: bot_state, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-  }
-
-  // ── Estado: dentro de um nó com filhos (escolhendo opção) ────────────────
-  // ✅ Redesenhado: na 1ª resposta que não bate número nem palavra-chave do
-  // submenu atual, o bot NÃO tenta mais interpretar/trocar de assunto — só
-  // pede pra escolher uma das opções. Antes, qualquer texto livre já
-  // disparava a detecção de troca de contexto (keyword de outro assunto ou
-  // significado), o que dava margem pra interpretação errada logo de cara
-  // (ex: "acho que venceu o aplicativo" batendo com a keyword "venceu" de
-  // Renovação/pagamento). Só na 2ª tentativa seguida sem bater nada é que o
-  // bot tenta detectar troca de assunto — e se isso também falhar, escalona
-  // (mesmo padrão de paciência de 2 tentativas usado no resto do bot).
-  const menuNodeMatch = /^menunode:([a-f0-9-]+)$/.exec(bot_state || "");
-  const menuNodeRetryMatch = /^menunode_retry:([a-f0-9-]+)$/.exec(bot_state || "");
-  if (menuNodeMatch || menuNodeRetryMatch) {
-    const nodeId = (menuNodeMatch || menuNodeRetryMatch)![1];
-    const isSecondMiss = !!menuNodeRetryMatch;
-    const currentNode = await getNodeById(sb, nodeId);
-    if (!currentNode) return NextResponse.json({ ok: true, action: "erro_no_estado", mark_read: true, next_state: "__clear__" });
-
-    const children = await getChildren(sb, currentNode.id, clientProvider);
-    const numeric = extractSingleDigitSelection(trimmed);
-    const chosen = (numeric ? findChildByNumber(children, numeric) : null) || findChildByKeyword(children, trimmed);
-
-    if (chosen) return enterNode(chosen, null, 1);
-
-    if (!isSecondMiss) {
-      // 1ª inválida: mesma pergunta de outro jeito (texto global ou override do nó)
-      const intro = pickInvalidIntro(currentNode, 1, flow.menu_invalid_intro_1, flow.menu_invalid_intro_2);
-      const msg = buildInvalidMenuRetry(children, intro, true);
-      await sendWAMessage(session_key, phone, msg);
-      return NextResponse.json({ ok: true, action: "menu_retry", mark_read: true, bot_response: msg, next_state: `menunode_retry:${currentNode.id}`, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-    }
-
-    // ✅ 2ª tentativa seguida sem bater número/keyword — agora sim tenta
-    // detectar troca de assunto de verdade (palavra-chave de outro nó raiz,
-    // ou por significado), antes de desistir e escalonar.
-    const switched = await detectMenuContextFromTree(sb, tenant_id, trimmed, clientProvider);
-    if (switched && switched.id !== currentNode.id && switched.parent_id === null) {
-      return askConfirmSwitch(switched, currentNode);
-    }
-
-    if (hasSemanticSignal(trimmed)) {
-      try {
-        const embedding = await generateEmbedding(geminiKey, trimmed);
-        const candidates = embedding ? await searchMenuIntentCandidates(sb, tenant_id, embedding) : [];
-        const node = await pickCompatibleSemanticMatch(sb, candidates, clientProvider);
-        if (node && node.id !== currentNode.id) {
-          return askConfirmSwitch(node, currentNode);
-        }
-      } catch (e: any) {
-        safeLog("[BOT][agent] Erro na detecção semântica (troca de contexto):", e?.message);
-      }
-    }
-
-    // Ainda inválido na 2ª: reexibe com intro_2 e escala (mensagem global)
-    const intro2 = pickInvalidIntro(currentNode, 2, flow.menu_invalid_intro_1, flow.menu_invalid_intro_2);
-    const retry2 = buildInvalidMenuRetry(children, intro2, true);
-    await sendWAMessage(session_key, phone, retry2);
-    await sendWAMessage(session_key, phone, flow.escalate_message);
-    return NextResponse.json({
-      ok: true, action: "menu_retry_escalado", escalate: true, mark_read: false,
-      bot_response: `${retry2}\n\n${flow.escalate_message}`, next_state: "__clear__",
-      transfer_reason: currentNode.transfer_situation_label || null,
-      display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null,
-    });
-  }
-
-  // ── Item 5: reação a mensagem automática recente ─────────────────────────
-  // ✅ Redesenhado: em vez de regex tentando adivinhar "isso é só
-  // cordialidade?" (que falhava em mensagens reais com o nome da pessoa —
-  // ex: "Boa tarde Márcio, ótimo sábado!"), uma chamada mínima ao Gemini
-  // decide true/false com o contexto certo. Zero geração de texto livre.
-  try {
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { data: recentJob } = await sb
-      .from("client_message_jobs")
-      .select(`sent_at, automation_id, message_template_id, billing_automations ( name, type )`)
-      .eq("tenant_id", tenant_id).in("client_id", clients.map((c: any) => c.id))
-      .eq("status", "SENT").gte("sent_at", twentyFourHoursAgo)
-      .order("sent_at", { ascending: false }).limit(1).maybeSingle();
-
-    let templateInfo: any = null;
-    if (recentJob?.message_template_id) {
-      const { data: tpl } = await sb.from("message_templates").select("name, category").eq("id", recentJob.message_template_id).maybeSingle();
-      templateInfo = tpl || null;
-    }
-    const jobKind = classifyRecentJob(recentJob, templateInfo);
-    safeLog("[BOT][agent] Item5 — job recente classificado como:", jobKind);
-
-    const JOB_CONTEXT: Record<string, string> = {
-      payment_confirmation: "Confirmação automática de que o pagamento/renovação foi processado com sucesso.",
-      vencimento: "Lembrete automático de que o acesso está vencendo em breve.",
-      pos_venda_satisfacao: "Pesquisa de satisfação perguntando como está sendo a experiência do cliente.",
-      pos_venda_fidelidade: "Mensagem automática de acompanhamento de fidelidade do cliente.",
-      pos_venda_generico: "Mensagem automática de acompanhamento pós-venda.",
-    };
-
-    if (jobKind !== "none" && JOB_CONTEXT[jobKind]) {
-      const isAck = await classifyIsAcknowledgment(geminiKey, JOB_CONTEXT[jobKind], trimmed);
-
-      if (isAck) {
-        const ACK_MESSAGES: Record<string, string> = {
-          payment_confirmation: `Que bom, ${firstName}! 😊 Fico feliz que deu tudo certo com sua renovação. Qualquer coisa é só chamar!`,
-          vencimento: `Sem pressa! Pode ficar tranquilo — quando for renovar, é só acessar o portal que está tudo pronto. Se precisar de ajuda, é só chamar! 😊`,
-          pos_venda_satisfacao: `Muito obrigado pelo retorno, ${firstName}! 🙏 Fico feliz que esteja gostando. Qualquer coisa, é só chamar!`,
-          pos_venda_fidelidade: `Que bom, ${firstName}! 😊 Fico feliz em saber. Qualquer coisa, é só chamar!`,
-          pos_venda_generico: `Que bom, ${firstName}! 😊 Fico feliz em saber. Qualquer coisa, é só chamar!`,
-        };
-        const ACK_ACTIONS: Record<string, string> = {
-          payment_confirmation: "payment_ack",
-          vencimento: "vencimento_ack",
-          pos_venda_satisfacao: "satisfaction_ack",
-          pos_venda_fidelidade: "pos_venda_ack",
-          pos_venda_generico: "pos_venda_ack",
-        };
-        const msg = ACK_MESSAGES[jobKind];
-        await sendWAMessage(session_key, phone, msg);
-        return NextResponse.json({ ok: true, action: ACK_ACTIONS[jobKind], mark_read: true, bot_response: msg, display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-      }
-    }
-  } catch (e: any) {
-    safeLog("[BOT][agent] Erro Item5:", e?.message);
-  }
-
-  // ── Confirmação simples / link puro ─────────────────────────────────────
-  if (isSimpleConfirmation(trimmed)) {
-    safeLog("[BOT][agent] Confirmação simples ignorada:", trimmed);
-    return NextResponse.json({ ok: true, action: "silence_confirmation", mark_read: true });
-  }
-  if (isLinkOnly(trimmed)) {
-    safeLog("[BOT][agent] Link puro ignorado:", trimmed.slice(0, 80));
-    return NextResponse.json({ ok: true, action: "silence", mark_read: true });
-  }
-
-  // ── Estado "geral" / "geral_retry" — resposta direta do RAG ──────────────
-  // ✅ Agora com 1 chance de reformular antes de escalonar, no mesmo padrão
-  // de paciência usado no resto da árvore — antes, qualquer falta de match
-  // no RAG (ou falha passageira do Gemini) escalonava na 1ª tentativa.
-  if (bot_state === "geral" || bot_state === "geral_retry") {
-    const isRetry = bot_state === "geral_retry";
-    try {
-      const embedding = await generateEmbedding(geminiKey, trimmed);
-      const candidates = embedding ? await searchBotKnowledgeCandidates(sb, tenant_id, embedding) : [];
-      const top = await pickCompatibleKnowledgeMatch(sb, candidates, clientProvider);
-      if (top) {
-        const vars = buildClientTemplateVars({ clientRow: clientMatches[0], isSecondary: clients[0]?.is_secondary }) as any;
-        // ✅ Mesma correção do buildVarsForNode — sem isso, {usuario_app},
-        // {plano_nome} e {servidor_nome} ficariam vazios em qualquer
-        // resposta vinda do RAG direto (estado "geral").
-        vars.usuario_app = clients[0]?.server_username || "";
-        vars.plano_nome = clients[0]?.plan_label || "";
-        vars.servidor_nome = clients[0]?.server_name || "";
-        const msg = renderTemplate(top.content, vars);
-        await sendWAMessage(session_key, phone, msg);
-        return NextResponse.json({ ok: true, action: "rag_direct", mark_read: true, bot_response: msg, next_state: "geral", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-      }
-    } catch (e: any) {
-      safeLog("[BOT][agent] Erro RAG:", e?.message);
-    }
-
-    if (!isRetry) {
-      const msg = "Não encontrei uma resposta certeira pra isso 🤔 Pode tentar explicar de outro jeito ou com mais detalhes?";
-      await sendWAMessage(session_key, phone, msg);
-      return NextResponse.json({ ok: true, action: "rag_sem_match_retry", mark_read: true, bot_response: msg, next_state: "geral_retry", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-    }
-
-    await sendWAMessage(session_key, phone, flow.escalate_message);
-    return NextResponse.json({ ok: true, action: "rag_sem_match", escalate: true, mark_read: false, bot_response: flow.escalate_message, next_state: "__clear__", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-  }
-
-  // ── Primeira mensagem / paciência de 2 tentativas ────────────────────────
-  // ✅ Seleção por número no menu raiz — antes só funcionava dentro de
-  // submenus. Checada primeiro por ser a via mais barata e sem ambiguidade
-  // nenhuma: nem precisa de palavra-chave, nem de Gemini.
-  if (extractSingleDigitSelection(trimmed) !== null) {
-    const roots = await getRootNodes(sb, tenant_id, clientProvider);
-    const chosenRoot = findRootByNumber(roots, trimmed);
-    if (chosenRoot) return enterNode(chosenRoot, null, 1);
-  }
-
-  const detected = await detectMenuContextFromTree(sb, tenant_id, trimmed, clientProvider);
-  if (detected) return enterNode(detected, null, 1);
-
-  // ✅ Fallback semântico: nenhuma palavra-chave bateu — antes de desistir/
-  // mostrar o menu genérico, tenta por SIGNIFICADO (embedding) contra os
-  // nós raiz. Cobre frases naturais como "estou com problemas na minha tv,
-  // pode me ajudar?", que não contém nenhuma palavra-chave exata cadastrada
-  // mas claramente significa "Problema técnico".
-  // ⚠️ Piso de tamanho: saudações/small talk ("Olá, tudo bem?") são curtas
-  // e não carregam sinal semântico suficiente pra comparar com nada — nem
-  // tenta nesse caso, evita gastar Gemini à toa e falso positivo.
-  const hasEnoughSignal = hasSemanticSignal(trimmed);
-  try {
-    const embedding = hasEnoughSignal ? await generateEmbedding(geminiKey, trimmed) : null;
-    const candidates = embedding ? await searchMenuIntentCandidates(sb, tenant_id, embedding) : [];
-    const node = await pickCompatibleSemanticMatch(sb, candidates, clientProvider);
-    if (node) return enterNode(node, null, 1);
-  } catch (e: any) {
-    safeLog("[BOT][agent] Erro na detecção semântica de categoria:", e?.message);
-  }
-
-  if (bot_state === "aguardando_resposta_2") {
-    // 2ª inválida no menu raiz: intro diferente (invalid_retry_message_2) + menu, depois escala
-    const roots = await getRootNodes(sb, tenant_id, clientProvider);
-    const retry2 = buildInvalidMenuRetry(roots, flow.invalid_retry_message_2, false);
-    await sendWAMessage(session_key, phone, retry2);
-    await sendWAMessage(session_key, phone, flow.escalate_message);
-    return NextResponse.json({
-      ok: true, action: "escalated_menu", escalate: true, mark_read: false,
-      bot_response: `${retry2}\n\n${flow.escalate_message}`, next_state: "__clear__",
-      display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null,
-    });
-  }
-
-  if (!bot_state || bot_state === "aguardando_resposta") {
-    if (!bot_state) {
-      // Saudação 100% editável no painel → depois o menu principal
-      const msg1 = flow.greeting_message;
-      await sendWAMessage(session_key, phone, msg1);
-      const menuMsg = await getAllRootsAsMenuText(sb, tenant_id, clientProvider);
-      await sendWAMessage(session_key, phone, menuMsg);
-      return NextResponse.json({ ok: true, action: "menu_intro", mark_read: true, bot_response: `${msg1}\n\n${menuMsg}`, next_state: "aguardando_resposta", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-    }
-    // 1ª inválida no menu raiz: re-pergunta de outro jeito + menu de novo
-    const roots = await getRootNodes(sb, tenant_id, clientProvider);
-    const msg = buildInvalidMenuRetry(roots, flow.invalid_retry_message_1, false);
-    await sendWAMessage(session_key, phone, msg);
-    return NextResponse.json({ ok: true, action: "menu_retry", mark_read: true, bot_response: msg, next_state: "aguardando_resposta_2", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
-  }
-
-  // fallback de segurança — nunca deveria chegar aqui
-  await sendWAMessage(session_key, phone, flow.escalate_message);
-  return NextResponse.json({ ok: true, action: "estado_desconhecido", escalate: true, mark_read: false, bot_response: flow.escalate_message, next_state: "__clear__", display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null });
+  // ✅ display_name/server_name aqui sempre refletem clients[0] (conta
+  // principal) — mesmo padrão usado antes da unificação nos gates globais;
+  // servem só pro rodapé de evento/log do sessionManager.js, nunca pra
+  // decidir pra qual telefone enviar (isso já é sempre `phone`, correto).
+  return NextResponse.json({
+    ok: true,
+    action: result.action,
+    escalate: result.escalate ?? false,
+    mark_read: result.markRead,
+    bot_response: sentMessages.join("\n\n"),
+    next_state: result.nextState,
+    transfer_reason: result.transferReason ?? null,
+    display_name: clients[0]?.display_name || null,
+    server_name: clients[0]?.server_name || null,
+  });
 }

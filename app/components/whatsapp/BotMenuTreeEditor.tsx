@@ -48,7 +48,15 @@ const SERVER_OPTIONS = [
   { value: "ELITE", label: "Elite" },
 ];
 
-type MenuStep = { id: string; node_id: string; step_order: number; message_text: string };
+type MenuStep = {
+  id: string;
+  node_id: string;
+  step_order: number;
+  message_text: string;
+  // null/undefined = mensagem universal (todos os servidores)
+  server?: string | null;
+  is_active?: boolean;
+};
 type TreeNode = MenuNode & { children: TreeNode[]; steps: MenuStep[] };
 
 const SPECIAL_ACTIONS = [
@@ -635,6 +643,45 @@ export default function BotMenuTreeEditor() {
     }
   }
 
+  /** Troca o option_number do nó com quem já ocupa o número escolhido
+   * (ou apenas atribui, se ninguém tiver esse número ainda). */
+  async function handleReorder(node: TreeNode, newNumber: number) {
+    const siblings = flatNodes.filter(
+      (n) =>
+        (n.parent_id || null) === (node.parent_id || null) &&
+        n.id !== node.id &&
+        !(n.special_actions || []).includes("link_target_only")
+    );
+    const occupant = siblings.find((n) => n.option_number === newNumber);
+
+    if (occupant) {
+      await callApi({ action: "update_node", id: occupant.id, option_number: node.option_number });
+    }
+    await callApi({ action: "update_node", id: node.id, option_number: newNumber });
+    await loadTree();
+  }
+
+  /** Move o nó pra dentro de outro menu (ou pra raiz, se newParentId for null) —
+   * a posição (1–8) é escolhida automaticamente entre os novos irmãos. */
+  async function handleMoveParent(node: TreeNode, newParentId: string | null) {
+    const siblings = flatNodes.filter(
+      (n) =>
+        (n.parent_id || null) === (newParentId || null) &&
+        n.id !== node.id &&
+        !(n.special_actions || []).includes("link_target_only")
+    );
+    const used = new Set(siblings.map((s) => s.option_number));
+    let nextNumber = 1;
+    for (let i = 1; i <= 8; i++) {
+      if (!used.has(i)) {
+        nextNumber = i;
+        break;
+      }
+    }
+    await callApi({ action: "update_node", id: node.id, parent_id: newParentId, option_number: nextNumber });
+    await loadTree();
+  }
+
   function resolveTreeNode(id: string): TreeNode | null {
     const find = (list: TreeNode[]): TreeNode | null => {
       for (const n of list) {
@@ -888,6 +935,8 @@ export default function BotMenuTreeEditor() {
               node={selectedNode}
               isLeaf={selectedNode.children.length === 0}
               allNodes={flatNodes}
+              onReorder={(newNumber) => handleReorder(selectedNode, newNumber)}
+              onMoveParent={(newParentId) => handleMoveParent(selectedNode, newParentId)}
               onSave={async (fields) => {
                 setSaving(true);
                 const r = await callApi({ action: "update_node", id: selectedNode.id, ...fields });
@@ -897,8 +946,8 @@ export default function BotMenuTreeEditor() {
                   throw new Error(r.error);
                 }
               }}
-              onSaveSteps={async (steps) => {
-                await callApi({ action: "set_steps", node_id: selectedNode.id, steps });
+              onSaveSteps={async (payload) => {
+                await callApi({ action: "set_steps", node_id: selectedNode.id, ...payload });
                 setSaving(false);
                 await loadTree();
                 closeEdit();
@@ -991,14 +1040,66 @@ function VariablePanel({ onInsert }: { onInsert: (tag: string) => void }) {
   );
 }
 
+type StepsMode = "universal" | "individual";
+type StepsSavePayload = { steps: string[]; variants?: { server: string; is_active: boolean; steps: string[] }[] };
+type ActiveStepRef = { scope: string; index: number };
+
+// ── Lista de mensagens (textareas + adicionar) reutilizada tanto no modo
+// universal quanto em cada um dos 3 blocos por servidor no modo individual ──
+function StepsListEditor({
+  scope, steps, onChange, activeStep, setActiveStep, textareaRefs,
+}: {
+  scope: string;
+  steps: string[];
+  onChange: (steps: string[]) => void;
+  activeStep: ActiveStepRef;
+  setActiveStep: (s: ActiveStepRef) => void;
+  textareaRefs: { current: Record<string, HTMLTextAreaElement | null> };
+}) {
+  return (
+    <div className="space-y-2 mt-1.5">
+      {steps.map((s, i) => (
+        <div
+          key={i}
+          className={`border rounded-lg p-2 space-y-1 ${activeStep.scope === scope && activeStep.index === i ? "border-violet-500/50" : "border-border"}`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-muted-foreground">Msg {i + 1}</span>
+            <button type="button" onClick={() => onChange(steps.filter((_, idx) => idx !== i))} className="text-rose-500">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <textarea
+            ref={(el) => { textareaRefs.current[`${scope}-${i}`] = el; }}
+            value={s}
+            onFocus={() => setActiveStep({ scope, index: i })}
+            onChange={(e) => onChange(steps.map((p, idx) => idx === i ? e.target.value : p))}
+            className="w-full text-xs bg-background border border-border rounded-lg px-2 py-1.5"
+            rows={3}
+          />
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={() => { onChange([...steps, ""]); setActiveStep({ scope, index: steps.length }); }}
+        className="flex items-center gap-1 text-[11px] text-violet-500"
+      >
+        <Plus className="w-3 h-3" /> Outra mensagem
+      </button>
+    </div>
+  );
+}
+
 function NodeEditor({
-  node, isLeaf, allNodes, onSave, onSaveSteps, onDelete, saving, hideDelete,
+  node, isLeaf, allNodes, onSave, onSaveSteps, onDelete, onReorder, onMoveParent, saving, hideDelete,
 }: {
   node: TreeNode; isLeaf: boolean;
   allNodes: MenuNode[];
   onSave: (fields: any) => void | Promise<void>;
-  onSaveSteps: (steps: string[]) => void | Promise<void>;
+  onSaveSteps: (payload: StepsSavePayload) => void | Promise<void>;
   onDelete: () => void;
+  onReorder?: (newNumber: number) => Promise<void>;
+  onMoveParent?: (newParentId: string | null) => Promise<void>;
   saving: boolean;
   hideDelete?: boolean;
 }) {
@@ -1019,13 +1120,60 @@ function NodeEditor({
       : node.applies_to_servers
   );
   const [isActive, setIsActive] = useState(node.is_active);
-  const [steps, setSteps] = useState<string[]>(node.steps.map((s) => s.message_text));
+
+  // ✅ Modo derivado do dado: se algum step já tem "server" preenchido, o nó
+  // foi salvo em modo Individual — abre já nesse modo. Senão, Universal.
+  const [stepsMode, setStepsMode] = useState<StepsMode>(
+    node.steps.some((s) => s.server) ? "individual" : "universal"
+  );
+  const [universalSteps, setUniversalSteps] = useState<string[]>(
+    node.steps.filter((s) => !s.server).map((s) => s.message_text)
+  );
+  const [serverSteps, setServerSteps] = useState<Record<string, { active: boolean; steps: string[] }>>(() => {
+    const base: Record<string, { active: boolean; steps: string[] }> = {};
+    SERVER_OPTIONS.forEach((s) => { base[s.value] = { active: true, steps: [] }; });
+    node.steps.forEach((s) => {
+      if (s.server && base[s.server]) {
+        base[s.server].steps.push(s.message_text);
+        if (s.is_active === false) base[s.server].active = false;
+      }
+    });
+    return base;
+  });
+
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showVars, setShowVars] = useState(false);
-  const textareaRefs = useRef<Record<number, HTMLTextAreaElement | null>>({});
-  const [activeStepIndex, setActiveStepIndex] = useState(0);
+  const textareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+  const [activeStep, setActiveStep] = useState<ActiveStepRef>({ scope: "universal", index: 0 });
 
-  const otherNodes = allNodes.filter((n) => n.id !== node.id);
+const otherNodes = allNodes.filter((n) => n.id !== node.id);
+  const [reordering, setReordering] = useState(false);
+  const [movingParent, setMovingParent] = useState(false);
+
+  // Irmãos reais (mesmo pai, excluindo alvos de fluxo sem número de menu)
+  const menuSiblings = allNodes.filter(
+    (n) =>
+      (n.parent_id || null) === (node.parent_id || null) &&
+      n.id !== node.id &&
+      !(n.special_actions || []).includes("link_target_only")
+  );
+  const takenNumbers = new Map(menuSiblings.map((n) => [n.option_number, n.label]));
+  const isMenuNode = !(node.special_actions || []).includes("link_target_only");
+
+  // ✅ Candidatos válidos pra "mover pra outro menu": qualquer nó, exceto
+  // descendentes do próprio (evitaria criar um ciclo pai→filho→...→pai).
+  function isDescendantOfSelf(candidateId: string): boolean {
+    let cur = allNodes.find((n) => n.id === candidateId);
+    const seen = new Set<string>();
+    while (cur) {
+      if (cur.id === node.id) return true;
+      if (!cur.parent_id || seen.has(cur.id)) break;
+      seen.add(cur.id);
+      cur = allNodes.find((n) => n.id === cur!.parent_id);
+    }
+    return false;
+  }
+  const parentCandidates = otherNodes.filter((n) => !isDescendantOfSelf(n.id));
 
   function toggleAction(value: string) {
     setSpecialActions((prev) => prev.includes(value) ? prev.filter((a) => a !== value) : [...prev, value]);
@@ -1035,23 +1183,33 @@ function NodeEditor({
     setAppliesToServers((prev) => prev.includes(value) ? prev.filter((s) => s !== value) : [...prev, value]);
   }
 
-  function insertTagAt(stepIndex: number, tag: string) {
-    if (steps.length === 0) {
-      setSteps([tag]);
-      setActiveStepIndex(0);
+  function getStepsForScope(scope: string): string[] {
+    return scope === "universal" ? universalSteps : serverSteps[scope]?.steps || [];
+  }
+
+  function setStepsForScope(scope: string, next: string[]) {
+    if (scope === "universal") setUniversalSteps(next);
+    else setServerSteps((prev) => ({ ...prev, [scope]: { ...prev[scope], steps: next } }));
+  }
+
+  function insertTagAt(scope: string, stepIndex: number, tag: string) {
+    const list = getStepsForScope(scope);
+    if (list.length === 0) {
+      setStepsForScope(scope, [tag]);
+      setActiveStep({ scope, index: 0 });
       return;
     }
-    const idx = Math.min(stepIndex, steps.length - 1);
-    const el = textareaRefs.current[idx];
+    const idx = Math.min(stepIndex, list.length - 1);
+    const el = textareaRefs.current[`${scope}-${idx}`];
     if (!el) {
-      setSteps((prev) => prev.map((s, i) => i === idx ? s + tag : s));
+      setStepsForScope(scope, list.map((s, i) => i === idx ? s + tag : s));
       return;
     }
     const start = el.selectionStart;
     const end = el.selectionEnd;
     const text = el.value;
     const newText = text.substring(0, start) + tag + text.substring(end);
-    setSteps((prev) => prev.map((s, i) => i === idx ? newText : s));
+    setStepsForScope(scope, list.map((s, i) => i === idx ? newText : s));
     setTimeout(() => { el.focus(); el.setSelectionRange(start + tag.length, start + tag.length); }, 0);
   }
 
@@ -1074,7 +1232,17 @@ function NodeEditor({
       on_not_resolved_target: null,
       ask_resolution: effectiveAsk,
     });
-    await onSaveSteps(steps.filter((s) => s.trim()));
+
+    if (stepsMode === "universal") {
+      await onSaveSteps({ steps: universalSteps.filter((s) => s.trim()) });
+    } else {
+      const variants = Object.entries(serverSteps).map(([server, v]) => ({
+        server,
+        is_active: v.active,
+        steps: v.steps.filter((s) => s.trim()),
+      }));
+      await onSaveSteps({ steps: [], variants });
+    }
   }
 
   return (
@@ -1093,43 +1261,143 @@ function NodeEditor({
         <input value={label} onChange={(e) => setLabel(e.target.value)} className={inputCls} />
       </div>
 
+      {isMenuNode && onReorder && (
+        <div>
+          <label className={labelCls}>Posição no menu</label>
+          <select
+            value={node.option_number}
+            disabled={reordering}
+            onChange={async (e) => {
+              const newNumber = Number(e.target.value);
+              if (newNumber === node.option_number) return;
+              setReordering(true);
+              try {
+                await onReorder(newNumber);
+              } finally {
+                setReordering(false);
+              }
+            }}
+            className={inputCls}
+          >
+            {Array.from({ length: 8 }, (_, i) => i + 1).map((n) => (
+              <option key={n} value={n}>
+                {n}
+                {takenNumbers.has(n) && n !== node.option_number ? ` — troca com "${takenNumbers.get(n)}"` : ""}
+              </option>
+            ))}
+          </select>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            Escolher um número já usado troca a posição com quem está lá.
+          </p>
+        </div>
+      )}
+
+      {onMoveParent && (
+        <div>
+          <label className={labelCls}>Menu pai (mover pra outro lugar)</label>
+          <select
+            value={node.parent_id || ""}
+            disabled={movingParent}
+            onChange={async (e) => {
+              const newParentId = e.target.value || null;
+              if ((newParentId || null) === (node.parent_id || null)) return;
+              setMovingParent(true);
+              try {
+                await onMoveParent(newParentId);
+              } finally {
+                setMovingParent(false);
+              }
+            }}
+            className={inputCls}
+          >
+            <option value="">— Nenhum (menu principal) —</option>
+            {parentCandidates.map((n) => (
+              <option key={n.id} value={n.id}>{n.label}</option>
+            ))}
+          </select>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            Move este item pra dentro de outro menu (ou pra raiz). A posição (1–8) é escolhida automaticamente no novo lugar.
+          </p>
+        </div>
+      )}
+
       {/* Mensagens — o centro do editor */}
       {!specialActions.includes("free_text_rag") && (
         <div>
-          <label className={labelCls}>{isLeaf ? "Mensagens que o bot envia" : "Texto antes das sub-opções (opcional)"}</label>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <label className={labelCls}>{isLeaf ? "Mensagens que o bot envia" : "Texto antes das sub-opções (opcional)"}</label>
+            <div className="flex items-center gap-1 rounded-lg border border-border p-0.5">
+              <button
+                type="button"
+                onClick={() => setStepsMode("universal")}
+                className={`text-[10px] px-2.5 py-1 rounded-md font-medium transition-colors ${stepsMode === "universal" ? "bg-violet-600 text-white" : "text-muted-foreground hover:bg-muted"}`}
+              >
+                Todos os servidores
+              </button>
+              <button
+                type="button"
+                onClick={() => setStepsMode("individual")}
+                className={`text-[10px] px-2.5 py-1 rounded-md font-medium transition-colors ${stepsMode === "individual" ? "bg-violet-600 text-white" : "text-muted-foreground hover:bg-muted"}`}
+              >
+                Individual
+              </button>
+            </div>
+          </div>
+
           <button
             type="button"
             onClick={() => setShowVars((v) => !v)}
-            className="ml-2 text-[10px] text-violet-500 hover:underline"
+            className="mt-1 text-[10px] text-violet-500 hover:underline"
           >
             {showVars ? "ocultar variáveis" : "inserir variável"}
           </button>
           {showVars && (
             <div className="mt-1.5 mb-2">
-              <VariablePanel onInsert={(tag) => insertTagAt(activeStepIndex, tag)} />
+              <VariablePanel onInsert={(tag) => insertTagAt(activeStep.scope, activeStep.index, tag)} />
             </div>
           )}
-          <div className="space-y-2 mt-1.5">
-            {steps.map((s, i) => (
-              <div key={i} className={`border rounded-lg p-2 space-y-1 ${activeStepIndex === i ? "border-violet-500/50" : "border-border"}`}>
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-muted-foreground">Msg {i + 1}</span>
-                  <button type="button" onClick={() => setSteps((prev) => prev.filter((_, idx) => idx !== i))} className="text-rose-500"><X className="w-3.5 h-3.5" /></button>
+
+          {stepsMode === "universal" ? (
+            <StepsListEditor
+              scope="universal"
+              steps={universalSteps}
+              onChange={setUniversalSteps}
+              activeStep={activeStep}
+              setActiveStep={setActiveStep}
+              textareaRefs={textareaRefs}
+            />
+          ) : (
+            <div className="space-y-3 mt-2">
+              {SERVER_OPTIONS.map((srv) => (
+                <div key={srv.value} className="border border-border rounded-xl p-2.5">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-semibold text-foreground">{srv.label}</span>
+                    <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={serverSteps[srv.value]?.active ?? true}
+                        onChange={(e) =>
+                          setServerSteps((prev) => ({ ...prev, [srv.value]: { ...prev[srv.value], active: e.target.checked } }))
+                        }
+                      />
+                      Ativo
+                    </label>
+                  </div>
+                  <StepsListEditor
+                    scope={srv.value}
+                    steps={serverSteps[srv.value]?.steps || []}
+                    onChange={(next) => setServerSteps((prev) => ({ ...prev, [srv.value]: { ...prev[srv.value], steps: next } }))}
+                    activeStep={activeStep}
+                    setActiveStep={setActiveStep}
+                    textareaRefs={textareaRefs}
+                  />
                 </div>
-                <textarea
-                  ref={(el) => { textareaRefs.current[i] = el; }}
-                  value={s}
-                  onFocus={() => setActiveStepIndex(i)}
-                  onChange={(e) => setSteps((prev) => prev.map((p, idx) => idx === i ? e.target.value : p))}
-                  className="w-full text-xs bg-background border border-border rounded-lg px-2 py-1.5"
-                  rows={3}
-                />
-              </div>
-            ))}
-            <button type="button" onClick={() => { setSteps((prev) => [...prev, ""]); setActiveStepIndex(steps.length); }} className="flex items-center gap-1 text-[11px] text-violet-500">
-              <Plus className="w-3 h-3" /> Outra mensagem
-            </button>
-          </div>
+              ))}
+              <p className="text-[10px] text-muted-foreground">
+                Servidor sem nenhuma mensagem (ou marcado como inativo) fica em silêncio nesse nó — o cliente não recebe nada daqui.
+              </p>
+            </div>
+          )}
         </div>
       )}
 

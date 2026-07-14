@@ -217,15 +217,35 @@ export async function POST(req: Request) {
 
   // ── Passos (steps) de um nó folha ──
   if (action === "set_steps") {
-    const { node_id, steps } = body as { node_id: string; steps: string[] };
+    const { node_id, steps, variants } = body as {
+      node_id: string;
+      steps?: string[];
+      // ✅ Variantes por servidor — quando presente, ignora `steps` (universal)
+      // e grava um conjunto de mensagens por servidor. Ausente/vazio = modo
+      // universal antigo, sem mudança de comportamento.
+      variants?: { server: string; is_active: boolean; steps: string[] }[];
+    };
 
     // Confirma que o nó pertence ao tenant antes de mexer
     const { data: node } = await sb.from("bot_menu_nodes").select("id").eq("id", node_id).eq("tenant_id", tenantId).maybeSingle();
     if (!node) return NextResponse.json({ error: "Nó não encontrado" }, { status: 404 });
 
     await sb.from("bot_menu_steps").delete().eq("node_id", node_id);
-    if (steps?.length) {
-      const rows = steps.map((text, i) => ({ node_id, step_order: i + 1, message_text: text }));
+
+    const VALID_SERVERS = new Set(["NATV", "FAST", "ELITE"]);
+    let rows: any[] = [];
+    if (variants?.length) {
+      for (const v of variants) {
+        if (!VALID_SERVERS.has(v.server)) continue;
+        (v.steps || []).forEach((text, i) => {
+          rows.push({ node_id, step_order: i + 1, message_text: text, server: v.server, is_active: v.is_active !== false });
+        });
+      }
+    } else if (steps?.length) {
+      rows = steps.map((text, i) => ({ node_id, step_order: i + 1, message_text: text, server: null }));
+    }
+
+    if (rows.length) {
       const { error } = await sb.from("bot_menu_steps").insert(rows);
       if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     }

@@ -762,7 +762,8 @@ const badgeR = fromStart ? (selected ? 11 : 10) : selected ? 12 : 10;
               return (
                 <g
                   key={key}
-                  className="pointer-events-auto cursor-pointer"
+                  className="pointer-events-auto cursor-pointer transition-opacity duration-150"
+                  style={{ opacity: dimmed ? 0.15 : 1 }}
                   onClick={(e) => {
                     e.stopPropagation();
                     setSelectedLinkKey(key);
@@ -778,9 +779,9 @@ const badgeR = fromStart ? (selected ? 11 : 10) : selected ? 12 : 10;
                   <path
                     d={edgePath(a.x, a.y, b.x, b.y)}
                     fill="none"
-stroke={LINK_COLORS[link.kind]}
+                    stroke={LINK_COLORS[link.kind]}
                     strokeWidth={selected ? 3.5 : fromStart ? 1.75 : 2.25}
-                    strokeOpacity={dimmed ? 0.12 : selected ? 1 : fromStart ? 0.55 : 0.8}
+                    strokeOpacity={selected ? 1 : fromStart ? 0.55 : 0.8}
                     markerEnd={`url(#arr-${link.kind})`}
                   />
                   <path d={edgePath(a.x, a.y, b.x, b.y)} fill="none" stroke="transparent" strokeWidth={18} />

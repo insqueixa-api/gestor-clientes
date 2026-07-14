@@ -51,9 +51,33 @@ const FULFILLMENT_OPTIONS = [
   { value: "manual_done", label: "Concluídos Manualmente" },
   { value: "manual_pending", label: "Ação Manual (Pendentes)" },
   { value: "error", label: "Erros na Renovação" },
-  { value: "pending", label: "Aguardando Pagamento" },
+  { value: "aguardando_pagamento", label: "Aguardando Pagamento" },
   { value: "awaiting_transfer", label: "Aguardando Transferência" },
+  { value: "cancelled", label: "Cancelada" },
+  { value: "manual_cancelled", label: "Cancelada Manualmente" },
+  { value: "processando", label: "Processando" },
 ];
+
+// ✅ Mesma prioridade de regras usada em getFulfillmentBadge — filtro e badge
+// nunca mais podem discordar (ex: pagamento recusado sempre vira "Cancelada",
+// mesmo que a coluna fulfillment_status ainda esteja com um valor antigo/"pending").
+function getFulfillmentBucket(status: string, paymentStatus: string): string {
+  if (status === "manual_cancelled") return "manual_cancelled";
+  if (status === "cancelled" || paymentStatus === "rejected" || paymentStatus === "cancelled")
+    return "cancelled";
+  if (status === "awaiting_transfer") return "awaiting_transfer";
+  if (
+    paymentStatus !== "approved" &&
+    paymentStatus !== "PAGO" &&
+    paymentStatus !== "manual_approved"
+  )
+    return "aguardando_pagamento";
+  if (status === "done") return "done";
+  if (status === "manual_done") return "manual_done";
+  if (status === "manual_pending") return "manual_pending";
+  if (status === "error") return "error";
+  return "processando";
+}
 
 const PAYMENT_OPTIONS = [
   { value: "aprovado", label: "Aprovado" },
@@ -71,7 +95,7 @@ const WHATSAPP_OPTIONS = [
 ];
 
 function matchesFulfillment(r: LogRow, value: string) {
-  return r.fulfillment_status === value;
+  return getFulfillmentBucket(r.fulfillment_status, r.payment_status) === value;
 }
 
 function matchesPayment(r: LogRow, value: string) {
@@ -680,28 +704,17 @@ if (paymentMethod === "manual") {
   }
 
   function getFulfillmentBadge(status: string, paymentStatus: string) {
-    // 1. Prioridade Máxima: Status de cancelamento manual (Padronizado)
-    if (status === "manual_cancelled" || status === "cancelled") {
+    const bucket = getFulfillmentBucket(status, paymentStatus);
+
+    if (bucket === "manual_cancelled" || bucket === "cancelled") {
       return (
         <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-rose-500/10 text-rose-500 text-[10px] font-medium uppercase border border-rose-500/20">
-          {status === "manual_cancelled"
-            ? "Cancelada Manualmente"
-            : "Cancelada"}
+          {bucket === "manual_cancelled" ? "Cancelada Manualmente" : "Cancelada"}
         </span>
       );
     }
 
-    // 2. Se o pagamento foi recusado/cancelado no gateway
-    if (paymentStatus === "rejected" || paymentStatus === "cancelled") {
-      return (
-        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-rose-500/10 text-rose-500 text-[10px] font-medium uppercase border border-rose-500/20">
-          Cancelada
-        </span>
-      );
-    }
-
-    // 3. Aguardando transferência bancária manual
-if (status === "awaiting_transfer") {
+    if (bucket === "awaiting_transfer") {
       return (
         <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-sky-500/10 text-sky-500 text-[10px] font-medium uppercase border border-sky-500/20">
           Aguard. Transferência
@@ -709,33 +722,31 @@ if (status === "awaiting_transfer") {
       );
     }
 
-    // 4. Fluxo normal pós-pagamento aprovado
-    if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !== "manual_approved") {
+    if (bucket === "aguardando_pagamento") {
       return (
         <span className="text-muted-foreground/60 font-medium">—</span>
       );
     }
 
-    // 4. Fluxo normal pós-pagamento aprovado
-    if (status === "done")
+    if (bucket === "done")
       return (
         <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-emerald-500/10 text-emerald-500 text-[10px] font-medium uppercase border border-emerald-500/20">
           Concluído
         </span>
       );
-    if (status === "manual_done")
+    if (bucket === "manual_done")
       return (
         <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-sky-500/10 text-sky-500 text-[10px] font-medium uppercase border border-sky-500/20">
           Concluído Manualmente
         </span>
       );
-    if (status === "manual_pending")
+    if (bucket === "manual_pending")
       return (
         <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-purple-500/10 text-purple-500 text-[10px] font-medium uppercase border border-purple-500/20">
           Ação Manual
         </span>
       );
-    if (status === "error")
+    if (bucket === "error")
       return (
         <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-rose-500/10 text-rose-500 text-[10px] font-medium uppercase border border-rose-500/20">
           Erro API
