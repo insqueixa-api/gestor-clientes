@@ -113,14 +113,12 @@ export default function LoginClient() {
   }, [sp]);
 
   const [whatsapp, setWhatsapp] = useState("");
-  const [pin, setPin] = useState("");
 
   const [msg, setMsg] = useState<Msg | null>(null);
 
   const [loadingResolve, setLoadingResolve] = useState(false);
   const [loadingLogin, setLoadingLogin] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const [loadingReset, setLoadingReset] = useState(false);
 
   // Ref pra resetar o widget Turnstile após erro (token é usado uma única vez)
   const turnstileRef = useRef<TurnstileInstance>(null);
@@ -259,47 +257,6 @@ export default function LoginClient() {
     }
   }
 
-  async function handleEsqueciPin() {
-    setMsg(null);
-
-    if (token === null) return;
-
-    if (!token) {
-      setMsg({
-        type: "error",
-        text: "Link inválido. Solicite um novo link ao suporte.",
-      });
-      return;
-    }
-
-    setLoadingReset(true);
-    try {
-      await fetch("/api/client-portal/send-pin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
-      });
-
-      setMsg({
-        type: "success",
-        text: "Se este número estiver cadastrado, enviaremos um link de redefinição no WhatsApp.",
-      });
-    } catch {
-      setMsg({
-        type: "success",
-        text: "Se este número estiver cadastrado, enviaremos um link de redefinição no WhatsApp.",
-      });
-    } finally {
-      setLoadingReset(false);
-    }
-  }
-
-  const pinHint = useMemo(() => {
-    const d = cleanPhone;
-    if (d.length >= 4) return d.slice(-4);
-    return "";
-  }, [cleanPhone]);
-
   return (
     <div className="min-h-[100dvh] relative overflow-hidden flex items-center sm:items-center justify-center px-3 sm:px-6 pt-6 pb-6 sm:py-10 bg-background">
       <div className="absolute inset-0">
@@ -370,37 +327,6 @@ export default function LoginClient() {
                 <p className="mt-2 text-[11px] font-semibold text-foreground/70 dark:text-white/50 text-center">
                   Se o número estiver errado, solicite um novo link.
                 </p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">
-                  PIN (4 dígitos)
-                </label>
-                <input
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  type="tel"
-                  autoComplete="off"
-                  data-1p-ignore="true"
-                  data-lpignore="true"
-                  maxLength={4}
-                  value={pin}
-                  onChange={(e) =>
-                    setPin(e.target.value.replace(/\D/g, "").slice(0, 4))
-                  }
-                  placeholder="••••"
-                  style={{ WebkitTextSecurity: "disc" } as any}
-                  className="mt-1 w-full rounded-xl border border-border bg-card px-4 py-3 text-center text-xl tracking-[0.5em]
-                    text-foreground outline-none transition focus:ring-2 focus:ring-emerald-500/60
-                    dark:border-border dark:bg-black/40 dark:text-white"
-                />
-
-                {!!pinHint && (
-                  <p className="mt-2 text-[11px] font-semibold text-foreground/70 dark:text-white/50 text-center">
-                    PIN: Digite os últimos 4 dígitos do WhatsApp:{" "}
-                    <span className="font-extrabold">{pinHint}</span>
-                  </p>
-                )}
               </div>
 
               {/* === VALIDADOR HUMANO CLOUDFLARE === */}
