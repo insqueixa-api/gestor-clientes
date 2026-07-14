@@ -264,27 +264,52 @@ const byId = new Map<string, CanvasNode>(nodes.map((n) => [n.id, n]));
 }
 
 /** Todos os IDs "no caminho" de um nó: ancestrais até a raiz + ele mesmo + descendentes */
+/** Toda a rota do nó: Início → ancestrais → ele mesmo → descendentes → destino
+ * final de fluxo (continuar/resolveu/não resolveu) de cada um desses. Não
+ * expande PRA ALÉM desses destinos (senão um "Sucesso" compartilhado por
+ * várias rotas acenderia ramos de nós completamente diferentes). */
 function highlightPathIds(id: string, allNodes: CanvasNode[]): Set<string> {
-  const set = new Set<string>([id]);
+  const set = new Set<string>([id, "__start__"]);
   const byId = new Map<string, CanvasNode>(allNodes.filter((n) => !n.isSystem).map((n) => [n.id, n]));
 
+  // Ancestrais até a raiz
   let cur = byId.get(id);
-  while (cur?.parent_id) {
+  while (cur?.parent_id && byId.has(cur.parent_id) && !set.has(cur.parent_id)) {
     set.add(cur.parent_id);
     cur = byId.get(cur.parent_id);
   }
 
+  // Descendentes (filhos, netos, ...)
   let frontier = [id];
   while (frontier.length) {
     const next: string[] = [];
     for (const f of frontier) {
       allNodes.filter((n) => n.parent_id === f).forEach((n) => {
-        set.add(n.id);
-        next.push(n.id);
+        if (!set.has(n.id)) {
+          set.add(n.id);
+          next.push(n.id);
+        }
       });
     }
     frontier = next;
   }
+
+  // Destino final (continuar / resolveu / não resolveu) de cada nó no
+  // caminho — fecha a rota em Sucesso/Márcio ou no nó de redirecionamento.
+  for (const nid of [...set]) {
+    const n = byId.get(nid);
+    if (!n) continue;
+    if (n.redirect_to_node_id) set.add(n.redirect_to_node_id);
+    const showRes =
+      n.ask_resolution === true ||
+      (n.ask_resolution !== false &&
+        !!(n.closing_message?.trim() || n.on_resolved_target || n.on_not_resolved_target));
+    if (showRes) {
+      set.add(resolveTarget(n.on_resolved_target, "__success__"));
+      set.add(resolveTarget(n.on_not_resolved_target, "__escalate__"));
+    }
+  }
+
   return set;
 }
 

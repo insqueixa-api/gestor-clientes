@@ -351,9 +351,15 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
     if (idx === null) return null;
     return { client: clients[idx], rawClient: clientMatchesRaw[idx] };
   }
+  // ✅ Mesmo estilo visual do menu principal (número + emoji) — o cliente
+  // digita só o dígito pra escolher a conta, igual escolhe qualquer opção
+  // de menu (matchAccountFromText já aceita o número sozinho).
+  const ACCOUNT_NUMBER_EMOJI = ["0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"];
   function askAccountMessage(): string {
-    const lista = clients.map((c: any, i: number) => `- Conta ${i + 1}: ${c.display_name} (${c.server_username || "n/i"}) — ${c.server_name}`).join("\n");
-    return `Você tem mais de uma conta — qual delas se refere? Pode responder com "conta 1", "conta 2" ou o nome do servidor:\n\n${lista}`;
+    const lista = clients
+      .map((c: any, i: number) => `${ACCOUNT_NUMBER_EMOJI[i + 1] || `${i + 1}.`} ${c.display_name} (${c.server_username || "n/i"}) — ${c.server_name}`)
+      .join("\n");
+    return `Você tem mais de uma conta — escolha uma delas digitando o número correspondente:\n\n${lista}`;
   }
 
   // ── Executa um nó (root ou folha), incluindo gate checks e resolução de conta ──

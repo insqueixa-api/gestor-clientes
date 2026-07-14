@@ -472,6 +472,13 @@ export async function pickCompatibleSemanticMatch(
 
 export function matchAccountFromText(clients: any[], text: string): number | null {
   const lower = text.toLowerCase();
+
+  // ✅ Seleção direta por número — mesma prioridade barata do menu principal
+  // (extractSingleDigitSelection). "2" sozinho escolhe a Conta 2 direto, sem
+  // precisar digitar "conta 2": a lista de contas É um menu igual aos outros.
+  const numeric = extractSingleDigitSelection(text);
+  if (numeric !== null && clients[numeric - 1]) return numeric - 1;
+
   const contaMatch = /conta\s*([1-9])/i.exec(text);
   if (contaMatch) {
     const idx = Number(contaMatch[1]) - 1;

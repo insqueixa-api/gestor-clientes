@@ -1009,13 +1009,14 @@ function FloatingChat({ addToast }: { addToast: (type: "success" | "error", titl
   const [awaitingPaymentType, setAwaitingPaymentType] = useState(false);
   const [paymentAttempts, setPaymentAttempts] = useState(0);
 
-  // ✅ Debounce igual ao bot real (sessionManager.js): mensagens digitadas
-  // ficam num buffer em vez de disparar na hora — 10s de silêncio mostra
-  // "digitando...", mais 5s (15s no total) processa o lote combinado. Digitar
-  // de novo no campo durante a espera reseta o cronômetro, igual detectar o
-  // cliente "digitando..." reseta o debounce em produção. Sem isso, o
-  // chat-admin nunca se comportaria como o WhatsApp real pra testar.
-  const ADMIN_STAGE1_MS = 10_000;
+  // ✅ Mesmo mecanismo de buffer/debounce do bot real (sessionManager.js),
+  // mas travado em 5s no total pro simulador — aqui a prioridade é testar
+  // rápido, não replicar o tempo de produção (que fica em 15s+15s, sem
+  // mudança nenhuma). "digitando..." aparece assim que o buffer abre e some
+  // ao processar. Digitar de novo no campo durante a espera reseta o
+  // cronômetro, igual detectar o cliente "digitando..." reseta o debounce
+  // em produção.
+  const ADMIN_STAGE1_MS = 0;
   const ADMIN_STAGE2_MS = 5_000;
   const bufferRef = useRef<string[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
