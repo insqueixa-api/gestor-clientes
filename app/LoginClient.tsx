@@ -128,14 +128,13 @@ export default function LoginClient() {
   const cleanPhone = useMemo(() => whatsapp.replace(/\D/g, ""), [whatsapp]);
 
   const canSubmit = useMemo(() => {
-    // ✅ Agora ele só libera o botão se tiver o token do Cloudflare também
+    // ✅ PIN não é mais exigido — login depende só do token mágico + captcha
     return (
       (token ?? "").length > 10 &&
       cleanPhone.length >= 10 &&
-      pin.length === 4 &&
       turnstileToken !== null
     );
-  }, [token, cleanPhone, pin, turnstileToken]);
+  }, [token, cleanPhone, turnstileToken]);
 
   useEffect(() => {
     let cancelled = false;
@@ -210,7 +209,7 @@ export default function LoginClient() {
     setMsg(null);
 
     if (!canSubmit) {
-      setMsg({ type: "error", text: "Preencha o PIN corretamente." });
+      setMsg({ type: "error", text: "Aguarde a verificação e tente novamente." });
       return;
     }
 
@@ -219,7 +218,7 @@ export default function LoginClient() {
       const res = await fetch("/api/client-portal/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, pin, cfToken: turnstileToken }),
+        body: JSON.stringify({ token, cfToken: turnstileToken }),
       });
 
       const data = await res.json();
@@ -228,7 +227,7 @@ export default function LoginClient() {
         // Reseta o Turnstile (token só vale 1x — sem isso a próxima tentativa trava)
         turnstileRef.current?.reset();
         setTurnstileToken(null);
-        setMsg({ type: "error", text: "PIN incorreto. Tente novamente." });
+        setMsg({ type: "error", text: "Não foi possível acessar. Tente novamente." });
         return;
       }
 

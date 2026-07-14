@@ -27,10 +27,6 @@ function isPlausibleToken(t: string) {
   return /^[a-zA-Z0-9=_\-\.]+$/.test(t);
 }
 
-function isPlausiblePin(p: string) {
-  return /^\d{4}$/.test(p);
-}
-
 async function validateTurnstile(cfToken: string, ip: string): Promise<boolean> {
   const secret = String(process.env.TURNSTILE_SECRET_KEY || "").trim();
   if (!secret) {
@@ -62,11 +58,10 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => ({} as any));
     const token      = String(body?.token     ?? "").trim();
-    const pin        = String(body?.pin       ?? "").trim();
     const cfToken    = String(body?.cfToken   ?? "").trim();
 
-    // Validações básicas antes de qualquer IO
-    if (!isPlausibleToken(token) || !isPlausiblePin(pin) || !cfToken) {
+    // Validações básicas antes de qualquer IO (PIN não é mais exigido no login)
+    if (!isPlausibleToken(token) || !cfToken) {
       return NextResponse.json({ error: "invalid_input" }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
@@ -77,15 +72,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "captcha_failed" }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
-    // Chama o RPC com service_role
+    // Chama o RPC com service_role (login depende só do token mágico)
     const { data, error } = await supabaseAdmin.rpc("portal_start_session", {
       p_token: token,
-      p_pin:   pin,
     });
 
     if (error) {
       safeServerLog("[PORTAL][login] rpc error");
-      // Resposta genérica — não revela se o token ou PIN é o problema
       return NextResponse.json({ error: "invalid_credentials" }, { status: 401, headers: NO_STORE_HEADERS });
     }
 
