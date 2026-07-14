@@ -38,7 +38,7 @@ type Pos = { x: number; y: number };
 type Port = "in" | "out_menu" | "out_next" | "out_ok" | "out_fail";
 
 const NODE_W = 168;
-const NODE_H = 78;
+const NODE_H = 96;
 
 const SYSTEM_NODES: CanvasNode[] = [
   { id: "__start__", label: "▶ Início", parent_id: null, option_number: 0, isSystem: true, systemKind: "start" },
@@ -263,6 +263,31 @@ const byId = new Map<string, CanvasNode>(nodes.map((n) => [n.id, n]));
   return links;
 }
 
+/** Todos os IDs "no caminho" de um nó: ancestrais até a raiz + ele mesmo + descendentes */
+function highlightPathIds(id: string, allNodes: CanvasNode[]): Set<string> {
+  const set = new Set<string>([id]);
+  const byId = new Map<string, CanvasNode>(allNodes.filter((n) => !n.isSystem).map((n) => [n.id, n]));
+
+  let cur = byId.get(id);
+  while (cur?.parent_id) {
+    set.add(cur.parent_id);
+    cur = byId.get(cur.parent_id);
+  }
+
+  let frontier = [id];
+  while (frontier.length) {
+    const next: string[] = [];
+    for (const f of frontier) {
+      allNodes.filter((n) => n.parent_id === f).forEach((n) => {
+        set.add(n.id);
+        next.push(n.id);
+      });
+    }
+    frontier = next;
+  }
+  return set;
+}
+
 function edgePath(x1: number, y1: number, x2: number, y2: number) {
   const dx = Math.max(48, Math.abs(x2 - x1) * 0.45);
   return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
@@ -278,10 +303,10 @@ const PORT_COLORS: Record<string, string> = {
 /** Mesmos offsets Y usados por portXY() — a bolinha visual TEM que
  * ficar exatamente onde a linha (SVG) calcula que a porta está. */
 const OUT_PORT_Y: Record<"out_menu" | "out_next" | "out_ok" | "out_fail", number> = {
-  out_menu: 24,
+  out_menu: 22,
   out_next: 44,
-  out_ok: 64,
-  out_fail: 84,
+  out_ok: 66,
+  out_fail: 88,
 };
 
 const LINK_COLORS: Record<FlowLink["kind"], string> = {
@@ -447,7 +472,12 @@ export default function BotFlowCanvas({
 
 const [linking, setLinking] = useState<{ fromId: string; port: Exclude<Port, "in"> } | null>(null);
   /** Identidade estável da linha (não índice — índice muda com o foco) */
-  const [selectedLinkKey, setSelectedLinkKey] = useState<string | null>(null);
+const [selectedLinkKey, setSelectedLinkKey] = useState<string | null>(null);
+  const [hoverId, setHoverId] = useState<string | null>(null);
+  const highlightSet = useMemo(
+    () => (hoverId ? highlightPathIds(hoverId, allNodes) : null),
+    [hoverId, allNodes]
+  );
   // ✅ forceShowAllProp é sempre controlado pelo pai neste app (nunca vem
   // undefined em uso real); forceShowAllLocal só serve de fallback pro caso
   // não-controlado, sem precisar espelhar a prop via effect.
@@ -488,13 +518,13 @@ const [linking, setLinking] = useState<{ fromId: string; port: Exclude<Port, "in
     [allNodes, visibleIds, allLinks, containerWidth]
   );
 
-  function portXY(nodeId: string, port: Port): { x: number; y: number } {
+function portXY(nodeId: string, port: Port): { x: number; y: number } {
     const p = positions[nodeId] || { x: 0, y: 0 };
     if (port === "in") return { x: p.x, y: p.y + NODE_H / 2 };
-    if (port === "out_menu") return { x: p.x + NODE_W, y: p.y + 24 };
-    if (port === "out_next") return { x: p.x + NODE_W, y: p.y + 44 };
-    if (port === "out_ok") return { x: p.x + NODE_W, y: p.y + 64 };
-    return { x: p.x + NODE_W, y: p.y + 84 };
+    if (port === "out_menu") return { x: p.x + NODE_W, y: p.y + OUT_PORT_Y.out_menu };
+    if (port === "out_next") return { x: p.x + NODE_W, y: p.y + OUT_PORT_Y.out_next };
+    if (port === "out_ok") return { x: p.x + NODE_W, y: p.y + OUT_PORT_Y.out_ok };
+    return { x: p.x + NODE_W, y: p.y + OUT_PORT_Y.out_fail };
   }
 
   function onPortClick(e: React.MouseEvent, nodeId: string, port: Port) {
@@ -714,7 +744,8 @@ const boardH = Math.max(420, ...Object.values(positions).map((p) => p.y + NODE_H
               const t = fromStart ? 0.82 : 0.5;
               const mx = a.x + (b.x - a.x) * t;
               const my = a.y + (b.y - a.y) * t;
-              const badgeR = fromStart ? (selected ? 11 : 10) : selected ? 12 : 10;
+const badgeR = fromStart ? (selected ? 11 : 10) : selected ? 12 : 10;
+              const dimmed = !!highlightSet && !(highlightSet.has(link.from) && highlightSet.has(link.to));
               return (
                 <g
                   key={key}
@@ -734,9 +765,9 @@ const boardH = Math.max(420, ...Object.values(positions).map((p) => p.y + NODE_H
                   <path
                     d={edgePath(a.x, a.y, b.x, b.y)}
                     fill="none"
-                    stroke={LINK_COLORS[link.kind]}
+stroke={LINK_COLORS[link.kind]}
                     strokeWidth={selected ? 3.5 : fromStart ? 1.75 : 2.25}
-                    strokeOpacity={selected ? 1 : fromStart ? 0.55 : 0.8}
+                    strokeOpacity={dimmed ? 0.12 : selected ? 1 : fromStart ? 0.55 : 0.8}
                     markerEnd={`url(#arr-${link.kind})`}
                   />
                   <path d={edgePath(a.x, a.y, b.x, b.y)} fill="none" stroke="transparent" strokeWidth={18} />
@@ -792,6 +823,7 @@ const boardH = Math.max(420, ...Object.values(positions).map((p) => p.y + NODE_H
             const p = positions[n.id] || { x: 0, y: 0 };
             const focused = focusId === n.id;
             const isSys = !!n.isSystem;
+            const dimmedNode = !!highlightSet && !highlightSet.has(n.id);
             const bg =
               n.systemKind === "start"
                 ? "bg-sky-500/15 border-sky-500/50"
@@ -806,8 +838,10 @@ const boardH = Math.max(420, ...Object.values(positions).map((p) => p.y + NODE_H
             return (
               <div
                 key={n.id}
-                className={`absolute rounded-2xl border-2 shadow-sm select-none z-10 ${bg}`}
-                style={{ left: p.x, top: p.y, width: NODE_W, height: NODE_H }}
+                className={`absolute rounded-2xl border-2 shadow-sm select-none overflow-hidden z-10 transition-opacity duration-150 ${bg}`}
+                style={{ left: p.x, top: p.y, width: NODE_W, height: NODE_H, opacity: dimmedNode ? 0.25 : 1 }}
+                onMouseEnter={() => !linking && setHoverId(n.id)}
+                onMouseLeave={() => setHoverId(null)}
                 onClick={(e) => {
                   e.stopPropagation();
                   setForceShowAll(false);

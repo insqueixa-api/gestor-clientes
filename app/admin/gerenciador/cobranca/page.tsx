@@ -552,6 +552,7 @@ export default function BillingPage() {
     editingRule: Automation | null;
   }>({ show: false, editingRule: null });
   const [impactModalData, setImpactModalData] = useState<{
+    ruleId: string;
     ruleName: string;
     clients: ClientLight[];
     ruleDateField?: string;
@@ -1178,6 +1179,7 @@ const delaySecs = Math.max(rule.delay_min || 20, 15); // piso de segurança de 1
                 onEdit={() => setWizardState({ show: true, editingRule: auto })}
                 onShowImpact={() =>
                   setImpactModalData({
+                    ruleId: auto.id,
                     ruleName: auto.name,
                     clients: impacted,
                     ruleDateField: auto.rule_date_field,
@@ -1503,7 +1505,12 @@ function ImpactListModal({
   data,
   onClose,
 }: {
-  data: { ruleName: string; clients: ClientLight[]; ruleDateField?: string };
+  data: {
+    ruleId: string;
+    ruleName: string;
+    clients: ClientLight[];
+    ruleDateField?: string;
+  };
   onClose: () => void;
 }) {
   if (typeof document === "undefined") return null;
@@ -1512,9 +1519,96 @@ function ImpactListModal({
   const isCadastro =
     data.ruleDateField === "cadastro" || data.ruleDateField === "created_at";
 
+  // ✅ Status de envio (mais recente) desta regra, por cliente
+  const [sendStatusMap, setSendStatusMap] = useState<
+    Record<string, { status: string; error_message: string | null }>
+  >({});
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSendStatus() {
+      const tid = await getCurrentTenantId();
+      if (!tid) return;
+
+      const clientIds = data.clients.map((c) => c.id).filter(Boolean);
+      if (clientIds.length === 0) return;
+
+      const { data: jobs, error } = await supabaseBrowser
+        .from("client_message_jobs")
+        .select("client_id, status, error_message, send_at")
+        .eq("tenant_id", tid)
+        .eq("automation_id", data.ruleId)
+        .in("client_id", clientIds)
+        .order("send_at", { ascending: false });
+
+      if (error || !jobs || cancelled) return;
+
+      // Mantém apenas o job mais recente de cada cliente (jobs já vêm ordenados desc)
+      const map: Record<string, { status: string; error_message: string | null }> = {};
+      for (const j of jobs as any[]) {
+        if (!j.client_id || map[j.client_id]) continue;
+        map[j.client_id] = { status: j.status, error_message: j.error_message };
+      }
+
+      if (!cancelled) setSendStatusMap(map);
+    }
+
+    loadSendStatus();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.ruleId]);
+
+  function renderSendStatus(clientId: string) {
+    const info = sendStatusMap[clientId];
+    if (!info)
+      return (
+        <span className="text-[10px] text-muted-foreground/60 font-medium">
+          Ainda não enviado
+        </span>
+      );
+
+    if (info.status === "SENT")
+      return (
+        <span className="gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+          ✅ Enviado
+        </span>
+      );
+    if (info.status === "FAILED")
+      return (
+        <div className="flex flex-col gap-0.5">
+          <span className="gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-rose-500/10 text-rose-500 border border-rose-500/20 w-fit">
+            ❌ Falhou
+          </span>
+          {info.error_message && (
+            <span
+              className="text-[9px] text-rose-500/80 max-w-[160px] truncate"
+              title={info.error_message}
+            >
+              {info.error_message}
+            </span>
+          )}
+        </div>
+      );
+    if (info.status === "CANCELLED")
+      return (
+        <span className="gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-muted text-muted-foreground border border-border">
+          Resolvido
+        </span>
+      );
+    // SCHEDULED / QUEUED / SENDING
+    return (
+      <span className="gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-sky-500/10 text-sky-500 border border-sky-500/20">
+        ⏳ Na fila
+      </span>
+    );
+  }
+
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-2xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
+      <div className="w-full max-w-4xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
         <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent">
           <div>
             <h3 className="text-lg font-medium text-foreground">
@@ -1533,13 +1627,13 @@ function ImpactListModal({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto overflow-x-auto p-2 custom-scrollbar">
           {data.clients.length === 0 ? (
             <div className="p-10 text-center text-muted-foreground italic">
               Nenhum cliente atende a esta regra hoje.
             </div>
           ) : (
-            <table className="w-full text-left border-collapse min-w-[700px]">
+            <table className="w-full text-left border-collapse min-w-[820px]">
               <thead className="bg-muted/40 sticky top-0 z-10 text-xs uppercase text-muted-foreground font-medium">
                 <tr>
                   <th className="p-3">Cliente / Contato</th>
@@ -1548,6 +1642,7 @@ function ImpactListModal({
                     {isCadastro ? "Data Cadastro" : "Vencimento"}
                   </th>
                   <th className="p-3">Plano</th>
+                  <th className="p-3">Envio</th>
                 </tr>
               </thead>
 <tbody className="text-sm text-foreground/80 divide-y divide-border">
@@ -1645,6 +1740,9 @@ function ImpactListModal({
                         )}
                       </div>
                     </td>
+
+                    {/* COLUNA 5: STATUS DE ENVIO */}
+                    <td className="p-3">{renderSendStatus(c.id)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -2352,6 +2450,11 @@ function LogsModal({
   const [working, setWorking] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
+  // ✅ Filtro rápido do log
+  const [logSearch, setLogSearch] = useState("");
+  const [logStatusFilter, setLogStatusFilter] = useState("Todos");
+  const [logServerFilter, setLogServerFilter] = useState("Todos");
+
   const fetchLogs = async () => {
     setLoading(true);
     const tid = await getCurrentTenantId();
@@ -2429,7 +2532,41 @@ function LogsModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ruleId]);
 
-  const failedRows = logs.filter((l) => l.status === "FAILED");
+  const uniqueLogServers = useMemo(() => {
+    const set = new Set<string>();
+    logs.forEach((l) => {
+      if (l.server_name) set.add(l.server_name);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [logs]);
+
+  const filteredLogs = useMemo(() => {
+    const q = logSearch.trim().toLowerCase();
+    return logs.filter((l) => {
+      if (logStatusFilter !== "Todos" && l.status !== logStatusFilter)
+        return false;
+      if (logServerFilter !== "Todos" && l.server_name !== logServerFilter)
+        return false;
+      if (q) {
+        const hay = [l.client_name, l.server_username, l.whatsapp_username]
+          .join(" ")
+          .toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [logs, logSearch, logStatusFilter, logServerFilter]);
+
+  const hasActiveLogFilters =
+    logStatusFilter !== "Todos" || logServerFilter !== "Todos";
+
+  function clearLogFilters() {
+    setLogSearch("");
+    setLogStatusFilter("Todos");
+    setLogServerFilter("Todos");
+  }
+
+  const failedRows = filteredLogs.filter((l) => l.status === "FAILED");
 
   const toggleOne = (id: string) => {
     setSelected((prev) => {
@@ -2590,12 +2727,74 @@ function LogsModal({
           </button>
         </div>
 
+        {/* ✅ FILTRO RÁPIDO DO LOG */}
+        {logs.length > 0 && (
+          <div className="px-6 py-3 border-b border-border bg-transparent flex items-center gap-2 flex-wrap">
+            <div className="flex-1 min-w-[160px] relative">
+              <input
+                value={logSearch}
+                onChange={(e) => setLogSearch(e.target.value)}
+                placeholder="Buscar cliente..."
+                className="w-full h-9 px-3 pr-8 bg-transparent border border-border rounded-lg text-xs text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors"
+              />
+              {logSearch && (
+                <button
+                  onClick={() => setLogSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-muted-foreground hover:text-rose-500"
+                  title="Limpar busca"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            <select
+              value={logStatusFilter}
+              onChange={(e) => setLogStatusFilter(e.target.value)}
+              className="h-9 px-2 bg-transparent border border-border rounded-lg text-xs text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors"
+            >
+              <option value="Todos">Status (Todos)</option>
+              <option value="SENT">Enviado</option>
+              <option value="FAILED">Falhou</option>
+              <option value="CANCELLED">Resolvido</option>
+            </select>
+
+            {uniqueLogServers.length > 0 && (
+              <select
+                value={logServerFilter}
+                onChange={(e) => setLogServerFilter(e.target.value)}
+                className="h-9 px-2 bg-transparent border border-border rounded-lg text-xs text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors"
+              >
+                <option value="Todos">Servidor (Todos)</option>
+                {uniqueLogServers.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {hasActiveLogFilters && (
+              <button
+                onClick={clearLogFilters}
+                className="h-9 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 text-xs font-medium hover:bg-rose-500/20 transition-colors flex items-center gap-1.5"
+              >
+                <X className="w-3.5 h-3.5" /> Limpar
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
           {loading ? (
             <div className="text-center py-10 text-muted-foreground">Carregando...</div>
           ) : logs.length === 0 ? (
             <div className="text-center py-10 text-muted-foreground">
               Nenhum registro encontrado.
+            </div>
+          ) : filteredLogs.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground">
+              Nenhum registro encontrado para os filtros selecionados.
             </div>
           ) : (
             <table className="w-full text-left text-sm">
@@ -2622,7 +2821,7 @@ function LogsModal({
                 </tr>
               </thead>
               <tbody>
-                {logs.map((log) => {
+                {filteredLogs.map((log) => {
                   const isFailed = log.status === "FAILED";
                   return (
                     <tr

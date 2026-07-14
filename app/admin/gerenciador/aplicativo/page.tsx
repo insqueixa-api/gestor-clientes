@@ -134,6 +134,12 @@ const [apps, setApps] = useState<AppData[]>([]);
   >([]);
   const [servers, setServers] = useState<ServerOption[]>([]);
   const [search, setSearch] = useState("");
+  const [costFilter, setCostFilter] = useState<"Todos" | CostType>("Todos");
+  const [integrationFilter, setIntegrationFilter] = useState<
+    "Todos" | "com" | "sem"
+  >("Todos");
+  const [partnerServerFilter, setPartnerServerFilter] = useState("Todos");
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -313,13 +319,59 @@ setApps(formattedApps);
 
   const filteredApps = React.useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return apps;
 
     return apps.filter((a) => {
-      const name = String(a.name ?? "").toLowerCase();
-      return name.includes(q);
+      if (q) {
+        const name = String(a.name ?? "").toLowerCase();
+        if (!name.includes(q)) return false;
+      }
+
+      if (costFilter !== "Todos" && a.cost_type !== costFilter) return false;
+
+      if (integrationFilter === "com" && !a.integration_type) return false;
+      if (integrationFilter === "sem" && a.integration_type) return false;
+
+      if (
+        costFilter === "partnership" &&
+        partnerServerFilter !== "Todos" &&
+        a.partner_server_id !== partnerServerFilter
+      )
+        return false;
+
+      return true;
     });
-  }, [search, apps]);
+  }, [search, apps, costFilter, integrationFilter, partnerServerFilter]);
+
+  const hasActiveFilters =
+    costFilter !== "Todos" || integrationFilter !== "Todos";
+
+  function clearFilters() {
+    setSearch("");
+    setCostFilter("Todos");
+    setIntegrationFilter("Todos");
+    setPartnerServerFilter("Todos");
+  }
+
+  // ✅ Filtro direto de Custo: "Parceria" já vem com o servidor aninhado (sem 2º passo)
+  const costFilterValue =
+    costFilter === "partnership"
+      ? partnerServerFilter === "Todos"
+        ? "partnership"
+        : `partnership:${partnerServerFilter}`
+      : costFilter;
+
+  function handleCostFilterChange(value: string) {
+    if (value.startsWith("partnership:")) {
+      setCostFilter("partnership");
+      setPartnerServerFilter(value.split(":")[1]);
+    } else if (value === "partnership") {
+      setCostFilter("partnership");
+      setPartnerServerFilter("Todos");
+    } else {
+      setCostFilter(value as "Todos" | CostType);
+      setPartnerServerFilter("Todos");
+    }
+  }
 
   const [collapsedGroups, setCollapsedGroups] = useState<
     Record<string, boolean>
@@ -705,26 +757,148 @@ setApps(formattedApps);
         </button>
       </div>
 
-      {/* BARRA DE BUSCA */}
+      {/* BARRA DE FILTROS */}
       <div className="px-3 sm:px-0">
-        <div className="md:p-4 md:bg-card md:border md:border-border md:rounded-xl md:sticky md:top-4 z-20">
-          <div className="flex items-center gap-2">
-            <Input
-              placeholder="Buscar aplicativo por nome..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-
-            {search.trim() ? (
-              <button
-                onClick={() => setSearch("")}
-                className="h-10 px-3 rounded-lg border border-border bg-card text-xs font-medium text-muted-foreground hover:bg-muted transition-colors"
-                title="Limpar busca"
-              >
-                Limpar
-              </button>
-            ) : null}
+        <div className="md:p-4 md:bg-card md:border md:border-border md:rounded-xl md:sticky md:top-4 z-20 space-y-3">
+          <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground tracking-wider">
+            Filtros Rápidos
           </div>
+
+          {/* MOBILE (somente): pesquisa + botão abrir painel */}
+          <div className="md:hidden flex items-center gap-2">
+            <div className="flex-1 relative">
+              <Input
+                placeholder="Buscar aplicativo por nome..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-rose-500"
+                >
+                  <IconX />
+                </button>
+              )}
+            </div>
+
+            <button
+              onClick={() => setMobileFiltersOpen((v) => !v)}
+              className={`h-10 px-3 rounded-lg border font-medium text-sm transition-colors ${
+                hasActiveFilters
+                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
+                  : "border-border bg-muted text-muted-foreground hover:bg-muted/80"
+              }`}
+              title="Filtros"
+            >
+              Filtros
+            </button>
+          </div>
+
+          {/* DESKTOP (somente): tudo na mesma linha */}
+          <div className="hidden md:flex items-center gap-2">
+            <div className="flex-1 relative">
+              <Input
+                placeholder="Buscar aplicativo por nome..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-rose-500"
+                >
+                  <IconX />
+                </button>
+              )}
+            </div>
+
+            <div className="w-[210px]">
+              <Select
+                value={costFilterValue}
+                onChange={(e) => handleCostFilterChange(e.target.value)}
+              >
+                <option value="Todos">Custo (Todos)</option>
+                <option value="free">🆓 Gratuito</option>
+                <option value="paid">💰 Pago</option>
+                <option value="partnership">🤝 Parceria (Todos os servidores)</option>
+                {servers.length > 0 && (
+                  <optgroup label="🤝 Parceria por servidor">
+                    {servers.map((s) => (
+                      <option key={s.id} value={`partnership:${s.id}`}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </Select>
+            </div>
+
+            <div className="w-[170px]">
+              <Select
+                value={integrationFilter}
+                onChange={(e) =>
+                  setIntegrationFilter(e.target.value as "Todos" | "com" | "sem")
+                }
+              >
+                <option value="Todos">Integração (Todas)</option>
+                <option value="com">Com integração</option>
+                <option value="sem">Sem integração</option>
+              </Select>
+            </div>
+
+            <button
+              onClick={clearFilters}
+              className="h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+            >
+              <IconX /> Limpar
+            </button>
+          </div>
+
+          {/* Painel de filtros no mobile */}
+          {mobileFiltersOpen && (
+            <div className="md:hidden mt-1 p-3 rounded-xl border border-border bg-transparent space-y-2">
+              <Select
+                value={costFilterValue}
+                onChange={(e) => handleCostFilterChange(e.target.value)}
+              >
+                <option value="Todos">Custo (Todos)</option>
+                <option value="free">🆓 Gratuito</option>
+                <option value="paid">💰 Pago</option>
+                <option value="partnership">🤝 Parceria (Todos os servidores)</option>
+                {servers.length > 0 && (
+                  <optgroup label="🤝 Parceria por servidor">
+                    {servers.map((s) => (
+                      <option key={s.id} value={`partnership:${s.id}`}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </Select>
+
+              <Select
+                value={integrationFilter}
+                onChange={(e) =>
+                  setIntegrationFilter(e.target.value as "Todos" | "com" | "sem")
+                }
+              >
+                <option value="Todos">Integração (Todas)</option>
+                <option value="com">Com integração</option>
+                <option value="sem">Sem integração</option>
+              </Select>
+
+              <button
+                onClick={() => {
+                  clearFilters();
+                  setMobileFiltersOpen(false);
+                }}
+                className="w-full h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+              >
+                <IconX /> Limpar
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -739,7 +913,9 @@ setApps(formattedApps);
             ? 'Nenhum aplicativo cadastrado. Clique em "Novo Aplicativo" para começar.'
             : search.trim()
               ? `Nenhum aplicativo encontrado para "${search.trim()}".`
-              : "Nenhum aplicativo para exibir."}
+              : hasActiveFilters
+                ? "Nenhum aplicativo encontrado para os filtros selecionados."
+                : "Nenhum aplicativo para exibir."}
         </div>
       ) : (
         <div className="px-3 sm:px-0 space-y-6">
@@ -1144,6 +1320,9 @@ setApps(formattedApps);
 
 function IconEdit() {
   return <Pencil className="w-4 h-4" />;
+}
+function IconX() {
+  return <X className="w-4 h-4" />;
 }
 function IconTrash() {
   return (

@@ -91,6 +91,10 @@ function AuditoriaPageContent() {
   const [loading, setLoading] = useState(true); // Filtros
   const [search, setSearch] = useState("");
   const [filterFulfillment, setFilterFulfillment] = useState("Todos");
+  const [filterPayment, setFilterPayment] = useState("Todos");
+  const [filterGateway, setFilterGateway] = useState("Todos");
+  const [filterWhatsapp, setFilterWhatsapp] = useState("Todos");
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   // Paginação
   const [page, setPage] = useState(1);
@@ -264,6 +268,15 @@ function AuditoriaPageContent() {
     }
   };
 
+  const uniqueGateways = useMemo(() => {
+    const set = new Set<string>();
+    rows.forEach((r) => {
+      const g = (r.gateway_name || r.payment_method || "").trim();
+      if (g) set.add(g);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [rows]);
+
   const filtered = useMemo(() => {
     const q = search
       .trim()
@@ -277,6 +290,61 @@ function AuditoriaPageContent() {
         r.fulfillment_status !== filterFulfillment
       )
         return false;
+
+      if (filterGateway !== "Todos") {
+        const g = r.gateway_name || r.payment_method || "";
+        if (g !== filterGateway) return false;
+      }
+
+      if (filterPayment !== "Todos") {
+        const isApproved =
+          r.payment_status === "approved" || r.payment_status === "PAGO";
+        const isManualApproved = r.payment_status === "manual_approved";
+        const isRejected =
+          r.payment_status === "rejected" || r.payment_status === "cancelled";
+        const isManualPending =
+          r.payment_status === "pending" && r.payment_method === "manual";
+        const isPending =
+          r.payment_status === "pending" && r.payment_method !== "manual";
+
+        if (filterPayment === "aprovado" && !isApproved) return false;
+        if (filterPayment === "aprovado_manual" && !isManualApproved)
+          return false;
+        if (filterPayment === "recusado" && !isRejected) return false;
+        if (filterPayment === "renovacao_manual" && !isManualPending)
+          return false;
+        if (filterPayment === "pendente" && !isPending) return false;
+      }
+
+      if (filterWhatsapp !== "Todos") {
+        const isApprovedPayment =
+          r.payment_status === "approved" ||
+          r.payment_status === "PAGO" ||
+          r.payment_status === "manual_approved";
+        const isCancelledFulfillment =
+          r.fulfillment_status === "manual_cancelled" ||
+          r.fulfillment_status === "cancelled";
+        const isDoneFulfillment =
+          r.fulfillment_status === "done" ||
+          r.fulfillment_status === "manual_done";
+        const eligible =
+          isApprovedPayment && !isCancelledFulfillment && isDoneFulfillment;
+
+        if (filterWhatsapp === "sent" && r.whatsapp_status !== "sent")
+          return false;
+        if (filterWhatsapp === "error" && r.whatsapp_status !== "error")
+          return false;
+        if (
+          filterWhatsapp === "aguardando" &&
+          !(
+            eligible &&
+            r.whatsapp_status !== "sent" &&
+            r.whatsapp_status !== "error"
+          )
+        )
+          return false;
+        if (filterWhatsapp === "na" && eligible) return false;
+      }
 
       if (q) {
         const hay = [
@@ -294,7 +362,29 @@ function AuditoriaPageContent() {
       }
       return true;
     });
-  }, [rows, search, filterFulfillment]);
+  }, [
+    rows,
+    search,
+    filterFulfillment,
+    filterGateway,
+    filterPayment,
+    filterWhatsapp,
+  ]);
+
+  const hasActiveFilters =
+    filterFulfillment !== "Todos" ||
+    filterGateway !== "Todos" ||
+    filterPayment !== "Todos" ||
+    filterWhatsapp !== "Todos";
+
+  function clearFilters() {
+    setSearch("");
+    setFilterFulfillment("Todos");
+    setFilterGateway("Todos");
+    setFilterPayment("Todos");
+    setFilterWhatsapp("Todos");
+    loadData("");
+  }
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(Math.max(1, page), totalPages);
@@ -706,7 +796,56 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
 
       {/* FILTROS */}
       <div className="px-3 md:p-4 bg-transparent md:bg-card border-0 md:border md:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20">
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground tracking-wider">
+          Filtros Rápidos
+        </div>
+
+        {/* MOBILE (somente): busca + botão abrir painel */}
+        <div className="md:hidden flex items-center gap-2">
+          <div className="flex-1 relative">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Buscar (Pressione Enter)"
+              className="w-full h-10 px-3 pr-10 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+            />
+            {search && (
+              <button
+                onClick={() => {
+                  setSearch("");
+                  loadData("");
+                }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-rose-500"
+                title="Limpar busca"
+              >
+                <IconX />
+              </button>
+            )}
+          </div>
+
+          <button
+            onClick={() => loadData(search)}
+            className="h-10 px-3 bg-card border border-border hover:bg-muted text-foreground/90 rounded-lg text-sm font-medium transition-colors shadow-sm"
+          >
+            Buscar
+          </button>
+
+          <button
+            onClick={() => setMobileFiltersOpen((v) => !v)}
+            className={`h-10 px-3 rounded-lg border font-medium text-sm transition-colors ${
+              hasActiveFilters
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
+                : "border-border bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+            title="Filtros"
+          >
+            Filtros
+          </button>
+        </div>
+
+        {/* DESKTOP (somente): tudo na mesma linha */}
+        <div className="hidden md:flex items-center gap-2 flex-wrap">
           <div className="flex-1 min-w-[200px] flex gap-2">
             <div className="relative flex-1">
               <input
@@ -737,20 +876,140 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
             </button>
           </div>
 
-          <select
-            value={filterFulfillment}
-            onChange={(e) => setFilterFulfillment(e.target.value)}
-            className="w-[180px] h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+          <div className="w-[180px]">
+            <select
+              value={filterFulfillment}
+              onChange={(e) => setFilterFulfillment(e.target.value)}
+              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+            >
+              <option value="Todos">Renovação (Todos)</option>
+              <option value="done">Concluídos (Auto)</option>
+              <option value="manual_done">Concluídos Manualmente</option>
+              <option value="manual_pending">Ação Manual (Pendentes)</option>
+              <option value="error">Erros na Renovação</option>
+              <option value="pending">Aguardando Pagamento</option>
+              <option value="awaiting_transfer">Aguardando Transferência</option>
+            </select>
+          </div>
+
+          <div className="w-[170px]">
+            <select
+              value={filterPayment}
+              onChange={(e) => setFilterPayment(e.target.value)}
+              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+            >
+              <option value="Todos">Pagamento (Todos)</option>
+              <option value="aprovado">Aprovado</option>
+              <option value="aprovado_manual">Aprovado Manualmente</option>
+              <option value="pendente">Pendente</option>
+              <option value="renovacao_manual">Renovação Manual</option>
+              <option value="recusado">Recusado</option>
+            </select>
+          </div>
+
+          <div className="w-[160px]">
+            <select
+              value={filterGateway}
+              onChange={(e) => setFilterGateway(e.target.value)}
+              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+            >
+              <option value="Todos">Banco (Todos)</option>
+              {uniqueGateways.map((g) => (
+                <option key={g} value={g}>
+                  {g}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="w-[170px]">
+            <select
+              value={filterWhatsapp}
+              onChange={(e) => setFilterWhatsapp(e.target.value)}
+              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+            >
+              <option value="Todos">Mensagem WA (Todas)</option>
+              <option value="sent">Enviado</option>
+              <option value="error">Erro</option>
+              <option value="aguardando">Aguardando</option>
+              <option value="na">Não se aplica</option>
+            </select>
+          </div>
+
+          <button
+            onClick={clearFilters}
+            className="h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
           >
-            <option value="Todos">Processamento (Todos)</option>           {" "}
-            <option value="done">Concluídos (Auto)</option>
-            <option value="manual_done">Concluídos Manualmente</option>         
-              <option value="manual_pending">Ação Manual (Pendentes)</option>
-            <option value="error">Erros na Renovação</option>
-            <option value="pending">Aguardando Pagamento</option>
-            <option value="awaiting_transfer">Aguardando Transferência</option>
-          </select>
+            <IconX /> Limpar
+          </button>
         </div>
+
+        {/* Painel de filtros no mobile */}
+        {mobileFiltersOpen && (
+          <div className="md:hidden mt-1 p-3 rounded-xl border border-border bg-transparent space-y-2">
+            <select
+              value={filterFulfillment}
+              onChange={(e) => setFilterFulfillment(e.target.value)}
+              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+            >
+              <option value="Todos">Renovação (Todos)</option>
+              <option value="done">Concluídos (Auto)</option>
+              <option value="manual_done">Concluídos Manualmente</option>
+              <option value="manual_pending">Ação Manual (Pendentes)</option>
+              <option value="error">Erros na Renovação</option>
+              <option value="pending">Aguardando Pagamento</option>
+              <option value="awaiting_transfer">Aguardando Transferência</option>
+            </select>
+
+            <select
+              value={filterPayment}
+              onChange={(e) => setFilterPayment(e.target.value)}
+              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+            >
+              <option value="Todos">Pagamento (Todos)</option>
+              <option value="aprovado">Aprovado</option>
+              <option value="aprovado_manual">Aprovado Manualmente</option>
+              <option value="pendente">Pendente</option>
+              <option value="renovacao_manual">Renovação Manual</option>
+              <option value="recusado">Recusado</option>
+            </select>
+
+            <select
+              value={filterGateway}
+              onChange={(e) => setFilterGateway(e.target.value)}
+              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+            >
+              <option value="Todos">Banco (Todos)</option>
+              {uniqueGateways.map((g) => (
+                <option key={g} value={g}>
+                  {g}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={filterWhatsapp}
+              onChange={(e) => setFilterWhatsapp(e.target.value)}
+              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+            >
+              <option value="Todos">Mensagem WA (Todas)</option>
+              <option value="sent">Enviado</option>
+              <option value="error">Erro</option>
+              <option value="aguardando">Aguardando</option>
+              <option value="na">Não se aplica</option>
+            </select>
+
+            <button
+              onClick={() => {
+                clearFilters();
+                setMobileFiltersOpen(false);
+              }}
+              className="w-full h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+            >
+              <IconX /> Limpar
+            </button>
+          </div>
+        )}
       </div>
 
       {/* TABELA */}

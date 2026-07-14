@@ -139,6 +139,13 @@ function formatHora(iso: string) { return new Date(iso).toLocaleTimeString("pt-B
 function formatDataHora(iso: string) { return new Date(iso).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit",timeZone:"America/Sao_Paulo"}); }
 function iniciais(nome: string) { return nome.split(" ").filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase(); }
 function normalizar(s: string): string { return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9\s]/g," ").replace(/\s+/g," ").trim(); }
+// \u2705 R\u00f3tulo de categoria (Filmes/S\u00e9ries) pra exibi\u00e7\u00e3o: remove prefixo redundante da pasta-m\u00e3e e deixa T\u00edtulo Case
+function formatCategoriaLabel(raw?: string | null): string {
+  if (!raw) return "";
+  const semPrefixo = raw.replace(/^(filmes?|s[e\u00e9]ries?)\s*[:\-\u2013]\s*/i, "").trim();
+  const texto = semPrefixo || raw;
+  return texto.split(" ").map(w => w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w).join(" ");
+}
 
 // ─── Componentes Visuais (Refatorados para Tailwind e Performance) ─────────────
 
@@ -977,9 +984,7 @@ const backdrop=detalhe?.poster_tmdb_url||detalhe?.cover_url||"";
                         ? disponibilidadeFiltrada[0]?.categoria_origem
                         : null;
                       if (!caminho) return null;
-                      // remove prefixo redundante tipo "FILMES:", "Séries:", "SERIES -" etc.
-                      const limpo = caminho.replace(/^(filmes?|s[eé]ries?)\s*[:\-–]\s*/i, "").trim();
-                      return <>{" | "}{limpo || caminho}</>;
+                      return <>{" | "}<span className="normal-case">{formatCategoriaLabel(caminho)}</span></>;
                     })()}
                   </span>
                   {detalhe.ano&&<span className="text-sm font-medium text-muted-foreground">{detalhe.ano}</span>}
@@ -1007,7 +1012,7 @@ const backdrop=detalhe?.poster_tmdb_url||detalhe?.cover_url||"";
                 <button onClick={()=>setShowTmdb(v=>!v)} className={`h-8 px-4 rounded-lg font-semibold text-xs flex items-center gap-2 transition-all ${showTmdb ? 'bg-indigo-600 text-white shadow' : 'bg-muted hover:bg-muted/80 text-foreground'}`}><RefreshCw size={12}/> {showTmdb?"Fechar Busca":"Corrigir TMDB"}</button>
                 <div className="relative">
                   <button onClick={()=>setShowDeleteMenu(v=>!v)} disabled={deletando} className={`h-8 px-4 rounded-lg font-semibold text-xs flex items-center gap-2 transition-all disabled:opacity-60 disabled:cursor-wait ${showDeleteMenu ? 'bg-rose-600 text-white shadow' : 'bg-muted hover:bg-muted/80 text-foreground'}`}><X size={12}/> Deletar Individual</button>
-                  {showDeleteMenu&&<div className="absolute top-full mt-2 right-0 bg-muted/90 border border-border rounded-xl p-3 z-20 min-w-56 shadow-2xl backdrop-blur"><div className="text-xs font-bold text-rose-500 mb-2.5 uppercase tracking-wide">Remover de qual servidor?</div><div className="flex flex-col gap-2">{detalhe.disponibilidade.map(d=>(<button key={d.servidor} onClick={() => handleDeleteIndividual(d)} className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-card border border-border hover:border-rose-500/40 text-left text-foreground text-xs"><div className="w-2 h-2 rounded-full" style={{background:COR_SERVIDOR[d.servidor]||"#6b7280"}}/>{d.servidor}<span className="text-muted-foreground/70 ml-auto">{d.categoria_origem}</span></button>))}{detalhe.disponibilidade.length>1&&(
+                  {showDeleteMenu&&<div className="absolute top-full mt-2 right-0 bg-muted/90 border border-border rounded-xl p-3 z-20 min-w-56 shadow-2xl backdrop-blur"><div className="text-xs font-bold text-rose-500 mb-2.5 uppercase tracking-wide">Remover de qual servidor?</div><div className="flex flex-col gap-2">{detalhe.disponibilidade.map(d=>(<button key={d.servidor} onClick={() => handleDeleteIndividual(d)} className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-card border border-border hover:border-rose-500/40 text-left text-foreground text-xs"><div className="w-2 h-2 rounded-full" style={{background:COR_SERVIDOR[d.servidor]||"#6b7280"}}/>{d.servidor}<span className="text-muted-foreground/70 ml-auto">{formatCategoriaLabel(d.categoria_origem)}</span></button>))}{detalhe.disponibilidade.length>1&&(
                     <button onClick={async()=>{
                     // ✅ Novo: Confirmação padrão
                     const ok = await confirm({
@@ -1067,7 +1072,7 @@ const backdrop=detalhe?.poster_tmdb_url||detalhe?.cover_url||"";
 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-1">
                 {!modoCliente && detalhe.disponibilidade.length>0&&(
                   <div className="space-y-3.5"><div className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-4">Disponível em ({detalhe.disponibilidade.length})</div>
-                  {detalhe.disponibilidade.map((d,i)=>(<div key={i} className="flex items-center gap-3.5 p-3.5 rounded-xl border border-border bg-card/60"><div className="w-2 h-2 rounded-full flex-shrink-0" style={{background:COR_SERVIDOR[d.servidor]||"#6b7280"}}/><div><div className="text-sm font-semibold text-foreground tracking-tight">{d.servidor}</div><div className="text-xs text-muted-foreground/90 mt-0.5">{d.categoria_origem}</div></div></div>))}</div>
+                  {detalhe.disponibilidade.map((d,i)=>(<div key={i} className="flex items-center gap-3.5 p-3.5 rounded-xl border border-border bg-card/60"><div className="w-2 h-2 rounded-full flex-shrink-0" style={{background:COR_SERVIDOR[d.servidor]||"#6b7280"}}/><div><div className="text-sm font-semibold text-foreground tracking-tight">{d.servidor}</div><div className="text-xs text-muted-foreground/90 mt-0.5">{formatCategoriaLabel(d.categoria_origem)}</div></div></div>))}</div>
                 )}
                 {detalhe.tipo==="SERIE"&&detalhe.temporadas.length>0&&(
                   <div className="space-y-3.5"><div className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-4">Temporadas ({detalhe.temporadas.length})</div>
@@ -1119,7 +1124,7 @@ function ResultadoBuscaCatalogo({resultados,loading,onSelect,modoCliente,onSuger
             </div>
             <div className="text-base font-bold text-foreground leading-snug group-hover:text-sky-400 tracking-tight whitespace-normal mb-3">{t.titulo_normalizado}</div>
             {t.sinopse&&<div className="text-xs text-muted-foreground/90 overflow-hidden line-clamp-3 leading-relaxed mb-4">{t.sinopse}</div>}
-            <div className="flex gap-2 flex-wrap pt-1 border-t border-border/80 mt-2">{t.rotas.map((r,i)=><span key={i} className="text-[10px] font-semibold bg-muted border border-border px-2.5 py-1 rounded-full uppercase tracking-wide" style={{borderColor: (COR_SERVIDOR[r.servidor]||"#94a3b8") + "40", color: COR_SERVIDOR[r.servidor]||"#94a3b8"}}>{r.servidor} / {r.categoria}</span>)}</div>
+            <div className="flex gap-2 flex-wrap pt-1 border-t border-border/80 mt-2">{t.rotas.map((r,i)=><span key={i} className="text-[10px] font-semibold bg-muted border border-border px-2.5 py-1 rounded-full tracking-wide" style={{borderColor: (COR_SERVIDOR[r.servidor]||"#94a3b8") + "40", color: COR_SERVIDOR[r.servidor]||"#94a3b8"}}>{r.servidor.toUpperCase()} / {formatCategoriaLabel(r.categoria)}</span>)}</div>
           </div>
           <div className="shrink-0 pt-10"><ChevronRight className="w-5 h-5 text-border/70 group-hover:text-sky-500"/></div>
         </button>

@@ -210,6 +210,16 @@ function getTemplateCategory(msg: MessageTemplate) {
   return "Geral";
 }
 
+// ✅ Rótulo e ícone de exibição por categoria (usado no filtro e nos grupos)
+function getCategoryDisplay(cat: string) {
+  if (cat === "Cliente IPTV") return { label: "Clientes", icon: "📺" };
+  if (cat === "Vencimentos") return { label: "Vencimentos", icon: "📅" };
+  if (cat === "Promoções") return { label: "Promoções", icon: "🎉" };
+  if (cat === "Manutenção") return { label: "Manutenção", icon: "⚙️" };
+  if (cat === "Fidelidade") return { label: "Fidelidade", icon: "⭐" };
+  return { label: cat, icon: "💬" };
+}
+
 // ============================================================================
 // COMPONENTE PRINCIPAL
 // ============================================================================
@@ -217,6 +227,8 @@ export default function MessagesPage() {
   const [messages, setMessages] = useState<MessageTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("Todos");
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   // Modais
   const [showEditor, setShowEditor] = useState(false);
@@ -301,13 +313,18 @@ export default function MessagesPage() {
   const filteredMessages = useMemo(() => {
     const q = search.trim().toLowerCase();
 
-    const filtered = !q
-      ? messages
-      : messages.filter((m) => {
-          const name = String(m.name ?? "").toLowerCase();
-          const content = String(m.content ?? "").toLowerCase();
-          return name.includes(q) || content.includes(q);
-        });
+    const filtered = messages.filter((m) => {
+      if (categoryFilter !== "Todos" && getTemplateCategory(m) !== categoryFilter)
+        return false;
+
+      if (q) {
+        const name = String(m.name ?? "").toLowerCase();
+        const content = String(m.content ?? "").toLowerCase();
+        if (!name.includes(q) && !content.includes(q)) return false;
+      }
+
+      return true;
+    });
 
     // A–Z (case-insensitive / pt-BR)
     return [...filtered].sort((a, b) =>
@@ -315,7 +332,14 @@ export default function MessagesPage() {
         sensitivity: "base",
       }),
     );
-  }, [messages, search]);
+  }, [messages, search, categoryFilter]);
+
+  const hasActiveFilters = categoryFilter !== "Todos";
+
+  function clearFilters() {
+    setSearch("");
+    setCategoryFilter("Todos");
+  }
 
   return (
     <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-background transition-colors">
@@ -349,10 +373,45 @@ export default function MessagesPage() {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground tracking-wider">
-          Busca
+          Filtros Rápidos
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* MOBILE (somente): busca + botão abrir painel */}
+        <div className="md:hidden flex items-center gap-2">
+          <div className="flex-1 relative">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar modelo (nome ou conteúdo)..."
+              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-rose-500"
+                title="Limpar busca"
+                aria-label="Limpar busca"
+              >
+                <IconX />
+              </button>
+            )}
+          </div>
+
+          <button
+            onClick={() => setMobileFiltersOpen((v) => !v)}
+            className={`h-10 px-3 rounded-lg border font-medium text-sm transition-colors ${
+              hasActiveFilters
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
+                : "border-border bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+            title="Filtros"
+          >
+            Filtros
+          </button>
+        </div>
+
+        {/* DESKTOP (somente): tudo na mesma linha */}
+        <div className="hidden md:flex items-center gap-2">
           <div className="flex-1 relative">
             <input
               value={search}
@@ -373,13 +432,62 @@ export default function MessagesPage() {
             )}
           </div>
 
+          <div className="w-[190px]">
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors"
+            >
+              <option value="Todos">Categoria (Todas)</option>
+              {MESSAGE_CATEGORIES.map((cat) => {
+                const { label, icon } = getCategoryDisplay(cat);
+                return (
+                  <option key={cat} value={cat}>
+                    {icon} {label}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
           <button
-            onClick={() => setSearch("")}
-            className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 text-sm font-medium hover:bg-rose-500/20 transition-colors items-center justify-center gap-2"
+            onClick={clearFilters}
+            className="h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 text-sm font-medium hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
           >
             <IconX /> Limpar
           </button>
         </div>
+
+        {/* Painel de filtros no mobile */}
+        {mobileFiltersOpen && (
+          <div className="md:hidden mt-1 p-3 rounded-xl border border-border bg-transparent space-y-2">
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors"
+            >
+              <option value="Todos">Categoria (Todas)</option>
+              {MESSAGE_CATEGORIES.map((cat) => {
+                const { label, icon } = getCategoryDisplay(cat);
+                return (
+                  <option key={cat} value={cat}>
+                    {icon} {label}
+                  </option>
+                );
+              })}
+            </select>
+
+            <button
+              onClick={() => {
+                clearFilters();
+                setMobileFiltersOpen(false);
+              }}
+              className="w-full h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 text-sm font-medium hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+            >
+              <IconX /> Limpar
+            </button>
+          </div>
+        )}
       </div>
 
       {/* LISTA DE MENSAGENS (LISTA COM SELEÇÃO + AÇÕES À DIREITA) */}
@@ -524,16 +632,7 @@ export default function MessagesPage() {
                   );
                   if (items.length === 0) return null;
 
-                  // Título dinâmico
-                  let displayTitle = cat === "Cliente IPTV" ? "Clientes" : cat;
-
-                  // Ícones
-                  let icon = "💬";
-                  if (cat === "Cliente IPTV") icon = "📺";
-                  else if (cat === "Vencimentos") icon = "📅";
-                  else if (cat === "Promoções") icon = "🎉";
-                  else if (cat === "Manutenção") icon = "⚙️";
-                  else if (cat === "Fidelidade") icon = "⭐";
+                  const { label: displayTitle, icon } = getCategoryDisplay(cat);
 
                   return (
                     <div key={cat}>
