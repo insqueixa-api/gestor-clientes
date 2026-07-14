@@ -318,72 +318,91 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
   // ── Checagem global: servidor offline ou acesso vencido ─────────────────
   const FRESH_STATES = new Set([null, undefined, "", "geral", "geral_retry", "aguardando_resposta", "aguardando_resposta_2"]);
   if (FRESH_STATES.has(botState) && !awaitingPaymentType && !isGreetingOnly(trimmed)) {
-    if (clients[0]?.server_is_offline) {
-      const reason = clients[0]?.server_offline_reason?.trim();
-      const msg = reason
-        ? `Identificamos uma instabilidade: ${reason}. Já está sendo verificada pela nossa equipe — assim que normalizar, volta a funcionar sozinho, sem precisar fazer nada. 🙏`
-        : "Identificamos uma instabilidade interna no servidor que já está sendo verificada pela nossa equipe. Em breve tudo estará normalizado! Por enquanto, tente acessar de tempos em tempos — quando voltar, funciona normalmente, sem precisar fazer nada. 🙏";
-      await send(msg);
-      return { action: "gate_offline_global", markRead: true, nextState: "geral" };
-    }
-    const vencido = clients[0]?.vencimento ? new Date(clients[0].vencimento).getTime() < Date.now() : false;
-    if (vencido) {
-      const link = await toolGerarLinkPortal(sb, tenantId, clientMatchesRaw[0], clients[0].is_secondary);
-      const msg = `Vi aqui que seu acesso está vencido — por isso o sinal parou. 😊\n\nPara renovar:\n👉 ${link}\nSenha: últimos 4 dígitos do seu WhatsApp`;
-      await send(msg);
-      return { action: "gate_vencido_global", markRead: true, nextState: "geral" };
+    // ✅ Com mais de uma conta, não dá pra assumir que o problema é da conta
+    // principal (clients[0]) — resolve pelo texto (número/"conta X"/nome do
+    // servidor, mesma lógica usada em qualquer outro lugar que precisa de
+    // conta). Se não der pra saber qual conta é (mensagem ambígua, ex: "bom
+    // dia"), pula esse aviso proativo em vez de arriscar avisar sobre a
+    // conta errada — o fluxo normal ainda pergunta "qual conta?" antes de
+    // qualquer ação que realmente precise saber (ver nodeNeedsAccount).
+    const gateAccount = resolveAccount(trimmed);
+    if (gateAccount) {
+      const { client: gateClient, rawClient: gateRawClient } = gateAccount;
+      if (gateClient?.server_is_offline) {
+        const reason = gateClient?.server_offline_reason?.trim();
+        const msg = reason
+          ? `Identificamos uma instabilidade: ${reason}. Já está sendo verificada pela nossa equipe — assim que normalizar, volta a funcionar sozinho, sem precisar fazer nada. 🙏`
+          : "Identificamos uma instabilidade interna no servidor que já está sendo verificada pela nossa equipe. Em breve tudo estará normalizado! Por enquanto, tente acessar de tempos em tempos — quando voltar, funciona normalmente, sem precisar fazer nada. 🙏";
+        await send(msg);
+        return { action: "gate_offline_global", markRead: true, nextState: "geral" };
+      }
+      const vencido = gateClient?.vencimento ? new Date(gateClient.vencimento).getTime() < Date.now() : false;
+      if (vencido) {
+        const link = await toolGerarLinkPortal(sb, tenantId, gateRawClient, gateClient.is_secondary);
+        const msg = `Vi aqui que seu acesso está vencido — por isso o sinal parou. 😊\n\nPara renovar:\n👉 ${link}\nSenha: últimos 4 dígitos do seu WhatsApp`;
+        await send(msg);
+        return { action: "gate_vencido_global", markRead: true, nextState: "geral" };
+      }
     }
   }
 
   // ── Item 5: reação a mensagem automática recente ─────────────────────────
-  try {
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { data: recentJob } = await sb
-      .from("client_message_jobs")
-      .select(`sent_at, automation_id, message_template_id, billing_automations ( name, type )`)
-      .eq("tenant_id", tenantId).in("client_id", clients.map((c: any) => c.id).filter(Boolean))
-      .eq("status", "SENT").gte("sent_at", twentyFourHoursAgo)
-      .order("sent_at", { ascending: false }).limit(1).maybeSingle();
+  // ✅ Só roda com o cliente em estado "fresco" (mesmo critério do gate de
+  // vencido/offline acima) — sem essa guarda, uma resposta curta e ambígua
+  // no MEIO de um fluxo real (escolhendo conta, respondendo "resolveu?",
+  // dentro de um submenu) podia ser classificada pelo Gemini como só
+  // cordialidade em relação a uma cobrança/vencimento das últimas 24h,
+  // desviando o cliente do que ele realmente estava respondendo.
+  if (FRESH_STATES.has(botState) && !awaitingPaymentType) {
+    try {
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { data: recentJob } = await sb
+        .from("client_message_jobs")
+        .select(`sent_at, automation_id, message_template_id, billing_automations ( name, type )`)
+        .eq("tenant_id", tenantId).in("client_id", clients.map((c: any) => c.id).filter(Boolean))
+        .eq("status", "SENT").gte("sent_at", twentyFourHoursAgo)
+        .order("sent_at", { ascending: false }).limit(1).maybeSingle();
 
-    let templateInfo: any = null;
-    if (recentJob?.message_template_id) {
-      const { data: tpl } = await sb.from("message_templates").select("name, category").eq("id", recentJob.message_template_id).maybeSingle();
-      templateInfo = tpl || null;
-    }
-    const jobKind = classifyRecentJob(recentJob, templateInfo);
-
-    const JOB_CONTEXT: Record<string, string> = {
-      payment_confirmation: "Confirmação automática de que o pagamento/renovação foi processado com sucesso.",
-      vencimento: "Lembrete automático de que o acesso está vencendo em breve.",
-      pos_venda_satisfacao: "Pesquisa de satisfação perguntando como está sendo a experiência do cliente.",
-      pos_venda_fidelidade: "Mensagem automática de acompanhamento de fidelidade do cliente.",
-      pos_venda_generico: "Mensagem automática de acompanhamento pós-venda.",
-    };
-
-    if (jobKind !== "none" && JOB_CONTEXT[jobKind]) {
-      const isAck = await classifyIsAcknowledgment(geminiKey, JOB_CONTEXT[jobKind], trimmed);
-
-      if (isAck) {
-        const ACK_MESSAGES: Record<string, string> = {
-          payment_confirmation: `Que bom, ${firstName}! 😊 Fico feliz que deu tudo certo com sua renovação. Qualquer coisa é só chamar!`,
-          vencimento: "Sem pressa! Pode ficar tranquilo — quando for renovar, é só acessar o portal que está tudo pronto. Se precisar de ajuda, é só chamar! 😊",
-          pos_venda_satisfacao: `Muito obrigado pelo retorno, ${firstName}! 🙏 Fico feliz que esteja gostando. Qualquer coisa, é só chamar!`,
-          pos_venda_fidelidade: `Que bom, ${firstName}! 😊 Fico feliz em saber. Qualquer coisa, é só chamar!`,
-          pos_venda_generico: `Que bom, ${firstName}! 😊 Fico feliz em saber. Qualquer coisa, é só chamar!`,
-        };
-        const ACK_ACTIONS: Record<string, string> = {
-          payment_confirmation: "payment_ack",
-          vencimento: "vencimento_ack",
-          pos_venda_satisfacao: "satisfaction_ack",
-          pos_venda_fidelidade: "pos_venda_ack",
-          pos_venda_generico: "pos_venda_ack",
-        };
-        await send(ACK_MESSAGES[jobKind]);
-        return { action: ACK_ACTIONS[jobKind], markRead: true };
+      let templateInfo: any = null;
+      if (recentJob?.message_template_id) {
+        const { data: tpl } = await sb.from("message_templates").select("name, category").eq("id", recentJob.message_template_id).maybeSingle();
+        templateInfo = tpl || null;
       }
+      const jobKind = classifyRecentJob(recentJob, templateInfo);
+
+      const JOB_CONTEXT: Record<string, string> = {
+        payment_confirmation: "Confirmação automática de que o pagamento/renovação foi processado com sucesso.",
+        vencimento: "Lembrete automático de que o acesso está vencendo em breve.",
+        pos_venda_satisfacao: "Pesquisa de satisfação perguntando como está sendo a experiência do cliente.",
+        pos_venda_fidelidade: "Mensagem automática de acompanhamento de fidelidade do cliente.",
+        pos_venda_generico: "Mensagem automática de acompanhamento pós-venda.",
+      };
+
+      if (jobKind !== "none" && JOB_CONTEXT[jobKind]) {
+        const isAck = await classifyIsAcknowledgment(geminiKey, JOB_CONTEXT[jobKind], trimmed);
+
+        if (isAck) {
+          const ACK_MESSAGES: Record<string, string> = {
+            payment_confirmation: `Que bom, ${firstName}! 😊 Fico feliz que deu tudo certo com sua renovação. Qualquer coisa é só chamar!`,
+            vencimento: "Sem pressa! Pode ficar tranquilo — quando for renovar, é só acessar o portal que está tudo pronto. Se precisar de ajuda, é só chamar! 😊",
+            pos_venda_satisfacao: `Muito obrigado pelo retorno, ${firstName}! 🙏 Fico feliz que esteja gostando. Qualquer coisa, é só chamar!`,
+            pos_venda_fidelidade: `Que bom, ${firstName}! 😊 Fico feliz em saber. Qualquer coisa, é só chamar!`,
+            pos_venda_generico: `Que bom, ${firstName}! 😊 Fico feliz em saber. Qualquer coisa, é só chamar!`,
+          };
+          const ACK_ACTIONS: Record<string, string> = {
+            payment_confirmation: "payment_ack",
+            vencimento: "vencimento_ack",
+            pos_venda_satisfacao: "satisfaction_ack",
+            pos_venda_fidelidade: "pos_venda_ack",
+            pos_venda_generico: "pos_venda_ack",
+          };
+          await send(ACK_MESSAGES[jobKind]);
+          return { action: ACK_ACTIONS[jobKind], markRead: true, nextState: "geral" };
+        }
+      }
+    } catch (e: any) {
+      safeLog(`${logPrefix} Erro Item5:`, e?.message);
     }
-  } catch (e: any) {
-    safeLog(`${logPrefix} Erro Item5:`, e?.message);
   }
 
   // ── Confirmação simples / link puro ─────────────────────────────────────

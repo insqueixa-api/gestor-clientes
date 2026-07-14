@@ -991,7 +991,6 @@ const [editActive, setEditActive] = useState(true);
 function FloatingChat({ addToast }: { addToast: (type: "success" | "error", title: string, msg?: string) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [history, setHistory] = useState<any[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [selectedPhone, setSelectedPhone] = useState("");
@@ -1056,7 +1055,6 @@ function FloatingChat({ addToast }: { addToast: (type: "success" | "error", titl
     setPendingCount(0);
     setWaitingToSend(false);
     setMessages([]);
-    setHistory([]);
     // ✅ Reseta o estado do menu — cada nova simulação começa do zero,
     // igual a um contato novo escrevendo pela primeira vez.
     setBotState(null);
@@ -1101,7 +1099,6 @@ function FloatingChat({ addToast }: { addToast: (type: "success" | "error", titl
         body: JSON.stringify({
           message: combined,
           phone: selectedPhone || undefined,
-          conversation_history: history,
           bot_state: botState,
           awaiting_payment_type: awaitingPaymentType,
           payment_clarification_attempts: paymentAttempts,
@@ -1123,7 +1120,6 @@ function FloatingChat({ addToast }: { addToast: (type: "success" | "error", titl
             },
           },
         ]);
-        setHistory(json.updated_history || []);
 
         // ✅ Atualiza o estado do menu com base na decisão do backend —
         // mesmo contrato do sessionManager.js real (__clear__ → reseta).

@@ -135,7 +135,6 @@ export async function POST(req: Request) {
   return NextResponse.json({
     ok: true,
     response: sentMessages.join("\n\n"),
-    updated_history: [],
     action: result.action,
     escalate: result.escalate ?? false,
     mark_read: result.markRead,

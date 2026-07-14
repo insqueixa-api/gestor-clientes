@@ -180,7 +180,13 @@ function getContactState(sessionKey, phone) {
 function shouldScheduleNudge(state) {
   if (!state) return false;
   if (STATES_WITH_NUDGE.includes(state)) return true;
-  if (/^(menunode|conta|conta2|awaiting_resolution):/.test(state)) return true;
+  // ✅ Cobre também os estados de "2ª tentativa" (menunode_retry,
+  // awaiting_resolution_retry) e confirm_switch — antes o regex exigia ":"
+  // logo depois de "menunode"/"awaiting_resolution", então nunca casava com
+  // esses estados de retry. Resultado: quem já errou uma vez (ou objetou o
+  // "resolveu?") nunca era lembrado nem encerrado com gentileza depois —
+  // ficava preso pra sempre, ao contrário de quem acerta de primeira.
+  if (/^(menunode(_retry)?|conta|conta2|awaiting_resolution(_retry)?|confirm_switch):/.test(state)) return true;
   return false;
 }
 
@@ -307,39 +313,6 @@ async function escalateAfterSilence(sessionKey, phone) {
 // Contatos que o bot já iniciou atendimento (bot respondeu ao menos 1x)
 const botActiveContacts = new Set(); // "sessionKey:phone"
 
-// Histórico de conversa em memória por contato (sessionKey:phone -> array de turns)
-// Máx 10 turnos, expira após 2h de inatividade
-const conversationHistories = new Map();
-const conversationLastActivity = new Map();
-const MAX_HISTORY_TURNS = 10;
-const HISTORY_TTL_MS = 2 * 60 * 60 * 1000; // 2 horas
-
-function getHistory(sessionKey, phone) {
-  const key = `${sessionKey}:${phone}`;
-  const lastActivity = conversationLastActivity.get(key) || 0;
-  if (Date.now() - lastActivity > HISTORY_TTL_MS) {
-    conversationHistories.delete(key);
-    conversationLastActivity.delete(key);
-    return [];
-  }
-  return conversationHistories.get(key) || [];
-}
-
-function addToHistory(sessionKey, phone, role, text) {
-  const key = `${sessionKey}:${phone}`;
-  const history = conversationHistories.get(key) || [];
-  history.push({ role, parts: [{ text }] });
-  if (history.length > MAX_HISTORY_TURNS) history.splice(0, history.length - MAX_HISTORY_TURNS);
-  conversationHistories.set(key, history);
-  conversationLastActivity.set(key, Date.now());
-}
-
-function clearHistory(sessionKey, phone) {
-  const key = `${sessionKey}:${phone}`;
-  conversationHistories.delete(key);
-  conversationLastActivity.delete(key);
-}
-
 // Deduplicação de mensagens — evita processar a mesma msg duplicada do Baileys
 const processedMessages = new Map(); // msgId -> timestamp
 function isMessageAlreadyProcessed(msgId) {
@@ -371,7 +344,6 @@ function pauseContact(sessionKey, phone) {
   const until = Date.now() + 4 * 60 * 60 * 1000;
   humanPausedContacts.get(sessionKey).set(phone, until);
   saveHumanPaused(sessionKey); // ✅ persiste em disco — sobrevive a "Reiniciar Serviço"
-  clearHistory(sessionKey, phone); // limpa histórico quando humano assume
   console.log(`[BOT][${sessionKey.slice(0, 8)}] ⏸️ Atendimento humano ativo para ${phone} até ${new Date(until).toLocaleTimeString("pt-BR")}`);
   emitBotEvent({
     type: "human_takeover",
@@ -1279,11 +1251,6 @@ const text =
   const isLinkOnly = /^https?:\/\/\S+$/.test((text || "").trim());
   if (isLinkOnly) return;
 
-// Busca histórico antes de montar payload
-  const conversationHistory = getHistory(sessionKey, phone);
-  // Adiciona a mensagem atual do cliente ao histórico
-  if (text?.trim()) addToHistory(sessionKey, phone, "user", text.trim());
-
 const payload = {
     tenant_id: config.tenantId,
     session_key: sessionKey,
@@ -1294,7 +1261,6 @@ const payload = {
     media_base64: mediaBase64,
     media_type: mediaType,
     mime_type: mimeType,
-    conversation_history: conversationHistory,
 awaiting_payment_type: isPendingPaymentClarification(sessionKey, phone), // ✅ Item 6
     payment_clarification_attempts: getPaymentClarificationAttempts(sessionKey, phone), // ✅ Item 6
     bot_state: getContactState(sessionKey, phone), // ✅ Item 7 (Fase B)
@@ -1380,9 +1346,6 @@ if (!res.ok) {
 
       console.log(`[BOT][${sessionKey.slice(0, 8)}] ✅ Agente processou mensagem de ${phone}`);
       botActiveContacts.add(`${sessionKey}:${phone}`);
-      if (responseData?.bot_response?.trim()) {
-        addToHistory(sessionKey, phone, "model", responseData.bot_response);
-      }
       emitBotEvent({
         type: "bot_responded",
         phone,
