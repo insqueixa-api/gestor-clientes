@@ -342,10 +342,10 @@ const PORT_COLORS: Record<string, string> = {
 /** Mesmos offsets Y usados por portXY() — a bolinha visual TEM que
  * ficar exatamente onde a linha (SVG) calcula que a porta está. */
 const OUT_PORT_Y: Record<"out_menu" | "out_next" | "out_ok" | "out_fail", number> = {
-  out_menu: 22,
-  out_next: 44,
-  out_ok: 66,
-  out_fail: 88,
+  out_menu: 15,
+  out_next: 37,
+  out_ok: 59,
+  out_fail: 81,
 };
 
 const LINK_COLORS: Record<FlowLink["kind"], string> = {

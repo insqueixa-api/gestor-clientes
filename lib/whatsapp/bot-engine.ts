@@ -256,9 +256,18 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
   const logPrefix = p.logPrefix || "[BOT]";
   const firstName = clients[0].display_name.split(" ")[0];
 
+  // ✅ As mensagens globais (saudação, sucesso, escalar, retry de menu) podem
+  // usar variáveis do cliente (ex: {primeiro_nome}, {saudacao_tempo}) — antes
+  // eram mandadas cruas, então {primeiro_nome} chegava literal pro cliente.
+  const flowVars = buildClientTemplateVars({ clientRow: clientMatchesRaw[0], isSecondary: clients[0]?.is_secondary }) as Record<string, any>;
+  flowVars.usuario_app = clients[0]?.server_username || "";
+  flowVars.plano_nome = clients[0]?.plan_label || "";
+  flowVars.servidor_nome = clients[0]?.server_name || "";
+  const sendFlow = (text: string) => send(renderTemplate(text, flowVars));
+
   // ── Item 1: escalonamento explícito — prioridade máxima ─────────────────
   if (isEscalationTrigger(trimmed)) {
-    await send(flow.human_requested_message);
+    await sendFlow(flow.human_requested_message);
     return { action: "escalated", escalate: true, markRead: false, nextState: "__clear__" };
   }
 
@@ -370,7 +379,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
     redirectDepth: number = 0
   ): Promise<BotEngineResult> {
     if (redirectDepth > MAX_REDIRECT_DEPTH) {
-      await send(flow.escalate_message);
+      await sendFlow(flow.escalate_message);
       return { action: "redirect_loop", escalate: true, markRead: false, nextState: "__clear__" };
     }
 
@@ -378,7 +387,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
       resolved = resolveAccount(trimmed);
       if (!resolved) {
         if (attempt === 2) {
-          await send(flow.escalate_message);
+          await sendFlow(flow.escalate_message);
           return { action: "conta_desistiu", escalate: true, markRead: false, nextState: "__clear__", transferReason: node.transfer_situation_label || null };
         }
         await send(askAccountMessage());
@@ -418,7 +427,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
         target = (instalacaoRoot as MenuNode) || null;
       }
       if (target) return enterNode(target, null, 1, redirectDepth + 1);
-      await send(flow.escalate_message);
+      await sendFlow(flow.escalate_message);
       return { action: "redirect_destino_ausente", escalate: true, markRead: false, nextState: "__clear__" };
     }
 
@@ -446,17 +455,17 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
     if (kind === "node" && target.kind === "node") {
       const dest = await getNodeById(sb, target.nodeId);
       if (dest) return enterNode(dest, null, 1, 0);
-      await send(flow.escalate_message);
+      await sendFlow(flow.escalate_message);
       return { action: "target_node_missing", escalate: true, markRead: false, nextState: "__clear__", transferReason: node?.transfer_situation_label || null };
     }
     if (kind === "success") {
-      await send(target.kind === "default" && resolvedMsg?.trim() ? resolvedMsg.trim() : flow.success_message);
+      await sendFlow(target.kind === "default" && resolvedMsg?.trim() ? resolvedMsg.trim() : flow.success_message);
       return { action: "resolvido", markRead: true, nextState: "geral" };
     }
     if (kind === "end") {
       return { action: "flow_end", markRead: true, nextState: "geral" };
     }
-    await send(flow.escalate_message);
+    await sendFlow(flow.escalate_message);
     return { action: "nao_resolvido_escalado", escalate: true, markRead: false, nextState: "__clear__", transferReason: node?.transfer_situation_label || null };
   }
 
@@ -529,7 +538,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
     if (chosen) return enterNode(chosen, null, 1);
 
     if (!isSecondMiss) {
-      const intro = pickInvalidIntro(currentNode, 1, flow.menu_invalid_intro_1, flow.menu_invalid_intro_2);
+      const intro = renderTemplate(pickInvalidIntro(currentNode, 1, flow.menu_invalid_intro_1, flow.menu_invalid_intro_2), flowVars);
       await send(buildInvalidMenuRetry(children, intro, true));
       return { action: "menu_retry", markRead: true, nextState: `menunode_retry:${currentNode.id}` };
     }
@@ -552,9 +561,9 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
       }
     }
 
-    const intro2 = pickInvalidIntro(currentNode, 2, flow.menu_invalid_intro_1, flow.menu_invalid_intro_2);
+    const intro2 = renderTemplate(pickInvalidIntro(currentNode, 2, flow.menu_invalid_intro_1, flow.menu_invalid_intro_2), flowVars);
     await send(buildInvalidMenuRetry(children, intro2, true));
-    await send(flow.escalate_message);
+    await sendFlow(flow.escalate_message);
     return { action: "menu_retry_escalado", escalate: true, markRead: false, nextState: "__clear__", transferReason: currentNode.transfer_situation_label || null };
   }
 
@@ -582,7 +591,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
       return { action: "rag_sem_match_retry", markRead: true, nextState: "geral_retry" };
     }
 
-    await send(flow.escalate_message);
+    await sendFlow(flow.escalate_message);
     return { action: "rag_sem_match", escalate: true, markRead: false, nextState: "__clear__" };
   }
 
@@ -608,23 +617,23 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
 
   if (botState === "aguardando_resposta_2") {
     const roots = await getRootNodes(sb, tenantId, clientProvider);
-    await send(buildInvalidMenuRetry(roots, flow.invalid_retry_message_2, false));
-    await send(flow.escalate_message);
+    await send(buildInvalidMenuRetry(roots, renderTemplate(flow.invalid_retry_message_2, flowVars), false));
+    await sendFlow(flow.escalate_message);
     return { action: "escalated_menu", escalate: true, markRead: false, nextState: "__clear__" };
   }
 
   if (!botState || botState === "aguardando_resposta") {
     if (!botState) {
-      await send(flow.greeting_message);
+      await sendFlow(flow.greeting_message);
       await send(await getAllRootsAsMenuText(sb, tenantId, clientProvider));
       return { action: "menu_intro", markRead: true, nextState: "aguardando_resposta" };
     }
     const roots = await getRootNodes(sb, tenantId, clientProvider);
-    await send(buildInvalidMenuRetry(roots, flow.invalid_retry_message_1, false));
+    await send(buildInvalidMenuRetry(roots, renderTemplate(flow.invalid_retry_message_1, flowVars), false));
     return { action: "menu_retry", markRead: true, nextState: "aguardando_resposta_2" };
   }
 
   // fallback de segurança — nunca deveria chegar aqui
-  await send(flow.escalate_message);
+  await sendFlow(flow.escalate_message);
   return { action: "estado_desconhecido", escalate: true, markRead: false, nextState: "__clear__" };
 }
