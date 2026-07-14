@@ -359,9 +359,16 @@ function visibleNodeIds(
   const ids = new Set<string>(["__start__"]);
   ids.add(focusId);
   const children = all.filter((n) => n.parent_id === focusId);
+  // ✅ guarda filhos + netos numa lista, além de marcá-los visíveis — vamos
+  // precisar checar a resolução (ok/não) de CADA UM deles, não só do nó focado
+  const descendants: CanvasNode[] = [];
   children.forEach((n) => {
     ids.add(n.id);
-    all.filter((g) => g.parent_id === n.id).forEach((g) => ids.add(g.id));
+    descendants.push(n);
+    all.filter((g) => g.parent_id === n.id).forEach((g) => {
+      ids.add(g.id);
+      descendants.push(g);
+    });
   });
   let cur = all.find((n) => n.id === focusId);
   while (cur?.parent_id) {
@@ -371,19 +378,25 @@ function visibleNodeIds(
   const f = all.find((n) => n.id === focusId);
   if (f?.redirect_to_node_id) ids.add(f.redirect_to_node_id);
 
-  // destinos de resolução: só os que este nó realmente usa
-  if (
-    f &&
-    (f.ask_resolution === true ||
-      (f.ask_resolution !== false &&
-        !!(f.closing_message?.trim() || f.on_resolved_target || f.on_not_resolved_target)))
-  ) {
-    ids.add(resolveTarget(f.on_resolved_target, "__success__"));
-    ids.add(resolveTarget(f.on_not_resolved_target, "__escalate__"));
-  } else {
-    if (f?.on_resolved_target) ids.add(resolveTarget(f.on_resolved_target, "__success__"));
-    if (f?.on_not_resolved_target) ids.add(resolveTarget(f.on_not_resolved_target, "__escalate__"));
+  // ✅ destinos de resolução: do nó focado E de qualquer filho/neto visível.
+  // Antes só checava o nó focado — por isso "netos finais" que resolvem
+  // direto pra Sucesso/Márcio ficavam sem o card aparecer na tela.
+  function addResolutionTargets(node: CanvasNode) {
+    const showRes =
+      node.ask_resolution === true ||
+      (node.ask_resolution !== false &&
+        !!(node.closing_message?.trim() || node.on_resolved_target || node.on_not_resolved_target));
+    if (showRes) {
+      ids.add(resolveTarget(node.on_resolved_target, "__success__"));
+      ids.add(resolveTarget(node.on_not_resolved_target, "__escalate__"));
+    } else {
+      if (node.on_resolved_target) ids.add(resolveTarget(node.on_resolved_target, "__success__"));
+      if (node.on_not_resolved_target) ids.add(resolveTarget(node.on_not_resolved_target, "__escalate__"));
+    }
   }
+  if (f) addResolutionTargets(f);
+  descendants.forEach(addResolutionTargets);
+
   return ids;
 }
 
@@ -838,7 +851,7 @@ stroke={LINK_COLORS[link.kind]}
             return (
               <div
                 key={n.id}
-                className={`absolute rounded-2xl border-2 shadow-sm select-none overflow-hidden z-10 transition-opacity duration-150 ${bg}`}
+                className={`absolute rounded-2xl border-2 shadow-sm select-none z-10 transition-opacity duration-150 ${bg}`}
                 style={{ left: p.x, top: p.y, width: NODE_W, height: NODE_H, opacity: dimmedNode ? 0.25 : 1 }}
                 onMouseEnter={() => !linking && setHoverId(n.id)}
                 onMouseLeave={() => setHoverId(null)}
@@ -866,7 +879,7 @@ stroke={LINK_COLORS[link.kind]}
                   />
                 )}
 
-                <div className="px-3 py-2.5 h-full flex flex-col justify-center pointer-events-none">
+<div className="px-3 py-2.5 h-full flex flex-col justify-center pointer-events-none overflow-hidden rounded-2xl">
                   <p className="text-xs font-semibold text-foreground truncate leading-tight">{n.label}</p>
                   {!isSys && (
                     <p className="text-[10px] text-muted-foreground mt-1">

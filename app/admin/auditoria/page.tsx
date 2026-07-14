@@ -45,6 +45,68 @@ const PERIOD_LABELS: Record<string, string> = {
   ANNUAL: "Anual",
 };
 
+// --- OPÇÕES DE FILTRO (só aparecem no select se houver ao menos 1 registro) ---
+const FULFILLMENT_OPTIONS = [
+  { value: "done", label: "Concluídos (Auto)" },
+  { value: "manual_done", label: "Concluídos Manualmente" },
+  { value: "manual_pending", label: "Ação Manual (Pendentes)" },
+  { value: "error", label: "Erros na Renovação" },
+  { value: "pending", label: "Aguardando Pagamento" },
+  { value: "awaiting_transfer", label: "Aguardando Transferência" },
+];
+
+const PAYMENT_OPTIONS = [
+  { value: "aprovado", label: "Aprovado" },
+  { value: "aprovado_manual", label: "Aprovado Manualmente" },
+  { value: "pendente", label: "Pendente" },
+  { value: "renovacao_manual", label: "Renovação Manual" },
+  { value: "recusado", label: "Recusado" },
+];
+
+const WHATSAPP_OPTIONS = [
+  { value: "sent", label: "Enviado" },
+  { value: "error", label: "Erro" },
+  { value: "aguardando", label: "Aguardando" },
+  { value: "na", label: "Não se aplica" },
+];
+
+function matchesFulfillment(r: LogRow, value: string) {
+  return r.fulfillment_status === value;
+}
+
+function matchesPayment(r: LogRow, value: string) {
+  const isApproved = r.payment_status === "approved" || r.payment_status === "PAGO";
+  const isManualApproved = r.payment_status === "manual_approved";
+  const isRejected = r.payment_status === "rejected" || r.payment_status === "cancelled";
+  const isManualPending = r.payment_status === "pending" && r.payment_method === "manual";
+  const isPending = r.payment_status === "pending" && r.payment_method !== "manual";
+  if (value === "aprovado") return isApproved;
+  if (value === "aprovado_manual") return isManualApproved;
+  if (value === "recusado") return isRejected;
+  if (value === "renovacao_manual") return isManualPending;
+  if (value === "pendente") return isPending;
+  return false;
+}
+
+function matchesWhatsapp(r: LogRow, value: string) {
+  const isApprovedPayment =
+    r.payment_status === "approved" ||
+    r.payment_status === "PAGO" ||
+    r.payment_status === "manual_approved";
+  const isCancelledFulfillment =
+    r.fulfillment_status === "manual_cancelled" ||
+    r.fulfillment_status === "cancelled";
+  const isDoneFulfillment =
+    r.fulfillment_status === "done" || r.fulfillment_status === "manual_done";
+  const eligible = isApprovedPayment && !isCancelledFulfillment && isDoneFulfillment;
+  if (value === "sent") return r.whatsapp_status === "sent";
+  if (value === "error") return r.whatsapp_status === "error";
+  if (value === "aguardando")
+    return eligible && r.whatsapp_status !== "sent" && r.whatsapp_status !== "error";
+  if (value === "na") return !eligible;
+  return false;
+}
+
 // --- ICONES ---
 
 function IconX() {
@@ -277,6 +339,20 @@ function AuditoriaPageContent() {
     return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
   }, [rows]);
 
+  // Só mostra no filtro as opções que realmente têm registro (evita filtro vazio)
+  const availableFulfillmentOptions = useMemo(
+    () => FULFILLMENT_OPTIONS.filter((o) => rows.some((r) => matchesFulfillment(r, o.value))),
+    [rows],
+  );
+  const availablePaymentOptions = useMemo(
+    () => PAYMENT_OPTIONS.filter((o) => rows.some((r) => matchesPayment(r, o.value))),
+    [rows],
+  );
+  const availableWhatsappOptions = useMemo(
+    () => WHATSAPP_OPTIONS.filter((o) => rows.some((r) => matchesWhatsapp(r, o.value))),
+    [rows],
+  );
+
   const filtered = useMemo(() => {
     const q = search
       .trim()
@@ -285,10 +361,7 @@ function AuditoriaPageContent() {
       .replace(/[\u0300-\u036f]/g, "");
 
     return rows.filter((r) => {
-      if (
-        filterFulfillment !== "Todos" &&
-        r.fulfillment_status !== filterFulfillment
-      )
+      if (filterFulfillment !== "Todos" && !matchesFulfillment(r, filterFulfillment))
         return false;
 
       if (filterGateway !== "Todos") {
@@ -296,55 +369,11 @@ function AuditoriaPageContent() {
         if (g !== filterGateway) return false;
       }
 
-      if (filterPayment !== "Todos") {
-        const isApproved =
-          r.payment_status === "approved" || r.payment_status === "PAGO";
-        const isManualApproved = r.payment_status === "manual_approved";
-        const isRejected =
-          r.payment_status === "rejected" || r.payment_status === "cancelled";
-        const isManualPending =
-          r.payment_status === "pending" && r.payment_method === "manual";
-        const isPending =
-          r.payment_status === "pending" && r.payment_method !== "manual";
+      if (filterPayment !== "Todos" && !matchesPayment(r, filterPayment))
+        return false;
 
-        if (filterPayment === "aprovado" && !isApproved) return false;
-        if (filterPayment === "aprovado_manual" && !isManualApproved)
-          return false;
-        if (filterPayment === "recusado" && !isRejected) return false;
-        if (filterPayment === "renovacao_manual" && !isManualPending)
-          return false;
-        if (filterPayment === "pendente" && !isPending) return false;
-      }
-
-      if (filterWhatsapp !== "Todos") {
-        const isApprovedPayment =
-          r.payment_status === "approved" ||
-          r.payment_status === "PAGO" ||
-          r.payment_status === "manual_approved";
-        const isCancelledFulfillment =
-          r.fulfillment_status === "manual_cancelled" ||
-          r.fulfillment_status === "cancelled";
-        const isDoneFulfillment =
-          r.fulfillment_status === "done" ||
-          r.fulfillment_status === "manual_done";
-        const eligible =
-          isApprovedPayment && !isCancelledFulfillment && isDoneFulfillment;
-
-        if (filterWhatsapp === "sent" && r.whatsapp_status !== "sent")
-          return false;
-        if (filterWhatsapp === "error" && r.whatsapp_status !== "error")
-          return false;
-        if (
-          filterWhatsapp === "aguardando" &&
-          !(
-            eligible &&
-            r.whatsapp_status !== "sent" &&
-            r.whatsapp_status !== "error"
-          )
-        )
-          return false;
-        if (filterWhatsapp === "na" && eligible) return false;
-      }
+      if (filterWhatsapp !== "Todos" && !matchesWhatsapp(r, filterWhatsapp))
+        return false;
 
       if (q) {
         const hay = [
@@ -883,12 +912,11 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
               className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
             >
               <option value="Todos">Renovação (Todos)</option>
-              <option value="done">Concluídos (Auto)</option>
-              <option value="manual_done">Concluídos Manualmente</option>
-              <option value="manual_pending">Ação Manual (Pendentes)</option>
-              <option value="error">Erros na Renovação</option>
-              <option value="pending">Aguardando Pagamento</option>
-              <option value="awaiting_transfer">Aguardando Transferência</option>
+              {availableFulfillmentOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -899,11 +927,11 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
               className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
             >
               <option value="Todos">Pagamento (Todos)</option>
-              <option value="aprovado">Aprovado</option>
-              <option value="aprovado_manual">Aprovado Manualmente</option>
-              <option value="pendente">Pendente</option>
-              <option value="renovacao_manual">Renovação Manual</option>
-              <option value="recusado">Recusado</option>
+              {availablePaymentOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -929,10 +957,11 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
               className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
             >
               <option value="Todos">Mensagem WA (Todas)</option>
-              <option value="sent">Enviado</option>
-              <option value="error">Erro</option>
-              <option value="aguardando">Aguardando</option>
-              <option value="na">Não se aplica</option>
+              {availableWhatsappOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -953,12 +982,11 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
               className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
             >
               <option value="Todos">Renovação (Todos)</option>
-              <option value="done">Concluídos (Auto)</option>
-              <option value="manual_done">Concluídos Manualmente</option>
-              <option value="manual_pending">Ação Manual (Pendentes)</option>
-              <option value="error">Erros na Renovação</option>
-              <option value="pending">Aguardando Pagamento</option>
-              <option value="awaiting_transfer">Aguardando Transferência</option>
+              {availableFulfillmentOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
             </select>
 
             <select
@@ -967,11 +995,11 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
               className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
             >
               <option value="Todos">Pagamento (Todos)</option>
-              <option value="aprovado">Aprovado</option>
-              <option value="aprovado_manual">Aprovado Manualmente</option>
-              <option value="pendente">Pendente</option>
-              <option value="renovacao_manual">Renovação Manual</option>
-              <option value="recusado">Recusado</option>
+              {availablePaymentOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
             </select>
 
             <select
@@ -993,10 +1021,11 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
               className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
             >
               <option value="Todos">Mensagem WA (Todas)</option>
-              <option value="sent">Enviado</option>
-              <option value="error">Erro</option>
-              <option value="aguardando">Aguardando</option>
-              <option value="na">Não se aplica</option>
+              {availableWhatsappOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
             </select>
 
             <button

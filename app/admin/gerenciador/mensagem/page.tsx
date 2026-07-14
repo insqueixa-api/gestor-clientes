@@ -334,6 +334,12 @@ export default function MessagesPage() {
     );
   }, [messages, search, categoryFilter]);
 
+  // Só mostra no filtro as categorias que realmente têm modelo cadastrado
+  const availableCategories = useMemo(() => {
+    const used = new Set(messages.map((m) => getTemplateCategory(m)));
+    return MESSAGE_CATEGORIES.filter((cat) => used.has(cat));
+  }, [messages]);
+
   const hasActiveFilters = categoryFilter !== "Todos";
 
   function clearFilters() {
@@ -439,7 +445,7 @@ export default function MessagesPage() {
               className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors"
             >
               <option value="Todos">Categoria (Todas)</option>
-              {MESSAGE_CATEGORIES.map((cat) => {
+              {availableCategories.map((cat) => {
                 const { label, icon } = getCategoryDisplay(cat);
                 return (
                   <option key={cat} value={cat}>
@@ -467,7 +473,7 @@ export default function MessagesPage() {
               className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors"
             >
               <option value="Todos">Categoria (Todas)</option>
-              {MESSAGE_CATEGORIES.map((cat) => {
+              {availableCategories.map((cat) => {
                 const { label, icon } = getCategoryDisplay(cat);
                 return (
                   <option key={cat} value={cat}>

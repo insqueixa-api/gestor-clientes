@@ -373,6 +373,21 @@ setApps(formattedApps);
     }
   }
 
+  // ✅ Só mostra no filtro as opções que realmente têm aplicativo cadastrado
+  const hasFreeApps = React.useMemo(() => apps.some((a) => a.cost_type === "free"), [apps]);
+  const hasPaidApps = React.useMemo(() => apps.some((a) => a.cost_type === "paid"), [apps]);
+  const hasPartnershipApps = React.useMemo(() => apps.some((a) => a.cost_type === "partnership"), [apps]);
+  const hasComIntegracao = React.useMemo(() => apps.some((a) => !!a.integration_type), [apps]);
+  const hasSemIntegracao = React.useMemo(() => apps.some((a) => !a.integration_type), [apps]);
+  const partnerServersInUse = React.useMemo(() => {
+    const ids = new Set(
+      apps
+        .filter((a) => a.cost_type === "partnership" && a.partner_server_id)
+        .map((a) => a.partner_server_id as string),
+    );
+    return servers.filter((s) => ids.has(s.id));
+  }, [apps, servers]);
+
   const [collapsedGroups, setCollapsedGroups] = useState<
     Record<string, boolean>
   >({});
@@ -819,12 +834,14 @@ setApps(formattedApps);
                 onChange={(e) => handleCostFilterChange(e.target.value)}
               >
                 <option value="Todos">Custo (Todos)</option>
-                <option value="free">🆓 Gratuito</option>
-                <option value="paid">💰 Pago</option>
-                <option value="partnership">🤝 Parceria (Todos os servidores)</option>
-                {servers.length > 0 && (
+                {hasFreeApps && <option value="free">🆓 Gratuito</option>}
+                {hasPaidApps && <option value="paid">💰 Pago</option>}
+                {hasPartnershipApps && (
+                  <option value="partnership">🤝 Parceria (Todos os servidores)</option>
+                )}
+                {partnerServersInUse.length > 0 && (
                   <optgroup label="🤝 Parceria por servidor">
-                    {servers.map((s) => (
+                    {partnerServersInUse.map((s) => (
                       <option key={s.id} value={`partnership:${s.id}`}>
                         {s.name}
                       </option>
@@ -842,8 +859,8 @@ setApps(formattedApps);
                 }
               >
                 <option value="Todos">Integração (Todas)</option>
-                <option value="com">Com integração</option>
-                <option value="sem">Sem integração</option>
+                {hasComIntegracao && <option value="com">Com integração</option>}
+                {hasSemIntegracao && <option value="sem">Sem integração</option>}
               </Select>
             </div>
 
@@ -863,12 +880,14 @@ setApps(formattedApps);
                 onChange={(e) => handleCostFilterChange(e.target.value)}
               >
                 <option value="Todos">Custo (Todos)</option>
-                <option value="free">🆓 Gratuito</option>
-                <option value="paid">💰 Pago</option>
-                <option value="partnership">🤝 Parceria (Todos os servidores)</option>
-                {servers.length > 0 && (
+                {hasFreeApps && <option value="free">🆓 Gratuito</option>}
+                {hasPaidApps && <option value="paid">💰 Pago</option>}
+                {hasPartnershipApps && (
+                  <option value="partnership">🤝 Parceria (Todos os servidores)</option>
+                )}
+                {partnerServersInUse.length > 0 && (
                   <optgroup label="🤝 Parceria por servidor">
-                    {servers.map((s) => (
+                    {partnerServersInUse.map((s) => (
                       <option key={s.id} value={`partnership:${s.id}`}>
                         {s.name}
                       </option>
@@ -884,8 +903,8 @@ setApps(formattedApps);
                 }
               >
                 <option value="Todos">Integração (Todas)</option>
-                <option value="com">Com integração</option>
-                <option value="sem">Sem integração</option>
+                {hasComIntegracao && <option value="com">Com integração</option>}
+                {hasSemIntegracao && <option value="sem">Sem integração</option>}
               </Select>
 
               <button

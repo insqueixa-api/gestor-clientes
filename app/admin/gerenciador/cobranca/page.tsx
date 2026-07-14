@@ -2540,6 +2540,16 @@ function LogsModal({
     return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
   }, [logs]);
 
+  // ✅ Só mostra no filtro os status que realmente existem nesta regra
+  const availableLogStatusOptions = useMemo(() => {
+    const options = [
+      { value: "SENT", label: "Enviado" },
+      { value: "FAILED", label: "Falhou" },
+      { value: "CANCELLED", label: "Resolvido" },
+    ];
+    return options.filter((o) => logs.some((l) => l.status === o.value));
+  }, [logs]);
+
   const filteredLogs = useMemo(() => {
     const q = logSearch.trim().toLowerCase();
     return logs.filter((l) => {
@@ -2754,9 +2764,11 @@ function LogsModal({
               className="h-9 px-2 bg-transparent border border-border rounded-lg text-xs text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors"
             >
               <option value="Todos">Status (Todos)</option>
-              <option value="SENT">Enviado</option>
-              <option value="FAILED">Falhou</option>
-              <option value="CANCELLED">Resolvido</option>
+              {availableLogStatusOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
             </select>
 
             {uniqueLogServers.length > 0 && (
@@ -2872,7 +2884,13 @@ function LogsModal({
                                   : "bg-transparent text-muted-foreground"
                           }`}
                         >
-                          {log.status === "CANCELLED" ? "RESOLVIDO" : log.status}
+                          {log.status === "SENT"
+                            ? "Enviado"
+                            : log.status === "FAILED"
+                              ? "Falhou"
+                              : log.status === "CANCELLED"
+                                ? "Resolvido"
+                                : log.status}
                         </span>
                         {log.error_message && isFailed && (
                           <div className="text-[10px] text-rose-500 mt-1 max-w-[220px] truncate" title={log.error_message}>
