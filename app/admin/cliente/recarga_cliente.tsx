@@ -1477,8 +1477,8 @@ export default function RecargaCliente({
         setLoadingText("Registrando pagamento...");
 
         // ✅ MENSAGENS SEPARADAS: Uma limpa para o cliente, outra detalhada para o servidor
-        const clientMessageManual = `Renovação manual via painel · ${monthsToRenew} mês(es) · ${screens} tela(s) · ${fmtMoney(currency, rawPlanPrice)}`;
-        const serverNotesManual = `Renovação manual via painel · ${nameToSend} (${clientData?.username || "-"}) · ${monthsToRenew} mês(es) · ${screens} tela(s) · ${fmtMoney(currency, rawPlanPrice)}${obs ? ` · Obs: ${obs}` : ""}`;
+const clientMessageManual = `Renovação manual via painel Admin · ${monthsToRenew} mês(es) · ${screens} tela(s) · ${fmtMoney(currency, rawPlanPrice)}`;
+        const serverNotesManual = `${nameToSend} (${clientData?.username || "-"})${obs ? ` · ${obs}` : ""}`;
 
         const { error: renewError } = await supabaseBrowser.rpc(
           "renew_client_and_log",
@@ -1505,8 +1505,8 @@ export default function RecargaCliente({
       if (registerPayment && !renewAutomatic && paymentLogId) {
         setLoadingText("Registrando renovação manual...");
 
-        const clientMessageManualAud = `Renovação manual via Auditoria · ${monthsToRenew} mês(es) · ${screens} tela(s) · ${fmtMoney(currency, rawPlanPrice)}`;
-        const serverNotesManualAud = `Renovação manual via Auditoria · ${nameToSend} (${clientData?.username || "-"}) · ${monthsToRenew} mês(es) · ${screens} tela(s) · ${fmtMoney(currency, rawPlanPrice)}${obs ? ` · Obs: ${obs}` : ""}`;
+const clientMessageManualAud = `Renovação manual via Portal do Cliente · ${monthsToRenew} mês(es) · ${screens} tela(s) · ${fmtMoney(currency, rawPlanPrice)}`;
+        const serverNotesManualAud = `${nameToSend} (${clientData?.username || "-"})${obs ? ` · ${obs}` : ""}`;
 
         const { error: renewErrorAud } = await supabaseBrowser.rpc(
           "renew_client_and_log",
@@ -1531,8 +1531,8 @@ export default function RecargaCliente({
         setLoadingText("Registrando renovação...");
 
         // ✅ MENSAGENS SEPARADAS: Uma limpa para o cliente, outra detalhada para o servidor
-        const clientMessageAuto = `Renovação automática via painel · ${monthsToRenew} mês(es) · ${screens} tela(s) · ${fmtMoney(currency, rawPlanPrice)}`;
-        const serverNotesAuto = `Renovação automática via painel · ${nameToSend} (${clientData?.username || "-"}) · ${monthsToRenew} mês(es) · ${screens} tela(s) · ${fmtMoney(currency, rawPlanPrice)}${obs ? ` · Obs: ${obs}` : ""}`;
+const clientMessageAuto = `Renovação automática via painel Admin · ${monthsToRenew} mês(es) · ${screens} tela(s) · ${fmtMoney(currency, rawPlanPrice)}`;
+        const serverNotesAuto = `${nameToSend} (${clientData?.username || "-"})${obs ? ` · ${obs}` : ""}`;
 
         // ✅ NOVO: registra em client_renewals igual ao manual
         const { error: renewError } = await supabaseBrowser.rpc(
