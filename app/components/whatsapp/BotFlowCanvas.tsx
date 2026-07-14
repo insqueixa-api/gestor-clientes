@@ -920,7 +920,7 @@ const badgeR = fromStart ? (selected ? 11 : 10) : selected ? 12 : 10;
                 )}
 
 <div className="px-3 py-2.5 h-full flex flex-col justify-center pointer-events-none overflow-hidden rounded-2xl">
-                  <p className="text-xs font-semibold text-foreground truncate leading-tight">{n.label}</p>
+                  <p className="text-xs font-semibold text-foreground line-clamp-2 leading-tight break-words">{n.label}</p>
                   {!isSys && (
                     <p className="text-[10px] text-muted-foreground mt-1">
                       {n.stepsCount ? `${n.stepsCount} msg` : "sem texto"}
