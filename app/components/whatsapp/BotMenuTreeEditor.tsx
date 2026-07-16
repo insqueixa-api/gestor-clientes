@@ -1165,7 +1165,7 @@ function TreeSelect({
         <ChevronDown className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
       </button>
       {open && (
-        <div className="absolute z-20 mt-1 w-full max-h-64 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg p-1">
+        <div className="absolute z-20 mt-1 w-full max-h-64 overflow-y-auto rounded-lg border border-border bg-card shadow-2xl p-1">
           <button
             type="button"
             onClick={() => { onChange(""); setOpen(false); }}
