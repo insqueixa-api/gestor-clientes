@@ -11,7 +11,7 @@ export const HUMAN_REQUESTED_MSG =
   "Combinado! Vou deixar sua conversa marcada aqui e o Márcio te atende assim que possível. 🙏";
 
 export const BOT_GAVE_UP_MSG =
-  "Desculpa por não conseguir te ajudar direito por aqui! 🙏 Já deixei tudo registrado e o Márcio vai continuar seu atendimento assim que possível.";
+  "Poxa, que pena não ter conseguido ajudar! 😔 Mas fique tranquilo, o Márcio dará sequência a partir daqui.";
 
 // ── Escalonamento explícito por texto do cliente ──────────────────────────────
 
