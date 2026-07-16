@@ -86,6 +86,7 @@ const TAG_GROUPS = [
       { label: "{plano_nome}", desc: "Plano" },
       { label: "{telas_qtd}", desc: "Qtd. de telas" },
       { label: "{servidor_nome}", desc: "Nome do servidor" },
+      { label: "{dns_servidor}", desc: "DNS aleatória (evita a 1ª cadastrada)" },
     ],
   },
   {
