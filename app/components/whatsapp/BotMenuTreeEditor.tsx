@@ -936,6 +936,7 @@ export default function BotMenuTreeEditor() {
               node={selectedNode}
               isLeaf={selectedNode.children.length === 0}
               allNodes={flatNodes}
+              defaultSuccessMessage={flowSettings?.success_message || "Que bom! Fico feliz que resolveu 😊"}
               onReorder={(newNumber) => handleReorder(selectedNode, newNumber)}
               onMoveParent={(newParentId) => handleMoveParent(selectedNode, newParentId)}
               onSave={async (fields) => {
@@ -1232,10 +1233,11 @@ function StepsListEditor({
 }
 
 function NodeEditor({
-  node, isLeaf, allNodes, onSave, onSaveSteps, onDelete, onReorder, onMoveParent, saving, hideDelete,
+  node, isLeaf, allNodes, defaultSuccessMessage, onSave, onSaveSteps, onDelete, onReorder, onMoveParent, saving, hideDelete,
 }: {
   node: TreeNode; isLeaf: boolean;
   allNodes: MenuNode[];
+  defaultSuccessMessage: string;
   onSave: (fields: any) => void | Promise<void>;
   onSaveSteps: (payload: StepsSavePayload) => void | Promise<void>;
   onDelete: () => void;
@@ -1559,7 +1561,19 @@ const otherNodes = allNodes.filter((n) => n.id !== node.id);
           {!redirectTo && (
             <>
               <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
-                <input type="checkbox" checked={askResolution} onChange={(e) => setAskResolution(e.target.checked)} />
+                <input
+                  type="checkbox"
+                  checked={askResolution}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setAskResolution(checked);
+                    // ✅ Preenche com o texto padrão de sucesso (mesmo que "vazio" já usaria
+                    // em tempo de execução) só pra poupar de digitar do zero — o Márcio
+                    // ajusta as 2-3 palavras que mudam por nó (ex: "resolveu" → "voltou a
+                    // funcionar") em vez de escrever a frase inteira toda vez.
+                    if (checked && !closingMsg.trim()) setClosingMsg(defaultSuccessMessage);
+                  }}
+                />
                 Perguntar se resolveu (1 = sim, 2 = não)
               </label>
               {askResolution && (
