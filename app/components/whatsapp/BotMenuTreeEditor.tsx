@@ -947,7 +947,12 @@ export default function BotMenuTreeEditor() {
                 }
               }}
               onSaveSteps={async (payload) => {
-                await callApi({ action: "set_steps", node_id: selectedNode.id, ...payload });
+                const r = await callApi({ action: "set_steps", node_id: selectedNode.id, ...payload });
+                if (r?.error) {
+                  setSaving(false);
+                  alert(r.error);
+                  throw new Error(r.error);
+                }
                 setSaving(false);
                 await loadTree();
                 closeEdit();

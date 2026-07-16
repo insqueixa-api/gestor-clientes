@@ -235,10 +235,17 @@ export async function POST(req: Request) {
     const VALID_SERVERS = new Set(["NATV", "FAST", "ELITE"]);
     let rows: any[] = [];
     if (variants?.length) {
+      // ✅ step_order precisa ser único por node_id (constraint do banco) —
+      // reiniciar em 1 pra cada servidor colide entre variantes (NATV msg 1 =
+      // FAST msg 1 = mesmo step_order) e o insert inteiro falha com 23505.
+      // getSteps() só filtra por `server` depois de ordenar por step_order,
+      // então uma numeração sequencial global (1,2,3,4,5,6...) preserva a
+      // ordem certa dentro de cada variante sem precisar reiniciar em 1.
+      let stepOrder = 1;
       for (const v of variants) {
         if (!VALID_SERVERS.has(v.server)) continue;
-        (v.steps || []).forEach((text, i) => {
-          rows.push({ node_id, step_order: i + 1, message_text: text, server: v.server, is_active: v.is_active !== false });
+        (v.steps || []).forEach((text) => {
+          rows.push({ node_id, step_order: stepOrder++, message_text: text, server: v.server, is_active: v.is_active !== false });
         });
       }
     } else if (steps?.length) {
