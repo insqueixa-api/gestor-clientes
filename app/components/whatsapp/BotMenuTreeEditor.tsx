@@ -1045,6 +1045,141 @@ function VariablePanel({ onInsert }: { onInsert: (tag: string) => void }) {
   );
 }
 
+// ── Seletor em árvore (substitui <select> plano de nós) ──────────────────────
+// ✅ Antes listava TODOS os nós soltos, sem hierarquia — achar "Quero renovar
+// agora" no meio de raízes e folhas misturadas ficava confuso. Aqui o pai
+// aparece com um <> pra expandir/colapsar os filhos; ao abrir mais uma
+// camada, os níveis acima ficam em negrito (indicando que têm algo aberto
+// embaixo) e o nível mais fundo visível fica normal — mesmo efeito visual
+// pedido: negrito cresce conforme você desce na árvore.
+function findAncestorIds(nodes: MenuNode[], nodeId: string | null | undefined): string[] {
+  if (!nodeId) return [];
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const ids: string[] = [];
+  let cur = byId.get(nodeId)?.parent_id || null;
+  const seen = new Set<string>();
+  while (cur && !seen.has(cur)) {
+    ids.push(cur);
+    seen.add(cur);
+    cur = byId.get(cur)?.parent_id || null;
+  }
+  return ids;
+}
+
+function TreeSelect({
+  nodes, value, onChange, noneLabel, disabled,
+}: {
+  nodes: MenuNode[];
+  value: string;
+  onChange: (id: string) => void;
+  noneLabel: string;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  const byParent = useMemo(() => {
+    const map = new Map<string, MenuNode[]>();
+    for (const n of nodes) {
+      const key = n.parent_id || "__root__";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(n);
+    }
+    for (const list of map.values()) list.sort((a, b) => a.option_number - b.option_number);
+    return map;
+  }, [nodes]);
+
+  const selectedNode = nodes.find((n) => n.id === value) || null;
+
+  function toggleExpand(id: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function openDropdown() {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      for (const id of findAncestorIds(nodes, value || null)) next.add(id);
+      return next;
+    });
+    setOpen(true);
+  }
+
+  function renderLevel(parentKey: string, depth: number): React.ReactNode {
+    const list = byParent.get(parentKey) || [];
+    return list.map((n) => {
+      const hasChildren = (byParent.get(n.id) || []).length > 0;
+      const isExpanded = expanded.has(n.id);
+      const isBold = hasChildren && isExpanded;
+      return (
+        <div key={n.id}>
+          <div className="flex items-center gap-1 rounded-md hover:bg-muted px-1 py-1" style={{ paddingLeft: 4 + depth * 16 }}>
+            {hasChildren ? (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); toggleExpand(n.id); }}
+                className="shrink-0 text-muted-foreground hover:text-foreground"
+                title={isExpanded ? "Recolher" : "Expandir"}
+              >
+                {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+              </button>
+            ) : (
+              <span className="w-3.5 h-3.5 shrink-0" />
+            )}
+            <button
+              type="button"
+              onClick={() => { onChange(n.id); setOpen(false); }}
+              className={`text-xs flex-1 truncate text-left ${isBold ? "font-semibold text-foreground" : "text-foreground"} ${n.id === value ? "text-violet-500" : ""}`}
+            >
+              {n.label}
+            </button>
+          </div>
+          {hasChildren && isExpanded && renderLevel(n.id, depth + 1)}
+        </div>
+      );
+    });
+  }
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => (open ? setOpen(false) : openDropdown())}
+        className={`${inputCls} text-left flex items-center justify-between gap-2 disabled:opacity-50`}
+      >
+        <span className="truncate">{selectedNode ? selectedNode.label : noneLabel}</span>
+        <ChevronDown className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+      </button>
+      {open && (
+        <div className="absolute z-20 mt-1 w-full max-h-64 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg p-1">
+          <button
+            type="button"
+            onClick={() => { onChange(""); setOpen(false); }}
+            className={`w-full text-left text-xs rounded-md hover:bg-muted px-2 py-1.5 ${value === "" ? "text-violet-500" : "text-muted-foreground"}`}
+          >
+            {noneLabel}
+          </button>
+          {renderLevel("__root__", 0)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 type StepsMode = "universal" | "individual";
 type StepsSavePayload = { steps: string[]; variants?: { server: string; is_active: boolean; steps: string[] }[] };
 type ActiveStepRef = { scope: string; index: number };
@@ -1300,11 +1435,12 @@ const otherNodes = allNodes.filter((n) => n.id !== node.id);
       {onMoveParent && (
         <div>
           <label className={labelCls}>Menu pai (mover pra outro lugar)</label>
-          <select
+          <TreeSelect
+            nodes={parentCandidates}
             value={node.parent_id || ""}
             disabled={movingParent}
-            onChange={async (e) => {
-              const newParentId = e.target.value || null;
+            onChange={async (id) => {
+              const newParentId = id || null;
               if ((newParentId || null) === (node.parent_id || null)) return;
               setMovingParent(true);
               try {
@@ -1313,13 +1449,8 @@ const otherNodes = allNodes.filter((n) => n.id !== node.id);
                 setMovingParent(false);
               }
             }}
-            className={inputCls}
-          >
-            <option value="">— Nenhum (menu principal) —</option>
-            {parentCandidates.map((n) => (
-              <option key={n.id} value={n.id}>{n.label}</option>
-            ))}
-          </select>
+            noneLabel="— Nenhum (menu principal) —"
+          />
           <p className="text-[10px] text-muted-foreground mt-1">
             Move este item pra dentro de outro menu (ou pra raiz). A posição (1–8) é escolhida automaticamente no novo lugar.
           </p>
@@ -1413,19 +1544,15 @@ const otherNodes = allNodes.filter((n) => n.id !== node.id);
 
           <div>
             <label className={labelCls}>Ir para outro menu (opcional)</label>
-            <select
+            <TreeSelect
+              nodes={otherNodes}
               value={redirectTo}
-              onChange={(e) => {
-                setRedirectTo(e.target.value);
-                if (e.target.value) setAskResolution(false);
+              onChange={(id) => {
+                setRedirectTo(id);
+                if (id) setAskResolution(false);
               }}
-              className={inputCls}
-            >
-              <option value="">Nenhum — encerra ou pergunta se resolveu</option>
-              {otherNodes.map((n) => (
-                <option key={n.id} value={n.id}>{n.label}</option>
-              ))}
-            </select>
+              noneLabel="Nenhum — encerra ou pergunta se resolveu"
+            />
           </div>
 
           {!redirectTo && (
