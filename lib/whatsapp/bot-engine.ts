@@ -6,7 +6,7 @@
 // sincronia manualmente; agora uma fonte única. Edite APENAS aqui.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { generatePortalLink, renderTemplate, buildClientTemplateVars, toBRDate } from "@/lib/whatsapp/template-vars";
+import { generatePortalLink, renderTemplate, buildClientTemplateVars, toBRDate, pickRandomDns } from "@/lib/whatsapp/template-vars";
 import {
   type MenuNode,
   isEscalationTrigger,
@@ -167,6 +167,7 @@ async function buildVarsForNode(
   vars.usuario_app = client.server_username || "";
   vars.plano_nome = client.plan_label || "";
   vars.servidor_nome = client.server_name || "";
+  vars.dns_servidor = pickRandomDns(client.server_dns);
   const stepsText = (await getSteps(sb, node.id, provider)).join(" ");
   if (stepsText.includes("{link_pagamento}")) {
     vars.link_pagamento = await toolGerarLinkPortal(sb, tenantId, rawClient, client.is_secondary);
@@ -300,6 +301,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
   flowVars.usuario_app = clients[0]?.server_username || "";
   flowVars.plano_nome = clients[0]?.plan_label || "";
   flowVars.servidor_nome = clients[0]?.server_name || "";
+  flowVars.dns_servidor = pickRandomDns(clients[0]?.server_dns);
   const sendFlow = (text: string) => send(renderTemplate(text, flowVars));
 
   // ── Item 1: escalonamento explícito — prioridade máxima ─────────────────
@@ -635,6 +637,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
         vars.usuario_app = clients[0]?.server_username || "";
         vars.plano_nome = clients[0]?.plan_label || "";
         vars.servidor_nome = clients[0]?.server_name || "";
+        vars.dns_servidor = pickRandomDns(clients[0]?.server_dns);
         await send(renderTemplate(top.content, vars));
         return { action: "rag_direct", markRead: true, nextState: "geral" };
       }

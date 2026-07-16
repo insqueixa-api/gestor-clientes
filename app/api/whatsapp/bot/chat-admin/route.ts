@@ -95,6 +95,7 @@ export async function POST(req: Request) {
           ...raw,
           display_name: isSec ? (raw.secondary_display_name || raw.display_name || "Cliente") : (raw.display_name || "Cliente"),
           server_name: srv?.name || "Servidor",
+          server_dns: srv?.dns || [],
           server_is_offline: srv?.is_offline ?? false,
           server_offline_reason: srv?.offline_reason ?? null,
           is_secondary: isSec,

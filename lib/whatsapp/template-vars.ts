@@ -88,6 +88,18 @@ export function normalizeToPhone(usernameRaw: unknown): string {
   return s.replace(/[^\d]/g, "");
 }
 
+// ── DNS do servidor ──
+// ✅ Sorteia uma DNS entre as cadastradas no servidor, evitando a primeira
+// sempre que houver alternativa — a primeira só é usada em último caso
+// (quando é a única cadastrada).
+export function pickRandomDns(dnsList: string[] | null | undefined): string {
+  const valid = (dnsList || []).map((d) => String(d || "").trim()).filter(Boolean);
+  if (!valid.length) return "";
+  if (valid.length === 1) return valid[0];
+  const idx = 1 + Math.floor(Math.random() * (valid.length - 1));
+  return valid[idx];
+}
+
 function safeUuidOrNull(v: unknown): string | null {
   const s = String(v || "").trim();
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
