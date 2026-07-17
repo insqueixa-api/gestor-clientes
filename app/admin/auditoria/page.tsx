@@ -13,6 +13,7 @@ import { EyeToggle } from "@/app/admin/eye-toggle";
 
 // ✅ Importa os modais de recarga
 import RecargaCliente from "../cliente/recarga_cliente";
+import Pagination from "@/app/components/ui/Pagination";
 
 // --- TIPOS ---
 type LogRow = {
@@ -445,6 +446,12 @@ function AuditoriaPageContent() {
     (safePage - 1) * pageSize,
     safePage * pageSize,
   );
+
+  // Volta para a página 1 sempre que um filtro muda (mesmo padrão da página de clientes)
+  useEffect(() => {
+    setPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, filterFulfillment, filterPayment, filterGateway, filterWhatsapp]);
 
   // --- AÇÕES ---
   const handleMarcarConcluido = async (log: LogRow) => {
@@ -1317,27 +1324,17 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
             </table>
           </div>
 
-          <div className="border-t border-border px-4 py-3 flex items-center justify-between bg-transparent">
-            <span className="text-xs text-muted-foreground">
-              Mostrando página {safePage} de {totalPages}
-            </span>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={safePage <= 1}
-                className="px-3 py-1 rounded border border-border text-xs font-medium disabled:opacity-40 bg-card hover:bg-muted text-muted-foreground transition-colors"
-              >
-                Anterior
-              </button>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={safePage >= totalPages}
-                className="px-3 py-1 rounded border border-border text-xs font-medium disabled:opacity-40 bg-card hover:bg-muted text-muted-foreground transition-colors"
-              >
-                Próxima
-              </button>
-            </div>
-          </div>
+          <Pagination
+            page={safePage}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            pageSize={pageSize}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
+            pageSizeOptions={[25, 50, 100, 200]}
+          />
         </div>
       )}
 

@@ -29,6 +29,7 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useSearchParams, useRouter } from "next/navigation";
 import ToastNotifications, { ToastMessage } from "../ToastNotifications";
 import { useConfirm } from "@/app/admin/HookuseConfirm";
+import Pagination from "@/app/components/ui/Pagination";
 
 // ─── TIPOS ───────────────────────────────────────────────────────────────────
 type ContactItem = { label: string; value: string };
@@ -658,6 +659,12 @@ const { confirm, ConfirmUI } = useConfirm();
   useEffect(() => {
     setSelectedIds(new Set());
   }, [search, labelFilter, emailLabelFilter, phoneLabelFilter, photoFilter, page, pageSize]);
+
+  // Volta para a página 1 sempre que um filtro muda (mesmo padrão da página de clientes)
+  useEffect(() => {
+    setPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, labelFilter, emailLabelFilter, phoneLabelFilter, photoFilter]);
 
   const filtered = useMemo(() => {
     const q = search
@@ -1903,92 +1910,17 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
               </tbody>
             </table>
             {/* PAGINAÇÃO */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">
-                    {(safePage - 1) * pageSize + 1}–
-                    {Math.min(safePage * pageSize, sorted.length)} de{" "}
-                    {sorted.length}
-                  </span>
-                  <select
-                    value={pageSize}
-                    onChange={(e) => {
-                      setPageSize(Number(e.target.value));
-                      setPage(1);
-                    }}
-                    className="h-7 px-2 bg-transparent border border-border rounded text-xs text-foreground"
-                  >
-                    <option value={30}>30 por página</option>
-                    <option value={50}>50 por página</option>
-                    <option value={100}>100 por página</option>
-                    <option value={200}>200 por página</option>
-                    <option value={500}>500 por página</option>
-                  </select>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setPage(1)}
-                    disabled={safePage === 1}
-                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30 transition-colors text-xs font-medium"
-                  >
-                    «
-                  </button>
-                  <button
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={safePage === 1}
-                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30 transition-colors text-xs font-medium"
-                  >
-                    ‹
-                  </button>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1)
-                    .filter(
-                      (p) =>
-                        p === 1 ||
-                        p === totalPages ||
-                        Math.abs(p - safePage) <= 2,
-                    )
-                    .reduce<(number | "...")[]>((acc, p, i, arr) => {
-                      if (i > 0 && p - (arr[i - 1] as number) > 1)
-                        acc.push("...");
-                      acc.push(p);
-                      return acc;
-                    }, [])
-                    .map((p, i) =>
-                      p === "..." ? (
-                        <span
-                          key={`ellipsis-${i}`}
-                          className="h-7 w-7 flex items-center justify-center text-muted-foreground text-xs"
-                        >
-                          …
-                        </span>
-                      ) : (
-                        <button
-                          key={p}
-                          onClick={() => setPage(p as number)}
-                          className={`h-7 w-7 rounded flex items-center justify-center text-xs font-bold transition-colors ${safePage === p ? "bg-emerald-600 text-white" : "text-muted-foreground hover:bg-muted"}`}
-                        >
-                          {p}
-                        </button>
-                      ),
-                    )}
-                  <button
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={safePage === totalPages}
-                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30 transition-colors text-xs font-medium"
-                  >
-                    ›
-                  </button>
-                  <button
-                    onClick={() => setPage(totalPages)}
-                    disabled={safePage === totalPages}
-                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30 transition-colors text-xs font-medium"
-                  >
-                    »
-                  </button>
-                </div>
-              </div>
-            )}
+            <Pagination
+              page={safePage}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              pageSize={pageSize}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+              pageSizeOptions={[30, 50, 100, 200, 500]}
+            />
             <div className="h-8 md:h-6" />
           </div>
         </div>

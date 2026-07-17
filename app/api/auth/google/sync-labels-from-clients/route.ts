@@ -158,9 +158,14 @@ export async function POST(req: Request) {
         if (servers) servers.forEach((s) => matchedServers.add(s));
       }
 
-      // ✅ Reconcilia: adiciona o que falta, remove o que não é mais válido
-      // (ex: cliente arquivado num servidor não deve continuar com o grupo
-      // daquele servidor pra sempre — antes só adicionava, nunca removia).
+      // ✅ Regra: só mexe em labels que são NOME DE SERVIDOR — nunca em grupo
+      // pessoal/outro que o contato já tenha no Google. Como `contact.labels`
+      // (rastreado por nós) só é preenchido com nomes de servidor por essa
+      // própria integração, qualquer valor que sobrar aqui e não bater com
+      // cliente ativo é sempre seguro de remover — não é grupo pessoal, é
+      // relação com servidor que ficou desatualizada (cliente virou arquivado,
+      // por exemplo). Se currentLabels já estiver vazio e não bater com
+      // nenhum servidor, não há nada a fazer (cai no "sem diferença" abaixo).
       const currentLabels: string[] = Array.isArray(contact.labels) ? contact.labels : [];
       const labelsParaAdicionar = [...matchedServers].filter((s) => !currentLabels.includes(s));
       const labelsParaRemover = currentLabels.filter((l) => !matchedServers.has(l));

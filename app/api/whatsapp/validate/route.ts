@@ -18,9 +18,13 @@ export async function POST(req: Request) {
       body: JSON.stringify({ phone }),
     });
 
-    if (r1.ok) return NextResponse.json(r1.json, { status: r1.status });
+    // Só aceita a resposta da sessão 1 direto se ela confirmou a existência.
+    // Se não confirmou — seja por sessão 1 offline, seja porque essa conta
+    // especificamente não encontrou o número no onWhatsApp — tenta a sessão 2
+    // antes de desistir, já que esse resultado pode variar entre contas.
+    if (r1.ok && r1.json?.exists) return NextResponse.json(r1.json, { status: r1.status });
 
-    // Fallback: Sessão 2 (se sessão 1 não estiver conectada)
+    // Fallback: Sessão 2
     const ctx2 = await getWAContext(2);
     if (!ctx2) return NextResponse.json(r1.json, { status: r1.status });
 
@@ -29,7 +33,10 @@ export async function POST(req: Request) {
       body: JSON.stringify({ phone }),
     });
 
-    return NextResponse.json(r2.json, { status: r2.status });
+    if (r2.ok && r2.json?.exists) return NextResponse.json(r2.json, { status: r2.status });
+
+    // Nenhuma das duas confirmou — devolve a resposta mais informativa (a que respondeu com sucesso)
+    return NextResponse.json(r1.ok ? r1.json : r2.json, { status: r1.ok ? r1.status : r2.status });
 
   } catch (e: any) {
     return NextResponse.json(

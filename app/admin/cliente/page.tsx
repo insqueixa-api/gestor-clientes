@@ -32,6 +32,7 @@ import ToastNotifications, { ToastMessage } from "../ToastNotifications";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { getIntegrationHandler } from "@/lib/integrations"; // ✅ NOVO: Traz o cérebro das integrações
+import Pagination from "@/app/components/ui/Pagination";
 
 if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
   window.console.log = () => {};
@@ -2670,68 +2671,18 @@ className="p-8 text-center text-muted-foreground italic"
             <div className="h-24 md:h-20" />
           </div>
 
-          {/* --- RODAPÉ: Paginação (movida do topo) --- */}
-          <div className="border-t border-border px-4 py-3 flex flex-col md:flex-row items-center justify-between gap-3 bg-transparent">
-            <div className="w-full md:w-auto flex items-center justify-between md:justify-start gap-2 text-xs text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <span>Mostrar</span>
-                <select
-                  value={pageSize}
-                  onChange={(e) => {
-                    setPageSize(Number(e.target.value));
-                    setPage(1);
-                  }}
-                  className="bg-transparent border border-border rounded px-1 py-0.5 outline-none text-foreground/90 cursor-pointer hover:border-emerald-500/50 transition-colors"
-                >
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                  <option value={200}>200</option>
-                </select>
-              </div>
-
-              {/* 📱 Mobile: dropdown de páginas — mesma linha, mesma fonte do "Mostrar" */}
-              <select
-                value={safePage}
-                onChange={(e) => setPage(Number(e.target.value))}
-                className="md:hidden bg-transparent border border-border rounded px-1 py-0.5 outline-none text-foreground/90 cursor-pointer hover:border-emerald-500/50 transition-colors"
-              >
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                  (pNum) => (
-                    <option key={pNum} value={pNum}>
-                      Página {pNum}
-                    </option>
-                  ),
-                )}
-              </select>
-            </div>
-
-            {/* 💻 Desktop: mesmo formato de botões da Auditoria */}
-            <div className="hidden md:flex items-center gap-3 text-xs text-muted-foreground">
-              <span>
-                Página{" "}
-                <span className="font-medium text-foreground/90">
-                  {safePage}
-                </span>{" "}
-                / {totalPages}
-              </span>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={safePage <= 1}
-                  className="px-3 py-1 rounded border border-border text-xs font-medium disabled:opacity-40 bg-card hover:bg-muted text-muted-foreground transition-colors"
-                >
-                  Anterior
-                </button>
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={safePage >= totalPages}
-                  className="px-3 py-1 rounded border border-border text-xs font-medium disabled:opacity-40 bg-card hover:bg-muted text-muted-foreground transition-colors"
-                >
-                  Próxima
-                </button>
-              </div>
-            </div>
-          </div>
+          {/* --- RODAPÉ: Paginação --- */}
+          <Pagination
+            page={safePage}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            pageSize={pageSize}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
+            pageSizeOptions={[50, 100, 200]}
+          />
         </div>
       )}
 

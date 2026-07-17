@@ -5,8 +5,6 @@ import {
   X,
   ChevronUp,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   MessageCircle,
   Send,
   Clock,
@@ -23,6 +21,7 @@ import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import FormattedDateInput from "@/app/admin/FormattedDateInput";
 import { getIntegrationHandler } from "@/lib/integrations";
+import Pagination from "@/app/components/ui/Pagination";
 
 // ✅ Modal ÚNICO (criar/editar teste vem do mesmo modal do cliente)
 import NovoCliente, { type ClientData } from "../cliente/novo_cliente";
@@ -2507,7 +2506,7 @@ function PapaTestesModal({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [filterServer, setFilterServer] = useState("Todos");
   const [page, setPage] = useState(1);
-  const PAGE_SIZE = 50;
+  const [pageSize, setPageSize] = useState(50);
 
   useEffect(() => {
     load();
@@ -2595,16 +2594,16 @@ function PapaTestesModal({
     setPage(1);
   }, [search, filterType, filterConverted, filterServer]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
   }, [totalPages, page]);
 
   const paged = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
-    return filtered.slice(start, start + PAGE_SIZE);
-  }, [filtered, page]);
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, pageSize]);
 
   const grouped = useMemo(() => {
     const map: Record<string, any[]> = {};
@@ -2819,30 +2818,6 @@ function PapaTestesModal({
             {records.length !== 1 ? "s" : ""}
           </span>
 
-          {totalPages > 1 && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                title="Página anterior"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="text-xs text-muted-foreground whitespace-nowrap">
-                Página {page} de {totalPages}
-              </span>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-                className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                title="Próxima página"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          )}
-
           <button
             onClick={onClose}
             className="px-4 py-2 rounded-lg bg-transparent text-foreground/90 font-medium text-xs hover:bg-muted transition-colors shrink-0"
@@ -2850,6 +2825,17 @@ function PapaTestesModal({
             Fechar
           </button>
         </div>
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          pageSize={pageSize}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+          pageSizeOptions={[50, 100, 200]}
+        />
       </div>
     </div>,
     document.body,
