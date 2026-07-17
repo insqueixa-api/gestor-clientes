@@ -142,7 +142,9 @@ function formatBRPhoneFromDigits(digits: string): string {
 
 function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
   if (!profile?.connected) return `${sessionName} (Não conectado)`;
-  return sessionName;
+  const digits = extractWaNumberFromJid(profile?.jid);
+  const pretty = formatBRPhoneFromDigits(digits);
+  return `${sessionName} • ${pretty || "Conectado"}`;
 }
 
 // --- HELPERS ---
