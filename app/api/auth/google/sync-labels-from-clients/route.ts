@@ -102,15 +102,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, updated: 0, message: "Nenhum cliente cadastrado." });
     }
 
-    // ── Índice: dígitos normalizados → server name ───────────────────────────
-    const phoneIndex = new Map<string, string>();
+    // ── Índice: dígitos normalizados → conjunto de server names ──────────────
+    // (um telefone pode ter mais de um cliente ativo, em servidores diferentes)
+    const phoneIndex = new Map<string, Set<string>>();
     for (const client of clients as any[]) {
       const serverName: string = client.servers?.name ?? "";
       if (!serverName) continue;
       const p = normalizePhone(client.phone_e164);
       const s = normalizePhone(client.secondary_phone_e164);
-      phoneVariants(p).forEach(v => phoneIndex.set(v, serverName));
-phoneVariants(s).forEach(v => phoneIndex.set(v, serverName));
+      for (const v of phoneVariants(p)) {
+        if (!phoneIndex.has(v)) phoneIndex.set(v, new Set());
+        phoneIndex.get(v)!.add(serverName);
+      }
+      for (const v of phoneVariants(s)) {
+        if (!phoneIndex.has(v)) phoneIndex.set(v, new Set());
+        phoneIndex.get(v)!.add(serverName);
+      }
     }
 
     // ── Grupos existentes no Google ──────────────────────────────────────────
