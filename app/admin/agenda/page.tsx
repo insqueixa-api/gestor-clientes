@@ -1114,8 +1114,8 @@ if (!res.ok) {
       } else {
         addToast(
           "warning",
-          "Foto protegida",
-          "Este contato tem a foto privada no WhatsApp.",
+          "Foto não sincronizada",
+          data.error || "Este contato tem a foto privada no WhatsApp.",
         );
       }
     } catch {
