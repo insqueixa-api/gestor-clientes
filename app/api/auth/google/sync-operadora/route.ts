@@ -195,6 +195,16 @@ export async function POST(req: Request) {
         let hasChanges = false;
         let updatedPhones = contact.phones ? [...contact.phones] : [];
 
+        // ✅ Confere ANTES de gastar crédito da Telein se o Google está
+        // respondendo pra esse contato — sem isso, se o Google falhar depois
+        // (token expirado, contato apagado lá, etc.), a consulta paga já
+        // tinha sido feita e o resultado se perdia.
+        const getPersonRes = await fetch(`https://people.googleapis.com/v1/${contact.google_resource_name}?personFields=metadata,phoneNumbers`, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        const personCurrentData = await getPersonRes.json();
+        if (!getPersonRes.ok) throw new Error(`Google indisponível pra ${contact.display_name} — Telein não foi consultada.`);
+
         // Verifica os telefones do contato
         for (let i = 0; i < updatedPhones.length; i++) {
           const phone = updatedPhones[i];
@@ -242,13 +252,6 @@ export async function POST(req: Request) {
 
         // 6. Se teve mudança, envia pro Google e pro Banco
         if (hasChanges) {
-          // Pega o ETag atualizado no Google (Obrigatório para fazer PATCH)
-          const getPersonRes = await fetch(`https://people.googleapis.com/v1/${contact.google_resource_name}?personFields=metadata,phoneNumbers`, { 
-            headers: { Authorization: `Bearer ${accessToken}` } 
-          });
-          const personCurrentData = await getPersonRes.json();
-          if (!getPersonRes.ok) throw new Error(`Google ETag falhou para ${contact.display_name}`);
-
           // Monta o payload só com os telefones (O Google substitui a lista inteira)
           const googlePayload = {
             etag: personCurrentData.etag,

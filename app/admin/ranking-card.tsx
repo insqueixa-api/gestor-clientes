@@ -50,7 +50,7 @@ const accents: Record<
     dot: "bg-sky-400",
     label: "text-foreground/90",
     value: "text-sky-500",
-    topBar: "linear-gradient(to right,#075985,#38bdf8)",
+    topBar: "#0ea5e9",
   },
   emerald: {
     bar: "#065f46",
@@ -60,7 +60,7 @@ const accents: Record<
     dot: "bg-emerald-400",
     label: "text-foreground/90",
     value: "text-emerald-500",
-    topBar: "linear-gradient(to right,#065f46,#34d399)",
+    topBar: "#059669",
   },
   violet: {
     bar: "#5b21b6",
@@ -70,7 +70,7 @@ const accents: Record<
     dot: "bg-violet-400",
     label: "text-foreground/90",
     value: "text-violet-500",
-    topBar: "linear-gradient(to right,#5b21b6,#a78bfa)",
+    topBar: "#7c3aed",
   },
   rose: {
     bar: "#9f1239",
@@ -80,7 +80,7 @@ const accents: Record<
     dot: "bg-rose-400",
     label: "text-foreground/90",
     value: "text-rose-500",
-    topBar: "linear-gradient(to right,#9f1239,#fb7185)",
+    topBar: "#e11d48",
   },
   amber: {
     bar: "#92400e",
@@ -90,17 +90,17 @@ const accents: Record<
     dot: "bg-amber-400",
     label: "text-foreground/90",
     value: "text-amber-500",
-    topBar: "linear-gradient(to right,#92400e,#d97706,#fbbf24)",
+    topBar: "#d97706",
   },
   indigo: {
-    bar: "linear-gradient(to right,#4338ca,#818cf8)",
+    bar: "#4338ca",
     barBg: "bg-indigo-500/20",
     rank: "text-indigo-500",
     rankBg: "bg-indigo-500/10",
     dot: "bg-indigo-400",
     label: "text-foreground/90",
     value: "text-indigo-500",
-    topBar: "linear-gradient(to right,#1e1b4b,#4338ca,#818cf8)",
+    topBar: "#6366f1",
   },
 };
 

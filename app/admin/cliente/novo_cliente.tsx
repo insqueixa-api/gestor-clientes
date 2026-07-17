@@ -2916,7 +2916,7 @@ const phoneDigits = rawDigits.startsWith("55") && rawDigits.length >= 12
     ? existingLabels
     : [...existingLabels, selectedServerName];
 
-  await fetch("/api/auth/google/update", {
+  const updateRes = await fetch("/api/auth/google/update", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -2928,6 +2928,17 @@ const phoneDigits = rawDigits.startsWith("55") && rawDigits.length >= 12
       labels: updatedLabels,
     }),
   });
+
+  if (!updateRes.ok) {
+    const errBody = await updateRes.json().catch(() => ({}));
+    queueListToast(isTrialMode ? "trial" : "client", {
+      type: "error",
+      title: "Falha ao atualizar Agenda",
+      message: errBody?.error || "Não foi possível salvar no Google. Verifique se a conexão com o Google ainda está ativa.",
+    });
+    return;
+  }
+
   queueListToast(isTrialMode ? "trial" : "client", {
     type: "success",
     title: "Agenda Atualizada",
@@ -2972,7 +2983,15 @@ const phoneDigits = rawDigits.startsWith("55") && rawDigits.length >= 12
         body: JSON.stringify(payload),
       });
 
-      if (!res.ok) return;
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        queueListToast(isTrialMode ? "trial" : "client", {
+          type: "error",
+          title: "Falha ao salvar na Agenda",
+          message: errBody?.error || "Não foi possível criar o contato no Google. Verifique se a conexão com o Google ainda está ativa.",
+        });
+        return;
+      }
 
 // Pega o id do contato recém-criado direto da resposta
 const resData = await res.json().catch(() => ({}));
