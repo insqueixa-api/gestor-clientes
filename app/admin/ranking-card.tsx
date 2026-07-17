@@ -50,7 +50,7 @@ const accents: Record<
     dot: "bg-sky-400",
     label: "text-foreground/90",
     value: "text-sky-500",
-    topBar: "linear-gradient(to right,rgba(14,165,233,0.3),rgba(14,165,233,0.5))",
+    topBar: "linear-gradient(to right,#075985,#38bdf8)",
   },
   emerald: {
     bar: "#065f46",
@@ -60,7 +60,7 @@ const accents: Record<
     dot: "bg-emerald-400",
     label: "text-foreground/90",
     value: "text-emerald-500",
-    topBar: "linear-gradient(to right,rgba(16,185,129,0.3),rgba(16,185,129,0.5))",
+    topBar: "linear-gradient(to right,#065f46,#34d399)",
   },
   violet: {
     bar: "#5b21b6",
@@ -70,7 +70,7 @@ const accents: Record<
     dot: "bg-violet-400",
     label: "text-foreground/90",
     value: "text-violet-500",
-    topBar: "linear-gradient(to right,rgba(139,92,246,0.3),rgba(139,92,246,0.5))",
+    topBar: "linear-gradient(to right,#5b21b6,#a78bfa)",
   },
   rose: {
     bar: "#9f1239",
@@ -80,7 +80,7 @@ const accents: Record<
     dot: "bg-rose-400",
     label: "text-foreground/90",
     value: "text-rose-500",
-    topBar: "linear-gradient(to right,rgba(244,63,94,0.3),rgba(244,63,94,0.5))",
+    topBar: "linear-gradient(to right,#9f1239,#fb7185)",
   },
   amber: {
     bar: "#92400e",

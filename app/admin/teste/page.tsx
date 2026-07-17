@@ -1124,9 +1124,10 @@ export default function TrialsPage() {
               e.stopPropagation();
               setShowPapaTestes(true);
             }}
-            className="hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-medium border transition-colors items-center justify-center gap-1.5 bg-muted border-border text-muted-foreground hover:bg-violet-500/10 hover:text-violet-500 hover:border-violet-500/30"
+            title="Papa Testes"
+            className="inline-flex h-9 md:h-10 px-2.5 md:px-3 rounded-lg text-xs font-medium border transition-colors items-center justify-center gap-1.5 bg-muted border-border text-muted-foreground hover:bg-violet-500/10 hover:text-violet-500 hover:border-violet-500/30"
           >
-            🕵️ Papa Testes
+            🕵️<span className="hidden sm:inline">Papa Testes</span>
           </button>
 
           <button

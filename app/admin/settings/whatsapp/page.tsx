@@ -114,6 +114,11 @@ function WhatsAppSessionCard({
   // ✅ Só faz sentido na Sessão 2 (apiSuffix "2"): número corporativo que não
   // atende — redireciona toda mensagem recebida pra Sessão 1.
   const [redirectEnabled, setRedirectEnabled] = useState(false);
+  // ✅ Só relevante na Sessão 2: não faz sentido redirecionar mensagem pra
+  // uma sessão cujo Bot de Atendimento está desligado — o cliente ficaria
+  // sem resposta nenhuma lá. Começa em `true` (otimista) até a 1ª busca real
+  // confirmar, pra não travar o toggle antes da resposta chegar.
+  const [session1BotEnabled, setSession1BotEnabled] = useState(true);
   const [redirectMessage, setRedirectMessage] = useState(
     "Olá! 😊 Você enviou uma mensagem para um número que não é utilizado para atendimento — este telefone é de uso corporativo. Esta mensagem já está chegando pelo número correto: qualquer assunto sobre sua assinatura deve ser tratado por aqui a partir de agora, não pelo outro número."
   );
@@ -155,7 +160,29 @@ function WhatsAppSessionCard({
         setAllowedList(parseAllowed(json.allowedNumbers ?? []));
         setSavedAllowedNumbers(json.allowedNumbers ?? []);
         setBotEnabled(json.botEnabled ?? false);
-        setRedirectEnabled(json.redirectEnabled ?? false);
+
+        let effectiveRedirectEnabled = json.redirectEnabled ?? false;
+        if (apiSuffix === "2") {
+          try {
+            const s1Res = await fetch("/api/whatsapp/config", { cache: "no-store" });
+            const s1Json = await s1Res.json().catch(() => ({}));
+            const s1BotEnabled = !!s1Json.botEnabled;
+            setSession1BotEnabled(s1BotEnabled);
+            // ✅ Se o bot da Sessão 1 foi desligado enquanto o redirect estava
+            // ativo aqui, desativa automaticamente — não deixa o cliente sem
+            // resposta nenhuma numa sessão que não vai atendê-lo.
+            if (effectiveRedirectEnabled && !s1BotEnabled) {
+              effectiveRedirectEnabled = false;
+              fetch(route("config"), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ redirectEnabled: false, ...(tenantId ? { tenantId } : {}) }),
+              }).catch(() => {});
+              addToast("error", "Redirecionamento desativado", "O Bot de Atendimento da Sessão 1 está desligado — desativei o redirecionamento da Sessão 2 automaticamente.");
+            }
+          } catch {}
+        }
+        setRedirectEnabled(effectiveRedirectEnabled);
         if (json.redirectMessage) setRedirectMessage(json.redirectMessage);
       }
     } catch {}
@@ -212,7 +239,15 @@ function WhatsAppSessionCard({
     } finally { setSavingConfig(false); }
   }
   async function handleToggleRejectCalls() { const next = !rejectCalls; setRejectCalls(next); await saveConfig({ rejectCalls: next }); }
-  async function handleToggleRedirect() { const next = !redirectEnabled; setRedirectEnabled(next); await saveConfig({ redirectEnabled: next }); }
+  async function handleToggleRedirect() {
+    const next = !redirectEnabled;
+    if (next && apiSuffix === "2" && !session1BotEnabled) {
+      addToast("error", "Ative o Bot de Atendimento da Sessão 1 primeiro", "Não faz sentido redirecionar pra lá com o bot de lá desligado — o cliente ficaria sem resposta nenhuma.");
+      return;
+    }
+    setRedirectEnabled(next);
+    await saveConfig({ redirectEnabled: next });
+  }
   function startEditRedirectMessage() { setDraftRedirectMessage(redirectMessage); setEditingRedirectMessage(true); }
   async function confirmEditRedirectMessage() { setRedirectMessage(draftRedirectMessage); setEditingRedirectMessage(false); await saveConfig({ redirectMessage: draftRedirectMessage }); }
   async function handleToggleBot() { const next = !botEnabled; setBotEnabled(next); await saveConfig({ botEnabled: next }); }
@@ -291,15 +326,24 @@ function WhatsAppSessionCard({
                     <span className="text-sm font-medium text-foreground/90 flex items-center gap-1.5">
                       <span className={`text-base leading-none ${redirectEnabled ? "" : "opacity-40"}`}>↪️</span>
                       Número não atende — redireciona pra Sessão 1
-                      {redirectEnabled && <span className="text-[10px] font-medium text-amber-500 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-md">ativo</span>}
                     </span>
-                    <button onClick={() => void handleToggleRedirect()} disabled={savingConfig} className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${redirectEnabled ? "bg-amber-500" : "bg-muted"}`}>
+                    <button
+                      onClick={() => void handleToggleRedirect()}
+                      disabled={savingConfig || (apiSuffix === "2" && !session1BotEnabled)}
+                      title={apiSuffix === "2" && !session1BotEnabled ? "Ative o Bot de Atendimento da Sessão 1 primeiro" : undefined}
+                      className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${redirectEnabled ? "bg-amber-500" : "bg-muted"} ${apiSuffix === "2" && !session1BotEnabled ? "opacity-40 cursor-not-allowed" : ""}`}
+                    >
                       <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-card shadow-sm transition-transform ${redirectEnabled ? "translate-x-5" : ""}`} />
                     </button>
                   </div>
                   <p className="text-[10px] text-muted-foreground">
                     Quando ativado, o bot não atende por aqui — só manda o aviso abaixo (pelo número da Sessão 1) e mais nada.
                   </p>
+                  {!session1BotEnabled && (
+                    <p className="text-[10px] text-rose-500">
+                      ⚠️ O Bot de Atendimento da Sessão 1 está desligado — ative-o lá primeiro pra poder habilitar o redirecionamento aqui.
+                    </p>
+                  )}
                   {redirectEnabled && (!editingRedirectMessage ? (
                     <div onClick={startEditRedirectMessage} className="px-3 py-2 text-xs bg-transparent border border-dashed border-border rounded-xl text-foreground/80 cursor-pointer hover:border-amber-500/50 whitespace-pre-wrap" title="Clique para editar">
                       {redirectMessage || "Clique para definir a mensagem..."}

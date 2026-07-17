@@ -122,6 +122,16 @@ export default async function EvolucaoFinanceira({
       }
     });
 
+    // ✅ Meses sem fotografia real (antes dessa funcionalidade existir): em vez
+    // de deixar a linha de Ajustes vazia, estima usando a diferença entre o
+    // que foi Executado e o que tinha sido Previsto (só quando executado >
+    // previsto) — não é dado real como julho/26 em diante, é só pra não
+    // deixar buraco no histórico.
+    if (!hasSnapshot) {
+      ajuste1 = Math.max(0, line1 - bar1);
+      ajuste2 = Math.max(0, line2 - bar2);
+    }
+
     return { label: m.label, key: m.key, bar1, bar2, line1, line2, ajuste1, ajuste2 };
   });
 
