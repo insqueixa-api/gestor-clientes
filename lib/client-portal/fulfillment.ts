@@ -443,13 +443,18 @@ if (newPassword) updatePayload.server_password = String(newPassword);
   });
 
   // ✅ Teste virou cliente pago pelo portal — marca o histórico (papa_testes)
-  // daquele WhatsApp como convertido, mesmo motivo do update_client (RPC do painel).
-  if (updatePayload.is_trial === false && (client as any).whatsapp_username) {
+  // como convertido, mesmo motivo do update_client (RPC do painel). Casa por
+  // WhatsApp + USERNAME exato: a mesma pessoa pode ter mais de um teste no mesmo
+  // servidor com usuários diferentes, só o teste do username que converteu de
+  // verdade deve virar "Convertido".
+  const finalUsername = String((client as any).server_username || "").trim();
+  if (updatePayload.is_trial === false && (client as any).whatsapp_username && finalUsername) {
     const { error: papaErr } = await supabaseAdmin
       .from("papa_testes")
       .update({ converted: true, converted_at: new Date().toISOString() })
       .eq("tenant_id", tenantId)
       .eq("whatsapp_username", (client as any).whatsapp_username)
+      .eq("username", finalUsername)
       .eq("converted", false);
     if (papaErr) {
       prodLog("fulfillment.papa_testes_mark_converted_failed", {
