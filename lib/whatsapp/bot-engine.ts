@@ -6,7 +6,7 @@
 // sincronia manualmente; agora uma fonte única. Edite APENAS aqui.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { generatePortalLink, renderTemplate, buildClientTemplateVars, toBRDate, pickRandomDns } from "@/lib/whatsapp/template-vars";
+import { generatePortalLink, renderTemplate, buildClientTemplateVars, toBRDate, pickRandomDns, extractAppLogoTokens } from "@/lib/whatsapp/template-vars";
 import {
   type MenuNode,
   isEscalationTrigger,
@@ -85,6 +85,10 @@ export type BotEngineParams = {
    * palavra-chave/semântica em cima de `trimmed`. */
   forceNodeId?: string;
   send: SendFn;
+  /** Envia a "figurinha" de um app ({NomeDoApp+logo}) — imagem + nome como
+   * legenda. Opcional: se omitido (ex: simulador sem essa capacidade), o
+   * token só vira o nome do app no texto, sem tentar mandar imagem nenhuma. */
+  sendImage?: (url: string, caption: string) => void | Promise<void>;
   /** prefixo dos console.log de debug (ex: "[BOT][agent]" / "[BOT][chat-admin]"). */
   logPrefix?: string;
 };
@@ -309,6 +313,26 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
   flowVars.dns_servidor = pickRandomDns(clients[0]?.server_dns);
   const sendFlow = (text: string) => send(renderTemplate(text, flowVars));
 
+  // ✅ {NomeDoApp+logo} — só busca a lista de apps (1x por turno, cacheada)
+  // quando o texto realmente tem o token; a maioria das mensagens não tem,
+  // então isso não vira uma query a mais em toda resposta do bot.
+  let appsForLogosCache: { name: string; icon_url: string | null }[] | null = null;
+  async function sendWithLogos(text: string) {
+    if (!/\{[A-Za-z0-9_]+\+logo\}/.test(text)) {
+      await send(text);
+      return;
+    }
+    if (!appsForLogosCache) {
+      const { data } = await sb.from("apps").select("name, icon_url").eq("tenant_id", tenantId);
+      appsForLogosCache = data || [];
+    }
+    const { cleanText, images } = extractAppLogoTokens(text, appsForLogosCache);
+    await send(cleanText);
+    if (p.sendImage) {
+      for (const img of images) await p.sendImage(img.url, img.name);
+    }
+  }
+
   // ── Entrada forçada num nó específico — prioridade máxima, ignora todo
   // texto/estado. Usado quando o turno não veio de uma mensagem de texto
   // (ex: foto classificada como "tela de app expirado" pelo Gemini).
@@ -473,14 +497,14 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
     if (children.length > 0) {
       const gate = await runGateChecks(node, client, sb, tenantId);
       if (gate) {
-        for (const m of gate.messages) await send(m);
+        for (const m of gate.messages) await sendWithLogos(m);
         return { action: "gate_resolved", markRead: gate.markRead ?? true, nextState: "geral" };
       }
       const directChild = findChildByKeyword(children, trimmed);
       if (directChild) return enterNode(directChild, null, 1, redirectDepth);
 
       const vars = await buildVarsForNode(sb, tenantId, node, client, rawClient, clientProvider);
-      for (const m of (await getSteps(sb, node.id, clientProvider)).map((s) => renderTemplate(s, vars))) await send(m);
+      for (const m of (await getSteps(sb, node.id, clientProvider)).map((s) => renderTemplate(s, vars))) await sendWithLogos(m);
       await send(renderChildrenMenu(children, undefined, true));
       return { action: "menu_shown", markRead: true, nextState: `menunode:${node.id}` };
     }
@@ -489,7 +513,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
 
     const redirectMatch = /^__redirect_node__:([0-9a-f-]{36})$/i.exec(result.nextState || "");
     if (redirectMatch || result.nextState === "__redirect_instalacao__") {
-      for (const m of result.messages) await send(m);
+      for (const m of result.messages) await sendWithLogos(m);
       let target: MenuNode | null = null;
       if (redirectMatch) {
         target = await getNodeById(sb, redirectMatch[1]);
@@ -506,7 +530,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
     if ((result.nextState || "").startsWith("awaiting_resolution:")) {
       allMsgs = withResolutionQuestionIfNeeded(result.messages);
     }
-    for (const m of allMsgs) await send(m);
+    for (const m of allMsgs) await sendWithLogos(m);
     return {
       action: "leaf_executed", escalate: result.escalate, markRead: result.markRead ?? true,
       nextState: result.nextState, transferReason: result.transferReason || null,
@@ -651,7 +675,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
         vars.plano_nome = clients[0]?.plan_label || "";
         vars.servidor_nome = clients[0]?.server_name || "";
         vars.dns_servidor = pickRandomDns(clients[0]?.server_dns);
-        await send(renderTemplate(top.content, vars));
+        await sendWithLogos(renderTemplate(top.content, vars));
         return { action: "rag_direct", markRead: true, nextState: "geral" };
       }
     } catch (e: any) {

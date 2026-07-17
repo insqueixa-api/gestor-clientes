@@ -1,8 +1,13 @@
 // app/api/integrations/apps/quickplayer/proxy/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
 export async function POST(req: NextRequest) {
   try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ ok: false, error: "Não autorizado" }, { status: 401 });
+
     const body = await req.json();
     const { action, mac, playlist_name, playlist_url, pin, deviceKey, base_url } = body;
 

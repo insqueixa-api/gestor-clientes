@@ -2730,6 +2730,18 @@ function PapaTestesModal({
                         >
                           {r.is_trial ? "Teste" : "Cliente"}
                         </span>
+                        {r.is_trial && r.converted && (
+                          <span
+                            className="gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm border shrink-0 bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                            title={
+                              r.converted_at
+                                ? `Convertido em ${new Date(r.converted_at).toLocaleDateString("pt-BR")}`
+                                : "Convertido em cliente"
+                            }
+                          >
+                            Convertido
+                          </span>
+                        )}
                         <span className="text-xs text-muted-foreground shrink-0">
                           {new Date(r.created_at).toLocaleDateString("pt-BR")}
                         </span>

@@ -5,6 +5,48 @@ import * as XLSX from "xlsx";
 
 export const dynamic = "force-dynamic";
 
+async function resolveTenantIdForUser(supabase: any, userId: string, tenantFromQuery: string | null) {
+  const { data, error } = await supabase
+    .from("tenant_members")
+    .select("tenant_id")
+    .eq("user_id", userId);
+
+  if (error) {
+    return { tenant_id: null as string | null, status: 500, error: "tenant_lookup_failed", details: error.message };
+  }
+
+  const tenantIds = Array.from(
+    new Set((data ?? []).map((r: any) => String(r.tenant_id || "")).filter(Boolean))
+  );
+
+  if (tenantIds.length === 0) {
+    return { tenant_id: null, status: 400, error: "tenant_id_missing", hint: "Seu usuário não está vinculado a um tenant." };
+  }
+
+  if (tenantIds.length === 1) {
+    const only = tenantIds[0];
+    if (tenantFromQuery && tenantFromQuery !== only) {
+      return { tenant_id: null, status: 403, error: "forbidden_tenant", hint: "tenant_id não pertence ao seu usuário." };
+    }
+    return { tenant_id: only, status: 200 };
+  }
+
+  if (!tenantFromQuery) {
+    return {
+      tenant_id: null,
+      status: 400,
+      error: "tenant_required",
+      hint: "Você participa de múltiplos tenants. Informe tenant_id na querystring para exportar o tenant desejado.",
+    };
+  }
+
+  if (!tenantIds.includes(tenantFromQuery)) {
+    return { tenant_id: null, status: 403, error: "forbidden_tenant", hint: "tenant_id não pertence ao seu usuário." };
+  }
+
+  return { tenant_id: tenantFromQuery, status: 200 };
+}
+
 export async function GET(req: Request) {
   try {
     const supabase = await createClient();
@@ -14,12 +56,20 @@ export async function GET(req: Request) {
 
     const url = new URL(req.url);
     const tenantFromQuery = url.searchParams.get("tenant_id");
-    if (!tenantFromQuery) return NextResponse.json({ error: "tenant_required" }, { status: 400 });
+
+    const resolved = await resolveTenantIdForUser(supabase, user.id, tenantFromQuery);
+    if (!resolved.tenant_id) {
+      return NextResponse.json(
+        { error: resolved.error, hint: (resolved as any).hint, details: (resolved as any).details },
+        { status: resolved.status || 400 }
+      );
+    }
+    const tenant_id = resolved.tenant_id;
 
     const { data: templates, error } = await supabase
       .from("message_templates")
       .select("name, content")
-      .eq("tenant_id", tenantFromQuery)
+      .eq("tenant_id", tenant_id)
       .order("name");
 
     if (error) throw error;

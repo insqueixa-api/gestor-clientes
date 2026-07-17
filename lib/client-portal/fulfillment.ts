@@ -442,6 +442,24 @@ if (newPassword) updatePayload.server_password = String(newPassword);
     external_id_updated: !!newExternalId
   });
 
+  // ✅ Teste virou cliente pago pelo portal — marca o histórico (papa_testes)
+  // daquele WhatsApp como convertido, mesmo motivo do update_client (RPC do painel).
+  if (updatePayload.is_trial === false && (client as any).whatsapp_username) {
+    const { error: papaErr } = await supabaseAdmin
+      .from("papa_testes")
+      .update({ converted: true, converted_at: new Date().toISOString() })
+      .eq("tenant_id", tenantId)
+      .eq("whatsapp_username", (client as any).whatsapp_username)
+      .eq("converted", false);
+    if (papaErr) {
+      prodLog("fulfillment.papa_testes_mark_converted_failed", {
+        tenant: tenantId.slice(-6),
+        client_id: String(client.id).slice(-6),
+        error: papaErr.message,
+      });
+    }
+  }
+
   // 5) Logs
   const totalPaid = payment.price_amount != null ? Number(payment.price_amount) : 0;
   const safeCurrency = String(payment.price_currency || client.price_currency || "BRL").toUpperCase().trim();

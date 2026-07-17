@@ -42,7 +42,7 @@ function makeSupabaseAdmin() {
 
 // ── Envio de resposta via WA service (real, produção) ────────────────────────
 
-async function sendWAMessage(sessionKey: string, phone: string, message: string) {
+async function sendWAMessage(sessionKey: string, phone: string, message: string, imageUrl?: string) {
   const baseUrl = String(process.env.UNIGESTOR_WA_BASE_URL || "").trim();
   const waToken = String(process.env.UNIGESTOR_WA_TOKEN || "").trim();
   if (!baseUrl || !waToken) {
@@ -59,7 +59,7 @@ async function sendWAMessage(sessionKey: string, phone: string, message: string)
         "x-session-key": sessionKey,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ phone, message }),
+      body: JSON.stringify({ phone, message, ...(imageUrl ? { image_url: imageUrl } : {}) }),
       signal: controller.signal,
     });
     if (!res.ok) {
@@ -250,6 +250,7 @@ export async function POST(req: Request) {
             botState: bot_state,
             forceNodeId: expiredNode.id,
             send,
+            sendImage: (imgUrl, caption) => sendWAMessage(session_key, phone, caption, imgUrl),
             logPrefix: "[BOT][agent][img]",
           });
           return NextResponse.json({
@@ -339,6 +340,7 @@ export async function POST(req: Request) {
     botState: bot_state,
     awaitingPaymentType: awaiting_payment_type === true,
     send,
+    sendImage: (imgUrl, caption) => sendWAMessage(session_key, phone, caption, imgUrl),
     logPrefix: "[BOT][agent]",
   });
 

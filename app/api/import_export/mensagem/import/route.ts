@@ -9,14 +9,64 @@ function normalizeHeader(h: string) {
   return (h || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ");
 }
 
+async function resolveTenantIdForUser(supabase: any, userId: string, tenantFromQuery: string | null) {
+  const { data, error } = await supabase
+    .from("tenant_members")
+    .select("tenant_id")
+    .eq("user_id", userId);
+
+  if (error) {
+    return { tenant_id: null as string | null, status: 500, error: "tenant_lookup_failed", details: error.message };
+  }
+
+  const tenantIds = Array.from(
+    new Set((data ?? []).map((r: any) => String(r.tenant_id || "")).filter(Boolean))
+  );
+
+  if (tenantIds.length === 0) {
+    return { tenant_id: null, status: 400, error: "tenant_id_missing", hint: "Seu usu\u00e1rio n\u00e3o est\u00e1 vinculado a um tenant." };
+  }
+
+  if (tenantIds.length === 1) {
+    const only = tenantIds[0];
+    if (tenantFromQuery && tenantFromQuery !== only) {
+      return { tenant_id: null, status: 403, error: "forbidden_tenant", hint: "tenant_id n\u00e3o pertence ao seu usu\u00e1rio." };
+    }
+    return { tenant_id: only, status: 200 };
+  }
+
+  if (!tenantFromQuery) {
+    return {
+      tenant_id: null,
+      status: 400,
+      error: "tenant_required",
+      hint: "Voc\u00ea participa de m\u00faltiplos tenants. Informe tenant_id na querystring para importar o tenant desejado.",
+    };
+  }
+
+  if (!tenantIds.includes(tenantFromQuery)) {
+    return { tenant_id: null, status: 403, error: "forbidden_tenant", hint: "tenant_id n\u00e3o pertence ao seu usu\u00e1rio." };
+  }
+
+  return { tenant_id: tenantFromQuery, status: 200 };
+}
+
 export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth?.user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const url = new URL(req.url);
-  const tenant_id = url.searchParams.get("tenant_id");
-  if (!tenant_id) return NextResponse.json({ error: "tenant_required" }, { status: 400 });
+  const tenantFromQuery = url.searchParams.get("tenant_id");
+
+  const resolved = await resolveTenantIdForUser(supabase, auth.user.id, tenantFromQuery);
+  if (!resolved.tenant_id) {
+    return NextResponse.json(
+      { error: resolved.error, hint: (resolved as any).hint, details: (resolved as any).details },
+      { status: resolved.status || 400 }
+    );
+  }
+  const tenant_id = resolved.tenant_id;
 
   const form = await req.formData();
   const file = form.get("file");

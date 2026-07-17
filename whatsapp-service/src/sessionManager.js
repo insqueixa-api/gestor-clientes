@@ -79,14 +79,19 @@ process.stderr.write = (chunk, ...args) => {
 const botEventBuffer = [];
 const BOT_EVENT_MAX = 100;
 
-function emitBotEvent(event) {
-  const entry = { ...event, timestamp: new Date().toISOString() };
+// ✅ Todo evento carrega a sessionKey de quem gerou — sem isso o buffer é
+// global e um tenant consegue ler os eventos (telefone, nome, prévia de
+// mensagem) de outro tenant só acertando a URL. getBotEvents() SEMPRE exige
+// o filtro, de propósito: nunca existe um "devolve tudo" por engano.
+function emitBotEvent(sessionKey, event) {
+  const entry = { ...event, sessionKey, timestamp: new Date().toISOString() };
   botEventBuffer.unshift(entry); // mais recente primeiro
   if (botEventBuffer.length > BOT_EVENT_MAX) botEventBuffer.pop();
 }
 
-export function getBotEvents() {
-  return [...botEventBuffer];
+export function getBotEvents(sessionKey) {
+  if (!sessionKey) return [];
+  return botEventBuffer.filter((e) => e.sessionKey === sessionKey);
 }
 
 // Human takeover: quando você responde, bot para por 4h pra aquele contato
@@ -301,7 +306,7 @@ async function escalateAfterSilence(sessionKey, phone) {
   clearContactState(sessionKey, phone);
   await markJidUnread(sessionKey, `${phone}@s.whatsapp.net`);
 
-  emitBotEvent({
+  emitBotEvent(sessionKey, {
     type: "human_takeover",
     phone,
     display_name: null,
@@ -414,7 +419,7 @@ function pauseContact(sessionKey, phone) {
   humanPausedContacts.get(sessionKey).set(phone, until);
   saveHumanPaused(sessionKey); // ✅ persiste em disco — sobrevive a "Reiniciar Serviço"
   console.log(`[BOT][${sessionKey.slice(0, 8)}] ⏸️ Atendimento humano ativo para ${phone} até ${new Date(until).toLocaleTimeString("pt-BR")}`);
-  emitBotEvent({
+  emitBotEvent(sessionKey, {
     type: "human_takeover",
     phone,
     display_name: null,
@@ -1236,7 +1241,7 @@ if (key.fromMe) {
 
 // Bot desligado pelo toggle do painel
 if (!config.botEnabled) {
-      emitBotEvent({ type: "ignored", reason: "bot_disabled", phone, display_name: null, server_name: null, preview: "Bot desligado" });
+      emitBotEvent(sessionKey, { type: "ignored", reason: "bot_disabled", phone, display_name: null, server_name: null, preview: "Bot desligado" });
       continue;
     }
 
@@ -1438,7 +1443,7 @@ if (!res.ok) {
         // ✅ Usa o transfer_situation_label do nó (quando existe) como preview
         // do evento — antes esse motivo só ia pro log de dev e nunca chegava
         // até você no Monitor.
-        emitBotEvent({
+        emitBotEvent(sessionKey, {
           type: "human_takeover",
           phone,
           display_name: responseData?.display_name || null,
@@ -1450,7 +1455,7 @@ if (!res.ok) {
 
       console.log(`[BOT][${sessionKey.slice(0, 8)}] ✅ Agente processou mensagem de ${phone}`);
       botActiveContacts.add(`${sessionKey}:${phone}`);
-      emitBotEvent({
+      emitBotEvent(sessionKey, {
         type: "bot_responded",
         phone,
         display_name: responseData?.display_name || null,
@@ -1463,10 +1468,10 @@ if (!res.ok) {
   } catch (e) {
     if (e?.name === "AbortError") {
       console.error(`[BOT][${sessionKey.slice(0, 8)}] Timeout ao chamar agente`);
-      emitBotEvent({ type: "timeout", phone, display_name: null, server_name: null, preview: "Agente demorou mais de 55s" });
+      emitBotEvent(sessionKey, { type: "timeout", phone, display_name: null, server_name: null, preview: "Agente demorou mais de 55s" });
     } else {
       console.error(`[BOT][${sessionKey.slice(0, 8)}] Erro ao chamar agente:`, e?.message);
-      emitBotEvent({ type: "error", phone, display_name: null, server_name: null, preview: e?.message || "Erro desconhecido" });
+      emitBotEvent(sessionKey, { type: "error", phone, display_name: null, server_name: null, preview: e?.message || "Erro desconhecido" });
     }
   }
 }

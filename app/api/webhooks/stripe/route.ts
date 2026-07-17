@@ -96,11 +96,9 @@ export async function POST(req: NextRequest) {
 
       const webhookSecret = String(gateways?.[0]?.config?.webhook_secret || "").trim();
 
-      if (webhookSecret) {
-        if (!verifyStripeSignature(rawBody, sig, webhookSecret)) {
-          prodLog("stripe.webhook.sig_failed", { pi_suffix: paymentIntentId.slice(-6) });
-          return NextResponse.json({ ok: false }, { status: 401 });
-        }
+      if (!webhookSecret || !verifyStripeSignature(rawBody, sig, webhookSecret)) {
+        prodLog("stripe.webhook.sig_failed", { pi_suffix: paymentIntentId.slice(-6) });
+        return NextResponse.json({ ok: false }, { status: 401 });
       }
 
       await supabaseAdmin.from("client_portal_payments")

@@ -7,6 +7,8 @@ import {
   ChevronRight, ChevronDown, Plus, Trash2, Save, X, Tag,
 } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { getCurrentTenantId } from "@/lib/tenant";
+import { slugifyAppName } from "@/lib/whatsapp/template-vars";
 import { useConfirm } from "@/app/admin/HookuseConfirm";
 import BotFlowCanvas, { FlowPortLegend, type CanvasNode, type FlowLink } from "./BotFlowCanvas";
 
@@ -1017,6 +1019,29 @@ export default function BotMenuTreeEditor() {
 // focada), rastreada pelo NodeEditor.
 function VariablePanel({ onInsert }: { onInsert: (tag: string) => void }) {
   const [openGroups, setOpenGroups] = useState<number[]>([]);
+  // ✅ Grupo 100% dinâmico: um chip {NomeDoApp+logo} por app cadastrado em
+  // Gerenciador → Aplicativos — sem precisar mexer em código quando um app
+  // novo for cadastrado (ou removido) lá.
+  const [appTags, setAppTags] = useState<{ label: string; desc: string }[]>([]);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const tid = await getCurrentTenantId();
+      if (!tid) return;
+      const { data } = await supabaseBrowser.from("apps").select("name, icon_url").eq("tenant_id", tid).order("name", { ascending: true });
+      if (!alive) return;
+      const tags = (data || [])
+        .filter((a: any) => a.icon_url)
+        .map((a: any) => ({ label: `{${slugifyAppName(a.name)}+logo}`, desc: `Nome + logo de ${a.name}` }));
+      setAppTags(tags);
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  const allGroups = appTags.length
+    ? [...TAG_GROUPS, { title: "📱 Apps (nome + figurinha)", color: "bg-fuchsia-500/10 text-fuchsia-500", tags: appTags }]
+    : TAG_GROUPS;
+
   function toggleGroup(idx: number) {
     setOpenGroups((prev) => (prev.includes(idx) ? prev.filter((i) => i !== idx) : [...prev, idx]));
   }
@@ -1026,7 +1051,7 @@ function VariablePanel({ onInsert }: { onInsert: (tag: string) => void }) {
         <Tag className="w-3 h-3 text-muted-foreground" />
         <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Variáveis — clique pra inserir</span>
       </div>
-      {TAG_GROUPS.map((group, idx) => {
+      {allGroups.map((group, idx) => {
         const isOpen = openGroups.includes(idx);
         return (
           <div key={group.title}>

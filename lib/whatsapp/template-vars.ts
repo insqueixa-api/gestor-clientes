@@ -117,6 +117,52 @@ export function renderTemplate(text: string, vars: Record<string, string>) {
   });
 }
 
+// ── Figurinha de app ({NomeDoApp+logo}) ──────────────────────────────────
+// ✅ Token dedicado, separado do renderTemplate normal de propósito: o "+"
+// não é aceito pela regex de variável comum (`[a-zA-Z0-9_]+`), então os dois
+// mecanismos nunca colidem. Usado pra deixar o painel de variáveis 100%
+// dinâmico — cada app cadastrado em `apps` vira automaticamente um token
+// clicável, sem precisar mexer em código quando um app novo é cadastrado.
+export function slugifyAppName(name: string): string {
+  return String(name || "")
+    .normalize("NFD")
+    .replace(new RegExp("[" + String.fromCharCode(0x0300) + "-" + String.fromCharCode(0x036f) + "]", "g"), "")
+    .replace(/[^a-zA-Z0-9]/g, "");
+}
+
+const APP_LOGO_TOKEN_RE = /\{([A-Za-z0-9_]+)\+logo\}/g;
+
+/**
+ * Encontra tokens {NomeDoApp+logo} no texto, troca cada um pelo nome real do
+ * app (texto continua legível) e devolve a lista de imagens (logo + nome)
+ * pra enviar em seguida, na ordem em que apareceram. Token que não bate com
+ * nenhum app cadastrado (nome errado, app removido) fica como está — melhor
+ * mostrar o texto cru do que quebrar a mensagem inteira.
+ */
+export function extractAppLogoTokens(
+  text: string,
+  apps: { name: string; icon_url: string | null }[]
+): { cleanText: string; images: { name: string; url: string }[] } {
+  const matches = [...text.matchAll(APP_LOGO_TOKEN_RE)];
+  if (!matches.length) return { cleanText: text, images: [] };
+
+  const bySlug = new Map<string, { name: string; icon_url: string }>();
+  for (const a of apps) {
+    if (a.icon_url) bySlug.set(slugifyAppName(a.name).toLowerCase(), { name: a.name, icon_url: a.icon_url });
+  }
+
+  const images: { name: string; url: string }[] = [];
+  let cleanText = text;
+  for (const m of matches) {
+    const app = bySlug.get(m[1].toLowerCase());
+    if (app) {
+      images.push({ name: app.name, url: app.icon_url });
+      cleanText = cleanText.replace(m[0], app.name);
+    }
+  }
+  return { cleanText, images };
+}
+
 // ── Variáveis do cliente ──
 
 export function buildClientTemplateVars(params: { clientRow: any; isSecondary?: boolean }): Record<string, string> {

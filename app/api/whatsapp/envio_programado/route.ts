@@ -587,6 +587,22 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "tenant_id, message, send_at e destino válido são obrigatórios" }, { status: 400 });
   }
 
+  // =========================
+  // Validação de membro do tenant (apenas USER, não-cron)
+  // =========================
+  {
+    const { data: mem, error: memErr } = await sb
+      .from("tenant_members")
+      .select("tenant_id")
+      .eq("tenant_id", tenantId)
+      .eq("user_id", authedUserId)
+      .maybeSingle();
+
+    if (memErr || !mem) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
   let sendAtUtc: string;
   try {
     sendAtUtc = normalizeSendAtToUtcISOString(sendAtRaw);

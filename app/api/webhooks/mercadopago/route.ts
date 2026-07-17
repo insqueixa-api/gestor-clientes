@@ -28,10 +28,7 @@ function safeEqualHex(a: string, b: string) {
   return crypto.timingSafeEqual(Buffer.from(a, "utf8"), Buffer.from(b, "utf8"));
 }
 
-function verifyMpWebhook(req: NextRequest, paymentId: string) {
-  const secret = String(process.env.MERCADOPAGO_WEBHOOK_SECRET || "").trim();
-  if (!secret) return true; // Se não tiver secret configurado, ignora a trava
-
+function verifyMpWebhook(req: NextRequest, paymentId: string, secret: string) {
   const sig = req.headers.get("x-signature") || "";
   const reqId = req.headers.get("x-request-id") || "";
   if (!sig || !reqId) return false;
@@ -77,10 +74,6 @@ export async function POST(req: NextRequest) {
     const paymentId = body?.data?.id ? String(body.data.id) : "";
     if (!paymentId) return NextResponse.json({ ok: true });
 
-    if (!verifyMpWebhook(req, paymentId)) {
-      return NextResponse.json({ ok: false }, { status: 401 });
-    }
-
     prodLog("webhook.received", { payment_id_suffix: paymentId.slice(-6) });
 
     // =========================================================================
@@ -107,7 +100,15 @@ export async function POST(req: NextRequest) {
         .order("priority", { ascending: true })
         .limit(1);
 
-      const accessToken = gateways?.[0]?.config?.access_token;
+      const gwConfig = gateways?.[0]?.config || {};
+      const webhookSecret = String(gwConfig.webhook_secret || "").trim();
+
+      if (webhookSecret && !verifyMpWebhook(req, paymentId, webhookSecret)) {
+        prodLog("webhook.sig_failed", { payment_id_suffix: paymentId.slice(-6) });
+        return NextResponse.json({ ok: false }, { status: 401 });
+      }
+
+      const accessToken = gwConfig.access_token;
       if (!accessToken) return NextResponse.json({ ok: true });
 
       const mpRes = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {

@@ -5,7 +5,11 @@ const http  = require('http')
 const { parse } = require('url')
 
 const API_BASE  = 'https://unigestor.net.br'
-const API_TOKEN = '5f69b42084838eb6106b5eadea61265a1e3844b27fe4c28720b113bc3ad22f4e'
+// ✅ Prioriza a variável de ambiente (mesma EPG_SYNC_CRON_SECRET que
+// app/api/epg/sync-catalog/fast/route.ts já valida) — o valor literal abaixo
+// fica só como fallback, pra não quebrar o cron se a variável não estiver
+// definida no ambiente onde esse script roda hoje.
+const API_TOKEN = process.env.EPG_SYNC_CRON_SECRET || '5f69b42084838eb6106b5eadea61265a1e3844b27fe4c28720b113bc3ad22f4e'
 const LOTE      = 500
 
 function httpFetch(url, opts = {}) {

@@ -1,6 +1,7 @@
 // app/api/whatsapp/contact-photo/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getWAContext } from "@/lib/whatsapp/wa-context";
 
 export const dynamic = "force-dynamic";
 
@@ -33,14 +34,17 @@ export async function POST(req: Request) {
     if (!tenantConfig?.google_refresh_token) throw new Error("Conta do Google não vinculada.");
 
     // 1. Busca foto na VM WhatsApp
-    const VM_BASE = process.env.UNIGESTOR_WA_BASE_URL ?? "";
-const picRes = await fetch(`${VM_BASE}/profile-picture?jid=${encodeURIComponent(jid)}`, {
-  headers: {
-    "Authorization": `Bearer ${process.env.UNIGESTOR_WA_TOKEN ?? ""}`,
-    "x-session-key": process.env.UNIGESTOR_WA_SESSION_KEY ?? "75d06e80",
+    // ✅ Antes usava uma sessionKey fixa no código (env var ou, se ausente,
+    // um hash hardcoded) — funcionava por acaso enquanto só existisse 1
+    // tenant, mas sempre buscaria a mesma sessão de qualquer usuário logado.
+    // getWAContext resolve a sessão de verdade do tenant/usuário autenticado,
+    // igual todas as outras rotas de WhatsApp já fazem.
+    const waCtx = await getWAContext(1);
+    if (!waCtx) return NextResponse.json({ error: "Sessão do WhatsApp não configurada." }, { status: 401 });
 
-  },
-});
+    const picRes = await fetch(`${waCtx.baseUrl}/profile-picture?jid=${encodeURIComponent(jid)}`, {
+      headers: waCtx.headers,
+    });
 
     const picText = await picRes.text();
 

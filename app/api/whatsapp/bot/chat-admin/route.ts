@@ -118,6 +118,11 @@ export async function POST(req: Request) {
   function send(text: string) {
     if (text?.trim()) sentMessages.push(text);
   }
+  // ✅ Simulador não manda WhatsApp de verdade — só mostra que a figurinha
+  // do app teria sido enviada ali, com o nome, pra dar pra conferir o fluxo.
+  function sendImage(_url: string, caption: string) {
+    sentMessages.push(`📷 [Figurinha: ${caption}]`);
+  }
 
   const result = await runBotEngine({
     sb,
@@ -130,6 +135,7 @@ export async function POST(req: Request) {
     trimmed,
     botState: bot_state,
     send,
+    sendImage,
     logPrefix: "[BOT][chat-admin]",
   });
 

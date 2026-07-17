@@ -1,6 +1,7 @@
 // app/api/upload/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { createClient } from "@/lib/supabase/server";
 
 const s3Client = new S3Client({
   region: "auto",
@@ -13,6 +14,10 @@ const s3Client = new S3Client({
 
 export async function POST(req: NextRequest) {
   try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const folder = formData.get("folder") as string || "geral"; 
@@ -54,6 +59,10 @@ export async function POST(req: NextRequest) {
 // ✅ NOVA FUNÇÃO: Deleta o arquivo do Cloudflare R2
 export async function DELETE(req: NextRequest) {
   try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+
     const { url } = await req.json();
 
     if (!url) {

@@ -3,6 +3,7 @@
 // GET ?q=titulo&tipo=FILME|SERIE&page=1
 
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,10 @@ const TMDB_KEY = process.env.TMDB_API_KEY!;
 const TMDB_BASE = "https://api.themoviedb.org/3";
 
 export async function GET(req: NextRequest) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ ok: false, error: "Não autorizado" }, { status: 401 });
+
   const { searchParams } = new URL(req.url);
   const q    = (searchParams.get("q") || "").trim();
   const tipo = searchParams.get("tipo") || "FILME";

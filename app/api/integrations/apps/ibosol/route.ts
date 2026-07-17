@@ -1,5 +1,6 @@
 // app/api/integrations/apps/ibosol/route.ts
 import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -130,6 +131,10 @@ function baseHeaders(cookie: string, referer: string, isPost = false, origin = "
 // ============================================================
 export async function POST(req: Request) {
   try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ ok: false, error: "Não autorizado" }, { status: 401 });
+
     const body = await req.json().catch(() => ({}));
     const {
       action,

@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { createClient } from "@/lib/supabase/server";
 
 const s3Client = new S3Client({
   region: "auto",
@@ -14,6 +15,10 @@ const s3Client = new S3Client({
 
 export async function POST(req: NextRequest) {
   try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+
     const { fileName, contentType, folder } = await req.json();
 
     if (!fileName || !contentType) {

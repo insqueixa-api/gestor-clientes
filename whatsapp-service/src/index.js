@@ -334,8 +334,13 @@ app.post("/system/restart", authMiddleware, async (req, res) => {
 });
 
 // ── GET /bot-events — últimos eventos do bot ──────────────────
+// ✅ Escopado por sessionKey — sem isso, qualquer chamada (mesmo com o
+// bearer token de infraestrutura certo) devolvia o buffer inteiro, misturando
+// eventos de todas as sessões/tenants que já passaram por essa VM.
 app.get("/bot-events", authMiddleware, (req, res) => {
-  return res.json({ ok: true, events: getBotEvents() });
+  const sessionKey = getSessionKey(req);
+  if (!sessionKey) return res.status(400).json({ error: "x-session-key obrigatório" });
+  return res.json({ ok: true, events: getBotEvents(sessionKey) });
 });
 
 // ── 404 ───────────────────────────────────────────────────────
