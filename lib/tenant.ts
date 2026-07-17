@@ -41,12 +41,10 @@ export async function getCurrentTenantId(): Promise<string> {
     }
 
     // Se não achou, espera um pouco e tenta de novo
-    console.log(`Tentativa ${attempts + 1} de buscar tenant... aguardando criação automática.`);
-    await delay(1000); 
+    await delay(1000);
     attempts++;
   }
 
   // Se chegou aqui, realmente falhou
-  console.error("Falha: Usuário logado, mas sem vínculo em tenant_members após tentativas.", user.id);
   throw new Error("Usuário não vinculado a nenhum Tenant.");
 }

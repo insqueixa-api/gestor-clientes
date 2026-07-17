@@ -85,7 +85,7 @@ async function validarSessaoEConta(supabaseAdmin: any, body: any) {
 
   const { data: sessao, error: sessaoErr } = await supabaseAdmin
     .from("client_portal_sessions")
-    .select("tenant_id")
+    .select("tenant_id, whatsapp_username")
     .eq("session_token", session_token)
     .gt("expires_at", new Date().toISOString())
     .single();
@@ -99,11 +99,13 @@ async function validarSessaoEConta(supabaseAdmin: any, body: any) {
     return { erro: NextResponse.json({ ok: false, error: "Conta obrigatória" }, { status: 400, headers: NO_STORE_HEADERS }) };
   }
 
+  // ✅ CRÍTICO: garante que a conta pertence ao mesmo whatsapp da sessão (Principal ou Secundário)
   const { data: cliente, error: clienteErr } = await supabaseAdmin
     .from("clients")
     .select("id")
     .eq("id", conta)
     .eq("tenant_id", sessao.tenant_id)
+    .or(`whatsapp_username.eq.${sessao.whatsapp_username},secondary_whatsapp_username.eq.${sessao.whatsapp_username}`)
     .maybeSingle();
 
   if (clienteErr || !cliente) {

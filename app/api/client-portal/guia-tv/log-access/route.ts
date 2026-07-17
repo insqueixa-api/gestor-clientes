@@ -7,9 +7,36 @@ const supabaseAdmin = createAdmin(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
+function normalizeToken(v: unknown) {
+  return String(v ?? "").trim();
+}
+
+function isPlausibleSessionToken(t: string) {
+  if (t.length < 16 || t.length > 256) return false;
+  return /^[a-zA-Z0-9=_\-\.]+$/.test(t);
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+
+    // ✅ exige uma sessão válida do portal do cliente (evita log falso de qualquer origem)
+    const session_token = normalizeToken(body?.session_token);
+    if (!session_token || !isPlausibleSessionToken(session_token)) {
+      return NextResponse.json({ ok: false, error: "Sessão inválida" }, { status: 401 });
+    }
+
+    const { data: sessao, error: sessaoErr } = await supabaseAdmin
+      .from("client_portal_sessions")
+      .select("tenant_id")
+      .eq("session_token", session_token)
+      .gt("expires_at", new Date().toISOString())
+      .single();
+
+    if (sessaoErr || !sessao) {
+      return NextResponse.json({ ok: false, error: "Sessão inválida" }, { status: 401 });
+    }
+
     const servidor = String(body?.servidor || "TODOS").toUpperCase();
 
     if (!["ELITE","NATV","FAST","TODOS"].includes(servidor)) {

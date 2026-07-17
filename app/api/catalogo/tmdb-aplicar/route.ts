@@ -3,6 +3,7 @@
 // POST { master_id, tmdb_id, tipo }
 
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +17,10 @@ const TMDB_KEY  = process.env.TMDB_API_KEY!;
 const TMDB_BASE = "https://api.themoviedb.org/3";
 
 export async function POST(req: NextRequest) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ ok: false, error: "Não autorizado" }, { status: 401 });
+
   const { master_id, tmdb_id, tipo } = await req.json();
 
   if (!master_id || !tmdb_id) {

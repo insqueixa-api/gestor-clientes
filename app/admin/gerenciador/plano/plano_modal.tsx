@@ -446,8 +446,6 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
         onClose();
       }, 500);
     } catch (err: any) {
-      if (process.env.NODE_ENV !== "production")
-        console.error("Erro ao salvar:", err?.message || err);
       addToast(
         "error",
         "Erro ao salvar",

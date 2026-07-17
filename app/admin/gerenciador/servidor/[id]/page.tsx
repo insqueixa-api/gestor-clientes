@@ -230,8 +230,6 @@ const { confirm, ConfirmUI } = useConfirm();
       if (!movErr && movData) {
         setMovements(movData as any[]);
       } else {
-        if (process.env.NODE_ENV !== "production")
-          console.error("Erro movimentos:", movErr);
         setMovements([]);
       }
 
@@ -246,9 +244,6 @@ const { confirm, ConfirmUI } = useConfirm();
         .gte("created_at", startOfMonth)
         .lte("created_at", endOfMonth)
         .eq("status", "PAID");
-
-      if (process.env.NODE_ENV !== "production")
-        if (renErr) console.error("Erro ao buscar client_renewals:", renErr);
 
       setClientRenewals(renewalsData || []);
 
@@ -359,10 +354,7 @@ const { confirm, ConfirmUI } = useConfirm();
         .eq("tenant_id", tenantId) // ✅ PROTEGIDO
         .eq("server_id", serverId);
       setResellerCount(totalResellers || 0);
-    } catch (error: any) {
-      // ✅ Sem vazamentos de objetos completos no cliente
-      if (process.env.NODE_ENV !== "production")
-        console.error("Falha ao carregar métricas (Dev):", error?.message);
+    } catch {
       addToast(
         "error",
         "Erro ao carregar dados",

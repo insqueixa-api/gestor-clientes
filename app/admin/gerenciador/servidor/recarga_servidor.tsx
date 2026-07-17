@@ -163,11 +163,7 @@ export default function RecargaServidorModal({
           if (currency === "USD") setFxRate(data.usd_to_brl?.toString() || "1");
           if (currency === "EUR") setFxRate(data.eur_to_brl?.toString() || "1");
         }
-      } catch {
-        // ✅ Segurança: Limpeza de log. Se falhar, assume 1, mas nunca imprime detalhes de erro no cliente.
-        if (process.env.NODE_ENV !== "production")
-          console.error("Falha ao atualizar câmbio.");
-      }
+      } catch {}
     }
     fetchFx();
   }, [currency]);
@@ -191,9 +187,7 @@ export default function RecargaServidorModal({
           p_source_id: server.id,
         });
       }
-    } catch (e) {
-      console.error("Falha ao resolver notificação de saldo baixo:", e);
-    }
+    } catch {}
   }
 
   async function handleSave() {
@@ -386,12 +380,6 @@ export default function RecargaServidorModal({
       await resolveIfCreditsOk();
       onSuccess();
     } catch (error: any) {
-      // ✅ Segurança: Limita o log local apenas a mensagens, nunca o objeto de erro completo de DB
-      if (process.env.NODE_ENV !== "production")
-        console.error(
-          "Erro na recarga:",
-          error?.message || "Falha desconhecida",
-        );
       if (onError) {
         onError(error?.message || "Ocorreu um erro ao processar a recarga.");
       }

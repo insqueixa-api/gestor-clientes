@@ -558,17 +558,11 @@ export default function ResellerFormModal({
 
         // Se houver algum campo apagado na tela, roda o update forçado:
         if (Object.keys(fieldsToClear).length > 0) {
-          const { error: updateErr } = await supabaseBrowser
+          await supabaseBrowser
             .from("resellers")
             .update(fieldsToClear)
             .eq("id", resellerId)
             .eq("tenant_id", tenantId); // Garantia de segurança
-
-          if (updateErr)
-            console.warn(
-              "Falha ao forçar limpeza dos campos:",
-              updateErr.message,
-            );
         }
       }
 

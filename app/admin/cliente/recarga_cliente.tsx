@@ -101,32 +101,10 @@ const PLAN_MONTHS: Record<string, number> = {
 };
 
 // --- HELPERS WHATSAPP ---
-function extractWaNumberFromJid(jid?: unknown): string {
-  if (typeof jid !== "string") return "";
-  const raw = jid.split("@")[0]?.split(":")[0] ?? "";
-  return raw.replace(/\D/g, "");
-}
-
-function formatBRPhoneFromDigits(digits: string): string {
-  if (!digits) return "";
-  if (digits.startsWith("55") && digits.length >= 12) {
-    const country = digits.slice(0, 2);
-    const ddd = digits.slice(2, 4);
-    const rest = digits.slice(4);
-    if (rest.length === 9)
-      return `+${country} (${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
-    if (rest.length === 8)
-      return `+${country} (${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
-    return `+${country} (${ddd}) ${rest}`;
-  }
-  return `+${digits}`;
-}
-
+// ✅ Só o nome do contato (Principal/Secundário) — sem o número, que não
+// cabia nos campos pequenos dos seletores de sessão.
 function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
-  if (!profile?.connected) return `${sessionName} (Não conectado)`;
-  const digits = extractWaNumberFromJid(profile?.jid);
-  const pretty = formatBRPhoneFromDigits(digits);
-  return `${sessionName} • ${pretty || "Conectado"}`;
+  return profile?.connected ? sessionName : `${sessionName} (Não conectado)`;
 }
 
 // Helpers
@@ -931,8 +909,7 @@ export default function RecargaCliente({
         } else {
           setFxRate(5);
         }
-      } catch (e) {
-        console.error(e);
+      } catch {
         setFxRate(5);
       }
     })();
@@ -1264,9 +1241,7 @@ export default function RecargaCliente({
                           saldo: e.detail.saldo,
                           loggedUser: e.detail.loggedUser,
                         }),
-                      }).catch((err) =>
-                        console.warn("save_sync falhou silenciosamente:", err),
-                      );
+                      }).catch(() => {});
                     }
 
                     resolveSync();
@@ -1379,11 +1354,6 @@ export default function RecargaCliente({
               serverName = "Servidor";
             }
 
-            console.log("✅ Renovação automática concluída:", {
-              vencimento: apiVencimento,
-              senha_atualizada: !!apiPassword,
-              servidor: serverName,
-            });
           }
         } catch (apiErr: any) {
           // ✅ Toast LOCAL (aparece no modal)
@@ -1566,9 +1536,7 @@ const clientMessageAuto = `Renovação automática via painel Admin · ${monthsT
             p_tenant_id: tid,
             p_server_id: clientData.server_id,
           });
-        } catch (e) {
-          console.error("Falha ao checar saldo do servidor:", e);
-        }
+        } catch {}
       }
 
       // --- PASSO 4: ENVIAR WHATSAPP ---
@@ -1616,9 +1584,6 @@ const clientMessageAuto = `Renovação automática via painel Admin · ${monthsT
                 p_status: "sent",
               },
             );
-            if (waUpErr)
-              console.error("Falha ao gravar whatsapp_status=sent:", waUpErr);
-
             // ✅ NOVO: resolve a notificação de falha de WhatsApp, se existir
             try {
               await supabaseBrowser.rpc("resolve_notification", {
@@ -1626,9 +1591,7 @@ const clientMessageAuto = `Renovação automática via painel Admin · ${monthsT
                 p_type: "whatsapp_falha",
                 p_source_id: paymentLogId,
               });
-            } catch (e) {
-              console.error("Falha ao resolver notificação WA:", e);
-            }
+            } catch {}
           }
 
           // ✅ Usa queueToast para garantir que apareça na lista de clientes após o modal fechar
@@ -1649,8 +1612,6 @@ const clientMessageAuto = `Renovação automática via painel Admin · ${monthsT
                 p_status: "error",
               },
             );
-            if (waUpErr)
-              console.error("Falha ao gravar whatsapp_status=error:", waUpErr);
           }
 
           queueToast(
@@ -1679,9 +1640,7 @@ const clientMessageAuto = `Renovação automática via painel Admin · ${monthsT
             p_type: "transfer_aguardando",
             p_source_id: paymentLogId,
           });
-        } catch (e) {
-          console.error("Falha ao resolver notificação do sino:", e);
-        }
+        } catch {}
       }
 
       // ✅ Toast final baseado no tipo de operação

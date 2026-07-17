@@ -158,48 +158,10 @@ function getExpectedRunDateSP(baseDateStr: string, daysDiff: number) {
 // HELPERS WHATSAPP (UI)
 // =====================
 
-function extractWaNumberFromJid(jid?: unknown): string {
-  if (typeof jid !== "string") return "";
-
-  // Ex: "5521992347771:9@s.whatsapp.net"
-  // 1) remove domínio -> "5521992347771:9"
-  // 2) remove device id -> "5521992347771"
-  const raw = jid.split("@")[0]?.split(":")[0] ?? "";
-  return raw.replace(/\D/g, "");
-}
-
-function formatBRPhoneFromDigits(digits: string): string {
-  // Esperado BR: 55 + DDD(2) + número(8/9)
-  if (!digits) return "";
-
-  if (digits.startsWith("55") && digits.length >= 12) {
-    const country = digits.slice(0, 2);
-    const ddd = digits.slice(2, 4);
-    const rest = digits.slice(4); // 8 ou 9 dígitos
-
-    // 9 dígitos: 99999-9999 | 8 dígitos: 9999-9999
-    if (rest.length === 9) {
-      return `+${country} (${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
-    }
-    if (rest.length === 8) {
-      return `+${country} (${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
-    }
-
-    // fallback se vier estranho
-    return `+${country} (${ddd}) ${rest}`;
-  }
-
-  // fallback internacional
-  return `+${digits}`;
-}
-
+// ✅ Só o nome do contato (Principal/Secundário) — sem o número, que não
+// cabia nos campos pequenos dos seletores de sessão.
 function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
-  if (!profile?.connected) return `${sessionName} (Desconectado)`;
-  const digits = extractWaNumberFromJid(profile?.jid);
-  const pretty = formatBRPhoneFromDigits(digits);
-
-  // ✅ Formatação limpa: Nome da Sessão  |  Número
-  return pretty ? `${sessionName}  |  ${pretty}` : `${sessionName} (Conectado)`;
+  return profile?.connected ? sessionName : `${sessionName} (Desconectado)`;
 }
 
 // ============================================================================
@@ -270,12 +232,6 @@ function GlobalQueueMonitor({
       }
 
       const rows = (data ?? []) as any[];
-
-      console.log("[QueueMonitor] OK", {
-        tenant_id: tid,
-        count: rows.length,
-        first: rows[0] ?? null,
-      });
 
       setQueueData(rows);
       setLastUpdate(new Date());
@@ -1084,9 +1040,6 @@ const delaySecs = Math.max(rule.delay_min || 20, 15); // piso de segurança de 1
       );
       await loadData();
     } catch {
-      // ✅ Segurança: Log limpo
-      if (process.env.NODE_ENV !== "production")
-        console.error("Falha ao criar fila manual.");
       addToast(
         "error",
         "Erro ao enfileirar",
@@ -2626,9 +2579,7 @@ function LogsModal({
           p_source_id: ruleId,
         });
       }
-    } catch (e) {
-      console.error("Falha ao resolver notificação de automação:", e);
-    }
+    } catch {}
   };
 
   // Reenfileira: cria NOVOS jobs SCHEDULED (escadinha) e marca os antigos como CANCELLED
@@ -2690,9 +2641,7 @@ function LogsModal({
 
       await fetchLogs();
       await resolveIfNoMoreFailures(tid);
-    } catch (e: any) {
-      if (process.env.NODE_ENV !== "production")
-        console.error("requeue falhou:", e?.message);
+    } catch {
     } finally {
       setWorking(false);
     }
@@ -2718,9 +2667,7 @@ function LogsModal({
 
       await fetchLogs();
       await resolveIfNoMoreFailures(tid);
-    } catch (e: any) {
-      if (process.env.NODE_ENV !== "production")
-        console.error("cancel falhou:", e?.message);
+    } catch {
     } finally {
       setWorking(false);
     }

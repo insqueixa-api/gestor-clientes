@@ -189,9 +189,12 @@ function CreateNodeModal({
 
   const hasFocus = !!asChildOf;
 
+  // ✅ "Continuar" (redirect_to_node_id) removido daqui de propósito — é o
+  // mesmo mecanismo do campo "Ir para outro menu" já disponível no editor do
+  // nó, só que confundia aparecer como uma 4ª opção separada nesse momento
+  // de criação. Continua acessível depois, editando o nó.
   const LINK_OPTIONS: { value: CreateLinkKind; color: string; title: string; desc: string }[] = [
     { value: "menu", color: "bg-violet-500", title: "Menu (opção filha)", desc: "Aparece como escolha 1–8 dentro deste nó" },
-    { value: "next", color: "bg-cyan-500", title: "Continuar", desc: "Depois das mensagens, vai direto pra este novo fluxo" },
     { value: "ok", color: "bg-emerald-500", title: "Resolveu", desc: "Se o cliente disser que resolveu (1) → este nó" },
     { value: "fail", color: "bg-amber-500", title: "Não resolveu", desc: "Se não resolveu (2) → este nó" },
   ];

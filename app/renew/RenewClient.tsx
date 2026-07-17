@@ -61,16 +61,6 @@ const SERVER_GUIA_MAP: Record<string, string> = {
   "UniGestor": "TODOS",
 };
 
-// ========= SECURITY / NO-LEAK HELPERS =========
-const IS_PROD = process.env.NODE_ENV === "production";
-
-function debugLog(...args: any[]) {
-  if (!IS_PROD) console.log(...args);
-}
-function debugErr(...args: any[]) {
-  if (!IS_PROD) console.error(...args);
-}
-
 function getStoredSession() {
   if (typeof window === "undefined") return "";
   try {
@@ -416,7 +406,6 @@ export default function RenewClient() {
 
         setLoading(false);
       } catch (err: any) {
-        debugErr("Erro ao carregar dados (dev):", err?.message || err);
         setError(safeUserError(err?.message));
         setLoading(false);
       }
@@ -455,9 +444,7 @@ export default function RenewClient() {
           (k) => PERIOD_LABELS[k] === account.plan_label,
         );
         if (currentPeriod) setSelectedPeriod(currentPeriod);
-      } catch (err: any) {
-        debugErr("Erro ao carregar preços (dev):", err?.message || err);
-      }
+      } catch {}
     }
 
     loadPrices();
@@ -716,8 +703,7 @@ export default function RenewClient() {
         // pending/in_process/etc.
         setPaymentPhase("awaiting_payment");
         return;
-      } catch (err: any) {
-        debugErr("Erro ao verificar status (dev):", err?.message || err);
+      } catch {
         // continua tentando (não derruba o polling por erro de rede momentâneo)
       }
     }, 3000); // A cada 3 segundos
@@ -928,7 +914,6 @@ export default function RenewClient() {
       const result = await res.json().catch(() => null);
 
       if (!result?.ok) {
-        debugErr("create-payment error (dev):", result);
         await alertError("Não foi possível criar o pagamento. Tente novamente.");
         return;
       }
@@ -946,8 +931,7 @@ export default function RenewClient() {
       if (payment?.payment_method === "online" && payment?.payment_id) {
         startPolling(String(payment.payment_id));
       }
-    } catch (err: any) {
-      debugErr("Erro ao renovar (dev):", err?.message || err);
+    } catch {
       await alertError("Erro ao processar renovação. Tente novamente.");
     } finally {
       setIsProcessingPayment(false);

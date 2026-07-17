@@ -40,32 +40,10 @@ if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
 }
 
 // --- HELPERS WHATSAPP ---
-function extractWaNumberFromJid(jid?: unknown): string {
-  if (typeof jid !== "string") return "";
-  const raw = jid.split("@")[0]?.split(":")[0] ?? "";
-  return raw.replace(/\D/g, "");
-}
-
-function formatBRPhoneFromDigits(digits: string): string {
-  if (!digits) return "";
-  if (digits.startsWith("55") && digits.length >= 12) {
-    const country = digits.slice(0, 2);
-    const ddd = digits.slice(2, 4);
-    const rest = digits.slice(4);
-    if (rest.length === 9)
-      return `+${country} (${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
-    if (rest.length === 8)
-      return `+${country} (${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
-    return `+${country} (${ddd}) ${rest}`;
-  }
-  return `+${digits}`;
-}
-
+// ✅ Só o nome do contato (Principal/Secundário) — sem o número, que não
+// cabia nos campos pequenos dos seletores de sessão.
 function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
-  if (!profile?.connected) return `${sessionName} (não conectado)`;
-  const digits = extractWaNumberFromJid(profile?.jid);
-  const pretty = formatBRPhoneFromDigits(digits);
-  return `${sessionName} • ${pretty || "Conectado"}`;
+  return profile?.connected ? sessionName : `${sessionName} (não conectado)`;
 }
 
 // Helper para calcular diferença de dias (Fuso SP)

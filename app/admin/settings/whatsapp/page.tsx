@@ -71,6 +71,26 @@ type ChatMessage = {
   };
 };
 
+// ── Formatação do número conectado (mesmo padrão usado nas outras páginas
+// que mostram "Contato Principal/Secundário • +55 (21) 9...") ────────────
+function extractWaNumberFromJid(jid?: unknown): string {
+  if (typeof jid !== "string") return "";
+  const raw = jid.split("@")[0]?.split(":")[0] ?? "";
+  return raw.replace(/\D/g, "");
+}
+function formatBRPhoneFromDigits(digits: string): string {
+  if (!digits) return "";
+  if (digits.startsWith("55") && digits.length >= 12) {
+    const country = digits.slice(0, 2);
+    const ddd = digits.slice(2, 4);
+    const rest = digits.slice(4);
+    if (rest.length === 9) return `+${country} (${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
+    if (rest.length === 8) return `+${country} (${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
+    return `+${country} (${ddd}) ${rest}`;
+  }
+  return `+${digits}`;
+}
+
 // ── Card de sessão WhatsApp (igual ao original) ───────────────
 function WhatsAppSessionCard({
   label, apiSuffix, addToast,
@@ -86,6 +106,7 @@ function WhatsAppSessionCard({
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [pushName, setPushName] = useState<string | null>(null);
   const [pictureUrl, setPictureUrl] = useState<string | null>(null);
+  const [phoneNumber, setPhoneNumber] = useState<string | null>(null);
   const [rejectCalls, setRejectCalls] = useState(true);
   const [rejectMessage, setRejectMessage] = useState("{saudacao}! 😊\nNo momento não estou recebendo ligações. Por favor, envie mensagem e aguarde retorno.");
   const [editingMessage, setEditingMessage] = useState(false);
@@ -121,6 +142,7 @@ function WhatsAppSessionCard({
       const json = await res.json().catch(() => ({}));
       setPushName(json.pushName ?? null);
       setPictureUrl(json.pictureUrl ?? null);
+      setPhoneNumber(formatBRPhoneFromDigits(extractWaNumberFromJid(json.jid)) || null);
     } catch {}
   }
   async function fetchConfig() {
@@ -250,6 +272,7 @@ function WhatsAppSessionCard({
                 {pictureUrl ? <img src={pictureUrl} alt="Avatar" className="w-full h-full object-cover" /> : <span className="text-2xl font-medium text-muted-foreground/60">WA</span>}
               </div>
               <div className="text-center mt-3 text-base font-bold text-foreground tracking-tight truncate max-w-52">{pushName || "Aguardando"}</div>
+              {phoneNumber && <div className="text-center text-xs text-muted-foreground font-mono">{phoneNumber}</div>}
             </div>
             <div className="flex-1 min-w-0 space-y-3">
               <div className="flex items-center justify-between p-3 rounded-xl border border-border">
@@ -1446,8 +1469,8 @@ export default function WhatsAppPage() {
 
       {/* Sessões */}
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
-        <WhatsAppSessionCard label="Sessão 1" apiSuffix="" addToast={addToast} />
-        <WhatsAppSessionCard label="Sessão 2" apiSuffix="2" addToast={addToast} />
+        <WhatsAppSessionCard label="Principal" apiSuffix="" addToast={addToast} />
+        <WhatsAppSessionCard label="Secundário" apiSuffix="2" addToast={addToast} />
       </div>
 
 {/* Árvore de Atendimento — menu guiado, editável, sem depender do Gemini */}

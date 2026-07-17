@@ -31,15 +31,16 @@ function GuiaTVCliente() {
   const logged = useRef(false);
   useEffect(() => {
     if (logged.current) return;
+    if (!sessionToken) return;
     logged.current = true;
 
     fetch("/api/client-portal/guia-tv/log-access", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ servidor: servidorFiltro }),
+      body: JSON.stringify({ servidor: servidorFiltro, session_token: sessionToken }),
       cache: "no-store",
     }).catch(() => {}); // falha de log nunca deve incomodar o cliente
-  }, [servidorFiltro]);
+  }, [servidorFiltro, sessionToken]);
 
   return (
     <GuiaTVView

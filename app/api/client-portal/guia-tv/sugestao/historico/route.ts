@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
 
     const { data: sessao, error: sessaoErr } = await supabaseAdmin
       .from("client_portal_sessions")
-      .select("tenant_id")
+      .select("tenant_id, whatsapp_username")
       .eq("session_token", session_token)
       .gt("expires_at", new Date().toISOString())
       .single();
@@ -75,11 +75,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // ✅ CRÍTICO: garante que a conta pertence ao mesmo whatsapp da sessão (Principal ou Secundário)
     const { data: cliente, error: clienteErr } = await supabaseAdmin
       .from("clients")
       .select("id")
       .eq("id", conta)
       .eq("tenant_id", sessao.tenant_id)
+      .or(`whatsapp_username.eq.${sessao.whatsapp_username},secondary_whatsapp_username.eq.${sessao.whatsapp_username}`)
       .maybeSingle();
 
     if (clienteErr || !cliente) {

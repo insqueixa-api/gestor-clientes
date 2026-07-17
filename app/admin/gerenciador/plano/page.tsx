@@ -230,8 +230,6 @@ export default function PlanosPage() {
         return out;
       });
     } catch (err: any) {
-      if (process.env.NODE_ENV !== "production")
-        console.error("Falha no DELETE:", err?.message || err);
       await confirm({
         title: "Erro ao excluir",
         subtitle:

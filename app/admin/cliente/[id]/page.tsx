@@ -1273,9 +1273,7 @@ className="inline-flex items-center gap-1.5 text-emerald-500 font-medium hover:u
                   const arr = JSON.parse(raw);
                   arr.forEach((t: any) => addToast(t.type, t.title, t.message));
                   window.sessionStorage.removeItem(key);
-                } catch (e) {
-                  console.error(e);
-                }
+                } catch {}
               } else {
                 // Fallback local se não tiver nada na sessão
                 addToast(

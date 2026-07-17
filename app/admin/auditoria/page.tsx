@@ -523,9 +523,7 @@ function AuditoriaPageContent() {
           p_type: "transfer_aguardando",
           p_source_id: log.id,
         });
-      } catch (e) {
-        console.error("Falha ao resolver notificação do sino:", e);
-      }
+      } catch {}
 
       addToast(
         "success",
@@ -642,9 +640,7 @@ function AuditoriaPageContent() {
           p_type: "whatsapp_falha",
           p_source_id: log.id,
         });
-      } catch (e) {
-        console.error("Falha ao resolver notificação WA:", e);
-      }
+      } catch {}
 
       addToast(
         "success",

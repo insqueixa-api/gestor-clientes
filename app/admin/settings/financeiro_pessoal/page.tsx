@@ -850,9 +850,7 @@ function FinanceiroPageContent() {
               p_type: "fin_vencido",
               p_source_id: row.id,
             });
-          } catch (e) {
-            console.error("Falha ao resolver notificação de vencimento:", e);
-          }
+          } catch {}
         }
       } else {
         await supabaseBrowser.from("fin_transacoes").delete().eq("id", t.id);
@@ -864,9 +862,7 @@ function FinanceiroPageContent() {
             p_type: "fin_vencido",
             p_source_id: t.id,
           });
-        } catch (e) {
-          console.error("Falha ao resolver notificação de vencimento:", e);
-        }
+        } catch {}
       }
       addToast(
         "success",
@@ -3058,9 +3054,7 @@ function ModalTransacao({
                 p_type: "fin_vencido",
                 p_source_id: transacaoEdit.id,
               });
-            } catch (e) {
-              console.error("Falha ao resolver notificação de vencimento:", e);
-            }
+            } catch {}
           }
         } else {
           // 1. Atualiza a transação atual
@@ -3094,9 +3088,7 @@ function ModalTransacao({
                 p_type: "fin_vencido",
                 p_source_id: transacaoEdit.id,
               });
-            } catch (e) {
-              console.error("Falha ao resolver notificação de vencimento:", e);
-            }
+            } catch {}
           }
 
           // 2. Busca histórico oficial E faturas "órfãs" para limpeza total (À Prova de Balas)
@@ -3964,9 +3956,7 @@ function ModalBaixa({
             p_type: "fin_vencido",
             p_source_id: transacao.id,
           });
-        } catch (e) {
-          console.error("Falha ao resolver notificação de vencimento:", e);
-        }
+        } catch {}
       }
 
       // Se valor mudou E escopo = TODAS, atualiza futuras também
