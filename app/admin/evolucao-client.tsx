@@ -37,7 +37,7 @@ function fmtCell(v: number): string {
 
 type RowDef = {
   label: string;
-  key: "bar1" | "line1" | "bar2" | "line2";
+  key: "bar1" | "line1" | "bar2" | "line2" | "ajuste1" | "ajuste2";
   dot: string;
   lightColor: string;
   darkColor: string;
@@ -165,6 +165,16 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
       rowBg: isDark ? "rgba(16,185,129,0.035)" : "rgba(16,185,129,0.04)",
     },
     {
+      label: "Receita Ajustes",
+      key: "ajuste1",
+      dot: "#b45309",
+      lightColor: "#b45309",
+      darkColor: "#d97706",
+      bold: false,
+      colorValues: true,
+      rowBg: isDark ? "rgba(217,119,6,0.035)" : "rgba(217,119,6,0.04)",
+    },
+    {
       label: "Receita Executada",
       key: "line1",
       dot: "#047857",
@@ -184,6 +194,16 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
       bold: false,
       colorValues: false,
       rowBg: isDark ? "rgba(244,63,94,0.035)" : "rgba(244,63,94,0.04)",
+    },
+    {
+      label: "Despesa Ajustes",
+      key: "ajuste2",
+      dot: "#b45309",
+      lightColor: "#b45309",
+      darkColor: "#d97706",
+      bold: false,
+      colorValues: true,
+      rowBg: isDark ? "rgba(217,119,6,0.035)" : "rgba(217,119,6,0.04)",
     },
     {
       label: "Despesa Executada",
@@ -438,9 +458,17 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
               const valColor = (val: number) => {
                 if (val === 0)
                   return isDark
-                    ? "rgba(255,255,255,0.2)"
-                    : "rgba(15,23,42,0.3)";
-                return isDark ? "#e2e8f0" : "#1e293b";
+                    ? "rgba(255,255,255,0.15)"
+                    : "rgba(15,23,42,0.2)";
+                // Executado (colorValues=true): valor "cheio" na cor da linha
+                // (verde receita / vermelho despesa). Previsto: esmaecido, só
+                // pra dar contexto — o executado é o que importa de verdade.
+                if (row.colorValues) {
+                  return isDark ? row.darkColor : row.lightColor;
+                }
+                return isDark
+                  ? "rgba(255,255,255,0.38)"
+                  : "rgba(15,23,42,0.4)";
               };
 
               return (

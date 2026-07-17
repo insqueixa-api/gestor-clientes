@@ -245,6 +245,7 @@ export default async function AdminDashboardPage({
     _finMonth,
     new Date(_finYear, _finMonth, 0).getDate(),
   );
+  const _finAnoMes = `${_finYear}-${String(_finMonth).padStart(2, "0")}`;
 
   const [
     kpisRes,
@@ -340,6 +341,20 @@ export default async function AdminDashboardPage({
   const finCatById = new Map<string, { nome: string; icone: string }>();
   let finSaldoAtual = 0;
 
+  // ✅ Previsto "congelado": fotografia tirada na virada do mês (ver
+  // app/api/finance/snapshot-previsao). Se não existir ainda pro mês (ex: mês
+  // muito antigo, antes dessa funcionalidade existir), cai no cálculo ao vivo
+  // de antes como fallback.
+  type SnapshotRow = {
+    transacao_id: string | null;
+    client_id: string | null;
+    origem: "fin_transacoes" | "iptv_a_receber";
+    tipo: "RECEITA" | "DESPESA";
+    valor: number | string;
+    categoria_id: string | null;
+  };
+  let finSnapshotRows: SnapshotRow[] = [];
+
   if (myTenantId) {
     const _finNextMonthStart = isoDateFromYMD(
       _finMonth === 12 ? _finYear + 1 : _finYear,
@@ -347,7 +362,7 @@ export default async function AdminDashboardPage({
       1,
     );
 
-    const [trxRes, catRes] = await Promise.allSettled([
+    const [trxRes, catRes, snapRes] = await Promise.allSettled([
       supabase
         .from("fin_transacoes")
         .select(
@@ -362,6 +377,11 @@ export default async function AdminDashboardPage({
         .from("fin_categorias")
         .select("id, nome, icone")
         .eq("tenant_id", myTenantId),
+      supabase
+        .from("fin_previsao_snapshot")
+        .select("transacao_id, client_id, origem, tipo, valor, categoria_id")
+        .eq("tenant_id", myTenantId)
+        .eq("ano_mes", _finAnoMes),
     ]);
 
     if (trxRes.status === "fulfilled" && !trxRes.value.error) {
@@ -380,6 +400,10 @@ export default async function AdminDashboardPage({
         finCatById.set(c.id, { nome: c.nome, icone: c.icone });
       }
     } else {
+    }
+
+    if (snapRes.status === "fulfilled" && !snapRes.value.error) {
+      finSnapshotRows = (snapRes.value.data ?? []) as SnapshotRow[];
     }
 
     // Saldo atual: soma de todas as contas via RPC
@@ -416,25 +440,80 @@ export default async function AdminDashboardPage({
     .filter((t) => t.tipo === "DESPESA" && isFinPagoNoMes(t))
     .reduce((acc, t) => acc + toNumber(t.valor), 0);
 
-  const finReceitasTotal =
-    finTrxRows
-      .filter(
-        (t) =>
-          t.tipo === "RECEITA" &&
-          t.data_vencimento >= _finMonthStart &&
-          t.data_vencimento <= _finMonthEnd,
-      )
-      .reduce((acc, t) => acc + toNumber(t.valor), 0) +
-    toNumber(finance?.to_receive_brl_estimated);
+  const hasSnapshot = finSnapshotRows.length > 0;
 
-  const finDespesasTotal = finTrxRows
-    .filter(
-      (t) =>
-        t.tipo === "DESPESA" &&
-        t.data_vencimento >= _finMonthStart &&
-        t.data_vencimento <= _finMonthEnd,
-    )
-    .reduce((acc, t) => acc + toNumber(t.valor), 0);
+  // ✅ Previsto = fotografia congelada da virada do mês (não recalcula mais ao
+  // vivo). Sem fotografia pro mês, cai no cálculo antigo como fallback.
+  const finReceitasTotal = hasSnapshot
+    ? finSnapshotRows
+        .filter((s) => s.tipo === "RECEITA")
+        .reduce((acc, s) => acc + toNumber(s.valor), 0)
+    : finTrxRows
+        .filter(
+          (t) =>
+            t.tipo === "RECEITA" &&
+            t.data_vencimento >= _finMonthStart &&
+            t.data_vencimento <= _finMonthEnd,
+        )
+        .reduce((acc, t) => acc + toNumber(t.valor), 0) +
+      toNumber(finance?.to_receive_brl_estimated);
+
+  const finDespesasTotal = hasSnapshot
+    ? finSnapshotRows
+        .filter((s) => s.tipo === "DESPESA")
+        .reduce((acc, s) => acc + toNumber(s.valor), 0)
+    : finTrxRows
+        .filter(
+          (t) =>
+            t.tipo === "DESPESA" &&
+            t.data_vencimento >= _finMonthStart &&
+            t.data_vencimento <= _finMonthEnd,
+        )
+        .reduce((acc, t) => acc + toNumber(t.valor), 0);
+
+  // ✅ Ajustes = surgiu depois da fotografia (conta nova, receita não
+  // programada). Lançamentos manuais (fin_transacoes) comparam por id direto;
+  // o "a receber" do IPTV compara pelo total ao vivo da view menos o que já
+  // tinha sido fotografado (não dá pra saber o id de cada cliente aqui sem
+  // buscar a lista toda de novo, então usamos a diferença dos totais).
+  const snapshotTransacaoIds = new Set(
+    finSnapshotRows
+      .filter((s) => s.origem === "fin_transacoes" && s.transacao_id)
+      .map((s) => s.transacao_id as string),
+  );
+  const snapshotIptvTotal = finSnapshotRows
+    .filter((s) => s.origem === "iptv_a_receber")
+    .reduce((acc, s) => acc + toNumber(s.valor), 0);
+
+  const ajustesTransacoesReceita = hasSnapshot
+    ? finTrxRows
+        .filter(
+          (t) =>
+            t.tipo === "RECEITA" &&
+            t.data_vencimento >= _finMonthStart &&
+            t.data_vencimento <= _finMonthEnd &&
+            !snapshotTransacaoIds.has(t.id),
+        )
+        .reduce((acc, t) => acc + toNumber(t.valor), 0)
+    : 0;
+
+  const ajustesIptv = hasSnapshot
+    ? Math.max(0, toNumber(finance?.to_receive_brl_estimated) - snapshotIptvTotal)
+    : 0;
+
+  const finReceitasAjustes = ajustesTransacoesReceita + ajustesIptv;
+
+  const finDespesasAjustes = hasSnapshot
+    ? finTrxRows
+        .filter(
+          (t) =>
+            t.tipo === "DESPESA" &&
+            t.data_vencimento >= _finMonthStart &&
+            t.data_vencimento <= _finMonthEnd &&
+            !snapshotTransacaoIds.has(t.id),
+        )
+        .reduce((acc, t) => acc + toNumber(t.valor), 0)
+    : 0;
 
   const finReceitasPendentes = finTrxRows
     .filter(
@@ -456,58 +535,87 @@ export default async function AdminDashboardPage({
     )
     .reduce((acc, t) => acc + toNumber(t.valor), 0);
 
-  // Rankings por categoria (Separando Previsto e Executado)
+  // Rankings por categoria (Previsto congelado / Ajustes / Executado)
   const catRevPrevMap = new Map<string, { label: string; value: number }>();
   const catRevExecMap = new Map<string, { label: string; value: number }>();
   const catExpPrevMap = new Map<string, { label: string; value: number }>();
   const catExpExecMap = new Map<string, { label: string; value: number }>();
+  const catRevAjusteMap = new Map<string, { label: string; value: number }>();
+  const catExpAjusteMap = new Map<string, { label: string; value: number }>();
 
   const _finTodayIso = isoDateFromYMD(_finYear, _finMonth, _finToday.getDate());
 
+  const iptvCatEntry = Array.from(finCatById.entries()).find(([, v]) =>
+    v.nome.toLowerCase().includes("iptv"),
+  );
+  const iptvLabel = iptvCatEntry
+    ? `${iptvCatEntry[1].icone} ${iptvCatEntry[1].nome}`
+    : "📡 IPTV";
+  const iptvKey = iptvCatEntry ? iptvCatEntry[0] : "__iptv__";
+
+  const catLabel = (categoriaId: string | null) => {
+    const cat = categoriaId ? finCatById.get(categoriaId) : null;
+    return cat ? `${cat.icone} ${cat.nome}` : "📦 Sem categoria";
+  };
+
+  if (hasSnapshot) {
+    // Previsto: direto da fotografia (nunca recalcula)
+    for (const s of finSnapshotRows) {
+      const map = s.tipo === "RECEITA" ? catRevPrevMap : catExpPrevMap;
+      const key = s.origem === "iptv_a_receber" ? iptvKey : (s.categoria_id ?? "__none__");
+      const label = s.origem === "iptv_a_receber" ? iptvLabel : catLabel(s.categoria_id);
+      const prev = map.get(key) ?? { label, value: 0 };
+      map.set(key, { ...prev, value: prev.value + toNumber(s.valor) });
+    }
+
+    // Ajustes: fin_transacoes que apareceram depois da fotografia
+    for (const t of finTrxRows) {
+      const inMonth =
+        t.data_vencimento >= _finMonthStart && t.data_vencimento <= _finMonthEnd;
+      if (!inMonth || snapshotTransacaoIds.has(t.id)) continue;
+      const map = t.tipo === "RECEITA" ? catRevAjusteMap : catExpAjusteMap;
+      const key = t.categoria_id ?? "__none__";
+      const label = catLabel(t.categoria_id);
+      const prev = map.get(key) ?? { label, value: 0 };
+      map.set(key, { ...prev, value: prev.value + toNumber(t.valor) });
+    }
+    // Ajuste do IPTV (delta do "a receber" ao vivo vs. o que foi fotografado)
+    if (ajustesIptv > 0) {
+      catRevAjusteMap.set(iptvKey, { label: iptvLabel, value: ajustesIptv });
+    }
+  } else {
+    // Fallback (mês sem fotografia ainda): comportamento antigo, tudo ao vivo
+    for (const t of finTrxRows) {
+      const inPrev =
+        t.data_vencimento >= _finMonthStart && t.data_vencimento <= _finMonthEnd;
+      if (!inPrev) continue;
+      const map = t.tipo === "RECEITA" ? catRevPrevMap : catExpPrevMap;
+      const key = t.categoria_id ?? "__none__";
+      const label = catLabel(t.categoria_id);
+      const prev = map.get(key) ?? { label, value: 0 };
+      map.set(key, { ...prev, value: prev.value + toNumber(t.valor) });
+    }
+    const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
+    if (_toReceiveVal > 0 && iptvCatEntry) {
+      const prev = catRevPrevMap.get(iptvKey) ?? { label: iptvLabel, value: 0 };
+      catRevPrevMap.set(iptvKey, { ...prev, value: prev.value + _toReceiveVal });
+    }
+  }
+
+  // Executado: sempre ao vivo (pago de verdade), não muda com a fotografia
   for (const t of finTrxRows) {
     const dpDate = t.data_pagamento ? t.data_pagamento.split("T")[0] : null;
-
-    // Executado: PAGO com data_pagamento no mês (normalizado para evitar bug do último dia)
     const inExec =
       t.status === "PAGO" &&
       !!dpDate &&
       dpDate >= _finMonthStart &&
       dpDate <= _finMonthEnd;
-
-    // Previsto: vencimento no mês (independente de status ou data de pagamento)
-    const inPrev =
-      t.data_vencimento >= _finMonthStart && t.data_vencimento <= _finMonthEnd;
-
-    if (!inPrev && !inExec) continue;
-
-    const cat = t.categoria_id ? finCatById.get(t.categoria_id) : null;
-    const label = cat ? `${cat.icone} ${cat.nome}` : "📦 Sem categoria";
+    if (!inExec) continue;
+    const map = t.tipo === "RECEITA" ? catRevExecMap : catExpExecMap;
     const key = t.categoria_id ?? "__none__";
-    const val = toNumber(t.valor);
-
-    if (inPrev) {
-      const map = t.tipo === "RECEITA" ? catRevPrevMap : catExpPrevMap;
-      const prev = map.get(key) ?? { label, value: 0 };
-      map.set(key, { ...prev, value: prev.value + val });
-    }
-    if (inExec) {
-      const map = t.tipo === "RECEITA" ? catRevExecMap : catExpExecMap;
-      const prev = map.get(key) ?? { label, value: 0 };
-      map.set(key, { ...prev, value: prev.value + val });
-    }
-  }
-
-const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
-  if (_toReceiveVal > 0) {
-    const iptvCat = Array.from(finCatById.entries()).find(([, v]) =>
-      v.nome.toLowerCase().includes("iptv"),
-    );
-    if (iptvCat) {
-      const [iptvKey, iptvMeta] = iptvCat;
-      const label = `${iptvMeta.icone} ${iptvMeta.nome}`;
-      const prev = catRevPrevMap.get(iptvKey) ?? { label, value: 0 };
-      catRevPrevMap.set(iptvKey, { ...prev, value: prev.value + _toReceiveVal });
-    }
+    const label = catLabel(t.categoria_id);
+    const prev = map.get(key) ?? { label, value: 0 };
+    map.set(key, { ...prev, value: prev.value + toNumber(t.valor) });
   }
 
   const getTop5 = (map: Map<string, { label: string; value: number }>) =>
@@ -515,6 +623,8 @@ const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
 
+  const finCatRevAjusteItems = getTop5(catRevAjusteMap);
+  const finCatExpAjusteItems = getTop5(catExpAjusteMap);
   const finCatRevPrevItems = getTop5(catRevPrevMap);
   const finCatRevExecItems = getTop5(catRevExecMap);
   const finCatExpPrevItems = getTop5(catExpPrevMap);
@@ -932,7 +1042,16 @@ const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
               leftValue={fmtBRL(finReceitasPagas)}
               rightLabel="A Receber"
               rightValue={fmtBRL(finReceitasPendentes)}
-              footer={`Previsão total: ${fmtBRL(finReceitasTotal)}`}
+              footer={
+                <div className="flex flex-col gap-0.5">
+                  <span>Previsão (congelada): {fmtBRL(finReceitasTotal)}</span>
+                  {finReceitasAjustes > 0 && (
+                    <span className="text-amber-500">
+                      + Ajustes: {fmtBRL(finReceitasAjustes)}
+                    </span>
+                  )}
+                </div>
+              }
             />
             <MetricCardView
               title="📉 Despesas do Mês"
@@ -941,7 +1060,16 @@ const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
               leftValue={fmtBRL(finDespesasPagas)}
               rightLabel="A Pagar"
               rightValue={fmtBRL(finDespesasPendentes)}
-              footer={`Previsão total: ${fmtBRL(finDespesasTotal)}`}
+              footer={
+                <div className="flex flex-col gap-0.5">
+                  <span>Previsão (congelada): {fmtBRL(finDespesasTotal)}</span>
+                  {finDespesasAjustes > 0 && (
+                    <span className="text-amber-500">
+                      + Ajustes: {fmtBRL(finDespesasAjustes)}
+                    </span>
+                  )}
+                </div>
+              }
             />
             <MetricCardView
               title="📊 Saldo do Mês"
@@ -973,6 +1101,7 @@ const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
                   <RankingCard
                     title="Receitas por Categoria"
                     itemsPrevisto={finCatRevPrevItems}
+                    itemsAjustes={finCatRevAjusteItems}
                     itemsExecutado={finCatRevExecItems}
                     accentColor="emerald"
                     mode="currency"
@@ -985,6 +1114,7 @@ const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
                   <RankingCard
                     title="Despesas por Categoria"
                     itemsPrevisto={finCatExpPrevItems}
+                    itemsAjustes={finCatExpAjusteItems}
                     itemsExecutado={finCatExpExecItems}
                     accentColor="rose"
                     mode="currency"

@@ -5,10 +5,12 @@ import { EvolucaoFinanceiraClient } from "./evolucao-client";
 export type MonthData = {
   label: string;
   key: string;
-  bar1: number; // Receita Prevista
-  bar2: number; // Despesa Prevista
+  bar1: number; // Receita Prevista (congelada, quando houver fotografia)
+  bar2: number; // Despesa Prevista (congelada, quando houver fotografia)
   line1: number; // Receita Executada
   line2: number; // Despesa Executada
+  ajuste1: number; // Receita: surgiu depois da fotografia
+  ajuste2: number; // Despesa: surgiu depois da fotografia
 };
 
 export default async function EvolucaoFinanceira({
@@ -45,7 +47,7 @@ export default async function EvolucaoFinanceira({
   // 2. Buscar transações
   const { data: finData, error } = await supabase
     .from("fin_transacoes")
-    .select("tipo, valor, status, data_vencimento, data_pagamento")
+    .select("id, tipo, valor, status, data_vencimento, data_pagamento")
     .eq("tenant_id", myTenantId)
     .or(
       `and(data_vencimento.gte.${startDate},data_vencimento.lte.${endDate}),` +
@@ -54,20 +56,60 @@ export default async function EvolucaoFinanceira({
 
   if (error) console.error("[EvolucaoFinanceira]", error);
 
+  // 2b. Buscar fotografias já tiradas (Previsto congelado) pros meses do período
+  const { data: snapData, error: snapError } = await supabase
+    .from("fin_previsao_snapshot")
+    .select("ano_mes, transacao_id, origem, tipo, valor")
+    .eq("tenant_id", myTenantId)
+    .in("ano_mes", months.map((m) => m.key));
+
+  if (snapError) console.error("[EvolucaoFinanceira][snapshot]", snapError);
+
+  const snapByMonth = new Map<
+    string,
+    { receita: number; despesa: number; transacaoIds: Set<string> }
+  >();
+  snapData?.forEach((s) => {
+    const bucket =
+      snapByMonth.get(s.ano_mes) ??
+      { receita: 0, despesa: 0, transacaoIds: new Set<string>() };
+    const val = Number(s.valor) || 0;
+    if (s.tipo === "RECEITA") bucket.receita += val;
+    if (s.tipo === "DESPESA") bucket.despesa += val;
+    if (s.origem === "fin_transacoes" && s.transacao_id) bucket.transacaoIds.add(s.transacao_id);
+    snapByMonth.set(s.ano_mes, bucket);
+  });
+
   // 3. Agregar por mês
   const chartData: MonthData[] = months.map((m) => {
     let bar1 = 0,
       bar2 = 0,
       line1 = 0,
-      line2 = 0;
+      line2 = 0,
+      ajuste1 = 0,
+      ajuste2 = 0;
+
+    const snap = snapByMonth.get(m.key);
+    const hasSnapshot = !!snap;
+    if (snap) {
+      bar1 = snap.receita;
+      bar2 = snap.despesa;
+    }
 
     finData?.forEach((row) => {
       const val = Number(row.valor) || 0;
 
       // Previsão: data_vencimento no mês
       if (row.data_vencimento?.startsWith(m.key)) {
-        if (row.tipo === "RECEITA") bar1 += val;
-        if (row.tipo === "DESPESA") bar2 += val;
+        if (!hasSnapshot) {
+          // Sem fotografia pra esse mês (ainda): mantém o cálculo antigo, ao vivo
+          if (row.tipo === "RECEITA") bar1 += val;
+          if (row.tipo === "DESPESA") bar2 += val;
+        } else if (!snap!.transacaoIds.has(row.id)) {
+          // Com fotografia: o que não estava nela é Ajuste, não Previsto
+          if (row.tipo === "RECEITA") ajuste1 += val;
+          if (row.tipo === "DESPESA") ajuste2 += val;
+        }
       }
 
       // Executado: PAGO com data_pagamento no mês (normaliza timestamp)
@@ -80,7 +122,7 @@ export default async function EvolucaoFinanceira({
       }
     });
 
-    return { label: m.label, key: m.key, bar1, bar2, line1, line2 };
+    return { label: m.label, key: m.key, bar1, bar2, line1, line2, ajuste1, ajuste2 };
   });
 
   return <EvolucaoFinanceiraClient data={chartData} />;

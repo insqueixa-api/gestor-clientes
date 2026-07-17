@@ -16,6 +16,7 @@ interface RankingCardProps {
   subtitle?: string;
   items?: BarItem[]; // ✅ Agora opcional
   itemsPrevisto?: BarItem[]; // ✅ Novo
+  itemsAjustes?: BarItem[]; // ✅ Surgiu depois da fotografia do Previsto
   itemsExecutado?: BarItem[]; // ✅ Novo
   accentColor?: AccentColor;
   valueLabel?: string;
@@ -110,6 +111,7 @@ export function RankingCard({
   subtitle,
   items = [],
   itemsPrevisto,
+  itemsAjustes,
   itemsExecutado,
   accentColor = "sky",
   valueLabel,
@@ -117,7 +119,9 @@ export function RankingCard({
   mode = "count",
 }: RankingCardProps) {
   // ✅ Controle da visão ativa
-  const [view, setView] = useState<"previsto" | "executado">("executado");
+  const [view, setView] = useState<"previsto" | "ajustes" | "executado">(
+    "executado",
+  );
 
   const defaultFormat = mode === "currency" ? fmtBRL : fmtInt;
   const fmt = formatValue ?? defaultFormat;
@@ -125,12 +129,15 @@ export function RankingCard({
 
   // ✅ Se o componente receber as duas props do financeiro, ativa o toggle
   const hasToggle = !!itemsPrevisto && !!itemsExecutado;
+  const hasAjustes = !!itemsAjustes && itemsAjustes.length > 0;
 
   // ✅ Define qual array de dados usar (O selecionado ou o padrão)
   const currentItems = hasToggle
     ? view === "previsto"
       ? itemsPrevisto
-      : itemsExecutado
+      : view === "ajustes"
+        ? (itemsAjustes ?? [])
+        : itemsExecutado
     : items;
 
   // Usa o currentItems para calcular o tamanho da barra
@@ -164,6 +171,18 @@ export function RankingCard({
             >
               Previsto
             </button>
+            {hasAjustes && (
+              <button
+                onClick={() => setView("ajustes")}
+                className={`px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider rounded-md transition-all ${
+                  view === "ajustes"
+                    ? "bg-muted text-foreground shadow-sm"
+                    : "text-amber-500 hover:text-amber-400"
+                }`}
+              >
+                Ajustes
+              </button>
+            )}
             <button
               onClick={() => setView("executado")}
               className={`px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider rounded-md transition-all ${
@@ -182,7 +201,13 @@ export function RankingCard({
       <div className="px-5 py-4 space-y-3">
         {currentItems.length === 0 && (
           <p className="text-muted-foreground text-sm py-2">
-            Sem dados {view === "previsto" ? "previstos" : "executados"}.
+            Sem dados{" "}
+            {view === "previsto"
+              ? "previstos"
+              : view === "ajustes"
+                ? "de ajustes"
+                : "executados"}
+            .
           </p>
         )}
 
