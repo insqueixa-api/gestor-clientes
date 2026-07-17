@@ -33,6 +33,7 @@ function isPlausibleSessionToken(t: string) {
 }
 
 // ✅ log “cego”: nada de imprimir erro do supabase / stack em produção
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function safeServerLog(...args: any[]) {
   if (process.env.NODE_ENV !== "production") {
     // em dev, ok logar pra depurar
@@ -99,7 +100,7 @@ export async function POST(req: NextRequest) {
           admin_whatsapp = profileData[0].whatsapp_username;
         }
       }
-    } catch (e) {
+    } catch {
       safeServerLog("validate-session: falha ao buscar whatsapp do admin");
     }
 

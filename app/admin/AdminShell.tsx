@@ -172,7 +172,7 @@ const [notifications, setNotifications] = useState<Notification[]>([]); // ✅ v
         if (!error && data) {
           setNotifications(data as Notification[]);
         }
-      } catch (e) {}
+      } catch {}
     };
 
     loadNotifications();
@@ -260,7 +260,7 @@ const [notifications, setNotifications] = useState<Notification[]>([]); // ✅ v
           .from("notifications")
           .update({ archived_at: new Date().toISOString() })
           .in("id", dbIds);
-      } catch (e) {}
+      } catch {}
     }
     setNotifications([]);
   };
@@ -280,7 +280,7 @@ const handleSync = () => {
         .from("notifications")
         .update({ is_read: false })
         .eq("id", id);
-    } catch (e) {}
+    } catch {}
   };
 
   const handleDismiss = async (e: React.MouseEvent, id: string) => {
@@ -292,7 +292,7 @@ const handleSync = () => {
         .from("notifications")
         .update({ archived_at: new Date().toISOString() })
         .eq("id", id);
-    } catch (e) {}
+    } catch {}
   };
 
   const handleNotificationClick = async (n: Notification) => {
@@ -306,7 +306,7 @@ const handleSync = () => {
         .from("notifications")
         .update({ is_read: true })
         .eq("id", n.id);
-    } catch (e) {}
+    } catch {}
 
     window.location.href = n.link;
   };

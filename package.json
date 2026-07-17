@@ -6,7 +6,7 @@
     "dev": "next dev --webpack",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint ."
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1041.0",
@@ -23,11 +23,11 @@
     "dayjs": "^1.11.19",
     "fetch-cookie": "^3.2.0",
     "lucide-react": "^0.577.0",
-    "next": "16.0.10",
-    "nodemailer": "^8.0.8",
+    "next": "16.2.10",
+    "nodemailer": "^9.0.3",
     "qrcode": "^1.5.4",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
     "resend": "^6.12.3",
     "tough-cookie": "^6.0.0",
     "xlsx": "^0.18.5",
@@ -42,7 +42,7 @@
     "@types/react-dom": "^19",
     "@types/xml2js": "^0.4.14",
     "eslint": "^9",
-    "eslint-config-next": "16.0.10",
+    "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

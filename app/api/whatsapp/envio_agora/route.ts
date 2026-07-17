@@ -15,6 +15,7 @@ import {
   renderTemplate,
 } from "@/lib/whatsapp/template-vars";
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function safeServerLog(...args: any[]) {
   if (process.env.NODE_ENV !== "production") {
   }

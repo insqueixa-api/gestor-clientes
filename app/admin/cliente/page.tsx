@@ -15,6 +15,7 @@ import {
   Bell,
   RefreshCcw,
   Timer,
+  Trash2,
 } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
@@ -573,7 +574,7 @@ const [pageSize, setPageSize] = useState(50);
       }
 
       setSessionOptions(options);
-    } catch (e) {}
+    } catch {}
   }
 
   // ✅ Templates (mensagens prontas)
@@ -895,7 +896,7 @@ const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
         "Copiado",
         "Valor copiado para a área de transferência.",
       );
-    } catch (e) {
+    } catch {
       addToast(
         "error",
         "Falha ao copiar",
@@ -1299,7 +1300,7 @@ const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
           dbM3uUrl = (data as any).m3u_url ?? undefined;
         }
       }
-    } catch (e) {}
+    } catch {}
 
     const payload: ClientData = {
       id: r.id,
@@ -1390,7 +1391,7 @@ const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
         goingToArchive ? "Cliente arquivado" : "Cliente restaurado",
       );
       loadData();
-    } catch (e: unknown) {
+    } catch {
       addToast(
         "error",
         "Ação não permitida",
@@ -1433,7 +1434,7 @@ const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
 
       addToast("success", "Excluído", "Cliente removido definitivamente.");
       loadData();
-    } catch (e: any) {
+    } catch {
       addToast(
         "error",
         "Ação não permitida",
@@ -1695,7 +1696,7 @@ const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
         tenantId,
         rows.map((x) => x.id),
       );
-    } catch (e: any) {
+    } catch {
       addToast(
         "error",
         "Falha no Agendamento",
@@ -3737,21 +3738,7 @@ function IconBell() {
   return <Bell className="w-4 h-4" />;
 }
 function IconTrash() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-    </svg>
-  );
+  return <Trash2 className="w-4 h-4" />;
 }
 function IconRestore() {
   return <RefreshCcw className="w-4 h-4" />;

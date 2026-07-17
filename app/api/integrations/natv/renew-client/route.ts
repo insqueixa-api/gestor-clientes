@@ -8,6 +8,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // Adiciona no topo do arquivo
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function safeServerLog(...args: any[]) {
   if (process.env.NODE_ENV !== "production") {
   }
@@ -154,7 +155,7 @@ const { data: integ, error: integErr } = await integQuery.single();
         credits: apiJson?.owner?.credits ?? null,
       },
     });
-  } catch (err) {
+  } catch {
     // log “cego”
     safeServerLog("NATV renew: crash");
     return jsonError(500, "Erro interno");

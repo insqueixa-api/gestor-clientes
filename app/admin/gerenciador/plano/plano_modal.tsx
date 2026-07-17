@@ -84,7 +84,7 @@ function queueListToast(toast: {
     const arr = raw ? (JSON.parse(raw) as any[]) : [];
     arr.push({ ...toast, ts: Date.now() });
     window.sessionStorage.setItem(key, JSON.stringify(arr));
-  } catch (e) {}
+  } catch {}
 }
 
 export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
@@ -252,7 +252,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
         });
         setItems(emptyItems);
       }
-    } catch (err) {
+    } catch {
     } finally {
       setLoading(false);
     }

@@ -30,7 +30,7 @@ function queueToast(
     const arr = raw ? JSON.parse(raw) : [];
     arr.push({ type, title, message, ts: Date.now() });
     window.sessionStorage.setItem(key, JSON.stringify(arr));
-  } catch (e) {}
+  } catch {}
 }
 
 type ResellerServerRow = {
@@ -259,7 +259,7 @@ export default function QuickRechargeModal({
       }
 
       setSessionOptions(options);
-    } catch (e) {}
+    } catch {}
   }
 
   // --- Lógica derivada ---
@@ -655,7 +655,7 @@ export default function QuickRechargeModal({
             "Mensagem Enviada",
             "A recarga foi feita e o comprovante entregue no WhatsApp.",
           );
-        } catch (e) {
+        } catch {
           queueToast(
             "error",
             "Recarga Feita",

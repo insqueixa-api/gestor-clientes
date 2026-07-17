@@ -4,11 +4,11 @@ import {
   CreditCard,
   Pencil,
   RefreshCcw,
-  Clock,
   Network,
-  Globe,
   EyeOff,
   Eye,
+  Trash2,
+  MessageCircle,
 } from "lucide-react";
 
 import React, { useEffect, useState } from "react";
@@ -64,21 +64,6 @@ export type ServerRow = {
     trial: number;
     resellers: number;
   };
-};
-
-type ClientLight = {
-  server_id: string | null;
-  computed_status: string;
-  client_is_archived: boolean;
-};
-
-type TrialClientLight = {
-  server_id: string | null;
-  is_archived: boolean;
-};
-
-type ResellerLinkView = {
-  server_id: string;
 };
 
 export default function AdminServersPage() {
@@ -289,7 +274,7 @@ export default function AdminServersPage() {
 
       // ✅ Salva no state da página
       setServers(mergedServers);
-    } catch (error) {
+    } catch {
       // addToast("error", "Erro", "Não foi possível carregar os servidores."); (Opcional se você tiver Toast aqui)
     } finally {
       setLoading(false);
@@ -678,7 +663,7 @@ async function handleToggleOffline(server: ServerRow) {
 
       addToast("success", "Excluído", "Servidor removido definitivamente.");
       fetchServers();
-    } catch (error: any) {
+    } catch {
       // ✅ BLINDADO: Não vaza o objeto de erro inteiro no navegador do cliente
       addToast(
         "error",
@@ -952,7 +937,7 @@ async function handleToggleOffline(server: ServerRow) {
                           viewBox="0 0 24 24"
                           fill="none"
                           stroke="currentColor"
-                          strokeWidth="1.5"
+                          strokeWidth="2.5"
                           strokeLinecap="round"
                           strokeLinejoin="round"
                         >
@@ -975,7 +960,7 @@ async function handleToggleOffline(server: ServerRow) {
                           fill="none"
                           viewBox="0 0 24 24"
                           stroke="currentColor"
-                          strokeWidth={1.5}
+                          strokeWidth={2.5}
                         >
                           <path
                             strokeLinecap="round"
@@ -1300,21 +1285,7 @@ function IconEdit() {
   return <Pencil className="w-4 h-4" />;
 }
 function IconTrash() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-    </svg>
-  );
+  return <Trash2 className="w-4 h-4" />;
 }
 function IconRestore() {
   return <RefreshCcw className="w-4 h-4" />;
@@ -1336,20 +1307,7 @@ function IconDetails() {
   );
 }
 function IconChat() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="#4ade80"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-    </svg>
-  );
+  return <MessageCircle className="w-4 h-4" />;
 }
 
 // Ícone LIGADO (Verde, com raio)

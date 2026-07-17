@@ -218,8 +218,6 @@ export default function ProfileSettingsPage() {
   const [actionModal, setActionModal] = useState<
     "export" | "template" | "import" | null
   >(null);
-  const [showFinanceiroExportModal, setShowFinanceiroExportModal] =
-    useState(false);
 
   type WaValidation = {
     loading: boolean;
@@ -488,15 +486,6 @@ async function handleSave() {
     return "text-rose-500";
   };
 
-  const getImcStrokeColor = (imc: number) => {
-    if (imc <= 0) return "#94a3b8";
-    if (imc < 18.5) return "#f59e0b";
-    if (imc < 25) return "#10b981";
-    if (imc < 30) return "#f59e0b";
-    return "#f43f5e";
-  };
-
-  
 
   // --- FUNÇÕES DE IMPORTAÇÃO/EXPORTAÇÃO ---
   async function handleExportApps() {
@@ -591,28 +580,6 @@ async function handleSave() {
     } catch {
     } finally {
       setImportingServer(false);
-    }
-  }
-  async function handleExportFinanceiro(years: number[], status: string) {
-    if (!tenantId) return;
-    setShowFinanceiroExportModal(false);
-    setExporting(true);
-    try {
-      const params = new URLSearchParams({ tenant_id: tenantId });
-      if (years.length > 0) params.set("years", years.join(","));
-      if (status !== "todos") params.set("status", status);
-      const res = await fetch(
-        `/api/import_export/financeiro/export?${params.toString()}`,
-      );
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `financeiro_export.xlsx`;
-      a.click();
-    } catch {
-    } finally {
-      setExporting(false);
     }
   }
   function handleDownloadTemplateFinanceiro() {
@@ -1785,7 +1752,7 @@ className="flex-1 h-10 border border-border text-muted-foreground font-medium ro
                             <g
                               key={i}
                               style={{ cursor: "pointer" }}
-                              onMouseEnter={(e) =>
+                              onMouseEnter={() =>
                                 setHoveredPt({ i, x: xs[i], y: wYs[i] })
                               }
                               onMouseLeave={() => setHoveredPt(null)}
@@ -1955,11 +1922,10 @@ className="flex-1 h-10 border border-border text-muted-foreground font-medium ro
                   n: "Controle Financeiro",
                   icon: "💰",
                   act: () => {
-                    if (actionModal === "export")
-                      setShowFinanceiroExportModal(true);
-                    else if (actionModal === "template")
+                    if (actionModal === "template")
                       handleDownloadTemplateFinanceiro();
-                    else importFinanceiroFileRef.current?.click();
+                    else if (actionModal !== "export")
+                      importFinanceiroFileRef.current?.click();
                   },
                 },
               ].map((item, idx) => (

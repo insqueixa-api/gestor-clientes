@@ -156,7 +156,7 @@ export default function PlanosPage() {
         }
         return out;
       });
-    } catch (error) {
+    } catch {
     } finally {
       setLoading(false);
       checkQueuedToasts(); // ✅ Puxa os alertas da fila e exibe

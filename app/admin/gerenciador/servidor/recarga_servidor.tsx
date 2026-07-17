@@ -133,7 +133,7 @@ export default function RecargaServidorModal({
             setFxRate(String(fx));
           }
         }
-      } catch (e) {
+      } catch {
         // silencioso — se falhar, mantém os defaults
       }
     }
@@ -162,7 +162,7 @@ export default function RecargaServidorModal({
           if (currency === "USD") setFxRate(data.usd_to_brl?.toString() || "1");
           if (currency === "EUR") setFxRate(data.eur_to_brl?.toString() || "1");
         }
-      } catch (err) {
+      } catch {
         // ✅ Segurança: Limpeza de log. Se falhar, assume 1, mas nunca imprime detalhes de erro no cliente.
         if (process.env.NODE_ENV !== "production")
           console.error("Falha ao atualizar câmbio.");

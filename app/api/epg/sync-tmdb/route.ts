@@ -224,7 +224,7 @@ export async function POST(req: NextRequest) {
         }).eq("id", titulo.id);
 
         encontrados++;
-      } catch (e: any) {
+      } catch {
         await supabaseAdmin.from("catalog_master").update({ tmdb_buscado_em: agora }).eq("id", titulo.id);
         nao_encontrados++;
       }

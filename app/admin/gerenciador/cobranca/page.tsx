@@ -1082,7 +1082,7 @@ const delaySecs = Math.max(rule.delay_min || 20, 15); // piso de segurança de 1
         `${inserts.length} mensagens foram agendadas. O envio ocorrerá gradualmente.`,
       );
       await loadData();
-    } catch (err: any) {
+    } catch {
       // ✅ Segurança: Log limpo
       if (process.env.NODE_ENV !== "production")
         console.error("Falha ao criar fila manual.");

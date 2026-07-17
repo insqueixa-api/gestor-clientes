@@ -69,14 +69,14 @@ export async function GET(req: Request) {
     try {
       const data = await tryFrankfurter(base, to);
       return NextResponse.json({ base, to, ...data });
-    } catch (err1) {
+    } catch {
     }
 
     // 3. Tenta AwesomeAPI (Backup)
     try {
       const data = await tryAwesomeApi(base, to);
       return NextResponse.json({ base, to, ...data });
-    } catch (err2) {
+    } catch {
     }
 
     // 4. Se tudo falhar, retorna erro 500 (O Front usará o fallback 5 ou 6)

@@ -23,27 +23,6 @@ export type EntradaCatalogo = {
   episodio?:          number;
 };
 
-// ─── Qualidade: peso para desduplicar canais ──────────────────────────────────
-function qualidadePeso(nome: string): number {
-  const u = nome.toUpperCase();
-  if (u.includes("4K"))                          return 5;
-  if (u.includes("FHD"))                         return 4;
-  if (u.includes("H265") || u.includes("H.265")) return 3;
-  if (u.includes("[HD]") || u.includes(" HD"))   return 2;
-  return 1;
-}
-
-// ─── Normalização de nome de canal ────────────────────────────────────────────
-function normalizarCanal(nome: string): string {
-  return nome
-    .toUpperCase()
-    .replace(/\s*\[?(4K|FHD|FHD\*|FHDR|H265|H\.265|HD|SD)\]?\s*/gi, " ")
-    .replace(/\s*\*+\s*$/g, "")
-    .replace(/\s+(BR|H265²|HD²|²|³)\s*$/gi, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 // ─── Remove acentos e normaliza para comparação ───────────────────────────────
 // Garante que "PERMISSÃO" e "PERMISSAO" viram o mesmo título no banco
 function removerAcentos(s: string): string {
@@ -257,11 +236,6 @@ export function normalizarTituloBusca(titulo: string): string {
     .trim();
 }
 
-// ─── Constrói URL do M3U ──────────────────────────────────────────────────────
-export function buildM3UUrl(dns: string[], username: string, password: string): string {
-  const base = dns[0].replace(/\/$/, "");
-  return `${base}/get.php?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&type=m3u_plus`;
-}
 
 // ─── Stats do parse para o log ────────────────────────────────────────────────
 export function statsDoparse(entradas: EntradaCatalogo[]) {

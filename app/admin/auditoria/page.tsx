@@ -1382,7 +1382,7 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
     addToast("success", "Auditoria Atualizada", "Renovação confirmada na Auditoria!");
     setRenewState(null);
     loadData();
-  } catch (e) {}
+  } catch {}
 }}
           />
         </>

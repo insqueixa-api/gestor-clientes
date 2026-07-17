@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, url: finalUrl, isPrivate });
 
-  } catch (error: any) {
+  } catch {
     return NextResponse.json({ error: "Falha ao fazer upload na nuvem." }, { status: 500 });
   }
 }
@@ -86,7 +86,7 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ success: true, message: "Arquivo excluído do R2." });
 
-  } catch (error: any) {
+  } catch {
     return NextResponse.json({ error: "Falha ao excluir arquivo da nuvem." }, { status: 500 });
   }
 }

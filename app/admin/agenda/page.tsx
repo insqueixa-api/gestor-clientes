@@ -10,6 +10,16 @@ import {
   Pencil,
   EyeOff,
   Eye,
+  Trash2,
+  Upload,
+  RefreshCw,
+  Camera,
+  Lock,
+  Radio,
+  AlertTriangle,
+  Globe,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
@@ -929,7 +939,7 @@ if (!res.ok) {
           [phoneId]: { ...prev[phoneId]!, opLoading: false, opError: true },
         }));
       }
-    } catch (e) {
+    } catch {
       // Falha (erro na requisição)
       setWaValidations((prev) => ({
         ...prev,
@@ -1379,9 +1389,9 @@ if (!res.ok) {
                   setPhotoFilter("Todos");
                   setPage(1);
                 }} // <--- ATUALIZADO
-                className="h-10 px-3 rounded-lg text-xs font-medium text-rose-500 border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500/20 transition-colors whitespace-nowrap"
+                className="h-10 px-3 rounded-lg text-xs font-medium text-rose-500 border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500/20 transition-colors whitespace-nowrap inline-flex items-center gap-1"
               >
-                ✕ Limpar
+                <IconX /> Limpar
               </button>
             )}
           </div>
@@ -1485,9 +1495,9 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                   setPhotoFilter("Todos");
                   setPage(1);
                 }} // <--- ATUALIZADO
-                className="h-10 px-3 rounded-lg text-xs font-medium text-rose-500 border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500/20 transition-colors whitespace-nowrap"
+                className="h-10 px-3 rounded-lg text-xs font-medium text-rose-500 border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500/20 transition-colors whitespace-nowrap inline-flex items-center gap-1"
               >
-                ✕ Limpar filtros
+                <IconX /> Limpar filtros
               </button>
             )}
           </div>
@@ -1515,7 +1525,10 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                   Reenviando ao Google...
                 </>
               ) : (
-                <>📤 Reenviar Google ({selectedIds.size})</>
+                <>
+                  <Upload className="w-4 h-4" />
+                  Reenviar Google ({selectedIds.size})
+                </>
               )}
             </button>
             <button
@@ -1529,7 +1542,10 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                   Sincronizando operadora...
                 </>
               ) : (
-                <>🔄 Operadora ({selectedIds.size})</>
+                <>
+                  <RefreshCw className="w-4 h-4" />
+                  Operadora ({selectedIds.size})
+                </>
               )}
             </button>
             <button
@@ -1543,7 +1559,10 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                   Sincronizando fotos...
                 </>
               ) : (
-                <>🔄 Fotos ({selectedIds.size})</>
+                <>
+                  <RefreshCw className="w-4 h-4" />
+                  Fotos ({selectedIds.size})
+                </>
               )}
             </button>
             <button
@@ -1557,7 +1576,10 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                   Sincronizando servidor...
                 </>
               ) : (
-                <>🔄 Servidor ({selectedIds.size})</>
+                <>
+                  <RefreshCw className="w-4 h-4" />
+                  Servidor ({selectedIds.size})
+                </>
               )}
             </button>
             {/* NOVO: Atribuir Grupo */}
@@ -1576,7 +1598,10 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                     Sincronizando grupos...
                   </>
                 ) : (
-                  <>🔄 Grupo</>
+                  <>
+                    <RefreshCw className="w-4 h-4" />
+                    Grupo
+                  </>
                 )}
               </button>
 
@@ -2067,8 +2092,8 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                   {editForm.display_name?.charAt(0) || "?"}
                 </div>
               )}
-              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-foreground drop-shadow-md text-sm font-medium">
-                📸 Alterar
+              <div className="absolute inset-0 flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity text-foreground drop-shadow-md text-sm font-medium">
+                <Camera className="w-4 h-4" /> Alterar
               </div>
             </div>
 
@@ -2218,7 +2243,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                             if (clean.length >= 8)
                               validateWaForPhone(p.id, `+${p.ddi}${clean}`);
                           }}
-                          className={`px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-colors ${
+                          className={`px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-colors inline-flex items-center gap-1 ${
                             wa?.loading
                               ? "bg-transparent text-muted-foreground border-border"
                               : wa?.exists
@@ -2228,13 +2253,21 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                                   : "bg-transparent text-muted-foreground border-border hover:bg-muted"
                           }`}
                         >
-                          {wa?.loading
-                            ? "⏳ Validando..."
-                            : wa?.exists
-                              ? "✅ WhatsApp Ativo"
-                              : wa?.exists === false && p.confirmed
-                                ? "❌ Não Encontrado"
-                                : "Status WhatsApp"}
+                          {wa?.loading ? (
+                            <>
+                              <Loader2 className="w-3 h-3 animate-spin" /> Validando...
+                            </>
+                          ) : wa?.exists ? (
+                            <>
+                              <CheckCircle2 className="w-3 h-3" /> WhatsApp Ativo
+                            </>
+                          ) : wa?.exists === false && p.confirmed ? (
+                            <>
+                              <XCircle className="w-3 h-3" /> Não Encontrado
+                            </>
+                          ) : (
+                            "Status WhatsApp"
+                          )}
                         </button>
 
                         {/* Botão 2: Sincronizar Foto */}
@@ -2273,7 +2306,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                               );
                             }
                           }}
-                          className={`px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-colors ${
+                          className={`px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-colors inline-flex items-center gap-1 ${
                             wa?.photoStatus === "loading"
                               ? "bg-transparent text-muted-foreground border-border"
                               : wa?.photoStatus === "synced"
@@ -2283,13 +2316,21 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                                   : "bg-transparent text-muted-foreground border-border hover:bg-muted"
                           }`}
                         >
-                          {wa?.photoStatus === "loading"
-                            ? "⏳ Buscando Foto..."
-                            : wa?.photoStatus === "synced"
-                              ? "📸 Foto Sincronizada"
-                              : wa?.photoStatus === "protected"
-                                ? "🔒 Foto Protegida"
-                                : "Sincronizar Foto"}
+                          {wa?.photoStatus === "loading" ? (
+                            <>
+                              <Loader2 className="w-3 h-3 animate-spin" /> Buscando Foto...
+                            </>
+                          ) : wa?.photoStatus === "synced" ? (
+                            <>
+                              <Camera className="w-3 h-3" /> Foto Sincronizada
+                            </>
+                          ) : wa?.photoStatus === "protected" ? (
+                            <>
+                              <Lock className="w-3 h-3" /> Foto Protegida
+                            </>
+                          ) : (
+                            "Sincronizar Foto"
+                          )}
                         </button>
 
                         {/* Botão 3: Sincronizar Operadora / Info do País */}
@@ -2300,7 +2341,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                               if (clean.length >= 10)
                                 lookupOperadoraForPhone(p.id, p.ddi, clean);
                             }}
-                            className={`px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-colors ${
+                            className={`px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-colors inline-flex items-center gap-1 ${
                               wa?.opLoading
                                 ? "bg-transparent text-muted-foreground border-border"
                                 : wa?.opName
@@ -2310,17 +2351,25 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                                     : "bg-transparent text-muted-foreground border-border hover:bg-muted"
                             }`}
                           >
-                            {wa?.opLoading
-                              ? "⏳ Buscando..."
-                              : wa?.opName
-                                ? "📡 Operadora Atualizada"
-                                : wa?.opError
-                                  ? "⚠️ Falha ao buscar"
-                                  : "Sincronizar Operadora"}
+                            {wa?.opLoading ? (
+                              <>
+                                <Loader2 className="w-3 h-3 animate-spin" /> Buscando...
+                              </>
+                            ) : wa?.opName ? (
+                              <>
+                                <Radio className="w-3 h-3" /> Operadora Atualizada
+                              </>
+                            ) : wa?.opError ? (
+                              <>
+                                <AlertTriangle className="w-3 h-3" /> Falha ao buscar
+                              </>
+                            ) : (
+                              "Sincronizar Operadora"
+                            )}
                           </button>
                         ) : (
                           <div className="px-3 py-1.5 rounded-lg text-[11px] font-medium border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 flex items-center gap-1 cursor-default">
-                            🌍{" "}
+                            <Globe className="w-3 h-3" />
                             {DDI_OPTIONS.find((o) => o.code === p.ddi)?.label ||
                               "Internacional"}
                           </div>
@@ -2757,20 +2806,7 @@ function IconEdit() {
   return <Pencil className="w-4 h-4" />;
 }
 function IconTrash() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6" />
-    </svg>
-  );
+  return <Trash2 className="w-4 h-4" />;
 }
 function IconSync() {
   return (

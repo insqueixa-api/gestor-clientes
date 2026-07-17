@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Separate standalone service, not part of the Next.js app:
+    "whatsapp-service/**",
+    // Auto-generated PWA service worker files (workbox):
+    "public/sw.js",
+    "public/workbox-*.js",
   ]),
 ]);
 

@@ -79,6 +79,11 @@ export type BotEngineParams = {
   botState: string | null | undefined;
   /** true só quando o agent está no meio do fluxo "Portal ou PIX?" — chat-admin nunca seta. */
   awaitingPaymentType?: boolean;
+  /** Entra direto nesse nó, ignorando toda a classificação por texto — usado
+   * quando quem disparou o turno não foi uma mensagem de texto (ex: imagem
+   * classificada como "app expirado"), então não faz sentido tentar casar
+   * palavra-chave/semântica em cima de `trimmed`. */
+  forceNodeId?: string;
   send: SendFn;
   /** prefixo dos console.log de debug (ex: "[BOT][agent]" / "[BOT][chat-admin]"). */
   logPrefix?: string;
@@ -303,6 +308,14 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
   flowVars.servidor_nome = clients[0]?.server_name || "";
   flowVars.dns_servidor = pickRandomDns(clients[0]?.server_dns);
   const sendFlow = (text: string) => send(renderTemplate(text, flowVars));
+
+  // ── Entrada forçada num nó específico — prioridade máxima, ignora todo
+  // texto/estado. Usado quando o turno não veio de uma mensagem de texto
+  // (ex: foto classificada como "tela de app expirado" pelo Gemini).
+  if (p.forceNodeId) {
+    const forced = await getNodeById(sb, p.forceNodeId);
+    if (forced) return enterNode(forced, null, 1);
+  }
 
   // ── Item 1: escalonamento explícito — prioridade máxima ─────────────────
   if (isEscalationTrigger(trimmed)) {

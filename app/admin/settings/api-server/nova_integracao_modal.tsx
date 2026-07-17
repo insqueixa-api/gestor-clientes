@@ -97,7 +97,7 @@ export default function NovaIntegracaoModal({
         setApiToken(data?.api_token ?? "");
         setApiSecret(data?.api_secret ?? "");
         setApiBaseUrl(data?.api_base_url ?? "");
-      } catch (e) {
+      } catch {
         // não trava o modal
       } finally {
         if (alive) setLoadingEdit(false);

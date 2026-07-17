@@ -107,7 +107,7 @@ async function consultarOperadoraExterna(phoneDigits: string): Promise<string | 
 
     return mapOperadoras[codigoDaOperadora] || "Celular/Fixo";
 
-  } catch (error) {
+  } catch {
     return null;
   }
 }

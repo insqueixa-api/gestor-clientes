@@ -69,7 +69,7 @@ export default function LoginPage() {
       setMsg(
         "Se o e-mail existir em nossa base, você receberá um link de redefinição em instantes.",
       );
-    } catch (err: unknown) {
+    } catch {
       // ✅ Mascaramos o erro para garantir a mesma mensagem de segurança
       setMsg(
         "Se o e-mail existir em nossa base, você receberá um link de redefinição em instantes.",

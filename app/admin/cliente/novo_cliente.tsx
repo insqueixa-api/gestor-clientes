@@ -1,6 +1,6 @@
 ﻿"use client";
 // app/admin/cliente/novo_cliente.tsx
-import { Loader2, X } from "lucide-react";
+import { Loader2, X, MessageCircle } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getCurrentTenantId } from "@/lib/tenant";
@@ -692,7 +692,7 @@ function FormattedDateInput({
           if (y && m && d) setDisplayValue(`${d}/${m}/${y} ${timePart}`);
         }
       }
-    } catch (e) {}
+    } catch {}
   }, [value, type]);
 
   if (type !== "date" && type !== "datetime-local") {
@@ -1276,7 +1276,7 @@ const canSyncAgenda = !isEditing && isTrialMode && !isQuickTrial;
       }
 
       setSessionOptions(options);
-    } catch (e) {}
+    } catch {}
   }
 
   useEffect(() => {
@@ -1488,7 +1488,7 @@ const canSyncAgenda = !isEditing && isTrialMode && !isQuickTrial;
         setTrialProvider("OTHER");
         setTrialHoursLocked(false);
         if (isTrialMode) setTestHours(2);
-      } catch (e) {
+      } catch {
         if (!mounted) return;
         setHasIntegration(false);
         setSyncWithServer(false);
@@ -1545,7 +1545,7 @@ const canSyncAgenda = !isEditing && isTrialMode && !isQuickTrial;
           ? srv.dns.filter((d: any) => d && String(d).trim().length > 0)
           : [];
         setServerDomains(domains);
-      } catch (e) {
+      } catch {
         setServerDomains([]);
       }
     })();
@@ -2088,7 +2088,7 @@ const canSyncAgenda = !isEditing && isTrialMode && !isQuickTrial;
             setCustomTechnology(tecRaw);
           }
         }
-      } catch (err) {
+      } catch {
       } finally {
         // ✅ daqui pra frente, qualquer mudança em telas/plano/tabela já é "interação" (ou pós-prefill)
 
@@ -2210,7 +2210,7 @@ const canSyncAgenda = !isEditing && isTrialMode && !isQuickTrial;
             : Number(fx?.eur_to_brl || 5);
 
         setFxRate(rate);
-      } catch (e: any) {
+      } catch {
         setFxRate(5);
       }
     })();
@@ -3823,7 +3823,7 @@ if (syncOperadora) {
 
           await new Promise((resolve) => setTimeout(resolve, 100));
 
-          const { data: updateResult, error: patchErr } = await supabaseBrowser
+          await supabaseBrowser
 
             .from("clients")
 
@@ -4071,7 +4071,7 @@ if (syncOperadora) {
                       }, 12000);
                     });
                   }
-                } catch (errApp) {}
+                } catch {}
               }
             }
           }
@@ -4179,7 +4179,7 @@ if (clientId) {
 
               message: "Mensagem de teste entregue no WhatsApp.",
             });
-          } catch (e) {
+          } catch {
             queueListToast("trial", {
               type: "error",
               title: "Erro no envio",
@@ -4316,7 +4316,7 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
 
                 message: "Comprovante entregue no WhatsApp.",
               });
-            } catch (e) {
+            } catch {
               queueListToast("client", {
                 type: "error",
 
@@ -6603,11 +6603,7 @@ function IconX() {
 }
 
 function IconChat() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 0C5.373 0 0 4.98 0 11.111c0 3.508 1.777 6.64 4.622 8.67L3.333 24l4.444-2.222c1.333.37 2.592.556 4.223.556 6.627 0 12-4.98 12-11.111S18.627 0 12 0zm0 20c-1.37 0-2.703-.247-3.963-.733l-.283-.111-2.592 1.296.852-2.37-.37-.259C3.852 16.37 2.667 13.852 2.667 11.11 2.667 6.148 6.963 2.222 12 2.222c5.037 0 9.333 3.926 9.333 8.889S17.037 20 12 20zm5.037-6.63c-.278-.139-1.63-.815-1.889-.907-.259-.093-.445-.139-.63.139-.185.278-.722.907-.889 1.093-.167.185-.333.208-.611.069-.278-.139-1.167-.43-2.222-1.37-.822-.733-1.37-1.63-1.528-1.907-.157-.278-.017-.43.122-.569.126-.126.278-.333.417-.5.139-.167.185-.278.278-.463.093-.185.046-.347-.023-.486-.069-.139-.63-1.519-.863-2.083-.227-.546-.458-.472-.63-.48l-.54-.01c-.185 0-.486.069-.74.347-.254.278-.972.95-.972 2.315 0 1.365.996 2.685 1.135 2.87.139.185 1.96 2.997 4.87 4.207.681.294 1.213.47 1.628.602.684.217 1.306.187 1.797.113.548-.082 1.63-.667 1.86-1.31.23-.643.23-1.193.162-1.31-.069-.116-.254-.185-.532-.324z" />
-    </svg>
-  );
+  return <MessageCircle className="w-4 h-4" />;
 }
 
 function IconChevronLeft() {

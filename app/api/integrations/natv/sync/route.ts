@@ -7,6 +7,7 @@ import { createClient as createSupabaseServer } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function safeServerLog(...args: any[]) {
   if (process.env.NODE_ENV !== "production") {
   }

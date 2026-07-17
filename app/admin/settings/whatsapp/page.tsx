@@ -1,17 +1,16 @@
 "use client";
 // app/admin/settings/whatsapp/page.tsx
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Loader2, RefreshCcw, Plug, Ban, CheckCircle2,
   Power, RotateCw, Wrench, X, ChevronDown, ChevronRight,
-  Search, Plus, Trash2, Edit3, Save, XCircle, Sparkles,
-  BookOpen, Tag, ToggleLeft, ToggleRight, MessageSquare,
+  Search, Plus, Trash2, Edit3, XCircle, Sparkles,
+  BookOpen, Tag, MessageSquare,
 } from "lucide-react";
 import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
 import { useConfirm } from "@/app/admin/HookuseConfirm";
 import { usePrompt } from "@/app/admin/HookusePrompt";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import { getCurrentTenantId } from "@/lib/tenant";
 import BotMenuTreeEditor from "@/app/components/whatsapp/BotMenuTreeEditor";
 
 

@@ -17,6 +17,7 @@ import {
 } from "@/lib/whatsapp/template-vars";
 import { notify } from "@/lib/notifications/notify";
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function safeServerLog(...args: any[]) {
   if (process.env.NODE_ENV !== "production") {
   }
@@ -382,7 +383,7 @@ export async function POST(req: Request) {
         let manualPaymentVars: Record<string, string> = {};
         try {
           manualPaymentVars = await fetchManualPaymentVars(sb, String(job.tenant_id));
-        } catch (e) {}
+        } catch {}
 
         // ✅ Loop de envios para os contatos vinculados à conta
         for (let i = 0; i < wa.phones.length; i++) {

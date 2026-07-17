@@ -306,7 +306,7 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ ok: true, created: true, titulo: nova.titulo, status: nova.status }, { headers: NO_STORE_HEADERS });
-  } catch (err: any) {
+  } catch {
     return NextResponse.json({ ok: false, error: "Erro interno" }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }
@@ -359,7 +359,7 @@ export async function DELETE(req: NextRequest) {
     await resolveNotification(tenantId, "sugestao_conteudo", suggestion_id);
 
     return NextResponse.json({ ok: true, deleted: true }, { headers: NO_STORE_HEADERS });
-  } catch (err: any) {
+  } catch {
     return NextResponse.json({ ok: false, error: "Erro interno" }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }

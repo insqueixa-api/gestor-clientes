@@ -153,7 +153,7 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ ok: true, data: resultado }, { headers: NO_STORE_HEADERS });
-  } catch (err: any) {
+  } catch {
     return NextResponse.json(
       { ok: false, error: "Erro interno" },
       { status: 500, headers: NO_STORE_HEADERS },

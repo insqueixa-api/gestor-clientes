@@ -246,15 +246,6 @@ export type MenuNode = {
   invalid_retry_message_2?: string | null;
 };
 
-export async function getRootNodeBySlug(sb: any, tenantId: string, slug: string): Promise<MenuNode | null> {
-  const { data } = await sb
-    .from("bot_menu_nodes")
-    .select("*")
-    .eq("tenant_id", tenantId).eq("slug", slug).eq("is_active", true)
-    .maybeSingle();
-  return data || null;
-}
-
 export async function getNodeById(sb: any, nodeId: string): Promise<MenuNode | null> {
   const { data } = await sb.from("bot_menu_nodes").select("*").eq("id", nodeId).maybeSingle();
   return data || null;

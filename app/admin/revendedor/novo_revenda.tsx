@@ -349,7 +349,7 @@ export default function ResellerFormModal({
         if (typeof extraRaw === "string") {
           try {
             extraRaw = JSON.parse(extraRaw);
-          } catch (e) {
+          } catch {
             extraRaw = [];
           }
         }

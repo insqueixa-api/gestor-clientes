@@ -1,6 +1,6 @@
 "use client";
 // app/admin/cliente/[id]/page.tsx
-import { Loader2, CreditCard, Pencil, RefreshCcw, EyeOff, Eye } from "lucide-react";
+import { Loader2, CreditCard, Pencil, RefreshCcw, EyeOff, Eye, Trash2 } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
@@ -424,7 +424,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
 
           if (!t.error && t.data?.name) finalTableName = String(t.data.name);
         }
-      } catch (e) {}
+      } catch {}
 
       const mapped: ClientDetail = {
         id: String(row.id),
@@ -1366,21 +1366,7 @@ function IconMoney() {
   return <CreditCard className="w-4 h-4" />;
 }
 function IconTrash() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-    </svg>
-  );
+  return <Trash2 className="w-4 h-4" />;
 }
 function IconRestore() {
   return <RefreshCcw className="w-4 h-4" />;

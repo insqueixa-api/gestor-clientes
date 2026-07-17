@@ -164,7 +164,7 @@ export async function loginAction(
     // ✅ waitUntil mantém a função viva até essa Promise terminar, mesmo
     // depois do redirect() encerrar a resposta — sem isso, a Vercel podia
     // matar o processo no meio da chamada e a taxa nunca era atualizada.
-    waitUntil(refreshFxIfNeeded(token, userId, origin).catch((err) => {}));
+    waitUntil(refreshFxIfNeeded(token, userId, origin).catch(() => {}));
 
     // ✅ Redireciona imediatamente
     redirect("/admin");

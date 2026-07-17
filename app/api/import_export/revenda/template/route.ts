@@ -90,7 +90,7 @@ const worksheet = XLSX.utils.aoa_to_sheet([
         "Cache-Control": "no-store",
       },
     });
-  } catch (error: any) {
+  } catch {
     return NextResponse.json({ error: "Erro ao gerar template." }, { status: 500 });
   }
 }

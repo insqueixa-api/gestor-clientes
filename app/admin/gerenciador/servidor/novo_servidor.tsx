@@ -285,7 +285,7 @@ export default function ServerFormModal({ server, onClose, onSuccess, onError }:
 
             setSessionOptions(options);
           }
-        } catch (e) {}
+        } catch {}
 
         // 2. Carrega as integrações
         // ✅ PROTEGIDO: Impedir carregamento de integrações de outras empresas
@@ -299,7 +299,7 @@ export default function ServerFormModal({ server, onClose, onSuccess, onError }:
         if (!alive) return;
 
         setIntegrationOptions((data as any) || []);
-      } catch (e) {
+      } catch {
         if (alive) setIntegrationOptions([]);
       } finally {
         if (alive) setLoadingIntegrations(false);

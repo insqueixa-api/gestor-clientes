@@ -20,6 +20,7 @@ const NO_STORE_HEADERS = {
   Expires: "0",
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function safeServerLog(...args: any[]) {
   if (process.env.NODE_ENV !== "production") {
   }

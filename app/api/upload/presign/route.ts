@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     const publicUrl = `${process.env.NEXT_PUBLIC_R2_DEV_URL}/${key}`;
 
     return NextResponse.json({ presignedUrl, publicUrl });
-  } catch (error: any) {
+  } catch {
     return NextResponse.json({ error: "Falha ao gerar URL de upload." }, { status: 500 });
   }
 }

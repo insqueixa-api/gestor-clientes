@@ -78,7 +78,7 @@ export async function GET() {
         "Cache-Control": "no-store",
       },
     });
-  } catch (error: any) {
+  } catch {
     return NextResponse.json({ error: "Erro ao gerar template." }, { status: 500 });
   }
 }

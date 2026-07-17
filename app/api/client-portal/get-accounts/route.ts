@@ -31,6 +31,7 @@ function isPlausibleSessionToken(t: string) {
 }
 
 // ✅ Log “cego”: em produção não imprime detalhes
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function safeServerLog(...args: any[]) {
   if (process.env.NODE_ENV !== "production") {
   }

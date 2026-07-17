@@ -13,6 +13,7 @@ import {
   RefreshCcw,
   EyeOff,
   Eye,
+  Trash2,
 } from "lucide-react";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -80,13 +81,6 @@ type MessageTemplate = {
   image_url?: string | null;
   category?: string | null;
 }; // ✅ Busca a Categoria
-
-// Financeiro por venda (server_credit_sales) - agregação no front
-type VwResellerFinanceAgg = {
-  reseller_id: string;
-  revenue: number; // total BRL
-  cost: number; // total BRL
-};
 
 /**
  * Linha REAL da view vw_resellers_list_*
@@ -307,7 +301,7 @@ export default function RevendaPage() {
       }
 
       setSessionOptions(options);
-    } catch (e) {}
+    } catch {}
   }
 
   // Modal Novo Alerta
@@ -732,7 +726,7 @@ export default function RevendaPage() {
           (data || []).map((x: any) => String(x.reseller_id)),
         );
         setResellerIdsByServer(ids);
-      } catch (e) {
+      } catch {
         setResellerIdsByServer(null);
       }
     })();
@@ -2575,20 +2569,6 @@ function IconClock() {
 function IconMoney() {
   return <CreditCard className="w-4 h-4" />;
 }
-function IconPlus() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-    >
-      <path d="M12 5v14M5 12h14" />
-    </svg>
-  );
-}
 function IconEdit() {
   return <Pencil className="w-4 h-4" />;
 }
@@ -2596,38 +2576,8 @@ function IconBell() {
   return <Bell className="w-4 h-4" />;
 }
 function IconTrash() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-    </svg>
-  );
+  return <Trash2 className="w-4 h-4" />;
 }
 function IconRestore() {
   return <RefreshCcw className="w-4 h-4" />;
-}
-function IconFilter() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M22 3H2l8 9v7l4 2v-9l8-9Z" />
-    </svg>
-  );
 }

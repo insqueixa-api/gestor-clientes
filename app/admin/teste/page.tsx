@@ -12,6 +12,7 @@ import {
   RefreshCcw,
   EyeOff,
   Eye,
+  Trash2,
 } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
@@ -459,7 +460,7 @@ export default function TrialsPage() {
       }
 
       setSessionOptions(options);
-    } catch (e) {}
+    } catch {}
   }
 
   async function handleSendMessageNow() {
@@ -502,7 +503,7 @@ export default function TrialsPage() {
       setMessageText("");
       setSelectedTemplateNowId("");
       setSelectedSessionNow("default");
-    } catch (e: any) {
+    } catch {
       addToast(
         "error",
         "Falha no Envio",
@@ -568,7 +569,7 @@ export default function TrialsPage() {
         tenantId,
         rows.map((r) => r.id),
       );
-    } catch (e: any) {
+    } catch {
       addToast(
         "error",
         "Falha no Agendamento",
@@ -658,7 +659,7 @@ export default function TrialsPage() {
         .eq("tenant_id", tid)
         .eq("is_active", true);
       if (appInts) setAppIntegrations(appInts);
-    } catch (e) {
+    } catch {
       setAppsIndex({ byId: {}, byName: {} });
     } finally {
       setAppsLoading(false);
@@ -768,7 +769,7 @@ export default function TrialsPage() {
         } else if (cErr) {
         }
       }
-    } catch (e) {}
+    } catch {}
 
     const mapped: TrialRow[] = typed.map((r) => {
       const due = formatDue(r.vencimento);
@@ -2845,21 +2846,7 @@ function IconClock() {
   return <Clock className="w-4 h-4" />;
 }
 function IconTrash() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-    </svg>
-  );
+  return <Trash2 className="w-4 h-4" />;
 }
 
 function IconUserPlus() {

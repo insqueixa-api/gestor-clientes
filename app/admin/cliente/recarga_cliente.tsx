@@ -263,7 +263,7 @@ function queueToast(
     const arr = raw ? JSON.parse(raw) : [];
     arr.push({ type, title, message, ts: Date.now() });
     window.sessionStorage.setItem(key, JSON.stringify(arr));
-  } catch (e) {}
+  } catch {}
 }
 
 export default function RecargaCliente({
@@ -426,7 +426,7 @@ export default function RecargaCliente({
       }
 
       setSessionOptions(options);
-    } catch (e) {}
+    } catch {}
   }
 
   // ✅ NOVO: Renovação Automática
@@ -504,7 +504,7 @@ export default function RecargaCliente({
             const pc = (cDb as any).price_currency;
             dbPriceCurrency = typeof pc === "string" ? pc : null;
           }
-        } catch (e) {}
+        } catch {}
 
         // ✅ Ajusta o clientData do modal com a verdade do banco
         const cFixed: ClientFromView = {
@@ -543,7 +543,7 @@ export default function RecargaCliente({
               paymentLog = logData as any;
             } else if (logErr) {
             }
-          } catch (e) {}
+          } catch {}
         }
 
         // ✅ NOVO: Detectar se servidor tem integração e QUAL O SERVIDOR
@@ -573,7 +573,7 @@ export default function RecargaCliente({
               setIntegrationProvider("NONE");
               setIsEliteProvider(false);
             }
-          } catch (e) {
+          } catch {
             setHasIntegration(false);
             setRenewAutomatic(false);
             setIntegrationProvider("NONE");
@@ -811,7 +811,7 @@ export default function RecargaCliente({
         setTimeout(() => {
           isFirstLoad.current = false;
         }, 500);
-      } catch (err: any) {
+      } catch {
       } finally {
         if (alive) setFetching(false);
       }
@@ -1292,7 +1292,7 @@ export default function RecargaCliente({
                     resolveSync();
                   }, 15000);
                 });
-              } catch (syncErr) {}
+              } catch {}
             } else {
               // ====================================================================
               // 🔵 RENOVAÇÃO ANTIGA (FAST / NATV) - MANTIDA INTACTA!
@@ -1634,7 +1634,7 @@ const clientMessageAuto = `Renovação automática via painel Admin · ${monthsT
             "Comprovante entregue no WhatsApp.",
             toastKey,
           );
-        } catch (e) {
+        } catch {
           // ✅ Atualiza via RPC (RLS bloqueia UPDATE direto no client_portal_payments pelo browser)
           if (paymentLogId) {
             const { error: waUpErr } = await supabaseBrowser.rpc(

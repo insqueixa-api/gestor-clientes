@@ -188,12 +188,17 @@ export async function POST(req: Request) {
     }
 
     if (!recentPayment) {
+      // ✅ Antes só perguntava "é comprovante? sim/não" — qualquer outra foto
+      // (ex: tela de app de TV avisando que a ativação/licença expirou) caía
+      // em silêncio total, mesmo já existindo um nó pronto pra esse assunto.
+      // Agora classifica em 3 categorias e roteia "app_expired" direto pro
+      // nó certo da árvore (busca por keyword, não texto fixo hardcoded).
       let analysisPayload: any = {
         contents: [{
           role: "user",
           parts: [
             { inlineData: { mimeType: mime_type || (media_type === "image" ? "image/jpeg" : "application/pdf"), data: media_base64 } },
-            { text: `Analise esta imagem/documento. É um comprovante de pagamento financeiro (transferência PIX, TED, DOC, recibo bancário ou similar)?\n\nResponda SOMENTE com este JSON:\n{"is_receipt":true}\nou\n{"is_receipt":false}\n\nResponda APENAS o JSON, sem markdown, sem explicação.` },
+            { text: `Analise esta imagem/documento e classifique em UMA destas categorias:\n- "receipt": é um comprovante de pagamento financeiro (transferência PIX, TED, DOC, recibo bancário ou similar)\n- "app_expired": é uma tela de aplicativo de TV/IPTV avisando que a ativação/licença/assinatura do APLICATIVO expirou e pedindo pra renovar (ex: "Activation has expired", "ativação expirou", telas com Device ID / Device Key)\n- "none": não é nenhuma das duas\n\nResponda SOMENTE com este JSON, sem markdown, sem explicação:\n{"category":"receipt"}\nou\n{"category":"app_expired"}\nou\n{"category":"none"}` },
           ],
         }],
         generationConfig: { temperature: 0, maxOutputTokens: 64 },
@@ -209,16 +214,53 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: true, action: "silence", mark_read: true });
       }
 
-      if (!parsed?.is_receipt) {
-        return NextResponse.json({ ok: true, action: "silence", mark_read: true });
+      const category = String(parsed?.category || "none");
+
+      if (category === "receipt") {
+        const msg = `Vi que você informou que está pago! Só confirma uma coisa: foi feito direto pelo portal ou via PIX/transferência manual?`;
+        await sendWAMessage(session_key, phone, msg);
+        return NextResponse.json({
+          ok: true, action: "awaiting_payment_type", mark_read: true, bot_response: msg,
+          display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null,
+        });
       }
 
-      const msg = `Vi que você informou que está pago! Só confirma uma coisa: foi feito direto pelo portal ou via PIX/transferência manual?`;
-      await sendWAMessage(session_key, phone, msg);
-      return NextResponse.json({
-        ok: true, action: "awaiting_payment_type", mark_read: true, bot_response: msg,
-        display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null,
-      });
+      if (category === "app_expired") {
+        // ✅ Busca o nó pela keyword que ele já usa pra ser encontrado por
+        // texto (não pelo label — sobrevive a renomear o nó no painel).
+        const { data: expiredNode } = await sb
+          .from("bot_menu_nodes")
+          .select("id")
+          .eq("tenant_id", tenant_id)
+          .eq("is_active", true)
+          .contains("keywords", ["expirado"])
+          .limit(1)
+          .maybeSingle();
+
+        if (expiredNode?.id) {
+          const sentMessages: string[] = [];
+          const send = async (m: string) => {
+            if (!m?.trim()) return;
+            sentMessages.push(m);
+            await sendWAMessage(session_key, phone, m);
+          };
+          const result = await runBotEngine({
+            sb, tenantId: tenant_id, geminiKey, flow, clients, clientMatchesRaw: clientMatches, clientProvider,
+            trimmed: "",
+            botState: bot_state,
+            forceNodeId: expiredNode.id,
+            send,
+            logPrefix: "[BOT][agent][img]",
+          });
+          return NextResponse.json({
+            ok: true, action: result.action, escalate: result.escalate ?? false, mark_read: result.markRead,
+            bot_response: sentMessages.join("\n\n"), next_state: result.nextState, transfer_reason: result.transferReason ?? null,
+            display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null,
+          });
+        }
+      }
+
+      return NextResponse.json({ ok: true, action: "silence", mark_read: true });
     }
 
     return NextResponse.json({ ok: true, action: "silence" });

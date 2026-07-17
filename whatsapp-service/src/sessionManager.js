@@ -1154,7 +1154,7 @@ if (!config.botEnabled) {
     // Contato em pausa (você assumiu o atendimento)
 if (isContactPaused(sessionKey, phone)) continue;
 
-    // Tem conteúdo que vale processar? (Capturando texto/legenda e ignorando imagens)
+    // Tem conteúdo que vale processar? (Capturando texto/legenda)
 const hasText = !!(
       msgContent.conversation ||
       msgContent.extendedTextMessage?.text ||
@@ -1163,12 +1163,16 @@ const hasText = !!(
       msgContent.videoMessage?.caption ||
       msgContent.viewOnceMessageV2?.message?.imageMessage?.caption
     );
-    
-    // Só consideramos "mídia processável" se for documento (ex: PDF)
-    const hasDocument = !!(msgContent.documentMessage);
 
-    // Se for SÓ UMA IMAGEM sem legenda, ignora 100% e morre em silêncio
-    if (!hasText && !hasDocument) continue;
+    // ✅ Documento (PDF) e foto (imageMessage) são "mídia processável" —
+    // ambos podem ser comprovante de pagamento (a maioria dos clientes manda
+    // print do banco como foto, não como arquivo). Antes só documento contava,
+    // então foto de comprovante nunca era lida — corrigido aqui.
+    const hasDocument = !!(msgContent.documentMessage);
+    const hasImage = !!(msgContent.imageMessage);
+
+    // Se não tiver nem texto/legenda nem mídia processável, ignora 100% e morre em silêncio
+    if (!hasText && !hasDocument && !hasImage) continue;
 
 // Deduplicação — Baileys pode emitir a mesma mensagem várias vezes
     const msgId = msg.key?.id;
@@ -1233,23 +1237,29 @@ const text =
     msg.message?.viewOnceMessageV2?.message?.imageMessage?.caption ||
     null;
 
-  // Apenas processamos documentos. Imagens (imageMessage, viewOnce) são ignoradas.
+  // ✅ Documento (PDF) e foto (imageMessage) são baixados e analisados como
+  // possível comprovante — agent/route.ts já sabia lidar com media_type
+  // "image" (tem fallback de mimeType pra isso), só nunca recebia nada porque
+  // aqui só documento era baixado. Corrigido pra ler os dois.
   const hasDocument = !!(msg.message?.documentMessage);
+  const hasImage = !!(msg.message?.imageMessage);
 
   let mediaBase64 = null;
   let mediaType = null;
   let mimeType = null;
 
-  if (hasDocument) {
+  if (hasDocument || hasImage) {
     const sess = sessions.get(sessionKey);
     if (sess?.socket) {
       mediaBase64 = await downloadMsgMedia(sess.socket, msg);
-      mediaType = "document";
-      mimeType = msg.message?.documentMessage?.mimetype || null;
+      mediaType = hasDocument ? "document" : "image";
+      mimeType = hasDocument
+        ? (msg.message?.documentMessage?.mimetype || null)
+        : (msg.message?.imageMessage?.mimetype || "image/jpeg");
     }
   }
 
-// Se a mensagem for só uma imagem sem texto, morre aqui e não chama a IA
+// Se a mensagem for só uma mídia sem texto e sem conseguir baixar, morre aqui e não chama a IA
   if (!text && !mediaBase64) return;
 
   // Ignora links puros sem legenda (YouTube, Spotify, TikTok etc.)

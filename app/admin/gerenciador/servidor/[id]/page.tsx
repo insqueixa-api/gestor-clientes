@@ -485,7 +485,7 @@ const { confirm, ConfirmUI } = useConfirm();
             matchDate = String(fmtDate(m.happened_at))
               .toLowerCase()
               .includes(term);
-        } catch (e) {}
+        } catch {}
 
         // Tenta formatar o valor para ver se o que foi digitado bate com o valor
         try {
@@ -493,7 +493,7 @@ const { confirm, ConfirmUI } = useConfirm();
             matchValue = String(fmtMoney(Number(m.total_brl)))
               .toLowerCase()
               .includes(term);
-        } catch (e) {}
+        } catch {}
 
         // Se nenhum dos 3 bater, esconde a linha
         if (!safeLabel.includes(term) && !matchDate && !matchValue) {
