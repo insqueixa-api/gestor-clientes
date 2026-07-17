@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { useConfirm } from "@/app/admin/HookuseConfirm";
 
 // --- HELPERS DE TELEFONE E PAÍSES (alinhados com NovoCliente) ---
 type DdiOption = { code: string; label: string; flag: string };
@@ -209,6 +210,7 @@ export default function ResellerFormModal({
   onSuccess,
   onError,
 }: Props) {
+  const { confirm } = useConfirm();
   const isEditing = !!resellerToEdit;
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -593,7 +595,14 @@ export default function ResellerFormModal({
       onClose();
     } catch (err: any) {
       if (onError) onError(err.message);
-      else alert(err.message);
+      else
+        await confirm({
+          title: "Erro",
+          subtitle: err.message,
+          tone: "rose",
+          confirmText: "OK",
+          cancelText: "",
+        });
     } finally {
       setLoading(false);
     }

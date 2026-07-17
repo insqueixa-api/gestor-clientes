@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import AdminShell from "./AdminShell";
 import { ConfirmProvider } from "@/app/admin/HookuseConfirm";
+import { PromptProvider } from "@/app/admin/HookusePrompt";
 
 export const dynamic = "force-dynamic";
 
@@ -57,14 +58,16 @@ export default async function AdminLayout({
 
   return (
     <ConfirmProvider>
-      <AdminShell
-        userLabel={userLabel}
-        tenantName={tenantName}
-        tenantId={member.tenant_id}
-        logoUrl={tenantLogo}
-      >
-        {children}
-      </AdminShell>
+      <PromptProvider>
+        <AdminShell
+          userLabel={userLabel}
+          tenantName={tenantName}
+          tenantId={member.tenant_id}
+          logoUrl={tenantLogo}
+        >
+          {children}
+        </AdminShell>
+      </PromptProvider>
     </ConfirmProvider>
   );
 }

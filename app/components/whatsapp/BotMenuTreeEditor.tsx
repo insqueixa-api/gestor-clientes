@@ -7,6 +7,7 @@ import {
   ChevronRight, ChevronDown, Plus, Trash2, Save, X, Tag,
 } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { useConfirm } from "@/app/admin/HookuseConfirm";
 import BotFlowCanvas, { FlowPortLegend, type CanvasNode, type FlowLink } from "./BotFlowCanvas";
 
 type MenuNode = {
@@ -330,6 +331,15 @@ function ConfirmDeleteModal({ label, onClose, onConfirm }: { label: string; onCl
 }
 
 export default function BotMenuTreeEditor() {
+  const { confirm } = useConfirm();
+  const alertError = (msg: string) =>
+    confirm({
+      title: "Erro",
+      subtitle: msg,
+      tone: "rose",
+      confirmText: "OK",
+      cancelText: "",
+    });
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [flatNodes, setFlatNodes] = useState<MenuNode[]>([]);
   const [allSteps, setAllSteps] = useState<MenuStep[]>([]);
@@ -452,7 +462,7 @@ export default function BotMenuTreeEditor() {
     setModal(null);
 
     if (r?.error) {
-      alert(r.error);
+      alertError(r.error);
       return;
     }
 
@@ -944,7 +954,7 @@ export default function BotMenuTreeEditor() {
                 const r = await callApi({ action: "update_node", id: selectedNode.id, ...fields });
                 if (r?.error) {
                   setSaving(false);
-                  alert(r.error);
+                  alertError(r.error);
                   throw new Error(r.error);
                 }
               }}
@@ -952,7 +962,7 @@ export default function BotMenuTreeEditor() {
                 const r = await callApi({ action: "set_steps", node_id: selectedNode.id, ...payload });
                 if (r?.error) {
                   setSaving(false);
-                  alert(r.error);
+                  alertError(r.error);
                   throw new Error(r.error);
                 }
                 setSaving(false);

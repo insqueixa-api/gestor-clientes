@@ -7,6 +7,7 @@ import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import PlanoModal from "./plano_modal";
 import ToastNotifications from "../../ToastNotifications"; // ✅ Novo import
+import { useConfirm } from "@/app/admin/HookuseConfirm";
 
 // --- Tipagens (Enxutas para IPTV) ---
 type Price = {
@@ -53,6 +54,7 @@ const PERIOD_LABELS: Record<string, string> = {
 export default function PlanosPage() {
   const [loading, setLoading] = useState(true);
   const [plano, setPlano] = useState<PlanRow[]>([]);
+  const { confirm } = useConfirm();
 
   // ✅ Controle de Toasts na Página Principal
   const [toasts, setToasts] = useState<any[]>([]);
@@ -163,8 +165,14 @@ export default function PlanosPage() {
 
   // --- Função de Deletar (Blindada) ---
   async function handleDelete(plan: PlanRow) {
-    if (!confirm(`Tem certeza que deseja excluir a tabela "${plan.name}"?`))
-      return;
+    const ok = await confirm({
+      title: "Excluir tabela?",
+      subtitle: `Tem certeza que deseja excluir a tabela "${plan.name}"?`,
+      tone: "rose",
+      confirmText: "Excluir",
+      cancelText: "Cancelar",
+    });
+    if (!ok) return;
 
     setLoading(true);
 
@@ -224,7 +232,14 @@ export default function PlanosPage() {
     } catch (err: any) {
       if (process.env.NODE_ENV !== "production")
         console.error("Falha no DELETE:", err?.message || err);
-      alert(err?.message || "Ocorreu um erro inesperado ao excluir a tabela.");
+      await confirm({
+        title: "Erro ao excluir",
+        subtitle:
+          err?.message || "Ocorreu um erro inesperado ao excluir a tabela.",
+        tone: "rose",
+        confirmText: "OK",
+        cancelText: "",
+      });
     } finally {
       setLoading(false);
     }

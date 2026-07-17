@@ -63,8 +63,19 @@ const TOP_Y = 36;
  */
 const TOTAL_SLOTS = 5;
 
+// ✅ Espaço mínimo garantido entre o início de uma coluna e a próxima — tem
+// que ser maior que NODE_W, senão colunas vizinhas se sobrepõem fisicamente.
+// Em telas largas o layout ainda estica pra preencher o espaço todo (comportamento
+// original); em telas estreitas (celular) ele nunca encolhe abaixo disso — o board
+// fica mais largo que a tela e passa a rolar de lado (container já tem overflow-auto),
+// em vez de espremer os cards uns em cima dos outros.
+const MIN_COL_STEP = NODE_W + 56;
+
 function slotX(slot: number, containerWidth: number): number {
-  const usable = Math.max(320, containerWidth - COL_MARGIN * 2 - NODE_W);
+  const usable = Math.max(
+    containerWidth - COL_MARGIN * 2 - NODE_W,
+    MIN_COL_STEP * (TOTAL_SLOTS - 1)
+  );
   const step = usable / (TOTAL_SLOTS - 1);
   return COL_MARGIN + slot * step;
 }
@@ -648,7 +659,11 @@ function portXY(nodeId: string, port: Port): { x: number; y: number } {
   }, [selectedLinkKey, visibleLinks, onUnlink]);
 
 const boardH = Math.max(420, ...Object.values(positions).map((p) => p.y + NODE_H + 80));
-  const boardW = containerWidth;
+  // ✅ Nunca mais estreito que o necessário pra caber as 5 colunas sem
+  // sobrepor (slotX já garante o espaçamento mínimo) — em telas largas
+  // continua igual a containerWidth (estica normal); em celular fica maior
+  // que a tela e passa a rolar de lado de verdade.
+  const boardW = Math.max(containerWidth, slotX(TOTAL_SLOTS - 1, containerWidth) + NODE_W + COL_MARGIN);
 
   // posição do botão flutuante "Apagar" no meio da linha selecionada
   // (cálculo trivial — não precisa de useMemo; evita depender de portXY,
@@ -776,6 +791,9 @@ const boardH = Math.max(420, ...Object.values(positions).map((p) => p.y + NODE_H
         </span>
         <span className="text-[10px] opacity-80 ml-auto hidden sm:inline">
           linha = selecionar · Del = apagar
+        </span>
+        <span className="text-[10px] opacity-80 ml-auto sm:hidden">
+          ◀ arraste pros lados pra ver mais ▶
         </span>
       </div>
 

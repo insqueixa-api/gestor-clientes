@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
 import { useConfirm } from "@/app/admin/HookuseConfirm";
+import { usePrompt } from "@/app/admin/HookusePrompt";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { getCurrentTenantId } from "@/lib/tenant";
 import BotMenuTreeEditor from "@/app/components/whatsapp/BotMenuTreeEditor";
@@ -989,6 +990,7 @@ const [editActive, setEditActive] = useState(true);
 
 // ── Chat flutuante Gemini ────────────────────────────────────
 function FloatingChat({ addToast }: { addToast: (type: "success" | "error", title: string, msg?: string) => void }) {
+  const { prompt } = usePrompt();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -1146,9 +1148,19 @@ function FloatingChat({ addToast }: { addToast: (type: "success" | "error", titl
   }
 
   async function saveToKnowledge(text: string) {
-    const title = window.prompt("Título para salvar na base de conhecimento:");
+    const title = await prompt({
+      title: "Salvar na base",
+      subtitle: "Título para salvar na base de conhecimento",
+      label: "Título",
+      placeholder: "Ex: Como funciona o teste grátis",
+    });
     if (!title?.trim()) return;
-    const category = window.prompt("Categoria:", "Geral");
+    const category = await prompt({
+      title: "Categoria",
+      subtitle: "Categoria para organizar este item na base de conhecimento",
+      label: "Categoria",
+      defaultValue: "Geral",
+    });
     if (category === null) return;
     setSavingItem(text);
     try {
@@ -1167,7 +1179,11 @@ function FloatingChat({ addToast }: { addToast: (type: "success" | "error", titl
   }
 
   async function saveFeedback(userText: string, botText: string) {
-    const ideal = window.prompt("Como o bot deveria ter respondido?");
+    const ideal = await prompt({
+      title: "Corrigir resposta",
+      subtitle: "Como o bot deveria ter respondido?",
+      label: "Resposta ideal",
+    });
     if (!ideal?.trim()) return;
     setSavingItem(botText);
     try {

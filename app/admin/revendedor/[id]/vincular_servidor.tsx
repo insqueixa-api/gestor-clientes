@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { getCurrentTenantId } from "@/lib/tenant";
+import { useConfirm } from "@/app/admin/HookuseConfirm";
 
 // Tipos
 type ServerOption = {
@@ -93,6 +94,7 @@ export default function VincularServidor({
   onSaved,
   onError,
 }: Props) {
+  const { confirm } = useConfirm();
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [loadingServers, setLoadingServers] = useState(true);
   const [servers, setServers] = useState<ServerOption[]>([]);
@@ -209,11 +211,25 @@ export default function VincularServidor({
         const msg =
           "Já existe um vínculo com este servidor e este usuário para esta revenda.";
         if (onError) onError(msg);
-        else alert(msg);
+        else
+          await confirm({
+            title: "Erro",
+            subtitle: msg,
+            tone: "rose",
+            confirmText: "OK",
+            cancelText: "",
+          });
       } else {
         const msg = e?.message || "Erro desconhecido ao salvar.";
         if (onError) onError(msg);
-        else alert(msg);
+        else
+          await confirm({
+            title: "Erro",
+            subtitle: msg,
+            tone: "rose",
+            confirmText: "OK",
+            cancelText: "",
+          });
       }
     } finally {
       setSaving(false);

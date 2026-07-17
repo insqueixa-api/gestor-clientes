@@ -545,6 +545,7 @@ export default function BillingPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [isMasterOrAdmin, setIsMasterOrAdmin] = useState(false);
+  const { confirm } = useConfirm();
 
   // ✅ MODAIS (Atualizado para suportar Edição e Logs)
   const [wizardState, setWizardState] = useState<{
@@ -791,8 +792,14 @@ export default function BillingPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Tem certeza? Essa ação remove a regra e o histórico."))
-      return;
+    const ok = await confirm({
+      title: "Excluir regra?",
+      subtitle: "Essa ação remove a regra e o histórico.",
+      tone: "rose",
+      confirmText: "Excluir",
+      cancelText: "Cancelar",
+    });
+    if (!ok) return;
     const tid = await getCurrentTenantId();
     if (!tid) return;
 
@@ -838,9 +845,14 @@ export default function BillingPage() {
 
     // ✅ Segurança: confirmação forte no STOP
     if (action === "STOP") {
-      const ok = confirm(
-        "PARAR AGORA? Isso deve interromper os envios e cancelar a fila pendente desta regra.",
-      );
+      const ok = await confirm({
+        title: "Parar agora?",
+        subtitle:
+          "Isso deve interromper os envios e cancelar a fila pendente desta regra.",
+        tone: "rose",
+        confirmText: "Parar",
+        cancelText: "Voltar",
+      });
       if (!ok) return;
     }
 
@@ -1000,12 +1012,14 @@ export default function BillingPage() {
       return;
     }
 
-    if (
-      !confirm(
-        `Deseja ENFILEIRAR AGORA mensagens para ${affected.length} clientes?`,
-      )
-    )
-      return;
+    const ok = await confirm({
+      title: "Enfileirar agora?",
+      subtitle: `Deseja enfileirar mensagens para ${affected.length} clientes?`,
+      tone: "amber",
+      confirmText: "Enfileirar",
+      cancelText: "Cancelar",
+    });
+    if (!ok) return;
 
     const tid = await getCurrentTenantId();
     if (!tid) return;

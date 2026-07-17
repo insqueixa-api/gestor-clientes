@@ -9,6 +9,7 @@ import { getCurrentTenantId } from "@/lib/tenant";
 import ToastNotifications, {
   ToastMessage,
 } from "@/app/admin/ToastNotifications";
+import { useConfirm } from "@/app/admin/HookuseConfirm";
 
 // --- ÍCONES (ADICIONAR/SUBSTITUIR NO TOPO) ---
 function IconEye() {
@@ -228,6 +229,7 @@ export default function MessagesPage() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("Todos");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const { confirm } = useConfirm();
 
   // Modais
   const [showEditor, setShowEditor] = useState(false);
@@ -277,8 +279,14 @@ export default function MessagesPage() {
 
   // Deletar Mensagem
   async function handleDelete(id: string) {
-    if (!confirm("Tem certeza que deseja excluir este modelo permanentemente?"))
-      return;
+    const ok = await confirm({
+      title: "Excluir modelo?",
+      subtitle: "Tem certeza que deseja excluir este modelo permanentemente?",
+      tone: "rose",
+      confirmText: "Excluir",
+      cancelText: "Cancelar",
+    });
+    if (!ok) return;
 
     const tid = await getCurrentTenantId();
     if (!tid) return;
@@ -918,7 +926,7 @@ function EditorModal({
 
   const handleSave = async () => {
     if (!name.trim() || !content.trim()) {
-      alert("Preencha o nome e o conteúdo da mensagem.");
+      onError("Preencha o nome e o conteúdo da mensagem.");
       return;
     }
     setLoading(true);

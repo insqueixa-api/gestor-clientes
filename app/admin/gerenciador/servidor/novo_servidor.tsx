@@ -7,6 +7,7 @@ import { X } from "lucide-react";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import type { ServerRow } from "./page";
+import { useConfirm } from "@/app/admin/HookuseConfirm";
 
 // Helper de Slug
 function slugify(text: string) {
@@ -39,6 +40,7 @@ type Props = {
   server?: ServerRow | null;
   onClose: () => void;
   onSuccess: () => void;
+  onError?: (msg: string) => void;
 };
 
 // --- HELPERS WHATSAPP ---
@@ -116,7 +118,12 @@ function normalizeApiUrl(url: string) {
   return s;
 }
 
-export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
+export default function ServerFormModal({ server, onClose, onSuccess, onError }: Props) {
+  const { confirm } = useConfirm();
+  const alertError = (msg: string) =>
+    onError
+      ? Promise.resolve(onError(msg))
+      : confirm({ title: "Erro", subtitle: msg, tone: "rose", confirmText: "OK", cancelText: "" });
   const isEditing = !!server;
   const [saving, setSaving] = useState(false);
 
@@ -171,7 +178,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
 
   async function handleIconUpload(file: File) {
     if (!file.type.startsWith("image/")) {
-      alert("Arquivo inválido. Selecione uma imagem.");
+      await alertError("Arquivo inválido. Selecione uma imagem.");
       return;
     }
     try {
@@ -193,7 +200,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
       });
       setFormIconUrl(publicUrl);
     } catch (e: any) {
-      alert("Erro no upload: " + e?.message);
+      await alertError("Erro no upload: " + e?.message);
     } finally {
       setUploadingIcon(false);
     }
@@ -314,15 +321,19 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
   };
 
   async function handleSave() {
-    if (!name.trim()) return alert("Nome é obrigatório");
+    if (!name.trim()) {
+      await alertError("Nome é obrigatório");
+      return;
+    }
 
     // ✅ BLINDAGEM DE VALORES: Impede números negativos injetados por DevTools
     const initialCredits = Number(credits) || 0;
     const initialUnitPrice = Number(unitPrice) || 0;
     if (initialCredits < 0 || initialUnitPrice < 0) {
-      return alert(
+      await alertError(
         "A quantidade de créditos e o custo unitário não podem ser negativos.",
       );
+      return;
     }
 
     setSaving(true);
@@ -668,7 +679,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
 
         if (initialCredits > 0) {
           if (initialUnitPrice <= 0) {
-            alert(
+            await alertError(
               "Servidor criado, mas o saldo inicial não foi aplicado: informe o custo unitário.",
             );
           } else {
@@ -729,7 +740,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
       onSuccess();
     } catch (error: any) {
       // ✅ Agora mostra a mensagem real para conseguirmos debugar!
-      alert(
+      await alertError(
         `Erro ao salvar servidor: ${error?.message || "Verifique os dados e tente novamente."}`,
       );
       setSaving(false);

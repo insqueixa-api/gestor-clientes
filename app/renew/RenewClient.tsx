@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation"; // ✅ useRouter a
 import { useState, useEffect, useMemo, useRef } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import Image from "next/image";
+import { useConfirm } from "@/app/admin/HookuseConfirm";
 
 // ========= TYPES =========
 interface ClientAccount {
@@ -221,6 +222,15 @@ function calculateDiscount(
 export default function RenewClient() {
   const sp = useSearchParams();
   const router = useRouter(); // ✅ router instanciado para redirecionamento
+  const { confirm } = useConfirm();
+  const alertError = (msg: string) =>
+    confirm({
+      title: "Aviso",
+      subtitle: msg,
+      tone: "rose",
+      confirmText: "OK",
+      cancelText: "",
+    });
 
   // ✅ sessão agora vem da URL OU do sessionStorage, e removemos da URL depois (sem quebrar reload)
   const [session, setSession] = useState<string | null>(null);
@@ -512,7 +522,7 @@ export default function RenewClient() {
 
     if (!selectedAccount) return;
     if (!session) {
-      alert("Sessão expirada. Abra o link novamente.");
+      await alertError("Sessão expirada. Abra o link novamente.");
       clearStoredSession();
       return;
     }
@@ -526,7 +536,7 @@ export default function RenewClient() {
           );
 
     if (!renewPrice || !renewPrice.price_amount) {
-      alert("Erro: valor do plano não encontrado");
+      await alertError("Erro: valor do plano não encontrado");
       return;
     }
 
@@ -630,7 +640,7 @@ export default function RenewClient() {
             setPaymentPhase("error");
             setPaymentStatus("rejected");
 
-            alert(
+            alertError(
               "Pagamento aprovado, mas houve falha ao concluir a renovação.\nProcure o suporte.",
             );
 
@@ -682,7 +692,7 @@ export default function RenewClient() {
             setPaymentPhase("error");
             setPaymentStatus("rejected");
 
-            alert(
+            alertError(
               "Pagamento aprovado, mas houve falha ao concluir a renovação.\nProcure o suporte.",
             );
 
@@ -851,7 +861,7 @@ export default function RenewClient() {
 
         if (error) {
           ev.complete("fail");
-          alert(error.message || "Erro ao processar pagamento.");
+          await alertError(error.message || "Erro ao processar pagamento.");
           return;
         }
 
@@ -865,7 +875,7 @@ export default function RenewClient() {
             paymentData.client_secret,
           );
           if (actionError) {
-            alert(actionError.message || "Autenticação necessária falhou.");
+            await alertError(actionError.message || "Autenticação necessária falhou.");
             return;
           }
           setPaymentPhase("renewing");
@@ -918,7 +928,7 @@ export default function RenewClient() {
 
       if (!result?.ok) {
         debugErr("create-payment error (dev):", result);
-        alert("Não foi possível criar o pagamento. Tente novamente.");
+        await alertError("Não foi possível criar o pagamento. Tente novamente.");
         return;
       }
 
@@ -937,7 +947,7 @@ export default function RenewClient() {
       }
     } catch (err: any) {
       debugErr("Erro ao renovar (dev):", err?.message || err);
-      alert("Erro ao processar renovação. Tente novamente.");
+      await alertError("Erro ao processar renovação. Tente novamente.");
     } finally {
       setIsProcessingPayment(false);
       setPendingRenew(null);
@@ -956,7 +966,7 @@ export default function RenewClient() {
       );
 
       if (result.error) {
-        alert(result.error.message || "Erro ao processar cartão.");
+        await alertError(result.error.message || "Erro ao processar cartão.");
         return;
       }
 
@@ -966,7 +976,7 @@ export default function RenewClient() {
         startPolling(String(paymentData.payment_id));
       }
     } catch (e: any) {
-      alert(e?.message || "Erro ao processar pagamento. Tente novamente.");
+      await alertError(e?.message || "Erro ao processar pagamento. Tente novamente.");
     } finally {
       setStripeLoading(false);
     }

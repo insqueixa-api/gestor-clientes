@@ -1211,6 +1211,7 @@ async function handleToggleOffline(server: ServerRow) {
               addToast("success", "Salvo", "Dados do servidor atualizados.");
               fetchServers();
             }}
+            onError={(msg) => addToast("error", "Erro", msg)}
           />
         )}
 
