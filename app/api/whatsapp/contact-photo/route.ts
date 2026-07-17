@@ -39,22 +39,35 @@ export async function POST(req: Request) {
     // tenant, mas sempre buscaria a mesma sessão de qualquer usuário logado.
     // getWAContext resolve a sessão de verdade do tenant/usuário autenticado,
     // igual todas as outras rotas de WhatsApp já fazem.
-    const waCtx = await getWAContext(1);
-    if (!waCtx) return NextResponse.json({ error: "Sessão do WhatsApp não configurada." }, { status: 401 });
+    const waCtx1 = await getWAContext(1);
+    if (!waCtx1) return NextResponse.json({ error: "Sessão do WhatsApp não configurada." }, { status: 401 });
 
-    const picRes = await fetch(`${waCtx.baseUrl}/profile-picture?jid=${encodeURIComponent(jid)}`, {
-      headers: waCtx.headers,
-    });
+    async function fetchPhotoFromSession(ctx: { baseUrl: string; headers: Record<string, string> }) {
+      const res = await fetch(`${ctx.baseUrl}/profile-picture?jid=${encodeURIComponent(jid)}`, { headers: ctx.headers });
+      const text = await res.text();
+      if (!res.ok) return { url: null as string | null, status: res.status, body: text };
+      try {
+        const data = JSON.parse(text);
+        return { url: (data?.url ?? null) as string | null, status: res.status, body: text };
+      } catch {
+        return { url: null as string | null, status: res.status, body: text };
+      }
+    }
 
-    const picText = await picRes.text();
+    // Tenta pela sessão 1 e, se não achar (não conectada ou sem foto), cai para a sessão 2
+    let picResult = await fetchPhotoFromSession(waCtx1);
+    if (!picResult.url) {
+      const waCtx2 = await getWAContext(2);
+      if (waCtx2) picResult = await fetchPhotoFromSession(waCtx2);
+    }
 
-if (!picRes.ok) {
-  return NextResponse.json({ error: "Foto não disponível ou protegida.", vm_status: picRes.status, vm_body: picText }, { status: 404 });
-}
-
-const picData = JSON.parse(picText);
-const photoUrl: string | null = picData?.url ?? null;
-if (!photoUrl) return NextResponse.json({ error: "Foto protegida.", vm_response: picData }, { status: 404 });
+    const photoUrl = picResult.url;
+    if (!photoUrl) {
+      return NextResponse.json(
+        { error: "Foto não disponível ou protegida (tentado nas sessões 1 e 2).", vm_status: picResult.status, vm_body: picResult.body },
+        { status: 404 }
+      );
+    }
 
     // 2. Baixa a imagem e converte para base64
     const imgRes = await fetch(photoUrl);

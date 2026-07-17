@@ -486,6 +486,12 @@ function FinanceiroPageContent() {
   const [categoriasDB, setCategoriasDB] = useState<any[]>([]);
   const [saldosContas, setSaldosContas] = useState<Record<string, number>>({});
 
+  // ✅ Protege contra corrida ao trocar de mês rapidamente: cada chamada de
+  // carregarDados pega um número de sequência; se uma chamada mais nova já
+  // começou antes desta terminar, esta desiste em vez de sobrescrever a tela
+  // com dado de um mês que não é mais o selecionado.
+  const loadSeqRef = useRef(0);
+
   // Filtros
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("Todos");
@@ -626,24 +632,44 @@ function FinanceiroPageContent() {
       // Data de pagamento = último dia do mês sincronizado (nunca "hoje")
       const dataPagamentoMes = new Date(`${dataVenc}T12:00:00`).toISOString();
 
+      let falhasSync = 0;
+
       const upsertDinamico = async (
         descricao: string,
         valor: number,
         catId: string,
         tipoMovimento: "RECEITA" | "DESPESA",
       ) => {
-        if (!catId || valor <= 0) return;
+        if (!catId) return;
 
-        const { data: existentes } = await supabaseBrowser
+        const { data: existentes, error: errSel } = await supabaseBrowser
           .from("fin_transacoes")
           .select("id")
           .eq("tenant_id", tid)
           .eq("descricao", descricao)
           .gte("data_vencimento", mesStart)
           .lte("data_vencimento", dataVenc);
+        if (errSel) {
+          falhasSync++;
+          return;
+        }
+
+        if (valor <= 0) {
+          // ✅ Sem valor pra sincronizar esse mês: se tinha um lançamento
+          // automático de um sync anterior, remove — sem isso, ficava um
+          // valor antigo/desatualizado parado no extrato.
+          if (existentes && existentes.length > 0) {
+            const { error: errDel } = await supabaseBrowser
+              .from("fin_transacoes")
+              .delete()
+              .in("id", existentes.map((e) => e.id));
+            if (errDel) falhasSync++;
+          }
+          return;
+        }
 
         if (existentes && existentes.length > 0) {
-          await supabaseBrowser
+          const { error: errUpd } = await supabaseBrowser
             .from("fin_transacoes")
             .update({
               valor,
@@ -653,29 +679,34 @@ function FinanceiroPageContent() {
               conta_id: null,
             })
             .eq("id", existentes[0].id);
+          if (errUpd) falhasSync++;
 
           if (existentes.length > 1) {
             const idsParaDeletar = existentes.slice(1).map((e) => e.id);
-            await supabaseBrowser
+            const { error: errDelDup } = await supabaseBrowser
               .from("fin_transacoes")
               .delete()
               .in("id", idsParaDeletar);
+            if (errDelDup) falhasSync++;
           }
         } else {
-          await supabaseBrowser.from("fin_transacoes").insert({
-            tenant_id: tid,
-            tipo: tipoMovimento,
-            descricao,
-            valor,
-            data_vencimento: dataVenc,
-            status: "PAGO",
-            data_pagamento: dataPagamentoMes,
-            conta_id: null,
-            categoria_id: catId,
-            is_recorrente: true,
-            frequencia: "MENSAL",
-            observacoes: "Sincronização Automática",
-          });
+          const { error: errIns } = await supabaseBrowser
+            .from("fin_transacoes")
+            .insert({
+              tenant_id: tid,
+              tipo: tipoMovimento,
+              descricao,
+              valor,
+              data_vencimento: dataVenc,
+              status: "PAGO",
+              data_pagamento: dataPagamentoMes,
+              conta_id: null,
+              categoria_id: catId,
+              is_recorrente: true,
+              frequencia: "MENSAL",
+              observacoes: "Sincronização Automática",
+            });
+          if (errIns) falhasSync++;
         }
       };
 
@@ -688,10 +719,27 @@ function FinanceiroPageContent() {
           "DESPESA",
         ),
       ]);
-    } catch {}
+
+      if (falhasSync > 0) {
+        addToast(
+          "error",
+          "Sincronização de IPTV incompleta",
+          "Alguns valores automáticos de IPTV podem estar desatualizados. Tente recarregar a página.",
+        );
+      }
+    } catch (e: any) {
+      addToast(
+        "error",
+        "Falha ao sincronizar IPTV",
+        e?.message || "Não foi possível sincronizar os valores automáticos.",
+      );
+    }
   };
 
   const carregarDados = async (tid: string, dateObj: Date) => {
+    const mySeq = ++loadSeqRef.current;
+    const isStale = () => loadSeqRef.current !== mySeq;
+
     setLoading(true);
     try {
       const y = dateObj.getFullYear();
@@ -713,8 +761,18 @@ function FinanceiroPageContent() {
           .eq("tenant_id", tid)
           .order("nome"),
       ]);
-      if (resContas.data) setContasDB(resContas.data);
-      if (resCat.data) setCategoriasDB(resCat.data);
+      if (isStale()) return; // uma troca de mês mais nova já começou
+
+      if (resContas.error) {
+        addToast("error", "Erro ao carregar contas", resContas.error.message);
+      } else if (resContas.data) {
+        setContasDB(resContas.data);
+      }
+      if (resCat.error) {
+        addToast("error", "Erro ao carregar categorias", resCat.error.message);
+      } else if (resCat.data) {
+        setCategoriasDB(resCat.data);
+      }
 
       // Sincroniza Entradas do Dashboard automaticamente
       await sincronizarRendimentos(
@@ -724,12 +782,28 @@ function FinanceiroPageContent() {
         resCat.data || [],
       );
 
+      if (isStale()) return;
+
       const saldos: Record<string, number> = {};
+      let falhasSaldo = 0;
       for (const c of resContas.data || []) {
-        const { data: saldo } = await supabaseBrowser.rpc("get_saldo_conta", {
-          p_conta_id: c.id,
-        });
+        const { data: saldo, error: errSaldo } = await supabaseBrowser.rpc(
+          "get_saldo_conta",
+          { p_conta_id: c.id },
+        );
+        if (errSaldo) {
+          falhasSaldo++;
+          continue; // não seta 0 pra não fingir que a conta está zerada
+        }
         saldos[c.id] = Number(saldo || 0);
+      }
+      if (isStale()) return;
+      if (falhasSaldo > 0) {
+        addToast(
+          "error",
+          "Saldo desatualizado",
+          `Não consegui calcular o saldo de ${falhasSaldo} conta(s) — os valores mostrados podem estar incompletos.`,
+        );
       }
       setSaldosContas(saldos);
 
@@ -774,6 +848,7 @@ function FinanceiroPageContent() {
         data_pagamento: t.data_pagamento,
       }));
 
+      if (isStale()) return;
       setTransacoes(formatadas);
 
       // ✅ BUSCA RÁPIDA: Quantas parcelas reais estão pendentes na nuvem?
@@ -785,25 +860,34 @@ function FinanceiroPageContent() {
         ),
       ];
       if (recIds.length > 0) {
-        const { data: pendentesData } = await supabaseBrowser
+        const { data: pendentesData, error: errPendentes } = await supabaseBrowser
           .from("fin_transacoes")
           .select("recorrencia_id")
           .in("recorrencia_id", recIds)
           .eq("status", "PENDENTE");
 
-        const counts: Record<string, number> = {};
-        recIds.forEach((id) => (counts[id] = 0)); // Zera tudo por garantia
-        (pendentesData || []).forEach((row) => {
-          if (row.recorrencia_id) counts[row.recorrencia_id] += 1;
-        });
-        setPendentesMap(counts);
+        if (isStale()) return;
+        if (errPendentes) {
+          addToast(
+            "error",
+            "Erro ao contar parcelas pendentes",
+            errPendentes.message,
+          );
+        } else {
+          const counts: Record<string, number> = {};
+          recIds.forEach((id) => (counts[id] = 0)); // Zera tudo por garantia
+          (pendentesData || []).forEach((row) => {
+            if (row.recorrencia_id) counts[row.recorrencia_id] += 1;
+          });
+          setPendentesMap(counts);
+        }
       } else {
         setPendentesMap({});
       }
     } catch (e: any) {
-      addToast("error", "Erro ao carregar dados", e.message);
+      if (!isStale()) addToast("error", "Erro ao carregar dados", e.message);
     } finally {
-      setLoading(false);
+      if (!isStale()) setLoading(false);
     }
   };
 
@@ -897,12 +981,10 @@ function FinanceiroPageContent() {
 
   const getComputedStatus = (status: string, vencimentoIso: string) => {
     if (status === "PAGO") return "PAGO";
-    const hoje = new Date();
-    hoje.setHours(0, 0, 0, 0);
-    const [y, m, d] = vencimentoIso.split("-").map(Number);
-    const venc = new Date(y, m - 1, d);
-    venc.setHours(0, 0, 0, 0);
-    return venc < hoje ? "VENCIDO" : "PENDENTE";
+    // ✅ Compara string de data pura (YYYY-MM-DD) em vez de Date com hora
+    // zerada no fuso do navegador — evita divergir de getTodaySP() se o
+    // navegador não estiver configurado pra America/Sao_Paulo.
+    return vencimentoIso < getTodaySP() ? "VENCIDO" : "PENDENTE";
   };
 
   const formatRecorrencia = (t: Transacao) => {
@@ -1101,7 +1183,10 @@ function FinanceiroPageContent() {
     .reduce((acc, t) => acc + t.valor, 0);
 
   // Previsão = executado + pendentes com vencimento >= hoje (exclui vencidos)
-  const todayIso = new Date().toISOString().split("T")[0];
+  // ✅ Usa getTodaySP() (America/Sao_Paulo), não UTC — antes, entre ~21h e
+  // meia-noite no horário de Brasília, toISOString() já retornava a data de
+  // amanhã e uma conta vencendo hoje sumia da Previsão sem motivo aparente.
+  const todayIso = getTodaySP();
 
   const receitasPendentes = transacoesCards
     .filter(
@@ -2379,6 +2464,7 @@ function ModalGerenciarItens({
   onClose,
   addToast,
   groupByTipo,
+  contarUso,
 }: {
   title: string;
   items: any[];
@@ -2387,6 +2473,7 @@ function ModalGerenciarItens({
   onClose: () => void;
   addToast: any;
   groupByTipo?: boolean;
+  contarUso?: (id: string) => Promise<number>;
 }) {
   const { confirm, ConfirmUI } = useConfirm();
   const [editandoId, setEditandoId] = useState<string | null>(null);
@@ -2449,18 +2536,25 @@ function ModalGerenciarItens({
             </button>
             <button
               onClick={async () => {
+                const uso = contarUso ? await contarUso(it.id) : 0;
                 const ok = await confirm({
                   title: "Excluir Item",
                   subtitle: `Tem certeza que deseja excluir '${it.nome}'?`,
                   tone: "rose",
                   icon: "🗑️",
                   confirmText: "Sim, excluir",
+                  details:
+                    uso > 0
+                      ? [
+                          `${uso} lançamento${uso > 1 ? "s" : ""} usa${uso > 1 ? "m" : ""} este item — ${uso > 1 ? "eles" : "ele"} não ${uso > 1 ? "serão apagados" : "será apagado"}, mas ficará${uso > 1 ? "ão" : ""} sem essa referência.`,
+                        ]
+                      : undefined,
                 });
                 if (ok) {
                   try {
                     await onExcluir(it.id);
                   } catch {
-                    addToast("error", "Erro ao excluir", "Pode estar em uso.");
+                    addToast("error", "Erro ao excluir", "Não foi possível excluir este item.");
                   }
                 }
               }}
@@ -2747,11 +2841,14 @@ function ModalTransacao({
     if (transacaoEdit?.data_vencimento) return transacaoEdit.data_vencimento;
     const ref = pageDate ?? new Date();
     const hoje = new Date();
-    // Usa o dia de hoje, mas mês/ano da página
-    const d = String(hoje.getDate()).padStart(2, "0");
-    const m = String(ref.getMonth() + 1).padStart(2, "0");
+    // Usa o dia de hoje, mas mês/ano da página — cravado no último dia
+    // válido do mês (ex: hoje=31 numa página de abril vira 30, não "estoura"
+    // silenciosamente pra 01/05).
     const y = ref.getFullYear();
-    return `${y}-${m}-${d}`;
+    const m = ref.getMonth();
+    const ultimoDiaDoMes = new Date(y, m + 1, 0).getDate();
+    const dia = Math.min(hoje.getDate(), ultimoDiaDoMes);
+    return `${y}-${String(m + 1).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
   };
 
   const isoToRaw = (iso: string) =>
@@ -3091,106 +3188,94 @@ function ModalTransacao({
             } catch {}
           }
 
-          // 2. Busca histórico oficial E faturas "órfãs" para limpeza total (À Prova de Balas)
-          const [{ data: oficiais }, { data: orfas }] = await Promise.all([
-            supabaseBrowser
+          // 2. Busca as ocorrências FUTURAS da MESMA recorrência — nunca por
+          // descrição+conta (isso podia apagar transações não relacionadas,
+          // só porque coincidia o nome e a conta bancária).
+          const { data: futurasRaw, error: errFuturas } = await supabaseBrowser
+            .from("fin_transacoes")
+            .select("id, data_vencimento, status")
+            .eq("recorrencia_id", transacaoEdit.recorrencia_id)
+            .gt("data_vencimento", transacaoEdit.data_vencimento);
+          if (errFuturas) throw errFuturas;
+
+          const todasFuturas = (futurasRaw || []).filter(
+            (f) => f.id !== transacaoEdit.id,
+          );
+
+          // ✅ Ocorrências já PAGAS nunca são tocadas — nem apagadas, nem
+          // atualizadas. Só as pendentes recebem os novos dados.
+          const idsPendentes = todasFuturas
+            .filter((f) => f.status !== "PAGO")
+            .map((f) => f.id);
+
+          // 3. Atualiza em bloco só as futuras pendentes (mantém a data de
+          // vencimento e o número da parcela de cada uma — só o conteúdo
+          // muda, ninguém é recriado).
+          if (idsPendentes.length > 0) {
+            const { error: errUpdate } = await supabaseBrowser
               .from("fin_transacoes")
-              .select("id, data_vencimento, status, data_pagamento")
-              .eq("recorrencia_id", transacaoEdit.recorrencia_id)
-              .gt("data_vencimento", transacaoEdit.data_vencimento),
-            supabaseBrowser
-              .from("fin_transacoes")
-              .select("id, data_vencimento, status, data_pagamento")
-              .eq("descricao", transacaoEdit.descricao) // Busca pelo nome antigo para caçar órfãs duplicadas
-              .eq("conta_id", transacaoEdit.conta_id)
-              .gt("data_vencimento", transacaoEdit.data_vencimento),
-          ]);
-
-          const mapPagos: Record<string, any> = {};
-          const idsToDelete = new Set<string>();
-
-          const mergeData = (lista: any[]) => {
-            if (!lista) return;
-            lista.forEach((f) => {
-              // FIX: Previne que a transação atual cometa suicídio caso a nova data caia na query de futuras
-              if (f.id !== transacaoEdit.id) {
-                idsToDelete.add(f.id); // Coloca na lista de extermínio
-                if (f.status === "PAGO") {
-                  const ym = f.data_vencimento.substring(0, 7);
-                  if (!mapPagos[ym])
-                    mapPagos[ym] = {
-                      status: f.status,
-                      data_pagamento: f.data_pagamento,
-                    };
-                }
-              }
-            });
-          };
-
-          mergeData(oficiais || []);
-          mergeData(orfas || []);
-
-          // 3. Apaga TODAS as parcelas futuras encontradas (limpa a sujeira do banco)
-          const arrIds = Array.from(idsToDelete);
-          if (arrIds.length > 0) {
-            const { error: errDel } = await supabaseBrowser
-              .from("fin_transacoes")
-              .delete()
-              .in("id", arrIds);
-            if (errDel) throw errDel;
+              .update({
+                tipo,
+                descricao,
+                valor: Number(valor),
+                conta_id: contaSelecionada,
+                categoria_id: categoriaSelecionada,
+                observacoes: obs,
+                frequencia: tipoRecorrencia === "RECORRENTE" ? frequencia : null,
+              })
+              .in("id", idsPendentes);
+            if (errUpdate) throw errUpdate;
           }
 
-          // 4. Recria as futuras garantindo 5 anos de fôlego a partir de HOJE
-          const baseDate = new Date(`${vencimento}T12:00:00`);
-          const baseDia = baseDate.getDate();
+          // 4. Só pra RECORRENTE (sem fim definido): garante 5 anos de fôlego
+          // a partir de hoje, inserindo só os meses que ainda não existem —
+          // nunca mexe no que já existe (pago ou pendente). PARCELADA não
+          // entra aqui: o total de parcelas é fixo e todas já existem desde
+          // a criação, então atualizar as pendentes acima já é suficiente.
+          if (tipoRecorrencia === "RECORRENTE") {
+            const baseDate = new Date(`${vencimento}T12:00:00`);
+            const baseDia = baseDate.getDate();
 
-          function addMesesSemOverflow(
-            base: Date,
-            dia: number,
-            meses: number,
-          ): Date {
-            const targetYear =
-              base.getFullYear() + Math.floor((base.getMonth() + meses) / 12);
-            const targetMonth = (base.getMonth() + meses) % 12;
-            const ultimoDia = new Date(
-              targetYear,
-              targetMonth + 1,
-              0,
-            ).getDate();
-            return new Date(
-              targetYear,
-              targetMonth,
-              Math.min(dia, ultimoDia),
-              12,
-              0,
-              0,
+            const addMesesSemOverflow = (
+              base: Date,
+              dia: number,
+              meses: number,
+            ): Date => {
+              const targetYear =
+                base.getFullYear() + Math.floor((base.getMonth() + meses) / 12);
+              const targetMonth = (base.getMonth() + meses) % 12;
+              const ultimoDia = new Date(
+                targetYear,
+                targetMonth + 1,
+                0,
+              ).getDate();
+              return new Date(
+                targetYear,
+                targetMonth,
+                Math.min(dia, ultimoDia),
+                12,
+                0,
+                0,
+              );
+            };
+
+            const existentesYM = new Set(
+              todasFuturas.map((f) => f.data_vencimento.substring(0, 7)),
             );
-          }
+            existentesYM.add(vencimento.substring(0, 7));
 
-          let parcelasRestantes = 0;
-          let pAtual = transacaoEdit.parcela_atual || 1;
-          let pTotal = transacaoEdit.parcela_total || 1;
-
-          if (tipoRecorrencia === "PARCELADA") {
-            parcelasRestantes = pTotal - pAtual;
-          } else if (tipoRecorrencia === "RECORRENTE") {
             const hoje = new Date();
             const diffAnos = hoje.getFullYear() - baseDate.getFullYear();
             const diffMeses =
               diffAnos * 12 + (hoje.getMonth() - baseDate.getMonth());
-            parcelasRestantes = Math.max(60, diffMeses + 60);
-          }
+            const totalAlvo = Math.max(60, diffMeses + 60);
 
-          if (parcelasRestantes > 0) {
             const inserts = [];
-            for (let i = 1; i <= parcelasRestantes; i++) {
+            for (let i = 1; i <= totalAlvo; i++) {
               let dataVenc: Date;
-              const f =
-                tipoRecorrencia === "RECORRENTE" ? frequencia : "MENSAL";
+              const f = frequencia;
 
-              if (tipoRecorrencia === "PARCELADA" || f === "MENSAL") {
-                dataVenc = addMesesSemOverflow(baseDate, baseDia, i);
-              } else if (f === "BIMESTRAL") {
+              if (f === "BIMESTRAL") {
                 dataVenc = addMesesSemOverflow(baseDate, baseDia, i * 2);
               } else if (f === "TRIMESTRAL") {
                 dataVenc = addMesesSemOverflow(baseDate, baseDia, i * 3);
@@ -3213,26 +3298,24 @@ function ModalTransacao({
               }
 
               const ym = dataVenc.toISOString().substring(0, 7);
-              const jaPago = mapPagos[ym];
+              if (existentesYM.has(ym)) continue;
 
               inserts.push({
                 tenant_id: tenantId,
                 tipo,
-                descricao, // Usamos a descrição que você editou agora (já atualizada)
+                descricao,
                 valor: Number(valor),
                 data_vencimento: dataVenc.toISOString().split("T")[0],
-                status: jaPago ? jaPago.status : "PENDENTE",
-                data_pagamento: jaPago ? jaPago.data_pagamento : null,
+                status: "PENDENTE",
+                data_pagamento: null,
                 conta_id: contaSelecionada,
                 categoria_id: categoriaSelecionada,
                 observacoes: obs,
                 is_recorrente: true,
-                frequencia:
-                  tipoRecorrencia === "RECORRENTE" ? frequencia : null,
+                frequencia,
                 recorrencia_id: transacaoEdit.recorrencia_id,
-                parcela_atual:
-                  tipoRecorrencia === "PARCELADA" ? pAtual + i : null,
-                parcela_total: tipoRecorrencia === "PARCELADA" ? pTotal : null,
+                parcela_atual: null,
+                parcela_total: null,
               });
             }
 
@@ -3618,8 +3701,9 @@ function ModalTransacao({
             </div>
           </div>
 
-          {status === "PAGO" && (
+          {(status === "PAGO" || (isEdit && rTipoInicial !== "UNICA")) && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {status === "PAGO" && (
             <div className="sm:col-span-1">
               <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
                 Data de Pagamento
@@ -3650,10 +3734,10 @@ function ModalTransacao({
                 />
               )}
             </div>
+            )}
 
-            <div className="sm:col-span-2">
-              {isEdit && rTipoInicial !== "UNICA" ? (
-                <>
+            {isEdit && rTipoInicial !== "UNICA" && (
+            <div className={status === "PAGO" ? "sm:col-span-2" : "sm:col-span-3"}>
                   <label className="block text-[10px] font-medium text-muted-foreground  mb-1 uppercase tracking-wider">
                     Aplicar alterações em:
                   </label>
@@ -3670,14 +3754,11 @@ function ModalTransacao({
                       onClick={() => setEscopoEdicao("TODAS")}
                       className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopoEdicao === "TODAS" ? "bg-sky-500/10 text-sky-500 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                     >
-                      🔁 Nesta e nas futuras
+                      🔁 Nesta e nas futuras (pendentes)
                     </button>
                   </div>
-                </>
-              ) : (
-                <div />
-              )}
             </div>
+            )}
           </div>
           )}
 
@@ -3824,6 +3905,13 @@ function ModalTransacao({
           onEditar={async (id, nome, icone) => {
             await handleEditarConta(id, nome, icone);
           }}
+          contarUso={async (id) => {
+            const { count } = await supabaseBrowser
+              .from("fin_transacoes")
+              .select("id", { count: "exact", head: true })
+              .eq("conta_id", id);
+            return count || 0;
+          }}
         />
       )}
       {showGerenciarCategorias && (
@@ -3837,6 +3925,13 @@ function ModalTransacao({
           }}
           onEditar={async (id, nome, icone) => {
             await handleEditarCategoria(id, nome, icone);
+          }}
+          contarUso={async (id) => {
+            const { count } = await supabaseBrowser
+              .from("fin_transacoes")
+              .select("id", { count: "exact", head: true })
+              .eq("categoria_id", id);
+            return count || 0;
           }}
           groupByTipo
         />
