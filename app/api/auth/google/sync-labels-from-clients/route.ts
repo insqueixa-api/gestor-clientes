@@ -149,20 +149,23 @@ export async function POST(req: Request) {
       const phones: { label: string; value: string }[] = Array.isArray(contact.phones) ? contact.phones : [];
       if (!phones.length) continue;
 
-      // Cruza telefones com o índice de clientes
-      let matchedServer: string | null = null;
+      // Cruza telefones com o índice de clientes — junta TODOS os servidores
+      // ativos batidos (não só o primeiro), pra reconciliar de verdade
+      const matchedServers = new Set<string>();
       for (const p of phones) {
         const nat = normalizePhone(p.value);
-        if (nat && phoneIndex.has(nat)) {
-          matchedServer = phoneIndex.get(nat)!;
-          break;
-        }
+        const servers = nat ? phoneIndex.get(nat) : undefined;
+        if (servers) servers.forEach((s) => matchedServers.add(s));
       }
-      if (!matchedServer) continue;
 
-      // Já tem o label? Pula
+      // ✅ Reconcilia: adiciona o que falta, remove o que não é mais válido
+      // (ex: cliente arquivado num servidor não deve continuar com o grupo
+      // daquele servidor pra sempre — antes só adicionava, nunca removia).
       const currentLabels: string[] = Array.isArray(contact.labels) ? contact.labels : [];
-      if (currentLabels.includes(matchedServer)) continue;
+      const labelsParaAdicionar = [...matchedServers].filter((s) => !currentLabels.includes(s));
+      const labelsParaRemover = currentLabels.filter((l) => !matchedServers.has(l));
+
+      if (labelsParaAdicionar.length === 0 && labelsParaRemover.length === 0) continue;
 
       try {
         // GET no Google apenas para pegar o etag (necessário para o PATCH)
@@ -177,17 +180,29 @@ export async function POST(req: Request) {
         const personData = await personRes.json();
         const etag = personData.etag;
 
-        // Mantém memberships existentes + adiciona o novo grupo
-        const existingMemberships: any[] = (personData.memberships || [])
+        // Resolve o resourceName dos grupos a remover (só grupos que a gente
+        // mesmo rastreia como "servidor" — nunca mexe em grupo pessoal do
+        // usuário no Google que não seja um desses labels conhecidos).
+        const resourceNamesParaRemover = new Set(
+          labelsParaRemover
+            .map((l) => existingGroups.find((g: any) => g.name === l || g.formattedName === l)?.resourceName)
+            .filter(Boolean),
+        );
+
+        // Mantém memberships existentes, tirando os grupos de servidor que
+        // não valem mais, e adiciona os novos grupos batidos.
+        let existingMemberships: any[] = (personData.memberships || [])
           .map((m: any) => ({
             contactGroupMembership: {
               contactGroupResourceName: m.contactGroupMembership?.contactGroupResourceName,
             },
           }))
-          .filter((m: any) => m.contactGroupMembership?.contactGroupResourceName);
+          .filter((m: any) => m.contactGroupMembership?.contactGroupResourceName)
+          .filter((m: any) => !resourceNamesParaRemover.has(m.contactGroupMembership.contactGroupResourceName));
 
-        const serverGroupResourceName = await getOrCreateGroup(matchedServer);
-        if (serverGroupResourceName) {
+        for (const serverName of labelsParaAdicionar) {
+          const serverGroupResourceName = await getOrCreateGroup(serverName);
+          if (!serverGroupResourceName) continue;
           const alreadyIn = existingMemberships.some(
             m => m.contactGroupMembership?.contactGroupResourceName === serverGroupResourceName
           );
@@ -214,8 +229,9 @@ export async function POST(req: Request) {
           continue;
         }
 
-        // Atualiza só o labels no banco local
-        const newLabels = [...currentLabels, matchedServer];
+        // Atualiza o labels no banco local — reflete exatamente os servidores
+        // ativos de agora, sem os que sobraram de relações antigas/arquivadas.
+        const newLabels = [...matchedServers];
         await supabase
           .from("google_contacts")
           .update({ labels: newLabels, synced_at: new Date().toISOString() })
@@ -235,8 +251,8 @@ export async function POST(req: Request) {
       total: googleContacts.length,
       errors: errors.length > 0 ? errors : undefined,
       message: updatedCount > 0
-        ? `${updatedCount} de ${googleContacts.length} contato(s) vinculado(s) ao servidor.`
-        : `Nenhum contato novo para vincular (${googleContacts.length} verificado(s)).`,
+        ? `${updatedCount} de ${googleContacts.length} contato(s) atualizado(s) (grupos de servidor sincronizados).`
+        : `Nenhum contato precisou de ajuste (${googleContacts.length} verificado(s)).`,
     });
 
   } catch (error: any) {
