@@ -996,9 +996,10 @@ const isTrialMode = mode === "trial";
 // ✅ Teste Rápido é identificado pelo defaultSendWhatsapp=false (só ele usa essa prop assim)
 const isQuickTrial = isTrialMode && defaultSendWhatsapp === false;
 
-// ✅ Sync de Agenda só é permitido na CRIAÇÃO de um teste normal
-// (fica desabilitado em: edição, criação de cliente comum, e teste rápido)
-const canSyncAgenda = !isEditing && isTrialMode && !isQuickTrial;
+// ✅ Sync de Agenda/Operadora é permitido na CRIAÇÃO (teste normal OU cliente comum)
+// (fica desabilitado em: edição e teste rápido)
+const canSyncAuto = !isEditing && !isQuickTrial;
+const canSyncAgenda = canSyncAuto;
   const [activeTab, setActiveTab] = useState<"dados" | "pagamento" | "apps">(
     initialTab || "dados",
   );
@@ -1040,7 +1041,7 @@ const canSyncAgenda = !isEditing && isTrialMode && !isQuickTrial;
   const [allApps, setAllApps] = useState<SelectOption[]>([]);
 
   const [syncAgenda, setSyncAgenda] = useState(canSyncAgenda); // Só nasce ligado quando é permitido
-  const [syncOperadora, setSyncOperadora] = useState(false);
+  const [syncOperadora, setSyncOperadora] = useState(canSyncAuto); // Mesma regra do Agenda
 
   // plan tables
   const [tables, setTables] = useState<PlanTable[]>([]);
@@ -4058,8 +4059,9 @@ if (syncOperadora) {
           }
         }
 
-        // ✅ PAPA TESTES: salva histórico sempre que cria cliente ou teste
-if (clientId) {
+        // ✅ PAPA TESTES: salva histórico sempre que CRIA cliente ou teste — nunca em
+        // edição (senão gera linha nova a cada salvamento) nem no Teste Rápido.
+if (clientId && !isEditing && !isQuickTrial) {
   try {
     const tid2 = await getCurrentTenantId();
     const selectedServerName2 =

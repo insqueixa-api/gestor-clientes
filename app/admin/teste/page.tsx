@@ -5,6 +5,8 @@ import {
   X,
   ChevronUp,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   MessageCircle,
   Send,
   Clock,
@@ -2498,8 +2500,13 @@ function PapaTestesModal({
   const [filterType, setFilterType] = useState<"todos" | "trial" | "client">(
     "todos",
   );
+  const [filterConverted, setFilterConverted] = useState<
+    "todos" | "sim" | "nao"
+  >("todos");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [filterServer, setFilterServer] = useState("Todos");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 50;
 
   useEffect(() => {
     load();
@@ -2563,6 +2570,8 @@ function PapaTestesModal({
     return records.filter((r) => {
       if (filterType === "trial" && !r.is_trial) return false;
       if (filterType === "client" && r.is_trial) return false;
+      if (filterConverted === "sim" && !r.converted) return false;
+      if (filterConverted === "nao" && r.converted) return false;
       if (filterServer !== "Todos" && r.server_name !== filterServer)
         return false;
       if (!q) return true;
@@ -2579,17 +2588,32 @@ function PapaTestesModal({
         .replace(/[\u0300-\u036f]/g, "");
       return hay.includes(q);
     });
-  }, [records, search, filterType]);
+  }, [records, search, filterType, filterConverted, filterServer]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, filterType, filterConverted, filterServer]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [totalPages, page]);
+
+  const paged = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, page]);
 
   const grouped = useMemo(() => {
     const map: Record<string, any[]> = {};
-    for (const r of filtered) {
+    for (const r of paged) {
       const key = r.whatsapp_username || r.phone_e164 || r.id;
       if (!map[key]) map[key] = [];
       map[key].push(r);
     }
     return map;
-  }, [filtered]);
+  }, [paged]);
 
   if (typeof document === "undefined") return null;
 
@@ -2659,6 +2683,16 @@ function PapaTestesModal({
             <option value="todos">Todos</option>
             <option value="trial">Só Testes</option>
             <option value="client">Só Clientes</option>
+          </select>
+
+          <select
+            value={filterConverted}
+            onChange={(e) => setFilterConverted(e.target.value as any)}
+            className="h-9 px-3 bg-transparent border border-border rounded-lg text-sm outline-none text-foreground/90"
+          >
+            <option value="todos">Convertido (Todos)</option>
+            <option value="sim">Convertidos</option>
+            <option value="nao">Não convertidos</option>
           </select>
 
           <select
@@ -2778,14 +2812,39 @@ function PapaTestesModal({
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-border bg-transparent shrink-0 flex justify-between items-center">
-          <span className="text-xs text-muted-foreground">
+        <div className="px-5 py-3 border-t border-border bg-transparent shrink-0 flex justify-between items-center gap-3">
+          <span className="text-xs text-muted-foreground shrink-0">
             {filtered.length} de {records.length} registro
             {records.length !== 1 ? "s" : ""}
           </span>
+
+          {totalPages > 1 && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                title="Página anterior"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                Página {page} de {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                title="Próxima página"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-transparent text-foreground/90 font-medium text-xs hover:bg-muted transition-colors"
+            className="px-4 py-2 rounded-lg bg-transparent text-foreground/90 font-medium text-xs hover:bg-muted transition-colors shrink-0"
           >
             Fechar
           </button>
