@@ -107,6 +107,17 @@ export async function POST(
 
     // config
     const body = await req.json().catch(() => ({}));
+
+    // ✅ Se essa sessão está sendo marcada como "redireciona tudo pra outra
+    // sessão", resolve aqui a sessionKey de destino (Sessão 1) — o serviço
+    // de WhatsApp não tem acesso ao Supabase, então não consegue calcular
+    // isso sozinho. getWAContext(1) resolve pro MESMO usuário logado, só
+    // trocando o número da sessão no hash.
+    if (body?.redirectEnabled === true) {
+      const ctx1 = await getWAContext(1);
+      if (ctx1) body.redirectToSessionKey = ctx1.sessionKey;
+    }
+
     const { status, json } = await proxyVM(ctx, "/session-config", {
       method: "POST",
       body: JSON.stringify(body),

@@ -90,6 +90,14 @@ function WhatsAppSessionCard({
   const [rejectMessage, setRejectMessage] = useState("{saudacao}! 😊\nNo momento não estou recebendo ligações. Por favor, envie mensagem e aguarde retorno.");
   const [editingMessage, setEditingMessage] = useState(false);
   const [draftMessage, setDraftMessage] = useState("");
+  // ✅ Só faz sentido na Sessão 2 (apiSuffix "2"): número corporativo que não
+  // atende — redireciona toda mensagem recebida pra Sessão 1.
+  const [redirectEnabled, setRedirectEnabled] = useState(false);
+  const [redirectMessage, setRedirectMessage] = useState(
+    "Olá! 😊 Você enviou uma mensagem para um número que não é utilizado para atendimento — este telefone é de uso corporativo. Esta mensagem já está chegando pelo número correto: qualquer assunto sobre sua assinatura deve ser tratado por aqui a partir de agora, não pelo outro número."
+  );
+  const [editingRedirectMessage, setEditingRedirectMessage] = useState(false);
+  const [draftRedirectMessage, setDraftRedirectMessage] = useState("");
   const [showAllowedSection, setShowAllowedSection] = useState(false);
   const [showMessageSection, setShowMessageSection] = useState(false);
   const [allowedList, setAllowedList] = useState<AllowedRow[]>([]);
@@ -125,6 +133,8 @@ function WhatsAppSessionCard({
         setAllowedList(parseAllowed(json.allowedNumbers ?? []));
         setSavedAllowedNumbers(json.allowedNumbers ?? []);
         setBotEnabled(json.botEnabled ?? false);
+        setRedirectEnabled(json.redirectEnabled ?? false);
+        if (json.redirectMessage) setRedirectMessage(json.redirectMessage);
       }
     } catch {}
   }
@@ -163,7 +173,7 @@ function WhatsAppSessionCard({
     return () => clearInterval(t);
   }, [isDormant, connected]);
 
-  async function saveConfig(overrides: Partial<{ rejectCalls: boolean; rejectMessage: string; allowedNumbers: string[]; botEnabled: boolean }> = {}) {
+  async function saveConfig(overrides: Partial<{ rejectCalls: boolean; rejectMessage: string; allowedNumbers: string[]; botEnabled: boolean; redirectEnabled: boolean; redirectMessage: string }> = {}) {
     setSavingConfig(true);
     try {
       const payload = {
@@ -171,6 +181,8 @@ function WhatsAppSessionCard({
         rejectMessage: overrides.rejectMessage ?? rejectMessage,
         allowedNumbers: overrides.allowedNumbers ?? stringifyAllowed(allowedList),
         botEnabled: overrides.botEnabled ?? botEnabled,
+        redirectEnabled: overrides.redirectEnabled ?? redirectEnabled,
+        redirectMessage: overrides.redirectMessage ?? redirectMessage,
         ...(tenantId ? { tenantId } : {}),
       };
       const res = await fetch(route("config"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -178,6 +190,9 @@ function WhatsAppSessionCard({
     } finally { setSavingConfig(false); }
   }
   async function handleToggleRejectCalls() { const next = !rejectCalls; setRejectCalls(next); await saveConfig({ rejectCalls: next }); }
+  async function handleToggleRedirect() { const next = !redirectEnabled; setRedirectEnabled(next); await saveConfig({ redirectEnabled: next }); }
+  function startEditRedirectMessage() { setDraftRedirectMessage(redirectMessage); setEditingRedirectMessage(true); }
+  async function confirmEditRedirectMessage() { setRedirectMessage(draftRedirectMessage); setEditingRedirectMessage(false); await saveConfig({ redirectMessage: draftRedirectMessage }); }
   async function handleToggleBot() { const next = !botEnabled; setBotEnabled(next); await saveConfig({ botEnabled: next }); }
   function startEditMessage() { setDraftMessage(rejectMessage); setEditingMessage(true); }
   async function confirmEditMessage() { setRejectMessage(draftMessage); setEditingMessage(false); await saveConfig({ rejectMessage: draftMessage }); }
@@ -247,6 +262,36 @@ function WhatsAppSessionCard({
                   <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-card shadow-sm transition-transform ${botEnabled ? "translate-x-5" : ""}`} />
                 </button>
               </div>
+              {apiSuffix === "2" && (
+                <div className="p-3 rounded-xl border border-border space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-foreground/90 flex items-center gap-1.5">
+                      <span className={`text-base leading-none ${redirectEnabled ? "" : "opacity-40"}`}>↪️</span>
+                      Número não atende — redireciona pra Sessão 1
+                      {redirectEnabled && <span className="text-[10px] font-medium text-amber-500 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-md">ativo</span>}
+                    </span>
+                    <button onClick={() => void handleToggleRedirect()} disabled={savingConfig} className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${redirectEnabled ? "bg-amber-500" : "bg-muted"}`}>
+                      <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-card shadow-sm transition-transform ${redirectEnabled ? "translate-x-5" : ""}`} />
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    Quando ativado, o bot não atende por aqui — só manda o aviso abaixo (pelo número da Sessão 1) e mais nada.
+                  </p>
+                  {redirectEnabled && (!editingRedirectMessage ? (
+                    <div onClick={startEditRedirectMessage} className="px-3 py-2 text-xs bg-transparent border border-dashed border-border rounded-xl text-foreground/80 cursor-pointer hover:border-amber-500/50 whitespace-pre-wrap" title="Clique para editar">
+                      {redirectMessage || "Clique para definir a mensagem..."}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <textarea value={draftRedirectMessage} onChange={(e) => setDraftRedirectMessage(e.target.value)} rows={4} autoFocus className="w-full px-3 py-2 text-xs bg-card border border-amber-500/50 rounded-xl outline-none resize-none" />
+                      <div className="flex gap-2">
+                        <button onClick={() => setEditingRedirectMessage(false)} className="flex-1 py-1.5 rounded-lg border border-border text-[10px] font-medium text-muted-foreground">Cancelar</button>
+                        <button onClick={() => void confirmEditRedirectMessage()} disabled={savingConfig} className="flex-1 py-1.5 rounded-lg bg-amber-600 text-white text-[10px] font-bold">{savingConfig ? "Salvando..." : "✓ Salvar"}</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="flex items-center justify-between p-3 rounded-xl border border-border">
                 <span className="text-sm font-medium text-foreground/90 flex items-center gap-1.5">
                   {rejectCalls ? <Ban className="w-3.5 h-3.5 text-rose-500" /> : <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />}

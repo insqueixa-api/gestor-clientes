@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/app/admin/HookuseConfirm";
+import FormattedDateInput from "@/app/admin/FormattedDateInput";
 
 // --- HELPERS DE TELEFONE E PAÍSES (alinhados com NovoCliente) ---
 type DdiOption = { code: string; label: string; flag: string };
@@ -750,11 +751,10 @@ export default function ResellerFormModal({
 
             <div className="space-y-1.5">
               <Label>Não perturbar até</Label>
-              <Input
+              <FormattedDateInput
                 type="datetime-local"
                 value={dontMessageUntil}
                 onChange={(e) => setDontMessageUntil(e.target.value)}
-                className="dark:[color-scheme:dark]"
               />
             </div>
           </div>

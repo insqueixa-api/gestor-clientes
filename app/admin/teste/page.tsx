@@ -19,6 +19,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import FormattedDateInput from "@/app/admin/FormattedDateInput";
 import { getIntegrationHandler } from "@/lib/integrations";
 
 // ✅ Modal ÚNICO (criar/editar teste vem do mesmo modal do cliente)
@@ -2161,11 +2162,10 @@ export default function TrialsPage() {
               <label className="block text-xs font-medium text-muted-foreground mb-1 uppercase">
                 Data e Hora do Envio
               </label>
-              <input
+              <FormattedDateInput
                 type="datetime-local"
                 value={scheduleDate}
                 onChange={(e) => setScheduleDate(e.target.value)}
-                className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-foreground outline-none"
               />
             </div>
 
@@ -2282,14 +2282,6 @@ export default function TrialsPage() {
       <div className="relative z-[999999]">
         <ToastNotifications toasts={toasts} removeToast={removeToast} />
       </div>
-
-      <style jsx global>{`
-        input[type="date"]::-webkit-calendar-picker-indicator,
-        input[type="time"]::-webkit-calendar-picker-indicator {
-          opacity: 0;
-          display: none;
-        }
-      `}</style>
     </div>
   );
 }

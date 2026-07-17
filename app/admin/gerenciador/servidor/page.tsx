@@ -16,6 +16,7 @@ import type { ReactNode, MouseEvent } from "react";
 import Link from "next/link";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import FormattedTimeInput from "@/app/admin/FormattedTimeInput";
 import NovoServidorModal from "./novo_servidor";
 import RecargaServidorModal from "./recarga_servidor";
 import ToastNotifications, {
@@ -340,11 +341,10 @@ async function handleToggleOffline(server: ServerRow) {
             <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
               Desde quando (HH:MM — padrão: agora)
             </label>
-            <input
+            <FormattedTimeInput
               ref={offlineHorarioRef}
-              type="time"
               defaultValue={agoraSP}
-              className="w-full h-9 px-3 text-xs bg-card border border-border rounded-lg outline-none focus:border-rose-500/50 text-foreground"
+              className="h-9 text-xs bg-card focus:border-rose-500/50"
             />
           </div>
         </div>,

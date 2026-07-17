@@ -23,6 +23,7 @@ import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { createPortal } from "react-dom";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import FormattedDateInput from "@/app/admin/FormattedDateInput";
 import NovoCliente, { ClientData } from "./novo_cliente";
 import RecargaCliente from "./recarga_cliente";
 import { useConfirm } from "@/app/admin/HookuseConfirm";
@@ -3158,11 +3159,11 @@ className="p-8 text-center text-muted-foreground italic"
               <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Data e Hora do Envio
               </label>
-              <input
+              <FormattedDateInput
                 type="datetime-local"
                 value={scheduleDate}
                 onChange={(e) => setScheduleDate(e.target.value)}
-                className="w-full h-11 px-3 bg-transparent border border-border rounded-xl text-foreground outline-none focus:border-purple-500 transition-colors text-sm"
+                className="h-11 rounded-xl focus:border-purple-500"
               />
             </div>
 
@@ -3282,14 +3283,6 @@ className="p-8 text-center text-muted-foreground italic"
       <div className="relative z-[999999]">
         <ToastNotifications toasts={toasts} removeToast={removeToast} />
       </div>
-
-      <style jsx global>{`
-        input[type="date"]::-webkit-calendar-picker-indicator,
-        input[type="time"]::-webkit-calendar-picker-indicator {
-          opacity: 0;
-          display: none;
-        }
-      `}</style>
     </div>
   );
 }

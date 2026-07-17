@@ -9,6 +9,7 @@ import ToastNotifications, { ToastMessage } from "../ToastNotifications";
 import { useConfirm } from "@/app/admin/HookuseConfirm"; // ✅ Trazendo a caixa de confirmação bonita
 import { getIntegrationHandler } from "@/lib/integrations"; // ✅ O Roteador Inteligente
 import { createPortal } from "react-dom";
+import FormattedTimeInput from "@/app/admin/FormattedTimeInput";
 
 // --- TIPOS ---
 type SelectOption = {
@@ -5528,11 +5529,9 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
                     <div>
                       <Label>Hora</Label>
                       <div className="flex gap-2">
-                        <Input
-                          type="time"
+                        <FormattedTimeInput
                           value={dueTime}
                           onChange={(e) => setDueTime(e.target.value)}
-                          className="dark:[color-scheme:dark]"
                         />
                         <button
                           type="button"

@@ -17,6 +17,7 @@ import ToastNotifications, {
 } from "@/app/admin/ToastNotifications";
 import { useTheme } from "@/components/theme/ThemeProvider";
 import { useConfirm } from "@/app/admin/HookuseConfirm";
+import FormattedDateInput from "@/app/admin/FormattedDateInput";
 
 // ============================================================================
 // HELPERS & CONSTANTES
@@ -1123,7 +1124,7 @@ async function handleSave() {
             <div className="grid grid-cols-3 gap-3 sm:gap-4">
               <div>
                 <Label>Nascimento</Label>
-                <Input
+                <FormattedDateInput
                   type="date"
                   value={birthDate}
                   onChange={(e) => {
@@ -1205,7 +1206,7 @@ async function handleSave() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>Data da Medição</Label>
-                    <Input
+                    <FormattedDateInput
                       type="date"
                       max={new Date().toISOString().slice(0, 10)}
                       value={newHealthEntry.date}

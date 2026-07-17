@@ -6,6 +6,7 @@ import { createPortal } from "react-dom"; // Faltava importar o createPortal
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import type { ServerRow } from "./page"; // Importamos o tipo do servidor
+import FormattedDateInput from "@/app/admin/FormattedDateInput";
 
 // --- COMPONENTES VISUAIS (Mesmo padrão do novo_servidor) ---
 function Label({ children }: { children: React.ReactNode }) {
@@ -428,7 +429,7 @@ export default function RecargaServidorModal({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label>Data da compra</Label>
-              <Input
+              <FormattedDateInput
                 type="datetime-local"
                 value={purchasedAt}
                 onChange={(e) => setPurchasedAt(e.target.value)}

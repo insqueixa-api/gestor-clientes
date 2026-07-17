@@ -313,6 +313,75 @@ async function escalateAfterSilence(sessionKey, phone) {
 // Contatos que o bot já iniciou atendimento (bot respondeu ao menos 1x)
 const botActiveContacts = new Set(); // "sessionKey:phone"
 
+// ── Sessão "não atende, redireciona tudo pra outra sessão" ──────────────────
+// Throttle do aviso de redirecionamento — não repete a cada mensagem do
+// mesmo contato confuso, só de tempos em tempos.
+const redirectNoticeSent = new Map(); // "sessionKey:phone" -> timestamp
+const REDIRECT_NOTICE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+
+async function sendRedirectNoticeOnce(sessionKey, phone, config) {
+  const key = `${sessionKey}:${phone}`;
+  const last = redirectNoticeSent.get(key);
+  if (last && Date.now() - last < REDIRECT_NOTICE_TTL_MS) return;
+
+  // ✅ Só avisa quem é CLIENTE de verdade — sem essa checagem, qualquer
+  // colega/fornecedor que mandasse mensagem pro número corporativo por
+  // outro motivo receberia o aviso de IPTV por engano. O serviço de
+  // WhatsApp não tem Supabase direto, então pergunta pro Next.js.
+  const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "").trim().replace(/\/+$/, "");
+  const botSecret = String(process.env.UNIGESTOR_BOT_INTERNAL_SECRET || "").trim();
+  if (!appUrl || !botSecret || !config.tenantId) return; // sem como checar, não arrisca mandar
+
+  let isClient = false;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
+    let res;
+    try {
+      res = await fetch(`${appUrl}/api/whatsapp/bot/redirect-notice`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-internal-secret": botSecret },
+        body: JSON.stringify({ tenant_id: config.tenantId, phone }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+    if (res.ok) {
+      const json = await res.json().catch(() => ({}));
+      isClient = !!json.isClient;
+    }
+  } catch (e) {
+    console.error(`[REDIRECT][${sessionKey.slice(0, 8)}] Falha ao checar se é cliente:`, e?.message);
+    return; // em dúvida, não manda nada
+  }
+
+  if (!isClient) {
+    // Não é cliente conhecido — ignora completamente (nem manda mensagem,
+    // nem trata como cliente). Marca o throttle mesmo assim, pra não ficar
+    // reconsultando a cada mensagem que essa pessoa mandar.
+    redirectNoticeSent.set(key, Date.now());
+    return;
+  }
+
+  const msg = config.redirectMessage || DEFAULT_REDIRECT_MESSAGE;
+  const targetKey = config.redirectToSessionKey;
+  const targetSess = targetKey ? sessions.get(targetKey) : null;
+
+  try {
+    if (targetSess && targetSess.status === "connected") {
+      await sendMessage(targetKey, phone, msg);
+    } else {
+      // Sessão de destino indisponível agora — melhor avisar por aqui mesmo
+      // (nesta sessão) do que deixar o cliente sem resposta nenhuma.
+      await sendMessage(sessionKey, phone, msg);
+    }
+    redirectNoticeSent.set(key, Date.now());
+  } catch (e) {
+    console.error(`[REDIRECT][${sessionKey.slice(0, 8)}] Falha ao enviar aviso de redirecionamento:`, e?.message);
+  }
+}
+
 // Deduplicação de mensagens — evita processar a mesma msg duplicada do Baileys
 const processedMessages = new Map(); // msgId -> timestamp
 function isMessageAlreadyProcessed(msgId) {
@@ -396,6 +465,11 @@ const DEFAULT_REJECT_MESSAGE =
   process.env.CALL_REJECT_MESSAGE ||
   "Olá! Não recebo ligações pelo WhatsApp. Por favor, envie uma mensagem e aguarde meu retorno. Obrigado! 😊";
 
+// Mensagem padrão de redirecionamento — usada quando uma sessão é marcada
+// como "não atende, redireciona tudo pra outra sessão" (ex: número corporativo).
+const DEFAULT_REDIRECT_MESSAGE =
+  "Olá! 😊 Você enviou uma mensagem para um número que não é utilizado para atendimento — este telefone é de uso corporativo. Esta mensagem já está chegando pelo número correto: qualquer assunto sobre sua assinatura deve ser tratado por aqui a partir de agora, não pelo outro número.";
+
 // Config por sessão: { rejectCalls: bool, rejectMessage: string }
 const sessionConfigs = new Map();
 const CONFIG_DIR = path.resolve(AUTH_DIR, "_config");
@@ -423,6 +497,9 @@ function getSessionConfig(sessionKey) {
     allowedNumbers: [],
     botEnabled: false,   // bot começa desligado — você liga pelo toggle no front
     tenantId: null,      // preenchido quando admin salva as configurações
+    redirectEnabled: false,       // true = essa sessão não atende, só redireciona
+    redirectMessage: DEFAULT_REDIRECT_MESSAGE,
+    redirectToSessionKey: null,   // sessionKey da sessão que deve responder de verdade
   };
   sessionConfigs.set(sessionKey, defaults);
   return defaults;
@@ -437,6 +514,9 @@ function updateSessionConfig(sessionKey, updates) {
     ...(Array.isArray(updates.allowedNumbers) ? { allowedNumbers: updates.allowedNumbers } : {}),
     ...(updates.botEnabled !== undefined ? { botEnabled: !!updates.botEnabled } : {}),
     ...(updates.tenantId !== undefined ? { tenantId: String(updates.tenantId) } : {}),
+    ...(updates.redirectEnabled !== undefined ? { redirectEnabled: !!updates.redirectEnabled } : {}),
+    ...(updates.redirectMessage !== undefined ? { redirectMessage: String(updates.redirectMessage) } : {}),
+    ...(updates.redirectToSessionKey !== undefined ? { redirectToSessionKey: updates.redirectToSessionKey || null } : {}),
   };
   sessionConfigs.set(sessionKey, next);
 
@@ -1144,6 +1224,15 @@ if (key.fromMe) {
     }
 
     // ── Mensagem recebida de cliente ───────────────────────────
+
+    // ✅ Sessão marcada como "não atende, redireciona tudo pra outra sessão"
+    // (ex: número corporativo) — dispara ANTES de qualquer checagem de bot
+    // ligado/pausado, porque essa sessão nunca faz atendimento de verdade;
+    // só avisa (throttlado) e direciona pro número certo.
+    if (config.redirectEnabled) {
+      void sendRedirectNoticeOnce(sessionKey, phone, config);
+      continue;
+    }
 
 // Bot desligado pelo toggle do painel
 if (!config.botEnabled) {

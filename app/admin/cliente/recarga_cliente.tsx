@@ -8,6 +8,8 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 import { getCurrentTenantId } from "@/lib/tenant";
 import ToastNotifications, { ToastMessage } from "../ToastNotifications";
 import { useConfirm } from "@/app/admin/HookuseConfirm";
+import FormattedDateInput from "@/app/admin/FormattedDateInput";
+import FormattedTimeInput from "@/app/admin/FormattedTimeInput";
 import { Suspense } from "react";
 
 // --- INTERFACES ---
@@ -1812,11 +1814,10 @@ const clientMessageAuto = `Renovação automática via painel Admin · ${monthsT
                 <div>
                   <Label>Hora Limite</Label>
                   <div className="flex gap-2">
-                    <input
-                      type="time"
+                    <FormattedTimeInput
                       value={dueTime}
                       onChange={(e) => setDueTime(e.target.value)}
-                      className="flex-1 h-10 px-3 bg-transparent border border-border rounded-lg text-foreground outline-none focus:border-emerald-500/50 transition-colors text-sm font-medium dark:[color-scheme:dark]"
+                      className="flex-1 text-sm font-medium"
                     />
                     <button
                       type="button"
@@ -1986,11 +1987,10 @@ const clientMessageAuto = `Renovação automática via painel Admin · ${monthsT
                     </div>
                     <div>
                       <Label>Data Pagto</Label>
-                      <Input
+                      <FormattedDateInput
                         type="datetime-local"
                         value={payDate}
                         onChange={(e) => setPayDate(e.target.value)}
-                        className="dark:[color-scheme:dark]"
                       />
                     </div>
                   </div>

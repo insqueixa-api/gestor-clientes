@@ -21,6 +21,7 @@ import Link from "next/link";
 import { createPortal } from "react-dom";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import FormattedDateInput from "@/app/admin/FormattedDateInput";
 
 // --- HOOKS CUSTOMIZADOS ---
 import { useConfirm } from "@/app/admin/HookuseConfirm"; // ✅ ADICIONADO: Importação obrigatória
@@ -1993,11 +1994,11 @@ export default function RevendaPage() {
                 Data e Hora do Envio
               </label>
 
-              <input
+              <FormattedDateInput
                 type="datetime-local"
                 value={scheduleDate}
                 onChange={(e) => setScheduleDate(e.target.value)}
-                className="w-full h-11 px-3 bg-transparent border border-border rounded-lg text-foreground outline-none focus:border-emerald-500/50 transition-colors"
+                className="h-11"
               />
             </div>
 
@@ -2324,14 +2325,6 @@ export default function RevendaPage() {
       <div className="relative z-[999999]">
         <ToastNotifications toasts={toasts} removeToast={removeToast} />
       </div>
-
-      <style jsx global>{`
-        input[type="date"]::-webkit-calendar-picker-indicator,
-        input[type="time"]::-webkit-calendar-picker-indicator {
-          opacity: 0;
-          display: none;
-        }
-      `}</style>
     </div>
   );
 }

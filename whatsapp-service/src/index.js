@@ -321,8 +321,8 @@ app.post("/session-config", authMiddleware, (req, res) => {
   const sessionKey = getSessionKey(req);
   if (!sessionKey) return res.status(400).json({ error: "x-session-key obrigatório" });
 
-const { rejectCalls, rejectMessage, allowedNumbers, botEnabled, tenantId } = req.body || {};
-const config = updateSessionConfig(sessionKey, { rejectCalls, rejectMessage, allowedNumbers, botEnabled, tenantId });
+const { rejectCalls, rejectMessage, allowedNumbers, botEnabled, tenantId, redirectEnabled, redirectMessage, redirectToSessionKey } = req.body || {};
+const config = updateSessionConfig(sessionKey, { rejectCalls, rejectMessage, allowedNumbers, botEnabled, tenantId, redirectEnabled, redirectMessage, redirectToSessionKey });
   return res.json({ ok: true, config });
 });
 

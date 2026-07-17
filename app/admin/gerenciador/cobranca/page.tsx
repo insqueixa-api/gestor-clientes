@@ -10,6 +10,7 @@ import ToastNotifications, {
   ToastMessage,
 } from "@/app/admin/ToastNotifications";
 import { useConfirm } from "@/app/admin/HookuseConfirm";
+import FormattedTimeInput from "@/app/admin/FormattedTimeInput";
 
 // --- TIPOS ---
 type Automation = {
@@ -2181,13 +2182,12 @@ function AutomationWizard({
                   <div>
                     <Label>Horário do Disparo (Brasília)</Label>
                     <div className="flex justify-center mt-2">
-                      <input
-                        type="time"
+                      <FormattedTimeInput
                         value={form.schedule_time}
                         onChange={(e) =>
                           setForm({ ...form, schedule_time: e.target.value })
                         }
-                        className="text-3xl font-medium bg-transparent border-b-2 border-emerald-500 text-center w-32 outline-none text-foreground"
+                        className="text-3xl font-medium text-center w-32 border-emerald-500"
                       />
                     </div>
                   </div>
