@@ -2,7 +2,8 @@
 // /app/api/integrations/apps/ibopro/ibopro.ts
 export const IboProAPI = {
   actionPrefix: "IBOPRO",
-  // Extension-based — sem useApi
+  useApi: true, // ✅ Login+criação+remoção rodam na VM/servidor via HTTP puro, sem extensão
+  apiEndpoint: "/api/integrations/apps/ibopro",
 
   buildCreatePayload({
     macValue,
@@ -18,6 +19,7 @@ export const IboProAPI = {
     password?: string;
   }) {
     return {
+      action: "create",
       mac: macValue,
       playlist_name: serverName || finalServerName || "Playlist",
       playlist_url: m3uUrl,
@@ -38,6 +40,7 @@ export const IboProAPI = {
     password?: string;
   }) {
     return {
+      action: "delete",
       mac: macValue,
       playlist_name: serverName || finalServerName || "",
       pin: password || undefined,
