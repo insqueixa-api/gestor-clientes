@@ -64,17 +64,12 @@ export default function AppIntegracaoModal({
   const isDuplecast = appName === "DUPLECAST";
   const isIboSol = appName === "IBOSOL";
   const isIboPro = appName === "IBOPRO";
-  const isQuickPlayer = appName === "QUICKPLAYER";
-  const isLazerPlay =
-    appName === "LAZERPLAY" || appName === "FUNPLAY" || appName === "FOCOXPLAY";
   const needsPin =
     isDuplecast ||
     isIboSol ||
-    isIboPro ||
-    isQuickPlayer ||
-    isLazerPlay;
+    isIboPro;
   const noCredentials =
-    isIboSol || isIboPro || isQuickPlayer || isLazerPlay; // Apps que não usam email/senha
+    isIboSol || isIboPro; // Apps que não usam email/senha
 
   useEffect(() => {
     if (integration) {
@@ -262,10 +257,6 @@ export default function AppIntegracaoModal({
                 <option value="DUPLECAST">DupleCast</option>
                 <option value="IBOSOL">IBO Sol</option>
                 <option value="IBOPRO">IBO Pro Player</option>
-                <option value="QUICKPLAYER">Quick Player</option>
-                <option value="LAZERPLAY">Lazer Play</option>
-                <option value="FUNPLAY">Fun Play</option>
-                <option value="FOCOXPLAY">FocoX Play</option>
               </select>
             </div>
 
@@ -284,15 +275,7 @@ export default function AppIntegracaoModal({
                       ? 'Ex: "IBO Sol"'
                       : appName === "IBOPRO"
                         ? 'Ex: "IBO Pro Player"'
-                        : appName === "QUICKPLAYER"
-                          ? 'Ex: "Quick Player"'
-                          : appName === "LAZERPLAY"
-                              ? 'Ex: "Lazer Play"'
-                              : appName === "FUNPLAY"
-                                ? 'Ex: "Fun Play"'
-                                : appName === "FOCOXPLAY"
-                                  ? 'Ex: "FocoX Play"'
-                                  : 'Ex: "Nome do aplicativo"'
+                        : 'Ex: "Nome do aplicativo"'
                 }
                 className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors"
               />
@@ -313,11 +296,7 @@ export default function AppIntegracaoModal({
                       ? "Ex: https://activation.iboplayer.com"
                       : isIboPro
                         ? "Ex: https://iboproapp.com"
-                        : isQuickPlayer
-                          ? "Ex: https://api.quickplayer.app/api"
-                          : isLazerPlay
-                              ? "Ex: https://lazerplay.io"
-                              : "Ex: https://gerenciaapp.top"
+                        : "Ex: https://gerenciaapp.top"
                 }
                 type="url"
                 className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors font-mono text-xs"

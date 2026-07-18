@@ -3,6 +3,8 @@
 
 export const DupleCastIntegration = {
     actionPrefix: "DUPLECAST",
+    useApi: true, // ✅ Login+criação+remoção rodam na VM via HTTP puro, sem extensão
+    apiEndpoint: "/api/integrations/apps/duplecast",
 
     buildCreatePayload: (params: {
         username: string;
@@ -14,6 +16,7 @@ export const DupleCastIntegration = {
         appName?: string; // ✅ Adicionado Opcional
     }) => {
         return {
+            action: "create",
             macValue:         params.macValue,
             finalServerName:  params.serverName, // ✅ Força o painel a usar apenas "Servidor" como nome da lista
             m3uUrl:           params.m3uUrl,
@@ -23,6 +26,7 @@ export const DupleCastIntegration = {
 
     buildDeletePayload: (params: { username: string; finalServerName?: string; serverName?: string; macValue: string; appName?: string }) => {
         return {
+            action: "delete",
             // ✅ Busca EXATAMENTE como você pediu: Apenas o nome do Servidor (ex: FastTV)
             username: params.serverName || params.username.trim(),
             macValue: params.macValue || "",

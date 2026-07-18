@@ -1148,10 +1148,6 @@ setApps(formattedApps);
                       <option value="DUPLECAST">DupleCast</option>
                       <option value="IBOSOL">IBO Sol</option>
                       <option value="IBOPRO">IBO Pro Player</option>
-                      <option value="QUICKPLAYER">Quick Player</option>
-                      <option value="LAZERPLAY">Lazer Play</option>
-                      <option value="FUNPLAY">Fun Play</option>
-                      <option value="FOCOXPLAY">FocoX Play</option>
                     </select>
                     <p className="text-[11px] text-muted-foreground mt-1">
                       Quando configurado, habilita automação ao criar clientes.

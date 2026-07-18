@@ -51,12 +51,6 @@ const worksheet = XLSX.utils.aoa_to_sheet([
     ...notes.map((n) => [n]),
   ], { cellDates: true });
 
-  // Aplica formato DD/MM/YYYY na célula de exemplo da coluna Vencimento (linha 2, col 4)
-  const dateCellAddr = XLSX.utils.encode_cell({ r: 1, c: 4 });
-  if (worksheet[dateCellAddr]) {
-    worksheet[dateCellAddr].z = "DD/MM/YYYY";
-  }
-
   // Largura das colunas para melhor leitura
   worksheet["!cols"] = [
     { wch: 20 }, // Cliente

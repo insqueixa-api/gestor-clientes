@@ -1,14 +1,12 @@
 // lib/integrations/index.ts
-import { GerenciaAppIntegration } from "./gerenciaapp"; 
+import { GerenciaAppIntegration } from "./gerenciaapp";
 import { DupleCastIntegration } from "./duplecast";
-import { LazerPlayIntegration } from "./lazerplay"; // ✅ Importando a nova lib
 import { IbosolAPI as IboSolIntegration } from "@/app/api/integrations/apps/ibosol/ibosol";
 import { IboProAPI as IboProIntegration } from "@/app/api/integrations/apps/ibopro/ibopro";
-import { QuickPlayerAPI as QuickPlayerIntegration } from "@/app/api/integrations/apps/quickplayer/quickplayer";
 
 const INTEGRATION_REGISTRY: Record<string, any> = {
-    "GERENCIAAPP":      GerenciaAppIntegration, 
-    "IBOREVENDA":       GerenciaAppIntegration, 
+    "GERENCIAAPP":      GerenciaAppIntegration,
+    "IBOREVENDA":       GerenciaAppIntegration,
     "ZONEX":            GerenciaAppIntegration,
     "VUREVENDA":        GerenciaAppIntegration,
     "FACILITA":         GerenciaAppIntegration,
@@ -17,13 +15,9 @@ const INTEGRATION_REGISTRY: Record<string, any> = {
     "GPCANDROID":       GerenciaAppIntegration,
     "GPCLG":            GerenciaAppIntegration,
 
-    "DUPLECAST":        DupleCastIntegration, 
-    "LAZERPLAY":        LazerPlayIntegration,
-    "FUNPLAY":          LazerPlayIntegration,
-    "FOCOXPLAY":        LazerPlayIntegration,
+    "DUPLECAST":        DupleCastIntegration,
     "IBOSOL":           IboSolIntegration,
     "IBOPRO":           IboProIntegration,
-    "QUICKPLAYER":      QuickPlayerIntegration,
 };
 
 export function getIntegrationHandler(integrationType: string) {

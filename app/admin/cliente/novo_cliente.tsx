@@ -2339,14 +2339,6 @@ const canSyncAgenda = canSyncAuto;
         appNameStr === "IBO PRO PLAYER"
       )
         intType = "IBOPRO";
-      else if (appNameStr === "QUICK PLAYER" || appNameStr === "QUICKPLAYER")
-        intType = "QUICKPLAYER";
-      else if (appNameStr === "LAZERPLAY" || appNameStr === "LAZER PLAY")
-        intType = "LAZERPLAY";
-      else if (appNameStr === "FUNPLAY" || appNameStr === "FUN PLAY")
-        intType = "FUNPLAY";
-      else if (appNameStr === "FOCOXPLAY" || appNameStr === "FOCOX PLAY")
-        intType = "FOCOXPLAY";
       else intType = ""; // Se não for nenhum desses, NÃO tem integração.
 
       if (intType) {
@@ -2462,9 +2454,7 @@ const canSyncAgenda = canSyncAuto;
       password:
         handler.actionPrefix === "DUPLECAST" ||
         handler.actionPrefix === "IBOSOL" ||
-        handler.actionPrefix === "IBOPRO" ||
-        handler.actionPrefix === "QUICKPLAYER" ||
-        handler.actionPrefix === "LAZERPLAY"
+        handler.actionPrefix === "IBOPRO"
           ? appPin
           : password,
       macValue,
@@ -2567,8 +2557,7 @@ const canSyncAgenda = canSyncAuto;
         if (
           handler.actionPrefix === "DUPLECAST" ||
           handler.actionPrefix === "IBOSOL" ||
-          handler.actionPrefix === "IBOPRO" ||
-          handler.actionPrefix === "LAZERPLAY"
+          handler.actionPrefix === "IBOPRO"
         ) {
           if (e.detail.expireDate) {
             if (dateField) {
@@ -2633,7 +2622,7 @@ const canSyncAgenda = canSyncAuto;
     );
 
     const extensionTimeout =
-      handler.actionPrefix === "IBOPRO" || handler.actionPrefix === "LAZERPLAY"
+      handler.actionPrefix === "IBOPRO"
         ? 90000
         : 20000;
     setTimeout(() => {
@@ -2744,9 +2733,7 @@ const canSyncAgenda = canSyncAuto;
         password:
           handler.actionPrefix === "DUPLECAST" ||
           handler.actionPrefix === "IBOSOL" ||
-          handler.actionPrefix === "IBOPRO" ||
-          handler.actionPrefix === "QUICKPLAYER" ||
-          handler.actionPrefix === "LAZERPLAY"
+          handler.actionPrefix === "IBOPRO"
             ? appPinDelete
             : password,
       }),
@@ -3896,9 +3883,7 @@ if (syncOperadora) {
                     password:
                       handler.actionPrefix === "DUPLECAST" ||
                       handler.actionPrefix === "IBOSOL" ||
-                      handler.actionPrefix === "IBOPRO" ||
-                      handler.actionPrefix === "QUICKPLAYER" ||
-                      handler.actionPrefix === "LAZERPLAY"
+                      handler.actionPrefix === "IBOPRO"
                         ? appPinAuto
                         : apiPassword,
                     macValue: macValueAuto,
@@ -3991,9 +3976,7 @@ if (syncOperadora) {
                           if (
                             handler.actionPrefix === "DUPLECAST" ||
                             handler.actionPrefix === "IBOSOL" ||
-                            handler.actionPrefix === "IBOPRO" ||
-                            handler.actionPrefix === "QUICKPLAYER" ||
-                            handler.actionPrefix === "LAZERPLAY"
+                            handler.actionPrefix === "IBOPRO"
                           ) {
                             if (e.detail.expireDate) {
                               const dField = app.fields_config?.find(

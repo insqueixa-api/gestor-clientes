@@ -66,20 +66,12 @@ async function resolveTenantIdForUser(
   return { tenant_id: tenantFromQuery, status: 200 };
 }
 
-function buildXlsxResponse(rows: (string | Date)[][], headers: string[], filename: string) {
-  const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows], { cellDates: true });
-
-  // Aplica formato DD/MM/YYYY em todas as células de data da coluna Vencimento (índice 4)
-  for (let r = 1; r <= rows.length; r++) {
-    const cellAddr = XLSX.utils.encode_cell({ r, c: 4 });
-    if (worksheet[cellAddr] && worksheet[cellAddr].t === "d") {
-      worksheet[cellAddr].z = "DD/MM/YYYY";
-    }
-  }
+function buildXlsxResponse(rows: string[][], headers: string[], filename: string) {
+  const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
 
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Aplicativos");
-  const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx", cellDates: true });
+  const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
 
   return new NextResponse(buffer, {
     status: 200,
@@ -207,7 +199,7 @@ export async function GET(req: Request) {
   }
 
   // 5. Monta linhas — uma por client_app
-  const dataRows: (string | Date)[][] = [];
+  const dataRows: string[][] = [];
 
   for (const ca of clientApps) {
     const client = clientMap.get(ca.client_id);
@@ -222,12 +214,10 @@ export async function GET(req: Request) {
       const fieldId = app.fieldsByType.get(type);
       if (!fieldId) return ""; // app não tem esse campo
       const raw = fv[fieldId] ?? "";
-      // Formata data para DD/MM/AAAA se tipo date
-if (type === "date" && raw) {
-        const dt = new Date(raw);
-        if (!Number.isNaN(dt.getTime())) {
-          return dt; // célula de data nativa — formato aplicado pelo buildXlsxResponse
-        }
+      // Formata data para DD/MM/AAAA se tipo date (raw vem como "YYYY-MM-DD")
+      if (type === "date" && raw) {
+        const m = String(raw).match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (m) return `${m[3]}/${m[2]}/${m[1]}`;
       }
       return String(raw);
     });
