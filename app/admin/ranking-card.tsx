@@ -39,7 +39,6 @@ const accents: Record<
     dot: string; // cor do dot decorativo
     label: string; // cor do label
     value: string; // cor do valor
-    topBar: string; // cor especial pra 1º lugar
   }
 > = {
   sky: {
@@ -50,7 +49,6 @@ const accents: Record<
     dot: "bg-sky-400",
     label: "text-foreground/90",
     value: "text-sky-500",
-    topBar: "#0ea5e9",
   },
   emerald: {
     bar: "#065f46",
@@ -60,7 +58,6 @@ const accents: Record<
     dot: "bg-emerald-400",
     label: "text-foreground/90",
     value: "text-emerald-500",
-    topBar: "#059669",
   },
   violet: {
     bar: "#5b21b6",
@@ -70,7 +67,6 @@ const accents: Record<
     dot: "bg-violet-400",
     label: "text-foreground/90",
     value: "text-violet-500",
-    topBar: "#7c3aed",
   },
   rose: {
     bar: "#9f1239",
@@ -80,7 +76,6 @@ const accents: Record<
     dot: "bg-rose-400",
     label: "text-foreground/90",
     value: "text-rose-500",
-    topBar: "#e11d48",
   },
   amber: {
     bar: "#92400e",
@@ -90,7 +85,6 @@ const accents: Record<
     dot: "bg-amber-400",
     label: "text-foreground/90",
     value: "text-amber-500",
-    topBar: "#d97706",
   },
   indigo: {
     bar: "#4338ca",
@@ -100,7 +94,6 @@ const accents: Record<
     dot: "bg-indigo-400",
     label: "text-foreground/90",
     value: "text-indigo-500",
-    topBar: "#6366f1",
   },
 };
 
@@ -214,8 +207,6 @@ export function RankingCard({
         {/* ✅ LER DE currentItems em vez de items direto */}
         {currentItems.map((item, idx) => {
           const pct = (item.value / max) * 100;
-          const isTop = idx === 0;
-          const barGrad = isTop ? c.topBar : c.bar;
 
           return (
             <div key={item.label} className="group">
@@ -276,8 +267,7 @@ export function RankingCard({
                   className="absolute left-0 top-0 h-full rounded-full transition-all duration-700"
                   style={{
                     width: `${pct}%`,
-                    background: barGrad,
-                    boxShadow: isTop ? `0 0 6px rgba(0,0,0,0.15)` : "none",
+                    background: c.bar,
                   }}
                 />
               </div>
