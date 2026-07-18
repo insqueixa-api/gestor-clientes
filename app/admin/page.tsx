@@ -7,6 +7,7 @@ import Link from "next/link";
 import { EyeToggle } from "@/app/admin/eye-toggle";
 import { DashboardFilter } from "./dashboard-filter";
 import EvolucaoFinanceira from "./evolucao-chart";
+import { toBRDateStr } from "@/lib/date-br";
 
 export const dynamic = "force-dynamic";
 
@@ -428,7 +429,7 @@ export default async function AdminDashboardPage({
 
   const isFinPagoNoMes = (t: FinTrx) => {
     if (t.status !== "PAGO" || !t.data_pagamento) return false;
-    const iso = t.data_pagamento.split("T")[0];
+    const iso = toBRDateStr(t.data_pagamento);
     return iso >= _finMonthStart && iso <= _finMonthEnd;
   };
 
@@ -604,7 +605,7 @@ export default async function AdminDashboardPage({
 
   // Executado: sempre ao vivo (pago de verdade), não muda com a fotografia
   for (const t of finTrxRows) {
-    const dpDate = t.data_pagamento ? t.data_pagamento.split("T")[0] : null;
+    const dpDate = t.data_pagamento ? toBRDateStr(t.data_pagamento) : null;
     const inExec =
       t.status === "PAGO" &&
       !!dpDate &&

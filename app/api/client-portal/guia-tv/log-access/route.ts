@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
 
     const { error: insertErr } = await supabaseAdmin
       .from("guia_tv_access_log")
-      .insert({ servidor });
+      .insert({ servidor, tenant_id: sessao.tenant_id });
 
     if (insertErr) {
       console.error("[GUIA-TV-LOG] Erro ao inserir:", insertErr.message);

@@ -1,6 +1,7 @@
 // app/admin/evolucao-chart.tsx
 import { createClient } from "@/lib/supabase/server";
 import { EvolucaoFinanceiraClient } from "./evolucao-client";
+import { toBRDateStr } from "@/lib/date-br";
 
 export type MonthData = {
   label: string;
@@ -112,9 +113,9 @@ export default async function EvolucaoFinanceira({
         }
       }
 
-      // Executado: PAGO com data_pagamento no mês (normaliza timestamp)
+      // Executado: PAGO com data_pagamento no mês (convertido pro fuso do Brasil)
       const dpDate = row.data_pagamento
-        ? row.data_pagamento.split("T")[0]
+        ? toBRDateStr(row.data_pagamento)
         : null;
       if (row.status === "PAGO" && dpDate?.startsWith(m.key)) {
         if (row.tipo === "RECEITA") line1 += val;

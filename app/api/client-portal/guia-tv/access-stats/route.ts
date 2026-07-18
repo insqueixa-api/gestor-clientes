@@ -13,6 +13,14 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
+  const { data: member } = await supabase
+    .from("tenant_members")
+    .select("tenant_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const tenantId = member?.tenant_id;
+  if (!tenantId) return NextResponse.json({ error: "Tenant não encontrado" }, { status: 401 });
+
   try {
     const agora = new Date();
     const inicioHoje = new Date(agora); inicioHoje.setHours(0,0,0,0);
@@ -21,7 +29,8 @@ export async function GET() {
 
     const { data: rows, error } = await supabaseAdmin
       .from("guia_tv_access_log")
-      .select("servidor, created_at");
+      .select("servidor, created_at")
+      .eq("tenant_id", tenantId);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
