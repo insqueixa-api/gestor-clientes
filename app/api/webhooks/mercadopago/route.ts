@@ -133,29 +133,6 @@ export async function POST(req: NextRequest) {
       if (!iptvPayment.fulfillment_status) updatePayload.fulfillment_status = "pending";
       await supabaseAdmin.from("client_portal_payments").update(updatePayload).eq("id", iptvPayment.id);
 
-      // ✅ Guarda o CPF/CNPJ de quem pagou — esse fluxo já sabe exatamente
-      // qual cliente é (client_id), então não precisa adivinhar nada. Não
-      // bloqueia o fulfillment se falhar — é só um registro pra referência
-      // futura (marido/esposa/pai podem pagar pelo mesmo cliente).
-      try {
-        const payerDoc = String(mpPayment?.payer?.identification?.number || "").replace(/\D/g, "");
-        if (payerDoc && iptvPayment.client_id) {
-          const payerName =
-            [mpPayment?.payer?.first_name, mpPayment?.payer?.last_name].filter(Boolean).join(" ").trim() || null;
-          await supabaseAdmin
-            .from("clients")
-            .update({
-              payer_document: payerDoc,
-              payer_document_name: payerName,
-              payer_document_updated_at: new Date().toISOString(),
-            })
-            .eq("id", iptvPayment.client_id)
-            .eq("tenant_id", iptvPayment.tenant_id);
-        }
-      } catch (e: any) {
-        prodLog("webhook.payer_document_capture_failed", { error: e?.message });
-      }
-
       const origin = String(process.env.UNIGESTOR_APP_URL || process.env.APP_URL || "").replace(/\/+$/, "");
       if (origin) {
         const lock = await tryAcquireIptvLock(supabaseAdmin, iptvPayment.tenant_id, iptvPayment.id);
