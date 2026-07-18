@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { notify } from "@/lib/notifications/notify";
+import { randomUUID } from "crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -401,6 +402,11 @@ if (!mpToken) {
           const bucket10m = Math.floor(Date.now() / (10 * 60 * 1000));
           const idempotencyKey = `${sess.tenant_id}-${client_id}-${period}-${currency}-${stableAmount}-${bucket10m}`;
 
+          // ✅ Gerado ANTES de chamar o MP pra poder mandar como external_reference
+          // (pedido da "Qualidade da integração" do MP) e usar o mesmo ID como
+          // chave primária do registro interno — facilita conciliação nos dois lados.
+          const internalPaymentId = randomUUID();
+
           const mpResponse = await fetch("https://api.mercadopago.com/v1/payments", {
             method: "POST",
             headers: {
@@ -419,6 +425,18 @@ if (!mpToken) {
                 last_name: String(displayName).split(" ").slice(1).join(" ") || "Cliente",
               },
               notification_url: webhookUrl,
+              external_reference: internalPaymentId,
+              additional_info: {
+                items: [
+                  {
+                    id: String(client_id),
+                    title: `Plano ${planLabel} - ${serverName}`,
+                    description: `Renovação IPTV — ${planLabel}, ${serverName}, cliente ${displayName}`,
+                    quantity: 1,
+                    unit_price: Number(computedPrice),
+                  },
+                ],
+              },
               metadata: {
                 client_id,
                 tenant_id: sess.tenant_id,
@@ -441,6 +459,7 @@ if (!mpToken) {
   .from("client_portal_payments")
   .upsert(
     {
+      id: internalPaymentId,
       tenant_id: sess.tenant_id,
       client_id,
 

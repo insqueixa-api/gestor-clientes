@@ -4,12 +4,12 @@ import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 
 // ── IMPORTS IPTV ──────────────────────────────────────────────
-import { 
-  runFulfillment as runIptvFulfillment, 
-  markFulfillmentDone as markIptvDone, 
-  markFulfillmentError as markIptvError, 
-  tryAcquireFulfillmentLock as tryAcquireIptvLock, 
-  prodLog 
+import {
+  runFulfillment as runIptvFulfillment,
+  markFulfillmentDone as markIptvDone,
+  markFulfillmentError as markIptvError,
+  tryAcquireFulfillmentLock as tryAcquireIptvLock,
+  prodLog
 } from "@/lib/client-portal/fulfillment";
 
 function parseMpSignature(sig: string) {
@@ -63,120 +63,11 @@ function safeMsg(err: unknown) {
   return s.length > 140 ? s.slice(0, 140) + "…" : s;
 }
 
-// ✅ Guarda um PIX "avulso" (recebido fora de qualquer cobrança do sistema)
-// pra revisão manual na Auditoria de PIX. Nunca dispara renovação sozinho.
-async function capturarPixAvulso(params: {
-  tenantId: string;
-  origemConta: "pf" | "pj";
-  mpPaymentId: string;
-  payerName: string | null;
-  payerDoc: string | null;
-  valor: number;
-  dataHora: string;
-}) {
-  const { error } = await supabaseAdmin.from("mp_pix_recebidos").upsert(
-    {
-      tenant_id: params.tenantId,
-      origem_conta: params.origemConta,
-      mp_payment_id: params.mpPaymentId,
-      payer_name: params.payerName,
-      payer_document: params.payerDoc,
-      valor: params.valor,
-      data_hora: params.dataHora,
-    },
-    { onConflict: "tenant_id,mp_payment_id", ignoreDuplicates: true },
-  );
-  if (error) prodLog("webhook.pix_avulso_insert_failed", { error: error.message });
-}
-
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({} as any));
-    const eventType = body?.type;
 
-    // =========================================================================
-    // NOVO: eventos "order" — formato novo do Mercado Pago (Orders API),
-    // usado por essa conta pra PIX recebido direto (não gerado pelo sistema).
-    // Baseado na documentação oficial — ainda não validado com payload real
-    // de PIX (só com a simulação de cartão do painel do MP). Se algum campo
-    // vier diferente do esperado, o registro ainda é salvo (só sem nome/CPF
-    // pré-preenchido) em vez de se perder — dá pra ajustar o parsing depois
-    // olhando o que realmente chegou.
-    // =========================================================================
-    if (eventType === "order") {
-      const orderId = body?.data?.id ? String(body.data.id) : "";
-      if (!orderId) return NextResponse.json({ ok: true });
-
-      prodLog("webhook.order_received", { order_id_suffix: orderId.slice(-6) });
-
-      const contaParamOrder = (req.nextUrl.searchParams.get("conta") || "pj").toLowerCase();
-      const origemContaOrder = contaParamOrder === "pf" ? "pf" : "pj";
-
-      const { data: gwRowOrder } = await supabaseAdmin
-        .from("payment_gateways")
-        .select("tenant_id, config")
-        .eq("type", "mercadopago")
-        .eq("is_active", true)
-        .eq("is_online", true)
-        .limit(1)
-        .maybeSingle();
-
-      const gwConfigOrder = (gwRowOrder?.config as any) || {};
-      const accessTokenOrder = gwConfigOrder.access_token;
-      if (!gwRowOrder?.tenant_id || !accessTokenOrder) return NextResponse.json({ ok: true });
-
-      // Dado inline do próprio webhook — sempre disponível, mesmo que a
-      // consulta detalhada abaixo falhe ou o endpoint esteja incorreto.
-      const inlineData = body?.data || {};
-      const inlineStatus = String(inlineData?.status || "").toLowerCase();
-      const inlinePayment = inlineData?.transactions?.payments?.[0];
-      const isAprovado =
-        inlineStatus === "processed" ||
-        String(inlinePayment?.status_detail || "").toLowerCase() === "accredited";
-
-      if (!isAprovado) return NextResponse.json({ ok: true });
-
-      let payerName: string | null = null;
-      let payerDoc: string | null = null;
-      try {
-        const orderRes = await fetch(`https://api.mercadopago.com/v1/orders/${orderId}`, {
-          headers: { Authorization: `Bearer ${accessTokenOrder}` },
-        });
-        if (orderRes.ok) {
-          const orderDetail = await orderRes.json().catch(() => ({} as any));
-          const payer = orderDetail?.payer || orderDetail?.collector || {};
-          payerDoc =
-            String(payer?.identification?.number || payer?.identification?.id || "").replace(/\D/g, "") ||
-            null;
-          payerName =
-            [payer?.first_name, payer?.last_name].filter(Boolean).join(" ").trim() ||
-            payer?.name ||
-            null;
-        }
-      } catch {
-        // Segue sem nome/CPF — melhor guardar o registro incompleto do que perdê-lo.
-      }
-
-      // ⚠️ total_paid_amount aparenta vir em centavos (convenção da Orders API),
-      // diferente do transaction_amount decimal da API de payments legacy.
-      // Se aparecer valor 100x errado na Auditoria, é esse o ponto a corrigir.
-      const valorCentavos = Number(inlineData?.total_paid_amount ?? inlinePayment?.paid_amount ?? 0);
-      const valorOrder = valorCentavos > 0 ? valorCentavos / 100 : 0;
-
-      await capturarPixAvulso({
-        tenantId: gwRowOrder.tenant_id,
-        origemConta: origemContaOrder,
-        mpPaymentId: String(inlinePayment?.id || orderId),
-        payerName,
-        payerDoc,
-        valor: valorOrder,
-        dataHora: body?.date_created || new Date().toISOString(),
-      });
-
-      return NextResponse.json({ ok: true });
-    }
-
-    if (eventType !== "payment") {
+    if (body?.type !== "payment") {
       return NextResponse.json({ ok: true });
     }
 
@@ -212,7 +103,7 @@ export async function POST(req: NextRequest) {
       const gwConfig = gateways?.[0]?.config || {};
       const webhookSecret = String(gwConfig.webhook_secret || "").trim();
 
-      if (webhookSecret && !verifyMpWebhook(req, paymentId, webhookSecret)) {
+      if (!webhookSecret || !verifyMpWebhook(req, paymentId, webhookSecret)) {
         prodLog("webhook.sig_failed", { payment_id_suffix: paymentId.slice(-6) });
         return NextResponse.json({ ok: false }, { status: 401 });
       }
@@ -242,6 +133,29 @@ export async function POST(req: NextRequest) {
       if (!iptvPayment.fulfillment_status) updatePayload.fulfillment_status = "pending";
       await supabaseAdmin.from("client_portal_payments").update(updatePayload).eq("id", iptvPayment.id);
 
+      // ✅ Guarda o CPF/CNPJ de quem pagou — esse fluxo já sabe exatamente
+      // qual cliente é (client_id), então não precisa adivinhar nada. Não
+      // bloqueia o fulfillment se falhar — é só um registro pra referência
+      // futura (marido/esposa/pai podem pagar pelo mesmo cliente).
+      try {
+        const payerDoc = String(mpPayment?.payer?.identification?.number || "").replace(/\D/g, "");
+        if (payerDoc && iptvPayment.client_id) {
+          const payerName =
+            [mpPayment?.payer?.first_name, mpPayment?.payer?.last_name].filter(Boolean).join(" ").trim() || null;
+          await supabaseAdmin
+            .from("clients")
+            .update({
+              payer_document: payerDoc,
+              payer_document_name: payerName,
+              payer_document_updated_at: new Date().toISOString(),
+            })
+            .eq("id", iptvPayment.client_id)
+            .eq("tenant_id", iptvPayment.tenant_id);
+        }
+      } catch (e: any) {
+        prodLog("webhook.payer_document_capture_failed", { error: e?.message });
+      }
+
       const origin = String(process.env.UNIGESTOR_APP_URL || process.env.APP_URL || "").replace(/\/+$/, "");
       if (origin) {
         const lock = await tryAcquireIptvLock(supabaseAdmin, iptvPayment.tenant_id, iptvPayment.id);
@@ -250,68 +164,14 @@ export async function POST(req: NextRequest) {
             const { expDateISO } = await runIptvFulfillment({ supabaseAdmin, tenantId: iptvPayment.tenant_id, origin, payment: iptvPayment });
             await markIptvDone(supabaseAdmin, iptvPayment.tenant_id, iptvPayment.id, expDateISO);
           } catch (e: any) {
-            await markIptvError(supabaseAdmin, iptvPayment.tenant_id, iptvPayment.id, e?.message || "Falha no fulfillment");
+            await markIptvError(supabaseAdmin, iptvPayment.tenant_id, iptvPayment.id, e?.message || "Falha no fulfillment Stripe");
           }
         }
       }
       return NextResponse.json({ ok: true });
     }
 
-    // =========================================================================
-    // 2) PIX RECEBIDO DIRETO NA CONTA (fora do fluxo normal, sem cobrança
-    // gerada pelo sistema) — guarda pra revisão na Auditoria de PIX em vez de
-    // só ignorar. ?conta=pf|pj identifica qual conta MP recebeu (cada conta
-    // tem seu próprio webhook cadastrado no painel do Mercado Pago).
-    // =========================================================================
-    const contaParam = (req.nextUrl.searchParams.get("conta") || "pj").toLowerCase();
-    const origemConta = contaParam === "pf" ? "pf" : "pj";
-
-    const { data: gwRow } = await supabaseAdmin
-      .from("payment_gateways")
-      .select("tenant_id, config")
-      .eq("type", "mercadopago")
-      .eq("is_active", true)
-      .eq("is_online", true)
-      .limit(1)
-      .maybeSingle();
-
-    const gwConfigAvulso = (gwRow?.config as any) || {};
-    const accessTokenAvulso = gwConfigAvulso.access_token;
-
-    if (gwRow?.tenant_id && accessTokenAvulso) {
-      const webhookSecretAvulso = String(gwConfigAvulso.webhook_secret || "").trim();
-      if (webhookSecretAvulso && !verifyMpWebhook(req, paymentId, webhookSecretAvulso)) {
-        prodLog("webhook.sig_failed_pix_avulso", { payment_id_suffix: paymentId.slice(-6) });
-        return NextResponse.json({ ok: false }, { status: 401 });
-      }
-
-      const mpResAvulso = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-        headers: { Authorization: `Bearer ${accessTokenAvulso}` },
-      });
-      const mpPaymentAvulso = await mpResAvulso.json().catch(() => ({} as any));
-
-      if (mpResAvulso.ok && String(mpPaymentAvulso?.status).toLowerCase() === "approved") {
-        const payerDoc = String(mpPaymentAvulso?.payer?.identification?.number || "").replace(/\D/g, "") || null;
-        const payerName =
-          [mpPaymentAvulso?.payer?.first_name, mpPaymentAvulso?.payer?.last_name]
-            .filter(Boolean)
-            .join(" ")
-            .trim() || null;
-        const valor = Number(mpPaymentAvulso?.transaction_amount || 0);
-        const dataHora = mpPaymentAvulso?.date_approved || new Date().toISOString();
-
-        await capturarPixAvulso({
-          tenantId: gwRow.tenant_id,
-          origemConta,
-          mpPaymentId: paymentId,
-          payerName,
-          payerDoc,
-          valor,
-          dataHora,
-        });
-      }
-    }
-
+    // Se o pagamento não existir, devolve OK silencioso.
     return NextResponse.json({ ok: true });
 
   } catch (err) {

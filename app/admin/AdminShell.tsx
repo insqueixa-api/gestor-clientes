@@ -414,14 +414,6 @@ const handleSync = () => {
                 }
               />
               <NavLink
-                href="/admin/auditoria-pix"
-                label={
-                  <span className="flex items-center gap-1.5">
-                    <CreditCard className="w-4 h-4 text-violet-400" /> Auditoria PIX
-                  </span>
-                }
-              />
-              <NavLink
                 href="/admin/revendedor"
                 label={
                   <span className="flex items-center gap-1.5">
@@ -593,15 +585,6 @@ const handleSync = () => {
               label={
                 <span className="flex items-center gap-2 text-emerald-400">
                   <ScrollText className="w-4 h-4 text-emerald-400" /> Log Portal
-                </span>
-              }
-              onClick={() => setOpenMenu(null)}
-            />
-            <MenuLink
-              href="/admin/auditoria-pix"
-              label={
-                <span className="flex items-center gap-2 text-violet-400">
-                  <CreditCard className="w-4 h-4 text-violet-400" /> Auditoria PIX
                 </span>
               }
               onClick={() => setOpenMenu(null)}
