@@ -31,6 +31,12 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "15mb",
     },
   },
+  // ✅ @resvg/resvg-js carrega um binário nativo (.node) por plataforma. Sem isso,
+  // o webpack tenta empacotar o .node como JS e quebra o build ("Unexpected
+  // character" nos binários linux-x64-gnu/musl). serverExternalPackages faz o
+  // Next tratar o pacote como require() puro no runtime do servidor, sem passar
+  // pelo bundler.
+  serverExternalPackages: ["@resvg/resvg-js"],
 };
 
 export default withPWA(nextConfig);
