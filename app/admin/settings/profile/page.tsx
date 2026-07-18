@@ -468,11 +468,23 @@ async function handleSave() {
     const chronologic = [...healthHistory].sort(
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
     );
-    if (chronologic.length <= 10) return chronologic;
-    const oldest = chronologic[0];
-    const latestNine = chronologic.slice(-9);
+    // ✅ Recalcula o IMC com a altura ATUAL do perfil, em vez de usar o valor
+    // gravado no momento do registro — assim registros feitos antes de a
+    // altura estar preenchida (imc=0 congelado) não escondem o gráfico
+    // inteiro (hasImc exige que TODOS os pontos tenham IMC válido).
+    const h = parseFloat(profileHeight);
+    const withLiveImc =
+      h > 0
+        ? chronologic.map((r) => ({
+            ...r,
+            imc: parseFloat((r.weight / (h * h)).toFixed(1)),
+          }))
+        : chronologic;
+    if (withLiveImc.length <= 10) return withLiveImc;
+    const oldest = withLiveImc[0];
+    const latestNine = withLiveImc.slice(-9);
     return [oldest, ...latestNine];
-  }, [healthHistory]);
+  }, [healthHistory, profileHeight]);
 
   const getImcLabel = (imc: number) => {
     if (imc < 18.5) return "Abaixo do peso";

@@ -29,7 +29,6 @@ export type PlanRow = {
   currency: "BRL" | "USD" | "EUR";
   is_active: boolean;
   is_system_default: boolean;
-  is_master_only: boolean;
   table_type: "iptv";
   created_at: string;
   items: Item[];

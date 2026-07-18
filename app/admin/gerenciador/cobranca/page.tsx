@@ -501,7 +501,6 @@ export default function BillingPage() {
   const [clients, setClients] = useState<ClientLight[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [isMasterOrAdmin, setIsMasterOrAdmin] = useState(false);
   const { confirm } = useConfirm();
 
   // ✅ MODAIS (Atualizado para suportar Edição e Logs)
@@ -621,9 +620,6 @@ export default function BillingPage() {
           },
         ),
       ]);
-
-      // ✅ Como você é o dono, liberamos acesso total
-      setIsMasterOrAdmin(true);
 
       const autoData = autoRes.data;
       const clientData = clientRes.data;
@@ -1168,7 +1164,6 @@ const delaySecs = Math.max(rule.delay_min || 20, 15); // piso de segurança de 1
         <AutomationWizard
           auxData={auxData}
           editingRule={wizardState.editingRule}
-          isMasterOrAdmin={isMasterOrAdmin}
           onClose={() => setWizardState({ show: false, editingRule: null })}
           onSuccess={() => {
             setWizardState({ show: false, editingRule: null });
@@ -1738,14 +1733,12 @@ function ImpactListModal({
 function AutomationWizard({
   auxData,
   editingRule,
-  isMasterOrAdmin,
   onClose,
   onSuccess,
   onError,
 }: {
   auxData: any;
   editingRule?: any;
-  isMasterOrAdmin?: boolean;
   onClose: () => void;
   onSuccess: () => void;
   onError: (m: string) => void;

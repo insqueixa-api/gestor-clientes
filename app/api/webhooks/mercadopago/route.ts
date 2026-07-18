@@ -63,11 +63,120 @@ function safeMsg(err: unknown) {
   return s.length > 140 ? s.slice(0, 140) + "…" : s;
 }
 
+// ✅ Guarda um PIX "avulso" (recebido fora de qualquer cobrança do sistema)
+// pra revisão manual na Auditoria de PIX. Nunca dispara renovação sozinho.
+async function capturarPixAvulso(params: {
+  tenantId: string;
+  origemConta: "pf" | "pj";
+  mpPaymentId: string;
+  payerName: string | null;
+  payerDoc: string | null;
+  valor: number;
+  dataHora: string;
+}) {
+  const { error } = await supabaseAdmin.from("mp_pix_recebidos").upsert(
+    {
+      tenant_id: params.tenantId,
+      origem_conta: params.origemConta,
+      mp_payment_id: params.mpPaymentId,
+      payer_name: params.payerName,
+      payer_document: params.payerDoc,
+      valor: params.valor,
+      data_hora: params.dataHora,
+    },
+    { onConflict: "tenant_id,mp_payment_id", ignoreDuplicates: true },
+  );
+  if (error) prodLog("webhook.pix_avulso_insert_failed", { error: error.message });
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({} as any));
+    const eventType = body?.type;
 
-    if (body?.type !== "payment") {
+    // =========================================================================
+    // NOVO: eventos "order" — formato novo do Mercado Pago (Orders API),
+    // usado por essa conta pra PIX recebido direto (não gerado pelo sistema).
+    // Baseado na documentação oficial — ainda não validado com payload real
+    // de PIX (só com a simulação de cartão do painel do MP). Se algum campo
+    // vier diferente do esperado, o registro ainda é salvo (só sem nome/CPF
+    // pré-preenchido) em vez de se perder — dá pra ajustar o parsing depois
+    // olhando o que realmente chegou.
+    // =========================================================================
+    if (eventType === "order") {
+      const orderId = body?.data?.id ? String(body.data.id) : "";
+      if (!orderId) return NextResponse.json({ ok: true });
+
+      prodLog("webhook.order_received", { order_id_suffix: orderId.slice(-6) });
+
+      const contaParamOrder = (req.nextUrl.searchParams.get("conta") || "pj").toLowerCase();
+      const origemContaOrder = contaParamOrder === "pf" ? "pf" : "pj";
+
+      const { data: gwRowOrder } = await supabaseAdmin
+        .from("payment_gateways")
+        .select("tenant_id, config")
+        .eq("type", "mercadopago")
+        .eq("is_active", true)
+        .eq("is_online", true)
+        .limit(1)
+        .maybeSingle();
+
+      const gwConfigOrder = (gwRowOrder?.config as any) || {};
+      const accessTokenOrder = gwConfigOrder.access_token;
+      if (!gwRowOrder?.tenant_id || !accessTokenOrder) return NextResponse.json({ ok: true });
+
+      // Dado inline do próprio webhook — sempre disponível, mesmo que a
+      // consulta detalhada abaixo falhe ou o endpoint esteja incorreto.
+      const inlineData = body?.data || {};
+      const inlineStatus = String(inlineData?.status || "").toLowerCase();
+      const inlinePayment = inlineData?.transactions?.payments?.[0];
+      const isAprovado =
+        inlineStatus === "processed" ||
+        String(inlinePayment?.status_detail || "").toLowerCase() === "accredited";
+
+      if (!isAprovado) return NextResponse.json({ ok: true });
+
+      let payerName: string | null = null;
+      let payerDoc: string | null = null;
+      try {
+        const orderRes = await fetch(`https://api.mercadopago.com/v1/orders/${orderId}`, {
+          headers: { Authorization: `Bearer ${accessTokenOrder}` },
+        });
+        if (orderRes.ok) {
+          const orderDetail = await orderRes.json().catch(() => ({} as any));
+          const payer = orderDetail?.payer || orderDetail?.collector || {};
+          payerDoc =
+            String(payer?.identification?.number || payer?.identification?.id || "").replace(/\D/g, "") ||
+            null;
+          payerName =
+            [payer?.first_name, payer?.last_name].filter(Boolean).join(" ").trim() ||
+            payer?.name ||
+            null;
+        }
+      } catch {
+        // Segue sem nome/CPF — melhor guardar o registro incompleto do que perdê-lo.
+      }
+
+      // ⚠️ total_paid_amount aparenta vir em centavos (convenção da Orders API),
+      // diferente do transaction_amount decimal da API de payments legacy.
+      // Se aparecer valor 100x errado na Auditoria, é esse o ponto a corrigir.
+      const valorCentavos = Number(inlineData?.total_paid_amount ?? inlinePayment?.paid_amount ?? 0);
+      const valorOrder = valorCentavos > 0 ? valorCentavos / 100 : 0;
+
+      await capturarPixAvulso({
+        tenantId: gwRowOrder.tenant_id,
+        origemConta: origemContaOrder,
+        mpPaymentId: String(inlinePayment?.id || orderId),
+        payerName,
+        payerDoc,
+        valor: valorOrder,
+        dataHora: body?.date_created || new Date().toISOString(),
+      });
+
+      return NextResponse.json({ ok: true });
+    }
+
+    if (eventType !== "payment") {
       return NextResponse.json({ ok: true });
     }
 
@@ -191,21 +300,15 @@ export async function POST(req: NextRequest) {
         const valor = Number(mpPaymentAvulso?.transaction_amount || 0);
         const dataHora = mpPaymentAvulso?.date_approved || new Date().toISOString();
 
-        const { error: pixErr } = await supabaseAdmin
-          .from("mp_pix_recebidos")
-          .upsert(
-            {
-              tenant_id: gwRow.tenant_id,
-              origem_conta: origemConta,
-              mp_payment_id: paymentId,
-              payer_name: payerName,
-              payer_document: payerDoc,
-              valor,
-              data_hora: dataHora,
-            },
-            { onConflict: "tenant_id,mp_payment_id", ignoreDuplicates: true },
-          );
-        if (pixErr) prodLog("webhook.pix_avulso_insert_failed", { error: pixErr.message });
+        await capturarPixAvulso({
+          tenantId: gwRow.tenant_id,
+          origemConta,
+          mpPaymentId: paymentId,
+          payerName,
+          payerDoc,
+          valor,
+          dataHora,
+        });
       }
     }
 
