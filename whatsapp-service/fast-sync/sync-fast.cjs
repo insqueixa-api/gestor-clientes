@@ -1,4 +1,4 @@
-// fast-sync/sync-fast.js
+// fast-sync/sync-fast.cjs
 // Baixa o M3U do Fast direto da VM (IP não bloqueado) e envia para a API do Vercel
 const https = require('https')
 const http  = require('http')

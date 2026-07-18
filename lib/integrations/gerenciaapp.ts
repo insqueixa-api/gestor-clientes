@@ -21,6 +21,8 @@ function getRankingAppId(appName?: string): number {
 
 export const GerenciaAppIntegration = {
     actionPrefix: "GERENCIAAPP",
+    useApi: true, // ✅ Login+criação+remoção rodam na VM via HTTP puro, sem extensão
+    apiEndpoint: "/api/integrations/apps/gerenciaapp",
 
     buildCreatePayload: (params: { username: string; password?: string; macValue: string; finalServerName: string; m3uUrl: string; serverName?: string; appName?: string }) => {
         // Calcula a data exata de 1 ano para frente a partir de hoje
@@ -29,6 +31,7 @@ export const GerenciaAppIntegration = {
         const expireDate1Year = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
         return {
+            action: "create",
             modo_selecao: 1,
             mac_device: params.macValue,
             server_name: params.finalServerName,
@@ -53,6 +56,7 @@ export const GerenciaAppIntegration = {
 
     buildDeletePayload: (params: { username: string; finalServerName?: string; serverName?: string; macValue: string; appName?: string }) => {
         return {
+            action: "delete",
             // ✅ Regra padrão: Nome_Servidor. A extensão usa isso primeiro, se não achar, cai pro macValue.
             username: params.finalServerName || params.username.trim(),
             macValue: params.macValue || ""

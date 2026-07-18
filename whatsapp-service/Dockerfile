@@ -15,6 +15,7 @@ RUN npm install --omit=dev
 
 # Copia o código
 COPY src/ ./src/
+COPY fast-sync/ ./fast-sync/
 
 # Cria pasta de auth (será sobreposta pelo volume)
 RUN mkdir -p /app/auth
