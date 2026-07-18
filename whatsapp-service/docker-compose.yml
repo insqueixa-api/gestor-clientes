@@ -13,9 +13,6 @@ services:
       - .env
     environment:
       - NODE_ENV=production
-      - FLARESOLVERR_URL=http://flaresolverr:8191/v1
-    depends_on:
-      - flaresolverr
     # Limites de memória (seguro para o Droplet de 1GB)
     mem_limit: 400m
     memswap_limit: 400m
@@ -26,23 +23,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 15s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # Resolve o Managed Challenge do Cloudflare (Chrome headless de verdade)
-  # pro whatsapp-service usar no login do GerenciaApp — não exposto pra fora
-  # da VM, só acessível internamente pelo whatsapp-service via rede do Docker.
-  flaresolverr:
-    image: ghcr.io/flaresolverr/flaresolverr:latest
-    container_name: unigestor-flaresolverr
-    restart: unless-stopped
-    environment:
-      - LOG_LEVEL=info
-    mem_limit: 1g
-    memswap_limit: 1g
     logging:
       driver: "json-file"
       options:

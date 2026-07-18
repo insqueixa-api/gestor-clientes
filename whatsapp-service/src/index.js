@@ -11,7 +11,6 @@ import {
   getSessionConfig, updateSessionConfig, getContactProfilePicture,
   getBotEvents,
 } from "./sessionManager.js";
-import { gerenciaAppCreate, gerenciaAppDelete } from "./gerenciaapp.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FAST_SYNC_SCRIPT = path.join(__dirname, "..", "fast-sync", "sync-fast.cjs");
@@ -366,33 +365,6 @@ app.post("/fast-sync/trigger", authMiddleware, (req, res) => {
   });
 
   res.json({ ok: true, message: "Sincronização do Fast iniciada na VM." });
-});
-
-// ── POST /gerenciaapp/action ─────────────────────────────────
-// Substitui o fluxo via extensão (GERENCIAAPP_CREATE/DELETE) — login,
-// criação e remoção de usuário no painel GerenciaApp direto via HTTP,
-// sem depender de cookie de navegador nem de humano logando manualmente.
-app.post("/gerenciaapp/action", authMiddleware, async (req, res) => {
-  const { action, api_url, login_email, login_password, ...payload } = req.body || {};
-
-  if (!api_url || !login_email || !login_password) {
-    return res.status(400).json({ ok: false, error: "api_url/login_email/login_password ausentes." });
-  }
-
-  try {
-    if (action === "create") {
-      const result = await gerenciaAppCreate(api_url, login_email, login_password, payload);
-      return res.json(result);
-    }
-    if (action === "delete") {
-      const result = await gerenciaAppDelete(api_url, login_email, login_password, payload);
-      return res.json(result);
-    }
-    return res.status(400).json({ ok: false, error: "action inválida. Use: create | delete" });
-  } catch (e) {
-    console.error("[GERENCIAAPP] Erro:", e?.message);
-    return res.status(500).json({ ok: false, error: e?.message || "Falha no GerenciaApp" });
-  }
 });
 
 // ── GET /bot-events — últimos eventos do bot ──────────────────
