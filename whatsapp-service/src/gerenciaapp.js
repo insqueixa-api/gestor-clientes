@@ -1,11 +1,21 @@
 // src/gerenciaapp.js
-// Replica em HTTP puro (sem browser/extensão) o fluxo de login + criar/remover
-// usuário no painel GerenciaApp (Laravel + Inertia, auth via cookie XSRF).
-// Mantém uma sessão em cache por api_url (o cookie de sessão do Laravel dura
-// ~2h) para não logar de novo a cada chamada.
+// Replica o fluxo de login + criar/remover usuário no painel GerenciaApp
+// (Laravel + Inertia, auth via cookie XSRF), sem navegador/extensão.
+//
+// O painel fica atrás de Cloudflare, e o IP da VM (datacenter) leva Managed
+// Challenge ("Just a moment...") — IP residencial (extensão) passa direto.
+// Solução: usar o FlareSolverr (Chrome headless de verdade, container à
+// parte) SÓ pra resolver o desafio inicial e extrair os cookies + User-Agent
+// do Chrome real que ele usou. Como o FlareSolverr roda na mesma VM (mesmo
+// IP de saída), essas credenciais servem pras chamadas seguintes via fetch
+// puro — inclusive DELETE, que o FlareSolverr não suporta nativamente.
+//
+// Mantém a sessão (jar + user-agent) em cache por api_url e reloga sozinho
+// se detectar sessão expirada ou desafio novo no meio do caminho.
 
+const FLARESOLVERR_URL = process.env.FLARESOLVERR_URL || "http://flaresolverr:8191/v1";
 const SESSION_TTL_MS = 100 * 60 * 1000; // um pouco abaixo do Max-Age=7200 do painel
-const sessions = new Map(); // api_url -> { jar, expiresAt }
+const sessions = new Map(); // api_url -> { jar, userAgent, expiresAt }
 
 function parseSetCookies(res) {
   const raw =
@@ -34,9 +44,30 @@ function xsrfHeader(jar) {
   return jar["XSRF-TOKEN"] ? decodeURIComponent(jar["XSRF-TOKEN"]) : "";
 }
 
+function isChallengeResponse(res, text) {
+  if (res.headers.get("cf-mitigated")) return true;
+  if (res.status === 403 && /just a moment|cf-turnstile|cf_chl_opt/i.test(text || "")) return true;
+  return false;
+}
+
+// ── Resolve o desafio do Cloudflare via FlareSolverr e devolve cookies + UA ──
+async function solveChallenge(apiUrl) {
+  const res = await fetch(FLARESOLVERR_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ cmd: "request.get", url: `${apiUrl}/login`, maxTimeout: 60000 }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (data.status !== "ok" || !data.solution) {
+    throw new Error(`FlareSolverr falhou ao resolver o desafio: ${data.message || res.status}`);
+  }
+  const jar = {};
+  for (const c of data.solution.cookies || []) jar[c.name] = c.value;
+  return { jar, userAgent: data.solution.userAgent };
+}
+
 async function login(apiUrl, email, password) {
-  const res1 = await fetch(`${apiUrl}/login`, { redirect: "manual" });
-  let jar = parseSetCookies(res1);
+  const { jar: challengeJar, userAgent } = await solveChallenge(apiUrl);
 
   const res2 = await fetch(`${apiUrl}/login`, {
     method: "POST",
@@ -45,41 +76,48 @@ async function login(apiUrl, email, password) {
       "Content-Type": "application/json",
       Accept: "text/html, application/xhtml+xml, application/json",
       "X-Requested-With": "XMLHttpRequest",
-      "X-XSRF-TOKEN": xsrfHeader(jar),
-      Cookie: cookieHeader(jar),
+      "X-XSRF-TOKEN": xsrfHeader(challengeJar),
+      Cookie: cookieHeader(challengeJar),
+      "User-Agent": userAgent,
     },
     body: JSON.stringify({ email, password, remember: true }),
   });
-  jar = { ...jar, ...parseSetCookies(res2) };
+  const jar = { ...challengeJar, ...parseSetCookies(res2) };
 
   if (res2.status !== 302) {
+    const text = await res2.text().catch(() => "");
+    if (isChallengeResponse(res2, text)) {
+      throw new Error("Cloudflare desafiou de novo no POST de login (FlareSolverr não cobriu esse passo).");
+    }
     throw new Error(`Login no GerenciaApp falhou (status ${res2.status}). Verifique login_email/login_password.`);
   }
-  return jar;
+  return { jar, userAgent };
 }
 
 async function getSession(apiUrl, email, password) {
   const cached = sessions.get(apiUrl);
-  if (cached && cached.expiresAt > Date.now()) return cached.jar;
+  if (cached && cached.expiresAt > Date.now()) return cached;
 
-  const jar = await login(apiUrl, email, password);
-  sessions.set(apiUrl, { jar, expiresAt: Date.now() + SESSION_TTL_MS });
-  return jar;
+  const session = await login(apiUrl, email, password);
+  const entry = { ...session, expiresAt: Date.now() + SESSION_TTL_MS };
+  sessions.set(apiUrl, entry);
+  return entry;
 }
 
 function invalidateSession(apiUrl) {
   sessions.delete(apiUrl);
 }
 
-async function clearAvisos(apiUrl, jar) {
+async function clearAvisos(apiUrl, session) {
   try {
     await fetch(`${apiUrl}/save_session_aviso`, {
       method: "POST",
       headers: {
         Accept: "application/json, text/plain, */*",
         "X-Requested-With": "XMLHttpRequest",
-        "X-XSRF-TOKEN": xsrfHeader(jar),
-        Cookie: cookieHeader(jar),
+        "X-XSRF-TOKEN": xsrfHeader(session.jar),
+        Cookie: cookieHeader(session.jar),
+        "User-Agent": session.userAgent,
       },
     });
   } catch {
@@ -87,14 +125,16 @@ async function clearAvisos(apiUrl, jar) {
   }
 }
 
-async function searchUsers(apiUrl, jar, term) {
-  if (!term || !term.trim()) return [];
+async function searchUsers(apiUrl, session, term) {
+  if (!term || !term.trim()) return { expired: false, users: [] };
   const res = await fetch(`${apiUrl}/users?page=1&search=${encodeURIComponent(term)}`, {
-    headers: { Accept: "text/html", Cookie: cookieHeader(jar) },
+    headers: { Accept: "text/html", Cookie: cookieHeader(session.jar), "User-Agent": session.userAgent },
   });
-  if (!res.ok || res.url.includes("/login")) return { expired: !res.ok || res.url.includes("/login"), users: [] };
+  const html = await res.text().catch(() => "");
+  if (!res.ok || res.url.includes("/login") || isChallengeResponse(res, html)) {
+    return { expired: true, users: [] };
+  }
 
-  const html = await res.text();
   const match = html.match(/data-page="([^"]+)"/);
   if (!match) return { expired: false, users: [] };
 
@@ -111,12 +151,21 @@ function normalizeMac(mac) {
   return String(mac || "").replace(/[^a-fA-F0-9]/g, "").toUpperCase();
 }
 
+async function withFreshSession(apiUrl, email, password, run) {
+  let session = await getSession(apiUrl, email, password);
+  let result = await run(session);
+  if (result.expired) {
+    invalidateSession(apiUrl);
+    session = await getSession(apiUrl, email, password);
+    result = await run(session);
+  }
+  return result;
+}
+
 // ── CREATE ──────────────────────────────────────────────────────────────
 export async function gerenciaAppCreate(apiUrl, email, password, payload) {
-  let jar = await getSession(apiUrl, email, password);
-  await clearAvisos(apiUrl, jar);
-
-  const doCreate = async (jarToUse) => {
+  const doCreate = async (session) => {
+    await clearAvisos(apiUrl, session);
     const res = await fetch(`${apiUrl}/users`, {
       method: "POST",
       headers: {
@@ -124,25 +173,18 @@ export async function gerenciaAppCreate(apiUrl, email, password, payload) {
         Accept: "text/html, application/xhtml+xml, application/json",
         "X-Requested-With": "XMLHttpRequest",
         "X-Inertia": "true",
-        "X-XSRF-TOKEN": xsrfHeader(jarToUse),
-        Cookie: cookieHeader(jarToUse),
+        "X-XSRF-TOKEN": xsrfHeader(session.jar),
+        Cookie: cookieHeader(session.jar),
+        "User-Agent": session.userAgent,
       },
       body: JSON.stringify(payload),
     });
-    return res;
+    const ok = res.ok || res.status === 302 || res.redirected;
+    const expired = !ok && res.url.includes("/login");
+    return { ok, expired, res };
   };
 
-  let res = await doCreate(jar);
-
-  // Sessão pode ter expirado entre o cache e agora — reloga uma vez e tenta de novo.
-  if (res.url.includes("/login")) {
-    invalidateSession(apiUrl);
-    jar = await getSession(apiUrl, email, password);
-    await clearAvisos(apiUrl, jar);
-    res = await doCreate(jar);
-  }
-
-  const ok = res.ok || res.status === 302 || res.redirected;
+  const { ok, res } = await withFreshSession(apiUrl, email, password, doCreate);
   if (!ok) {
     const text = await res.text().catch(() => "");
     return { ok: false, error: `HTTP ${res.status} ao criar no GerenciaApp.`, detail: text.slice(0, 300) };
@@ -152,25 +194,23 @@ export async function gerenciaAppCreate(apiUrl, email, password, payload) {
 
 // ── DELETE ──────────────────────────────────────────────────────────────
 export async function gerenciaAppDelete(apiUrl, email, password, { username, macValue }) {
-  let jar = await getSession(apiUrl, email, password);
-  await clearAvisos(apiUrl, jar);
-
   const searchName = username;
   if (!searchName || !searchName.trim()) {
     return { ok: false, error: "Nome do servidor (username) não informado." };
   }
 
-  let userIdToDelete = null;
+  const doSearch = async (session) => {
+    await clearAvisos(apiUrl, session);
+    const { expired, users } = await searchUsers(apiUrl, session, searchName);
+    return { expired, ok: !expired, users };
+  };
 
-  // 1. Busca por finalServerName
-  let { expired, users: byName } = await searchUsers(apiUrl, jar, searchName);
-  if (expired) {
-    invalidateSession(apiUrl);
-    jar = await getSession(apiUrl, email, password);
-    await clearAvisos(apiUrl, jar);
-    ({ users: byName } = await searchUsers(apiUrl, jar, searchName));
+  const { users: byName, ok: searchOk } = await withFreshSession(apiUrl, email, password, doSearch);
+  if (!searchOk) {
+    return { ok: false, error: "Não foi possível consultar o painel do GerenciaApp (sessão indisponível)." };
   }
 
+  let userIdToDelete = null;
   if (byName.length === 1) {
     userIdToDelete = byName[0].id;
   } else if (byName.length > 1 && macValue) {
@@ -179,9 +219,9 @@ export async function gerenciaAppDelete(apiUrl, email, password, { username, mac
     if (exact) userIdToDelete = exact.id;
   }
 
-  // 2. Fallback: busca direto pelo MAC
   if (!userIdToDelete && macValue) {
-    const { users: byMac } = await searchUsers(apiUrl, jar, macValue);
+    const session = await getSession(apiUrl, email, password);
+    const { users: byMac } = await searchUsers(apiUrl, session, macValue);
     if (byMac.length === 1) {
       userIdToDelete = byMac[0].id;
     } else if (byMac.length > 1) {
@@ -195,13 +235,15 @@ export async function gerenciaAppDelete(apiUrl, email, password, { username, mac
     return { ok: false, error: `Usuário/MAC não encontrado no painel do GerenciaApp. (Buscado: ${searchName} / MAC: ${macValue || ""})` };
   }
 
+  const session = await getSession(apiUrl, email, password);
   const res = await fetch(`${apiUrl}/users/${userIdToDelete}`, {
     method: "DELETE",
     headers: {
       accept: "application/json, text/plain, */*",
       "x-requested-with": "XMLHttpRequest",
-      "X-XSRF-TOKEN": xsrfHeader(jar),
-      Cookie: cookieHeader(jar),
+      "X-XSRF-TOKEN": xsrfHeader(session.jar),
+      Cookie: cookieHeader(session.jar),
+      "User-Agent": session.userAgent,
     },
   });
 
