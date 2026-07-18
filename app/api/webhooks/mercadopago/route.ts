@@ -148,7 +148,67 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    // Se o pagamento não existir, devolve OK pro MP parar de tentar
+    // =========================================================================
+    // 2) PIX RECEBIDO DIRETO NA CONTA (fora do fluxo normal, sem cobrança
+    // gerada pelo sistema) — guarda pra revisão na Auditoria de PIX em vez de
+    // só ignorar. ?conta=pf|pj identifica qual conta MP recebeu (cada conta
+    // tem seu próprio webhook cadastrado no painel do Mercado Pago).
+    // =========================================================================
+    const contaParam = (req.nextUrl.searchParams.get("conta") || "pj").toLowerCase();
+    const origemConta = contaParam === "pf" ? "pf" : "pj";
+
+    const { data: gwRow } = await supabaseAdmin
+      .from("payment_gateways")
+      .select("tenant_id, config")
+      .eq("type", "mercadopago")
+      .eq("is_active", true)
+      .eq("is_online", true)
+      .limit(1)
+      .maybeSingle();
+
+    const gwConfigAvulso = (gwRow?.config as any) || {};
+    const accessTokenAvulso = gwConfigAvulso.access_token;
+
+    if (gwRow?.tenant_id && accessTokenAvulso) {
+      const webhookSecretAvulso = String(gwConfigAvulso.webhook_secret || "").trim();
+      if (webhookSecretAvulso && !verifyMpWebhook(req, paymentId, webhookSecretAvulso)) {
+        prodLog("webhook.sig_failed_pix_avulso", { payment_id_suffix: paymentId.slice(-6) });
+        return NextResponse.json({ ok: false }, { status: 401 });
+      }
+
+      const mpResAvulso = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+        headers: { Authorization: `Bearer ${accessTokenAvulso}` },
+      });
+      const mpPaymentAvulso = await mpResAvulso.json().catch(() => ({} as any));
+
+      if (mpResAvulso.ok && String(mpPaymentAvulso?.status).toLowerCase() === "approved") {
+        const payerDoc = String(mpPaymentAvulso?.payer?.identification?.number || "").replace(/\D/g, "") || null;
+        const payerName =
+          [mpPaymentAvulso?.payer?.first_name, mpPaymentAvulso?.payer?.last_name]
+            .filter(Boolean)
+            .join(" ")
+            .trim() || null;
+        const valor = Number(mpPaymentAvulso?.transaction_amount || 0);
+        const dataHora = mpPaymentAvulso?.date_approved || new Date().toISOString();
+
+        const { error: pixErr } = await supabaseAdmin
+          .from("mp_pix_recebidos")
+          .upsert(
+            {
+              tenant_id: gwRow.tenant_id,
+              origem_conta: origemConta,
+              mp_payment_id: paymentId,
+              payer_name: payerName,
+              payer_document: payerDoc,
+              valor,
+              data_hora: dataHora,
+            },
+            { onConflict: "tenant_id,mp_payment_id", ignoreDuplicates: true },
+          );
+        if (pixErr) prodLog("webhook.pix_avulso_insert_failed", { error: pixErr.message });
+      }
+    }
+
     return NextResponse.json({ ok: true });
 
   } catch (err) {
