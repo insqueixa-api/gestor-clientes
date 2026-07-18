@@ -2526,7 +2526,7 @@ const canSyncAgenda = canSyncAuto;
             addToast(
               "success",
               "Integrado!",
-              `App configurado! Vencimento: ${apiJson.expireDate.split("-").reverse().join("/")}`,
+              `App configurado! Vencimento: ${apiJson.expireDate.split("T")[0].split("-").reverse().join("/")}`,
             );
           } else {
             addToast(
@@ -2573,7 +2573,7 @@ const canSyncAgenda = canSyncAuto;
             addToast(
               "success",
               "Integrado!",
-              `App configurado! Vencimento extraído: ${e.detail.expireDate.split("-").reverse().join("/")}`,
+              `App configurado! Vencimento extraído: ${e.detail.expireDate.split("T")[0].split("-").reverse().join("/")}`,
             );
           } else {
             addToast(
@@ -3951,7 +3951,7 @@ if (syncOperadora) {
                         queueListToast("trial", {
                           type: "success",
                           title: "App Integrado",
-                          message: `${app.name} ativado. Vencimento: ${apiJson.expireDate.split("-").reverse().join("/")}`,
+                          message: `${app.name} ativado. Vencimento: ${apiJson.expireDate.split("T")[0].split("-").reverse().join("/")}`,
                         });
                       } else {
                         queueListToast("trial", {
@@ -4009,7 +4009,7 @@ if (syncOperadora) {
                               queueListToast("trial", {
                                 type: "success",
                                 title: "App Integrado",
-                                message: `${app.name} ativado. Vencimento extraído: ${e.detail.expireDate.split("-").reverse().join("/")}`,
+                                message: `${app.name} ativado. Vencimento extraído: ${e.detail.expireDate.split("T")[0].split("-").reverse().join("/")}`,
                               });
                             } else {
                               queueListToast("trial", {
