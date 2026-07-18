@@ -595,6 +595,24 @@ async function handleSave() {
       setImportingServer(false);
     }
   }
+  async function handleExportFinanceiro() {
+    if (!tenantId) return;
+    setExporting(true);
+    try {
+      const res = await fetch(
+        `/api/import_export/financeiro/export?tenant_id=${encodeURIComponent(tenantId)}`,
+      );
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `financeiro_export.xlsx`;
+      a.click();
+    } catch {
+    } finally {
+      setExporting(false);
+    }
+  }
   function handleDownloadTemplateFinanceiro() {
     window.location.href = "/api/import_export/financeiro/template";
   }
@@ -1935,10 +1953,10 @@ className="flex-1 h-10 border border-border text-muted-foreground font-medium ro
                   n: "Controle Financeiro",
                   icon: "💰",
                   act: () => {
-                    if (actionModal === "template")
+                    if (actionModal === "export") void handleExportFinanceiro();
+                    else if (actionModal === "template")
                       handleDownloadTemplateFinanceiro();
-                    else if (actionModal !== "export")
-                      importFinanceiroFileRef.current?.click();
+                    else importFinanceiroFileRef.current?.click();
                   },
                 },
               ].map((item, idx) => (
