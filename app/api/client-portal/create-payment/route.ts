@@ -417,7 +417,7 @@ if (!mpToken) {
             },
             body: JSON.stringify({
               transaction_amount: Number(computedPrice),
-              description: `${displayName} - Plano ${planLabel} - ${serverName}`,
+              description: `${displayName} - Plano ${planLabel}`,
               payment_method_id: "pix",
               payer: {
                 email: `${String(client.whatsapp_username)}@unigestor.net.br`,
@@ -430,8 +430,8 @@ if (!mpToken) {
                 items: [
                   {
                     id: String(client_id),
-                    title: `Plano ${planLabel} - ${serverName}`,
-                    description: `Renovação IPTV — ${planLabel}, ${serverName}, cliente ${displayName}`,
+                    title: `Plano ${planLabel}`,
+                    description: `Renovação de assinatura — Plano ${planLabel}, cliente ${displayName}`,
                     quantity: 1,
                     unit_price: Number(computedPrice),
                   },
@@ -523,7 +523,7 @@ if (insErr || !inserted) {
           stripeParams.append("amount", String(Math.round(Number(computedPrice) * 100)));
           stripeParams.append("currency", currency.toLowerCase());
           stripeParams.append("payment_method_types[]", "card");
-          stripeParams.append("description", `${displayName} - Plano ${planLabel} - ${serverName}`);
+          stripeParams.append("description", `${displayName} - Plano ${planLabel}`);
           stripeParams.append("metadata[client_id]", client_id);
           stripeParams.append("metadata[tenant_id]", String(sess.tenant_id));
           stripeParams.append("metadata[period]", period);
