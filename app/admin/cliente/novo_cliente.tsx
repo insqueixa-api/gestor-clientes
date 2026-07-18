@@ -664,7 +664,9 @@ function FormattedDateInput({
     }
     try {
       if (type === "date") {
-        const [y, m, d] = value.split("-");
+        // ✅ Tolera valor vindo com hora/timezone junto (ex: "2052-05-18T12:00:00.000Z"),
+        // que alguns apps (IBOSOL) mandam mesmo o campo sendo só de data.
+        const [y, m, d] = value.split("T")[0].split("-");
         if (y && m && d) setDisplayValue(`${d}/${m}/${y}`);
       } else if (type === "datetime-local") {
         const [datePart, timePart] = value.split("T");
@@ -743,7 +745,7 @@ function FormattedDateInput({
     if (e.key === "ArrowUp" || e.key === "ArrowDown") {
       e.preventDefault();
       if (type === "date") {
-        const [y, m, d] = value.split("-");
+        const [y, m, d] = value.split("T")[0].split("-");
         const newY = parseInt(y, 10) + (e.key === "ArrowUp" ? 1 : -1);
         onChange({ target: { value: `${newY}-${m}-${d}` } });
       } else if (type === "datetime-local") {
@@ -758,7 +760,7 @@ function FormattedDateInput({
   const getCurrentDateForPicker = () => {
     if (!value) return new Date();
     try {
-      const datePart = type === "datetime-local" ? value.split("T")[0] : value;
+      const datePart = value.split("T")[0];
       const [y, m, d] = datePart.split("-");
       return new Date(Number(y), Number(m) - 1, Number(d));
     } catch {
@@ -5843,6 +5845,15 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                       .trim()
                       .toUpperCase();
                     const hasInteg = Boolean(integrationType);
+                    // ✅ Família IBOSOL (activation.iboplayer.com) nunca teve remoção
+                    // automática — só "IBO Player" ganhou o fluxo de delete via
+                    // iboplayer.com/device/login. Os demais (BOB Player, Duplex TV
+                    // Player, etc.) precisam remover manualmente no painel.
+                    const canAutoDelete =
+                      integrationType !== "IBOSOL" ||
+                      String(catApp?.name || "")
+                        .trim()
+                        .toLowerCase() === "ibo player";
                     const appLabel =
                       integrationType === "GERENCIAAPP"
                         ? "GerenciaApp"
@@ -5863,7 +5874,9 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                       if (expireDateIso) {
                         const today = new Date();
                         today.setHours(0, 0, 0, 0);
-                        const expDate = new Date(`${expireDateIso}T12:00:00`);
+                        const expDate = new Date(
+                          `${String(expireDateIso).split("T")[0]}T12:00:00`,
+                        );
                         expDate.setHours(0, 0, 0, 0);
                         diffDays = Math.ceil(
                           (expDate.getTime() - today.getTime()) /
@@ -6000,7 +6013,9 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                               <div className="bg-transparent border-0 mb-3 mt-2">
                                 {isEditing ? (
                                   // EDIÇÃO: botões de ação direta
-                                  <div className="grid grid-cols-3 gap-2">
+                                  <div
+                                    className={`grid gap-2 ${canAutoDelete ? "grid-cols-3" : "grid-cols-2"}`}
+                                  >
                                     <button
                                       type="button"
                                       onClick={() =>
@@ -6080,40 +6095,46 @@ className="h-10 rounded-lg bg-transparent border border-border text-muted-foregr
                                         Painel
                                       </span>
                                     </button>
-                                    <button
-                                      type="button"
-                                      onClick={async () => {
-                                        const ok = await confirm({
-                                          title: `Remover do ${appLabel}?`,
-                                          subtitle: `Isso apagará o MAC do painel oficial.`,
-                                          tone: "rose",
-                                          confirmText: "Sim, remover",
-                                          cancelText: "Cancelar",
-                                        });
-                                        if (ok)
-                                          await handleDeleteApp(app.instanceId);
-                                      }}
-                                      className="h-10 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-1.5"
-                                      title="Remover do painel oficial"
-                                    >
-                                      <svg
-                                        className="w-4 h-4 shrink-0"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                        strokeWidth="2"
+                                    {canAutoDelete && (
+                                      <button
+                                        type="button"
+                                        onClick={async () => {
+                                          const ok = await confirm({
+                                            title: `Remover do ${appLabel}?`,
+                                            subtitle: `Isso apagará o MAC do painel oficial.`,
+                                            tone: "rose",
+                                            confirmText: "Sim, remover",
+                                            cancelText: "Cancelar",
+                                          });
+                                          if (ok)
+                                            await handleDeleteApp(
+                                              app.instanceId,
+                                            );
+                                        }}
+                                        className="h-10 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-1.5"
+                                        title="Remover do painel oficial"
                                       >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                        />
-                                      </svg>
-                                      <span className="hidden sm:inline">
-                                        Remover m3u
-                                      </span>
-                                      <span className="sm:hidden">Remover</span>
-                                    </button>
+                                        <svg
+                                          className="w-4 h-4 shrink-0"
+                                          fill="none"
+                                          viewBox="0 0 24 24"
+                                          stroke="currentColor"
+                                          strokeWidth="2"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                          />
+                                        </svg>
+                                        <span className="hidden sm:inline">
+                                          Remover m3u
+                                        </span>
+                                        <span className="sm:hidden">
+                                          Remover
+                                        </span>
+                                      </button>
+                                    )}
                                   </div>
                                 ) : (
                                   // CRIAÇÃO (Teste / Teste Rápido): toggle de configuração automática

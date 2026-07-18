@@ -1,6 +1,8 @@
 // app/api/integrations/apps/ibosol/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { Resvg } from "@resvg/resvg-js";
+import { callGemini } from "@/lib/whatsapp/gemini-client";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,6 +10,127 @@ export const dynamic = "force-dynamic";
 // BASE_URL vem do corpo da requisição (salvo no banco em app_integrations.api_url)
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
+
+// ============================================================
+// IBO Player — remoção de playlist via iboplayer.com/device/login
+// Site DIFERENTE do activation.iboplayer.com (usado no "create" acima),
+// que nunca teve endpoint de remoção. Esse site tem login protegido por
+// captcha SVG (resolvido aqui via Gemini) e um endpoint de delete real.
+// Só a app "IBO Player" usa esse fluxo — os demais apps da família IBOSOL
+// (BOB Player, Duplex TV Player, etc.) não têm remoção automática.
+// ============================================================
+const IBOPLAYER_BASE = "https://iboplayer.com";
+
+function sanitizeCaptchaSvg(svg: string): string {
+  // O site retorna width/height duplicados na tag <svg>, o que quebra parsers XML estritos (resvg).
+  return svg.replace(/^<svg\b[^>]*>/, (openTag) => {
+    let cleaned = openTag;
+    for (const attr of ["width", "height"]) {
+      const re = new RegExp(`\\s${attr}="[^"]*"`, "g");
+      const matches = cleaned.match(re);
+      if (matches && matches.length > 1) {
+        let count = 0;
+        cleaned = cleaned.replace(re, (m) => (++count < matches.length ? "" : m));
+      }
+    }
+    return cleaned;
+  });
+}
+
+async function solveIboPlayerCaptcha(geminiKey: string): Promise<{ token: string; answer: string }> {
+  const res = await fetch(`${IBOPLAYER_BASE}/frontend/captcha/generate`, {
+    headers: { Accept: "application/json", "User-Agent": UA },
+  });
+  const data = await res.json().catch(() => null);
+  if (!data?.svg || !data?.token) throw new Error("Falha ao gerar captcha do IBO Player.");
+
+  const png = new Resvg(sanitizeCaptchaSvg(data.svg), { fitTo: { mode: "width", value: 400 } })
+    .render()
+    .asPng();
+
+  const geminiRes = await callGemini(
+    geminiKey,
+    {
+      contents: [
+        {
+          parts: [
+            {
+              text: "Esta é uma imagem de captcha com texto distorcido sobre fundo preto. Responda APENAS com os caracteres exatos que você consegue ler (letras e/ou números), sem espaços, sem explicação.",
+            },
+            { inline_data: { mime_type: "image/png", data: png.toString("base64") } },
+          ],
+        },
+      ],
+    },
+    15_000
+  );
+  const answer = geminiRes?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+  if (!answer) throw new Error("Não foi possível ler o captcha do IBO Player.");
+  return { token: data.token, answer: answer.toUpperCase() };
+}
+
+async function ibPlayerLogin(macAddress: string, deviceKey: string, geminiKey: string): Promise<string> {
+  let lastError = "captcha não resolvido";
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    const { token, answer } = await solveIboPlayerCaptcha(geminiKey);
+    const res = await fetch(`${IBOPLAYER_BASE}/frontend/device/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json", "User-Agent": UA },
+      body: JSON.stringify({ mac_address: macAddress, device_key: deviceKey, captcha: answer, token }),
+    });
+    const json = await res.json().catch(() => null);
+    if (res.status === 200 && json?.token) return json.token;
+    lastError = json?.message || `status ${res.status}`;
+  }
+  throw new Error(`Falha no login do IBO Player: ${lastError}`);
+}
+
+async function deleteIboPlayerPlaylist(params: {
+  macAddress: string;
+  deviceKey: string;
+  playlistName: string;
+  pin: string;
+  geminiKey: string;
+}) {
+  const { macAddress, deviceKey, playlistName, pin, geminiKey } = params;
+  if (!deviceKey) throw new Error("Device Key não configurado para este app.");
+  if (!geminiKey) throw new Error("GEMINI_API_KEY não configurada no servidor.");
+
+  const authToken = await ibPlayerLogin(macAddress, deviceKey, geminiKey);
+
+  const listRes = await fetch(`${IBOPLAYER_BASE}/frontend/device/playlists`, {
+    headers: { Authorization: `Bearer ${authToken}`, Accept: "application/json", "User-Agent": UA },
+  });
+  const listJson = await listRes.json().catch(() => null);
+  const playlists: any[] = listJson?.playlists || [];
+  if (!playlists.length) throw new Error("Nenhuma playlist encontrada neste dispositivo.");
+
+  const normalizedTarget = String(playlistName || "").toLowerCase().trim();
+  let match = playlists.find(
+    (p) => String(p.playlist_name || "").toLowerCase().trim() === normalizedTarget
+  );
+  if (!match && playlists.length === 1) match = playlists[0];
+  if (!match) throw new Error(`Playlist "${playlistName}" não encontrada neste dispositivo.`);
+
+  if (match.is_protected && !pin) {
+    throw new Error("Esta playlist está protegida por PIN e nenhum PIN está configurado no app.");
+  }
+
+  const delRes = await fetch(`${IBOPLAYER_BASE}/frontend/device/deletePlayListUrl/${match._id}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${authToken}`,
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": UA,
+    },
+    body: match.is_protected ? JSON.stringify({ pin }) : undefined,
+  });
+  const delJson = await delRes.json().catch(() => null);
+  if (delRes.status !== 200 || delJson?.status !== "success") {
+    throw new Error(delJson?.message || "Falha ao remover playlist no IBO Player.");
+  }
+}
 
 // ============================================================
 // Mapeamento estático: nome do app (lowercase) → product UUID
@@ -280,48 +403,33 @@ export async function POST(req: Request) {
 
     // ===========================================================
     // ACTION: delete
-    // 1. GET reset-playlist → CSRF + cookies
-    // 2. POST reset-playlist → remove playlist
+    // activation.iboplayer.com (usado no "create" acima) nunca teve endpoint
+    // de remoção — /reset-playlist é um 404 morto, confirmado por teste real.
+    // Só o app "IBO Player" tem remoção automática, via o site separado
+    // iboplayer.com/device/login (login com captcha resolvido pelo Gemini).
+    // Os demais apps da família (BOB Player, Duplex TV Player, etc.) não
+    // têm remoção automática — o front não deve nem exibir o botão pra eles.
     // ===========================================================
     if (action === "delete") {
-      // 1. GET reset-playlist
-      const getDelRes = await fetch(`${BASE_URL}/reset-playlist`, {
-        headers: baseHeaders("", `${BASE_URL}/check-mac`),
-        redirect: "follow",
-      });
-      jar.absorb(getDelRes.headers);
-      const getDelHtml = await getDelRes.text();
-
-      const token = extractCsrfToken(getDelHtml);
-      if (!token) throw new Error("CSRF token não encontrado em reset-playlist.");
-
-      // 2. POST reset-playlist
-      const delParams = new URLSearchParams();
-      delParams.set("type", "");
-      delParams.set("_token", token);
-      delParams.set("_method", "POST");
-      delParams.set("product", productId);
-      delParams.set("mac_address", mac_address);
-      delParams.set("device_key", resolvedDeviceKey);
-
-      const postDelRes = await fetch(`${BASE_URL}/reset-playlist`, {
-        method: "POST",
-        headers: baseHeaders(jar.toString(), `${BASE_URL}/reset-playlist`, true, BASE_URL),
-        body: delParams.toString(),
-        redirect: "follow",
-      });
-      jar.absorb(postDelRes.headers);
-      const postDelHtml = await postDelRes.text();
-
-      if (!didSucceed(postDelHtml, "deleted successfully")) {
-        const errMatch = postDelHtml.match(
-          /class="[^"]*(?:text-red|alert)[^"]*"[^>]*>\s*([\s\S]{1,300}?)\s*<\//
+      if (app_name.toLowerCase().trim() !== "ibo player") {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Remoção automática não está disponível para este aplicativo. Remova manualmente pelo painel do fornecedor.",
+          },
+          { status: 400 }
         );
-        const errMsg = errMatch
-          ? errMatch[1].replace(/<[^>]+>/g, "").trim()
-          : "Falha ao remover playlist. Resposta inesperada do IBOSol.";
-        throw new Error(errMsg);
       }
+
+      const geminiKey = String(process.env.GEMINI_API_KEY || "").trim();
+      await deleteIboPlayerPlaylist({
+        macAddress: mac_address,
+        deviceKey: resolvedDeviceKey,
+        playlistName: playlist_name || "",
+        pin: pin ? String(pin) : "",
+        geminiKey,
+      });
 
       return NextResponse.json({ ok: true, message: "Playlist removida com sucesso." });
     }

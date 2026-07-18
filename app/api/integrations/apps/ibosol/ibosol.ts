@@ -36,16 +36,24 @@ export const IbosolAPI = {
     appName,
     macValue,
     deviceKey,
+    serverName,
+    finalServerName,
+    password,
   }: {
     appName: string;
     macValue: string;
     deviceKey?: string;
+    serverName?: string;
+    finalServerName?: string;
+    password?: string; // PIN da playlist
   }) {
     return {
       action: "delete",
       app_name: appName,
       mac_address: macValue,
       device_key: deviceKey || "",
+      playlist_name: serverName || finalServerName || "",
+      pin: password || undefined,
     };
   },
 };

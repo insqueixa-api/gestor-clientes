@@ -888,9 +888,12 @@ className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 tex
                       const label = temIntegracao ? `⚡ ${app.name}` : app.name;
 
                       // ✅ Verifica se o vencimento é inferior a 30 dias (ou se já venceu)
+                      const expirationDatePart = app.expiration
+                        ? String(app.expiration).split("T")[0]
+                        : "";
                       const isExpiringSoon =
-                        app.expiration &&
-                        (new Date(`${app.expiration}T12:00:00`).getTime() -
+                        expirationDatePart &&
+                        (new Date(`${expirationDatePart}T12:00:00`).getTime() -
                           Date.now()) /
                           86400000 <
                           30;
@@ -918,8 +921,8 @@ className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 tex
                           <span
                             className={`text-xs text-right ${app.expiration ? (isExpiringSoon ? "text-rose-500 font-medium" : "text-emerald-500 font-medium") : "text-muted-foreground/60 italic"}`}
                           >
-                            {app.expiration
-                              ? `Vence: ${new Date(`${app.expiration}T12:00:00-03:00`).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}`
+                            {expirationDatePart
+                              ? `Vence: ${new Date(`${expirationDatePart}T12:00:00-03:00`).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}`
                               : "Vencimento: Não definido"}
                           </span>
                         </div>
