@@ -1,6 +1,9 @@
 import "dotenv/config";
 import express from "express";
 import QRCode from "qrcode";
+import { spawn } from "child_process";
+import path from "path";
+import { fileURLToPath } from "url";
 
 import {
   createSession, disconnectSession, reconnectSession, sendMessage, validateNumber,
@@ -8,6 +11,9 @@ import {
   getSessionConfig, updateSessionConfig, getContactProfilePicture,
   getBotEvents,
 } from "./sessionManager.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const FAST_SYNC_SCRIPT = path.join(__dirname, "..", "fast-sync", "sync-fast.js");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -331,6 +337,34 @@ app.post("/system/restart", authMiddleware, async (req, res) => {
   console.log("[SYSTEM] Restart solicitado via API");
   res.json({ ok: true, message: "Reiniciando serviço..." });
   setTimeout(() => process.exit(0), 500);
+});
+
+// ── POST /fast-sync/trigger ──────────────────────────────────
+// Dispara o sync-fast.js (mesmo script do cron) sob demanda. Substitui o
+// antigo fluxo via extensão de navegador (FAST_VOD_SYNC) — a VM já baixa o
+// M3U com IP não bloqueado, então não precisa mais do browser pra isso.
+let fastSyncRunning = false;
+
+app.post("/fast-sync/trigger", authMiddleware, (req, res) => {
+  if (fastSyncRunning) {
+    return res.status(409).json({ error: "Sincronização do Fast já está em andamento." });
+  }
+  fastSyncRunning = true;
+  console.log("[FAST-SYNC] Disparado manualmente via API");
+
+  const child = spawn(process.execPath, [FAST_SYNC_SCRIPT], { env: process.env });
+  child.stdout.on("data", (d) => process.stdout.write(`[FAST-SYNC] ${d}`));
+  child.stderr.on("data", (d) => process.stderr.write(`[FAST-SYNC] ${d}`));
+  child.on("exit", (code) => {
+    fastSyncRunning = false;
+    console.log(`[FAST-SYNC] Processo finalizado (code ${code})`);
+  });
+  child.on("error", (e) => {
+    fastSyncRunning = false;
+    console.error(`[FAST-SYNC] Falha ao iniciar processo:`, e?.message);
+  });
+
+  res.json({ ok: true, message: "Sincronização do Fast iniciada na VM." });
 });
 
 // ── GET /bot-events — últimos eventos do bot ──────────────────
