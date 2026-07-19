@@ -16,6 +16,7 @@ import {
   RefreshCcw,
   Timer,
   Trash2,
+  ThumbsUp,
 } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
@@ -500,6 +501,8 @@ const [pageSize, setPageSize] = useState(50);
   >([]);
   const [loadingClientAppsForAlert, setLoadingClientAppsForAlert] =
     useState(false);
+  // ✅ null = criando um alerta novo; preenchido = editando um já existente
+  const [editingAlertId, setEditingAlertId] = useState<string | null>(null);
 
   const [showAlertList, setShowAlertList] = useState<{
     open: boolean;
@@ -1401,6 +1404,18 @@ const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
     }
   };
 
+  // ✅ Mensagem padrão da pendência de app — pré-preenchida na observação
+  // (editável) assim que app e/ou data mudam, já que 99% dos casos é isso.
+  function buildAppChargeMessage(appName: string, activationDateISO: string) {
+    if (!appName) return "";
+    const datePart = activationDateISO
+      ? new Date(`${activationDateISO}T12:00:00`).toLocaleDateString("pt-BR")
+      : "";
+    return datePart
+      ? `Ativação do aplicativo ${appName} realizada no dia ${datePart}`
+      : `Ativação do aplicativo ${appName}`;
+  }
+
   // ✅ Busca os apps do cliente (nome + custo) pra popular o seletor da
   // pendência de aplicativo — só carrega quando essa opção é escolhida.
   const loadClientAppsForAlert = async (clientId: string) => {
@@ -1440,7 +1455,30 @@ const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
     setNewAlertClientAppId("");
     setNewAlertActivationDate("");
     setClientAppsForAlert([]);
+    setEditingAlertId(null);
   }
+
+  // ✅ Abre o mesmo modal já preenchido com os dados do alerta, pulando a
+  // tela de escolha (já sabemos o tipo pelos campos que existem).
+  const openEditAlert = (alert: any, clientId: string, clientName: string) => {
+    const kind: "note" | "app_charge" | "generic_charge" =
+      alert.amount == null
+        ? "note"
+        : alert.client_app_id
+          ? "app_charge"
+          : "generic_charge";
+
+    setEditingAlertId(String(alert.id));
+    setNewAlertKind(kind);
+    setNewAlertText(alert.message || "");
+    setNewAlertAmount(alert.amount != null ? String(alert.amount) : "");
+    setNewAlertCurrency(alert.currency || "BRL");
+    setNewAlertClientAppId(alert.client_app_id || "");
+    setNewAlertActivationDate(alert.activation_date || "");
+    setShowNewAlert({ open: true, clientId, clientName });
+
+    if (kind === "app_charge") loadClientAppsForAlert(clientId);
+  };
 
   const handleSaveAlert = async () => {
     if (!showNewAlert.clientId || !tenantId || !newAlertKind) return;
@@ -1474,7 +1512,8 @@ const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
         );
         payload.client_app_id = newAlertClientAppId;
         payload.message =
-          newAlertText.trim() || `Ativação do app ${app?.appName ?? ""}`.trim();
+          newAlertText.trim() ||
+          buildAppChargeMessage(app?.appName ?? "", newAlertActivationDate);
         if (newAlertActivationDate) {
           payload.activation_date = newAlertActivationDate;
         }
@@ -1488,17 +1527,34 @@ const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
     }
 
     try {
-      const { error } = await supabaseBrowser
-        .from("client_alerts")
-        .insert(payload);
+      const { error } = editingAlertId
+        ? await supabaseBrowser
+            .from("client_alerts")
+            .update(payload)
+            .eq("id", editingAlertId)
+        : await supabaseBrowser.from("client_alerts").insert(payload);
 
       if (error) throw error;
 
-      addToast("success", "Alerta criado", "O alerta foi salvo com sucesso.");
+      addToast(
+        "success",
+        editingAlertId ? "Alerta atualizado" : "Alerta criado",
+        "O alerta foi salvo com sucesso.",
+      );
+      const clientIdForRefresh = showNewAlert.clientId;
+      const clientNameForRefresh = showNewAlert.clientName;
       resetNewAlertForm();
       loadData();
+      // ✅ Se a lista de alertas estava aberta atrás (editando por lá), atualiza ela também
+      if (showAlertList.open && clientIdForRefresh) {
+        handleOpenAlertList(clientIdForRefresh, clientNameForRefresh || "");
+      }
     } catch (error: any) {
-      addToast("error", "Erro ao criar alerta", error.message);
+      addToast(
+        "error",
+        editingAlertId ? "Erro ao atualizar alerta" : "Erro ao criar alerta",
+        error.message,
+      );
     }
   };
 
@@ -2860,12 +2916,19 @@ className="p-8 text-center text-muted-foreground italic"
       )}
 
       {showNewAlert.open && (
-        <Modal title="Novo Alerta" onClose={resetNewAlertForm}>
+        <Modal
+          title={editingAlertId ? "Editar Alerta" : "Novo Alerta"}
+          onClose={resetNewAlertForm}
+        >
           <div className="space-y-4">
             <div className="bg-purple-500/10 border border-purple-500/20 p-3 rounded-lg flex items-center gap-3">
               <span className="text-xl">🔔</span>
               <div className="text-sm text-foreground/90">
-                {newAlertKind ? "Para" : "Adicionando alerta para"}{" "}
+                {editingAlertId
+                  ? "Editando alerta de"
+                  : newAlertKind
+                    ? "Para"
+                    : "Adicionando alerta para"}{" "}
                 <strong>{showNewAlert.clientName}</strong>
               </div>
             </div>
@@ -2941,6 +3004,12 @@ className="p-8 text-center text-muted-foreground italic"
                       if (app?.licensePrice != null) {
                         setNewAlertAmount(String(app.licensePrice));
                       }
+                      setNewAlertText(
+                        buildAppChargeMessage(
+                          app?.appName ?? "",
+                          newAlertActivationDate,
+                        ),
+                      );
                     }}
                     disabled={loadingClientAppsForAlert}
                     className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-purple-500 transition-colors"
@@ -2995,21 +3064,34 @@ className="p-8 text-center text-muted-foreground italic"
                   <input
                     type="date"
                     value={newAlertActivationDate}
-                    onChange={(e) => setNewAlertActivationDate(e.target.value)}
+                    onChange={(e) => {
+                      const date = e.target.value;
+                      setNewAlertActivationDate(date);
+                      const app = clientAppsForAlert.find(
+                        (a) => a.id === newAlertClientAppId,
+                      );
+                      if (app) {
+                        setNewAlertText(
+                          buildAppChargeMessage(app.appName, date),
+                        );
+                      }
+                    }}
                     className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-purple-500 transition-colors"
                   />
                 </div>
 
                 <div>
                   <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
-                    Observação (opcional)
+                    Observação
                   </label>
                   <textarea
                     value={newAlertText}
                     onChange={(e) => setNewAlertText(e.target.value)}
                     className="w-full bg-transparent border border-border rounded-xl p-3 text-foreground outline-none focus:border-purple-500 transition-colors min-h-[70px] text-sm resize-none"
-                    placeholder="Se não preencher, usamos “Ativação do app {nome}”"
                   />
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Corrige se estiver errado.
+                  </p>
                 </div>
               </div>
             )}
@@ -3088,7 +3170,7 @@ className="p-8 text-center text-muted-foreground italic"
                     onClick={handleSaveAlert}
                     className="px-6 py-2 rounded-lg bg-purple-600 text-white font-bold hover:bg-purple-500 shadow-lg shadow-purple-900/20 text-sm transition-all"
                   >
-                    Salvar
+                    {editingAlertId ? "Atualizar" : "Salvar"}
                   </button>
                 </div>
               </div>
@@ -3184,9 +3266,22 @@ className="p-8 text-center text-muted-foreground italic"
                             className="p-2 text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition-colors"
                             title="Marcar como pago"
                           >
-                            ✅
+                            <IconThumbsUp />
                           </button>
                         )}
+                        <button
+                          onClick={() =>
+                            openEditAlert(
+                              alert,
+                              showAlertList.clientId || "",
+                              showAlertList.clientName || "",
+                            )
+                          }
+                          className="p-2 text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10 rounded-lg transition-colors"
+                          title="Editar"
+                        >
+                          <IconEdit />
+                        </button>
                         <button
                           onClick={() => handleDeleteAlert(alert.id)}
                           className="p-2 text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
@@ -3972,6 +4067,9 @@ function IconBell() {
 }
 function IconTrash() {
   return <Trash2 className="w-4 h-4" />;
+}
+function IconThumbsUp() {
+  return <ThumbsUp className="w-4 h-4" />;
 }
 function IconRestore() {
   return <RefreshCcw className="w-4 h-4" />;

@@ -1116,10 +1116,10 @@ export default function RenewClient() {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
         <div className="w-full max-w-sm bg-card rounded-3xl shadow-2xl overflow-hidden">
-          <div className="bg-gradient-to-r from-amber-600 to-amber-700 py-4 px-6 text-white text-center">
-            <h2 className="text-lg font-bold">⚠️ Pendência identificada</h2>
+          <div className="bg-gradient-to-r from-sky-600 to-sky-700 py-4 px-6 text-white text-center">
+            <h2 className="text-lg font-bold">📋 Item adicional na renovação</h2>
             <p className="text-sm text-white/80 mt-0.5">
-              Isso será somado ao valor da renovação
+              Já está incluído no valor abaixo
             </p>
           </div>
 
@@ -1144,11 +1144,31 @@ export default function RenewClient() {
 
             <div className="flex justify-between items-center pt-2 border-t border-border">
               <span className="text-sm font-medium text-muted-foreground">
-                Total das pendências
+                Total do item adicional
               </span>
-              <span className="text-lg font-bold text-amber-500">
+              <span className="text-lg font-bold text-sky-500">
                 {formatMoney(pendingCharges.total, pendingCharges.currency)}
               </span>
+            </div>
+
+            <div className="p-3 rounded-xl bg-muted/40 border border-border text-xs text-muted-foreground leading-relaxed">
+              Se você já regularizou isso diretamente, entre em contato antes
+              de pagar
+              {supportPhone && (
+                <>
+                  {" "}
+                  pelo{" "}
+                  <a
+                    href={`https://wa.me/${supportPhone.replace(/\D/g, "")}?text=Olá,%20sobre%20o%20item%20adicional%20da%20minha%20renovação:%20já%20paguei%20isso%20antes.`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[#25D366] font-semibold hover:underline"
+                  >
+                    WhatsApp do suporte
+                  </a>
+                </>
+              )}
+              .
             </div>
 
             <div className="flex gap-3 pt-2">
@@ -1169,7 +1189,7 @@ export default function RenewClient() {
                   setPendingChargesContinuation(null);
                   cont?.();
                 }}
-                className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-sm shadow-lg shadow-amber-900/20 transition-all"
+                className="flex-1 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-sm shadow-lg shadow-sky-900/20 transition-all"
               >
                 Continuar
               </button>
