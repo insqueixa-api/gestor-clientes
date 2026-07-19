@@ -721,6 +721,12 @@ export default function CupomModal({
                     </button>
                   )}
 
+                  {impactResult.clients.some((c) => c.linkedAccountsCount > 1) && (
+                    <p className="text-[10px] text-muted-foreground">
+                      🔗 = mesma pessoa tem outras contas na lista (mesmo WhatsApp).
+                    </p>
+                  )}
+
                   {showImpactClients && (
                     <div className="max-h-40 overflow-y-auto rounded-lg border border-border divide-y divide-border">
                       {impactResult.clients.map((c) => (
@@ -728,8 +734,16 @@ export default function CupomModal({
                           key={c.id}
                           className="flex items-center justify-between px-3 py-1.5 text-[11px]"
                         >
-                          <span className="text-foreground/90 truncate">
+                          <span className="text-foreground/90 truncate flex items-center gap-1">
                             {c.name} <span className="text-muted-foreground">({c.username})</span>
+                            {c.linkedAccountsCount > 1 && (
+                              <span
+                                className="inline-flex items-center text-[9px] font-medium bg-purple-500/10 text-purple-500 border border-purple-500/20 px-1 py-0.5 rounded-full shrink-0"
+                                title="Mesma pessoa possui outras contas nesta lista (mesmo WhatsApp)."
+                              >
+                                🔗
+                              </span>
+                            )}
                           </span>
                           <span className="text-muted-foreground shrink-0 ml-2">
                             {fmtMoney(c.normalPrice)} →{" "}

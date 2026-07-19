@@ -26,7 +26,14 @@
 // vw_clients_list_active/vw_clients_list_archived (via select("*")) ou
 // equivalente, com pelo menos: id, price_amount, price_currency,
 // created_at, computed_status, server_id, plan_label (ou plan_name),
-// apps_names, vencimento.
+// apps_names, vencimento, whatsapp_username.
+//
+// ⚠️ Uma pessoa pode ter várias contas (client_id) vinculadas ao mesmo
+// whatsapp_username — o portal já mostra todas juntas sob 1 login
+// (get-accounts/route.ts) e ela escolhe qual renovar. Por isso "1 uso por
+// cliente pra sempre" e "cupom pessoal restrito a um client_id" valem pra
+// PESSOA (todas as contas ligadas ao mesmo whatsapp), não pra conta
+// isolada — ver resolveLinkedClientIds.
 //
 // ⚠️ validateCouponForCharge() ainda não é chamada em nenhum lugar — a
 // validação dentro de create-payment/route.ts e a UI no portal (RenewClient)
@@ -73,16 +80,46 @@ export type CouponValidationResult =
   | { ok: true; coupon: CouponRow; discountAmount: number }
   | { ok: false; reason: string };
 
-async function hasClientRedeemed(
+/**
+ * Um cliente pode ter várias contas (client_id diferentes) vinculadas ao
+ * mesmo whatsapp_username — o portal já mostra todas juntas sob um só
+ * login (app/api/client-portal/get-accounts/route.ts), e a pessoa escolhe
+ * qual conta renovar. "1 uso por cliente" precisa valer pra PESSOA, não
+ * pra conta isolada, senão dá pra reaplicar o mesmo cupom trocando de
+ * conta. Resolve todos os client_id ligados ao mesmo whatsapp (principal
+ * ou secundário) do cliente atual.
+ */
+async function resolveLinkedClientIds(
+  supabaseAdmin: any,
+  tenantId: string,
+  clientRow: any,
+): Promise<string[]> {
+  const wa = String(clientRow?.whatsapp_username || "").trim();
+  const ownId = clientRow?.id ? String(clientRow.id) : null;
+  if (!wa) return ownId ? [ownId] : [];
+
+  const { data } = await supabaseAdmin
+    .from("clients")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .or(`whatsapp_username.eq.${wa},secondary_whatsapp_username.eq.${wa}`);
+
+  const ids = ((data as { id: string }[]) || []).map((r) => r.id);
+  if (ownId && !ids.includes(ownId)) ids.push(ownId);
+  return ids;
+}
+
+async function hasAnyLinkedRedeemed(
   supabaseAdmin: any,
   couponId: string,
-  clientId: string,
+  linkedClientIds: string[],
 ): Promise<boolean> {
+  if (!linkedClientIds.length) return false;
   const { count } = await supabaseAdmin
     .from("coupon_redemptions")
     .select("id", { count: "exact", head: true })
     .eq("coupon_id", couponId)
-    .eq("client_id", clientId);
+    .in("client_id", linkedClientIds);
   return (count || 0) > 0;
 }
 
@@ -245,15 +282,16 @@ export async function findEligibleCoupon(params: {
   if (error || !data?.length) return null;
 
   const rows = data as CouponRow[];
-  // Cupom pessoal (client_id) do próprio cliente tem prioridade sobre
-  // cupons gerais; cupom pessoal de outro cliente nunca aparece aqui.
-  const personal = rows.filter((c) => c.client_id === clientId);
-  const general = rows.filter((c) => !c.client_id);
-
   const now = new Date();
 
-  // Só resolve o preço padrão (2 queries extras) se realmente existir
-  // cupom geral pra checar, e no máximo uma vez por chamada.
+  // Resolvidos no máximo 1x por chamada, e só se realmente precisar
+  // (cupom pessoal existente, ou cupom geral a checar).
+  let linkedIdsCache: string[] | null = null;
+  async function linkedIds(): Promise<string[]> {
+    if (!linkedIdsCache) linkedIdsCache = await resolveLinkedClientIds(supabaseAdmin, tenantId, clientRow);
+    return linkedIdsCache;
+  }
+
   let overrideChecked: boolean | null = null;
   async function isOverrideActive(): Promise<boolean> {
     if (overrideChecked == null) {
@@ -261,6 +299,18 @@ export async function findEligibleCoupon(params: {
     }
     return overrideChecked;
   }
+
+  // Cupom pessoal tem prioridade sobre cupons gerais. Vale pra qualquer
+  // conta vinculada ao mesmo whatsapp do cliente-alvo, não só a conta
+  // exata escolhida na criação — a pessoa pode renovar por outra conta
+  // dela e o cupom pessoal ainda deve valer.
+  const personalCandidates = rows.filter((c) => !!c.client_id);
+  let personal: CouponRow[] = [];
+  if (personalCandidates.length) {
+    const ids = await linkedIds();
+    personal = personalCandidates.filter((c) => ids.includes(c.client_id!));
+  }
+  const general = rows.filter((c) => !c.client_id);
 
   for (const coupon of [...personal, ...general]) {
     if (coupon.starts_at && new Date(coupon.starts_at) > now) continue;
@@ -272,7 +322,7 @@ export async function findEligibleCoupon(params: {
     if (!coupon.client_id) {
       if (await isOverrideActive()) continue;
       if (!matchesTargeting(coupon, clientRow)) continue;
-      if (await hasClientRedeemed(supabaseAdmin, coupon.id, clientId)) continue;
+      if (await hasAnyLinkedRedeemed(supabaseAdmin, coupon.id, await linkedIds())) continue;
 
       if (coupon.max_total_redemptions != null) {
         const totalUses = await countRedemptions(supabaseAdmin, coupon.id);
@@ -343,15 +393,13 @@ export async function getCouponPhraseForClient(
 export async function validateCouponForCharge(params: {
   supabaseAdmin: any;
   tenantId: string;
-  clientId: string;
   clientRow: any;
   code: string;
   planPriceOnly: number;
   currency: string;
   isOverrideActive: boolean;
 }): Promise<CouponValidationResult> {
-  const { supabaseAdmin, tenantId, clientId, clientRow, code, planPriceOnly, currency, isOverrideActive } =
-    params;
+  const { supabaseAdmin, tenantId, clientRow, code, planPriceOnly, currency, isOverrideActive } = params;
 
   const normalizedCode = String(code || "").trim().toUpperCase();
   if (!normalizedCode) return { ok: false, reason: "Informe um código de cupom." };
@@ -371,12 +419,18 @@ export async function validateCouponForCharge(params: {
 
   if (error || !coupon) return { ok: false, reason: "Cupom inválido ou inativo." };
 
-  // Cupom pessoal de outro cliente: trata como se não existisse — nunca
-  // revela pra quem o código foi emitido.
-  if (coupon.client_id && coupon.client_id !== clientId) {
-    return { ok: false, reason: "Cupom inválido ou inativo." };
-  }
   const isPersonal = !!coupon.client_id;
+
+  // Cupom pessoal de outra pessoa: trata como se não existisse — nunca
+  // revela pra quem o código foi emitido. Vale pra qualquer conta
+  // vinculada ao mesmo whatsapp, não só a conta exata escolhida na
+  // criação (mesma pessoa pode renovar por outra conta dela).
+  if (isPersonal) {
+    const linkedIds = await resolveLinkedClientIds(supabaseAdmin, tenantId, clientRow);
+    if (!linkedIds.includes(coupon.client_id)) {
+      return { ok: false, reason: "Cupom inválido ou inativo." };
+    }
+  }
 
   if (!isPersonal) {
     // Preço override só bloqueia cupom GERAL — pessoal é uma recompensa
@@ -402,7 +456,8 @@ export async function validateCouponForCharge(params: {
 
   // Cupom pessoal não usa a regra "1 uso pra sempre" — só is_active decide.
   if (!isPersonal) {
-    if (await hasClientRedeemed(supabaseAdmin, coupon.id, clientId)) {
+    const linkedIds = await resolveLinkedClientIds(supabaseAdmin, tenantId, clientRow);
+    if (await hasAnyLinkedRedeemed(supabaseAdmin, coupon.id, linkedIds)) {
       return { ok: false, reason: "Você já utilizou este cupom." };
     }
 

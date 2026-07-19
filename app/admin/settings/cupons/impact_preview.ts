@@ -57,6 +57,8 @@ export type ImpactClientRow = {
   username: string;
   normalPrice: number;
   discountedPrice: number;
+  /** Quantas contas NESTA lista compartilham o mesmo whatsapp (mesma pessoa, portal mostra todas juntas). 1 = sem outras contas na lista. */
+  linkedAccountsCount: number;
 };
 
 export type ImpactResult = {
@@ -82,7 +84,12 @@ type ClientLite = {
   price_amount: number | null;
   plan_table_id: string | null;
   created_at: string | null;
+  whatsapp_username: string | null;
+  secondary_whatsapp_username: string | null;
 };
+
+const CLIENT_SELECT =
+  "id, client_name, username, computed_status, server_id, plan_name, apps_names, vencimento, screens, price_currency, price_amount, plan_table_id, created_at, whatsapp_username, secondary_whatsapp_username";
 
 /** Resolve a tabela de preço BRL do cliente. Retorna null se não achar uma tabela BRL. */
 function resolveBRLPlanTable(planTables: PlanTableLite[], client: ClientLite): string | null {
@@ -154,9 +161,7 @@ export async function computeCouponImpact(
   const [{ data: clientsData }, { data: planTablesData }] = await Promise.all([
     supabaseBrowser
       .from("vw_clients_list_active")
-      .select(
-        "id, client_name, username, computed_status, server_id, plan_name, apps_names, vencimento, screens, price_currency, price_amount, plan_table_id, created_at",
-      )
+      .select(CLIENT_SELECT)
       .eq("tenant_id", tenantId)
       .eq("price_currency", "BRL"),
     supabaseBrowser
@@ -171,13 +176,31 @@ export async function computeCouponImpact(
 
   const now = new Date();
 
+  // Uma pessoa pode ter várias contas (client_id) vinculadas ao mesmo
+  // whatsapp — o portal mostra todas juntas sob 1 login e ela escolhe
+  // qual renovar, então "já resgatou" bloqueia TODAS as contas dela, não
+  // só a que efetivamente usou o cupom.
   let excludedClientIds: Set<string> | null = null;
   if (excludeCouponId) {
     const { data: redemptions } = await supabaseBrowser
       .from("coupon_redemptions")
       .select("client_id")
       .eq("coupon_id", excludeCouponId);
-    excludedClientIds = new Set((redemptions || []).map((r: any) => r.client_id));
+    const redeemedIds = ((redemptions as { client_id: string }[]) || []).map((r) => r.client_id);
+    excludedClientIds = new Set(redeemedIds);
+    const redeemedWas = Array.from(
+      new Set(
+        allClients
+          .filter((c) => redeemedIds.includes(c.id))
+          .map((c) => c.whatsapp_username)
+          .filter((w): w is string => !!w),
+      ),
+    );
+    for (const c of allClients) {
+      if (redeemedWas.includes(c.whatsapp_username || "") || redeemedWas.includes(c.secondary_whatsapp_username || "")) {
+        excludedClientIds.add(c.id);
+      }
+    }
   }
 
   const eligible = allClients.filter((c) => {
@@ -210,7 +233,8 @@ export async function computeCouponImpact(
     }
   }
 
-  const clients: ImpactClientRow[] = [];
+  type Draft = ImpactClientRow & { whatsapp: string };
+  const drafts: Draft[] = [];
   for (const client of eligible) {
     const planTableId = resolveBRLPlanTable(planTables, client);
     if (!planTableId) continue;
@@ -219,24 +243,50 @@ export async function computeCouponImpact(
     if (!period) continue;
 
     const screens = Number(client.screens || 1);
-    const normalPrice = priceMap.get(`${planTableId}|${period}|${screens}`);
-    if (normalPrice == null) continue;
+    const standardPrice = priceMap.get(`${planTableId}|${period}|${screens}`);
+    if (standardPrice == null) continue;
 
     // Preço override: só exclui quando o preço PRÓPRIO do cliente é
     // menor que o padrão da tabela (ex: 35 quando o padrão é 40) — não
     // basta ter price_amount preenchido, isso é verdade pra quase todo
     // cliente (é o preço corrente dele, não uma flag de exceção rara).
     const priceAmount = Number(client.price_amount || 0);
-    if (priceAmount > 0 && priceAmount < normalPrice) continue;
+    if (priceAmount > 0 && priceAmount < standardPrice) continue;
 
-    clients.push({
+    // Preço que a conta realmente paga numa renovação simples (mesma
+    // regra de create-payment/route.ts:224 — Regra 1): o price_amount
+    // dela, quando setado, mesmo que seja MAIOR que o padrão (ex: conta
+    // com mais telas). Só cai pro padrão da tabela se nunca foi
+    // precificada individualmente.
+    const normalPrice = priceAmount > 0 ? priceAmount : standardPrice;
+
+    drafts.push({
       id: client.id,
       name: client.client_name || "—",
       username: client.username || "—",
       normalPrice,
       discountedPrice: computeDiscountedPrice(normalPrice, discountType, discountValue),
+      linkedAccountsCount: 1,
+      whatsapp: client.whatsapp_username || "",
     });
   }
+
+  // Marca contas que compartilham o mesmo whatsapp (mesma pessoa) — o
+  // portal já mostra todas juntas sob 1 login e ela escolhe qual renovar.
+  const waCounts = new Map<string, number>();
+  for (const d of drafts) {
+    if (!d.whatsapp) continue;
+    waCounts.set(d.whatsapp, (waCounts.get(d.whatsapp) || 0) + 1);
+  }
+
+  const clients: ImpactClientRow[] = drafts.map((d) => ({
+    id: d.id,
+    name: d.name,
+    username: d.username,
+    normalPrice: d.normalPrice,
+    discountedPrice: d.discountedPrice,
+    linkedAccountsCount: d.whatsapp ? waCounts.get(d.whatsapp) || 1 : 1,
+  }));
 
   return {
     totalClients: clients.length,
@@ -258,9 +308,7 @@ export async function computeSingleClientImpact(params: {
   const [{ data: clientData }, { data: planTablesData }] = await Promise.all([
     supabaseBrowser
       .from("vw_clients_list_active")
-      .select(
-        "id, client_name, username, computed_status, server_id, plan_name, apps_names, vencimento, screens, price_currency, price_amount, plan_table_id, created_at",
-      )
+      .select(CLIENT_SELECT)
       .eq("tenant_id", tenantId)
       .eq("id", clientId)
       .maybeSingle(),
@@ -290,16 +338,20 @@ export async function computeSingleClientImpact(params: {
     .eq("period", period)
     .maybeSingle();
 
-  const normalPrice = (itemsData as any)?.plan_table_item_prices?.find(
+  const standardPrice = (itemsData as any)?.plan_table_item_prices?.find(
     (p: any) => p.screens_count === screens,
   )?.price_amount;
-  if (normalPrice == null) return null;
+  if (standardPrice == null) return null;
+
+  const priceAmount = Number(client.price_amount || 0);
+  const normalPrice = priceAmount > 0 ? priceAmount : Number(standardPrice);
 
   return {
     id: client.id,
     name: client.client_name || "—",
     username: client.username || "—",
-    normalPrice: Number(normalPrice),
-    discountedPrice: computeDiscountedPrice(Number(normalPrice), discountType, discountValue),
+    normalPrice,
+    discountedPrice: computeDiscountedPrice(normalPrice, discountType, discountValue),
+    linkedAccountsCount: 1,
   };
 }

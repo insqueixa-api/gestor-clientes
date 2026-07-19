@@ -549,6 +549,13 @@ function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () =
                 </span>
               </div>
 
+              {result.clients.some((c) => c.linkedAccountsCount > 1) && (
+                <p className="text-[11px] text-muted-foreground">
+                  🔗 = mesma pessoa tem outras contas nesta lista (mesmo WhatsApp) — a contagem é por
+                  conta, não por pessoa, já que ela só renova uma.
+                </p>
+              )}
+
               {filteredUsed.length === 0 && filteredEligible.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-6">
                   {term ? "Nenhum cliente encontrado." : "Nenhum cliente elegível hoje."}
@@ -568,8 +575,16 @@ function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () =
                   ))}
                   {filteredEligible.map((c) => (
                     <div key={c.id} className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
-                      <span className="text-foreground/90 truncate">
+                      <span className="text-foreground/90 truncate flex items-center gap-1.5">
                         {c.name} <span className="text-muted-foreground">({c.username})</span>
+                        {c.linkedAccountsCount > 1 && (
+                          <span
+                            className="inline-flex items-center text-[10px] font-medium bg-purple-500/10 text-purple-500 border border-purple-500/20 px-1.5 py-0.5 rounded-full shrink-0"
+                            title="Mesma pessoa possui outras contas nesta lista (mesmo WhatsApp) — só uma delas será renovada."
+                          >
+                            🔗 +{c.linkedAccountsCount - 1}
+                          </span>
+                        )}
                       </span>
                       <span className="flex items-center gap-1.5 shrink-0">
                         <span className="text-[10px] font-medium bg-muted text-muted-foreground border border-border px-2 py-0.5 rounded-full whitespace-nowrap">
