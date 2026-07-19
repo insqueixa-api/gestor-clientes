@@ -133,20 +133,17 @@ export async function POST(req: NextRequest) {
     const clientPlanLabel = String((client as any).plan_label || "").trim();
     const exact = (item as any).plan_table_item_prices?.find((p: any) => p.screens_count === screens);
     const standardPriceForPeriod = exact?.price_amount != null ? Number(exact.price_amount) : null;
-    // price_amount está preenchido pra quase todo cliente (é o preço fixo
-    // normal dele, não uma flag rara) — "override" de verdade só quando o
-    // preço do cliente é MENOR que o preço padrão da tabela pra esse
-    // período/tela. Sem essa comparação, praticamente ninguém seria
-    // elegível a cupom (mesmo bug já corrigido em impact_preview.ts e
-    // coupons.ts::findEligibleCoupon nas fases anteriores).
-    const isOverrideActive =
-      clientOverride > 0 &&
-      PERIOD_LABELS[period] === clientPlanLabel &&
-      standardPriceForPeriod != null &&
-      clientOverride < standardPriceForPeriod;
+
+    // Regra 1 (preço REAL cobrado, sempre): se o cliente tem um preço
+    // fixado pra esse plano/período, é ele que vale — não importa se é
+    // maior ou menor que o padrão da tabela. NÃO confundir com
+    // isOverrideActive abaixo (achado grave: usar a mesma condição pra
+    // preço e pra elegibilidade de cupom fazia clientes com preço fixado
+    // ACIMA do padrão pagarem o preço PADRÃO, errado).
+    const priceOverrideMatches = clientOverride > 0 && PERIOD_LABELS[period] === clientPlanLabel;
 
     let planPriceOnly = 0;
-    if (isOverrideActive) {
+    if (priceOverrideMatches) {
       planPriceOnly = clientOverride;
     } else {
       if (standardPriceForPeriod == null) {
@@ -154,6 +151,16 @@ export async function POST(req: NextRequest) {
       }
       planPriceOnly = standardPriceForPeriod;
     }
+
+    // Elegibilidade de CUPOM (nunca decide o preço cobrado): price_amount
+    // está preenchido pra quase todo cliente (é o preço corrente normal
+    // dele) — só bloqueia cupom quando é uma REDUÇÃO de verdade (menor
+    // que o padrão), pra não empilhar desconto em cima de desconto já
+    // dado. Override pra CIMA do padrão não bloqueia (mesmo bug de
+    // "praticamente ninguém elegível" já corrigido em impact_preview.ts e
+    // coupons.ts::findEligibleCoupon nas fases anteriores).
+    const isOverrideActive =
+      priceOverrideMatches && standardPriceForPeriod != null && clientOverride < standardPriceForPeriod;
 
     // Campos extras que validateCouponForCharge/matchesTargeting esperam
     // (status/servidor/plano/apps/vencimento/cadastro) — não vêm da
