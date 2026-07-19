@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
     // =========================================================================
     const { data: iptvPayment } = await supabaseAdmin
       .from("client_portal_payments")
-      .select("id, tenant_id, client_id, mp_payment_id, status, fulfillment_status, period, plan_label, price_amount, price_currency, new_vencimento, settled_alert_ids")
+      .select("id, tenant_id, client_id, mp_payment_id, status, fulfillment_status, period, plan_label, price_amount, plan_price_amount, price_currency, new_vencimento, settled_alert_ids")
       .eq("mp_payment_id", paymentIntentId)
       .eq("gateway_type", "stripe")
       .maybeSingle();
@@ -112,16 +112,7 @@ export async function POST(req: NextRequest) {
           try {
             const { expDateISO } = await runIptvFulfillment({ supabaseAdmin, tenantId: iptvPayment.tenant_id, origin, payment: iptvPayment });
             await markIptvDone(supabaseAdmin, iptvPayment.tenant_id, iptvPayment.id, expDateISO);
-
-            // ✅ Quita as pendências financeiras que entraram nessa cobrança
-            const settledIds: string[] = (iptvPayment as any).settled_alert_ids || [];
-            if (settledIds.length) {
-              await supabaseAdmin
-                .from("client_alerts")
-                .update({ status: "CLOSED", closed_at: new Date().toISOString() })
-                .in("id", settledIds)
-                .eq("status", "OPEN");
-            }
+            // (a baixa das pendências e o price_amount correto já são feitos dentro do runFulfillment)
           } catch (e: any) {
             await markIptvError(supabaseAdmin, iptvPayment.tenant_id, iptvPayment.id, e?.message || "Falha no fulfillment Stripe");
           }

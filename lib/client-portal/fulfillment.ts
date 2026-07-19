@@ -417,7 +417,12 @@ if (!renewRes.ok || !renewJson?.ok) {
   // 4) Atualizar cliente (Blindado)
   const updatePayload: any = {
     plan_label: payment.plan_label || (client as any).plan_label || null, // ✅ Protegido
-    price_amount: payment.price_amount || (client as any).price_amount || null, // ✅ Protegido
+    // (correcao) usa plan_price_amount (preco do PLANO, sem pendencia somada) -
+    // nunca payment.price_amount direto, senao uma pendencia pontual de app
+    // (ex: ativacao de R$30) vira o novo preco fixo do cliente pra sempre.
+    // plan_price_amount pode ser null em pagamentos antigos (antes dessa
+    // coluna existir), dai cai no price_amount mesmo.
+    price_amount: payment.plan_price_amount ?? payment.price_amount ?? (client as any).price_amount ?? null,
     price_currency: payment.price_currency || (client as any).price_currency || "BRL",
     vencimento: expDateISO,
     updated_at: new Date().toISOString(),
@@ -441,6 +446,20 @@ if (newPassword) updatePayload.server_password = String(newPassword);
     new_vencimento: expDateISO,
     external_id_updated: !!newExternalId
   });
+
+  // (correcao) Quita as pendencias financeiras que entraram nessa cobranca.
+  // Fica aqui dentro (nao nos webhooks) porque tanto o webhook quanto o
+  // polling de payment-status chamam runFulfillment - so um deles de fato
+  // executa (o outro cai no lock ocupado), entao isso garante que roda
+  // exatamente uma vez, nao importa qual caminho venceu a corrida.
+  const settledAlertIds = (payment as any).settled_alert_ids || [];
+  if (settledAlertIds.length) {
+    await supabaseAdmin
+      .from("client_alerts")
+      .update({ status: "CLOSED", closed_at: new Date().toISOString() })
+      .in("id", settledAlertIds)
+      .eq("status", "OPEN");
+  }
 
   // ✅ Teste virou cliente pago pelo portal — marca o histórico (papa_testes)
   // como convertido, mesmo motivo do update_client (RPC do painel). Casa por

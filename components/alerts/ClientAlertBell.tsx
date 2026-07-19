@@ -424,10 +424,7 @@ const ClientAlertBell = forwardRef<
                     key={alert.id}
                     className="p-4 bg-muted/50 border border-border rounded-xl shadow-sm flex justify-between items-center gap-4"
                   >
-                    <div className="flex gap-3">
-                      <span className="text-rose-500 mt-0.5">
-                        {hasAmount ? "💰" : "⚠️"}
-                      </span>
+                    <div className="text-left">
                       <div>
                         {hasAmount && (
                           <div className="text-sm font-bold text-foreground mb-0.5">

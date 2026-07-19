@@ -253,7 +253,12 @@ if (process.env.NODE_ENV !== "production" && price_amount_raw != null) {
 // ===============================
 // 2.2) Somar pendências financeiras em aberto (client_alerts com amount)
 // Sempre recalculado aqui — nunca confia em nenhum valor vindo do front.
+// ✅ planPriceOnly guarda o preço do PLANO sem a pendência — é isso que vira
+// o price_amount persistido no cliente depois (senão a próxima renovação
+// herdava o valor da pendência de um app como se fosse o preço da
+// assinatura, cobrando errado pra sempre).
 // ===============================
+const planPriceOnly = computedPrice;
 const pendingCharges = await getPendingCharges(supabaseAdmin, sess.tenant_id, client_id, currency);
 if (pendingCharges.total > 0) {
   computedPrice = Number((computedPrice + pendingCharges.total).toFixed(2));
@@ -330,6 +335,7 @@ const settledAlertIds = pendingCharges.alertIds.length ? pendingCharges.alertIds
           period,
           plan_label: planLabel,
           price_amount: Number(computedPrice),
+          plan_price_amount: Number(planPriceOnly),
           price_currency: currency,
           status: "pending",
           fulfillment_status: "awaiting_transfer",
@@ -499,6 +505,7 @@ if (!mpToken) {
       period,
       plan_label: planLabel,
       price_amount: Number(computedPrice),
+      plan_price_amount: Number(planPriceOnly),
       price_currency: currency,
       status: "pending",
       settled_alert_ids: settledAlertIds,
@@ -586,6 +593,7 @@ if (insErr || !inserted) {
                   period,
                   plan_label: planLabel,
                   price_amount: Number(computedPrice),
+                  plan_price_amount: Number(planPriceOnly),
                   price_currency: currency,
                   status: "pending",
                   settled_alert_ids: settledAlertIds,
