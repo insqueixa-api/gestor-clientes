@@ -9,6 +9,7 @@ import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
+import ClientAlertBell from "@/components/alerts/ClientAlertBell";
 
 // Componentes (CORRIGIDO: PascalCase)
 import NovoCliente, { ClientData } from "../novo_cliente";
@@ -226,6 +227,11 @@ const [valuesHidden, setValuesHidden] = useState(false);
   const [loading, setLoading] = useState(true);
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
+  const [tenantId, setTenantId] = useState<string | null>(null);
+
+  useEffect(() => {
+    getCurrentTenantId().then(setTenantId);
+  }, []);
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [showRenewModal, setShowRenewModal] = useState(false);
@@ -706,6 +712,17 @@ const [valuesHidden, setValuesHidden] = useState(false);
               {client.client_name}
             </h1>
             <StatusBadge status={client.computed_status} />
+            {clientIdSafe && (
+              <ClientAlertBell
+                tenantId={tenantId}
+                clientId={clientIdSafe}
+                clientName={client.client_name}
+                alertsCount={client.alerts_open || 0}
+                onChanged={loadData}
+                addToast={addToast}
+                size="lg"
+              />
+            )}
             <button
               onClick={() => setValuesHidden(v => !v)}
               title={valuesHidden ? "Exibir valores" : "Ocultar valores"}

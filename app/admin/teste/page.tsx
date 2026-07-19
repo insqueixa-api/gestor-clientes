@@ -32,6 +32,7 @@ import RecargaCliente from "../cliente/recarga_cliente";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm"; // ✅ Hook adicionado
 import { isoDateInSaoPaulo } from "@/lib/date-br";
+import ClientAlertBell from "@/components/alerts/ClientAlertBell";
 
 // --- HELPERS WHATSAPP ---
 // ✅ Só o nome do contato (Principal/Secundário) — sem o número, que não
@@ -84,6 +85,7 @@ type VwClientRow = {
   apps_names: string[] | null;
   notes: string | null;
   converted_client_id?: string | null;
+  alerts_open?: number | null;
 };
 
 type TrialRow = {
@@ -117,6 +119,7 @@ type TrialRow = {
   vencimento?: string;
   notes?: string;
   converted: boolean;
+  alertsCount: number;
 };
 
 // --- HELPERS ---
@@ -790,6 +793,7 @@ export default function TrialsPage() {
         notes: (r.notes ?? "") as any,
 
         converted,
+        alertsCount: Number(r.alerts_open || 0),
       };
     });
 
@@ -1779,6 +1783,15 @@ export default function TrialsPage() {
                           >
                             <IconEdit />
                           </IconActionBtn>
+
+                          <ClientAlertBell
+                            tenantId={tenantId}
+                            clientId={r.id}
+                            clientName={r.name}
+                            alertsCount={r.alertsCount}
+                            onChanged={loadData}
+                            addToast={addToast}
+                          />
 
                           <IconActionBtn
                             title={r.archived ? "Restaurar" : "Arquivar"}

@@ -86,6 +86,7 @@ export async function POST(req: NextRequest) {
           message: it.message,
           appName: it.appName,
           convertedAmount: it.convertedAmount,
+          activationDate: it.activationDate,
         })),
       },
       { status: 200, headers: NO_STORE_HEADERS }

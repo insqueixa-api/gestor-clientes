@@ -300,7 +300,12 @@ export default function RenewClient() {
   const [pendingCharges, setPendingCharges] = useState<{
     total: number;
     currency: string;
-    items: { message: string; appName: string | null; convertedAmount: number }[];
+    items: {
+      message: string;
+      appName: string | null;
+      convertedAmount: number;
+      activationDate: string | null;
+    }[];
   } | null>(null);
   const [showPendingChargesModal, setShowPendingChargesModal] = useState(false);
   const [pendingChargesContinuation, setPendingChargesContinuation] = useState<
@@ -1117,34 +1122,36 @@ export default function RenewClient() {
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
         <div className="w-full max-w-sm bg-card rounded-3xl shadow-2xl overflow-hidden">
           <div className="bg-gradient-to-r from-sky-600 to-sky-700 py-4 px-6 text-white text-center">
-            <h2 className="text-lg font-bold">📋 Item adicional na renovação</h2>
-            <p className="text-sm text-white/80 mt-0.5">
-              Já está incluído no valor abaixo
-            </p>
+            <h2 className="text-lg font-bold">📋 Pendência identificada</h2>
           </div>
 
           <div className="p-5 space-y-3">
             <div className="space-y-2">
-              {pendingCharges.items.map((it, idx) => (
-                <div
-                  key={idx}
-                  className="flex justify-between items-start gap-3 p-3 rounded-xl bg-muted/50 border border-border"
-                >
-                  <div className="text-sm text-foreground/90">
-                    {it.appName
-                      ? `Ativação: ${it.appName}`
-                      : it.message || "Pendência"}
+              {pendingCharges.items.map((it, idx) => {
+                const dateLabel = it.activationDate
+                  ? new Date(`${it.activationDate}T12:00:00`).toLocaleDateString("pt-BR")
+                  : "";
+                return (
+                  <div
+                    key={idx}
+                    className="flex justify-between items-start gap-3 p-3 rounded-xl bg-muted/50 border border-border"
+                  >
+                    <div className="text-sm text-foreground/90">
+                      {it.appName
+                        ? `Ativação do aplicativo ${it.appName}${dateLabel ? ` no dia ${dateLabel}` : ""}`
+                        : it.message || "Pendência"}
+                    </div>
+                    <div className="text-sm font-bold text-foreground shrink-0">
+                      {formatMoney(it.convertedAmount, pendingCharges.currency)}
+                    </div>
                   </div>
-                  <div className="text-sm font-bold text-foreground shrink-0">
-                    {formatMoney(it.convertedAmount, pendingCharges.currency)}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="flex justify-between items-center pt-2 border-t border-border">
               <span className="text-sm font-medium text-muted-foreground">
-                Total do item adicional
+                Total da Pendência
               </span>
               <span className="text-lg font-bold text-sky-500">
                 {formatMoney(pendingCharges.total, pendingCharges.currency)}
@@ -1152,19 +1159,19 @@ export default function RenewClient() {
             </div>
 
             <div className="p-3 rounded-xl bg-muted/40 border border-border text-xs text-muted-foreground leading-relaxed">
-              Se você já regularizou isso diretamente, entre em contato antes
-              de pagar
+              Se você já regularizou essa pendência, entre em contato direto
+              com o Márcio
               {supportPhone && (
                 <>
                   {" "}
-                  pelo{" "}
+                  clicando aqui:{" "}
                   <a
-                    href={`https://wa.me/${supportPhone.replace(/\D/g, "")}?text=Olá,%20sobre%20o%20item%20adicional%20da%20minha%20renovação:%20já%20paguei%20isso%20antes.`}
+                    href={`https://wa.me/${supportPhone.replace(/\D/g, "")}?text=Olá,%20sobre%20a%20pendência%20da%20minha%20renovação:%20já%20paguei%20isso%20antes.`}
                     target="_blank"
                     rel="noreferrer"
                     className="text-[#25D366] font-semibold hover:underline"
                   >
-                    WhatsApp do suporte
+                    WhatsApp suporte
                   </a>
                 </>
               )}
