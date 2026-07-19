@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { notify } from "@/lib/notifications/notify";
 import { randomUUID } from "crypto";
+import { getPendingCharges } from "@/lib/client-portal/pending-charges";
 
 export const dynamic = "force-dynamic";
 
@@ -249,6 +250,16 @@ if (process.env.NODE_ENV !== "production" && price_amount_raw != null) {
   }
 }
 
+// ===============================
+// 2.2) Somar pendências financeiras em aberto (client_alerts com amount)
+// Sempre recalculado aqui — nunca confia em nenhum valor vindo do front.
+// ===============================
+const pendingCharges = await getPendingCharges(supabaseAdmin, sess.tenant_id, client_id, currency);
+if (pendingCharges.total > 0) {
+  computedPrice = Number((computedPrice + pendingCharges.total).toFixed(2));
+}
+const settledAlertIds = pendingCharges.alertIds.length ? pendingCharges.alertIds : null;
+
 
     // 3) Buscar gateway ativo (prioridade)
     const { data: gateways, error: gwErr } = await supabaseAdmin
@@ -322,6 +333,7 @@ if (process.env.NODE_ENV !== "production" && price_amount_raw != null) {
           price_currency: currency,
           status: "pending",
           fulfillment_status: "awaiting_transfer",
+          settled_alert_ids: settledAlertIds,
         })
         .select("id")
         .single();
@@ -427,15 +439,32 @@ if (!mpToken) {
               notification_url: webhookUrl,
               external_reference: internalPaymentId,
               additional_info: {
-                items: [
-                  {
-                    id: String(client_id),
-                    title: `Plano ${planLabel}`,
-                    description: `Renovação de assinatura — Plano ${planLabel}, cliente ${displayName}`,
-                    quantity: 1,
-                    unit_price: Number(computedPrice),
-                  },
-                ],
+                items: pendingCharges.items.length
+                  ? [
+                      {
+                        id: String(client_id),
+                        title: `Plano ${planLabel}`,
+                        description: `Renovação de assinatura — Plano ${planLabel}, cliente ${displayName}`,
+                        quantity: 1,
+                        unit_price: Number((computedPrice - pendingCharges.total).toFixed(2)),
+                      },
+                      ...pendingCharges.items.map((it) => ({
+                        id: it.id,
+                        title: it.appName ? `Pendência — ${it.appName}` : "Pendência em aberto",
+                        description: it.message || "Valor pendente do cliente",
+                        quantity: 1,
+                        unit_price: it.convertedAmount,
+                      })),
+                    ]
+                  : [
+                      {
+                        id: String(client_id),
+                        title: `Plano ${planLabel}`,
+                        description: `Renovação de assinatura — Plano ${planLabel}, cliente ${displayName}`,
+                        quantity: 1,
+                        unit_price: Number(computedPrice),
+                      },
+                    ],
               },
               metadata: {
                 client_id,
@@ -472,6 +501,7 @@ if (!mpToken) {
       price_amount: Number(computedPrice),
       price_currency: currency,
       status: "pending",
+      settled_alert_ids: settledAlertIds,
     },
     { onConflict: "tenant_id,gateway_type,mp_payment_id" }
   )
@@ -528,6 +558,9 @@ if (insErr || !inserted) {
           stripeParams.append("metadata[tenant_id]", String(sess.tenant_id));
           stripeParams.append("metadata[period]", period);
           stripeParams.append("metadata[gateway_id]", String(gateway.id));
+          if (pendingCharges.total > 0) {
+            stripeParams.append("metadata[pending_charges_total]", String(pendingCharges.total));
+          }
 
           const stripeRes = await fetch("https://api.stripe.com/v1/payment_intents", {
             method: "POST",
@@ -555,6 +588,7 @@ if (insErr || !inserted) {
                   price_amount: Number(computedPrice),
                   price_currency: currency,
                   status: "pending",
+                  settled_alert_ids: settledAlertIds,
                 },
                 { onConflict: "tenant_id,gateway_type,mp_payment_id" }
               )

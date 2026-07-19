@@ -11,6 +11,7 @@ import { useConfirm } from "@/hooks/useConfirm";
 import FormattedDateInput from "@/components/ui/FormattedDateInput";
 import FormattedTimeInput from "@/components/ui/FormattedTimeInput";
 import { Suspense } from "react";
+import { convertAmount } from "@/lib/fx";
 
 // --- INTERFACES ---
 interface ClientFromView {
@@ -344,6 +345,12 @@ export default function RecargaCliente({
   const [currency, setCurrency] = useState<Currency>("BRL");
   const [planPrice, setPlanPrice] = useState("0,00");
   const [priceTouched, setPriceTouched] = useState(false);
+
+  // ✅ Pendências financeiras em aberto — oferece quitar junto da recarga manual
+  const [pendingChargesForClient, setPendingChargesForClient] = useState<
+    { id: string; message: string; appName: string | null; convertedAmount: number }[]
+  >([]);
+  const [settlePendingCharges, setSettlePendingCharges] = useState(true);
 
   // Tecnologia
   const [technology, setTechnology] = useState("IPTV");
@@ -806,6 +813,57 @@ export default function RecargaCliente({
     // ⚠️ IMPORTANTE: NÃO depende de onClose (evita re-fetch em loop)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId]);
+
+  // ✅ Carrega pendências financeiras abertas deste cliente (convertidas pra
+  // moeda atual da renovação), pra oferecer quitar tudo junto.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const tid = await getCurrentTenantId();
+        if (!tid || !clientId) return;
+
+        const { data, error } = await supabaseBrowser
+          .from("client_alerts")
+          .select("id, message, amount, currency, client_apps(apps(name))")
+          .eq("tenant_id", tid)
+          .eq("client_id", clientId)
+          .eq("status", "OPEN")
+          .not("amount", "is", null);
+
+        if (error || !data?.length || !alive) {
+          if (alive) setPendingChargesForClient([]);
+          return;
+        }
+
+        const items = await Promise.all(
+          (data as any[]).map(async (row) => {
+            const amount = Number(row.amount);
+            const convertedAmount = await convertAmount(
+              supabaseBrowser,
+              tid,
+              amount,
+              String(row.currency || "BRL"),
+              currency,
+            );
+            return {
+              id: String(row.id),
+              message: String(row.message || ""),
+              appName: row.client_apps?.apps?.name ?? null,
+              convertedAmount,
+            };
+          }),
+        );
+
+        if (alive) setPendingChargesForClient(items);
+      } catch {
+        if (alive) setPendingChargesForClient([]);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [clientId, currency]);
 
   // ========= REGRAS DE UI =========
 
@@ -1663,6 +1721,22 @@ const clientMessageAuto = `Renovação automática via painel Admin · ${monthsT
         );
       }
 
+      // ✅ Quita as pendências financeiras junto, se marcado
+      if (settlePendingCharges && pendingChargesForClient.length) {
+        try {
+          await supabaseBrowser
+            .from("client_alerts")
+            .update({ status: "CLOSED", closed_at: new Date().toISOString() })
+            .in(
+              "id",
+              pendingChargesForClient.map((p) => p.id),
+            )
+            .eq("status", "OPEN");
+        } catch {
+          // não bloqueia o fluxo principal por causa disso
+        }
+      }
+
       setTimeout(async () => {
         // ✅ Avisa a Auditoria qual ID foi concluído e AGUARDA ela salvar no banco
         await onSuccess(paymentLogId);
@@ -2000,6 +2074,40 @@ className={`p-3 rounded-xl border transition-all cursor-pointer ${
               <div
                 className={`grid grid-cols-1 ${sendWhats ? "sm:grid-cols-3" : "sm:grid-cols-2"} gap-3 items-end`}
               ></div>
+
+              {/* Pendências financeiras em aberto — oferece quitar junto */}
+              {pendingChargesForClient.length > 0 && (
+                <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-amber-500">
+                      ⚠️ Pendência em aberto
+                    </span>
+                    <Switch
+                      checked={settlePendingCharges}
+                      onChange={setSettlePendingCharges}
+                      label=""
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    {pendingChargesForClient.map((p) => (
+                      <div
+                        key={p.id}
+                        className="flex justify-between text-xs text-muted-foreground"
+                      >
+                        <span>{p.appName ? `Ativação: ${p.appName}` : p.message}</span>
+                        <span className="font-semibold text-foreground">
+                          {fmtMoney(currency, p.convertedAmount)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    {settlePendingCharges
+                      ? "Será marcada como quitada ao salvar esta recarga."
+                      : "Não será quitada — continua em aberto."}
+                  </p>
+                </div>
+              )}
 
               {/* WhatsApp: Toggle, Modelo e Sessão */}
               <div className="flex flex-col gap-3">

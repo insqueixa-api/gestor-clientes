@@ -294,7 +294,21 @@ export default function RenewClient() {
   const [pendingRenew, setPendingRenew] = useState<{
     price: PlanPrice;
     period: string;
-  } | null>(null); // ✅ NOVO: Estados para controle visual do botão de copiar
+  } | null>(null);
+
+  // ✅ Pendências financeiras (ativação de app não paga etc.) — some ao total
+  const [pendingCharges, setPendingCharges] = useState<{
+    total: number;
+    currency: string;
+    items: { message: string; appName: string | null; convertedAmount: number }[];
+  } | null>(null);
+  const [showPendingChargesModal, setShowPendingChargesModal] = useState(false);
+  const [pendingChargesContinuation, setPendingChargesContinuation] = useState<
+    (() => void) | null
+  >(null);
+  const [checkingPendingCharges, setCheckingPendingCharges] = useState(false);
+
+  // ✅ NOVO: Estados para controle visual do botão de copiar
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -539,14 +553,49 @@ export default function RenewClient() {
     // ✅ Sem trava de manual no front: TODOS os BRL pagam via PIX automático.
     // Servidores sem integração (UniGestor) e Elite são detectados pelo fulfillment
     // do backend e marcados como manual_pending APÓS a confirmação do pagamento.
-    if (selectedAccount.price_currency === "BRL") {
-      await handleMethodConfirmDirect("card", renewPrice, renewPeriod);
-      return;
+    const proceed = async () => {
+      if (selectedAccount.price_currency === "BRL") {
+        await handleMethodConfirmDirect("card", renewPrice, renewPeriod);
+        return;
+      }
+      // Internacional com integração: mostra seletor (Apple Pay / Stripe)
+      setPendingRenew({ price: renewPrice, period: renewPeriod });
+      setShowMethodSelector(true);
+    };
+
+    // ✅ Checa pendências financeiras em aberto ANTES de seguir — se tiver,
+    // avisa o cliente que o valor será somado ao total. Se a checagem falhar
+    // por qualquer motivo, segue normalmente (o create-payment recalcula
+    // tudo de novo no servidor de qualquer forma, então nunca sub-cobra).
+    setCheckingPendingCharges(true);
+    try {
+      const res = await fetch("/api/client-portal/pending-charges", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_token: session,
+          client_id: selectedAccount.id,
+        }),
+        cache: "no-store",
+      });
+      const result = await res.json().catch(() => null);
+      if (result?.ok && result.total > 0) {
+        setPendingCharges({
+          total: result.total,
+          currency: result.currency,
+          items: result.items || [],
+        });
+        setPendingChargesContinuation(() => proceed);
+        setShowPendingChargesModal(true);
+        return;
+      }
+    } catch {
+      // segue normalmente
+    } finally {
+      setCheckingPendingCharges(false);
     }
 
-    // Internacional com integração: mostra seletor (Apple Pay / Stripe)
-    setPendingRenew({ price: renewPrice, period: renewPeriod });
-    setShowMethodSelector(true);
+    await proceed();
   };
 
   // Polling para verificar status do pagamento
@@ -1055,6 +1104,76 @@ export default function RenewClient() {
             >
               Cancelar
             </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function PendingChargesModal() {
+    if (!showPendingChargesModal || !pendingCharges) return null;
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="w-full max-w-sm bg-card rounded-3xl shadow-2xl overflow-hidden">
+          <div className="bg-gradient-to-r from-amber-600 to-amber-700 py-4 px-6 text-white text-center">
+            <h2 className="text-lg font-bold">⚠️ Pendência identificada</h2>
+            <p className="text-sm text-white/80 mt-0.5">
+              Isso será somado ao valor da renovação
+            </p>
+          </div>
+
+          <div className="p-5 space-y-3">
+            <div className="space-y-2">
+              {pendingCharges.items.map((it, idx) => (
+                <div
+                  key={idx}
+                  className="flex justify-between items-start gap-3 p-3 rounded-xl bg-muted/50 border border-border"
+                >
+                  <div className="text-sm text-foreground/90">
+                    {it.appName
+                      ? `Ativação: ${it.appName}`
+                      : it.message || "Pendência"}
+                  </div>
+                  <div className="text-sm font-bold text-foreground shrink-0">
+                    {formatMoney(it.convertedAmount, pendingCharges.currency)}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-between items-center pt-2 border-t border-border">
+              <span className="text-sm font-medium text-muted-foreground">
+                Total das pendências
+              </span>
+              <span className="text-lg font-bold text-amber-500">
+                {formatMoney(pendingCharges.total, pendingCharges.currency)}
+              </span>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => {
+                  setShowPendingChargesModal(false);
+                  setPendingCharges(null);
+                  setPendingChargesContinuation(null);
+                }}
+                className="flex-1 py-2.5 rounded-xl border border-border text-muted-foreground font-medium text-sm hover:bg-muted transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  setShowPendingChargesModal(false);
+                  const cont = pendingChargesContinuation;
+                  setPendingChargesContinuation(null);
+                  cont?.();
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-sm shadow-lg shadow-amber-900/20 transition-all"
+              >
+                Continuar
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -2891,7 +3010,8 @@ export default function RenewClient() {
                 !renewPrice ||
                 !renewPrice.price_amount ||
                 isProcessingPayment ||
-                showMethodSelector
+                showMethodSelector ||
+                checkingPendingCharges
               }
               className="w-full bg-[#25D366] hover:bg-[#20BA5A] text-white font-bold py-3 sm:py-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base sm:text-lg mt-2"
             >
@@ -2933,6 +3053,9 @@ export default function RenewClient() {
             </button>
           );
         })()}
+
+        {/* Pendência financeira em aberto */}
+        {PendingChargesModal()}
 
         {/* Seletor de Método */}
         {MethodSelectorModal()}

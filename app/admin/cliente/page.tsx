@@ -482,6 +482,25 @@ const [pageSize, setPageSize] = useState(50);
     clientName: undefined,
   });
   const [newAlertText, setNewAlertText] = useState("");
+  // ✅ Pendências financeiras: null = tela de escolha (3 opções) ainda não decidida
+  const [newAlertKind, setNewAlertKind] = useState<
+    "note" | "app_charge" | "generic_charge" | null
+  >(null);
+  const [newAlertAmount, setNewAlertAmount] = useState("");
+  const [newAlertCurrency, setNewAlertCurrency] = useState("BRL");
+  const [newAlertClientAppId, setNewAlertClientAppId] = useState("");
+  const [newAlertActivationDate, setNewAlertActivationDate] = useState("");
+  const [clientAppsForAlert, setClientAppsForAlert] = useState<
+    {
+      id: string;
+      appName: string;
+      costType: string | null;
+      licensePrice: number | null;
+    }[]
+  >([]);
+  const [loadingClientAppsForAlert, setLoadingClientAppsForAlert] =
+    useState(false);
+
   const [showAlertList, setShowAlertList] = useState<{
     open: boolean;
     clientId: string | null;
@@ -1382,30 +1401,101 @@ const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
     }
   };
 
-  // ... (Funções de Alerta e Mensagem mantidas iguais pois são APIs externas por enquanto) ...
+  // ✅ Busca os apps do cliente (nome + custo) pra popular o seletor da
+  // pendência de aplicativo — só carrega quando essa opção é escolhida.
+  const loadClientAppsForAlert = async (clientId: string) => {
+    setLoadingClientAppsForAlert(true);
+    try {
+      const { data, error } = await supabaseBrowser
+        .from("client_apps")
+        .select("id, apps(name, cost_type, license_price)")
+        .eq("client_id", clientId);
+
+      if (error) throw error;
+
+      const mapped = ((data as any[]) || []).map((r) => ({
+        id: String(r.id),
+        appName: String(r.apps?.name ?? "App"),
+        costType: r.apps?.cost_type ?? null,
+        licensePrice:
+          r.apps?.license_price != null
+            ? Number(r.apps.license_price)
+            : null,
+      }));
+      setClientAppsForAlert(mapped);
+    } catch (error: any) {
+      addToast("error", "Erro ao carregar apps", error.message);
+      setClientAppsForAlert([]);
+    } finally {
+      setLoadingClientAppsForAlert(false);
+    }
+  };
+
+  function resetNewAlertForm() {
+    setShowNewAlert({ open: false, clientId: null, clientName: undefined });
+    setNewAlertKind(null);
+    setNewAlertText("");
+    setNewAlertAmount("");
+    setNewAlertCurrency("BRL");
+    setNewAlertClientAppId("");
+    setNewAlertActivationDate("");
+    setClientAppsForAlert([]);
+  }
+
   const handleSaveAlert = async () => {
-    if (!newAlertText.trim() || !showNewAlert.clientId || !tenantId) return;
+    if (!showNewAlert.clientId || !tenantId || !newAlertKind) return;
+
+    const payload: Record<string, any> = {
+      tenant_id: tenantId,
+      client_id: showNewAlert.clientId,
+      status: "OPEN",
+    };
+
+    if (newAlertKind === "note") {
+      if (!newAlertText.trim()) return;
+      payload.message = newAlertText.trim();
+    } else {
+      // app_charge ou generic_charge: exige valor válido
+      const amount = Number(newAlertAmount.replace(",", "."));
+      if (!Number.isFinite(amount) || amount <= 0) {
+        addToast("error", "Valor inválido", "Informe um valor maior que zero.");
+        return;
+      }
+      payload.amount = amount;
+      payload.currency = newAlertCurrency || "BRL";
+
+      if (newAlertKind === "app_charge") {
+        if (!newAlertClientAppId) {
+          addToast("error", "Selecione um app", "Escolha qual app gerou a pendência.");
+          return;
+        }
+        const app = clientAppsForAlert.find(
+          (a) => a.id === newAlertClientAppId,
+        );
+        payload.client_app_id = newAlertClientAppId;
+        payload.message =
+          newAlertText.trim() || `Ativação do app ${app?.appName ?? ""}`.trim();
+        if (newAlertActivationDate) {
+          payload.activation_date = newAlertActivationDate;
+        }
+      } else {
+        if (!newAlertText.trim()) {
+          addToast("error", "Descreva a pendência", "Digite do que se trata.");
+          return;
+        }
+        payload.message = newAlertText.trim();
+      }
+    }
 
     try {
       const { error } = await supabaseBrowser
-        .from("client_alerts") // ⚠️ Confirme o nome da tabela
-        .insert({
-          tenant_id: tenantId,
-          client_id: showNewAlert.clientId,
-          message: newAlertText,
-          status: "OPEN", // Define como aberto
-          // created_by: userId (Se tiver esse campo e quiser salvar quem criou)
-        });
+        .from("client_alerts")
+        .insert(payload);
 
       if (error) throw error;
 
       addToast("success", "Alerta criado", "O alerta foi salvo com sucesso.");
-
-      // Fecha modal e limpa
-      setShowNewAlert({ open: false, clientId: null });
-      setNewAlertText("");
-
-      // Recarrega a lista principal para atualizar o contador
+      resetNewAlertForm();
       loadData();
     } catch (error: any) {
       addToast("error", "Erro ao criar alerta", error.message);
@@ -1457,6 +1547,29 @@ const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
     }
   };
 
+  // ✅ Fecha o alerta como quitado (mantém o registro, só muda status) —
+  // diferente de handleDeleteAlert, que apaga de vez.
+  const handleSettleAlert = async (alertId: string) => {
+    if (!tenantId) return;
+
+    try {
+      const { error } = await supabaseBrowser
+        .from("client_alerts")
+        .update({ status: "CLOSED", closed_at: new Date().toISOString() })
+        .eq("id", alertId);
+
+      if (error) throw error;
+
+      setClientAlerts((prev) =>
+        (prev as any[]).filter((a) => a.id !== alertId),
+      );
+      addToast("success", "Marcado como pago", "A pendência foi quitada.");
+      loadData();
+    } catch (error: any) {
+      addToast("error", "Erro ao quitar", error.message);
+    }
+  };
+
   const handleOpenAlertList = async (clientId: string, clientName: string) => {
     // Limpa lista anterior e abre modal
     setClientAlerts([]);
@@ -1465,10 +1578,10 @@ const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
     try {
       if (!tenantId) return;
 
-      // Busca direta no banco
+      // Busca direta no banco (com nome do app, se a pendência for vinculada)
       const { data, error } = await supabaseBrowser
-        .from("client_alerts") // ⚠️ Confirme se o nome é esse mesmo
-        .select("*")
+        .from("client_alerts")
+        .select("*, client_apps(apps(name))")
         .eq("tenant_id", tenantId)
         .eq("client_id", clientId)
         // Se quiser ver histórico, remova a linha abaixo
@@ -2573,7 +2686,7 @@ className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-co
                             tone="purple"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setNewAlertText("");
+                              resetNewAlertForm();
                               setShowNewAlert({
                                 open: true,
                                 clientId: r.id,
@@ -2747,41 +2860,237 @@ className="p-8 text-center text-muted-foreground italic"
       )}
 
       {showNewAlert.open && (
-        <Modal
-          title="Criar Novo Alerta"
-          onClose={() => setShowNewAlert({ open: false, clientId: null })}
-        >
+        <Modal title="Novo Alerta" onClose={resetNewAlertForm}>
           <div className="space-y-4">
             <div className="bg-purple-500/10 border border-purple-500/20 p-3 rounded-lg flex items-center gap-3">
               <span className="text-xl">🔔</span>
               <div className="text-sm text-foreground/90">
-                Adicionando alerta para{" "}
+                {newAlertKind ? "Para" : "Adicionando alerta para"}{" "}
                 <strong>{showNewAlert.clientName}</strong>
               </div>
             </div>
 
-            <textarea
-              value={newAlertText}
-              onChange={(e) => setNewAlertText(e.target.value)}
-              className="w-full bg-transparent border border-border rounded-xl p-4 text-foreground outline-none focus:border-purple-500 transition-colors min-h-[120px] text-sm resize-none"
-              placeholder="Descreva o alerta ou pendência deste cliente..."
-              autoFocus
-            />
+            {newAlertKind === null && (
+              <div className="space-y-2">
+                <button
+                  onClick={() => {
+                    setNewAlertKind("app_charge");
+                    if (showNewAlert.clientId)
+                      loadClientAppsForAlert(showNewAlert.clientId);
+                  }}
+                  className="w-full text-left p-4 rounded-xl border border-border hover:border-purple-500/50 hover:bg-purple-500/5 transition-colors flex items-center gap-3"
+                >
+                  <span className="text-xl">📱</span>
+                  <div>
+                    <div className="text-sm font-semibold text-foreground/90">
+                      Pendência de aplicativo
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Ativou um app e o cliente ainda não pagou por ele.
+                    </div>
+                  </div>
+                </button>
 
-            <div className="flex justify-end gap-3 pt-2">
-              <button
-                onClick={() => setShowNewAlert({ open: false, clientId: null })}
-                className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted text-sm font-medium transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSaveAlert}
-                className="px-6 py-2 rounded-lg bg-purple-600 text-white font-bold hover:bg-purple-500 shadow-lg shadow-purple-900/20 text-sm transition-all"
-              >
-                Salvar Alerta
-              </button>
-            </div>
+                <button
+                  onClick={() => setNewAlertKind("generic_charge")}
+                  className="w-full text-left p-4 rounded-xl border border-border hover:border-purple-500/50 hover:bg-purple-500/5 transition-colors flex items-center gap-3"
+                >
+                  <span className="text-xl">💰</span>
+                  <div>
+                    <div className="text-sm font-semibold text-foreground/90">
+                      Pendência qualquer
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Outro valor em aberto (ex: pagou a menos numa
+                      renovação).
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setNewAlertKind("note")}
+                  className="w-full text-left p-4 rounded-xl border border-border hover:border-purple-500/50 hover:bg-purple-500/5 transition-colors flex items-center gap-3"
+                >
+                  <span className="text-xl">📝</span>
+                  <div>
+                    <div className="text-sm font-semibold text-foreground/90">
+                      Alerta normal
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Só um lembrete/observação, sem valor.
+                    </div>
+                  </div>
+                </button>
+              </div>
+            )}
+
+            {newAlertKind === "app_charge" && (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
+                    Aplicativo
+                  </label>
+                  <select
+                    value={newAlertClientAppId}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      setNewAlertClientAppId(id);
+                      const app = clientAppsForAlert.find((a) => a.id === id);
+                      if (app?.licensePrice != null) {
+                        setNewAlertAmount(String(app.licensePrice));
+                      }
+                    }}
+                    disabled={loadingClientAppsForAlert}
+                    className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-purple-500 transition-colors"
+                  >
+                    <option value="">
+                      {loadingClientAppsForAlert
+                        ? "Carregando..."
+                        : "Selecionar..."}
+                    </option>
+                    {clientAppsForAlert.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.appName}
+                        {a.costType === "paid" ? "" : " (não pago)"}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
+                      Valor
+                    </label>
+                    <input
+                      value={newAlertAmount}
+                      onChange={(e) => setNewAlertAmount(e.target.value)}
+                      placeholder="0,00"
+                      inputMode="decimal"
+                      className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-purple-500 transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
+                      Moeda
+                    </label>
+                    <select
+                      value={newAlertCurrency}
+                      onChange={(e) => setNewAlertCurrency(e.target.value)}
+                      className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-purple-500 transition-colors"
+                    >
+                      <option value="BRL">BRL</option>
+                      <option value="USD">USD</option>
+                      <option value="EUR">EUR</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
+                    Data de ativação (opcional)
+                  </label>
+                  <input
+                    type="date"
+                    value={newAlertActivationDate}
+                    onChange={(e) => setNewAlertActivationDate(e.target.value)}
+                    className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-purple-500 transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
+                    Observação (opcional)
+                  </label>
+                  <textarea
+                    value={newAlertText}
+                    onChange={(e) => setNewAlertText(e.target.value)}
+                    className="w-full bg-transparent border border-border rounded-xl p-3 text-foreground outline-none focus:border-purple-500 transition-colors min-h-[70px] text-sm resize-none"
+                    placeholder="Se não preencher, usamos “Ativação do app {nome}”"
+                  />
+                </div>
+              </div>
+            )}
+
+            {newAlertKind === "generic_charge" && (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
+                    Descrição da pendência
+                  </label>
+                  <textarea
+                    value={newAlertText}
+                    onChange={(e) => setNewAlertText(e.target.value)}
+                    className="w-full bg-transparent border border-border rounded-xl p-3 text-foreground outline-none focus:border-purple-500 transition-colors min-h-[90px] text-sm resize-none"
+                    placeholder="Ex: pagou R$20 a menos na última renovação"
+                    autoFocus
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
+                      Valor
+                    </label>
+                    <input
+                      value={newAlertAmount}
+                      onChange={(e) => setNewAlertAmount(e.target.value)}
+                      placeholder="0,00"
+                      inputMode="decimal"
+                      className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-purple-500 transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
+                      Moeda
+                    </label>
+                    <select
+                      value={newAlertCurrency}
+                      onChange={(e) => setNewAlertCurrency(e.target.value)}
+                      className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-purple-500 transition-colors"
+                    >
+                      <option value="BRL">BRL</option>
+                      <option value="USD">USD</option>
+                      <option value="EUR">EUR</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {newAlertKind === "note" && (
+              <textarea
+                value={newAlertText}
+                onChange={(e) => setNewAlertText(e.target.value)}
+                className="w-full bg-transparent border border-border rounded-xl p-4 text-foreground outline-none focus:border-purple-500 transition-colors min-h-[120px] text-sm resize-none"
+                placeholder="Descreva o alerta deste cliente..."
+                autoFocus
+              />
+            )}
+
+            {newAlertKind !== null && (
+              <div className="flex justify-between gap-3 pt-2">
+                <button
+                  onClick={() => setNewAlertKind(null)}
+                  className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted text-sm font-medium transition-colors"
+                >
+                  ← Voltar
+                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={resetNewAlertForm}
+                    className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted text-sm font-medium transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleSaveAlert}
+                    className="px-6 py-2 rounded-lg bg-purple-600 text-white font-bold hover:bg-purple-500 shadow-lg shadow-purple-900/20 text-sm transition-all"
+                  >
+                    Salvar
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </Modal>
       )}
@@ -2817,35 +3126,76 @@ className="p-8 text-center text-muted-foreground italic"
         >
           <div className="space-y-4">
             <div className="max-h-[60vh] overflow-y-auto pr-1 space-y-3">
-              {(clientAlerts as { id: string; message?: string }[]).length ===
-              0 ? (
-<div className="flex flex-col items-center justify-center py-8 text-muted-foreground/60 border-2 border-dashed border-border rounded-xl">
+              {(clientAlerts as any[]).length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground/60 border-2 border-dashed border-border rounded-xl">
                   <span className="text-2xl mb-2">✅</span>
                   <p className="text-sm">Nenhum alerta pendente.</p>
                 </div>
               ) : (
-                (clientAlerts as { id: string; message?: string }[]).map(
-                  (alert) => (
+                (clientAlerts as any[]).map((alert) => {
+                  const hasAmount = alert.amount != null;
+                  const appName = alert.client_apps?.apps?.name as
+                    | string
+                    | undefined;
+                  return (
                     <div
                       key={alert.id}
                       className="group p-4 bg-muted/50 border border-border rounded-xl shadow-sm hover:border-rose-500/20 transition-all flex justify-between items-start gap-4"
                     >
                       <div className="flex gap-3">
-                        <span className="text-rose-500 mt-0.5">⚠️</span>
-                        <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
-                          {alert.message || ""}
-                        </p>
+                        <span className="text-rose-500 mt-0.5">
+                          {hasAmount ? "💰" : "⚠️"}
+                        </span>
+                        <div>
+                          {hasAmount && (
+                            <div className="text-sm font-bold text-foreground mb-0.5">
+                              {
+                                formatMoney(
+                                  Number(alert.amount),
+                                  alert.currency || "BRL",
+                                ).label
+                              }
+                              {appName && (
+                                <span className="ml-1.5 font-normal text-xs text-muted-foreground">
+                                  · {appName}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
+                            {alert.message || ""}
+                          </p>
+                          {alert.activation_date && (
+                            <p className="text-[11px] text-muted-foreground mt-1">
+                              Ativado em{" "}
+                              {new Date(
+                                `${alert.activation_date}T12:00:00`,
+                              ).toLocaleDateString("pt-BR")}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <button
-                        onClick={() => handleDeleteAlert(alert.id)}
-                        className="p-2 text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
-                        title="Resolver / Excluir"
-                      >
-                        <IconTrash />
-                      </button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {hasAmount && (
+                          <button
+                            onClick={() => handleSettleAlert(alert.id)}
+                            className="p-2 text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition-colors"
+                            title="Marcar como pago"
+                          >
+                            ✅
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeleteAlert(alert.id)}
+                          className="p-2 text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+                          title="Excluir"
+                        >
+                          <IconTrash />
+                        </button>
+                      </div>
                     </div>
-                  ),
-                )
+                  );
+                })
               )}
             </div>
 
