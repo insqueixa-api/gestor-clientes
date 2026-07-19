@@ -2875,6 +2875,8 @@ className="p-8 text-center text-muted-foreground italic"
                 <button
                   onClick={() => {
                     setNewAlertKind("app_charge");
+                    // ✅ Normalmente cadastra na hora que ativa o app
+                    setNewAlertActivationDate(isoDateInSaoPaulo());
                     if (showNewAlert.clientId)
                       loadClientAppsForAlert(showNewAlert.clientId);
                   }}
