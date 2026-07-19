@@ -2022,6 +2022,7 @@ className={`p-3 rounded-xl border transition-all cursor-pointer ${
                   {/* Seletor de Modelo (Na mesma linha do Toggle no Mobile) */}
                   {sendWhats && (
                     <div className="animate-in fade-in zoom-in duration-200 col-span-1 sm:col-span-1">
+                      <Label>Mensagem pronta</Label>
                       <Select
                         value={selectedTemplateId}
                         onChange={(e) => {
@@ -2061,6 +2062,7 @@ className={`p-3 rounded-xl border transition-all cursor-pointer ${
                   {/* Seletor de Sessão (No Desktop fica do lado, no Mobile vai pra baixo) */}
                   {sendWhats && (
                     <div className="animate-in fade-in zoom-in duration-200 col-span-2 sm:col-span-1">
+                      <Label>Sessão de envio</Label>
                       <Select
                         value={selectedSession}
                         onChange={(e) => setSelectedSession(e.target.value)}

@@ -400,6 +400,26 @@ export default function TrialsPage() {
   const [sessionOptions, setSessionOptions] = useState<
     { id: string; label: string }[]
   >([{ id: "default", label: "Carregando..." }]);
+  // ✅ Igual à página de Clientes: só busca templates e sessões de WhatsApp
+  // na primeira vez que um modal de mensagem é aberto — nunca no carregamento da página
+  const [templatesLoaded, setTemplatesLoaded] = useState(false);
+  const [whatsappSessionsLoaded, setWhatsappSessionsLoaded] = useState(false);
+
+  async function ensureMessagingDataLoaded() {
+    if (!tenantId) return;
+    const tasks: Promise<any>[] = [];
+    if (!templatesLoaded) {
+      tasks.push(
+        loadMessageTemplates(tenantId).then(() => setTemplatesLoaded(true)),
+      );
+    }
+    if (!whatsappSessionsLoaded) {
+      tasks.push(
+        loadWhatsAppSessions().then(() => setWhatsappSessionsLoaded(true)),
+      );
+    }
+    if (tasks.length) await Promise.all(tasks);
+  }
 
   async function loadWhatsAppSessions() {
     try {
@@ -713,36 +733,6 @@ export default function TrialsPage() {
 
     const typed = (data || []) as VwClientRow[];
 
-    const ids = typed.map((r) => String(r.id)).filter(Boolean);
-
-    let notesMap: Record<string, string> = {};
-    let prefixMap: Record<string, string> = {};
-
-    try {
-      if (ids.length > 0) {
-        const { data: cData, error: cErr } = await supabaseBrowser
-          .from("clients")
-          .select("id, notes, name_prefix")
-          .eq("tenant_id", tid)
-          .in("id", ids);
-
-        if (!cErr && cData) {
-          for (const row of (cData as any[]) || []) {
-            const id = String(row.id);
-
-            // Notes
-            const n = row.notes;
-            notesMap[id] = typeof n === "string" ? n : "";
-
-            // Name Prefix
-            const pref = row.name_prefix;
-            prefixMap[id] = typeof pref === "string" ? pref : "";
-          }
-        } else if (cErr) {
-        }
-      }
-    } catch {}
-
     const mapped: TrialRow[] = typed.map((r) => {
       const due = formatDue(r.vencimento);
       const archived = Boolean(r.client_is_archived);
@@ -783,7 +773,7 @@ export default function TrialsPage() {
           typeof r.whatsapp_opt_in === "boolean"
             ? r.whatsapp_opt_in
             : undefined,
-        name_prefix: prefixMap[id] ?? (r as any).name_prefix ?? undefined,
+        name_prefix: (r as any).name_prefix ?? undefined,
         dont_message_until: r.dont_message_until ?? undefined,
         secondary_display_name: r.secondary_display_name ?? undefined,
         secondary_name_prefix: r.secondary_name_prefix ?? undefined,
@@ -797,24 +787,24 @@ export default function TrialsPage() {
         plan_table_id: r.plan_table_id ?? undefined, // ✅ ADICIONADO
         vencimento: r.vencimento ?? undefined,
 
-        notes: (notesMap[id] ?? r.notes ?? "") as any,
+        notes: (r.notes ?? "") as any,
 
         converted,
       };
     });
 
+    // ✅ A tabela já pode aparecer aqui — mensagens agendadas atualizam
+    // sozinhas em segundo plano, sem bloquear. Templates e WhatsApp saíram
+    // completamente daqui — só carregam quando abre o modal de mensagem.
     setRows(mapped);
+    setLoading(false);
 
     if (tid) {
-      await loadMessageTemplates(tid);
-      await loadScheduledForClients(
+      loadScheduledForClients(
         tid,
         mapped.map((m) => m.id),
       );
-      await loadWhatsAppSessions();
     }
-
-    setLoading(false);
   }
 
   useEffect(() => {
@@ -939,6 +929,8 @@ export default function TrialsPage() {
   const handleOpenEdit = (r: TrialRow, initialTab: EditTab = "dados") => {
     setEditingId(r.id); // ✅ Liga o loading giratório
     setEditInitialTab(initialTab); // ✅ Salva a aba desejada
+
+    // ✅ A view agora traz name_prefix direto — sem chamada extra ao abrir
     const payload: ClientData = {
       id: r.id,
       client_name: r.name,
@@ -1738,6 +1730,7 @@ export default function TrialsPage() {
                                       open: true,
                                       trialId: r.id,
                                     });
+                                    ensureMessagingDataLoaded(); // ✅ NOVO
                                   }}
                                 />
                                 <MenuItem
@@ -1751,6 +1744,7 @@ export default function TrialsPage() {
                                       open: true,
                                       trialId: r.id,
                                     });
+                                    ensureMessagingDataLoaded(); // ✅ NOVO
                                   }}
                                 />
                               </div>

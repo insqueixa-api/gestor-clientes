@@ -859,6 +859,7 @@ export default function QuickRechargeModal({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
                     {/* Select de Sessão */}
                     <div>
+                      <Label>Sessão de envio</Label>
                       <Select
                         value={selectedSession}
                         onChange={(e) => setSelectedSession(e.target.value)}
@@ -874,6 +875,7 @@ export default function QuickRechargeModal({
 
                     {/* Select de Template */}
                     <div>
+                      <Label>Mensagem pronta</Label>
                       <Select
                         value={selectedTemplateId}
                         onChange={(e) => {

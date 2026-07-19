@@ -152,6 +152,8 @@ type VwClientRow = {
   }> | null;
 
   notes: string | null;
+  m3u_url?: string | null;
+  name_prefix?: string | null;
 
   created_at?: string | null;
   updated_at?: string | null;
@@ -205,6 +207,8 @@ type ClientRow = {
   whatsapp_username?: string;
   server_password?: string; // CORRIGIDO
   price_amount?: number;
+  m3u_url?: string;
+  name_prefix?: string;
   secondary_display_name?: string;
   secondary_name_prefix?: string;
   secondary_phone_e164?: string;
@@ -789,6 +793,8 @@ const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
           whatsapp_username: r.whatsapp_username ?? undefined,
           server_password: r.server_password ?? undefined,
           price_amount: r.price_amount ?? undefined,
+          m3u_url: r.m3u_url ?? undefined,
+          name_prefix: r.name_prefix ?? undefined,
 
           secondary_display_name:
             (r as any).secondary_display_name ?? undefined,
@@ -1232,51 +1238,18 @@ const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
     handleOpenEdit(r, initialTab);
   }
 
-  const handleOpenEdit = async (
-    r: ClientRow,
-    initialTab: EditTab = "dados",
-  ) => {
+  const handleOpenEdit = (r: ClientRow, initialTab: EditTab = "dados") => {
     setEditingId(r.id); // ✅ Liga o loading giratório
 
     // ✅ define qual aba abrir
     setEditInitialTab(initialTab);
 
-    // ✅ fallback: usar o que veio da view
-    let dbPlanTableId: string | undefined = r.plan_table_id;
-    let dbPriceCurrency: string | undefined = r.price_currency;
-
-    // ✅ fonte da verdade: buscar do clients (porque a view NÃO tem tudo)
-    let dbM3uUrl: string | undefined = undefined;
-    let dbNamePrefix: string | undefined = undefined; // ✅ NOVO: Saudação Principal
-
-    try {
-      if (tenantId) {
-        const { data, error } = await supabaseBrowser
-          .from("clients")
-          .select("plan_table_id, price_currency, m3u_url, name_prefix") // ✅ ADICIONADO name_prefix
-          .eq("tenant_id", tenantId)
-          .eq("id", r.id)
-          .maybeSingle();
-
-        if (!error && data) {
-          dbPlanTableId = (data as any).plan_table_id ?? dbPlanTableId;
-          dbPriceCurrency = (data as any).price_currency ?? dbPriceCurrency;
-          dbM3uUrl = (data as any).m3u_url ?? undefined;
-          dbNamePrefix = (data as any).name_prefix ?? undefined; // ✅ RECEBE DO BANCO
-        }
-
-        if (!error && data) {
-          dbPlanTableId = (data as any).plan_table_id ?? dbPlanTableId;
-          dbPriceCurrency = (data as any).price_currency ?? dbPriceCurrency;
-          dbM3uUrl = (data as any).m3u_url ?? undefined;
-        }
-      }
-    } catch {}
-
+    // ✅ A view já traz tudo fresco (plan_table_id, price_currency, m3u_url,
+    // name_prefix) — sem chamada extra ao abrir o modal.
     const payload: ClientData = {
       id: r.id,
       client_name: r.name,
-      name_prefix: dbNamePrefix, // ✅ AGORA SIM! Repassa a saudação pro Modal
+      name_prefix: r.name_prefix,
       username: r.username,
       server_id: r.server_id,
       screens: r.screens,
@@ -1295,18 +1268,13 @@ const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
       server_password: r.server_password,
 
       plan_name: r.rawPlanName,
-
-      // ✅ AGORA VEM DO CLIENTS (fonte real)
-      plan_table_id: dbPlanTableId,
-
+      plan_table_id: r.plan_table_id,
       price_amount: r.price_amount,
-
-      // ✅ idem (evita voltar BRL)
-      price_currency: dbPriceCurrency,
+      price_currency: r.price_currency,
 
       // ✅ Timestamp original completo (UTC) pro modal converter certo
       vencimento: r.rawVencimento || undefined,
-      m3u_url: dbM3uUrl ?? "",
+      m3u_url: r.m3u_url ?? "",
 
       notes: r.notes,
     };

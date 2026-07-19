@@ -246,6 +246,26 @@ export default function RevendaPage() {
   const [sessionOptions, setSessionOptions] = useState<
     { id: string; label: string }[]
   >([{ id: "default", label: "Carregando..." }]);
+  // ✅ Igual à página de Clientes: só busca templates e sessões de WhatsApp
+  // na primeira vez que um modal de mensagem é aberto — nunca no carregamento da página
+  const [templatesLoaded, setTemplatesLoaded] = useState(false);
+  const [whatsappSessionsLoaded, setWhatsappSessionsLoaded] = useState(false);
+
+  async function ensureMessagingDataLoaded() {
+    if (!tenantId) return;
+    const tasks: Promise<any>[] = [];
+    if (!templatesLoaded) {
+      tasks.push(
+        loadMessageTemplates(tenantId).then(() => setTemplatesLoaded(true)),
+      );
+    }
+    if (!whatsappSessionsLoaded) {
+      tasks.push(
+        loadWhatsAppSessions().then(() => setWhatsappSessionsLoaded(true)),
+      );
+    }
+    if (tasks.length) await Promise.all(tasks);
+  }
 
   async function loadWhatsAppSessions() {
     try {
@@ -511,11 +531,8 @@ export default function RevendaPage() {
     setLoading(true);
     const tid = await getCurrentTenantId();
     setTenantId(tid);
-
-    if (tid) {
-      await loadMessageTemplates(tid);
-      await loadWhatsAppSessions(); // ✅ Carrega as opções de sessão para o Select
-    }
+    // ✅ Templates e sessões de WhatsApp saíram completamente daqui — só
+    // carregam quando o modal de mensagem é aberto (ensureMessagingDataLoaded).
 
     if (!tid) {
       setRows([]);
@@ -1578,6 +1595,7 @@ export default function RevendaPage() {
                                     open: true,
                                     resellerId: r.id,
                                   });
+                                  ensureMessagingDataLoaded(); // ✅ NOVO
                                 }}
                               />
                               <MenuItem
@@ -1591,6 +1609,7 @@ export default function RevendaPage() {
                                     open: true,
                                     resellerId: r.id,
                                   });
+                                  ensureMessagingDataLoaded(); // ✅ NOVO
                                 }}
                               />
                             </div>

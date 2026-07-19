@@ -1515,12 +1515,12 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
       {selectedIds.size > 0 && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="flex items-center justify-between p-3 bg-sky-500/10 border border-sky-500/20 rounded-xl mb-4 animate-in slide-in-from-top-2 mx-3 sm:mx-0"
+          className="flex items-center gap-3 overflow-x-auto p-3 bg-sky-500/10 border border-sky-500/20 rounded-xl mb-4 animate-in slide-in-from-top-2 mx-3 sm:mx-0"
         >
-          <span className="text-xs font-medium text-sky-500">
+          <span className="text-xs font-medium text-sky-500 shrink-0 whitespace-nowrap">
             {selectedIds.size} contato(s) selecionado(s)
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={handleMassPushGoogle}
               disabled={isPushingGoogle}

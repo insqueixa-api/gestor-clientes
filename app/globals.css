@@ -77,6 +77,15 @@
 }
 
 /* Aplica */
+html,
+body {
+  /* Sem isso, qualquer conteúdo mais largo que a tela (ex: tabela com
+     min-w grande) empurra a PÁGINA inteira pra rolar na horizontal —
+     inclusive o cabeçalho — em vez de só o container com overflow-x-auto
+     rolar internamente. */
+  overflow-x: hidden;
+}
+
 body {
   background-color: var(--background);
   color: var(--foreground);

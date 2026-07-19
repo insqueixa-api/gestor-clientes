@@ -113,7 +113,7 @@ export default function LoginPage() {
             <div className="flex items-center justify-center">
               {/* ✅ Logo levemente menor no mobile (h-9) */}
               <img
-                src="/brand/logo-gestor.png"
+                src="/brand/logo-full-light.png"
                 alt="UniGestor"
                 className="h-9 sm:h-10 w-auto select-none"
                 draggable={false}
