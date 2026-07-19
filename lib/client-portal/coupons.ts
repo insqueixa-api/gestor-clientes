@@ -34,6 +34,17 @@
 
 import { diffDays } from "@/lib/whatsapp/template-vars";
 
+const PERIOD_LABELS: Record<string, string> = {
+  MONTHLY: "Mensal",
+  BIMONTHLY: "Bimestral",
+  QUARTERLY: "Trimestral",
+  SEMIANNUAL: "Semestral",
+  ANNUAL: "Anual",
+};
+const LABEL_TO_PERIOD: Record<string, string> = Object.fromEntries(
+  Object.entries(PERIOD_LABELS).map(([period, label]) => [label, period]),
+);
+
 export type CouponRow = {
   id: string;
   tenant_id: string;
@@ -85,6 +96,85 @@ async function countRedemptions(supabaseAdmin: any, couponId: string): Promise<n
 
 function getClientCurrency(clientRow: any): string {
   return String(clientRow?.price_currency || clientRow?.currency || "BRL").toUpperCase();
+}
+
+/**
+ * Resolve o preço PADRÃO da tabela pro plano/telas atuais do cliente
+ * (mesma lógica de Regra 2 em create-payment/route.ts:227-239, sem o
+ * atalho de override). Usado só pra decidir se o cliente "tem preço
+ * override" — price_amount é o preço ATUAL de praticamente todo cliente
+ * (não é uma flag rara), então só conta como override quando for
+ * estritamente MENOR que o padrão (ex: 35 quando o padrão é 40) — nunca
+ * quando só está "preenchido".
+ */
+async function resolveStandardPrice(
+  supabaseAdmin: any,
+  tenantId: string,
+  clientRow: any,
+): Promise<number | null> {
+  try {
+    const planLabel = String(clientRow?.plan_label ?? clientRow?.plan_name ?? "").trim();
+    const period = LABEL_TO_PERIOD[planLabel];
+    if (!period) return null;
+
+    const screens = Number(clientRow?.screens || 1);
+    const currency = getClientCurrency(clientRow);
+
+    let planTableId = String(clientRow?.plan_table_id || "").trim();
+    if (planTableId) {
+      const { data: pt } = await supabaseAdmin
+        .from("plan_tables")
+        .select("id, currency")
+        .eq("id", planTableId)
+        .eq("tenant_id", tenantId)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (!pt || String(pt.currency).toUpperCase() !== currency) planTableId = "";
+    }
+    if (!planTableId) {
+      const { data: def } = await supabaseAdmin
+        .from("plan_tables")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("is_system_default", true)
+        .eq("currency", currency)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (!def) return null;
+      planTableId = String(def.id);
+    }
+
+    const { data: item } = await supabaseAdmin
+      .from("plan_table_items")
+      .select("plan_table_item_prices(screens_count, price_amount)")
+      .eq("plan_table_id", planTableId)
+      .eq("period", period)
+      .maybeSingle();
+
+    const price = (item as any)?.plan_table_item_prices?.find(
+      (p: any) => p.screens_count === screens,
+    )?.price_amount;
+    return price != null ? Number(price) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * true só quando o cliente tem um preço PRÓPRIO menor que o padrão da
+ * tabela pro plano/telas dele — nunca só por ter price_amount preenchido
+ * (isso é verdade pra quase todo cliente, é o preço corrente dele, não
+ * uma flag de exceção).
+ */
+async function isOverridePriceActive(
+  supabaseAdmin: any,
+  tenantId: string,
+  clientRow: any,
+): Promise<boolean> {
+  const priceAmount = Number(clientRow?.price_amount || 0);
+  if (priceAmount <= 0) return false;
+  const standard = await resolveStandardPrice(supabaseAdmin, tenantId, clientRow);
+  return standard != null && priceAmount < standard;
 }
 
 /**
@@ -145,8 +235,6 @@ export async function findEligibleCoupon(params: {
   // Cupons só existem pra contas em BRL — nem consulta o banco pras outras.
   if (getClientCurrency(clientRow) !== "BRL") return null;
 
-  const isOverrideActive = Number(clientRow?.price_amount || 0) > 0;
-
   const { data, error } = await supabaseAdmin
     .from("coupons")
     .select("*")
@@ -159,21 +247,30 @@ export async function findEligibleCoupon(params: {
   const rows = data as CouponRow[];
   // Cupom pessoal (client_id) do próprio cliente tem prioridade sobre
   // cupons gerais; cupom pessoal de outro cliente nunca aparece aqui.
-  // Preço override só bloqueia cupom GERAL — pessoal é uma recompensa
-  // escolhida a dedo pelo Marcio (indicação), independe do plano.
   const personal = rows.filter((c) => c.client_id === clientId);
-  const general = isOverrideActive ? [] : rows.filter((c) => !c.client_id);
+  const general = rows.filter((c) => !c.client_id);
 
   const now = new Date();
+
+  // Só resolve o preço padrão (2 queries extras) se realmente existir
+  // cupom geral pra checar, e no máximo uma vez por chamada.
+  let overrideChecked: boolean | null = null;
+  async function isOverrideActive(): Promise<boolean> {
+    if (overrideChecked == null) {
+      overrideChecked = await isOverridePriceActive(supabaseAdmin, tenantId, clientRow);
+    }
+    return overrideChecked;
+  }
 
   for (const coupon of [...personal, ...general]) {
     if (coupon.starts_at && new Date(coupon.starts_at) > now) continue;
     if (coupon.ends_at && new Date(coupon.ends_at) < now) continue;
 
-    // Cupom pessoal não usa regra de segmentação nem a regra "1 uso pra
-    // sempre" — só is_active decide (autodesativa ao ser resgatado,
-    // reativado manualmente).
+    // Cupom pessoal não usa regra de segmentação, preço override, nem a
+    // regra "1 uso pra sempre" — só is_active decide (autodesativa ao ser
+    // resgatado, reativado manualmente).
     if (!coupon.client_id) {
+      if (await isOverrideActive()) continue;
       if (!matchesTargeting(coupon, clientRow)) continue;
       if (await hasClientRedeemed(supabaseAdmin, coupon.id, clientId)) continue;
 
@@ -235,7 +332,13 @@ export async function getCouponPhraseForClient(
  *
  * `isOverrideActive` fica como parâmetro explícito (não sai de `clientRow`)
  * porque depende do período de renovação escolhido, algo que só o chamador
- * (create-payment) sabe — mesma regra de create-payment/route.ts:224.
+ * (create-payment) sabe. ⚠️ Não é só `price_amount > 0` — isso é verdade
+ * pra quase todo cliente (é o preço corrente dele). A fórmula correta,
+ * igual à decisão original do Marcio, tem 3 partes: `clientOverride > 0 &&
+ * PERIOD_LABELS[period] === clientPlanLabel && clientOverride <
+ * precoPadraoDaTabelaPraEssePeriodo`. O create-payment já resolve o preço
+ * padrão na Regra 2 pra comparar (ou reaproveite `resolveStandardPrice`
+ * deste arquivo, hoje privado — exporte se precisar).
  */
 export async function validateCouponForCharge(params: {
   supabaseAdmin: any;

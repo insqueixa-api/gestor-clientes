@@ -181,7 +181,6 @@ export async function computeCouponImpact(
   }
 
   const eligible = allClients.filter((c) => {
-    if (Number(c.price_amount || 0) > 0) return false; // preço override
     if (excludedClientIds?.has(c.id)) return false; // já resgatou este cupom
     return matchesRules(rules, c, now);
   });
@@ -222,6 +221,13 @@ export async function computeCouponImpact(
     const screens = Number(client.screens || 1);
     const normalPrice = priceMap.get(`${planTableId}|${period}|${screens}`);
     if (normalPrice == null) continue;
+
+    // Preço override: só exclui quando o preço PRÓPRIO do cliente é
+    // menor que o padrão da tabela (ex: 35 quando o padrão é 40) — não
+    // basta ter price_amount preenchido, isso é verdade pra quase todo
+    // cliente (é o preço corrente dele, não uma flag de exceção rara).
+    const priceAmount = Number(client.price_amount || 0);
+    if (priceAmount > 0 && priceAmount < normalPrice) continue;
 
     clients.push({
       id: client.id,
