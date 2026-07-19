@@ -42,11 +42,11 @@ export default function ClientPicker({
       try {
         const { data } = await supabaseBrowser
           .from("clients")
-          .select("id, display_name, username")
+          .select("id, display_name, username:server_username")
           .eq("tenant_id", tenantId)
           .eq("is_archived", false)
           .eq("price_currency", "BRL") // cupons são exclusivos de contas em BRL
-          .or(`display_name.ilike.%${q}%,username.ilike.%${q}%`)
+          .or(`display_name.ilike.%${q}%,server_username.ilike.%${q}%`)
           .limit(8);
         setResults((data as PickedClient[]) || []);
         setOpen(true);

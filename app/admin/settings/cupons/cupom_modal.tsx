@@ -93,7 +93,7 @@ export default function CupomModal({
     (async () => {
       const { data } = await supabaseBrowser
         .from("clients")
-        .select("id, display_name, username")
+        .select("id, display_name, username:server_username")
         .eq("id", coupon.client_id)
         .maybeSingle();
       if (alive && data) setPersonalClient(data as PickedClient);

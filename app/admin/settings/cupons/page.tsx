@@ -63,7 +63,7 @@ export default function CuponsPage() {
       const [couponsRes, redemptionsRes] = await Promise.all([
         supabaseBrowser
           .from("coupons")
-          .select("*, clients(display_name, username)")
+          .select("*, clients(display_name, username:server_username)")
           .eq("tenant_id", tenantId)
           .order("created_at", { ascending: false }),
         supabaseBrowser

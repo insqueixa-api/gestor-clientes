@@ -97,7 +97,7 @@ export async function computeCouponImpact(params: {
   const [{ data: clientsData }, { data: planTablesData }] = await Promise.all([
     supabaseBrowser
       .from("clients")
-      .select("id, display_name, username, plan_label, screens, price_currency, price_amount, plan_table_id, created_at")
+      .select("id, display_name, username:server_username, plan_label, screens, price_currency, price_amount, plan_table_id, created_at")
       .eq("tenant_id", tenantId)
       .eq("is_archived", false)
       .eq("is_trial", false)
@@ -199,7 +199,7 @@ export async function computeSingleClientImpact(params: {
   const [{ data: clientData }, { data: planTablesData }] = await Promise.all([
     supabaseBrowser
       .from("clients")
-      .select("id, display_name, username, plan_label, screens, price_currency, price_amount, plan_table_id, created_at")
+      .select("id, display_name, username:server_username, plan_label, screens, price_currency, price_amount, plan_table_id, created_at")
       .eq("tenant_id", tenantId)
       .eq("id", clientId)
       .maybeSingle(),
