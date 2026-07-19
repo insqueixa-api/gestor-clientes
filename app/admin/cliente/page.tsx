@@ -17,6 +17,7 @@ import {
   Timer,
   Trash2,
   ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
@@ -514,6 +515,11 @@ const [pageSize, setPageSize] = useState(50);
     clientName: undefined,
   });
   const [clientAlerts, setClientAlerts] = useState<unknown[]>([]);
+  // ✅ Toggle visual (👎 pendente / 👍 pago) antes de confirmar com "Salvar" —
+  // não grava no banco até o clique em Salvar.
+  const [toggledPaidIds, setToggledPaidIds] = useState<Set<string>>(
+    new Set(),
+  );
 
   // Mensagem (Mantido conforme original)
   const [showSendNow, setShowSendNow] = useState<{
@@ -1629,6 +1635,7 @@ const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
   const handleOpenAlertList = async (clientId: string, clientName: string) => {
     // Limpa lista anterior e abre modal
     setClientAlerts([]);
+    setToggledPaidIds(new Set());
     setShowAlertList({ open: true, clientId, clientName });
 
     try {
@@ -3221,10 +3228,12 @@ className="p-8 text-center text-muted-foreground italic"
                   const appName = alert.client_apps?.apps?.name as
                     | string
                     | undefined;
+                  const isToggledPaid = toggledPaidIds.has(String(alert.id));
+
                   return (
                     <div
                       key={alert.id}
-                      className="group p-4 bg-muted/50 border border-border rounded-xl shadow-sm hover:border-rose-500/20 transition-all flex justify-between items-start gap-4"
+                      className="group p-4 bg-muted/50 border border-border rounded-xl shadow-sm hover:border-rose-500/20 transition-all flex justify-between items-center gap-4"
                     >
                       <div className="flex gap-3">
                         <span className="text-rose-500 mt-0.5">
@@ -3259,36 +3268,70 @@ className="p-8 text-center text-muted-foreground italic"
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="flex items-center gap-1.5 shrink-0">
                         {hasAmount && (
-                          <button
-                            onClick={() => handleSettleAlert(alert.id)}
-                            className="p-2 text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition-colors"
-                            title="Marcar como pago"
+                          <IconActionBtn
+                            title={
+                              isToggledPaid
+                                ? "Pago (clique em Salvar pra confirmar)"
+                                : "Marcar como pago"
+                            }
+                            tone={isToggledPaid ? "green" : "blue"}
+                            onClick={() =>
+                              setToggledPaidIds((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(String(alert.id)))
+                                  next.delete(String(alert.id));
+                                else next.add(String(alert.id));
+                                return next;
+                              })
+                            }
                           >
-                            <IconThumbsUp />
-                          </button>
+                            {isToggledPaid ? (
+                              <IconThumbsUp />
+                            ) : (
+                              <IconThumbsDown />
+                            )}
+                          </IconActionBtn>
                         )}
-                        <button
-                          onClick={() =>
-                            openEditAlert(
-                              alert,
-                              showAlertList.clientId || "",
-                              showAlertList.clientName || "",
-                            )
-                          }
-                          className="p-2 text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10 rounded-lg transition-colors"
-                          title="Editar"
-                        >
-                          <IconEdit />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteAlert(alert.id)}
-                          className="p-2 text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
-                          title="Excluir"
-                        >
-                          <IconTrash />
-                        </button>
+                        {isToggledPaid ? (
+                          <button
+                            onClick={() => {
+                              handleSettleAlert(alert.id);
+                              setToggledPaidIds((prev) => {
+                                const next = new Set(prev);
+                                next.delete(String(alert.id));
+                                return next;
+                              });
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-sm transition-colors"
+                          >
+                            Salvar
+                          </button>
+                        ) : (
+                          <>
+                            <IconActionBtn
+                              title="Editar"
+                              tone="amber"
+                              onClick={() =>
+                                openEditAlert(
+                                  alert,
+                                  showAlertList.clientId || "",
+                                  showAlertList.clientName || "",
+                                )
+                              }
+                            >
+                              <IconEdit />
+                            </IconActionBtn>
+                            <IconActionBtn
+                              title="Excluir"
+                              tone="red"
+                              onClick={() => handleDeleteAlert(alert.id)}
+                            >
+                              <IconTrash />
+                            </IconActionBtn>
+                          </>
+                        )}
                       </div>
                     </div>
                   );
@@ -4070,6 +4113,9 @@ function IconTrash() {
 }
 function IconThumbsUp() {
   return <ThumbsUp className="w-4 h-4" />;
+}
+function IconThumbsDown() {
+  return <ThumbsDown className="w-4 h-4" />;
 }
 function IconRestore() {
   return <RefreshCcw className="w-4 h-4" />;
