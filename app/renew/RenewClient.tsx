@@ -510,12 +510,17 @@ export default function RenewClient() {
     );
   }, [selectedPrice, prices, selectedAccount]);
 
-  // ✅ Desconto depende do plano escolhido — troca de período invalida o
-  // cupom aplicado (precisa reaplicar).
+  // ✅ Desconto depende do preço da CONTA (client_id) + período escolhidos
+  // — trocar de período OU de conta invalida o cupom aplicado (precisa
+  // reaplicar). Faltava selectedAccountId aqui: como uma pessoa pode ter
+  // várias contas com preços diferentes no mesmo WhatsApp, trocar de conta
+  // sem trocar de período deixava o discountAmount da conta anterior
+  // "vazar" pra conta nova (achado grave: mostrava desconto calculado em
+  // cima do preço errado antes de pagar).
   useEffect(() => {
     setAppliedCoupon(null);
     setCouponError(null);
-  }, [selectedPeriod]);
+  }, [selectedPeriod, selectedAccountId]);
 
   const monthlyPrice = useMemo(
     () => availablePrices.find((p) => p.period === "MONTHLY"),
