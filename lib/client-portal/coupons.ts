@@ -13,9 +13,26 @@
 // pessoal), nem recebe a tag {cupom_frase} nas mensagens automáticas.
 // Decisão do Marcio: o valor total é sempre BRL, sem cálculo de câmbio.
 //
+// Regras de segmentação (target_status/target_server_ids/
+// target_plan_labels/target_app_names/rule_date_field+days_min/max)
+// replicam o motor de regras do Billing Automation
+// (app/admin/gerenciador/cobranca/page.tsx: getImpactedClients), mas como
+// uma JANELA contínua (min/max de dias) em vez de "dispara hoje se bater
+// exato" — cupom é elegibilidade permanente, não um disparo único.
+// `matchesTargeting` só roda pra cupom GERAL — cupom pessoal (client_id)
+// ignora toda regra de segmentação, já é 1 cliente escolhido a dedo.
+//
+// `clientRow` esperado nas funções abaixo: uma linha de
+// vw_clients_list_active/vw_clients_list_archived (via select("*")) ou
+// equivalente, com pelo menos: id, price_amount, price_currency,
+// created_at, computed_status, server_id, plan_label (ou plan_name),
+// apps_names, vencimento.
+//
 // ⚠️ validateCouponForCharge() ainda não é chamada em nenhum lugar — a
 // validação dentro de create-payment/route.ts e a UI no portal (RenewClient)
 // ficam pra uma fase seguinte, quando pedido explicitamente.
+
+import { diffDays } from "@/lib/whatsapp/template-vars";
 
 export type CouponRow = {
   id: string;
@@ -25,7 +42,6 @@ export type CouponRow = {
   discount_type: "percent" | "fixed";
   discount_value: number;
   currency: string | null;
-  min_account_age_days: number | null;
   starts_at: string | null;
   ends_at: string | null;
   max_total_redemptions: number | null;
@@ -33,6 +49,13 @@ export type CouponRow = {
   message_template: string | null;
   /** Se preenchido, cupom pessoal restrito a este cliente (ver findEligibleCoupon/validateCouponForCharge). */
   client_id: string | null;
+  target_status: string[] | null;
+  target_server_ids: string[] | null;
+  target_plan_labels: string[] | null;
+  target_app_names: string[] | null;
+  rule_date_field: "vencimento" | "cadastro" | null;
+  rule_days_min: number | null;
+  rule_days_max: number | null;
 };
 
 export type CouponValidationResult =
@@ -60,31 +83,70 @@ async function countRedemptions(supabaseAdmin: any, couponId: string): Promise<n
   return count || 0;
 }
 
-function ageInDays(createdAt: string, now: Date): number {
-  return Math.floor((now.getTime() - new Date(createdAt).getTime()) / 86400000);
+function getClientCurrency(clientRow: any): string {
+  return String(clientRow?.price_currency || clientRow?.currency || "BRL").toUpperCase();
+}
+
+/**
+ * Regras de segmentação (status/servidor/plano/app/janela de dias). Só
+ * roda pra cupom GERAL — chame apenas quando `coupon.client_id` for null.
+ */
+function matchesTargeting(coupon: CouponRow, clientRow: any): boolean {
+  const status = String(clientRow?.computed_status || "").toUpperCase();
+  if (coupon.target_status?.length) {
+    if (!coupon.target_status.includes(status)) return false;
+  } else if (status !== "ACTIVE" && status !== "OVERDUE") {
+    // Sem regra explícita = ACTIVE+OVERDUE apenas. TRIAL não entra sem
+    // escolha explícita (não é um fluxo de renovação).
+    return false;
+  }
+
+  if (coupon.target_server_ids?.length) {
+    if (!coupon.target_server_ids.includes(clientRow?.server_id)) return false;
+  }
+
+  if (coupon.target_plan_labels?.length) {
+    const plan = String(clientRow?.plan_label ?? clientRow?.plan_name ?? "").trim();
+    if (!coupon.target_plan_labels.includes(plan)) return false;
+  }
+
+  if (coupon.target_app_names?.length) {
+    const clientApps: string[] = clientRow?.apps_names || [];
+    const hasApp = clientApps.some((a) => coupon.target_app_names!.includes(a));
+    if (!hasApp) return false;
+  }
+
+  if (coupon.rule_date_field) {
+    const dateStr = coupon.rule_date_field === "vencimento" ? clientRow?.vencimento : clientRow?.created_at;
+    if (!dateStr) return false;
+    const days = diffDays(new Date(), new Date(dateStr));
+    if (coupon.rule_days_min != null && days < coupon.rule_days_min) return false;
+    if (coupon.rule_days_max != null && days > coupon.rule_days_max) return false;
+  }
+
+  return true;
 }
 
 /**
  * Encontra o primeiro cupom elegível pra um cliente — usado pela automação
  * de cobrança (envio_agora / envio_programado) pra decidir se anuncia um
- * cupom na mensagem. Como o período de renovação ainda não foi escolhido
- * nesse ponto, a checagem de override usa o plano atual do cliente (é o que
- * ele renovaria por padrão).
+ * cupom na mensagem, e pela prévia de impacto do admin.
  */
 export async function findEligibleCoupon(params: {
   supabaseAdmin: any;
   tenantId: string;
-  clientId: string;
-  clientCurrency: string;
-  clientCreatedAt: string | null;
-  isOverrideActive: boolean;
+  clientRow: any;
 }): Promise<CouponRow | null> {
-  const { supabaseAdmin, tenantId, clientId, clientCurrency, clientCreatedAt, isOverrideActive } = params;
+  const { supabaseAdmin, tenantId, clientRow } = params;
+
+  const clientId = clientRow?.id;
+  if (!clientId) return null;
 
   // Cupons só existem pra contas em BRL — nem consulta o banco pras outras.
-  if (String(clientCurrency || "").toUpperCase() !== "BRL") return null;
+  if (getClientCurrency(clientRow) !== "BRL") return null;
 
-  const now = new Date();
+  const isOverrideActive = Number(clientRow?.price_amount || 0) > 0;
+
   const { data, error } = await supabaseAdmin
     .from("coupons")
     .select("*")
@@ -102,18 +164,17 @@ export async function findEligibleCoupon(params: {
   const personal = rows.filter((c) => c.client_id === clientId);
   const general = isOverrideActive ? [] : rows.filter((c) => !c.client_id);
 
+  const now = new Date();
+
   for (const coupon of [...personal, ...general]) {
     if (coupon.starts_at && new Date(coupon.starts_at) > now) continue;
     if (coupon.ends_at && new Date(coupon.ends_at) < now) continue;
 
-    if (coupon.min_account_age_days != null) {
-      if (!clientCreatedAt) continue;
-      if (ageInDays(clientCreatedAt, now) < coupon.min_account_age_days) continue;
-    }
-
-    // Cupom pessoal não usa a regra "1 uso pra sempre" — só is_active
-    // decide (autodesativa ao ser resgatado, reativado manualmente).
+    // Cupom pessoal não usa regra de segmentação nem a regra "1 uso pra
+    // sempre" — só is_active decide (autodesativa ao ser resgatado,
+    // reativado manualmente).
     if (!coupon.client_id) {
+      if (!matchesTargeting(coupon, clientRow)) continue;
       if (await hasClientRedeemed(supabaseAdmin, coupon.id, clientId)) continue;
 
       if (coupon.max_total_redemptions != null) {
@@ -160,22 +221,7 @@ export async function getCouponPhraseForClient(
   clientRow: any,
 ): Promise<string> {
   try {
-    const clientId = clientRow?.id;
-    if (!clientId) return "";
-
-    const clientOverride = Number(clientRow?.price_amount || 0);
-    const isOverrideActive = clientOverride > 0;
-    const currency = String(clientRow?.price_currency || clientRow?.currency || "BRL");
-
-    const coupon = await findEligibleCoupon({
-      supabaseAdmin,
-      tenantId,
-      clientId,
-      clientCurrency: currency,
-      clientCreatedAt: clientRow?.created_at ?? null,
-      isOverrideActive,
-    });
-
+    const coupon = await findEligibleCoupon({ supabaseAdmin, tenantId, clientRow });
     return buildCouponPhrase(coupon);
   } catch {
     return "";
@@ -186,27 +232,23 @@ export async function getCouponPhraseForClient(
  * Valida um código digitado pelo cliente no portal e calcula o desconto em
  * cima de `planPriceOnly` (nunca sobre pendências). Ainda não é chamada em
  * nenhuma rota — pronta pra quando o input de cupom for ligado no portal.
+ *
+ * `isOverrideActive` fica como parâmetro explícito (não sai de `clientRow`)
+ * porque depende do período de renovação escolhido, algo que só o chamador
+ * (create-payment) sabe — mesma regra de create-payment/route.ts:224.
  */
 export async function validateCouponForCharge(params: {
   supabaseAdmin: any;
   tenantId: string;
   clientId: string;
+  clientRow: any;
   code: string;
   planPriceOnly: number;
   currency: string;
-  clientCreatedAt: string | null;
   isOverrideActive: boolean;
 }): Promise<CouponValidationResult> {
-  const {
-    supabaseAdmin,
-    tenantId,
-    clientId,
-    code,
-    planPriceOnly,
-    currency,
-    clientCreatedAt,
-    isOverrideActive,
-  } = params;
+  const { supabaseAdmin, tenantId, clientId, clientRow, code, planPriceOnly, currency, isOverrideActive } =
+    params;
 
   const normalizedCode = String(code || "").trim().toUpperCase();
   if (!normalizedCode) return { ok: false, reason: "Informe um código de cupom." };
@@ -233,13 +275,18 @@ export async function validateCouponForCharge(params: {
   }
   const isPersonal = !!coupon.client_id;
 
-  // Preço override só bloqueia cupom GERAL — pessoal é uma recompensa
-  // escolhida a dedo pelo Marcio (indicação), independe do plano.
-  if (!isPersonal && isOverrideActive) {
-    return {
-      ok: false,
-      reason: "Este plano já possui um preço especial — cupons não se aplicam.",
-    };
+  if (!isPersonal) {
+    // Preço override só bloqueia cupom GERAL — pessoal é uma recompensa
+    // escolhida a dedo pelo Marcio (indicação), independe do plano.
+    if (isOverrideActive) {
+      return {
+        ok: false,
+        reason: "Este plano já possui um preço especial — cupons não se aplicam.",
+      };
+    }
+    if (!matchesTargeting(coupon as CouponRow, clientRow)) {
+      return { ok: false, reason: "Cupom não disponível para esta conta." };
+    }
   }
 
   const now = new Date();
@@ -248,12 +295,6 @@ export async function validateCouponForCharge(params: {
   }
   if (coupon.ends_at && new Date(coupon.ends_at) < now) {
     return { ok: false, reason: "Este cupom expirou." };
-  }
-
-  if (coupon.min_account_age_days != null) {
-    if (!clientCreatedAt || ageInDays(clientCreatedAt, now) < coupon.min_account_age_days) {
-      return { ok: false, reason: "Cupom não disponível para esta conta." };
-    }
   }
 
   // Cupom pessoal não usa a regra "1 uso pra sempre" — só is_active decide.

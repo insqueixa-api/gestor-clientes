@@ -2,10 +2,20 @@
 // Prévia de impacto de um cupom: quantos clientes seriam elegíveis hoje e
 // qual seria o valor total de renovação normal vs. com o cupom aplicado,
 // se todos renovassem agora nas condições atuais. Roda 100% no browser via
-// supabaseBrowser (RLS já libera clients/plan_tables/plan_table_items/
-// plan_table_item_prices pro authenticated do próprio tenant) — mesmo
-// padrão já usado em app/admin/gerenciador/cobranca/page.tsx (cálculo
-// client-side sobre os clientes carregados).
+// supabaseBrowser — mesmo padrão já usado em
+// app/admin/gerenciador/cobranca/page.tsx (cálculo client-side sobre os
+// clientes carregados).
+//
+// Fonte de dados: vw_clients_list_active, a mesma view que a Régua de
+// Cobrança usa — já traz computed_status (ACTIVE/OVERDUE/TRIAL), server_id,
+// plan_name, apps_names, vencimento, tudo num só lugar (evita o bug de
+// `clients_1.username does not exist` da tabela crua, que não tem esses
+// alias/campos calculados).
+//
+// Regras de segmentação replicam getImpactedClients de
+// app/admin/gerenciador/cobranca/page.tsx:875 (status/servidor/plano/app),
+// mas como uma JANELA de dias (min/max) em vez de "dispara hoje se bater
+// exato" — cupom é elegibilidade permanente, não um disparo único.
 //
 // Cupons são exclusivos de contas com plano em BRL (decisão do Marcio) —
 // só entram no cálculo clientes com price_currency = BRL, e o total é
@@ -18,6 +28,7 @@
 // arquivo que não deve ser tocado nesta fase.
 
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { diffDays } from "@/lib/whatsapp/template-vars";
 
 const PERIOD_LABELS: Record<string, string> = {
   MONTHLY: "Mensal",
@@ -29,6 +40,16 @@ const PERIOD_LABELS: Record<string, string> = {
 const LABEL_TO_PERIOD: Record<string, string> = Object.fromEntries(
   Object.entries(PERIOD_LABELS).map(([period, label]) => [label, period]),
 );
+
+export type CouponRulesParams = {
+  targetStatus: string[] | null;
+  targetServerIds: string[] | null;
+  targetPlanLabels: string[] | null;
+  targetAppNames: string[] | null;
+  ruleDateField: "vencimento" | "cadastro" | null;
+  ruleDaysMin: number | null;
+  ruleDaysMax: number | null;
+};
 
 export type ImpactClientRow = {
   id: string;
@@ -49,9 +70,13 @@ type PlanTableLite = { id: string; currency: string; is_system_default: boolean 
 
 type ClientLite = {
   id: string;
-  display_name: string | null;
+  client_name: string | null;
   username: string | null;
-  plan_label: string | null;
+  computed_status: string | null;
+  server_id: string | null;
+  plan_name: string | null;
+  apps_names: string[] | null;
+  vencimento: string | null;
   screens: number | null;
   price_currency: string | null;
   price_amount: number | null;
@@ -69,10 +94,6 @@ function resolveBRLPlanTable(planTables: PlanTableLite[], client: ClientLite): s
   return def ? def.id : null;
 }
 
-function ageInDays(createdAt: string, now: Date): number {
-  return Math.floor((now.getTime() - new Date(createdAt).getTime()) / 86400000);
-}
-
 function computeDiscountedPrice(
   normalPrice: number,
   discountType: "percent" | "fixed",
@@ -85,22 +106,58 @@ function computeDiscountedPrice(
   return Math.max(0, Number((normalPrice - discount).toFixed(2)));
 }
 
-export async function computeCouponImpact(params: {
-  tenantId: string;
-  discountType: "percent" | "fixed";
-  discountValue: number;
-  minAccountAgeDays: number | null;
-  excludeCouponId?: string;
-}): Promise<ImpactResult> {
-  const { tenantId, discountType, discountValue, minAccountAgeDays, excludeCouponId } = params;
+/** Mesma lógica de matchesTargeting em lib/client-portal/coupons.ts, adaptada pro shape da view. */
+function matchesRules(rules: CouponRulesParams, client: ClientLite, now: Date): boolean {
+  const status = String(client.computed_status || "").toUpperCase();
+  if (rules.targetStatus?.length) {
+    if (!rules.targetStatus.includes(status)) return false;
+  } else if (status !== "ACTIVE" && status !== "OVERDUE") {
+    return false;
+  }
+
+  if (rules.targetServerIds?.length) {
+    if (!client.server_id || !rules.targetServerIds.includes(client.server_id)) return false;
+  }
+
+  if (rules.targetPlanLabels?.length) {
+    const plan = String(client.plan_name || "").trim();
+    if (!rules.targetPlanLabels.includes(plan)) return false;
+  }
+
+  if (rules.targetAppNames?.length) {
+    const clientApps = client.apps_names || [];
+    const hasApp = clientApps.some((a) => rules.targetAppNames!.includes(a));
+    if (!hasApp) return false;
+  }
+
+  if (rules.ruleDateField) {
+    const dateStr = rules.ruleDateField === "vencimento" ? client.vencimento : client.created_at;
+    if (!dateStr) return false;
+    const days = diffDays(now, new Date(dateStr));
+    if (rules.ruleDaysMin != null && days < rules.ruleDaysMin) return false;
+    if (rules.ruleDaysMax != null && days > rules.ruleDaysMax) return false;
+  }
+
+  return true;
+}
+
+export async function computeCouponImpact(
+  params: {
+    tenantId: string;
+    discountType: "percent" | "fixed";
+    discountValue: number;
+    excludeCouponId?: string;
+  } & CouponRulesParams,
+): Promise<ImpactResult> {
+  const { tenantId, discountType, discountValue, excludeCouponId, ...rules } = params;
 
   const [{ data: clientsData }, { data: planTablesData }] = await Promise.all([
     supabaseBrowser
-      .from("clients")
-      .select("id, display_name, username:server_username, plan_label, screens, price_currency, price_amount, plan_table_id, created_at")
+      .from("vw_clients_list_active")
+      .select(
+        "id, client_name, username, computed_status, server_id, plan_name, apps_names, vencimento, screens, price_currency, price_amount, plan_table_id, created_at",
+      )
       .eq("tenant_id", tenantId)
-      .eq("is_archived", false)
-      .eq("is_trial", false)
       .eq("price_currency", "BRL"),
     supabaseBrowser
       .from("plan_tables")
@@ -126,11 +183,7 @@ export async function computeCouponImpact(params: {
   const eligible = allClients.filter((c) => {
     if (Number(c.price_amount || 0) > 0) return false; // preço override
     if (excludedClientIds?.has(c.id)) return false; // já resgatou este cupom
-    if (minAccountAgeDays != null) {
-      if (!c.created_at) return false;
-      if (ageInDays(c.created_at, now) < minAccountAgeDays) return false;
-    }
-    return true;
+    return matchesRules(rules, c, now);
   });
 
   // Uma query por tabela de preço distinta, não uma por cliente.
@@ -163,7 +216,7 @@ export async function computeCouponImpact(params: {
     const planTableId = resolveBRLPlanTable(planTables, client);
     if (!planTableId) continue;
 
-    const period = LABEL_TO_PERIOD[String(client.plan_label || "").trim()];
+    const period = LABEL_TO_PERIOD[String(client.plan_name || "").trim()];
     if (!period) continue;
 
     const screens = Number(client.screens || 1);
@@ -172,7 +225,7 @@ export async function computeCouponImpact(params: {
 
     clients.push({
       id: client.id,
-      name: client.display_name || "—",
+      name: client.client_name || "—",
       username: client.username || "—",
       normalPrice,
       discountedPrice: computeDiscountedPrice(normalPrice, discountType, discountValue),
@@ -198,8 +251,10 @@ export async function computeSingleClientImpact(params: {
 
   const [{ data: clientData }, { data: planTablesData }] = await Promise.all([
     supabaseBrowser
-      .from("clients")
-      .select("id, display_name, username:server_username, plan_label, screens, price_currency, price_amount, plan_table_id, created_at")
+      .from("vw_clients_list_active")
+      .select(
+        "id, client_name, username, computed_status, server_id, plan_name, apps_names, vencimento, screens, price_currency, price_amount, plan_table_id, created_at",
+      )
       .eq("tenant_id", tenantId)
       .eq("id", clientId)
       .maybeSingle(),
@@ -217,7 +272,7 @@ export async function computeSingleClientImpact(params: {
   const planTableId = resolveBRLPlanTable(planTables, client);
   if (!planTableId) return null;
 
-  const period = LABEL_TO_PERIOD[String(client.plan_label || "").trim()];
+  const period = LABEL_TO_PERIOD[String(client.plan_name || "").trim()];
   if (!period) return null;
 
   const screens = Number(client.screens || 1);
@@ -236,7 +291,7 @@ export async function computeSingleClientImpact(params: {
 
   return {
     id: client.id,
-    name: client.display_name || "—",
+    name: client.client_name || "—",
     username: client.username || "—",
     normalPrice: Number(normalPrice),
     discountedPrice: computeDiscountedPrice(Number(normalPrice), discountType, discountValue),

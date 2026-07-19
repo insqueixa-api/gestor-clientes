@@ -1,6 +1,7 @@
 "use client";
 // app/admin/settings/cupons/page.tsx
-import { Pencil, Play, Pause, Trash2 } from "lucide-react";
+import { Pencil, Play, Pause, Trash2, X } from "lucide-react";
+import { createPortal } from "react-dom";
 
 import { useEffect, useState } from "react";
 import type { ReactNode, MouseEvent } from "react";
@@ -11,6 +12,7 @@ import ToastNotifications, {
 } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 import CupomModal, { CouponEditPayload } from "./cupom_modal";
+import { computeCouponImpact, ImpactResult } from "./impact_preview";
 
 export type CouponRow = {
   id: string;
@@ -20,7 +22,6 @@ export type CouponRow = {
   discount_type: "percent" | "fixed";
   discount_value: number;
   currency: string | null;
-  min_account_age_days: number | null;
   starts_at: string | null;
   ends_at: string | null;
   max_total_redemptions: number | null;
@@ -29,7 +30,18 @@ export type CouponRow = {
   created_at: string;
   client_id: string | null;
   clients: { display_name: string | null; username: string | null } | null;
+  target_status: string[] | null;
+  target_server_ids: string[] | null;
+  target_plan_labels: string[] | null;
+  target_app_names: string[] | null;
+  rule_date_field: "vencimento" | "cadastro" | null;
+  rule_days_min: number | null;
+  rule_days_max: number | null;
 };
+
+function fmtMoney(value: number) {
+  return `R$ ${Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
 
 export default function CuponsPage() {
   const [loading, setLoading] = useState(true);
@@ -37,6 +49,8 @@ export default function CuponsPage() {
   const [redemptionCounts, setRedemptionCounts] = useState<Record<string, number>>({});
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCoupon, setEditingCoupon] = useState<CouponEditPayload | null>(null);
+  const [impactCoupon, setImpactCoupon] = useState<CouponRow | null>(null);
+  const [usageCoupon, setUsageCoupon] = useState<CouponRow | null>(null);
 
   const { confirm, ConfirmUI } = useConfirm();
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -116,6 +130,17 @@ export default function CuponsPage() {
 
   function isExpired(row: CouponRow) {
     return !!row.ends_at && new Date(row.ends_at) < new Date();
+  }
+
+  function ruleSummary(row: CouponRow): string {
+    if (row.client_id) return "Cupom pessoal";
+    const parts: string[] = [];
+    if (row.target_status?.length) parts.push(`Status (${row.target_status.length})`);
+    if (row.target_server_ids?.length) parts.push(`Servidor (${row.target_server_ids.length})`);
+    if (row.target_plan_labels?.length) parts.push(`Plano (${row.target_plan_labels.length})`);
+    if (row.target_app_names?.length) parts.push(`App (${row.target_app_names.length})`);
+    if (row.rule_date_field) parts.push(row.rule_date_field === "vencimento" ? "Vencimento" : "Cadastro");
+    return parts.length ? parts.join(" · ") : "Sem restrição";
   }
 
   async function handleToggleActive(row: CouponRow) {
@@ -290,12 +315,11 @@ export default function CuponsPage() {
 
                     <div className="flex justify-between items-center">
                       <span className="text-muted-foreground">🎯 Regra</span>
-                      <span className="font-medium text-foreground/90 text-right">
-                        {row.client_id
-                          ? "Cupom pessoal"
-                          : row.min_account_age_days != null
-                            ? `Cliente há ${row.min_account_age_days}+ dias`
-                            : "Sem restrição"}
+                      <span
+                        className="font-medium text-foreground/90 text-right truncate max-w-[160px]"
+                        title={ruleSummary(row)}
+                      >
+                        {ruleSummary(row)}
                       </span>
                     </div>
                   </div>
@@ -303,15 +327,22 @@ export default function CuponsPage() {
                   <div className="space-y-2 sm:border-l sm:pl-4 border-border">
                     <div className="flex justify-between items-center">
                       <span className="text-muted-foreground">🧾 Usos</span>
-                      <span className="font-medium text-foreground/90">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setUsageCoupon(row);
+                        }}
+                        className="font-medium text-sky-500 hover:underline"
+                      >
                         {row.client_id
                           ? row.is_active
                             ? "Disponível"
-                            : "Usado (reative pra liberar de novo)"
+                            : "Usado — reative"
                           : row.max_total_redemptions != null
                             ? `${usedCount} / ${row.max_total_redemptions}`
                             : `${usedCount}`}
-                      </span>
+                      </button>
                     </div>
 
                     <div className="flex justify-between items-center">
@@ -322,6 +353,18 @@ export default function CuponsPage() {
                     </div>
                   </div>
                 </div>
+
+                {!row.client_id && (
+                  <div className="px-4 sm:px-5 pb-4 sm:pb-5">
+                    <button
+                      type="button"
+                      onClick={() => setImpactCoupon(row)}
+                      className="w-full h-8 rounded-lg text-xs font-medium border border-sky-500/30 bg-sky-500/10 text-sky-500 hover:bg-sky-500/20 transition-colors"
+                    >
+                      🎯 Ver clientes impactados
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -343,6 +386,14 @@ export default function CuponsPage() {
           }}
           onError={(msg) => addToast("error", "Erro", msg)}
         />
+      )}
+
+      {impactCoupon && (
+        <ImpactListModal coupon={impactCoupon} onClose={() => setImpactCoupon(null)} />
+      )}
+
+      {usageCoupon && (
+        <UsageLogModal coupon={usageCoupon} onClose={() => setUsageCoupon(null)} />
       )}
 
       {ConfirmUI}
@@ -387,5 +438,181 @@ function IconActionBtn({
     >
       {children}
     </button>
+  );
+}
+
+/** Prévia de impacto direto na listagem — usa as regras já SALVAS do cupom (sem precisar abrir o modal de edição). */
+function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () => void }) {
+  const [loading, setLoading] = useState(true);
+  const [result, setResult] = useState<ImpactResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const tenantId = await getCurrentTenantId();
+        if (!tenantId) throw new Error("Tenant não encontrado.");
+        const r = await computeCouponImpact({
+          tenantId,
+          discountType: coupon.discount_type,
+          discountValue: Number(coupon.discount_value),
+          excludeCouponId: coupon.id,
+          targetStatus: coupon.target_status,
+          targetServerIds: coupon.target_server_ids,
+          targetPlanLabels: coupon.target_plan_labels,
+          targetAppNames: coupon.target_app_names,
+          ruleDateField: coupon.rule_date_field,
+          ruleDaysMin: coupon.rule_days_min,
+          ruleDaysMax: coupon.rule_days_max,
+        });
+        if (alive) setResult(r);
+      } catch (e: any) {
+        if (alive) setError(e?.message || "Falha ao calcular impacto.");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [coupon.id]);
+
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
+      <div className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[85vh]">
+        <div className="px-5 py-4 border-b border-border flex justify-between items-center shrink-0">
+          <div className="min-w-0">
+            <h3 className="text-base font-medium text-foreground">Clientes impactados</h3>
+            <p className="text-xs text-muted-foreground font-mono">{coupon.code}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4">
+          {loading && <div className="text-center text-muted-foreground text-sm py-8">Calculando...</div>}
+          {error && <p className="text-rose-500 text-sm">{error}</p>}
+
+          {result && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-sm bg-muted/50 rounded-lg px-3 py-2.5">
+                <span className="text-muted-foreground">
+                  {result.totalClients} cliente(s) — estimativa em BRL
+                </span>
+                <span className="font-medium text-foreground/90">
+                  {fmtMoney(result.totalNormal)} →{" "}
+                  <span className="text-emerald-500">{fmtMoney(result.totalDiscounted)}</span>
+                </span>
+              </div>
+
+              {result.clients.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">
+                  Nenhum cliente elegível hoje.
+                </p>
+              ) : (
+                <div className="rounded-lg border border-border divide-y divide-border">
+                  {result.clients.map((c) => (
+                    <div key={c.id} className="flex items-center justify-between px-3 py-2 text-xs">
+                      <span className="text-foreground/90 truncate">
+                        {c.name} <span className="text-muted-foreground">({c.username})</span>
+                      </span>
+                      <span className="text-muted-foreground shrink-0 ml-2">
+                        {fmtMoney(c.normalPrice)} →{" "}
+                        <span className="text-emerald-500">{fmtMoney(c.discountedPrice)}</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+type RedemptionRow = {
+  id: string;
+  discount_amount: number;
+  currency: string;
+  created_at: string;
+  clients: { display_name: string | null; username: string | null } | null;
+};
+
+/** Log de uso do cupom (coupon_redemptions) — fica pronto mas vazio até a Fase 2 gravar os resgates. */
+function UsageLogModal({ coupon, onClose }: { coupon: CouponRow; onClose: () => void }) {
+  const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState<RedemptionRow[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const { data } = await supabaseBrowser
+        .from("coupon_redemptions")
+        .select("id, discount_amount, currency, created_at, clients(display_name, username:server_username)")
+        .eq("coupon_id", coupon.id)
+        .order("created_at", { ascending: false });
+      if (!alive) return;
+      setRows((data as any[]) || []);
+      setLoading(false);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [coupon.id]);
+
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
+      <div className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[85vh]">
+        <div className="px-5 py-4 border-b border-border flex justify-between items-center shrink-0">
+          <div className="min-w-0">
+            <h3 className="text-base font-medium text-foreground">Log de uso</h3>
+            <p className="text-xs text-muted-foreground font-mono">{coupon.code}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4">
+          {loading && <div className="text-center text-muted-foreground text-sm py-8">Carregando...</div>}
+          {!loading && rows.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              Nenhum uso registrado ainda.
+            </p>
+          )}
+          {!loading && rows.length > 0 && (
+            <div className="rounded-lg border border-border divide-y divide-border">
+              {rows.map((r) => (
+                <div key={r.id} className="flex items-center justify-between px-3 py-2 text-xs">
+                  <span className="text-foreground/90 truncate">
+                    {r.clients?.display_name || "—"}{" "}
+                    <span className="text-muted-foreground">({r.clients?.username || "—"})</span>
+                  </span>
+                  <span className="text-muted-foreground shrink-0 ml-2">
+                    {new Date(r.created_at).toLocaleString("pt-BR")} · {fmtMoney(Number(r.discount_amount))}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
