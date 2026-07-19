@@ -445,7 +445,9 @@ function IconActionBtn({
 function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () => void }) {
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<ImpactResult | null>(null);
+  const [usedRows, setUsedRows] = useState<RedemptionRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -453,20 +455,29 @@ function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () =
       try {
         const tenantId = await getCurrentTenantId();
         if (!tenantId) throw new Error("Tenant não encontrado.");
-        const r = await computeCouponImpact({
-          tenantId,
-          discountType: coupon.discount_type,
-          discountValue: Number(coupon.discount_value),
-          excludeCouponId: coupon.id,
-          targetStatus: coupon.target_status,
-          targetServerIds: coupon.target_server_ids,
-          targetPlanLabels: coupon.target_plan_labels,
-          targetAppNames: coupon.target_app_names,
-          ruleDateField: coupon.rule_date_field,
-          ruleDaysMin: coupon.rule_days_min,
-          ruleDaysMax: coupon.rule_days_max,
-        });
-        if (alive) setResult(r);
+        const [r, redemptions] = await Promise.all([
+          computeCouponImpact({
+            tenantId,
+            discountType: coupon.discount_type,
+            discountValue: Number(coupon.discount_value),
+            excludeCouponId: coupon.id,
+            targetStatus: coupon.target_status,
+            targetServerIds: coupon.target_server_ids,
+            targetPlanLabels: coupon.target_plan_labels,
+            targetAppNames: coupon.target_app_names,
+            ruleDateField: coupon.rule_date_field,
+            ruleDaysMin: coupon.rule_days_min,
+            ruleDaysMax: coupon.rule_days_max,
+          }),
+          supabaseBrowser
+            .from("coupon_redemptions")
+            .select("id, discount_amount, currency, created_at, clients(display_name, username:server_username)")
+            .eq("coupon_id", coupon.id)
+            .order("created_at", { ascending: false }),
+        ]);
+        if (!alive) return;
+        setResult(r);
+        setUsedRows((redemptions.data as any[]) || []);
       } catch (e: any) {
         if (alive) setError(e?.message || "Falha ao calcular impacto.");
       } finally {
@@ -479,6 +490,20 @@ function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () =
   }, [coupon.id]);
 
   if (typeof document === "undefined") return null;
+
+  const term = search.trim().toLowerCase();
+  const filteredUsed = !term
+    ? usedRows
+    : usedRows.filter((r) => {
+        const name = String(r.clients?.display_name || "").toLowerCase();
+        const username = String(r.clients?.username || "").toLowerCase();
+        return name.includes(term) || username.includes(term);
+      });
+  const filteredEligible = !term
+    ? result?.clients || []
+    : (result?.clients || []).filter(
+        (c) => c.name.toLowerCase().includes(term) || c.username.toLowerCase().includes(term),
+      );
 
   return createPortal(
     <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
@@ -496,6 +521,17 @@ function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () =
           </button>
         </div>
 
+        {!loading && result && (
+          <div className="px-4 pt-3 shrink-0">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar cliente por nome ou usuário..."
+              className="w-full h-9 rounded-lg border border-border bg-transparent px-3 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30"
+            />
+          </div>
+        )}
+
         <div className="flex-1 overflow-y-auto p-4">
           {loading && <div className="text-center text-muted-foreground text-sm py-8">Calculando...</div>}
           {error && <p className="text-rose-500 text-sm">{error}</p>}
@@ -504,7 +540,8 @@ function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () =
             <div className="space-y-3">
               <div className="flex items-center justify-between text-sm bg-muted/50 rounded-lg px-3 py-2.5">
                 <span className="text-muted-foreground">
-                  {result.totalClients} cliente(s) — estimativa em BRL
+                  {result.totalClients} cliente(s) elegível(is) — estimativa em BRL
+                  {usedRows.length > 0 && ` · ${usedRows.length} já usaram`}
                 </span>
                 <span className="font-medium text-foreground/90">
                   {fmtMoney(result.totalNormal)} →{" "}
@@ -512,20 +549,36 @@ function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () =
                 </span>
               </div>
 
-              {result.clients.length === 0 ? (
+              {filteredUsed.length === 0 && filteredEligible.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-6">
-                  Nenhum cliente elegível hoje.
+                  {term ? "Nenhum cliente encontrado." : "Nenhum cliente elegível hoje."}
                 </p>
               ) : (
                 <div className="rounded-lg border border-border divide-y divide-border">
-                  {result.clients.map((c) => (
-                    <div key={c.id} className="flex items-center justify-between px-3 py-2 text-xs">
+                  {filteredUsed.map((r) => (
+                    <div key={r.id} className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
+                      <span className="text-foreground/90 truncate">
+                        {r.clients?.display_name || "—"}{" "}
+                        <span className="text-muted-foreground">({r.clients?.username || "—"})</span>
+                      </span>
+                      <span className="inline-flex items-center text-[10px] font-medium bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap">
+                        ✅ Usado {new Date(r.created_at).toLocaleDateString("pt-BR")}
+                      </span>
+                    </div>
+                  ))}
+                  {filteredEligible.map((c) => (
+                    <div key={c.id} className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
                       <span className="text-foreground/90 truncate">
                         {c.name} <span className="text-muted-foreground">({c.username})</span>
                       </span>
-                      <span className="text-muted-foreground shrink-0 ml-2">
-                        {fmtMoney(c.normalPrice)} →{" "}
-                        <span className="text-emerald-500">{fmtMoney(c.discountedPrice)}</span>
+                      <span className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-[10px] font-medium bg-muted text-muted-foreground border border-border px-2 py-0.5 rounded-full whitespace-nowrap">
+                          Não usado
+                        </span>
+                        <span className="text-muted-foreground whitespace-nowrap">
+                          {fmtMoney(c.normalPrice)} →{" "}
+                          <span className="text-emerald-500">{fmtMoney(c.discountedPrice)}</span>
+                        </span>
                       </span>
                     </div>
                   ))}
