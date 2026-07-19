@@ -1067,6 +1067,25 @@ export default function RecargaCliente({
         maximumFractionDigits: 2,
       });
       details.push(`Valor: ${currency} ${formattedVal}`);
+
+      if (settlePendingCharges && pendingChargesForClient.length > 0) {
+        const pendingTotal = pendingChargesForClient.reduce(
+          (sum, p) => sum + p.convertedAmount,
+          0,
+        );
+        const formattedPending = pendingTotal.toLocaleString("pt-BR", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+        details.push(`Pendência: ${currency} ${formattedPending}`);
+
+        const formattedTotal = (rawPlanPrice + pendingTotal).toLocaleString(
+          "pt-BR",
+          { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+        );
+        details.push(`Total a Cobrar: ${currency} ${formattedTotal}`);
+      }
+
       if (creditsUsed > 0) details.push(`Créditos a descontar: ${creditsUsed}`);
     }
 

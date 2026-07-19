@@ -1542,13 +1542,8 @@ const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
     setRenewingId(r.id); // ✅ Liga o loading giratório
     await new Promise((resolve) => setTimeout(resolve, 50)); // ✅ Dá fôlego pro React girar o ícone
 
-    if (r.alertsCount > 0) {
-      // Tem alerta? Abre o aviso primeiro
-      setShowRenewWarning({ open: true, clientId: r.id, clientName: r.name });
-    } else {
-      // Sem alerta? Abre renovação direto (comportamento original)
-      setShowRenew({ open: true, clientId: r.id, clientName: r.name });
-    }
+    // A pendência (se houver) já aparece dentro do próprio card de recarga.
+    setShowRenew({ open: true, clientId: r.id, clientName: r.name });
 
     // ✅ Segura o botão girando por mais 1.5 segundos enquanto o modal é desenhado na tela
     setTimeout(() => {

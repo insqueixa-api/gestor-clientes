@@ -60,7 +60,7 @@ function Modal({
   children: React.ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
       <div className="w-full max-w-md bg-card rounded-2xl shadow-2xl border border-border max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
           <h3 className="font-bold text-foreground">{title}</h3>

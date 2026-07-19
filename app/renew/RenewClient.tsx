@@ -2688,10 +2688,10 @@ export default function RenewClient() {
   const srvKey = SERVER_GUIA_MAP[selectedAccount.server_name];
   if (!srvKey) return null;
   return (
-    <div className="relative overflow-hidden rounded-xl border border-sky-500/20 bg-gradient-to-r from-sky-500/10 via-indigo-500/5 to-sky-500/10 p-4 shadow-sm">
-      <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-xl bg-sky-500/15 flex items-center justify-center shrink-0 border border-sky-500/20">
-          <span className="text-2xl">🔥</span>
+    <div className="relative overflow-hidden rounded-xl border border-sky-500/20 bg-gradient-to-r from-sky-500/10 via-indigo-500/5 to-sky-500/10 p-2.5 sm:p-4 shadow-sm">
+      <div className="flex items-center gap-2.5 sm:gap-4">
+        <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-sky-500/15 flex items-center justify-center shrink-0 border border-sky-500/20">
+          <span className="text-lg sm:text-2xl">🔥</span>
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-foreground">Novidades no servidor!</p>
@@ -2702,9 +2702,9 @@ export default function RenewClient() {
         <a
           href={`/renew/guia-tv?servidor=${srvKey}&conta=${selectedAccount.id}`}
 
-          className="shrink-0 flex items-center gap-1.5 h-9 px-4 rounded-full bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold transition-colors shadow-sm"
+          className="shrink-0 flex items-center gap-1 h-8 sm:h-9 px-3 rounded-full bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold transition-colors shadow-sm"
         >
-          Ver novidades →
+          Novidades →
         </a>
       </div>
     </div>
@@ -2714,7 +2714,7 @@ export default function RenewClient() {
 
 {/* Vencimento Centralizado (Substitui Card Azul) */}
 <div
-  className={`w-full text-center py-3 sm:py-4 rounded-xl shadow-sm border-2 animate-in fade-in zoom-in duration-500 ${
+  className={`w-full text-center py-2.5 sm:py-4 rounded-xl shadow-sm border-2 animate-in fade-in zoom-in duration-500 ${
             timeRemaining?.expired
               ? "bg-rose-500/10 border-rose-500/20"
               : selectedAccount.is_trial
@@ -2752,18 +2752,18 @@ export default function RenewClient() {
 
         {/* Card de Dados de Acesso */}
         <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
-          <div className="bg-muted/50 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-border">
+          <div className="bg-muted/50 px-3 sm:px-4 py-2 sm:py-3 border-b border-border">
             <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
               📺 Dados de Acesso
             </h2>
           </div>
-          <div className="p-3 sm:p-4 space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+          <div className="p-2.5 sm:p-4 space-y-2 sm:space-y-3">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
                   Usuário
                 </label>
-                <div className="text-sm font-mono text-foreground bg-muted px-3 py-2 rounded-lg border border-border truncate">
+                <div className="text-sm font-mono text-foreground bg-muted px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg border border-border truncate">
                   {selectedAccount.server_username}
                 </div>
               </div>
@@ -2771,17 +2771,17 @@ export default function RenewClient() {
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
                   Servidor
                 </label>
-                <div className="text-sm font-medium text-foreground bg-muted px-3 py-2 rounded-lg border border-border truncate">
+                <div className="text-sm font-medium text-foreground bg-muted px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg border border-border truncate">
                   {selectedAccount.server_name}
                 </div>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
                   Vencimento em
                 </label>
-                <div className="text-sm font-medium text-foreground bg-muted px-3 py-2 rounded-lg border border-border">
+                <div className="text-sm font-medium text-foreground bg-muted px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg border border-border">
                   {formatDateTime(selectedAccount.vencimento)}
                 </div>
               </div>
@@ -2789,7 +2789,7 @@ export default function RenewClient() {
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
                   Telas
                 </label>
-                <div className="text-sm font-bold text-foreground bg-muted px-3 py-2 rounded-lg border border-border">
+                <div className="text-sm font-bold text-foreground bg-muted px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg border border-border">
                   {selectedAccount.screens}{" "}
                   {selectedAccount.screens > 1 ? "telas" : "tela"}
                 </div>
