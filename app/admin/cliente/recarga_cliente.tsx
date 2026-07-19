@@ -335,6 +335,16 @@ export default function RecargaCliente({
   const tableChangedByUserRef = useRef(false);
   const isFirstLoad = useRef(true);
 
+  // ✅ Cupom aplicado no pagamento do portal que originou este paymentLogId
+  // (via Auditoria) — guardado em ref (não precisa re-render) pra ficar
+  // acessível lá embaixo no handleSave, fora do escopo do useEffect que
+  // buscou o client_portal_payments.
+  const paymentLogCouponRef = useRef<{
+    coupon_id: string | null;
+    coupon_discount_amount: number | null;
+    price_currency: string | null;
+  } | null>(null);
+
   const selectedTable = useMemo(() => {
     return tables.find((t) => t.id === selectedTableId) || null;
   }, [tables, selectedTableId]);
@@ -516,20 +526,31 @@ export default function RecargaCliente({
           period: string | null;
           plan_label: string | null;
           price_amount: number | null;
+          plan_price_amount: number | null;
           price_currency: string | null;
+          coupon_id: string | null;
+          coupon_code: string | null;
+          coupon_discount_amount: number | null;
         } | null = null;
 
         if (paymentLogId) {
           try {
             const { data: logData, error: logErr } = await supabaseBrowser
               .from("client_portal_payments")
-              .select("period, plan_label, price_amount, price_currency")
+              .select(
+                "period, plan_label, price_amount, plan_price_amount, price_currency, coupon_id, coupon_code, coupon_discount_amount",
+              )
               .eq("id", paymentLogId)
               .eq("tenant_id", tid)
               .maybeSingle();
 
             if (!logErr && logData) {
               paymentLog = logData as any;
+              paymentLogCouponRef.current = {
+                coupon_id: (logData as any).coupon_id ?? null,
+                coupon_discount_amount: (logData as any).coupon_discount_amount ?? null,
+                price_currency: (logData as any).price_currency ?? null,
+              };
             } else if (logErr) {
             }
           } catch {}
@@ -708,9 +729,15 @@ export default function RecargaCliente({
           setCurrency(desiredCurrency);
         }
 
-        // 6) Valor inicial (✅ pagamento do portal tem prioridade sobre o atual do cliente)
+        // 6) Valor inicial (✅ pagamento do portal tem prioridade sobre o atual
+        // do cliente). Usa plan_price_amount — o preço do PLANO puro, sem
+        // pendência nem desconto de cupom — senão a próxima renovação
+        // herdava o valor já descontado/com pendência como se fosse o
+        // preço normal da assinatura (mesmo bug já corrigido pra
+        // pendência; price_amount é só fallback pra logs antigos de antes
+        // dessa coluna existir).
         const initialAmount =
-          paymentLog?.price_amount ?? cFixed.price_amount ?? null;
+          paymentLog?.plan_price_amount ?? paymentLog?.price_amount ?? cFixed.price_amount ?? null;
 
         if (initialAmount != null) {
           setPlanPrice(Number(initialAmount).toFixed(2).replace(".", ","));
@@ -1751,6 +1778,37 @@ const clientMessageAuto = `Renovação automática via painel Admin · ${monthsT
               pendingChargesForClient.map((p) => p.id),
             )
             .eq("status", "OPEN");
+        } catch {
+          // não bloqueia o fluxo principal por causa disso
+        }
+      }
+
+      // ✅ Se o pagamento concluído manualmente (Auditoria) tinha cupom
+      // aplicado, grava o resgate e desativa cupom pessoal — mesmo efeito
+      // que o fluxo automático já faz em lib/client-portal/fulfillment.ts.
+      // coupon_redemptions só aceita escrita via service_role, por isso
+      // passa por uma rota de API em vez de update direto (igual ao
+      // client_alerts acima).
+      const paymentLogCoupon = paymentLogCouponRef.current;
+      if (paymentLogCoupon?.coupon_id && Number(paymentLogCoupon.coupon_discount_amount) > 0) {
+        try {
+          const { data: session } = await supabaseBrowser.auth.getSession();
+          const token = session.session?.access_token;
+          await fetch("/api/admin/coupons/redeem-manual", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              tenant_id: tid,
+              coupon_id: paymentLogCoupon.coupon_id,
+              client_id: clientId,
+              payment_id: paymentLogId || null,
+              discount_amount: paymentLogCoupon.coupon_discount_amount,
+              currency: paymentLogCoupon.price_currency || currency,
+            }),
+          });
         } catch {
           // não bloqueia o fluxo principal por causa disso
         }

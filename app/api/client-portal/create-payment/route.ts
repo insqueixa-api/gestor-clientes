@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { notify } from "@/lib/notifications/notify";
 import { randomUUID } from "crypto";
 import { getPendingCharges } from "@/lib/client-portal/pending-charges";
+import { validateCouponForCharge, couponRejectReason } from "@/lib/client-portal/coupons";
 
 export const dynamic = "force-dynamic";
 
@@ -73,6 +74,10 @@ const session_token = normalizeStr(body?.session_token);
 const client_id = normalizeStr(body?.client_id);
 const period = normalizeStr(body?.period);
 const force_manual = body?.force_manual === true;
+const coupon_code_raw = normalizeStr(body?.coupon_code);
+// ✅ Device ID gerado pelo security.js do MP no front (RenewClient.tsx) —
+// opcional, melhora a "Qualidade da Integração" e a taxa de aprovação.
+const mp_device_id = normalizeStr(body?.mp_device_id);
 
 // ⚠️ ainda pode vir do front, mas será IGNORADO (opcional: só para log em dev)
 const price_amount_raw = body?.price_amount;
@@ -220,22 +225,23 @@ const clientPlanLabel = String((client as any).plan_label || "").trim();
 
 let computedPrice = 0;
 
+const exact = (item as any).plan_table_item_prices?.find(
+  (p: any) => p.screens_count === screens
+);
+const standardPriceForPeriod = exact?.price_amount != null ? Number(exact.price_amount) : null;
+
 // Regra 1: Se o cliente tem um preço fixado (Override) no cadastro E está renovando o mesmo plano
 if (clientOverride > 0 && PERIOD_LABELS[period] === clientPlanLabel) {
   computedPrice = clientOverride;
-} 
+}
 // Regra 2: Busca ESTRITAMENTE o valor para esta quantidade exata de telas na tabela
 else {
-  const exact = (item as any).plan_table_item_prices?.find(
-    (p: any) => p.screens_count === screens
-  );
-  
-  if (!exact || exact.price_amount == null) {
+  if (standardPriceForPeriod == null) {
     safeServerLog(`create-payment: preco inexistente para ${screens} telas no periodo ${period}`);
     return jsonError(`Preço não configurado para ${screens} tela(s). Entre em contato com o suporte.`, 400);
   }
-  
-  computedPrice = Number(exact.price_amount);
+
+  computedPrice = standardPriceForPeriod;
 }
 
 if (!Number.isFinite(computedPrice) || computedPrice <= 0) {
@@ -259,6 +265,65 @@ if (process.env.NODE_ENV !== "production" && price_amount_raw != null) {
 // assinatura, cobrando errado pra sempre).
 // ===============================
 const planPriceOnly = computedPrice;
+
+// ===============================
+// 2.1b) Aplicar cupom de desconto (se informado)
+// Sempre recalculado aqui — nunca confia em nenhum valor vindo do front,
+// só no código digitado. Desconto incide SOMENTE sobre planPriceOnly,
+// nunca sobre pendência (por isso entra ANTES de somar pendingCharges
+// abaixo). Se o código vier mas for inválido/expirado/já usado, NÃO
+// derruba o pagamento — só ignora o cupom (mesmo espírito fail-open do
+// getPendingCharges): o front já validou no clique de "Aplicar" antes de
+// chegar aqui, isso só cobre uma corrida entre a prévia e o pagamento.
+// ⚠️ couponDiscountAmount NUNCA entra em planPriceOnly — é isso que
+// impede o desconto de virar o novo price_amount fixo do cliente lá em
+// runFulfillment (mesma proteção que já existe pra pendência).
+// ===============================
+// price_amount está preenchido pra quase todo cliente (é o preço fixo
+// normal dele, não uma flag rara) — "override" de verdade só quando o
+// preço do cliente é MENOR que o preço padrão da tabela pra esse
+// período/tela. Sem essa comparação, praticamente ninguém seria elegível
+// a cupom (mesmo bug já corrigido em impact_preview.ts e
+// coupons.ts::findEligibleCoupon nas fases anteriores).
+const isOverrideActive =
+  clientOverride > 0 &&
+  PERIOD_LABELS[period] === clientPlanLabel &&
+  standardPriceForPeriod != null &&
+  clientOverride < standardPriceForPeriod;
+let couponId: string | null = null;
+let couponCodeApplied: string | null = null;
+let couponDiscountAmount = 0;
+
+if (coupon_code_raw) {
+  const { data: couponClientRow } = await supabaseAdmin
+    .from("vw_clients_list_active")
+    .select(
+      "id, computed_status, server_id, plan_name, apps_names, vencimento, created_at, price_currency, price_amount, whatsapp_username",
+    )
+    .eq("tenant_id", sess.tenant_id)
+    .eq("id", client_id)
+    .maybeSingle();
+
+  const couponResult = await validateCouponForCharge({
+    supabaseAdmin,
+    tenantId: sess.tenant_id,
+    clientRow: couponClientRow || client,
+    code: coupon_code_raw,
+    planPriceOnly,
+    currency,
+    isOverrideActive,
+  });
+
+  if (couponResult.ok) {
+    couponId = couponResult.coupon.id;
+    couponCodeApplied = couponResult.coupon.code;
+    couponDiscountAmount = couponResult.discountAmount;
+    computedPrice = Number((computedPrice - couponDiscountAmount).toFixed(2));
+  } else {
+    safeServerLog("create-payment: coupon invalid", { code: coupon_code_raw, reason: couponRejectReason(couponResult) });
+  }
+}
+
 const pendingCharges = await getPendingCharges(supabaseAdmin, sess.tenant_id, client_id, currency);
 if (pendingCharges.total > 0) {
   computedPrice = Number((computedPrice + pendingCharges.total).toFixed(2));
@@ -340,6 +405,9 @@ const settledAlertIds = pendingCharges.alertIds.length ? pendingCharges.alertIds
           status: "pending",
           fulfillment_status: "awaiting_transfer",
           settled_alert_ids: settledAlertIds,
+          coupon_id: couponId,
+          coupon_code: couponCodeApplied,
+          coupon_discount_amount: couponDiscountAmount > 0 ? couponDiscountAmount : null,
         })
         .select("id")
         .single();
@@ -432,11 +500,21 @@ if (!mpToken) {
               Authorization: `Bearer ${mpToken}`,
 
               "X-Idempotency-Key": idempotencyKey,
+              // ✅ Item "Device ID" da Qualidade da Integração — só manda o
+              // header se o front conseguiu gerar o device_id (security.js
+              // pode não ter carregado a tempo), nunca bloqueia o pagamento.
+              ...(mp_device_id ? { "X-meli-session-id": mp_device_id } : {}),
             },
             body: JSON.stringify({
               transaction_amount: Number(computedPrice),
               description: `${displayName} - Plano ${planLabel}`,
               payment_method_id: "pix",
+              // ✅ Itens "Descrição da fatura" e "Resposta binária" da
+              // Qualidade da Integração. statement_descriptor é o texto que
+              // aparece na fatura do pagador (PIX não usa fatura de cartão,
+              // mas o campo é aceito e pontua no score mesmo assim).
+              statement_descriptor: "UNIGESTOR",
+              binary_mode: true,
               payer: {
                 email: `${String(client.whatsapp_username)}@unigestor.net.br`,
                 first_name: String(displayName).split(" ")[0],
@@ -445,6 +523,10 @@ if (!mpToken) {
               notification_url: webhookUrl,
               external_reference: internalPaymentId,
               additional_info: {
+                // ✅ computedPrice já vem com o desconto do cupom subtraído
+                // (antes da pendência ser somada) — então "computedPrice -
+                // pendingCharges.total" aqui já dá planPriceOnly - desconto
+                // sozinho, sem precisar subtrair o cupom de novo.
                 items: pendingCharges.items.length
                   ? [
                       {
@@ -509,6 +591,9 @@ if (!mpToken) {
       price_currency: currency,
       status: "pending",
       settled_alert_ids: settledAlertIds,
+      coupon_id: couponId,
+      coupon_code: couponCodeApplied,
+      coupon_discount_amount: couponDiscountAmount > 0 ? couponDiscountAmount : null,
     },
     { onConflict: "tenant_id,gateway_type,mp_payment_id" }
   )
@@ -597,6 +682,9 @@ if (insErr || !inserted) {
                   price_currency: currency,
                   status: "pending",
                   settled_alert_ids: settledAlertIds,
+                  coupon_id: couponId,
+                  coupon_code: couponCodeApplied,
+                  coupon_discount_amount: couponDiscountAmount > 0 ? couponDiscountAmount : null,
                 },
                 { onConflict: "tenant_id,gateway_type,mp_payment_id" }
               )

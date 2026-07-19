@@ -137,6 +137,64 @@ export async function runFulfillment(params: FulfillmentParams) {
   mp_payment_id: String(payment.mp_payment_id).slice(-6),
 });
 
+  // (correcao) Quita pendencias financeiras e grava resgate de cupom AQUI,
+  // logo apos carregar o cliente — ANTES de qualquer caminho que possa
+  // cair em notifyManual()/return antecipado (servidor sem integracao,
+  // Elite, falha na chamada de renovacao) ou lancar excecao (linhas
+  // abaixo). O lado financeiro (pendencia quitada, cupom usado) e
+  // verdadeiro assim que o pagamento e confirmado, independente de o
+  // provisionamento no painel IPTV ter sucesso na hora ou precisar de
+  // acompanhamento manual depois. Fica dentro do runFulfillment (nao nos
+  // webhooks) porque tanto o webhook quanto o polling de payment-status
+  // chamam runFulfillment - so um deles de fato executa (o outro cai no
+  // lock ocupado) - entao isso garante que roda exatamente uma vez, nao
+  // importa qual caminho venceu a corrida NEM se o resto da funcao
+  // depois cai no fluxo manual ou lanca erro.
+  const settledAlertIds = (payment as any).settled_alert_ids || [];
+  if (settledAlertIds.length) {
+    await supabaseAdmin
+      .from("client_alerts")
+      .update({ status: "CLOSED", closed_at: new Date().toISOString() })
+      .in("id", settledAlertIds)
+      .eq("status", "OPEN");
+  }
+
+  // coupon_discount_amount NUNCA entra no price_amount do cliente (que usa
+  // plan_price_amount, sem desconto, la embaixo) - o desconto vale so pra
+  // essa cobranca. Guard por payment_id evita gravar 2x se runFulfillment
+  // for chamado de novo pro mesmo pagamento depois de um erro mais abaixo
+  // (ex: webhook reprocessando apos throw).
+  const couponId = (payment as any).coupon_id || null;
+  const couponDiscountAmount = Number((payment as any).coupon_discount_amount || 0);
+  if (couponId && couponDiscountAmount > 0) {
+    const { count: alreadyRedeemedCount } = await supabaseAdmin
+      .from("coupon_redemptions")
+      .select("id", { count: "exact", head: true })
+      .eq("payment_id", payment.id);
+
+    if (!alreadyRedeemedCount) {
+      await supabaseAdmin.from("coupon_redemptions").insert({
+        tenant_id: tenantId,
+        coupon_id: couponId,
+        client_id: client.id,
+        payment_id: payment.id,
+        discount_amount: couponDiscountAmount,
+        currency: payment.price_currency || (client as any).price_currency || "BRL",
+      });
+
+      // Cupom pessoal se autodesativa ao ser usado - o Marcio reativa
+      // manualmente na proxima indicacao (documentado desde a Fase 1.5).
+      const { data: couponRow } = await supabaseAdmin
+        .from("coupons")
+        .select("client_id")
+        .eq("id", couponId)
+        .maybeSingle();
+      if (couponRow?.client_id) {
+        await supabaseAdmin.from("coupons").update({ is_active: false }).eq("id", couponId);
+      }
+    }
+  }
+
   const login = String((client as any).server_username || "").trim();
   if (!client.server_id || !login) {
     throw new Error("Cliente sem server_id/server_username para renovação.");
@@ -446,20 +504,6 @@ if (newPassword) updatePayload.server_password = String(newPassword);
     new_vencimento: expDateISO,
     external_id_updated: !!newExternalId
   });
-
-  // (correcao) Quita as pendencias financeiras que entraram nessa cobranca.
-  // Fica aqui dentro (nao nos webhooks) porque tanto o webhook quanto o
-  // polling de payment-status chamam runFulfillment - so um deles de fato
-  // executa (o outro cai no lock ocupado), entao isso garante que roda
-  // exatamente uma vez, nao importa qual caminho venceu a corrida.
-  const settledAlertIds = (payment as any).settled_alert_ids || [];
-  if (settledAlertIds.length) {
-    await supabaseAdmin
-      .from("client_alerts")
-      .update({ status: "CLOSED", closed_at: new Date().toISOString() })
-      .in("id", settledAlertIds)
-      .eq("status", "OPEN");
-  }
 
   // ✅ Teste virou cliente pago pelo portal — marca o histórico (papa_testes)
   // como convertido, mesmo motivo do update_client (RPC do painel). Casa por

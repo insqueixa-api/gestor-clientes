@@ -81,6 +81,20 @@ export type CouponValidationResult =
   | { ok: false; reason: string };
 
 /**
+ * ⚠️ Narrowing via `"reason" in r`, de propósito — com `strict: false`
+ * neste projeto (sem strictNullChecks), o TS falha silenciosamente ao
+ * estreitar `CouponValidationResult` por igualdade literal (`if (r.ok)`)
+ * quando um dos ramos da união tem campo com tipo literal-union aninhado
+ * (aqui, `CouponRow.discount_type`/`rule_date_field`) — confirmado
+ * isolando o bug fora do projeto. Narrowing por `in` não tem esse
+ * problema. Não trocar por `if (r.ok)` sem testar de novo.
+ */
+export function couponRejectReason(r: CouponValidationResult): string | null {
+  if ("reason" in r) return r.reason;
+  return null;
+}
+
+/**
  * Um cliente pode ter várias contas (client_id diferentes) vinculadas ao
  * mesmo whatsapp_username — o portal já mostra todas juntas sob um só
  * login (app/api/client-portal/get-accounts/route.ts), e a pessoa escolhe

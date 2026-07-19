@@ -448,6 +448,7 @@ function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () =
   const [usedRows, setUsedRows] = useState<RedemptionRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "eligible" | "used">("all");
 
   useEffect(() => {
     let alive = true;
@@ -492,14 +493,14 @@ function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () =
   if (typeof document === "undefined") return null;
 
   const term = search.trim().toLowerCase();
-  const filteredUsed = !term
+  const searchedUsed = !term
     ? usedRows
     : usedRows.filter((r) => {
         const name = String(r.clients?.display_name || "").toLowerCase();
         const username = String(r.clients?.username || "").toLowerCase();
         return name.includes(term) || username.includes(term);
       });
-  const filteredGroups = !term
+  const searchedGroups = !term
     ? result?.groups || []
     : (result?.groups || []).filter(
         (g) =>
@@ -508,6 +509,9 @@ function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () =
             (a) => a.username.toLowerCase().includes(term) || a.serverName.toLowerCase().includes(term),
           ),
       );
+
+  const filteredUsed = statusFilter === "eligible" ? [] : searchedUsed;
+  const filteredGroups = statusFilter === "used" ? [] : searchedGroups;
 
   return createPortal(
     <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
@@ -526,13 +530,35 @@ function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () =
         </div>
 
         {!loading && result && (
-          <div className="px-4 pt-3 shrink-0">
+          <div className="px-4 pt-3 shrink-0 space-y-2">
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar cliente por nome ou usuário..."
               className="w-full h-9 rounded-lg border border-border bg-transparent px-3 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30"
             />
+            <div className="flex gap-1 p-1 bg-muted/50 border border-border rounded-lg w-fit">
+              {(
+                [
+                  { id: "all", label: `Todos (${result.totalClients + usedRows.length})` },
+                  { id: "eligible", label: `Não usado (${result.totalClients})` },
+                  { id: "used", label: `Usado (${usedRows.length})` },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setStatusFilter(opt.id)}
+                  className={`px-3 py-1.5 rounded-md text-[11px] font-medium transition-colors ${
+                    statusFilter === opt.id
+                      ? "bg-emerald-600 text-white shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 

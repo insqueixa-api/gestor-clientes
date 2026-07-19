@@ -318,6 +318,18 @@ export default function RenewClient() {
     null,
   );
 
+  // ✅ Cupom de desconto — só existe pra contas em BRL. Nunca manda o
+  // valor do desconto pro servidor, só o código; quem recalcula é o
+  // create-payment.
+  const [couponInput, setCouponInput] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string;
+    discountAmount: number;
+    planPriceOnly: number;
+  } | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [couponChecking, setCouponChecking] = useState(false);
+
   // ✅ NOVO: Estados para controle visual do botão de copiar
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
@@ -485,6 +497,24 @@ export default function RenewClient() {
     [availablePrices, selectedPeriod],
   );
 
+  // ✅ Mesmo fallback já usado em handleRenew/botão "Pagar e Renovar":
+  // plano selecionado, senão o plano atual do cliente. Usado pro cupom
+  // (prévia + modal de pendência) precisar de um preço antes de clicar
+  // em renovar.
+  const activeRenewPrice = useMemo(() => {
+    if (selectedPrice && selectedPrice.price_amount > 0) return selectedPrice;
+    return prices.find(
+      (p) => PERIOD_LABELS[p.period] === selectedAccount?.plan_label,
+    );
+  }, [selectedPrice, prices, selectedAccount]);
+
+  // ✅ Desconto depende do plano escolhido — troca de período invalida o
+  // cupom aplicado (precisa reaplicar).
+  useEffect(() => {
+    setAppliedCoupon(null);
+    setCouponError(null);
+  }, [selectedPeriod]);
+
   const monthlyPrice = useMemo(
     () => availablePrices.find((p) => p.period === "MONTHLY"),
     [availablePrices],
@@ -527,6 +557,48 @@ export default function RenewClient() {
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
   }, [selectedAccountId]);
+
+  // ✅ Prévia (nunca autoritativa) — o create-payment recalcula tudo de
+  // novo do zero na hora de pagar, nunca confia no que essa chamada
+  // devolveu (mesma regra da checagem de pendência abaixo).
+  async function handleApplyCoupon() {
+    if (!couponInput.trim() || !selectedAccount || !session) return;
+    setCouponChecking(true);
+    setCouponError(null);
+    try {
+      const res = await fetch("/api/client-portal/validate-coupon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_token: session,
+          client_id: selectedAccount.id,
+          period: selectedPeriod,
+          code: couponInput.trim(),
+        }),
+        cache: "no-store",
+      });
+      const result = await res.json().catch(() => null);
+      if (result?.ok) {
+        setAppliedCoupon({
+          code: result.code,
+          discountAmount: result.discountAmount,
+          planPriceOnly: result.planPriceOnly,
+        });
+        setCouponInput("");
+      } else {
+        setCouponError(result?.reason || result?.error || "Cupom inválido.");
+      }
+    } catch {
+      setCouponError("Erro ao validar cupom. Tente novamente.");
+    } finally {
+      setCouponChecking(false);
+    }
+  }
+
+  function handleRemoveCoupon() {
+    setAppliedCoupon(null);
+    setCouponError(null);
+  }
 
   const handleRenew = async () => {
     // ✅ Bloqueia execução duplicada
@@ -790,6 +862,20 @@ export default function RenewClient() {
     document.head.appendChild(script);
   }, []);
 
+  // ✅ Script de segurança do Mercado Pago (Device ID) — mesmo padrão do
+  // Stripe.js acima. Sem UI, só gera window.MP_DEVICE_SESSION_ID, que a
+  // gente manda pro create-payment na hora de pagar (melhora a
+  // "Qualidade da Integração" e a taxa de aprovação no MP).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (document.getElementById("mp-security-script")) return;
+    const script = document.createElement("script");
+    script.id = "mp-security-script";
+    script.src = "https://www.mercadopago.com/v2/security.js";
+    script.setAttribute("view", "checkout");
+    document.head.appendChild(script);
+  }, []);
+
   // Montar 3 card elements quando modal Stripe abrir
   useEffect(() => {
     if (
@@ -973,6 +1059,12 @@ export default function RenewClient() {
           period: resolvedPeriod,
           screens: selectedAccount.screens,
           force_manual: choice === "manual",
+          coupon_code: appliedCoupon?.code || null,
+          // ✅ Device ID do Mercado Pago (gerado pelo security.js carregado
+          // no useEffect acima) — melhora a "Qualidade da Integração" e a
+          // taxa de aprovação no MP. Undefined/vazio se o script ainda não
+          // rodou ou o método não for MP; o backend trata como opcional.
+          mp_device_id: (window as any).MP_DEVICE_SESSION_ID || null,
         }),
         cache: "no-store",
       });
@@ -1130,6 +1222,14 @@ export default function RenewClient() {
   function PendingChargesModal() {
     if (!showPendingChargesModal || !pendingCharges) return null;
 
+    // ✅ Resumo (plano + desconto do cupom, se houver) — pedido do Marcio
+    // pra esse modal também refletir o desconto nos somatórios. Só
+    // aparece quando dá pra saber o preço do plano nesse ponto do fluxo.
+    const summaryBase = activeRenewPrice?.price_amount ?? null;
+    const summaryCouponDiscount = appliedCoupon?.discountAmount || 0;
+    const summaryGrandTotal =
+      (summaryBase || 0) - summaryCouponDiscount + pendingCharges.total;
+
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
         <div className="w-full max-w-md bg-card rounded-3xl shadow-2xl overflow-hidden">
@@ -1138,6 +1238,20 @@ export default function RenewClient() {
           </div>
 
           <div className="p-5 space-y-3">
+            {summaryBase != null && selectedAccount && (
+              <div className="space-y-1 pb-3 border-b border-border text-sm">
+                <div className="flex justify-between text-foreground/80">
+                  <span>Plano</span>
+                  <span>{formatMoney(summaryBase, selectedAccount.price_currency)}</span>
+                </div>
+                {summaryCouponDiscount > 0 && (
+                  <div className="flex justify-between text-emerald-600">
+                    <span>Desconto (cupom {appliedCoupon?.code})</span>
+                    <span>-{formatMoney(summaryCouponDiscount, selectedAccount.price_currency)}</span>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="space-y-2">
               {pendingCharges.items.map((it, idx) => {
                 const dateLabel = it.activationDate
@@ -1169,6 +1283,15 @@ export default function RenewClient() {
                 {formatMoney(pendingCharges.total, pendingCharges.currency)}
               </span>
             </div>
+
+            {summaryBase != null && selectedAccount && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-bold text-foreground">Total Geral</span>
+                <span className="text-lg font-bold text-foreground">
+                  {formatMoney(summaryGrandTotal, selectedAccount.price_currency)}
+                </span>
+              </div>
+            )}
 
             <div className="p-3 rounded-xl bg-muted/40 border border-border text-xs text-muted-foreground leading-relaxed">
               Se você já regularizou essa pendência, entre em contato direto
@@ -1248,8 +1371,11 @@ export default function RenewClient() {
     const summaryPeriodLabel = confirmedPeriod
       ? PERIOD_LABELS[confirmedPeriod] || confirmedPeriod
       : null;
+    const summaryCouponDiscount = appliedCoupon?.discountAmount || 0;
     const summaryTotal =
-      (confirmedBasePrice || 0) + (pendingCharges?.total || 0);
+      (confirmedBasePrice || 0) -
+      summaryCouponDiscount +
+      (pendingCharges?.total || 0);
     const showSummary =
       !isApproved &&
       !isRejected &&
@@ -1262,6 +1388,12 @@ export default function RenewClient() {
           <span>Plano {summaryPeriodLabel}</span>
           <span>{formatMoney(confirmedBasePrice as number, summaryCurrency)}</span>
         </div>
+        {summaryCouponDiscount > 0 && (
+          <div className="flex justify-between text-emerald-600">
+            <span>Desconto (cupom {appliedCoupon?.code})</span>
+            <span>-{formatMoney(summaryCouponDiscount, summaryCurrency)}</span>
+          </div>
+        )}
         {pendingCharges && pendingCharges.total > 0 && (
           <div className="flex justify-between text-foreground/80">
             <span>Pendência Aplicativo</span>
@@ -3067,6 +3199,53 @@ export default function RenewClient() {
           </div>
         </div>
 
+        {/* Cupom de desconto — só pra contas em BRL */}
+        {selectedAccount.price_currency === "BRL" && (
+          <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
+            <div className="bg-muted/50 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-border">
+              <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
+                🎟️ Cupom de desconto
+              </h2>
+            </div>
+            <div className="p-3 sm:p-4">
+              {appliedCoupon ? (
+                <div className="flex items-center justify-between gap-2 h-10 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3">
+                  <span className="text-sm font-medium text-emerald-600 truncate">
+                    🎉 {appliedCoupon.code} aplicado — -
+                    {formatMoney(appliedCoupon.discountAmount, selectedAccount.price_currency)}
+                  </span>
+                  <button
+                    onClick={handleRemoveCoupon}
+                    className="text-xs text-muted-foreground hover:text-rose-500 underline shrink-0"
+                  >
+                    Remover
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      value={couponInput}
+                      onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                      onKeyDown={(e) => e.key === "Enter" && handleApplyCoupon()}
+                      placeholder="Código do cupom"
+                      className="flex-1 h-10 rounded-xl border border-border bg-muted px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-emerald-500/30"
+                    />
+                    <button
+                      onClick={handleApplyCoupon}
+                      disabled={!couponInput.trim() || couponChecking}
+                      className="h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-50 transition-colors shrink-0"
+                    >
+                      {couponChecking ? "..." : "Aplicar"}
+                    </button>
+                  </div>
+                  {couponError && <p className="text-xs text-rose-500">{couponError}</p>}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Botão Concluir */}
         {(() => {
           const renewPrice =
@@ -3075,6 +3254,10 @@ export default function RenewClient() {
               : prices.find(
                   (p) => PERIOD_LABELS[p.period] === selectedAccount.plan_label,
                 );
+          const displayTotal =
+            renewPrice && renewPrice.price_amount > 0
+              ? Math.max(0, renewPrice.price_amount - (appliedCoupon?.discountAmount || 0))
+              : null;
 
           return (
             <button
@@ -3116,11 +3299,8 @@ export default function RenewClient() {
                 <>
                   <CheckCircle2 className="w-5 h-5 shrink-0" />
                   Pagar e Renovar •{" "}
-                  {renewPrice && renewPrice.price_amount > 0
-                    ? formatMoney(
-                        renewPrice.price_amount,
-                        selectedAccount.price_currency,
-                      )
+                  {displayTotal != null
+                    ? formatMoney(displayTotal, selectedAccount.price_currency)
                     : "—"}
                 </>
               )}
