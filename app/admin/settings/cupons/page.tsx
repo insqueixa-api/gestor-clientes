@@ -499,10 +499,14 @@ function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () =
         const username = String(r.clients?.username || "").toLowerCase();
         return name.includes(term) || username.includes(term);
       });
-  const filteredEligible = !term
-    ? result?.clients || []
-    : (result?.clients || []).filter(
-        (c) => c.name.toLowerCase().includes(term) || c.username.toLowerCase().includes(term),
+  const filteredGroups = !term
+    ? result?.groups || []
+    : (result?.groups || []).filter(
+        (g) =>
+          g.name.toLowerCase().includes(term) ||
+          g.accounts.some(
+            (a) => a.username.toLowerCase().includes(term) || a.serverName.toLowerCase().includes(term),
+          ),
       );
 
   return createPortal(
@@ -549,14 +553,7 @@ function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () =
                 </span>
               </div>
 
-              {result.clients.some((c) => c.linkedAccountsCount > 1) && (
-                <p className="text-[11px] text-muted-foreground">
-                  🔗 = mesma pessoa tem outras contas nesta lista (mesmo WhatsApp) — a contagem é por
-                  conta, não por pessoa, já que ela só renova uma.
-                </p>
-              )}
-
-              {filteredUsed.length === 0 && filteredEligible.length === 0 ? (
+              {filteredUsed.length === 0 && filteredGroups.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-6">
                   {term ? "Nenhum cliente encontrado." : "Nenhum cliente elegível hoje."}
                 </p>
@@ -573,30 +570,57 @@ function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () =
                       </span>
                     </div>
                   ))}
-                  {filteredEligible.map((c) => (
-                    <div key={c.id} className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
-                      <span className="text-foreground/90 truncate flex items-center gap-1.5">
-                        {c.name} <span className="text-muted-foreground">({c.username})</span>
-                        {c.linkedAccountsCount > 1 && (
-                          <span
-                            className="inline-flex items-center text-[10px] font-medium bg-purple-500/10 text-purple-500 border border-purple-500/20 px-1.5 py-0.5 rounded-full shrink-0"
-                            title="Mesma pessoa possui outras contas nesta lista (mesmo WhatsApp) — só uma delas será renovada."
-                          >
-                            🔗 +{c.linkedAccountsCount - 1}
+                  {filteredGroups.map((g) =>
+                    g.accounts.length === 1 ? (
+                      <div key={g.key} className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
+                        <span className="text-foreground/90 truncate">
+                          {g.name} <span className="text-muted-foreground">({g.accounts[0].username})</span>
+                        </span>
+                        <span className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[10px] font-medium bg-muted text-muted-foreground border border-border px-2 py-0.5 rounded-full whitespace-nowrap">
+                            Não usado
                           </span>
-                        )}
-                      </span>
-                      <span className="flex items-center gap-1.5 shrink-0">
-                        <span className="text-[10px] font-medium bg-muted text-muted-foreground border border-border px-2 py-0.5 rounded-full whitespace-nowrap">
-                          Não usado
+                          <span className="text-muted-foreground whitespace-nowrap">
+                            {fmtMoney(g.accounts[0].normalPrice!)} →{" "}
+                            <span className="text-emerald-500">{fmtMoney(g.accounts[0].discountedPrice!)}</span>
+                          </span>
                         </span>
-                        <span className="text-muted-foreground whitespace-nowrap">
-                          {fmtMoney(c.normalPrice)} →{" "}
-                          <span className="text-emerald-500">{fmtMoney(c.discountedPrice)}</span>
-                        </span>
-                      </span>
-                    </div>
-                  ))}
+                      </div>
+                    ) : (
+                      <div key={g.key} className="px-3 py-2 text-xs space-y-1.5">
+                        <div className="font-medium text-foreground/90">
+                          {g.name}{" "}
+                          <span className="text-muted-foreground font-normal">
+                            — {g.accounts.length} contas vinculadas
+                          </span>
+                        </div>
+                        <div className="pl-3 space-y-1">
+                          {g.accounts.map((a) => (
+                            <div key={a.id} className="flex items-center justify-between gap-2">
+                              <span className="text-muted-foreground truncate">
+                                {a.username} ({a.serverName})
+                              </span>
+                              {a.eligible ? (
+                                <span className="flex items-center gap-1.5 shrink-0">
+                                  <span className="text-[10px] font-medium bg-muted text-muted-foreground border border-border px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                                    Não usado
+                                  </span>
+                                  <span className="text-muted-foreground whitespace-nowrap">
+                                    {fmtMoney(a.normalPrice!)} →{" "}
+                                    <span className="text-emerald-500">{fmtMoney(a.discountedPrice!)}</span>
+                                  </span>
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-muted-foreground/70 shrink-0">
+                                  não elegível
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ),
+                  )}
                 </div>
               )}
             </div>

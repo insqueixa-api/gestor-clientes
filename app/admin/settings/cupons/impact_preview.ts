@@ -51,21 +51,44 @@ export type CouponRulesParams = {
   ruleDaysMax: number | null;
 };
 
+/** Preço normal x com desconto de uma conta específica — usado no cupom pessoal. */
 export type ImpactClientRow = {
   id: string;
   name: string;
   username: string;
   normalPrice: number;
   discountedPrice: number;
-  /** Quantas contas NESTA lista compartilham o mesmo whatsapp (mesma pessoa, portal mostra todas juntas). 1 = sem outras contas na lista. */
-  linkedAccountsCount: number;
+};
+
+/** Uma conta dentro do grupo de uma pessoa — elegíveis têm preço, as demais não. */
+export type ImpactAccountRow = {
+  id: string;
+  username: string;
+  serverName: string;
+  eligible: boolean;
+  normalPrice: number | null;
+  discountedPrice: number | null;
+};
+
+/**
+ * Uma pessoa pode ter várias contas (client_id) vinculadas ao mesmo
+ * whatsapp — o portal mostra todas juntas sob 1 login e ela escolhe qual
+ * renovar (get-accounts/route.ts). Um grupo = 1 pessoa, com TODAS as
+ * contas dela que aparecem na tabela de clientes (elegíveis ou não),
+ * pra dar contexto completo — "Insqueixa" sozinho não diz em qual
+ * servidor, por exemplo.
+ */
+export type ImpactPersonGroup = {
+  key: string;
+  name: string;
+  accounts: ImpactAccountRow[];
 };
 
 export type ImpactResult = {
   totalClients: number;
   totalNormal: number;
   totalDiscounted: number;
-  clients: ImpactClientRow[];
+  groups: ImpactPersonGroup[];
 };
 
 type PlanTableLite = { id: string; currency: string; is_system_default: boolean };
@@ -74,6 +97,7 @@ type ClientLite = {
   id: string;
   client_name: string | null;
   username: string | null;
+  server_name: string | null;
   computed_status: string | null;
   server_id: string | null;
   plan_name: string | null;
@@ -89,7 +113,7 @@ type ClientLite = {
 };
 
 const CLIENT_SELECT =
-  "id, client_name, username, computed_status, server_id, plan_name, apps_names, vencimento, screens, price_currency, price_amount, plan_table_id, created_at, whatsapp_username, secondary_whatsapp_username";
+  "id, client_name, username, server_name, computed_status, server_id, plan_name, apps_names, vencimento, screens, price_currency, price_amount, plan_table_id, created_at, whatsapp_username, secondary_whatsapp_username";
 
 /** Resolve a tabela de preço BRL do cliente. Retorna null se não achar uma tabela BRL. */
 function resolveBRLPlanTable(planTables: PlanTableLite[], client: ClientLite): string | null {
@@ -233,8 +257,8 @@ export async function computeCouponImpact(
     }
   }
 
-  type Draft = ImpactClientRow & { whatsapp: string };
-  const drafts: Draft[] = [];
+  type EligibleAccount = { client: ClientLite; normalPrice: number; discountedPrice: number };
+  const eligibleAccounts: EligibleAccount[] = [];
   for (const client of eligible) {
     const planTableId = resolveBRLPlanTable(planTables, client);
     if (!planTableId) continue;
@@ -260,39 +284,60 @@ export async function computeCouponImpact(
     // precificada individualmente.
     const normalPrice = priceAmount > 0 ? priceAmount : standardPrice;
 
-    drafts.push({
-      id: client.id,
-      name: client.client_name || "—",
-      username: client.username || "—",
+    eligibleAccounts.push({
+      client,
       normalPrice,
       discountedPrice: computeDiscountedPrice(normalPrice, discountType, discountValue),
-      linkedAccountsCount: 1,
-      whatsapp: client.whatsapp_username || "",
     });
   }
 
-  // Marca contas que compartilham o mesmo whatsapp (mesma pessoa) — o
-  // portal já mostra todas juntas sob 1 login e ela escolhe qual renovar.
-  const waCounts = new Map<string, number>();
-  for (const d of drafts) {
-    if (!d.whatsapp) continue;
-    waCounts.set(d.whatsapp, (waCounts.get(d.whatsapp) || 0) + 1);
+  // Agrupa por pessoa (whatsapp) e mostra TODAS as contas dela — não só a
+  // elegível — pra dar contexto (ex: "Insqueixa" sozinho não diz em qual
+  // servidor; com as contas-irmãs junto fica claro).
+  const eligibleIds = new Set(eligibleAccounts.map((e) => e.client.id));
+  const waWithEligible = new Set(
+    eligibleAccounts.map((e) => e.client.whatsapp_username).filter((w): w is string => !!w),
+  );
+
+  const groupsMap = new Map<string, ImpactPersonGroup>();
+  function addAccount(
+    client: ClientLite,
+    eligible: boolean,
+    normalPrice: number | null,
+    discountedPrice: number | null,
+  ) {
+    const key = client.whatsapp_username || `solo:${client.id}`;
+    let group = groupsMap.get(key);
+    if (!group) {
+      group = { key, name: client.client_name || "—", accounts: [] };
+      groupsMap.set(key, group);
+    }
+    group.accounts.push({
+      id: client.id,
+      username: client.username || "—",
+      serverName: client.server_name || "—",
+      eligible,
+      normalPrice,
+      discountedPrice,
+    });
   }
 
-  const clients: ImpactClientRow[] = drafts.map((d) => ({
-    id: d.id,
-    name: d.name,
-    username: d.username,
-    normalPrice: d.normalPrice,
-    discountedPrice: d.discountedPrice,
-    linkedAccountsCount: d.whatsapp ? waCounts.get(d.whatsapp) || 1 : 1,
-  }));
+  for (const e of eligibleAccounts) {
+    addAccount(e.client, true, e.normalPrice, e.discountedPrice);
+  }
+  for (const c of allClients) {
+    if (eligibleIds.has(c.id)) continue;
+    if (!c.whatsapp_username || !waWithEligible.has(c.whatsapp_username)) continue;
+    addAccount(c, false, null, null);
+  }
+
+  const groups = Array.from(groupsMap.values());
 
   return {
-    totalClients: clients.length,
-    totalNormal: clients.reduce((sum, c) => sum + c.normalPrice, 0),
-    totalDiscounted: clients.reduce((sum, c) => sum + c.discountedPrice, 0),
-    clients,
+    totalClients: eligibleAccounts.length,
+    totalNormal: eligibleAccounts.reduce((sum, e) => sum + e.normalPrice, 0),
+    totalDiscounted: eligibleAccounts.reduce((sum, e) => sum + e.discountedPrice, 0),
+    groups,
   };
 }
 
@@ -352,6 +397,5 @@ export async function computeSingleClientImpact(params: {
     username: client.username || "—",
     normalPrice,
     discountedPrice: computeDiscountedPrice(normalPrice, discountType, discountValue),
-    linkedAccountsCount: 1,
   };
 }

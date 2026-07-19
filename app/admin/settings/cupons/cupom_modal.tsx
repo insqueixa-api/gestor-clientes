@@ -721,36 +721,47 @@ export default function CupomModal({
                     </button>
                   )}
 
-                  {impactResult.clients.some((c) => c.linkedAccountsCount > 1) && (
-                    <p className="text-[10px] text-muted-foreground">
-                      🔗 = mesma pessoa tem outras contas na lista (mesmo WhatsApp).
-                    </p>
-                  )}
-
                   {showImpactClients && (
                     <div className="max-h-40 overflow-y-auto rounded-lg border border-border divide-y divide-border">
-                      {impactResult.clients.map((c) => (
-                        <div
-                          key={c.id}
-                          className="flex items-center justify-between px-3 py-1.5 text-[11px]"
-                        >
-                          <span className="text-foreground/90 truncate flex items-center gap-1">
-                            {c.name} <span className="text-muted-foreground">({c.username})</span>
-                            {c.linkedAccountsCount > 1 && (
-                              <span
-                                className="inline-flex items-center text-[9px] font-medium bg-purple-500/10 text-purple-500 border border-purple-500/20 px-1 py-0.5 rounded-full shrink-0"
-                                title="Mesma pessoa possui outras contas nesta lista (mesmo WhatsApp)."
-                              >
-                                🔗
-                              </span>
-                            )}
-                          </span>
-                          <span className="text-muted-foreground shrink-0 ml-2">
-                            {fmtMoney(c.normalPrice)} →{" "}
-                            <span className="text-emerald-500">{fmtMoney(c.discountedPrice)}</span>
-                          </span>
-                        </div>
-                      ))}
+                      {impactResult.groups.map((g) =>
+                        g.accounts.length === 1 ? (
+                          <div
+                            key={g.key}
+                            className="flex items-center justify-between px-3 py-1.5 text-[11px]"
+                          >
+                            <span className="text-foreground/90 truncate">
+                              {g.name} <span className="text-muted-foreground">({g.accounts[0].username})</span>
+                            </span>
+                            <span className="text-muted-foreground shrink-0 ml-2">
+                              {fmtMoney(g.accounts[0].normalPrice!)} →{" "}
+                              <span className="text-emerald-500">{fmtMoney(g.accounts[0].discountedPrice!)}</span>
+                            </span>
+                          </div>
+                        ) : (
+                          <div key={g.key} className="px-3 py-1.5 text-[11px] space-y-1">
+                            <div className="font-medium text-foreground/90">
+                              {g.name} <span className="text-muted-foreground">— {g.accounts.length} contas</span>
+                            </div>
+                            <div className="pl-3 space-y-1">
+                              {g.accounts.map((a) => (
+                                <div key={a.id} className="flex items-center justify-between gap-2">
+                                  <span className="text-muted-foreground truncate">
+                                    {a.username} ({a.serverName})
+                                  </span>
+                                  {a.eligible ? (
+                                    <span className="text-muted-foreground shrink-0">
+                                      {fmtMoney(a.normalPrice!)} →{" "}
+                                      <span className="text-emerald-500">{fmtMoney(a.discountedPrice!)}</span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground/70 shrink-0">não elegível</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ),
+                      )}
                     </div>
                   )}
                 </div>
