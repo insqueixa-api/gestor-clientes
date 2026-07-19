@@ -326,6 +326,8 @@ export default function RenewClient() {
     code: string;
     discountAmount: number;
     planPriceOnly: number;
+    discountType: "percent" | "fixed" | null;
+    discountValue: number | null;
   } | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [couponChecking, setCouponChecking] = useState(false);
@@ -583,6 +585,8 @@ export default function RenewClient() {
           code: result.code,
           discountAmount: result.discountAmount,
           planPriceOnly: result.planPriceOnly,
+          discountType: result.discountType ?? null,
+          discountValue: result.discountValue ?? null,
         });
         setCouponInput("");
       } else {
@@ -3211,8 +3215,15 @@ export default function RenewClient() {
               {appliedCoupon ? (
                 <div className="flex items-center justify-between gap-2 h-10 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3">
                   <span className="text-sm font-medium text-emerald-600 truncate">
-                    🎉 {appliedCoupon.code} aplicado — -
-                    {formatMoney(appliedCoupon.discountAmount, selectedAccount.price_currency)}
+                    🎉 {appliedCoupon.code} aplicado:{" "}
+                    {appliedCoupon.discountType === "percent" && appliedCoupon.discountValue != null ? (
+                      <strong className="font-bold">
+                        {String(appliedCoupon.discountValue).replace(".", ",")}% de desconto
+                      </strong>
+                    ) : (
+                      <strong className="font-bold">desconto</strong>
+                    )}{" "}
+                    (-{formatMoney(appliedCoupon.discountAmount, selectedAccount.price_currency)})
                   </span>
                   <button
                     onClick={handleRemoveCoupon}

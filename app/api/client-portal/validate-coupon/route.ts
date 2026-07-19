@@ -184,6 +184,8 @@ export async function POST(req: NextRequest) {
         ok: true,
         code: result.coupon.code,
         discountAmount: result.discountAmount,
+        discountType: result.coupon.discount_type,
+        discountValue: Number(result.coupon.discount_value),
         planPriceOnly,
         currency,
       },

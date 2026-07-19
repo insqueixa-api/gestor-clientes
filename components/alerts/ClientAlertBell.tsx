@@ -37,8 +37,8 @@ function buildAppChargeMessage(appName: string, activationDateISO: string) {
     ? new Date(`${activationDateISO}T12:00:00`).toLocaleDateString("pt-BR")
     : "";
   return datePart
-    ? `Ativação do aplicativo ${appName} realizada no dia ${datePart}`
-    : `Ativação do aplicativo ${appName}`;
+    ? `Ativação: "${appName}" - dia ${datePart}`
+    : `Ativação: "${appName}"`;
 }
 
 function isoDateToday() {
