@@ -1120,7 +1120,7 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
                   <th className="px-4 py-3 text-center">Pagamento</th>
                   <th className="px-4 py-3 text-center">Renovação</th>
                   <th className="px-4 py-3 text-center">Mensagem WA</th>
-                  <th className="px-4 py-3 text-right">Valor</th>
+                  <th className="px-4 py-3 text-center">Valor</th>
                   <th className="px-4 py-3 text-center">Ações</th>
                 </tr>
               </thead>
@@ -1285,7 +1285,7 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
                         </td>
 
                         {/* Valor */}
-                        <td className="px-4 py-3 text-right">
+                        <td className="px-4 py-3 text-center">
                           <span className="font-medium text-foreground/90 finance-value">
                             {fmtMoney(r.price_amount, r.price_currency)}
                           </span>
@@ -1302,10 +1302,10 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
                               {r.pendencies.map((p, idx) => (
                                 <div
                                   key={idx}
-                                  className="text-[10px] text-amber-500 leading-tight max-w-[220px] truncate ml-auto"
+                                  className="text-[10px] text-amber-500 leading-tight max-w-[220px] truncate mx-auto"
                                   title={p.label}
                                 >
-                                  Pendência: {p.label} ({fmtMoney(p.amount, r.price_currency)})
+                                  {p.label} ({fmtMoney(p.amount, r.price_currency)})
                                 </div>
                               ))}
                             </div>
