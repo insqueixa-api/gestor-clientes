@@ -717,6 +717,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
                 tenantId={tenantId}
                 clientId={clientIdSafe}
                 clientName={client.client_name}
+                clientUsername={client.username}
                 alertsCount={client.alerts_open || 0}
                 onChanged={loadData}
                 addToast={addToast}

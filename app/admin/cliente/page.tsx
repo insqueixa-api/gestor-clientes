@@ -12,12 +12,9 @@ import {
   Clock,
   CreditCard,
   Pencil,
-  Bell,
   RefreshCcw,
   Timer,
   Trash2,
-  ThumbsUp,
-  ThumbsDown,
 } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
@@ -36,6 +33,9 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { getIntegrationHandler } from "@/lib/integrations"; // ✅ NOVO: Traz o cérebro das integrações
 import Pagination from "@/components/ui/Pagination";
 import { isoDateInSaoPaulo } from "@/lib/date-br";
+import ClientAlertBell, {
+  type ClientAlertBellHandle,
+} from "@/components/alerts/ClientAlertBell";
 
 if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
   window.console.log = () => {};
@@ -332,6 +332,7 @@ function ClientePageContent() {
   const [rows, setRows] = useState<ClientRow[]>([]);
   const [loading, setLoading] = useState(true);
   const loadingRef = useRef(false);
+  const alertBellRefs = useRef<Map<string, ClientAlertBellHandle>>(new Map());
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [sendingNow, setSendingNow] = useState(false);
   const sendNowAbortRef = useRef<AbortController | null>(null);
@@ -474,52 +475,6 @@ const [pageSize, setPageSize] = useState(50);
     clientName: undefined,
   });
 
-  const [showNewAlert, setShowNewAlert] = useState<{
-    open: boolean;
-    clientId: string | null;
-    clientName?: string;
-  }>({
-    open: false,
-    clientId: null,
-    clientName: undefined,
-  });
-  const [newAlertText, setNewAlertText] = useState("");
-  // ✅ Pendências financeiras: null = tela de escolha (3 opções) ainda não decidida
-  const [newAlertKind, setNewAlertKind] = useState<
-    "note" | "app_charge" | "generic_charge" | null
-  >(null);
-  const [newAlertAmount, setNewAlertAmount] = useState("");
-  const [newAlertCurrency, setNewAlertCurrency] = useState("BRL");
-  const [newAlertClientAppId, setNewAlertClientAppId] = useState("");
-  const [newAlertActivationDate, setNewAlertActivationDate] = useState("");
-  const [clientAppsForAlert, setClientAppsForAlert] = useState<
-    {
-      id: string;
-      appName: string;
-      costType: string | null;
-      licensePrice: number | null;
-    }[]
-  >([]);
-  const [loadingClientAppsForAlert, setLoadingClientAppsForAlert] =
-    useState(false);
-  // ✅ null = criando um alerta novo; preenchido = editando um já existente
-  const [editingAlertId, setEditingAlertId] = useState<string | null>(null);
-
-  const [showAlertList, setShowAlertList] = useState<{
-    open: boolean;
-    clientId: string | null;
-    clientName?: string;
-  }>({
-    open: false,
-    clientId: null,
-    clientName: undefined,
-  });
-  const [clientAlerts, setClientAlerts] = useState<unknown[]>([]);
-  // ✅ Toggle visual (👎 pendente / 👍 pago) antes de confirmar com "Salvar" —
-  // não grava no banco até o clique em Salvar.
-  const [toggledPaidIds, setToggledPaidIds] = useState<Set<string>>(
-    new Set(),
-  );
 
   // Mensagem (Mantido conforme original)
   const [showSendNow, setShowSendNow] = useState<{
@@ -1410,254 +1365,6 @@ const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
     }
   };
 
-  // ✅ Mensagem padrão da pendência de app — pré-preenchida na observação
-  // (editável) assim que app e/ou data mudam, já que 99% dos casos é isso.
-  function buildAppChargeMessage(appName: string, activationDateISO: string) {
-    if (!appName) return "";
-    const datePart = activationDateISO
-      ? new Date(`${activationDateISO}T12:00:00`).toLocaleDateString("pt-BR")
-      : "";
-    return datePart
-      ? `Ativação do aplicativo ${appName} realizada no dia ${datePart}`
-      : `Ativação do aplicativo ${appName}`;
-  }
-
-  // ✅ Busca os apps do cliente (nome + custo) pra popular o seletor da
-  // pendência de aplicativo — só carrega quando essa opção é escolhida.
-  const loadClientAppsForAlert = async (clientId: string) => {
-    setLoadingClientAppsForAlert(true);
-    try {
-      const { data, error } = await supabaseBrowser
-        .from("client_apps")
-        .select("id, apps(name, cost_type, license_price)")
-        .eq("client_id", clientId);
-
-      if (error) throw error;
-
-      const mapped = ((data as any[]) || []).map((r) => ({
-        id: String(r.id),
-        appName: String(r.apps?.name ?? "App"),
-        costType: r.apps?.cost_type ?? null,
-        licensePrice:
-          r.apps?.license_price != null
-            ? Number(r.apps.license_price)
-            : null,
-      }));
-      setClientAppsForAlert(mapped);
-    } catch (error: any) {
-      addToast("error", "Erro ao carregar apps", error.message);
-      setClientAppsForAlert([]);
-    } finally {
-      setLoadingClientAppsForAlert(false);
-    }
-  };
-
-  function resetNewAlertForm() {
-    setShowNewAlert({ open: false, clientId: null, clientName: undefined });
-    setNewAlertKind(null);
-    setNewAlertText("");
-    setNewAlertAmount("");
-    setNewAlertCurrency("BRL");
-    setNewAlertClientAppId("");
-    setNewAlertActivationDate("");
-    setClientAppsForAlert([]);
-    setEditingAlertId(null);
-  }
-
-  // ✅ Abre o mesmo modal já preenchido com os dados do alerta, pulando a
-  // tela de escolha (já sabemos o tipo pelos campos que existem).
-  const openEditAlert = (alert: any, clientId: string, clientName: string) => {
-    const kind: "note" | "app_charge" | "generic_charge" =
-      alert.amount == null
-        ? "note"
-        : alert.client_app_id
-          ? "app_charge"
-          : "generic_charge";
-
-    setEditingAlertId(String(alert.id));
-    setNewAlertKind(kind);
-    setNewAlertText(alert.message || "");
-    setNewAlertAmount(alert.amount != null ? String(alert.amount) : "");
-    setNewAlertCurrency(alert.currency || "BRL");
-    setNewAlertClientAppId(alert.client_app_id || "");
-    setNewAlertActivationDate(alert.activation_date || "");
-    setShowNewAlert({ open: true, clientId, clientName });
-
-    if (kind === "app_charge") loadClientAppsForAlert(clientId);
-  };
-
-  const handleSaveAlert = async () => {
-    if (!showNewAlert.clientId || !tenantId || !newAlertKind) return;
-
-    const payload: Record<string, any> = {
-      tenant_id: tenantId,
-      client_id: showNewAlert.clientId,
-      status: "OPEN",
-    };
-
-    if (newAlertKind === "note") {
-      if (!newAlertText.trim()) return;
-      payload.message = newAlertText.trim();
-    } else {
-      // app_charge ou generic_charge: exige valor válido
-      const amount = Number(newAlertAmount.replace(",", "."));
-      if (!Number.isFinite(amount) || amount <= 0) {
-        addToast("error", "Valor inválido", "Informe um valor maior que zero.");
-        return;
-      }
-      payload.amount = amount;
-      payload.currency = newAlertCurrency || "BRL";
-
-      if (newAlertKind === "app_charge") {
-        if (!newAlertClientAppId) {
-          addToast("error", "Selecione um app", "Escolha qual app gerou a pendência.");
-          return;
-        }
-        const app = clientAppsForAlert.find(
-          (a) => a.id === newAlertClientAppId,
-        );
-        payload.client_app_id = newAlertClientAppId;
-        payload.message =
-          newAlertText.trim() ||
-          buildAppChargeMessage(app?.appName ?? "", newAlertActivationDate);
-        if (newAlertActivationDate) {
-          payload.activation_date = newAlertActivationDate;
-        }
-      } else {
-        if (!newAlertText.trim()) {
-          addToast("error", "Descreva a pendência", "Digite do que se trata.");
-          return;
-        }
-        payload.message = newAlertText.trim();
-      }
-    }
-
-    try {
-      const { error } = editingAlertId
-        ? await supabaseBrowser
-            .from("client_alerts")
-            .update(payload)
-            .eq("id", editingAlertId)
-        : await supabaseBrowser.from("client_alerts").insert(payload);
-
-      if (error) throw error;
-
-      addToast(
-        "success",
-        editingAlertId ? "Alerta atualizado" : "Alerta criado",
-        "O alerta foi salvo com sucesso.",
-      );
-      const clientIdForRefresh = showNewAlert.clientId;
-      const clientNameForRefresh = showNewAlert.clientName;
-      resetNewAlertForm();
-      loadData();
-      // ✅ Se a lista de alertas estava aberta atrás (editando por lá), atualiza ela também
-      if (showAlertList.open && clientIdForRefresh) {
-        handleOpenAlertList(clientIdForRefresh, clientNameForRefresh || "");
-      }
-    } catch (error: any) {
-      addToast(
-        "error",
-        editingAlertId ? "Erro ao atualizar alerta" : "Erro ao criar alerta",
-        error.message,
-      );
-    }
-  };
-
-  const handleDeleteAlert = async (alertId: string) => {
-    if (!tenantId) return;
-    const alertObj = (clientAlerts as any[]).find(
-      (a) => String(a.id) === String(alertId),
-    );
-
-    const ok = await confirm({
-      title: "Remover alerta",
-      subtitle: "Este alerta será removido e não poderá ser recuperado.",
-      tone: "rose",
-      icon: "⚠️",
-      details: [
-        `Cliente: ${showAlertList.clientName ?? "—"}`,
-        alertObj?.message
-          ? `Alerta: ${String(alertObj.message).slice(0, 140)}${String(alertObj.message).length > 140 ? "..." : ""}`
-          : "Alerta: —",
-      ],
-      confirmText: "Remover",
-      cancelText: "Voltar",
-    });
-
-    if (!ok) return;
-
-    // Pergunta: Você quer deletar ou apenas marcar como resolvido?
-    // Opção A: Deletar permanentemente
-    try {
-      const { error } = await supabaseBrowser
-        .from("client_alerts")
-        .delete()
-        .eq("id", alertId);
-
-      if (error) throw error;
-
-      // Remove da lista visualmente na hora (sem precisar recarregar tudo)
-      setClientAlerts((prev) =>
-        (prev as any[]).filter((a) => a.id !== alertId),
-      );
-
-      // Atualiza a contagem na tabela principal
-      loadData();
-    } catch (error: any) {
-      addToast("error", "Erro ao excluir", error.message);
-    }
-  };
-
-  // ✅ Fecha o alerta como quitado (mantém o registro, só muda status) —
-  // diferente de handleDeleteAlert, que apaga de vez.
-  const handleSettleAlert = async (alertId: string) => {
-    if (!tenantId) return;
-
-    try {
-      const { error } = await supabaseBrowser
-        .from("client_alerts")
-        .update({ status: "CLOSED", closed_at: new Date().toISOString() })
-        .eq("id", alertId);
-
-      if (error) throw error;
-
-      setClientAlerts((prev) =>
-        (prev as any[]).filter((a) => a.id !== alertId),
-      );
-      addToast("success", "Marcado como pago", "A pendência foi quitada.");
-      loadData();
-    } catch (error: any) {
-      addToast("error", "Erro ao quitar", error.message);
-    }
-  };
-
-  const handleOpenAlertList = async (clientId: string, clientName: string) => {
-    // Limpa lista anterior e abre modal
-    setClientAlerts([]);
-    setToggledPaidIds(new Set());
-    setShowAlertList({ open: true, clientId, clientName });
-
-    try {
-      if (!tenantId) return;
-
-      // Busca direta no banco (com nome do app, se a pendência for vinculada)
-      const { data, error } = await supabaseBrowser
-        .from("client_alerts")
-        .select("*, client_apps(apps(name))")
-        .eq("tenant_id", tenantId)
-        .eq("client_id", clientId)
-        // Se quiser ver histórico, remova a linha abaixo
-        .eq("status", "OPEN")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-
-      setClientAlerts(data || []);
-    } catch (error: any) {
-      addToast("error", "Erro ao carregar alertas", error.message);
-    }
-  };
 
   const handleSendMessage = async () => {
     if (!tenantId || !showSendNow.clientId) return;
@@ -2397,19 +2104,6 @@ className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-co
 
                             {/* Adicionado shrink-0 para garantir que os ícones nunca sejam esmagados */}
                             <div className="flex items-center gap-1 shrink-0">
-                              {r.alertsCount > 0 && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleOpenAlertList(r.id, r.name);
-                                  }}
-                                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-500 border border-amber-500/20 text-[10px] font-medium hover:bg-amber-500/30 transition-colors animate-pulse"
-                                  title="Ver alertas pendentes"
-                                >
-                                  🔔 {r.alertsCount}
-                                </button>
-                              )}
-
                               {(scheduledMap[r.id]?.length || 0) > 0 && (
                                 <button
                                   onClick={(e) => {
@@ -2744,21 +2438,19 @@ className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-co
                             <IconEdit />
                           </IconActionBtn>
 
-                          <IconActionBtn
-                            title="Novo alerta"
-                            tone="purple"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              resetNewAlertForm();
-                              setShowNewAlert({
-                                open: true,
-                                clientId: r.id,
-                                clientName: r.name,
-                              });
+                          <ClientAlertBell
+                            ref={(el) => {
+                              if (el) alertBellRefs.current.set(r.id, el);
+                              else alertBellRefs.current.delete(r.id);
                             }}
-                          >
-                            <IconBell />
-                          </IconActionBtn>
+                            tenantId={tenantId}
+                            clientId={r.id}
+                            clientName={r.name}
+                            clientUsername={r.username}
+                            alertsCount={r.alertsCount}
+                            onChanged={loadData}
+                            addToast={addToast}
+                          />
 
                           <IconActionBtn
                             title={r.archived ? "Restaurar" : "Arquivar"}
@@ -2871,7 +2563,7 @@ className="p-8 text-center text-muted-foreground italic"
                     clientName: "",
                   });
                   // Abre a lista de alertas para checar
-                  if (clientId) handleOpenAlertList(clientId, clientName);
+                  if (clientId) alertBellRefs.current.get(clientId)?.openList();
                 }}
                 className="px-4 py-2 rounded-lg border border-border text-foreground/90 font-medium hover:bg-muted transition-colors text-xs uppercase"
               >
@@ -2922,436 +2614,6 @@ className="p-8 text-center text-muted-foreground italic"
         />
       )}
 
-      {showNewAlert.open && (
-        <Modal
-          title={editingAlertId ? "Editar Alerta" : "Novo Alerta"}
-          onClose={resetNewAlertForm}
-        >
-          <div className="space-y-4">
-            <div className="bg-purple-500/10 border border-purple-500/20 p-3 rounded-lg flex items-center gap-3">
-              <span className="text-xl">🔔</span>
-              <div className="text-sm text-foreground/90">
-                {editingAlertId
-                  ? "Editando alerta de"
-                  : newAlertKind
-                    ? "Para"
-                    : "Adicionando alerta para"}{" "}
-                <strong>{showNewAlert.clientName}</strong>
-              </div>
-            </div>
-
-            {newAlertKind === null && (
-              <div className="space-y-2">
-                <button
-                  onClick={() => {
-                    setNewAlertKind("app_charge");
-                    // ✅ Normalmente cadastra na hora que ativa o app
-                    setNewAlertActivationDate(isoDateInSaoPaulo());
-                    if (showNewAlert.clientId)
-                      loadClientAppsForAlert(showNewAlert.clientId);
-                  }}
-                  className="w-full text-left p-4 rounded-xl border border-border hover:border-purple-500/50 hover:bg-purple-500/5 transition-colors flex items-center gap-3"
-                >
-                  <span className="text-xl">📱</span>
-                  <div>
-                    <div className="text-sm font-semibold text-foreground/90">
-                      Pendência de aplicativo
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Ativou um app e o cliente ainda não pagou por ele.
-                    </div>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => setNewAlertKind("generic_charge")}
-                  className="w-full text-left p-4 rounded-xl border border-border hover:border-purple-500/50 hover:bg-purple-500/5 transition-colors flex items-center gap-3"
-                >
-                  <span className="text-xl">💰</span>
-                  <div>
-                    <div className="text-sm font-semibold text-foreground/90">
-                      Pendência qualquer
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Outro valor em aberto (ex: pagou a menos numa
-                      renovação).
-                    </div>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => setNewAlertKind("note")}
-                  className="w-full text-left p-4 rounded-xl border border-border hover:border-purple-500/50 hover:bg-purple-500/5 transition-colors flex items-center gap-3"
-                >
-                  <span className="text-xl">📝</span>
-                  <div>
-                    <div className="text-sm font-semibold text-foreground/90">
-                      Alerta normal
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Só um lembrete/observação, sem valor.
-                    </div>
-                  </div>
-                </button>
-              </div>
-            )}
-
-            {newAlertKind === "app_charge" && (
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
-                    Aplicativo
-                  </label>
-                  <select
-                    value={newAlertClientAppId}
-                    onChange={(e) => {
-                      const id = e.target.value;
-                      setNewAlertClientAppId(id);
-                      const app = clientAppsForAlert.find((a) => a.id === id);
-                      if (app?.licensePrice != null) {
-                        setNewAlertAmount(String(app.licensePrice));
-                      }
-                      setNewAlertText(
-                        buildAppChargeMessage(
-                          app?.appName ?? "",
-                          newAlertActivationDate,
-                        ),
-                      );
-                    }}
-                    disabled={loadingClientAppsForAlert}
-                    className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-purple-500 transition-colors"
-                  >
-                    <option value="">
-                      {loadingClientAppsForAlert
-                        ? "Carregando..."
-                        : "Selecionar..."}
-                    </option>
-                    {clientAppsForAlert.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.appName}
-                        {a.costType === "paid" ? "" : " (não pago)"}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
-                      Valor
-                    </label>
-                    <input
-                      value={newAlertAmount}
-                      onChange={(e) => setNewAlertAmount(e.target.value)}
-                      placeholder="0,00"
-                      inputMode="decimal"
-                      className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-purple-500 transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
-                      Moeda
-                    </label>
-                    <select
-                      value={newAlertCurrency}
-                      onChange={(e) => setNewAlertCurrency(e.target.value)}
-                      className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-purple-500 transition-colors"
-                    >
-                      <option value="BRL">BRL</option>
-                      <option value="USD">USD</option>
-                      <option value="EUR">EUR</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
-                    Data de ativação (opcional)
-                  </label>
-                  <input
-                    type="date"
-                    value={newAlertActivationDate}
-                    onChange={(e) => {
-                      const date = e.target.value;
-                      setNewAlertActivationDate(date);
-                      const app = clientAppsForAlert.find(
-                        (a) => a.id === newAlertClientAppId,
-                      );
-                      if (app) {
-                        setNewAlertText(
-                          buildAppChargeMessage(app.appName, date),
-                        );
-                      }
-                    }}
-                    className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-purple-500 transition-colors"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
-                    Observação
-                  </label>
-                  <textarea
-                    value={newAlertText}
-                    onChange={(e) => setNewAlertText(e.target.value)}
-                    className="w-full bg-transparent border border-border rounded-xl p-3 text-foreground outline-none focus:border-purple-500 transition-colors min-h-[70px] text-sm resize-none"
-                  />
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    Corrige se estiver errado.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {newAlertKind === "generic_charge" && (
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
-                    Descrição da pendência
-                  </label>
-                  <textarea
-                    value={newAlertText}
-                    onChange={(e) => setNewAlertText(e.target.value)}
-                    className="w-full bg-transparent border border-border rounded-xl p-3 text-foreground outline-none focus:border-purple-500 transition-colors min-h-[90px] text-sm resize-none"
-                    placeholder="Ex: pagou R$20 a menos na última renovação"
-                    autoFocus
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
-                      Valor
-                    </label>
-                    <input
-                      value={newAlertAmount}
-                      onChange={(e) => setNewAlertAmount(e.target.value)}
-                      placeholder="0,00"
-                      inputMode="decimal"
-                      className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-purple-500 transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
-                      Moeda
-                    </label>
-                    <select
-                      value={newAlertCurrency}
-                      onChange={(e) => setNewAlertCurrency(e.target.value)}
-                      className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-purple-500 transition-colors"
-                    >
-                      <option value="BRL">BRL</option>
-                      <option value="USD">USD</option>
-                      <option value="EUR">EUR</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {newAlertKind === "note" && (
-              <textarea
-                value={newAlertText}
-                onChange={(e) => setNewAlertText(e.target.value)}
-                className="w-full bg-transparent border border-border rounded-xl p-4 text-foreground outline-none focus:border-purple-500 transition-colors min-h-[120px] text-sm resize-none"
-                placeholder="Descreva o alerta deste cliente..."
-                autoFocus
-              />
-            )}
-
-            {newAlertKind !== null && (
-              <div className="flex justify-between gap-3 pt-2">
-                <button
-                  onClick={() => setNewAlertKind(null)}
-                  className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted text-sm font-medium transition-colors"
-                >
-                  ← Voltar
-                </button>
-                <div className="flex gap-3">
-                  <button
-                    onClick={resetNewAlertForm}
-                    className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted text-sm font-medium transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={handleSaveAlert}
-                    className="px-6 py-2 rounded-lg bg-purple-600 text-white font-bold hover:bg-purple-500 shadow-lg shadow-purple-900/20 text-sm transition-all"
-                  >
-                    {editingAlertId ? "Atualizar" : "Salvar"}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </Modal>
-      )}
-
-      {showScheduledModal.open && showScheduledModal.clientId && (
-        <ScheduledMessagesModal
-          tenantId={tenantId!}
-          clientId={showScheduledModal.clientId}
-          clientName={showScheduledModal.clientName || "Cliente"}
-          items={scheduledMap[showScheduledModal.clientId] || []}
-          onClose={() =>
-            setShowScheduledModal({
-              open: false,
-              clientId: null,
-              clientName: undefined,
-            })
-          }
-          onDeleted={async () => {
-            if (tenantId)
-              await loadScheduledForClients(
-                tenantId,
-                rows.map((x) => x.id),
-              );
-          }}
-          addToast={addToast}
-        />
-      )}
-
-      {showAlertList.open && (
-        <Modal
-          title={`Alertas: ${showAlertList.clientName}`}
-          onClose={() => setShowAlertList({ open: false, clientId: null })}
-        >
-          <div className="space-y-4">
-            <div className="max-h-[60vh] overflow-y-auto pr-1 space-y-3">
-              {(clientAlerts as any[]).length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground/60 border-2 border-dashed border-border rounded-xl">
-                  <span className="text-2xl mb-2">✅</span>
-                  <p className="text-sm">Nenhum alerta pendente.</p>
-                </div>
-              ) : (
-                (clientAlerts as any[]).map((alert) => {
-                  const hasAmount = alert.amount != null;
-                  const appName = alert.client_apps?.apps?.name as
-                    | string
-                    | undefined;
-                  const isToggledPaid = toggledPaidIds.has(String(alert.id));
-
-                  return (
-                    <div
-                      key={alert.id}
-                      className="group p-4 bg-muted/50 border border-border rounded-xl shadow-sm hover:border-rose-500/20 transition-all flex justify-between items-center gap-4"
-                    >
-                      <div className="flex gap-3">
-                        <span className="text-rose-500 mt-0.5">
-                          {hasAmount ? "💰" : "⚠️"}
-                        </span>
-                        <div>
-                          {hasAmount && (
-                            <div className="text-sm font-bold text-foreground mb-0.5">
-                              {
-                                formatMoney(
-                                  Number(alert.amount),
-                                  alert.currency || "BRL",
-                                ).label
-                              }
-                              {appName && (
-                                <span className="ml-1.5 font-normal text-xs text-muted-foreground">
-                                  · {appName}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                          <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
-                            {alert.message || ""}
-                          </p>
-                          {alert.activation_date && (
-                            <p className="text-[11px] text-muted-foreground mt-1">
-                              Ativado em{" "}
-                              {new Date(
-                                `${alert.activation_date}T12:00:00`,
-                              ).toLocaleDateString("pt-BR")}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {hasAmount && (
-                          <IconActionBtn
-                            title={
-                              isToggledPaid
-                                ? "Pago (clique em Salvar pra confirmar)"
-                                : "Marcar como pago"
-                            }
-                            tone={isToggledPaid ? "green" : "blue"}
-                            onClick={() =>
-                              setToggledPaidIds((prev) => {
-                                const next = new Set(prev);
-                                if (next.has(String(alert.id)))
-                                  next.delete(String(alert.id));
-                                else next.add(String(alert.id));
-                                return next;
-                              })
-                            }
-                          >
-                            {isToggledPaid ? (
-                              <IconThumbsUp />
-                            ) : (
-                              <IconThumbsDown />
-                            )}
-                          </IconActionBtn>
-                        )}
-                        {isToggledPaid ? (
-                          <button
-                            onClick={() => {
-                              handleSettleAlert(alert.id);
-                              setToggledPaidIds((prev) => {
-                                const next = new Set(prev);
-                                next.delete(String(alert.id));
-                                return next;
-                              });
-                            }}
-                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-sm transition-colors"
-                          >
-                            Salvar
-                          </button>
-                        ) : (
-                          <>
-                            <IconActionBtn
-                              title="Editar"
-                              tone="amber"
-                              onClick={() =>
-                                openEditAlert(
-                                  alert,
-                                  showAlertList.clientId || "",
-                                  showAlertList.clientName || "",
-                                )
-                              }
-                            >
-                              <IconEdit />
-                            </IconActionBtn>
-                            <IconActionBtn
-                              title="Excluir"
-                              tone="red"
-                              onClick={() => handleDeleteAlert(alert.id)}
-                            >
-                              <IconTrash />
-                            </IconActionBtn>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            <div className="flex justify-end border-t border-border pt-4">
-              <button
-                onClick={() =>
-                  setShowAlertList({ open: false, clientId: null })
-                }
-                className="px-6 py-2 rounded-lg bg-transparent text-foreground/90 font-medium hover:bg-muted transition-colors text-sm"
-              >
-                Fechar Lista
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
 
       {/* --- MODAL DE ENVIO DE MENSAGEM --- */}
       {showSendNow.open && (
@@ -4105,17 +3367,8 @@ function IconMoney() {
 function IconEdit() {
   return <Pencil className="w-4 h-4" />;
 }
-function IconBell() {
-  return <Bell className="w-4 h-4" />;
-}
 function IconTrash() {
   return <Trash2 className="w-4 h-4" />;
-}
-function IconThumbsUp() {
-  return <ThumbsUp className="w-4 h-4" />;
-}
-function IconThumbsDown() {
-  return <ThumbsDown className="w-4 h-4" />;
 }
 function IconRestore() {
   return <RefreshCcw className="w-4 h-4" />;

@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import Image from "next/image";
 import { useConfirm } from "@/hooks/useConfirm";
-import { Pencil } from "lucide-react";
+import { Pencil, CheckCircle2, ShieldCheck } from "lucide-react";
 
 // ========= TYPES =========
 interface ClientAccount {
@@ -312,6 +312,11 @@ export default function RenewClient() {
     (() => void) | null
   >(null);
   const [checkingPendingCharges, setCheckingPendingCharges] = useState(false);
+  // ✅ Guardado no momento da confirmação, pro Resumo no modal de pagamento
+  const [confirmedPeriod, setConfirmedPeriod] = useState<string | null>(null);
+  const [confirmedBasePrice, setConfirmedBasePrice] = useState<number | null>(
+    null,
+  );
 
   // ✅ NOVO: Estados para controle visual do botão de copiar
   const [copiedCode, setCopiedCode] = useState(false);
@@ -945,6 +950,13 @@ export default function RenewClient() {
     if (!resolvedPeriod || !selectedAccount || !session) return;
     setShowMethodSelector(false);
 
+    // ✅ Guarda o que foi de fato confirmado, pro Resumo no modal de
+    // pagamento — independe de vir por override (BRL/PIX) ou pendingRenew
+    // (seletor internacional).
+    const resolvedPriceForSummary = overridePrice ?? pendingRenew?.price;
+    setConfirmedPeriod(resolvedPeriod);
+    setConfirmedBasePrice(resolvedPriceForSummary?.price_amount ?? null);
+
     try {
       setIsProcessingPayment(true);
       (window as any).__cp_done_scheduled = false;
@@ -1120,8 +1132,8 @@ export default function RenewClient() {
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-        <div className="w-full max-w-sm bg-card rounded-3xl shadow-2xl overflow-hidden">
-          <div className="bg-gradient-to-r from-sky-600 to-sky-700 py-4 px-6 text-white text-center">
+        <div className="w-full max-w-md bg-card rounded-3xl shadow-2xl overflow-hidden">
+          <div className="bg-gradient-to-r from-amber-600 to-amber-700 py-4 px-6 text-white text-center">
             <h2 className="text-lg font-bold">📋 Pendência identificada</h2>
           </div>
 
@@ -1134,11 +1146,11 @@ export default function RenewClient() {
                 return (
                   <div
                     key={idx}
-                    className="flex justify-between items-start gap-3 p-3 rounded-xl bg-muted/50 border border-border"
+                    className="flex justify-between items-center gap-3 p-3 rounded-xl bg-muted/50 border border-border"
                   >
-                    <div className="text-sm text-foreground/90">
+                    <div className="text-sm text-foreground/90 whitespace-nowrap overflow-hidden text-ellipsis">
                       {it.appName
-                        ? `Ativação do aplicativo ${it.appName}${dateLabel ? ` no dia ${dateLabel}` : ""}`
+                        ? `Ativação: ${it.appName}${dateLabel ? ` dia ${dateLabel}` : ""}`
                         : it.message || "Pendência"}
                     </div>
                     <div className="text-sm font-bold text-foreground shrink-0">
@@ -1153,7 +1165,7 @@ export default function RenewClient() {
               <span className="text-sm font-medium text-muted-foreground">
                 Total da Pendência
               </span>
-              <span className="text-lg font-bold text-sky-500">
+              <span className="text-lg font-bold text-amber-500">
                 {formatMoney(pendingCharges.total, pendingCharges.currency)}
               </span>
             </div>
@@ -1169,7 +1181,7 @@ export default function RenewClient() {
                     href={`https://wa.me/${supportPhone.replace(/\D/g, "")}?text=Olá,%20sobre%20a%20pendência%20da%20minha%20renovação:%20já%20paguei%20isso%20antes.`}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-[#25D366] font-semibold hover:underline"
+                    className="text-emerald-600 underline decoration-emerald-600/40 underline-offset-2 hover:text-emerald-500"
                   >
                     WhatsApp suporte
                   </a>
@@ -1196,7 +1208,7 @@ export default function RenewClient() {
                   setPendingChargesContinuation(null);
                   cont?.();
                 }}
-                className="flex-1 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-sm shadow-lg shadow-sky-900/20 transition-all"
+                className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-sm shadow-lg shadow-amber-900/20 transition-all"
               >
                 Continuar
               </button>
@@ -1228,6 +1240,49 @@ export default function RenewClient() {
     const waNumber = String(sessionData?.admin_whatsapp ?? "").replace(
       /[^\d]/g,
       "",
+    );
+
+    // ✅ Resumo (plano + pendência + total) — mostrado antes do QR/cartão,
+    // igual pra PIX (Mercado Pago) e cartão (Stripe).
+    const summaryCurrency = selectedAccount.price_currency;
+    const summaryPeriodLabel = confirmedPeriod
+      ? PERIOD_LABELS[confirmedPeriod] || confirmedPeriod
+      : null;
+    const summaryTotal =
+      (confirmedBasePrice || 0) + (pendingCharges?.total || 0);
+    const showSummary =
+      !isApproved &&
+      !isRejected &&
+      paymentPhase !== "renewing" &&
+      confirmedBasePrice != null;
+
+    const summaryBlock = showSummary && (
+      <div className="px-5 pt-4 space-y-1.5 text-sm">
+        <div className="flex justify-between text-foreground/80">
+          <span>Plano {summaryPeriodLabel}</span>
+          <span>{formatMoney(confirmedBasePrice as number, summaryCurrency)}</span>
+        </div>
+        {pendingCharges && pendingCharges.total > 0 && (
+          <div className="flex justify-between text-foreground/80">
+            <span>Pendência Aplicativo</span>
+            <span>{formatMoney(pendingCharges.total, summaryCurrency)}</span>
+          </div>
+        )}
+        <div className="flex justify-between font-bold text-foreground pt-1.5 border-t border-border">
+          <span>Total a Pagar</span>
+          <span>{formatMoney(summaryTotal, summaryCurrency)}</span>
+        </div>
+      </div>
+    );
+
+    const securityNote = !isApproved && !isRejected && paymentPhase !== "renewing" && (
+      <div className="px-5 pb-4 pt-2">
+        <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+          <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+          Conexão segura (SSL) — pagamento processado direto pelo{" "}
+          {isStripe ? "Stripe" : "Mercado Pago"}
+        </div>
+      </div>
     );
 
     return (
@@ -1453,6 +1508,8 @@ export default function RenewClient() {
                 )}
               </div>
 
+              {summaryBlock}
+
               <div className="px-5 pt-4 pb-3 space-y-3">
                 {/* QR Code */}
                 {paymentPhase !== "renewing" && (
@@ -1553,6 +1610,7 @@ export default function RenewClient() {
                   </button>
                 )}
               </div>
+              {securityNote}
             </>
           )}
 
@@ -1574,24 +1632,11 @@ export default function RenewClient() {
                 </p>
               </div>
 
+              {summaryBlock}
+
               <div className="px-5 pt-5 pb-4 space-y-4">
                 {paymentPhase !== "renewing" && (
                   <>
-                    {/* Valor */}
-                    <div className="text-center">
-                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">
-                        Total a pagar
-                      </p>
-                      <p className="text-3xl font-black text-foreground">
-                        {formatMoney(
-                          paymentData.price_amount ?? 0,
-                          paymentData.currency ??
-                            selectedAccount?.price_currency ??
-                            "EUR",
-                        )}
-                      </p>
-                    </div>
-
                     {/* Trust signals */}
                     {(paymentData.beneficiary_name ||
                       paymentData.institution) && (
@@ -1855,6 +1900,7 @@ export default function RenewClient() {
                     </div>
                   )}
                 </div>
+                {securityNote}
               </>
             )}
 
@@ -2658,7 +2704,7 @@ export default function RenewClient() {
 
           className="shrink-0 flex items-center gap-1.5 h-9 px-4 rounded-full bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold transition-colors shadow-sm"
         >
-          Ver →
+          Ver novidades →
         </a>
       </div>
     </div>
@@ -2887,7 +2933,7 @@ export default function RenewClient() {
                 onClick={() => setShowOtherPlans(!showOtherPlans)}
                 className="w-full py-3 px-4 rounded-xl border-2 border-dashed border-border text-muted-foreground font-bold flex items-center justify-center gap-2 hover:bg-muted/50 transition-all"
               >
-                🏷️ {showOtherPlans ? "Ocultar Ofertas" : "Ver Mais Ofertas"}
+                🏷️ {showOtherPlans ? "Ocultar Ofertas" : "Planos disponíveis"}
                 <svg
                   className={`w-4 h-4 transition-transform ${showOtherPlans ? "rotate-180" : ""}`}
                   fill="none"
@@ -3068,7 +3114,8 @@ export default function RenewClient() {
                 </>
               ) : (
                 <>
-                  💸 Concluir Renovação •{" "}
+                  <CheckCircle2 className="w-5 h-5 shrink-0" />
+                  Pagar e Renovar •{" "}
                   {renewPrice && renewPrice.price_amount > 0
                     ? formatMoney(
                         renewPrice.price_amount,

@@ -5,10 +5,15 @@
 // lista; se não tem nenhum, vai direto pra tela de criar. Grava sempre na
 // mesma tabela (client_alerts), do mesmo jeito.
 
-import { useState } from "react";
+import { forwardRef, useImperativeHandle, useState } from "react";
 import { Bell, Pencil, Trash2, ThumbsUp, ThumbsDown, X } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/hooks/useConfirm";
+
+export type ClientAlertBellHandle = {
+  openList: () => void;
+  openCreate: () => void;
+};
 
 type AlertKind = "note" | "app_charge" | "generic_charge";
 
@@ -105,27 +110,35 @@ function ActionBtn({
   );
 }
 
-export default function ClientAlertBell({
-  tenantId,
-  clientId,
-  clientName,
-  alertsCount,
-  onChanged,
-  addToast,
-  size = "sm",
-}: {
-  tenantId: string | null;
-  clientId: string;
-  clientName: string;
-  alertsCount: number;
-  onChanged?: () => void;
-  addToast: (
-    type: "success" | "error",
-    title: string,
-    message?: string,
-  ) => void;
-  size?: "sm" | "lg";
-}) {
+const ClientAlertBell = forwardRef<
+  ClientAlertBellHandle,
+  {
+    tenantId: string | null;
+    clientId: string;
+    clientName: string;
+    clientUsername?: string;
+    alertsCount: number;
+    onChanged?: () => void;
+    addToast: (
+      type: "success" | "error",
+      title: string,
+      message?: string,
+    ) => void;
+    size?: "sm" | "lg";
+  }
+>(function ClientAlertBell(
+  {
+    tenantId,
+    clientId,
+    clientName,
+    clientUsername,
+    alertsCount,
+    onChanged,
+    addToast,
+    size = "sm",
+  },
+  ref,
+) {
   const { confirm } = useConfirm();
 
   const [showList, setShowList] = useState(false);
@@ -218,6 +231,18 @@ export default function ClientAlertBell({
     resetForm();
     setShowForm(true);
   }
+
+  useImperativeHandle(ref, () => ({
+    openList: () => {
+      setToggledPaidIds(new Set());
+      setShowList(true);
+      loadAlerts();
+    },
+    openCreate: () => {
+      resetForm();
+      setShowForm(true);
+    },
+  }));
 
   function openEdit(alert: any) {
     const inferredKind: AlertKind =
@@ -374,7 +399,7 @@ export default function ClientAlertBell({
 
       {showList && (
         <Modal
-          title={`Alertas: ${clientName}`}
+          title={`Alertas: ${clientName}${clientUsername ? ` (${clientUsername})` : ""}`}
           onClose={() => setShowList(false)}
         >
           <div className="space-y-3">
@@ -515,6 +540,9 @@ export default function ClientAlertBell({
               <div className="text-sm text-foreground/90">
                 {editingAlertId ? "Editando alerta de" : kind ? "Para" : "Adicionando alerta para"}{" "}
                 <strong>{clientName}</strong>
+                {clientUsername && (
+                  <span className="text-muted-foreground"> ({clientUsername})</span>
+                )}
               </div>
             </div>
 
@@ -745,4 +773,6 @@ export default function ClientAlertBell({
       )}
     </>
   );
-}
+});
+
+export default ClientAlertBell;

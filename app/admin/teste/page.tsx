@@ -1788,6 +1788,7 @@ export default function TrialsPage() {
                             tenantId={tenantId}
                             clientId={r.id}
                             clientName={r.name}
+                            clientUsername={r.username}
                             alertsCount={r.alertsCount}
                             onChanged={loadData}
                             addToast={addToast}
