@@ -31,6 +31,7 @@ import {
   RefreshCcw,
   RotateCcw,
   X,
+  Tag,
 } from "lucide-react";
 
 function BrandUser({
@@ -740,6 +741,15 @@ const handleSync = () => {
               onClick={() => setOpenMenu(null)}
             />
             <MenuLink
+              href="/admin/settings/cupons"
+              label={
+                <span className="flex items-center gap-2">
+                  <Tag className="w-4 h-4 text-amber-400" /> Cupons
+                </span>
+              }
+              onClick={() => setOpenMenu(null)}
+            />
+            <MenuLink
               href="/admin/settings/api-server"
               label={
                 <span className="flex items-center gap-2">
@@ -797,6 +807,15 @@ const handleSync = () => {
                 <span className="flex items-center gap-2">
                   <Wallet className="w-4 h-4 text-emerald-400" /> Controle
                   Financeiro
+                </span>
+              }
+              onClick={() => setOpenMenu(null)}
+            />
+            <MenuLink
+              href="/admin/settings/cupons"
+              label={
+                <span className="flex items-center gap-2">
+                  <Tag className="w-4 h-4 text-amber-400" /> Cupons
                 </span>
               }
               onClick={() => setOpenMenu(null)}

@@ -239,6 +239,7 @@ export function buildClientTemplateVars(params: { clientRow: any; isSecondary?: 
 
     // 💰 Financeiro
     link_pagamento: "", // preenchido depois via generatePortalLink (precisa do contato específico)
+    cupom_frase: "", // preenchido depois via getCouponPhraseForClient (precisa de query assíncrona)
     valor_fatura: valorFaturaStr,
     moeda_cliente: String(row.price_currency || row.currency || "").trim(),
     pix_copia_cola: row.pix_code || "",
@@ -545,6 +546,7 @@ export function buildResellerTemplateVars(params: { resellerRow: any }): Record<
     venda_creditos: row.venda_creditos != null ? String(row.venda_creditos) : "",
 
     link_pagamento: "",
+    cupom_frase: "", // cupons são um recurso do portal do cliente — revenda nunca preenche isso
     valor_fatura: valorFaturaStr,
     moeda_cliente: String(row.price_currency || "").trim(),
     pix_copia_cola: row.pix_code || "",

@@ -16,6 +16,7 @@ import {
   getSPParts,
 } from "@/lib/whatsapp/template-vars";
 import { notify } from "@/lib/notifications/notify";
+import { getCouponPhraseForClient } from "@/lib/client-portal/coupons";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function safeServerLog(...args: any[]) {
@@ -409,6 +410,10 @@ export async function POST(req: Request) {
               expiresAt: null,
               onLog: safeServerLog,
             });
+          }
+
+          if (recipientType !== "reseller") {
+            vars.cupom_frase = await getCouponPhraseForClient(sb, String(job.tenant_id), wa.row);
           }
 
           const renderedMessage = renderTemplate(String(job.message ?? ""), vars);
