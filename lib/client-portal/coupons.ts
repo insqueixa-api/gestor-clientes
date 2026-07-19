@@ -102,6 +102,79 @@ export function couponRejectReason(r: CouponValidationResult): string | null {
   return null;
 }
 
+const COUPON_ABUSE_MAX_DISTINCT_CODES = 5;
+const COUPON_ABUSE_LOCKOUT_MINUTES = 30;
+export const COUPON_ABUSE_BLOCKED_MESSAGE = "Cupons temporariamente indisponível para sua conta.";
+
+/**
+ * Rate limit anti-abuso (achado em auditoria de segurança, 2026-07-19):
+ * se a MESMA CONTA (client_id) tentar 5 códigos DIFERENTES de cupom,
+ * bloqueia novas tentativas por 30 min — mesmo que o código que estourou
+ * o limite seja válido, ainda bloqueia (decisão do Marcio: desestimula
+ * "catar" código por tentativa e erro, mesmo que o atacante acabe de
+ * acertar um).
+ *
+ * Escopo por client_id, não por whatsapp/sessão — mesma arquitetura já
+ * usada em pendência, cupom (1 uso) e pagamento neste feature inteiro:
+ * tudo é por conta, nunca pela pessoa/identidade toda (ver correção
+ * "cupom não é por cliente e sim por username do servidor" mais acima
+ * neste arquivo).
+ *
+ * 1 linha por (tenant_id, client_id) em `coupon_abuse_guard`, reseta
+ * sozinha quando o bloqueio anterior expira.
+ *
+ * Chamar ANTES de validar o código de verdade — se já bloqueado, nem
+ * registra a tentativa nova (evita o array crescer indefinidamente
+ * enquanto a pessoa insiste durante o bloqueio).
+ */
+export async function checkCouponAbuseGuard(
+  supabaseAdmin: any,
+  tenantId: string,
+  clientId: string,
+  codeAttempted: string,
+): Promise<{ blocked: boolean; blockedUntil?: string }> {
+  const cid = String(clientId || "").trim();
+  if (!cid) return { blocked: false };
+
+  const { data: row } = await supabaseAdmin
+    .from("coupon_abuse_guard")
+    .select("codes_tried, blocked_until")
+    .eq("tenant_id", tenantId)
+    .eq("client_id", cid)
+    .maybeSingle();
+
+  const now = new Date();
+
+  if (row?.blocked_until && new Date(row.blocked_until) > now) {
+    return { blocked: true, blockedUntil: row.blocked_until };
+  }
+
+  // Sem bloqueio ativo (nunca existiu, ou expirou) — janela nova.
+  const normalizedCode = String(codeAttempted || "").trim().toUpperCase();
+  const codesTried: string[] = row?.blocked_until && new Date(row.blocked_until) <= now ? [] : (row?.codes_tried || []);
+  if (normalizedCode && !codesTried.includes(normalizedCode)) {
+    codesTried.push(normalizedCode);
+  }
+
+  let blockedUntil: string | null = null;
+  if (codesTried.length >= COUPON_ABUSE_MAX_DISTINCT_CODES) {
+    blockedUntil = new Date(now.getTime() + COUPON_ABUSE_LOCKOUT_MINUTES * 60 * 1000).toISOString();
+  }
+
+  await supabaseAdmin.from("coupon_abuse_guard").upsert(
+    {
+      tenant_id: tenantId,
+      client_id: cid,
+      codes_tried: codesTried,
+      blocked_until: blockedUntil,
+      updated_at: now.toISOString(),
+    },
+    { onConflict: "tenant_id,client_id" },
+  );
+
+  return { blocked: !!blockedUntil, blockedUntil: blockedUntil || undefined };
+}
+
 /**
  * Um cliente pode ter várias contas (client_id diferentes) vinculadas ao
  * mesmo whatsapp_username — o portal já mostra todas juntas sob um só

@@ -4,7 +4,11 @@ import { createClient } from "@supabase/supabase-js";
 import { notify } from "@/lib/notifications/notify";
 import { randomUUID } from "crypto";
 import { getPendingCharges } from "@/lib/client-portal/pending-charges";
-import { validateCouponForCharge, couponRejectReason } from "@/lib/client-portal/coupons";
+import {
+  validateCouponForCharge,
+  couponRejectReason,
+  checkCouponAbuseGuard,
+} from "@/lib/client-portal/coupons";
 
 export const dynamic = "force-dynamic";
 
@@ -295,32 +299,43 @@ let couponCodeApplied: string | null = null;
 let couponDiscountAmount = 0;
 
 if (coupon_code_raw) {
-  const { data: couponClientRow } = await supabaseAdmin
-    .from("vw_clients_list_active")
-    .select(
-      "id, computed_status, server_id, plan_name, apps_names, vencimento, created_at, price_currency, price_amount, whatsapp_username",
-    )
-    .eq("tenant_id", sess.tenant_id)
-    .eq("id", client_id)
-    .maybeSingle();
+  // ✅ Mesmo rate limit anti-abuso do validate-coupon (achado em auditoria
+  // de segurança), escopado por CONTA (client_id, já confirmado dono da
+  // sessão lá em cima) — cobre quem chama create-payment direto, pulando
+  // a prévia. Bloqueado = ignora o cupom silenciosamente (fail-open,
+  // mesmo espírito de "código inválido não derruba o pagamento" abaixo).
+  const abuseGuard = await checkCouponAbuseGuard(supabaseAdmin, sess.tenant_id, client_id, coupon_code_raw);
 
-  const couponResult = await validateCouponForCharge({
-    supabaseAdmin,
-    tenantId: sess.tenant_id,
-    clientRow: couponClientRow || client,
-    code: coupon_code_raw,
-    planPriceOnly,
-    currency,
-    isOverrideActive,
-  });
-
-  if (couponResult.ok) {
-    couponId = couponResult.coupon.id;
-    couponCodeApplied = couponResult.coupon.code;
-    couponDiscountAmount = couponResult.discountAmount;
-    computedPrice = Number((computedPrice - couponDiscountAmount).toFixed(2));
+  if (abuseGuard.blocked) {
+    safeServerLog("create-payment: coupon blocked by abuse guard", { code: coupon_code_raw });
   } else {
-    safeServerLog("create-payment: coupon invalid", { code: coupon_code_raw, reason: couponRejectReason(couponResult) });
+    const { data: couponClientRow } = await supabaseAdmin
+      .from("vw_clients_list_active")
+      .select(
+        "id, computed_status, server_id, plan_name, apps_names, vencimento, created_at, price_currency, price_amount, whatsapp_username",
+      )
+      .eq("tenant_id", sess.tenant_id)
+      .eq("id", client_id)
+      .maybeSingle();
+
+    const couponResult = await validateCouponForCharge({
+      supabaseAdmin,
+      tenantId: sess.tenant_id,
+      clientRow: couponClientRow || client,
+      code: coupon_code_raw,
+      planPriceOnly,
+      currency,
+      isOverrideActive,
+    });
+
+    if (couponResult.ok) {
+      couponId = couponResult.coupon.id;
+      couponCodeApplied = couponResult.coupon.code;
+      couponDiscountAmount = couponResult.discountAmount;
+      computedPrice = Number((computedPrice - couponDiscountAmount).toFixed(2));
+    } else {
+      safeServerLog("create-payment: coupon invalid", { code: coupon_code_raw, reason: couponRejectReason(couponResult) });
+    }
   }
 }
 

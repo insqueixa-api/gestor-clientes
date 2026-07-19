@@ -1,7 +1,12 @@
 // app/api/client-portal/validate-coupon/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { validateCouponForCharge, couponRejectReason } from "@/lib/client-portal/coupons";
+import {
+  validateCouponForCharge,
+  couponRejectReason,
+  checkCouponAbuseGuard,
+  COUPON_ABUSE_BLOCKED_MESSAGE,
+} from "@/lib/client-portal/coupons";
 
 export const dynamic = "force-dynamic";
 
@@ -87,6 +92,19 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (clientErr || !client) return jsonError("Cliente não encontrado", 404);
+
+    // ✅ Rate limit anti-abuso: 5 códigos diferentes tentados pela MESMA
+    // CONTA (client_id, não a identidade/whatsapp) bloqueia por um tempo —
+    // nem chega a validar o código de verdade (mesmo que seja válido,
+    // ainda bloqueia; achado em auditoria de segurança, decisão do
+    // Marcio). Só depois de confirmar que o client_id é mesmo dessa sessão
+    // (senão qualquer sessão válida poderia "gastar" o limite de bloqueio
+    // de uma conta alheia passando o client_id de outra pessoa). Ver
+    // checkCouponAbuseGuard.
+    const abuseGuard = await checkCouponAbuseGuard(supabaseAdmin, sess.tenant_id, client_id, code);
+    if (abuseGuard.blocked) {
+      return NextResponse.json({ ok: false, reason: COUPON_ABUSE_BLOCKED_MESSAGE }, { status: 200, headers: NO_STORE_HEADERS });
+    }
 
     let currency = String(client.price_currency || "BRL").trim() || "BRL";
     if (currency !== "BRL") {

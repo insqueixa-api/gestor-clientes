@@ -173,7 +173,15 @@ export async function runFulfillment(params: FulfillmentParams) {
       .eq("payment_id", payment.id);
 
     if (!alreadyRedeemedCount) {
-      await supabaseAdmin.from("coupon_redemptions").insert({
+      // ⚠️ coupon_redemptions tem UNIQUE(coupon_id, client_id) — rede de
+      // segurança pro caso raro de 2 payments (ids diferentes, então locks
+      // diferentes) do mesmo cupom+cliente terem sido criados em paralelo
+      // antes de qualquer resgate existir (achado em auditoria de
+      // segurança). Se cair aqui, o insert falha por violação de unique;
+      // logamos em vez de deixar silencioso, mas NÃO travamos o
+      // fulfillment por causa disso — o pagamento já foi cobrado/aprovado,
+      // só o registro duplicado de resgate é que não deve existir.
+      const { error: redeemErr } = await supabaseAdmin.from("coupon_redemptions").insert({
         tenant_id: tenantId,
         coupon_id: couponId,
         client_id: client.id,
@@ -182,15 +190,24 @@ export async function runFulfillment(params: FulfillmentParams) {
         currency: payment.price_currency || (client as any).price_currency || "BRL",
       });
 
-      // Cupom pessoal se autodesativa ao ser usado - o Marcio reativa
-      // manualmente na proxima indicacao (documentado desde a Fase 1.5).
-      const { data: couponRow } = await supabaseAdmin
-        .from("coupons")
-        .select("client_id")
-        .eq("id", couponId)
-        .maybeSingle();
-      if (couponRow?.client_id) {
-        await supabaseAdmin.from("coupons").update({ is_active: false }).eq("id", couponId);
+      if (redeemErr) {
+        prodLog("fulfillment.coupon_redemption_insert_failed", {
+          payment_id: String(payment.id).slice(-6),
+          coupon_id: String(couponId).slice(-6),
+          code: (redeemErr as any)?.code,
+          message: redeemErr.message,
+        });
+      } else {
+        // Cupom pessoal se autodesativa ao ser usado - o Marcio reativa
+        // manualmente na proxima indicacao (documentado desde a Fase 1.5).
+        const { data: couponRow } = await supabaseAdmin
+          .from("coupons")
+          .select("client_id")
+          .eq("id", couponId)
+          .maybeSingle();
+        if (couponRow?.client_id) {
+          await supabaseAdmin.from("coupons").update({ is_active: false }).eq("id", couponId);
+        }
       }
     }
   }

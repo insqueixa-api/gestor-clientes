@@ -36,7 +36,23 @@ type LogRow = {
   gateway_name: string;
   mp_payment_id: string | null; // ✅ Adicionado
   technology: string; // ✅ Adicionado para controlar qual modal de recarga abrir
+  // ✅ Resumo do valor (cupom/pendência) — só preenchido quando o pagamento
+  // não é "só assinatura" (ver breakdownLines mais abaixo).
+  coupon_code: string | null;
+  coupon_discount_amount: number | null;
+  pendencies: { label: string; amount: number }[];
 };
+
+function fmtMoney(amount: number, currency: string = "BRL") {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: currency || "BRL" }).format(amount);
+}
+
+/** Extrai o nome do app da mensagem padrão `Ativação: "Nome" - dia DD/MM/AAAA` — cai pra mensagem crua se não bater (formato antigo). */
+function pendencyLabelFromMessage(message: string | null): string {
+  const m = String(message || "").match(/^Ativação:\s*"(.+?)"/);
+  if (m) return m[1];
+  return String(message || "").trim() || "Pendência";
+}
 
 const PERIOD_LABELS: Record<string, string> = {
   MONTHLY: "Mensal",
@@ -222,8 +238,8 @@ function AuditoriaPageContent() {
         let query = supabaseBrowser
           .from("client_portal_payments")
           .select(
-            "id, created_at, client_id, payment_method, status, fulfillment_status, fulfillment_error, price_amount, price_currency, period, plan_label, gateway_type, mp_payment_id, whatsapp_status",
-          ) // ✅ Adicionado whatsapp_status
+            "id, created_at, client_id, payment_method, status, fulfillment_status, fulfillment_error, price_amount, price_currency, period, plan_label, gateway_type, mp_payment_id, whatsapp_status, coupon_code, coupon_discount_amount, settled_alert_ids",
+          ) // ✅ Adicionado whatsapp_status, coupon_code/coupon_discount_amount, settled_alert_ids (resumo do valor)
           .eq("tenant_id", tid)
           .order("created_at", { ascending: false })
           .limit(50); // ✅ traz mais histórico; o pageSize é quem decide quanto aparece por vez
@@ -284,10 +300,38 @@ function AuditoriaPageContent() {
           });
         }
 
+        // 3.5 Pendências quitadas por esses pagamentos — pra montar o resumo
+        // "Cupom X / Pendência Y" abaixo do valor total (pedido do Marcio,
+        // pra auditar a diferença entre o total e o que foi desconto/
+        // pendência sem abrir cada pagamento).
+        const allAlertIds = [
+          ...new Set(
+            (paymentsData || []).flatMap((p: any) => (p.settled_alert_ids as string[] | null) || []),
+          ),
+        ];
+        const alertsMap: Record<string, { label: string; amount: number }> = {};
+        if (allAlertIds.length > 0) {
+          const { data: alertsData } = await supabaseBrowser
+            .from("client_alerts")
+            .select("id, message, amount, client_apps(apps(name))")
+            .in("id", allAlertIds);
+
+          (alertsData || []).forEach((a: any) => {
+            const appName = a.client_apps?.apps?.name || null;
+            alertsMap[a.id] = {
+              label: appName || pendencyLabelFromMessage(a.message),
+              amount: Number(a.amount || 0),
+            };
+          });
+        }
+
         // 4. Junta tudo na linha da tabela
         const mapped: LogRow[] = (paymentsData || []).map((r: any) => {
           const cInfo = clientsMap[r.client_id] || {};
           const serverName = serversMap[cInfo.server_id] || "—";
+          const pendencies = ((r.settled_alert_ids as string[] | null) || [])
+            .map((aid) => alertsMap[aid])
+            .filter((p): p is { label: string; amount: number } => !!p);
 
           return {
             id: r.id,
@@ -309,6 +353,9 @@ function AuditoriaPageContent() {
             plan_label: r.plan_label,
             gateway_name: r.gateway_type,
             mp_payment_id: r.mp_payment_id || null, // ✅ Adicionado ao mapeamento
+            coupon_code: r.coupon_code || null,
+            coupon_discount_amount: r.coupon_discount_amount != null ? Number(r.coupon_discount_amount) : null,
+            pendencies,
           };
         });
 
@@ -1239,12 +1286,30 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
 
                         {/* Valor */}
                         <td className="px-4 py-3 text-right">
-<span className="font-medium text-foreground/90 finance-value">
-                            {new Intl.NumberFormat("pt-BR", {
-                              style: "currency",
-                              currency: r.price_currency || "BRL",
-                            }).format(r.price_amount)}
+                          <span className="font-medium text-foreground/90 finance-value">
+                            {fmtMoney(r.price_amount, r.price_currency)}
                           </span>
+                          {/* ✅ Resumo do valor — só aparece quando não é "só assinatura"
+                              (tem cupom e/ou pendência quitada junto), pra dar pra auditar
+                              a diferença entre o total e o desconto/pendência aplicados. */}
+                          {(r.coupon_code || r.pendencies.length > 0) && (
+                            <div className="mt-1 space-y-0.5 finance-value">
+                              {r.coupon_code && (
+                                <div className="text-[10px] text-emerald-500 leading-tight">
+                                  Cupom: {r.coupon_code} (-{fmtMoney(r.coupon_discount_amount || 0, r.price_currency)})
+                                </div>
+                              )}
+                              {r.pendencies.map((p, idx) => (
+                                <div
+                                  key={idx}
+                                  className="text-[10px] text-amber-500 leading-tight max-w-[220px] truncate ml-auto"
+                                  title={p.label}
+                                >
+                                  Pendência: {p.label} ({fmtMoney(p.amount, r.price_currency)})
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </td>
 
                         {/* Ações */}
