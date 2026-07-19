@@ -4916,7 +4916,7 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
   {/* Coluna 1: Sessão */}
   <div>
-    <Label>Sessão de Disparo (WhatsApp)</Label>
+    <Label>Sessão WhatsApp</Label>
     <Select
       value={selectedSession}
       onChange={(e) => setSelectedSession(e.target.value)}

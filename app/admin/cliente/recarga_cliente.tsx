@@ -2062,7 +2062,7 @@ className={`p-3 rounded-xl border transition-all cursor-pointer ${
                   {/* Seletor de Sessão (No Desktop fica do lado, no Mobile vai pra baixo) */}
                   {sendWhats && (
                     <div className="animate-in fade-in zoom-in duration-200 col-span-2 sm:col-span-1">
-                      <Label>Sessão de envio</Label>
+                      <Label>Sessão WhatsApp</Label>
                       <Select
                         value={selectedSession}
                         onChange={(e) => setSelectedSession(e.target.value)}

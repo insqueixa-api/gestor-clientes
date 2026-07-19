@@ -9,7 +9,6 @@ import {
   Clock,
   CreditCard,
   Pencil,
-  Bell,
   RefreshCcw,
   EyeOff,
   Eye,
@@ -104,7 +103,6 @@ type ResellerRow = {
   profitLabel: string;
   status: ResellerStatus;
   archived: boolean;
-  alertsCount: number;
   notes: string;
 };
 
@@ -136,32 +134,6 @@ function localDateTimeToIso(local: string): string {
 function num(v: any) {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
-}
-
-type AlertTargetKind = "client" | "reseller";
-
-type AlertTarget = {
-  kind: AlertTargetKind;
-  id: string;
-};
-
-function alertFkColumn(kind: AlertTargetKind): "client_id" | "reseller_id" {
-  return kind === "client" ? "client_id" : "reseller_id";
-}
-
-function buildAlertInsertPayload(args: {
-  tenant_id: string;
-  target: AlertTarget;
-  message: string;
-  status: "OPEN" | "CLOSED";
-}) {
-  const col = alertFkColumn(args.target.kind);
-  return {
-    tenant_id: args.tenant_id,
-    status: args.status,
-    message: args.message,
-    [col]: args.target.id,
-  } as any;
 }
 
 export default function RevendaPage() {
@@ -215,7 +187,7 @@ export default function RevendaPage() {
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
-  // Modais de mensagem / alerta
+  // Modais de mensagem
   const [showSendNow, setShowSendNow] = useState<{
     open: boolean;
     resellerId: string | null;
@@ -303,18 +275,6 @@ export default function RevendaPage() {
     } catch {}
   }
 
-  // Modal Novo Alerta
-  const [showNewAlert, setShowNewAlert] = useState<{
-    open: boolean;
-    target: AlertTarget | null;
-    targetName?: string;
-  }>({
-    open: false,
-    target: null,
-    targetName: undefined,
-  });
-  const [newAlertText, setNewAlertText] = useState("");
-
   // Templates
   const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
     [],
@@ -353,18 +313,6 @@ export default function RevendaPage() {
     resellerId: null,
     resellerName: undefined,
   });
-
-  // Alertas Lista
-  const [showAlertList, setShowAlertList] = useState<{
-    open: boolean;
-    target: AlertTarget | null;
-    targetName?: string;
-  }>({
-    open: false,
-    target: null,
-    targetName: undefined,
-  });
-  const [resellerAlerts, setResellerAlerts] = useState<unknown[]>([]);
 
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
@@ -451,81 +399,6 @@ export default function RevendaPage() {
     setScheduledMap(map);
   }
 
-  async function loadOpenAlertsCountByTarget(
-    tid: string,
-    targetKind: AlertTargetKind,
-    targetIds: string[],
-  ) {
-    if (!targetIds.length) return new Map<string, number>();
-
-    const col = alertFkColumn(targetKind);
-
-    const { data, error } = await supabaseBrowser
-      .from("client_alerts")
-      .select(`id,${col}`)
-      .eq("tenant_id", tid)
-      .in(col, targetIds)
-      .eq("status", "OPEN");
-
-    if (error) {
-      return new Map<string, number>();
-    }
-
-    const m = new Map<string, number>();
-    for (const row of (data as any[]) || []) {
-      const id = String(row[col]);
-      m.set(id, (m.get(id) || 0) + 1);
-    }
-    return m;
-  }
-
-  async function handleOpenAlertList(target: AlertTarget, targetName: string) {
-    setResellerAlerts([]);
-    setShowAlertList({ open: true, target, targetName });
-
-    try {
-      if (!tenantId) return;
-      const col = alertFkColumn(target.kind);
-      const { data, error } = await supabaseBrowser
-        .from("client_alerts")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .eq(col, target.id)
-        .eq("status", "OPEN")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setResellerAlerts(data || []);
-    } catch (e: any) {
-      addToast(
-        "error",
-        "Erro ao carregar alertas",
-        e?.message || "Erro desconhecido",
-      );
-    }
-  }
-
-  async function handleDeleteAlert(alertId: string) {
-    if (!tenantId) return;
-    try {
-      const { error } = await supabaseBrowser
-        .from("client_alerts")
-        .delete()
-        .eq("id", alertId);
-
-      if (error) throw error;
-      setResellerAlerts((prev) =>
-        (prev as any[]).filter((a) => a.id !== alertId),
-      );
-      await loadData();
-    } catch (e: any) {
-      addToast(
-        "error",
-        "Erro ao excluir alerta",
-        e?.message || "Erro desconhecido",
-      );
-    }
-  }
 
   async function loadData() {
     setLoading(true);
@@ -673,25 +546,14 @@ export default function RevendaPage() {
         profitLabel: brl(profit),
         status: archived ? "Arquivado" : "Ativo",
         archived,
-        alertsCount: 0,
         notes: r.notes || "",
       };
     });
 
     const ids = mapped.map((m) => m.id);
-    const alertsCountMap = await loadOpenAlertsCountByTarget(
-      tid,
-      "reseller",
-      ids,
-    );
     await loadScheduledForResellers(tid, ids);
 
-    const mappedWithAlerts = mapped.map((m) => ({
-      ...m,
-      alertsCount: alertsCountMap.get(m.id) || 0,
-    }));
-
-    setRows(mappedWithAlerts);
+    setRows(mapped);
     setLoading(false);
   }
 
@@ -921,40 +783,6 @@ export default function RevendaPage() {
       await loadData();
     } catch (e: any) {
       addToast("error", "Falha ao excluir", e?.message || "Erro desconhecido");
-    }
-  };
-
-  const handleSaveAlert = async () => {
-    if (!tenantId || !showNewAlert.target?.id) return;
-    const text = (newAlertText || "").trim();
-    if (!text) {
-      addToast("error", "Alerta vazio", "Digite um texto para o alerta.");
-      return;
-    }
-
-    try {
-      const payload = buildAlertInsertPayload({
-        tenant_id: tenantId,
-        target: showNewAlert.target,
-        message: text,
-        status: "OPEN",
-      });
-
-      const { error } = await supabaseBrowser
-        .from("client_alerts")
-        .insert(payload);
-      if (error) throw error;
-
-      addToast("success", "Alerta criado!");
-      setShowNewAlert({ open: false, target: null, targetName: undefined });
-      setNewAlertText("");
-      await loadData();
-    } catch (e: any) {
-      addToast(
-        "error",
-        "Erro ao criar alerta",
-        e?.message || "Erro desconhecido",
-      );
     }
   };
 
@@ -1491,23 +1319,6 @@ export default function RevendaPage() {
                           </Link>
 
                           <div className="flex items-center gap-1 shrink-0">
-                            {r.alertsCount > 0 && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleOpenAlertList(
-                                    { kind: "reseller", id: r.id },
-                                    r.name,
-                                  );
-                                }}
-                                title={`${r.alertsCount} alerta(s)`}
-                                className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px] font-medium hover:bg-amber-500/20 transition-colors animate-pulse"
-                              >
-                                🔔 {r.alertsCount}
-                              </button>
-                            )}
-
                             {(scheduledMap[r.id]?.length || 0) > 0 && (
                               <button
                                 type="button"
@@ -1651,22 +1462,6 @@ export default function RevendaPage() {
                         </IconActionBtn>
 
                         <IconActionBtn
-                          title="Novo alerta"
-                          tone="purple"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setNewAlertText("");
-                            setShowNewAlert({
-                              open: true,
-                              target: { kind: "reseller", id: r.id },
-                              targetName: r.name,
-                            });
-                          }}
-                        >
-                          <IconBell />
-                        </IconActionBtn>
-
-                        <IconActionBtn
                           title={r.archived ? "Restaurar" : "Arquivar"}
                           tone={r.archived ? "green" : "red"}
                           onClick={(e) => {
@@ -1763,46 +1558,6 @@ export default function RevendaPage() {
         />
       )}
 
-      {showNewAlert.open && (
-        <Modal
-          title={`Novo alerta: ${showNewAlert.targetName || "Registro"}`}
-          onClose={() =>
-            setShowNewAlert({
-              open: false,
-              target: null,
-              targetName: undefined,
-            })
-          }
-        >
-          <textarea
-            value={newAlertText}
-            onChange={(e) => setNewAlertText(e.target.value)}
-            className="w-full bg-transparent border border-border rounded-xl p-3 text-foreground outline-none min-h-25 transition-colors focus:border-emerald-500/50"
-            placeholder="Digite o alerta..."
-          />
-          <div className="mt-4 flex justify-end gap-3">
-            <button
-              onClick={() =>
-                setShowNewAlert({
-                  open: false,
-                  target: null,
-                  targetName: undefined,
-                })
-              }
-              className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted font-semibold text-sm transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              className="px-6 py-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-500 shadow-lg shadow-emerald-900/20 transition-all text-sm"
-              onClick={handleSaveAlert}
-            >
-              Salvar alerta
-            </button>
-          </div>
-        </Modal>
-      )}
-
       {showSendNow.open && (
         <Modal
           title="Enviar mensagem agora"
@@ -1819,7 +1574,7 @@ export default function RevendaPage() {
               {/* Sessão */}
               <div>
                 <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
-                  Sessão de Envio
+                  Sessão WhatsApp
                 </label>
                 <select
                   value={selectedSessionNow}
@@ -1936,7 +1691,7 @@ export default function RevendaPage() {
               {/* Sessão */}
               <div>
                 <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
-                  Sessão de Envio
+                  Sessão WhatsApp
                 </label>
                 <select
                   value={selectedSessionSchedule}
@@ -2178,80 +1933,6 @@ export default function RevendaPage() {
                     open: false,
                     resellerId: null,
                     resellerName: undefined,
-                  })
-                }
-                className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted font-semibold text-sm transition-colors"
-              >
-                Fechar
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {showAlertList.open && showAlertList.target && (
-        <Modal
-          title={`Alertas: ${showAlertList.targetName || "Registro"}`}
-          onClose={() =>
-            setShowAlertList({
-              open: false,
-              target: null,
-              targetName: undefined,
-            })
-          }
-        >
-          <div className="space-y-3">
-            {(resellerAlerts as any[]).length === 0 ? (
-              <div className="text-sm text-muted-foreground">
-                Nenhum alerta aberto.
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {(resellerAlerts as any[]).map((a) => (
-                  <div
-                    key={String(a.id)}
-                    className="p-3 rounded-xl border border-border bg-transparent"
-                  >
-                    <div className="flex items-start gap-2">
-                      <div className="mt-0.5 text-amber-500">
-                        <IconBell />
-                      </div>
-
-                      <div className="flex-1">
-                        <div className="text-sm text-foreground/80 whitespace-pre-wrap">
-                          {String(
-                            a.message ?? a.text ?? a.alert_text ?? "Alerta",
-                          )}
-                        </div>
-                        {a.created_at ? (
-                          <div className="mt-1 text-[11px] text-muted-foreground">
-                            {new Date(String(a.created_at)).toLocaleString(
-                              "pt-BR",
-                            )}
-                          </div>
-                        ) : null}
-                      </div>
-
-                      <button
-                        onClick={() => handleDeleteAlert(String(a.id))}
-                        className="shrink-0 px-2 py-1 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 text-[11px] font-extrabold hover:bg-rose-500/20 transition-colors"
-                        title="Excluir alerta"
-                      >
-                        Excluir
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="pt-3 flex justify-end">
-              <button
-                onClick={() =>
-                  setShowAlertList({
-                    open: false,
-                    target: null,
-                    targetName: undefined,
                   })
                 }
                 className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted font-semibold text-sm transition-colors"
@@ -2561,9 +2242,6 @@ function IconMoney() {
 }
 function IconEdit() {
   return <Pencil className="w-4 h-4" />;
-}
-function IconBell() {
-  return <Bell className="w-4 h-4" />;
 }
 function IconTrash() {
   return <Trash2 className="w-4 h-4" />;

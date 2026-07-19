@@ -2888,7 +2888,7 @@ className="p-8 text-center text-muted-foreground italic"
             {/* ✅ Select da Sessão WhatsApp */}
             <div>
               <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
-                Sessão de Envio
+                Sessão WhatsApp
               </label>
               <select
                 value={selectedSessionNow}
@@ -3028,7 +3028,7 @@ className="p-8 text-center text-muted-foreground italic"
             {/* ✅ Select da Sessão WhatsApp */}
             <div>
               <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
-                Sessão de Envio
+                Sessão WhatsApp
               </label>
               <select
                 value={selectedSessionSchedule}

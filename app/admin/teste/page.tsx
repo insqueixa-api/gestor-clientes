@@ -1987,7 +1987,7 @@ export default function TrialsPage() {
           <div className="space-y-4">
             <div>
               <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
-                Sessão de Envio
+                Sessão WhatsApp
               </label>
               <select
                 value={selectedSessionNow}
@@ -2109,7 +2109,7 @@ export default function TrialsPage() {
           <div className="space-y-4">
             <div>
               <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
-                Sessão de Envio
+                Sessão WhatsApp
               </label>
               <select
                 value={selectedSessionSchedule}

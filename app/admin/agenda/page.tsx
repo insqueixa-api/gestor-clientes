@@ -1948,7 +1948,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
             </div>
             <div>
               <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
-                Sessão de Envio
+                Sessão WhatsApp
               </label>
               <select
                 value={selectedSessionNow}
