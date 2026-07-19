@@ -30,10 +30,18 @@
 //
 // ⚠️ Uma pessoa pode ter várias contas (client_id) vinculadas ao mesmo
 // whatsapp_username — o portal já mostra todas juntas sob 1 login
-// (get-accounts/route.ts) e ela escolhe qual renovar. Por isso "1 uso por
-// cliente pra sempre" e "cupom pessoal restrito a um client_id" valem pra
-// PESSOA (todas as contas ligadas ao mesmo whatsapp), não pra conta
-// isolada — ver resolveLinkedClientIds.
+// (get-accounts/route.ts) e ela escolhe qual renovar.
+//
+// A regra "1 uso pra sempre" de um cupom GERAL é por CONTA (client_id =
+// username do servidor), não pela pessoa toda — cada conta é uma
+// assinatura paga separada, então cada uma pode usar o cupom uma vez
+// (correção pedida pelo Marcio depois de testar com as 3 contas dele:
+// bloquear pela pessoa impedia usar em contas diferentes, o que não faz
+// sentido pra receita separada de cada uma). `resolveLinkedClientIds`
+// continua existindo só pra resolver a QUEM um cupom PESSOAL pertence
+// (ver validateCouponForCharge/findEligibleCoupon) — isso sim vale pra
+// pessoa inteira, já que é uma recompensa de indicação, não uma
+// assinatura.
 //
 // ⚠️ validateCouponForCharge() ainda não é chamada em nenhum lugar — a
 // validação dentro de create-payment/route.ts e a UI no portal (RenewClient)
@@ -123,17 +131,18 @@ async function resolveLinkedClientIds(
   return ids;
 }
 
-async function hasAnyLinkedRedeemed(
+/** "Já usou" pra cupom GERAL é por CONTA (client_id), não pela pessoa toda. */
+async function hasClientRedeemed(
   supabaseAdmin: any,
   couponId: string,
-  linkedClientIds: string[],
+  clientId: string,
 ): Promise<boolean> {
-  if (!linkedClientIds.length) return false;
+  if (!clientId) return false;
   const { count } = await supabaseAdmin
     .from("coupon_redemptions")
     .select("id", { count: "exact", head: true })
     .eq("coupon_id", couponId)
-    .in("client_id", linkedClientIds);
+    .eq("client_id", clientId);
   return (count || 0) > 0;
 }
 
@@ -336,7 +345,9 @@ export async function findEligibleCoupon(params: {
     if (!coupon.client_id) {
       if (await isOverrideActive()) continue;
       if (!matchesTargeting(coupon, clientRow)) continue;
-      if (await hasAnyLinkedRedeemed(supabaseAdmin, coupon.id, await linkedIds())) continue;
+      // Cupom GERAL: "já usou" é por CONTA (esta client_id), não pela
+      // pessoa/whatsapp inteira — ver comentário no topo do arquivo.
+      if (await hasClientRedeemed(supabaseAdmin, coupon.id, clientId)) continue;
 
       if (coupon.max_total_redemptions != null) {
         const totalUses = await countRedemptions(supabaseAdmin, coupon.id);
@@ -470,8 +481,10 @@ export async function validateCouponForCharge(params: {
 
   // Cupom pessoal não usa a regra "1 uso pra sempre" — só is_active decide.
   if (!isPersonal) {
-    const linkedIds = await resolveLinkedClientIds(supabaseAdmin, tenantId, clientRow);
-    if (await hasAnyLinkedRedeemed(supabaseAdmin, coupon.id, linkedIds)) {
+    // Cupom GERAL: "já usou" é por CONTA (client_id = username do
+    // servidor), não pela pessoa/whatsapp inteira — cada conta é uma
+    // assinatura separada. Ver comentário no topo do arquivo.
+    if (await hasClientRedeemed(supabaseAdmin, coupon.id, clientRow.id)) {
       return { ok: false, reason: "Você já utilizou este cupom." };
     }
 

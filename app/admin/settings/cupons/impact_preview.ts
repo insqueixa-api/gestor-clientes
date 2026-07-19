@@ -109,11 +109,10 @@ type ClientLite = {
   plan_table_id: string | null;
   created_at: string | null;
   whatsapp_username: string | null;
-  secondary_whatsapp_username: string | null;
 };
 
 const CLIENT_SELECT =
-  "id, client_name, username, server_name, computed_status, server_id, plan_name, apps_names, vencimento, screens, price_currency, price_amount, plan_table_id, created_at, whatsapp_username, secondary_whatsapp_username";
+  "id, client_name, username, server_name, computed_status, server_id, plan_name, apps_names, vencimento, screens, price_currency, price_amount, plan_table_id, created_at, whatsapp_username";
 
 /** Resolve a tabela de preço BRL do cliente. Retorna null se não achar uma tabela BRL. */
 function resolveBRLPlanTable(planTables: PlanTableLite[], client: ClientLite): string | null {
@@ -200,10 +199,11 @@ export async function computeCouponImpact(
 
   const now = new Date();
 
-  // Uma pessoa pode ter várias contas (client_id) vinculadas ao mesmo
-  // whatsapp — o portal mostra todas juntas sob 1 login e ela escolhe
-  // qual renovar, então "já resgatou" bloqueia TODAS as contas dela, não
-  // só a que efetivamente usou o cupom.
+  // "Já usou" é por CONTA (client_id = username do servidor), não pela
+  // pessoa/whatsapp inteira — cada conta é uma assinatura paga separada,
+  // então cada uma pode usar o cupom geral uma vez (mesma regra de
+  // lib/client-portal/coupons.ts::hasClientRedeemed — não expande mais
+  // pras contas-irmãs vinculadas ao mesmo whatsapp).
   let excludedClientIds: Set<string> | null = null;
   if (excludeCouponId) {
     const { data: redemptions } = await supabaseBrowser
@@ -212,19 +212,6 @@ export async function computeCouponImpact(
       .eq("coupon_id", excludeCouponId);
     const redeemedIds = ((redemptions as { client_id: string }[]) || []).map((r) => r.client_id);
     excludedClientIds = new Set(redeemedIds);
-    const redeemedWas = Array.from(
-      new Set(
-        allClients
-          .filter((c) => redeemedIds.includes(c.id))
-          .map((c) => c.whatsapp_username)
-          .filter((w): w is string => !!w),
-      ),
-    );
-    for (const c of allClients) {
-      if (redeemedWas.includes(c.whatsapp_username || "") || redeemedWas.includes(c.secondary_whatsapp_username || "")) {
-        excludedClientIds.add(c.id);
-      }
-    }
   }
 
   const eligible = allClients.filter((c) => {
