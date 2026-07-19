@@ -6,9 +6,9 @@ import React, { useEffect, useState, useRef } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, {
   ToastMessage,
-} from "@/app/admin/ToastNotifications";
+} from "@/hooks/ToastNotifications";
 import { getCurrentTenantId } from "@/lib/tenant";
-import { useConfirm } from "@/app/admin/HookuseConfirm";
+import { useConfirm } from "@/hooks/useConfirm";
 
 // --- TIPOS ---
 type AppFieldType =

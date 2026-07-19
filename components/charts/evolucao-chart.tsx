@@ -1,4 +1,4 @@
-// app/admin/evolucao-chart.tsx
+// components/charts/evolucao-chart.tsx
 import { createClient } from "@/lib/supabase/server";
 import { EvolucaoFinanceiraClient } from "./evolucao-client";
 import { toBRDateStr } from "@/lib/date-br";

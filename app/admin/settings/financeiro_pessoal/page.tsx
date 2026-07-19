@@ -5,13 +5,13 @@ import { X, Pencil, Trash2 } from "lucide-react";
 import { useEffect, useState, useMemo, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
-import { EyeToggle } from "@/app/admin/eye-toggle";
+import { EyeToggle } from "@/components/ui/eye-toggle";
 import ToastNotifications, {
   ToastMessage,
-} from "@/app/admin/ToastNotifications";
+} from "@/hooks/ToastNotifications";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import { useConfirm } from "@/app/admin/HookuseConfirm";
+import { useConfirm } from "@/hooks/useConfirm";
 
 // --- TIPOS ---
 type Transacao = {

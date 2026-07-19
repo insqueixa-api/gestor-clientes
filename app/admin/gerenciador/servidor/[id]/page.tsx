@@ -11,8 +11,8 @@ import RecargaServidorModal from "../recarga_servidor";
 import type { ServerRow } from "../page";
 import ToastNotifications, {
   ToastMessage,
-} from "@/app/admin/ToastNotifications";
-import { useConfirm } from "@/app/admin/HookuseConfirm";
+} from "@/hooks/ToastNotifications";
+import { useConfirm } from "@/hooks/useConfirm";
 
 // --- Tipagens ---
 

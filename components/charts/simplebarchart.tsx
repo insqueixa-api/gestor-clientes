@@ -1,7 +1,8 @@
 "use client";
-// app/admin/simplebarchart.tsx
+// components/charts/simplebarchart.tsx
 
 import React, { useMemo, useRef, useState } from "react";
+import { useIsDark } from "@/hooks/useIsDark";
 
 export type SimpleBarChartDatum = {
   label: string;
@@ -127,23 +128,6 @@ function inferColorVar(colorClass?: string): keyof typeof palettes {
   )
     return "amber";
   return "blue";
-}
-
-/* ── Hook dark mode (respeita classe .dark do next-themes) ── */
-function useIsDark() {
-  const [dark, setDark] = React.useState(false);
-  React.useEffect(() => {
-    const check = () =>
-      setDark(document.documentElement.classList.contains("dark"));
-    check();
-    const mo = new MutationObserver(check);
-    mo.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-    return () => mo.disconnect();
-  }, []);
-  return dark;
 }
 
 /* ══════════════════════════════════════════════

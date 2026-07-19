@@ -6,8 +6,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import { useConfirm } from "@/app/admin/HookuseConfirm";
-import FormattedDateInput from "@/app/admin/FormattedDateInput";
+import { useConfirm } from "@/hooks/useConfirm";
+import FormattedDateInput from "@/components/ui/FormattedDateInput";
 
 // --- HELPERS DE TELEFONE E PAÍSES (alinhados com NovoCliente) ---
 type DdiOption = { code: string; label: string; flag: string };

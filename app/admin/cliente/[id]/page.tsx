@@ -7,8 +7,8 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import ToastNotifications, { ToastMessage } from "../../ToastNotifications";
-import { useConfirm } from "@/app/admin/HookuseConfirm";
+import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
+import { useConfirm } from "@/hooks/useConfirm";
 
 // Componentes (CORRIGIDO: PascalCase)
 import NovoCliente, { ClientData } from "../novo_cliente";

@@ -1,5 +1,5 @@
 "use client";
-// app/admin/HookusePrompt.tsx
+// hooks/usePrompt.tsx
 
 import React, {
   createContext,
@@ -8,7 +8,7 @@ import React, {
   useState,
   ReactNode,
 } from "react";
-import PromptDialog, { PromptDialogProps } from "@/app/admin/PromptDialog";
+import PromptDialog, { PromptDialogProps } from "@/components/ui/PromptDialog";
 
 type PromptOptions = Omit<
   PromptDialogProps,

@@ -1,5 +1,5 @@
 "use client";
-// app/admin/ToastNotifications.tsx
+// hooks/ToastNotifications.tsx
 
 import { useEffect, useRef } from "react";
 

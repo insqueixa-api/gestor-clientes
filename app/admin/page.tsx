@@ -1,12 +1,12 @@
 // app/admin/page.tsx
 import { createClient } from "@/lib/supabase/server";
-import { SimpleBarChart } from "@/app/admin/simplebarchart";
-import { RankingCard } from "@/app/admin/ranking-card";
+import { SimpleBarChart } from "@/components/charts/simplebarchart";
+import { RankingCard } from "@/components/charts/ranking-card";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { EyeToggle } from "@/app/admin/eye-toggle";
+import { EyeToggle } from "@/components/ui/eye-toggle";
 import { DashboardFilter } from "./dashboard-filter";
-import EvolucaoFinanceira from "./evolucao-chart";
+import EvolucaoFinanceira from "@/components/charts/evolucao-chart";
 import { toBRDateStr } from "@/lib/date-br";
 
 export const dynamic = "force-dynamic";

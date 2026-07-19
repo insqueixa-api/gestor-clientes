@@ -1,4 +1,4 @@
-// app/components/whatsapp/BotFlowCanvas.tsx
+// components/whatsapp/BotFlowCanvas.tsx
 // Canvas full-width: visão limpa (Início → menu → Sucesso/Márcio).
 // Clique num nó = foca filhos/linhas. Bolinha de ligar = mostra tudo.
 // Duplo clique = editar (callback).

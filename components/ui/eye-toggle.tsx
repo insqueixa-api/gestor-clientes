@@ -1,5 +1,5 @@
 "use client";
-// app/admin/eye-toggle.tsx
+// components/ui/eye-toggle.tsx
 import { EyeOff } from "lucide-react";
 
 import { useState } from "react";

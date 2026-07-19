@@ -8,8 +8,8 @@ import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, {
   ToastMessage,
-} from "@/app/admin/ToastNotifications";
-import { useConfirm } from "@/app/admin/HookuseConfirm";
+} from "@/hooks/ToastNotifications";
+import { useConfirm } from "@/hooks/useConfirm";
 import NovaIntegracaoModal from "./nova_integracao_modal";
 import AppIntegracaoModal from "./app_integracao_modal";
 

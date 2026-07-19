@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { getCurrentTenantId } from "@/lib/tenant";
-import { useConfirm } from "@/app/admin/HookuseConfirm";
+import { useConfirm } from "@/hooks/useConfirm";
 
 // Tipos
 type ServerOption = {

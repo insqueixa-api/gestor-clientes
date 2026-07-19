@@ -3,7 +3,7 @@
 
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef } from "react";
-import GuiaTVView from "@/app/components/guia-tv/GuiaTVView";
+import GuiaTVView from "@/components/guia-tv/GuiaTVView";
 
 type ServidorFiltro = "ELITE" | "NATV" | "FAST" | "TODOS";
 

@@ -4,8 +4,8 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import AdminShell from "./AdminShell";
-import { ConfirmProvider } from "@/app/admin/HookuseConfirm";
-import { PromptProvider } from "@/app/admin/HookusePrompt";
+import { ConfirmProvider } from "@/hooks/useConfirm";
+import { PromptProvider } from "@/hooks/usePrompt";
 
 export const dynamic = "force-dynamic";
 

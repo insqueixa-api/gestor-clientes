@@ -7,7 +7,7 @@ import { X } from "lucide-react";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import type { ServerRow } from "./page";
-import { useConfirm } from "@/app/admin/HookuseConfirm";
+import { useConfirm } from "@/hooks/useConfirm";
 
 // Helper de Slug
 function slugify(text: string) {

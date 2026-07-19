@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation"; // ✅ useRouter a
 import { useState, useEffect, useMemo, useRef } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import Image from "next/image";
-import { useConfirm } from "@/app/admin/HookuseConfirm";
+import { useConfirm } from "@/hooks/useConfirm";
 import { Pencil } from "lucide-react";
 
 // ========= TYPES =========

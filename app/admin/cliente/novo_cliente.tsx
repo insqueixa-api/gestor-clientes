@@ -5,11 +5,11 @@ import { Loader2, X, MessageCircle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import ToastNotifications, { ToastMessage } from "../ToastNotifications";
-import { useConfirm } from "@/app/admin/HookuseConfirm"; // ✅ Trazendo a caixa de confirmação bonita
+import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
+import { useConfirm } from "@/hooks/useConfirm"; // ✅ Trazendo a caixa de confirmação bonita
 import { getIntegrationHandler } from "@/lib/integrations"; // ✅ O Roteador Inteligente
 import { createPortal } from "react-dom";
-import FormattedTimeInput from "@/app/admin/FormattedTimeInput";
+import FormattedTimeInput from "@/components/ui/FormattedTimeInput";
 
 // --- TIPOS ---
 type SelectOption = {

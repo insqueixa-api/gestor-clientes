@@ -1,24 +1,9 @@
 "use client";
-// app/admin/evolucao-client.tsx
+// components/charts/evolucao-client.tsx
 
 import React, { useEffect, useState, useMemo } from "react";
-import type { MonthData } from "./evolucao-chart";
-
-function useIsDark() {
-  const [dark, setDark] = useState(false);
-  useEffect(() => {
-    const check = () =>
-      setDark(document.documentElement.classList.contains("dark"));
-    check();
-    const mo = new MutationObserver(check);
-    mo.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-    return () => mo.disconnect();
-  }, []);
-  return dark;
-}
+import type { MonthData } from "@/components/charts/evolucao-chart";
+import { useIsDark } from "@/hooks/useIsDark";
 
 function fmtAxis(v: number): string {
   if (v === 0) return "0";

@@ -9,14 +9,14 @@ import { getCurrentTenantId } from "@/lib/tenant";
 import Link from "next/link";
 
 // ✅ 1. Importar o Hook
-import { useConfirm } from "@/app/admin/HookuseConfirm";
+import { useConfirm } from "@/hooks/useConfirm";
 
 // Modais
 import VincularServidor from "./vincular_servidor";
 import QuickRechargeModal from "../recarga_revenda";
 
 // Componentes Visuais
-import ToastNotifications, { ToastMessage } from "../../ToastNotifications";
+import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 
 /* =========================
    HELPERS DE TELEFONE (Mesma lógica do Cliente)

@@ -19,9 +19,9 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import FormattedDateInput from "@/app/admin/FormattedDateInput";
+import FormattedDateInput from "@/components/ui/FormattedDateInput";
 import { getIntegrationHandler } from "@/lib/integrations";
-import Pagination from "@/app/components/ui/Pagination";
+import Pagination from "@/components/ui/Pagination";
 
 // ✅ Modal ÚNICO (criar/editar teste vem do mesmo modal do cliente)
 import NovoCliente, { type ClientData } from "../cliente/novo_cliente";
@@ -29,8 +29,9 @@ import NovoCliente, { type ClientData } from "../cliente/novo_cliente";
 // ✅ Modal de confirmação / conversão (o mesmo da renovação)
 import RecargaCliente from "../cliente/recarga_cliente";
 
-import ToastNotifications, { ToastMessage } from "../ToastNotifications";
-import { useConfirm } from "@/app/admin/HookuseConfirm"; // ✅ Hook adicionado
+import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
+import { useConfirm } from "@/hooks/useConfirm"; // ✅ Hook adicionado
+import { isoDateInSaoPaulo } from "@/lib/date-br";
 
 // --- HELPERS WHATSAPP ---
 // ✅ Só o nome do contato (Principal/Secundário) — sem o número, que não
@@ -147,15 +148,6 @@ function mapStatus(
     ARCHIVED: "Arquivado",
   };
   return map[computed] || "Ativo";
-}
-
-function isoDateInSaoPaulo(d = new Date()) {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Sao_Paulo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(d);
 }
 
 function getDiffDays(isoDateTarget: string) {

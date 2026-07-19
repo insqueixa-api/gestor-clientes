@@ -1,5 +1,5 @@
 "use client";
-// app/components/guia-tv/GuiaTVView.tsx
+// components/guia-tv/GuiaTVView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 // Importando o X que estava no seu código original
@@ -15,9 +15,9 @@ import {
 
 // ✅ Novos imports para Toasts (seguindo o padrão que você mandou na página de planos)
 // Certifique-se de que esses arquivos existem no caminho especificado
-import ToastNotifications from "@/app/admin/ToastNotifications"; 
+import ToastNotifications from "@/hooks/ToastNotifications"; 
 // Você precisará criar ou importar este hook se ele já existir em @/hooks
-import { useConfirm } from "@/app/admin/HookuseConfirm";
+import { useConfirm } from "@/hooks/useConfirm";
 
 // ADICIONAR ISSO:
 type ServidorCliente = "ELITE" | "NATV" | "FAST" | "TODOS";

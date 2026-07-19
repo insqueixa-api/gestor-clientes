@@ -23,16 +23,17 @@ import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { createPortal } from "react-dom";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import FormattedDateInput from "@/app/admin/FormattedDateInput";
+import FormattedDateInput from "@/components/ui/FormattedDateInput";
 import NovoCliente, { ClientData } from "./novo_cliente";
 import RecargaCliente from "./recarga_cliente";
-import { useConfirm } from "@/app/admin/HookuseConfirm";
+import { useConfirm } from "@/hooks/useConfirm";
 
-import ToastNotifications, { ToastMessage } from "../ToastNotifications";
+import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { getIntegrationHandler } from "@/lib/integrations"; // ✅ NOVO: Traz o cérebro das integrações
-import Pagination from "@/app/components/ui/Pagination";
+import Pagination from "@/components/ui/Pagination";
+import { isoDateInSaoPaulo } from "@/lib/date-br";
 
 if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
   window.console.log = () => {};
@@ -217,16 +218,6 @@ type ClientRow = {
 };
 
 // --- HELPERS ---
-
-function isoDateInSaoPaulo(d = new Date()) {
-  const fmt = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Sao_Paulo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  return fmt.format(d); // YYYY-MM-DD
-}
 
 function addDaysIsoInSaoPaulo(iso: string, days: number) {
   // usa meio-dia -03:00 pra evitar “virada” por timezone

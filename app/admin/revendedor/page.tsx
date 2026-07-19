@@ -21,15 +21,15 @@ import Link from "next/link";
 import { createPortal } from "react-dom";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import FormattedDateInput from "@/app/admin/FormattedDateInput";
+import FormattedDateInput from "@/components/ui/FormattedDateInput";
 
 // --- HOOKS CUSTOMIZADOS ---
-import { useConfirm } from "@/app/admin/HookuseConfirm"; // ✅ ADICIONADO: Importação obrigatória
+import { useConfirm } from "@/hooks/useConfirm"; // ✅ ADICIONADO: Importação obrigatória
 
 // --- COMPONENTES MODAIS ---
 import ResellerFormModal from "./novo_revenda";
 import QuickRechargeModal from "./recarga_revenda";
-import ToastNotifications, { ToastMessage } from "../ToastNotifications";
+import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 
 // --- HELPERS WHATSAPP ---
 // ✅ Só o nome do contato (Principal/Secundário) — sem o número, que não

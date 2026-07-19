@@ -5,15 +5,15 @@ import { X } from "lucide-react";
 import { useEffect, useMemo, useState, Suspense } from "react";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import { useConfirm } from "@/app/admin/HookuseConfirm";
+import { useConfirm } from "@/hooks/useConfirm";
 import ToastNotifications, {
   ToastMessage,
-} from "@/app/admin/ToastNotifications";
-import { EyeToggle } from "@/app/admin/eye-toggle";
+} from "@/hooks/ToastNotifications";
+import { EyeToggle } from "@/components/ui/eye-toggle";
 
 // ✅ Importa os modais de recarga
 import RecargaCliente from "../cliente/recarga_cliente";
-import Pagination from "@/app/components/ui/Pagination";
+import Pagination from "@/components/ui/Pagination";
 
 // --- TIPOS ---
 type LogRow = {

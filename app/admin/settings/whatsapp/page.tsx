@@ -7,11 +7,11 @@ import {
   Search, Plus, Trash2, Edit3, XCircle, Sparkles,
   BookOpen, Tag, MessageSquare,
 } from "lucide-react";
-import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
-import { useConfirm } from "@/app/admin/HookuseConfirm";
-import { usePrompt } from "@/app/admin/HookusePrompt";
+import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
+import { useConfirm } from "@/hooks/useConfirm";
+import { usePrompt } from "@/hooks/usePrompt";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import BotMenuTreeEditor from "@/app/components/whatsapp/BotMenuTreeEditor";
+import BotMenuTreeEditor from "@/components/whatsapp/BotMenuTreeEditor";
 
 
 

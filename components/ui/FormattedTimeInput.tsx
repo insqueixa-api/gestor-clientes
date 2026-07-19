@@ -1,5 +1,5 @@
 "use client";
-// app/admin/FormattedTimeInput.tsx
+// components/ui/FormattedTimeInput.tsx
 // Input de hora mascarado em HH:MM (24h) — substitui <input type="time"> nativo,
 // cujo formato de exibição (24h vs 12h AM/PM) depende do idioma do navegador.
 // Suporta uso controlado (value/onChange) e não controlado (defaultValue/ref).

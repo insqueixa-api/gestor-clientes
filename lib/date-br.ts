@@ -16,3 +16,12 @@ const brDateFormatter = new Intl.DateTimeFormat("en-CA", {
 export function toBRDateStr(iso: string): string {
   return brDateFormatter.format(new Date(iso));
 }
+
+/**
+ * Data "de hoje" (ou de um Date arbitrário) no fuso de São Paulo, como
+ * YYYY-MM-DD. Usada pra comparar "qual é o dia local agora" sem depender do
+ * fuso do servidor/navegador. Antes duplicada de forma idêntica em 3 páginas.
+ */
+export function isoDateInSaoPaulo(d: Date = new Date()): string {
+  return brDateFormatter.format(d);
+}

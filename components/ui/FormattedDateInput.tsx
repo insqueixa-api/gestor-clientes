@@ -1,5 +1,5 @@
 "use client";
-// app/admin/FormattedDateInput.tsx
+// components/ui/FormattedDateInput.tsx
 // Input de data/data-hora mascarado em DD/MM/AAAA — substitui <input type="date">
 // e <input type="datetime-local"> nativos, cujo formato de exibição depende do
 // idioma do navegador (em inglês vira MM/DD/AAAA). Mantém o mesmo contrato de

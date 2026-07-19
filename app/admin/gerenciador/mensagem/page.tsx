@@ -8,8 +8,8 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 import { getCurrentTenantId } from "@/lib/tenant";
 import ToastNotifications, {
   ToastMessage,
-} from "@/app/admin/ToastNotifications";
-import { useConfirm } from "@/app/admin/HookuseConfirm";
+} from "@/hooks/ToastNotifications";
+import { useConfirm } from "@/hooks/useConfirm";
 
 // --- ÍCONES (ADICIONAR/SUBSTITUIR NO TOPO) ---
 function IconEye() {

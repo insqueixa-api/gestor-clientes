@@ -6,7 +6,7 @@ import { createPortal } from "react-dom"; // Faltava importar o createPortal
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import type { ServerRow } from "./page"; // Importamos o tipo do servidor
-import FormattedDateInput from "@/app/admin/FormattedDateInput";
+import FormattedDateInput from "@/components/ui/FormattedDateInput";
 
 // --- COMPONENTES VISUAIS (Mesmo padrão do novo_servidor) ---
 function Label({ children }: { children: React.ReactNode }) {

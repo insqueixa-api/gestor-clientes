@@ -27,9 +27,9 @@ import { createPortal } from "react-dom";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useSearchParams, useRouter } from "next/navigation";
-import ToastNotifications, { ToastMessage } from "../ToastNotifications";
-import { useConfirm } from "@/app/admin/HookuseConfirm";
-import Pagination from "@/app/components/ui/Pagination";
+import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
+import { useConfirm } from "@/hooks/useConfirm";
+import Pagination from "@/components/ui/Pagination";
 
 // ─── TIPOS ───────────────────────────────────────────────────────────────────
 type ContactItem = { label: string; value: string };

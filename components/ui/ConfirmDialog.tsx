@@ -1,7 +1,7 @@
 "use client";
-// app/admin/PromptDialog.tsx
+// components/ui/ConfirmDialog.tsx
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 type Tone = "emerald" | "rose" | "amber" | "sky" | "slate";
@@ -12,83 +12,70 @@ function toneClasses(tone: Tone) {
       return {
         ring: "shadow-rose-500/30",
         iconBg: "bg-rose-500/10",
+        dot: "text-rose-500",
         confirm: "bg-rose-600 hover:bg-rose-500",
-        focus: "focus:border-rose-500 focus:ring-rose-500/30",
       };
     case "amber":
       return {
         ring: "shadow-amber-500/30",
         iconBg: "bg-amber-500/10",
+        dot: "text-amber-500",
         confirm: "bg-amber-600 hover:bg-amber-500",
-        focus: "focus:border-amber-500 focus:ring-amber-500/30",
       };
     case "sky":
       return {
         ring: "shadow-sky-500/30",
         iconBg: "bg-sky-500/10",
+        dot: "text-sky-500",
         confirm: "bg-sky-600 hover:bg-sky-500",
-        focus: "focus:border-sky-500 focus:ring-sky-500/30",
       };
     case "slate":
       return {
         ring: "shadow-slate-500/20",
         iconBg: "bg-muted",
+        dot: "text-muted-foreground",
         confirm: "bg-foreground text-background hover:bg-foreground/90",
-        focus: "focus:border-foreground/40 focus:ring-foreground/20",
       };
     default:
       return {
         ring: "shadow-emerald-500/30",
         iconBg: "bg-emerald-500/10",
+        dot: "text-emerald-500",
         confirm: "bg-emerald-600 hover:bg-emerald-500",
-        focus: "focus:border-emerald-500 focus:ring-emerald-500/30",
       };
   }
 }
 
-export type PromptDialogProps = {
+export type ConfirmDialogProps = {
   open: boolean;
   title: string;
   subtitle?: string;
-  label?: string;
-  placeholder?: string;
-  defaultValue?: string;
+  details?: (string | React.ReactNode)[]; // ✅ Agora aceita JSX
   tone?: Tone;
   icon?: React.ReactNode;
   confirmText?: string;
   cancelText?: string;
   loading?: boolean;
-  onConfirm: (value: string) => void;
+  onConfirm: () => void;
   onCancel: () => void;
 };
 
-export default function PromptDialog({
+export default function ConfirmDialog({
   open,
   title,
-  subtitle = "Preencha o campo abaixo.",
-  label,
-  placeholder,
-  defaultValue = "",
+  subtitle = "Confira os dados antes de confirmar.",
+  details = [],
   tone = "emerald",
   icon,
   confirmText = "Confirmar",
-  cancelText = "Cancelar",
+  cancelText = "Voltar",
   loading = false,
   onConfirm,
   onCancel,
-}: PromptDialogProps) {
+}: ConfirmDialogProps) {
   const [mounted, setMounted] = useState(false);
-  const [value, setValue] = useState(defaultValue);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => setMounted(true), []);
-
-  useEffect(() => {
-    if (open) {
-      setValue(defaultValue);
-      setTimeout(() => inputRef.current?.focus(), 0);
-    }
-  }, [open, defaultValue]);
 
   useEffect(() => {
     if (!open) return;
@@ -118,35 +105,56 @@ export default function PromptDialog({
           <div
             className={`w-12 h-12 rounded-full ${t.iconBg} flex items-center justify-center text-2xl`}
           >
-            {icon ?? "✏️"}
+            {icon ?? "✅"}
           </div>
           <div className="min-w-0">
             <h3 className="text-lg font-semibold text-foreground truncate">
               {title}
             </h3>
-            <p className="text-xs text-foreground/70">{subtitle}</p>
+            <p className="text-xs text-foreground/70">
+              {subtitle}
+            </p>
           </div>
         </div>
 
-        <div>
-          {label && (
-            <label className="block text-xs font-medium text-foreground/70 mb-1.5">
-              {label}
-            </label>
-          )}
-          <input
-            ref={inputRef}
-            type="text"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !loading) onConfirm(value);
-            }}
-            placeholder={placeholder}
-            disabled={loading}
-            className={`w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground outline-none transition-colors focus:ring-2 ${t.focus} disabled:opacity-60`}
-          />
-        </div>
+        {details.length > 0 && (
+          <div className="bg-muted/40 rounded-xl p-4 border border-border">
+            <ul className="space-y-2">
+              {details.map((line, i) => {
+                // Divisor
+                if (line === "---") {
+                  return (
+                    <li key={i} className="py-1">
+                      <div className="w-full h-px bg-border" />
+                    </li>
+                  );
+                }
+
+                // ✅ SE FOR JSX (Objeto customizado), RENDERIZA DIRETO (Sem a bolinha)
+                if (typeof line !== "string") {
+                  return (
+                    <li key={i} className="mt-1">
+                      {line}
+                    </li>
+                  );
+                }
+
+                // Padrão antigo para textos normais (Com a bolinha)
+                return (
+                  <li
+                    key={i}
+                    className="text-sm text-foreground/90 flex items-start gap-2"
+                  >
+                    <span className={`${t.dot} font-medium`}>•</span>
+                    <span className="break-words whitespace-pre-wrap">
+                      {line}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
 
         <div className="flex gap-3 pt-2">
           {cancelText && cancelText.trim() !== "" && (
@@ -159,7 +167,7 @@ export default function PromptDialog({
             </button>
           )}
           <button
-            onClick={() => onConfirm(value)}
+            onClick={onConfirm}
             disabled={loading}
             className={`flex-1 py-3 rounded-xl ${t.confirm} text-white font-medium text-sm shadow-lg ${t.ring} transition-all transform active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed`}
           >

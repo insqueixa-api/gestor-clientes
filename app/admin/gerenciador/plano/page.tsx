@@ -6,8 +6,8 @@ import { useEffect, useMemo, useState } from "react";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import PlanoModal from "./plano_modal";
-import ToastNotifications from "../../ToastNotifications"; // ✅ Novo import
-import { useConfirm } from "@/app/admin/HookuseConfirm";
+import ToastNotifications from "@/hooks/ToastNotifications"; // ✅ Novo import
+import { useConfirm } from "@/hooks/useConfirm";
 
 // --- Tipagens (Enxutas para IPTV) ---
 type Price = {

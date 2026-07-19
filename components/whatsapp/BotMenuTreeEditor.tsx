@@ -1,4 +1,4 @@
-// app/components/whatsapp/BotMenuTreeEditor.tsx
+// components/whatsapp/BotMenuTreeEditor.tsx
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
@@ -9,7 +9,7 @@ import {
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { slugifyAppName } from "@/lib/whatsapp/template-vars";
-import { useConfirm } from "@/app/admin/HookuseConfirm";
+import { useConfirm } from "@/hooks/useConfirm";
 import BotFlowCanvas, { FlowPortLegend, type CanvasNode, type FlowLink } from "./BotFlowCanvas";
 
 type MenuNode = {

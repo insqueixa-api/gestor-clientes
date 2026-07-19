@@ -1,5 +1,5 @@
 "use client";
-// app/admin/HookuseConfirm.tsx
+// hooks/useConfirm.tsx
 
 import React, {
   createContext,
@@ -8,7 +8,7 @@ import React, {
   useState,
   ReactNode,
 } from "react";
-import ConfirmDialog, { ConfirmDialogProps } from "@/app/admin/ConfirmDialog";
+import ConfirmDialog, { ConfirmDialogProps } from "@/components/ui/ConfirmDialog";
 
 type ConfirmOptions = Omit<
   ConfirmDialogProps,

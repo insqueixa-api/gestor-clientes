@@ -8,9 +8,10 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 import { getCurrentTenantId } from "@/lib/tenant";
 import ToastNotifications, {
   ToastMessage,
-} from "@/app/admin/ToastNotifications";
-import { useConfirm } from "@/app/admin/HookuseConfirm";
-import FormattedTimeInput from "@/app/admin/FormattedTimeInput";
+} from "@/hooks/ToastNotifications";
+import { useConfirm } from "@/hooks/useConfirm";
+import FormattedTimeInput from "@/components/ui/FormattedTimeInput";
+import { isoDateInSaoPaulo } from "@/lib/date-br";
 
 // --- TIPOS ---
 type Automation = {
@@ -124,16 +125,6 @@ function formatTimeSP(input?: string | null): string {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-function isoDateInSaoPaulo(d = new Date()) {
-  const fmt = new Intl.DateTimeFormat("en-CA", {
-    timeZone: BILLING_TZ,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  return fmt.format(d); // YYYY-MM-DD
 }
 
 function getExpectedRunDateSP(baseDateStr: string, daysDiff: number) {

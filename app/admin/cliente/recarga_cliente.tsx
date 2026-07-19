@@ -6,10 +6,10 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom"; // ✅ Importação necessária
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { getCurrentTenantId } from "@/lib/tenant";
-import ToastNotifications, { ToastMessage } from "../ToastNotifications";
-import { useConfirm } from "@/app/admin/HookuseConfirm";
-import FormattedDateInput from "@/app/admin/FormattedDateInput";
-import FormattedTimeInput from "@/app/admin/FormattedTimeInput";
+import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
+import { useConfirm } from "@/hooks/useConfirm";
+import FormattedDateInput from "@/components/ui/FormattedDateInput";
+import FormattedTimeInput from "@/components/ui/FormattedTimeInput";
 import { Suspense } from "react";
 
 // --- INTERFACES ---

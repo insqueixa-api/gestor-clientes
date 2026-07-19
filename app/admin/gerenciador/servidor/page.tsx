@@ -16,13 +16,13 @@ import type { ReactNode, MouseEvent } from "react";
 import Link from "next/link";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import FormattedTimeInput from "@/app/admin/FormattedTimeInput";
+import FormattedTimeInput from "@/components/ui/FormattedTimeInput";
 import NovoServidorModal from "./novo_servidor";
 import RecargaServidorModal from "./recarga_servidor";
 import ToastNotifications, {
   ToastMessage,
-} from "@/app/admin/ToastNotifications";
-import { useConfirm } from "@/app/admin/HookuseConfirm";
+} from "@/hooks/ToastNotifications";
+import { useConfirm } from "@/hooks/useConfirm";
 
 // --- TIPAGEM ---
 export type ServerRow = {
