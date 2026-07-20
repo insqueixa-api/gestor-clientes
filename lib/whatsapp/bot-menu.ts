@@ -540,13 +540,14 @@ export const ACCOUNT_DEPENDENT_ACTIONS = [
   "recomendar_app",
 ];
 
-// ✅ {link_pagamento}/{tabela_precos} viraram automáticos (detectados no
-// texto do nó, ver buildVarsForNode nas rotas) — não têm mais checkbox
-// próprio, então não aparecem mais em special_actions pra nós NOVOS. Sem
-// essa checagem por texto, um nó novo com {link_pagamento} nunca
-// perguntaria "qual conta?" antes de gerar o link — geraria sempre pra
-// primeira conta, errado pra quem tem mais de uma.
-export const ACCOUNT_DEPENDENT_VARS = ["{link_pagamento}", "{tabela_precos}"];
+// ✅ {link_pagamento}/{tabela_precos}/{cupom_frase}/{pendencia_detalhe}
+// viraram automáticos (detectados no texto do nó, ver buildVarsForNode em
+// bot-engine.ts) — não têm checkbox próprio, então não aparecem em
+// special_actions pra nós NOVOS. Sem essa checagem por texto, um nó novo
+// com uma dessas tags nunca perguntaria "qual conta?" antes de resolver —
+// resolveria sempre pra primeira conta, errado pra quem tem mais de uma
+// (cupom/pendência são por conta, não pela pessoa — ver coupons.ts).
+export const ACCOUNT_DEPENDENT_VARS = ["{link_pagamento}", "{tabela_precos}", "{cupom_frase}", "{pendencia_detalhe}"];
 
 export async function nodeNeedsAccount(sb: any, node: MenuNode, provider?: ServerProvider | null): Promise<boolean> {
   const actions = node.special_actions || [];

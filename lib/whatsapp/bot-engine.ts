@@ -7,6 +7,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { generatePortalLink, renderTemplate, buildClientTemplateVars, toBRDate, pickRandomDns, extractAppLogoTokens } from "@/lib/whatsapp/template-vars";
+import { getCouponPhraseForClient, getPendencyPhraseForClient } from "@/lib/client-portal/coupons";
 import {
   type MenuNode,
   isEscalationTrigger,
@@ -169,6 +170,41 @@ async function toolConsultarPrecosTexto(sb: any, tenantId: string, client: any):
   return linhas.length ? linhas.join("\n") : "(nenhum preço configurado)";
 }
 
+// ✅ {cupom_frase} pro bot (retenção/fidelidade, onlyBotVisible: true) —
+// o `rawClient`/`client` que chega aqui vem direto da tabela `clients`
+// crua (agent/route.ts), sem computed_status/created_at/apps_names, que é
+// exatamente o que findEligibleCoupon/matchesTargeting precisam (mesma
+// classe de bug já corrigida em create-payment/validate-coupon: sem
+// computed_status, cupom sem target_status explícito nunca bate). Por
+// isso busca um clientRow completo na view antes de checar elegibilidade
+// — só quando a tag realmente aparece no texto de destino.
+async function toolConsultarCupomBotTexto(sb: any, tenantId: string, client: any): Promise<string> {
+  const { data: viewRow } = await sb
+    .from("vw_clients_list_active")
+    .select("id, computed_status, server_id, plan_name, apps_names, vencimento, created_at, price_currency, price_amount, whatsapp_username, screens, plan_table_id")
+    .eq("tenant_id", tenantId)
+    .eq("id", client.id)
+    .maybeSingle();
+
+  return getCouponPhraseForClient(sb, tenantId, viewRow || client, { onlyBotVisible: true });
+}
+
+// ✅ Resolve {cupom_frase}/{pendencia_detalhe} sob demanda (só quando o
+// texto de destino usa a tag) — compartilhado entre buildVarsForNode
+// (mensagens de nó) e o estado "geral"/RAG (resposta direta de artigo da
+// Base de Conhecimento), que monta seu próprio `vars` separado e por isso
+// precisaria da mesma resolução duplicada sem este helper.
+async function resolveCouponPendencyVars(sb: any, tenantId: string, client: any, targetText: string): Promise<Record<string, any>> {
+  const vars: Record<string, any> = {};
+  if (targetText.includes("{cupom_frase}")) {
+    vars.cupom_frase = await toolConsultarCupomBotTexto(sb, tenantId, client);
+  }
+  if (targetText.includes("{pendencia_detalhe}")) {
+    vars.pendencia_detalhe = await getPendencyPhraseForClient(sb, tenantId, client.id, client.price_currency || "BRL");
+  }
+  return vars;
+}
+
 async function buildVarsForNode(
   sb: any, tenantId: string, node: MenuNode, client: any, rawClient: any, provider: ServerProvider | null
 ): Promise<Record<string, any>> {
@@ -184,6 +220,7 @@ async function buildVarsForNode(
   if (stepsText.includes("{tabela_precos}")) {
     vars.tabela_precos = await toolConsultarPrecosTexto(sb, tenantId, client);
   }
+  Object.assign(vars, await resolveCouponPendencyVars(sb, tenantId, client, stepsText));
   return vars;
 }
 
@@ -675,6 +712,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
         vars.plano_nome = clients[0]?.plan_label || "";
         vars.servidor_nome = clients[0]?.server_name || "";
         vars.dns_servidor = pickRandomDns(clients[0]?.server_dns);
+        Object.assign(vars, await resolveCouponPendencyVars(sb, tenantId, clients[0], top.content));
         await sendWithLogos(renderTemplate(top.content, vars));
         return { action: "rag_direct", markRead: true, nextState: "geral" };
       }

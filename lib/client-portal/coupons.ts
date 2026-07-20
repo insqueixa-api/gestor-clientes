@@ -48,6 +48,7 @@
 // ficam pra uma fase seguinte, quando pedido explicitamente.
 
 import { diffDays } from "@/lib/whatsapp/template-vars";
+import { getPendingCharges } from "@/lib/client-portal/pending-charges";
 
 const PERIOD_LABELS: Record<string, string> = {
   MONTHLY: "Mensal",
@@ -82,6 +83,8 @@ export type CouponRow = {
   rule_date_field: "vencimento" | "cadastro" | null;
   rule_days_min: number | null;
   rule_days_max: number | null;
+  /** Só cupons marcados aqui são elegíveis pro bot de atendimento (WhatsApp) mencionar — ver findEligibleCoupon({ onlyBotVisible }). */
+  bot_visible: boolean;
 };
 
 export type CouponValidationResult =
@@ -353,14 +356,23 @@ function matchesTargeting(coupon: CouponRow, clientRow: any): boolean {
 /**
  * Encontra o primeiro cupom elegível pra um cliente — usado pela automação
  * de cobrança (envio_agora / envio_programado) pra decidir se anuncia um
- * cupom na mensagem, e pela prévia de impacto do admin.
+ * cupom na mensagem, pela prévia de impacto do admin, e pelo bot de
+ * atendimento (WhatsApp interativo, com `onlyBotVisible: true`).
+ *
+ * `onlyBotVisible`: restringe a busca aos cupons com `bot_visible = true`
+ * — regra do Marcio: o bot só pode enxergar/mencionar cupons marcados
+ * explicitamente pra ele (retenção/fidelidade), nunca cupons de campanha
+ * que ele divulga por conta própria via WhatsApp em massa. Se mais de um
+ * bot-visible bater ao mesmo tempo (ex: fidelidade + retenção), o de
+ * MAIOR desconto ganha — decisão explícita, não acidental.
  */
 export async function findEligibleCoupon(params: {
   supabaseAdmin: any;
   tenantId: string;
   clientRow: any;
+  onlyBotVisible?: boolean;
 }): Promise<CouponRow | null> {
-  const { supabaseAdmin, tenantId, clientRow } = params;
+  const { supabaseAdmin, tenantId, clientRow, onlyBotVisible } = params;
 
   const clientId = clientRow?.id;
   if (!clientId) return null;
@@ -368,12 +380,14 @@ export async function findEligibleCoupon(params: {
   // Cupons só existem pra contas em BRL — nem consulta o banco pras outras.
   if (getClientCurrency(clientRow) !== "BRL") return null;
 
-  const { data, error } = await supabaseAdmin
+  let query = supabaseAdmin
     .from("coupons")
     .select("*")
     .eq("tenant_id", tenantId)
-    .eq("is_active", true)
-    .order("created_at", { ascending: false });
+    .eq("is_active", true);
+  if (onlyBotVisible) query = query.eq("bot_visible", true);
+
+  const { data, error } = await query.order("created_at", { ascending: false });
 
   if (error || !data?.length) return null;
 
@@ -406,7 +420,10 @@ export async function findEligibleCoupon(params: {
     const ids = await linkedIds();
     personal = personalCandidates.filter((c) => ids.includes(c.client_id!));
   }
-  const general = rows.filter((c) => !c.client_id);
+  let general = rows.filter((c) => !c.client_id);
+  if (onlyBotVisible) {
+    general = [...general].sort((a, b) => Number(b.discount_value) - Number(a.discount_value));
+  }
 
   for (const coupon of [...personal, ...general]) {
     if (coupon.starts_at && new Date(coupon.starts_at) > now) continue;
@@ -441,9 +458,18 @@ function formatDiscountLabel(coupon: CouponRow): string {
   return `R$ ${Number(coupon.discount_value).toFixed(2).replace(".", ",")}`;
 }
 
-/** Gera a frase pronta pra tag {cupom_frase}. Vazia quando `coupon` é null. */
-export function buildCouponPhrase(coupon: CouponRow | null): string {
-  if (!coupon) return "";
+/** Texto do bot de atendimento quando não há cupom bot-visible elegível — nunca "" (senão o nó do menu fica com resposta vazia). */
+const BOT_NO_COUPON_MESSAGE =
+  "No momento não identificamos nenhum cupom disponível pra sua conta. Fique de olho — avisamos por aqui assim que surgir uma promoção liberada pro seu perfil! 😉";
+
+/**
+ * Gera a frase pronta pra tag {cupom_frase}. Vazia quando `coupon` é null
+ * (automação de cobrança em massa — "some" a tag de propósito) — a menos
+ * que `botFallback` seja true (bot de atendimento interativo, onde uma
+ * resposta vazia não faz sentido: usa BOT_NO_COUPON_MESSAGE em vez de "").
+ */
+export function buildCouponPhrase(coupon: CouponRow | null, options?: { botFallback?: boolean }): string {
+  if (!coupon) return options?.botFallback ? BOT_NO_COUPON_MESSAGE : "";
   const desconto = formatDiscountLabel(coupon);
   if (coupon.message_template) {
     return coupon.message_template
@@ -454,20 +480,69 @@ export function buildCouponPhrase(coupon: CouponRow | null): string {
 }
 
 /**
- * Atalho usado dentro do loop de envio (envio_agora / envio_programado):
+ * Atalho usado dentro do loop de envio (envio_agora / envio_programado) e
+ * pelo bot de atendimento (WhatsApp interativo, `onlyBotVisible: true`):
  * recebe a mesma `clientRow` (any) que já alimenta buildClientTemplateVars
- * e devolve a frase pronta (ou "" se não houver cupom elegível). Nunca
- * lança — falha de forma silenciosa pra nunca travar um envio de cobrança
- * por causa de cupom.
+ * e devolve a frase pronta. Nunca lança — falha de forma silenciosa pra
+ * nunca travar um envio/atendimento por causa de cupom (nesse caso de erro
+ * inesperado, sempre "", mesmo pro bot — melhor não responder nada sobre
+ * cupom do que responder algo errado por causa de uma falha real).
  */
 export async function getCouponPhraseForClient(
   supabaseAdmin: any,
   tenantId: string,
   clientRow: any,
+  options?: { onlyBotVisible?: boolean },
 ): Promise<string> {
   try {
-    const coupon = await findEligibleCoupon({ supabaseAdmin, tenantId, clientRow });
-    return buildCouponPhrase(coupon);
+    const coupon = await findEligibleCoupon({ supabaseAdmin, tenantId, clientRow, onlyBotVisible: options?.onlyBotVisible });
+    return buildCouponPhrase(coupon, { botFallback: options?.onlyBotVisible });
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Frase pronta pra tag {pendencia_detalhe} do bot de atendimento — lista
+ * as pendências financeiras (client_alerts) em aberto da conta, cada uma
+ * com data de ativação + app + valor. Reaproveita getPendingCharges (já
+ * faz a conversão de câmbio certa pra EUR/USD — mesmo cuidado que o
+ * portal já tem). "" quando não há nenhuma pendência aberta.
+ */
+export async function getPendencyPhraseForClient(
+  supabaseAdmin: any,
+  tenantId: string,
+  clientId: string,
+  currency: string,
+): Promise<string> {
+  try {
+    const result = await getPendingCharges(supabaseAdmin, tenantId, clientId, currency || "BRL");
+    if (!result.items.length) return "";
+
+    const fmt = new Intl.NumberFormat("pt-BR", { style: "currency", currency: currency || "BRL" });
+    return result.items
+      .map((item) => {
+        // Sem app vinculado (client_apps), tenta extrair da mensagem já no
+        // formato limpo `Ativação: "Nome" - dia DD/MM/AAAA` (ver
+        // ClientAlertBell.tsx::buildAppChargeMessage) antes de cair pra
+        // frase genérica sem nome de app nenhum.
+        const messageMatch = String(item.message || "").match(/^Ativação:\s*"(.+?)"/);
+        const appLabel = item.appName || messageMatch?.[1] || null;
+        const amountLabel = fmt.format(item.convertedAmount);
+        const dateLabel = item.activationDate
+          ? new Date(`${item.activationDate}T12:00:00`).toLocaleDateString("pt-BR")
+          : null;
+
+        if (appLabel) {
+          return dateLabel
+            ? `Identificamos que no dia ${dateLabel} foi feita a ativação do aplicativo ${appLabel}, e o custo da licença é de ${amountLabel}.`
+            : `Identificamos uma pendência referente à ativação do aplicativo ${appLabel}, no valor de ${amountLabel}.`;
+        }
+        return dateLabel
+          ? `Identificamos uma pendência em aberto desde o dia ${dateLabel}, no valor de ${amountLabel}.`
+          : `Identificamos uma pendência em aberto no valor de ${amountLabel}.`;
+      })
+      .join("\n");
   } catch {
     return "";
   }

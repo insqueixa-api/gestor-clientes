@@ -34,6 +34,7 @@ export type CouponEditPayload = {
   rule_date_field: "vencimento" | "cadastro" | null;
   rule_days_min: number | null;
   rule_days_max: number | null;
+  bot_visible: boolean;
 };
 
 const STATUS_OPTIONS = [
@@ -112,6 +113,7 @@ export default function CupomModal({
 
   const [messageTemplate, setMessageTemplate] = useState(coupon?.message_template ?? "");
   const [isActive, setIsActive] = useState<boolean>(coupon?.is_active ?? true);
+  const [botVisible, setBotVisible] = useState<boolean>(coupon?.bot_visible ?? false);
   const [saving, setSaving] = useState(false);
 
   const [hasPersonalClient, setHasPersonalClient] = useState(!!coupon?.client_id);
@@ -298,6 +300,7 @@ export default function CupomModal({
         max_total_redemptions: !hasPersonalClient && hasMaxUses ? Number(maxTotalRedemptions) : null,
         message_template: messageTemplate.trim() || null,
         is_active: isActive,
+        bot_visible: botVisible,
       };
 
       if (!isEdit) {
@@ -805,6 +808,29 @@ export default function CupomModal({
               }`}
             >
               {isActive ? "Ativo" : "Inativo"}
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-transparent px-3 py-2">
+            <div className="min-w-0">
+              <div className="text-xs font-medium text-foreground/90">Visível pro bot de atendimento</div>
+              <div className="text-[11px] text-muted-foreground">
+                Só cupons marcados aqui são elegíveis pro bot do WhatsApp mencionar sozinho (menu "Cupom de
+                desconto" e respostas livres). Cupons de campanha que você divulga por conta própria devem
+                ficar desmarcados.
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setBotVisible((v) => !v)}
+              className={`h-9 px-3 rounded-lg text-xs font-medium border transition-colors shrink-0 ${
+                botVisible
+                  ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                  : "bg-muted text-muted-foreground border-border"
+              }`}
+            >
+              {botVisible ? "Visível" : "Oculto"}
             </button>
           </div>
         </div>

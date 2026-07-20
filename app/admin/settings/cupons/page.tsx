@@ -37,10 +37,25 @@ export type CouponRow = {
   rule_date_field: "vencimento" | "cadastro" | null;
   rule_days_min: number | null;
   rule_days_max: number | null;
+  bot_visible: boolean;
 };
 
 function fmtMoney(value: number) {
   return `R$ ${Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+/** Apaga o resgate (coupon_redemptions só aceita escrita via service_role, por isso passa pela API). */
+async function resetCouponRedemption(tenantId: string, redemptionId: string): Promise<{ ok: boolean; error?: string }> {
+  const { data: session } = await supabaseBrowser.auth.getSession();
+  const token = session.session?.access_token;
+  const res = await fetch("/api/admin/coupons/reset-redemption", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ tenant_id: tenantId, redemption_id: redemptionId }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json?.ok) return { ok: false, error: json?.error || "Falha ao resetar." };
+  return { ok: true };
 }
 
 export default function CuponsPage() {
@@ -443,12 +458,38 @@ function IconActionBtn({
 
 /** Prévia de impacto direto na listagem — usa as regras já SALVAS do cupom (sem precisar abrir o modal de edição). */
 function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () => void }) {
+  const { confirm, ConfirmUI } = useConfirm();
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<ImpactResult | null>(null);
   const [usedRows, setUsedRows] = useState<RedemptionRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "eligible" | "used">("all");
+  const [resettingId, setResettingId] = useState<string | null>(null);
+
+  async function handleReset(row: RedemptionRow) {
+    const ok = await confirm({
+      title: "Resetar cupom deste cliente?",
+      subtitle: `${row.clients?.display_name || "Este cliente"} vai poder usar o cupom ${coupon.code} de novo.`,
+      tone: "amber",
+      confirmText: "Resetar",
+      cancelText: "Cancelar",
+    });
+    if (!ok) return;
+
+    setResettingId(row.id);
+    try {
+      const tenantId = await getCurrentTenantId();
+      if (!tenantId) throw new Error("Tenant não encontrado.");
+      const result = await resetCouponRedemption(tenantId, row.id);
+      if (!result.ok) throw new Error(result.error);
+      setUsedRows((prev) => prev.filter((r) => r.id !== row.id));
+    } catch {
+      // silencioso — a linha continua na lista se falhar, o admin pode tentar de novo
+    } finally {
+      setResettingId(null);
+    }
+  }
 
   useEffect(() => {
     let alive = true;
@@ -591,8 +632,19 @@ function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () =
                         {r.clients?.display_name || "—"}{" "}
                         <span className="text-muted-foreground">({r.clients?.username || "—"})</span>
                       </span>
-                      <span className="inline-flex items-center text-[10px] font-medium bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap">
-                        ✅ Usado {new Date(r.created_at).toLocaleDateString("pt-BR")}
+                      <span className="flex items-center gap-1.5 shrink-0">
+                        <span className="inline-flex items-center text-[10px] font-medium bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2 py-0.5 rounded-full whitespace-nowrap">
+                          ✅ Usado {new Date(r.created_at).toLocaleDateString("pt-BR")}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleReset(r)}
+                          disabled={resettingId === r.id}
+                          title="Resetar — permite que este cliente use o cupom de novo"
+                          className="text-[10px] font-medium text-amber-500 hover:underline disabled:opacity-50 whitespace-nowrap"
+                        >
+                          {resettingId === r.id ? "Resetando..." : "Resetar"}
+                        </button>
                       </span>
                     </div>
                   ))}
@@ -653,6 +705,7 @@ function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () =
           )}
         </div>
       </div>
+      <ConfirmUI />
     </div>,
     document.body,
   );
@@ -666,10 +719,36 @@ type RedemptionRow = {
   clients: { display_name: string | null; username: string | null } | null;
 };
 
-/** Log de uso do cupom (coupon_redemptions) — fica pronto mas vazio até a Fase 2 gravar os resgates. */
+/** Log de uso do cupom (coupon_redemptions). */
 function UsageLogModal({ coupon, onClose }: { coupon: CouponRow; onClose: () => void }) {
+  const { confirm, ConfirmUI } = useConfirm();
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<RedemptionRow[]>([]);
+  const [resettingId, setResettingId] = useState<string | null>(null);
+
+  async function handleReset(row: RedemptionRow) {
+    const ok = await confirm({
+      title: "Resetar cupom deste cliente?",
+      subtitle: `${row.clients?.display_name || "Este cliente"} vai poder usar o cupom ${coupon.code} de novo.`,
+      tone: "amber",
+      confirmText: "Resetar",
+      cancelText: "Cancelar",
+    });
+    if (!ok) return;
+
+    setResettingId(row.id);
+    try {
+      const tenantId = await getCurrentTenantId();
+      if (!tenantId) throw new Error("Tenant não encontrado.");
+      const result = await resetCouponRedemption(tenantId, row.id);
+      if (!result.ok) throw new Error(result.error);
+      setRows((prev) => prev.filter((r) => r.id !== row.id));
+    } catch {
+      // silencioso — a linha continua na lista se falhar, o admin pode tentar de novo
+    } finally {
+      setResettingId(null);
+    }
+  }
 
   useEffect(() => {
     let alive = true;
@@ -716,13 +795,24 @@ function UsageLogModal({ coupon, onClose }: { coupon: CouponRow; onClose: () => 
           {!loading && rows.length > 0 && (
             <div className="rounded-lg border border-border divide-y divide-border">
               {rows.map((r) => (
-                <div key={r.id} className="flex items-center justify-between px-3 py-2 text-xs">
+                <div key={r.id} className="flex items-center justify-between px-3 py-2 text-xs gap-2">
                   <span className="text-foreground/90 truncate">
                     {r.clients?.display_name || "—"}{" "}
                     <span className="text-muted-foreground">({r.clients?.username || "—"})</span>
                   </span>
-                  <span className="text-muted-foreground shrink-0 ml-2">
-                    {new Date(r.created_at).toLocaleString("pt-BR")} · {fmtMoney(Number(r.discount_amount))}
+                  <span className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-muted-foreground whitespace-nowrap">
+                      {new Date(r.created_at).toLocaleString("pt-BR")} · {fmtMoney(Number(r.discount_amount))}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleReset(r)}
+                      disabled={resettingId === r.id}
+                      title="Resetar — permite que este cliente use o cupom de novo"
+                      className="text-[10px] font-medium text-amber-500 hover:underline disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {resettingId === r.id ? "Resetando..." : "Resetar"}
+                    </button>
                   </span>
                 </div>
               ))}
@@ -730,6 +820,7 @@ function UsageLogModal({ coupon, onClose }: { coupon: CouponRow; onClose: () => 
           )}
         </div>
       </div>
+      <ConfirmUI />
     </div>,
     document.body,
   );

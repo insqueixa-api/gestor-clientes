@@ -109,6 +109,8 @@ const TAG_GROUPS = [
       { label: "{tabela_precos}", desc: "Busca a tabela de preços na hora" },
       { label: "{valor_fatura}", desc: "Valor da renovação" },
       { label: "{moeda_cliente}", desc: "BRL/USD/EUR" },
+      { label: "{cupom_frase}", desc: "Cupom de retenção/fidelidade elegível (só os marcados 'Visível pro bot' em Cupons) — some sozinha se não houver nenhum" },
+      { label: "{pendencia_detalhe}", desc: "Lista as pendências financeiras em aberto (app + data + valor) — vazia se não houver nenhuma" },
     ],
   },
 ];
