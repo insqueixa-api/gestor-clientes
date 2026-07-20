@@ -148,6 +148,7 @@ const TAG_GROUPS = [
       { label: "{link_pagamento}", desc: "Link Área do Cliente / Fatura" },
       { label: "{valor_fatura}", desc: "Valor da renovação" },
       { label: "{moeda_cliente}", desc: "BRL/USD/EUR" },
+      { label: "{cupom_frase}", desc: "Frase pronta com o cupom elegível do cliente (só contas BRL) — some sozinha se não houver nenhum" },
       { label: "{pix_copia_cola}", desc: "Código PIX copia-e-cola automático (gateway online)" },
 
       // ✅ PIX Manual

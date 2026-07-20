@@ -43,9 +43,8 @@
 // pessoa inteira, já que é uma recompensa de indicação, não uma
 // assinatura.
 //
-// ⚠️ validateCouponForCharge() ainda não é chamada em nenhum lugar — a
-// validação dentro de create-payment/route.ts e a UI no portal (RenewClient)
-// ficam pra uma fase seguinte, quando pedido explicitamente.
+// validateCouponForCharge() é chamada em create-payment/route.ts e
+// validate-coupon/route.ts (Fase 2, portal do cliente).
 
 import { diffDays } from "@/lib/whatsapp/template-vars";
 import { getPendingCharges } from "@/lib/client-portal/pending-charges";

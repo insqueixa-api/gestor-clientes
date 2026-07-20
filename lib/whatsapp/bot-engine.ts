@@ -331,7 +331,14 @@ async function executeLeaf(
 
   const vars = await buildVarsForNode(sb, tenantId, node, client, rawClient, provider);
   const steps = (await getSteps(sb, node.id, provider)).map((s) => renderTemplate(s, vars));
-  return leafAfterMessages(node, steps.length ? steps : ["(nenhuma resposta cadastrada — avise o Márcio)"]);
+  // ✅ Achado em auditoria: nó sem steps próprios mas com redirect_to_node_id
+  // (ex: "Android" → redireciona pro submenu de instalação) mandava o texto
+  // de debug "(nenhuma resposta cadastrada...)" pro cliente ANTES do
+  // redirect, porque leafAfterMessages só decide o redirect depois de
+  // receber `messages` já pronto. Se vai redirecionar mesmo, não preenche
+  // com o fallback — deixa passar direto pro nó de destino, silencioso.
+  const fallback = node.redirect_to_node_id ? [] : ["(nenhuma resposta cadastrada — avise o Márcio)"];
+  return leafAfterMessages(node, steps.length ? steps : fallback);
 }
 
 export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult> {

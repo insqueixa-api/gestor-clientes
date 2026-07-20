@@ -471,11 +471,17 @@ export default function RecargaCliente({
           server_name: rawClient.servers?.name || null,
           plan_name: rawClient.plan_label,
           whatsapp: rawClient.phone_e164,
+          // ✅ Espelha exatamente a CASE de computed_status das views
+          // vw_clients_list_* (docs/sql/add_name_prefix_to_list_views.sql) —
+          // faltava o ramo OVERDUE (achado em auditoria: todo cliente não
+          // arquivado/trial aqui sempre virava "ACTIVE", mesmo vencido).
           computed_status: rawClient.is_archived
             ? "ARCHIVED"
             : rawClient.is_trial
               ? "TRIAL"
-              : "ACTIVE",
+              : rawClient.vencimento && new Date(rawClient.vencimento) < new Date()
+                ? "OVERDUE"
+                : "ACTIVE",
         };
 
         const c = client as unknown as ClientFromView;
