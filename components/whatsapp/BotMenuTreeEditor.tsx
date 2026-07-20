@@ -66,6 +66,7 @@ const SPECIAL_ACTIONS = [
   { value: "check_renovacao_recente", label: "Já renovou no portal?", desc: "Responde se o pagamento automático já entrou." },
   { value: "escalar_imediatamente", label: "Passar pro Márcio na hora", desc: "Encerra o bot e te chama." },
   { value: "coletar_relato_e_escalar", label: "Pedir relato e passar pro Márcio", desc: "Manda o texto dos passos e transfere." },
+  { value: "escalar_se_elite", label: "Passar pro Márcio só se for Elite", desc: "Mostra os passos e transfere só quando o cliente é do servidor Elite — NaTV/Fast seguem normal, sem transferir." },
 ];
 
 // Reaproveita o mesmo conjunto de variáveis da página de mensagens, filtrado

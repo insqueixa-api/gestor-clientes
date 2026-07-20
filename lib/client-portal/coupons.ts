@@ -364,14 +364,24 @@ function matchesTargeting(coupon: CouponRow, clientRow: any): boolean {
  * que ele divulga por conta própria via WhatsApp em massa. Se mais de um
  * bot-visible bater ao mesmo tempo (ex: fidelidade + retenção), o de
  * MAIOR desconto ganha — decisão explícita, não acidental.
+ *
+ * `preloadedCoupons`: opcional — passe o resultado de `fetchActiveCoupons`
+ * pra pular a query em `coupons` (útil em envio em massa: a LISTA de
+ * cupons ativos do tenant é idêntica pra todo mundo do mesmo lote, então
+ * dá pra buscar 1x fora do loop em vez de 1x por destinatário). A
+ * elegibilidade de cada cliente continua sendo checada individualmente
+ * de qualquer forma (status, já usou, regras de data) — só a consulta
+ * "quais cupons existem" é reaproveitada, nunca o resultado da
+ * elegibilidade em si.
  */
 export async function findEligibleCoupon(params: {
   supabaseAdmin: any;
   tenantId: string;
   clientRow: any;
   onlyBotVisible?: boolean;
+  preloadedCoupons?: CouponRow[];
 }): Promise<CouponRow | null> {
-  const { supabaseAdmin, tenantId, clientRow, onlyBotVisible } = params;
+  const { supabaseAdmin, tenantId, clientRow, onlyBotVisible, preloadedCoupons } = params;
 
   const clientId = clientRow?.id;
   if (!clientId) return null;
@@ -379,18 +389,23 @@ export async function findEligibleCoupon(params: {
   // Cupons só existem pra contas em BRL — nem consulta o banco pras outras.
   if (getClientCurrency(clientRow) !== "BRL") return null;
 
-  let query = supabaseAdmin
-    .from("coupons")
-    .select("*")
-    .eq("tenant_id", tenantId)
-    .eq("is_active", true);
-  if (onlyBotVisible) query = query.eq("bot_visible", true);
+  let rows: CouponRow[];
+  if (preloadedCoupons) {
+    rows = onlyBotVisible ? preloadedCoupons.filter((c) => c.bot_visible) : preloadedCoupons;
+  } else {
+    let query = supabaseAdmin
+      .from("coupons")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("is_active", true);
+    if (onlyBotVisible) query = query.eq("bot_visible", true);
 
-  const { data, error } = await query.order("created_at", { ascending: false });
+    const { data, error } = await query.order("created_at", { ascending: false });
+    if (error || !data?.length) return null;
+    rows = data as CouponRow[];
+  }
 
-  if (error || !data?.length) return null;
-
-  const rows = data as CouponRow[];
+  if (!rows.length) return null;
   const now = new Date();
 
   // Resolvidos no máximo 1x por chamada, e só se realmente precisar
@@ -491,14 +506,40 @@ export async function getCouponPhraseForClient(
   supabaseAdmin: any,
   tenantId: string,
   clientRow: any,
-  options?: { onlyBotVisible?: boolean },
+  options?: { onlyBotVisible?: boolean; preloadedCoupons?: CouponRow[] },
 ): Promise<string> {
   try {
-    const coupon = await findEligibleCoupon({ supabaseAdmin, tenantId, clientRow, onlyBotVisible: options?.onlyBotVisible });
+    const coupon = await findEligibleCoupon({
+      supabaseAdmin,
+      tenantId,
+      clientRow,
+      onlyBotVisible: options?.onlyBotVisible,
+      preloadedCoupons: options?.preloadedCoupons,
+    });
     return buildCouponPhrase(coupon, { botFallback: options?.onlyBotVisible });
   } catch {
     return "";
   }
+}
+
+/**
+ * Busca a lista de cupons ativos de um tenant — mesma query que
+ * `findEligibleCoupon` faria sozinha. Pensada pra ser chamada 1x fora de
+ * um loop de envio em massa (ex: `envio_programado`'s cron, que processa
+ * vários destinatários do mesmo tenant por execução) e o resultado
+ * passado via `preloadedCoupons` pra `findEligibleCoupon`/
+ * `getCouponPhraseForClient`, evitando refazer a mesma busca pra cada
+ * destinatário — só a lista é reaproveitada, a elegibilidade de cada
+ * cliente continua sendo calculada individualmente.
+ */
+export async function fetchActiveCoupons(supabaseAdmin: any, tenantId: string): Promise<CouponRow[]> {
+  const { data } = await supabaseAdmin
+    .from("coupons")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .eq("is_active", true)
+    .order("created_at", { ascending: false });
+  return (data as CouponRow[]) || [];
 }
 
 /**

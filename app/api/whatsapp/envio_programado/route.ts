@@ -16,7 +16,7 @@ import {
   getSPParts,
 } from "@/lib/whatsapp/template-vars";
 import { notify } from "@/lib/notifications/notify";
-import { getCouponPhraseForClient } from "@/lib/client-portal/coupons";
+import { getCouponPhraseForClient, fetchActiveCoupons, type CouponRow } from "@/lib/client-portal/coupons";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function safeServerLog(...args: any[]) {
@@ -262,6 +262,33 @@ export async function POST(req: Request) {
 
     let processed = 0;
 
+    // ✅ Cache por tenant, só pra este tick do cron (Map local, some sozinho
+    // no fim da função) — cupons ativos e dados de gateway manual são
+    // idênticos pra todo destinatário do mesmo tenant no mesmo lote, então
+    // evita refazer a mesma busca a cada job/contato. A elegibilidade de
+    // cada CLIENTE continua sendo checada individualmente dentro de
+    // getCouponPhraseForClient (status, se já usou, regras de data) — só a
+    // lista "quais cupons existem" é reaproveitada, nunca o resultado da
+    // elegibilidade em si.
+    const couponsCache = new Map<string, CouponRow[]>();
+    const manualPaymentVarsCache = new Map<string, Record<string, string>>();
+    async function getCachedCoupons(tenantId: string): Promise<CouponRow[]> {
+      if (!couponsCache.has(tenantId)) {
+        couponsCache.set(tenantId, await fetchActiveCoupons(sb, tenantId));
+      }
+      return couponsCache.get(tenantId)!;
+    }
+    async function getCachedManualPaymentVars(tenantId: string): Promise<Record<string, string>> {
+      if (!manualPaymentVarsCache.has(tenantId)) {
+        try {
+          manualPaymentVarsCache.set(tenantId, await fetchManualPaymentVars(sb, tenantId));
+        } catch {
+          manualPaymentVarsCache.set(tenantId, {});
+        }
+      }
+      return manualPaymentVarsCache.get(tenantId)!;
+    }
+
     for (const job of jobs) {
       try {
         // ✅ LOCK ANTI DUPLICAÇÃO (CRON SAFE)
@@ -380,11 +407,9 @@ export async function POST(req: Request) {
         let successCount = 0;
         let lastError = "";
 
-        // Puxa Gateway Manual (PIX + Transferência Internacional) uma vez por envio
-        let manualPaymentVars: Record<string, string> = {};
-        try {
-          manualPaymentVars = await fetchManualPaymentVars(sb, String(job.tenant_id));
-        } catch {}
+        // Puxa Gateway Manual (PIX + Transferência Internacional) — 1x por
+        // tenant no tick inteiro, não 1x por job (cache acima).
+        const manualPaymentVars = await getCachedManualPaymentVars(String(job.tenant_id));
 
         // ✅ Loop de envios para os contatos vinculados à conta
         for (let i = 0; i < wa.phones.length; i++) {
@@ -413,7 +438,9 @@ export async function POST(req: Request) {
           }
 
           if (recipientType !== "reseller") {
-            vars.cupom_frase = await getCouponPhraseForClient(sb, String(job.tenant_id), wa.row);
+            vars.cupom_frase = await getCouponPhraseForClient(sb, String(job.tenant_id), wa.row, {
+              preloadedCoupons: await getCachedCoupons(String(job.tenant_id)),
+            });
           }
 
           const renderedMessage = renderTemplate(String(job.message ?? ""), vars);

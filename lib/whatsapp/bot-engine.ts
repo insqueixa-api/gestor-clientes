@@ -312,6 +312,21 @@ async function executeLeaf(
     });
   }
 
+  // ✅ Escala só quando o cliente é Elite — usado em nós compartilhados
+  // entre servidores (ex: Samsung/LG, Roku têm variante de texto por
+  // provider, mas `special_actions` é do nó inteiro, não por servidor).
+  // Elite precisa de ativação manual do MAC/Device Key mesmo; NaTV/Fast
+  // são self-service (cliente recebe código + usuário/senha e resolve
+  // sozinho) — por isso não dá pra reusar `coletar_relato_e_escalar`
+  // direto sem também escalar NaTV/Fast, que não é o objetivo.
+  if (actions.includes("escalar_se_elite") && provider === "ELITE") {
+    const vars = await buildVarsForNode(sb, tenantId, node, client, rawClient, provider);
+    const steps = (await getSteps(sb, node.id, provider)).map((s) => renderTemplate(s, vars));
+    return leafAfterMessages(node, steps.length ? steps : [flow.human_requested_message], {
+      escalate: true, markRead: false, transferReason: node.transfer_situation_label || null, forceState: "__clear__",
+    });
+  }
+
   if (actions.includes("check_servidor_vencimento")) {
     const vencido = client?.vencimento ? new Date(client.vencimento).getTime() < Date.now() : false;
     let msg: string;
@@ -719,6 +734,17 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
         vars.plano_nome = clients[0]?.plan_label || "";
         vars.servidor_nome = clients[0]?.server_name || "";
         vars.dns_servidor = pickRandomDns(clients[0]?.server_dns);
+        // ✅ Achado em auditoria: {link_pagamento}/{tabela_precos} só resolviam
+        // em mensagem de nó (buildVarsForNode) — um artigo da Base de
+        // Conhecimento usando essas tags mandava o texto literal "{link_pagamento}"
+        // pro cliente quando ganhava a busca livre. Mesmo padrão condicional
+        // (só resolve se a tag aparece no texto).
+        if (top.content.includes("{link_pagamento}")) {
+          vars.link_pagamento = await toolGerarLinkPortal(sb, tenantId, clientMatchesRaw[0], clients[0]?.is_secondary);
+        }
+        if (top.content.includes("{tabela_precos}")) {
+          vars.tabela_precos = await toolConsultarPrecosTexto(sb, tenantId, clients[0]);
+        }
         Object.assign(vars, await resolveCouponPendencyVars(sb, tenantId, clients[0], top.content));
         await sendWithLogos(renderTemplate(top.content, vars));
         return { action: "rag_direct", markRead: true, nextState: "geral" };
