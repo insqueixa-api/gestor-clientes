@@ -11,7 +11,6 @@ import {
   getBotEvents,
 } from "./sessionManager.js";
 import { createGerenciaApp, deleteGerenciaApp } from "./gerenciaapp.js";
-import { downloadFastM3uToR2 } from "./fast-r2.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -371,22 +370,32 @@ app.post("/gerenciaapp/delete", authMiddleware, async (req, res) => {
   }
 });
 
-// ── POST /fast-sync/download-to-r2 ───────────────────────────
-// Passo 1 do sync do Fast (dos 2 — o passo 2, processar, roda inteiro na
-// Vercel lendo o arquivo daqui do R2). Baixa o M3U cru (IP da VM não é
-// bloqueado) e sobe pro R2, sempre sobrescrevendo. Síncrono — leva uns
-// 15-20s, não precisa de spawn/processo em background como o fluxo antigo.
-app.post("/fast-sync/download-to-r2", authMiddleware, async (req, res) => {
+// ── POST /fast-sync/proxy-m3u ─────────────────────────────────
+// Relay puro pro M3U do Fast: a Vercel não consegue baixar direto (IP de
+// datacenter dela é bloqueado, HTTP 403), mas a VM pode. Em vez de logar num
+// storage intermediário (R2 — testado, funciona, mas tem overhead de upload
+// +download), a VM baixa e devolve o conteúdo na hora, na própria resposta —
+// pra Vercel é como se tivesse baixado ela mesma, só que apontando pra cá.
+app.post("/fast-sync/proxy-m3u", authMiddleware, async (req, res) => {
   const { m3uUrl } = req.body || {};
   if (!m3uUrl) {
     return res.status(400).json({ error: "m3uUrl é obrigatório." });
   }
   try {
-    const result = await downloadFastM3uToR2(m3uUrl);
-    res.json({ ok: true, ...result });
+    console.log("[FAST-PROXY] Baixando M3U...");
+    const upstream = await fetch(m3uUrl, {
+      headers: { "User-Agent": "IPTVSmartersPro", "Accept": "*/*" },
+    });
+    if (!upstream.ok) {
+      return res.status(502).json({ error: `Falha ao baixar M3U: HTTP ${upstream.status}` });
+    }
+    const text = await upstream.text();
+    console.log(`[FAST-PROXY] ${text.length} bytes — devolvendo pra Vercel`);
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.send(text);
   } catch (e) {
-    console.error("[FAST-R2] erro:", e?.message);
-    res.status(500).json({ error: e?.message || "Falha ao baixar/subir M3U do Fast." });
+    console.error("[FAST-PROXY] erro:", e?.message);
+    res.status(502).json({ error: e?.message || "Falha ao baixar M3U do Fast." });
   }
 });
 

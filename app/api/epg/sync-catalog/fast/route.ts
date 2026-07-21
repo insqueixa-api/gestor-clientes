@@ -10,22 +10,19 @@
 //
 // O M3U do Fast É bloqueado (HTTP 403) quando o pedido sai da faixa de IP de
 // datacenter da própria Vercel — mas NÃO é bloqueado saindo da VM. Em vez de
-// pagar por um proxy residencial (testado: funciona, mas é lento — 60MB
-// arriscava estourar o maxDuration da Vercel), a VM baixa o M3U cru e sobe
-// pro R2 (app/api/epg/sync-catalog/fast/download-to-r2, chamado ANTES dessa
-// rota — ver syncFast() em GuiaTVView.tsx). Essa rota aqui só lê do R2 —
-// storage puro, nunca bloqueado — e faz o parse/upsert de sempre. Sem proxy.
+// pagar por proxy residencial (lento, ~5min pra 60MB, arriscava estourar o
+// maxDuration) ou de fazer stage num storage intermediário (R2 — testado,
+// funciona, mas soma o tempo de upload+download), a VM faz de relay puro:
+// baixa o M3U e devolve na própria resposta HTTP (POST /fast-sync/proxy-m3u).
+// Pra essa rota aqui é transparente — é só a URL de onde vem o fetch.
 //
-// Fluxo (2 passos, encadeados pelo frontend):
-//   1. POST /api/epg/sync-catalog/fast/download-to-r2 → VM baixa M3U → sobe pro R2
-//   2. POST /api/epg/sync-catalog/fast (esta rota)     → lê do R2 → parseia → upsert
-//   GET → status do último sync
+// Fluxo:
+//   GET  → status do último sync
+//   POST → busca m3u_url do cliente Fast → pede pra VM (relay) → parseia → upsert
 
 import { NextRequest, NextResponse }   from "next/server";
 import { createClient }                from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
-
-const R2_M3U_URL = `${process.env.NEXT_PUBLIC_R2_DEV_URL}/epg/fast_m3u_raw.m3u`;
 
 export const dynamic     = "force-dynamic";
 export const maxDuration = 300;
@@ -228,8 +225,29 @@ export async function POST(req: NextRequest) {
       .from("catalog_episodes").select("*", { count: "exact", head: true })
       .eq("servidor", SERVIDOR);
 
-    // ── 1. Baixa o M3U do R2 (a VM já deixou ele lá — ver download-to-r2) ─────
-    console.log(`[CATALOG-FAST] Baixando M3U do R2...`);
+    // ── 1. Busca m3u_url do cliente Fast no banco ─────────────────────────────
+    const { data: cliente, error: clienteErr } = await supabaseAdmin
+      .from("clients")
+      .select("m3u_url")
+      .eq("id", CLIENT_ID)
+      .single();
+
+    if (clienteErr || !cliente?.m3u_url) {
+      return NextResponse.json(
+        { error: `m3u_url do cliente Fast não encontrado: ${clienteErr?.message}` },
+        { status: 500 }
+      );
+    }
+    const m3uUrl = cliente.m3u_url as string;
+
+    const waBaseUrl = String(process.env.UNIGESTOR_WA_BASE_URL || "").trim();
+    const waToken   = String(process.env.UNIGESTOR_WA_TOKEN || "").trim();
+    if (!waBaseUrl || !waToken) {
+      return NextResponse.json({ error: "Server misconfigured (VM)." }, { status: 500 });
+    }
+
+    // ── 2. Baixa o M3U via relay da VM (IP dela não é bloqueado — a nossa é) ──
+    console.log(`[CATALOG-FAST] Baixando M3U via relay da VM...`);
     let m3uText = "";
     const MAX_TENTATIVAS = 3;
     let ultimoErro: any = null;
@@ -237,11 +255,16 @@ export async function POST(req: NextRequest) {
     for (let tentativa = 1; tentativa <= MAX_TENTATIVAS; tentativa++) {
       try {
         console.log(`[CATALOG-FAST] Tentativa ${tentativa}/${MAX_TENTATIVAS}...`);
-        const resp = await fetch(R2_M3U_URL, {
-          signal: AbortSignal.timeout(60_000),
-          cache:  "no-store",
+        const resp = await fetch(`${waBaseUrl}/fast-sync/proxy-m3u`, {
+          method:  "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${waToken}` },
+          body:    JSON.stringify({ m3uUrl }),
+          signal:  AbortSignal.timeout(120_000),
         });
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        if (!resp.ok) {
+          const j = await resp.json().catch(() => ({}));
+          throw new Error(j?.error || `HTTP ${resp.status}`);
+        }
         m3uText = await resp.text();
         ultimoErro = null;
         break;
@@ -256,11 +279,11 @@ export async function POST(req: NextRequest) {
 
     if (ultimoErro || !m3uText) {
       return NextResponse.json(
-        { error: `Falha ao baixar M3U do R2 após ${MAX_TENTATIVAS} tentativas: ${ultimoErro?.message || "arquivo vazio"}. Rode o passo 1 (download-to-r2) antes.` },
+        { error: `Falha ao baixar M3U (via VM) após ${MAX_TENTATIVAS} tentativas: ${ultimoErro?.message || "arquivo vazio"}` },
         { status: 502 }
       );
     }
-    console.log(`[CATALOG-FAST] ${m3uText.length} bytes baixados do R2`);
+    console.log(`[CATALOG-FAST] ${m3uText.length} bytes baixados`);
 
     // ── 3. Parseia ────────────────────────────────────────────────────────────
     const { masterLista, episodios, stats } = parseM3UFast(m3uText);
