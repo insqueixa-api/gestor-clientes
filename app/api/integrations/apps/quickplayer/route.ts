@@ -60,6 +60,16 @@ export async function POST(req: Request) {
       try {
         const token = await loginByMac(mac, key);
 
+        // Playlist protegida por PIN exige o PIN também pra deletar
+        // ("Pin is required" — confirmado, 21/07/2026).
+        const { data: integ } = await supabaseAdmin
+          .from("app_integrations")
+          .select("pin")
+          .eq("app_name", "QUICKPLAYER")
+          .eq("is_active", true)
+          .maybeSingle();
+        const pin = (integ?.pin || "").trim();
+
         const listRes = await fetch(`${API_BASE}/playlist`, {
           headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
         });
@@ -71,10 +81,13 @@ export async function POST(req: Request) {
         }
 
         for (const pl of playlists) {
+          const delBody: Record<string, any> = { id: pl.id };
+          if (pl.is_protected && pin) delBody.pin = pin;
+
           const delRes = await fetch(`${API_BASE}/palylist_from_web`, {
             method: "DELETE",
             headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
-            body: JSON.stringify({ id: pl.id }),
+            body: JSON.stringify(delBody),
           });
           const delJson = await delRes.json().catch(() => null);
           if (!delRes.ok || !delJson || delJson.error) {
