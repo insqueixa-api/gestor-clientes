@@ -610,43 +610,8 @@ useEffect(() => { carregarInfo(); }, []);
   
   async function syncNaTV(){setStatus(p=>({...p,natv:"running"}));setServerMessages(p=>({...p,natv:null}));try{const d=await fetch("/api/epg/sync-catalog/natv",{method:"POST"}).then(r=>r.json());if(d.error)throw new Error(d.error);await carregarInfo();setStatus(p=>({...p,natv:"ok"}));const msg=`Novos títulos: ${d.novos_titulos??0} · Concluído em ${d.duracao_s}s`;setServerMessages(p=>({...p,natv:{text:msg,type:"success"}}));addToast("success","NaTV sincronizado",msg);}catch(e:any){setStatus(p=>({...p,natv:"error"}));setServerMessages(p=>({...p,natv:{text:e.message||"Erro desconhecido",type:"error"}}));addToast("error","Falha ao sincronizar NaTV",e.message);}}
   
-  // ✅ O sync do Fast roda direto na VM (cron já faz isso sozinho). Esse botão só
-  // dispara manualmente o mesmo script lá — sem passar pela extensão de navegador.
-  async function syncFast(){
-    setStatus(p=>({...p,fast:"running"}));
-    setServerMessages(p=>({...p,fast:null}));
-    try{
-      const before = info.fast?.ultimo_sync || null;
-      const trig = await fetch("/api/epg/sync-catalog/fast/trigger-vm",{method:"POST"}).then(r=>r.json());
-      if(trig.error) throw new Error(trig.error);
-
-      // Faz polling até o timestamp de sincronização avançar (ou desiste em 5min)
-      let novoInfo: any = null;
-      for(let tentativas=0; tentativas<60; tentativas++){
-        await new Promise(r=>setTimeout(r,5000));
-        const d = await fetch(`/api/epg/sync-catalog/fast`,{cache:"no-store"}).then(r=>r.json());
-        if(d.executado_em && d.executado_em!==before){ novoInfo=d; break; }
-      }
-
-      if(!novoInfo){
-        setStatus(p=>({...p,fast:"idle"}));
-        const msg="Sincronização iniciada na VM — pode levar alguns minutos. Atualize a página depois pra ver o resultado.";
-        setServerMessages(p=>({...p,fast:{text:msg,type:"success"}}));
-        addToast("success","FastTV — sincronização em andamento",msg);
-        return;
-      }
-
-      await carregarInfo();
-      setStatus(p=>({...p,fast:"ok"}));
-      const msg=`Catálogo atualizado: ${novoInfo.resultado.filmes} filmes · ${novoInfo.resultado.series_unicas} séries · ${novoInfo.resultado.episodios} episódios.`;
-      setServerMessages(p=>({...p,fast:{text:msg,type:"success"}}));
-      addToast("success","FastTV sincronizado",msg);
-    }catch(e:any){
-      setStatus(p=>({...p,fast:"error"}));
-      setServerMessages(p=>({...p,fast:{text:e.message||"Erro desconhecido",type:"error"}}));
-      addToast("error","Falha ao sincronizar FastTV",e.message);
-    }
-  }
+  // ✅ Igual Elite/NaTV: uma chamada só, roda inteiro na Vercel (sem VM, sem polling).
+  async function syncFast(){setStatus(p=>({...p,fast:"running"}));setServerMessages(p=>({...p,fast:null}));try{const d=await fetch("/api/epg/sync-catalog/fast",{method:"POST"}).then(r=>r.json());if(d.error)throw new Error(d.error);await carregarInfo();setStatus(p=>({...p,fast:"ok"}));const msg=`Novos títulos: ${d.novos_titulos??0} · Concluído em ${d.duracao_s}s`;setServerMessages(p=>({...p,fast:{text:msg,type:"success"}}));addToast("success","FastTV sincronizado",msg);}catch(e:any){setStatus(p=>({...p,fast:"error"}));setServerMessages(p=>({...p,fast:{text:e.message||"Erro desconhecido",type:"error"}}));addToast("error","Falha ao sincronizar FastTV",e.message);}}
   
   const SERVIDORES:{id:SrvId;label:string;cor:string;bgClass:string;onSync:()=>void}[]=[{id:"elite",label:"EliteTV",cor:"#6366f1",bgClass:"bg-indigo-600 hover:bg-indigo-500",onSync:syncElite},{id:"natv",label:"NaTV",cor:"#10b981",bgClass:"bg-emerald-600 hover:bg-emerald-500",onSync:syncNaTV},{id:"fast",label:"FastTV",cor:"#06b6d4",bgClass:"bg-sky-600 hover:bg-sky-500",onSync:syncFast}];
   const [tmdbStatus,setTmdbStatus]=useState<"idle"|"running"|"ok"|"error">("idle");
