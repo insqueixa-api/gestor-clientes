@@ -111,7 +111,16 @@ export async function POST(req: Request) {
     }
     const m3uUrl = buildM3uUrl(dnsList[0], username, password || "");
 
-    // ── 2. Login por MAC + Device Key ──────────────────────────────────────
+    // ── 2. PIN configurado em API de Integrações (protege a playlist) ────────
+    const { data: integ } = await supabaseAdmin
+      .from("app_integrations")
+      .select("pin")
+      .eq("app_name", "QUICKPLAYER")
+      .eq("is_active", true)
+      .maybeSingle();
+    const pin = (integ?.pin || "").trim();
+
+    // ── 3. Login por MAC + Device Key ────────────────────────────────────────
     let token: string;
     try {
       token = await loginByMac(mac, key);
@@ -119,7 +128,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: e?.message }, { status: 400 });
     }
 
-    // ── 3. Adiciona a playlist (FormData — a API não aceita JSON aqui) ─────
+    // ── 4. Adiciona a playlist (FormData — a API não aceita JSON aqui) ─────
     // A API do Quick Player rejeita nome de playlist com mais de 30 caracteres
     const rawName = (playlist_name || username || "UniGestor").toString().trim();
     const safeName = rawName.length > 30 ? rawName.slice(0, 30) : rawName;
@@ -128,7 +137,13 @@ export async function POST(req: Request) {
     form.append("name", safeName);
     form.append("mac", mac);
     form.append("url", m3uUrl);
-    form.append("is_protected", "false");
+    if (pin) {
+      form.append("is_protected", "true");
+      form.append("pin", pin);
+      form.append("confirm_pin", pin);
+    } else {
+      form.append("is_protected", "false");
+    }
 
     const uploadRes = await fetch(`${API_BASE}/playlist_with_mac`, {
       method: "POST",
