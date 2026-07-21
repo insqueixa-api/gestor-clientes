@@ -9,22 +9,23 @@
 // centenas de logs na Vercel).
 //
 // O M3U do Fast É bloqueado (HTTP 403) quando o pedido sai da faixa de IP de
-// datacenter da própria Vercel (confirmado: falha da Vercel, passa de outros
-// IPs) — por isso só o download (RESIDENTIAL_PROXY_URL, undici ProxyAgent)
-// sai pelo proxy residencial pago. Todo o resto (parse, upserts no Supabase)
-// continua direto, sem proxy — arquivo é só uns 60MB, ~$0,06 por sync.
+// datacenter da própria Vercel — mas NÃO é bloqueado saindo da VM. Em vez de
+// pagar por um proxy residencial (testado: funciona, mas é lento — 60MB
+// arriscava estourar o maxDuration da Vercel), a VM baixa o M3U cru e sobe
+// pro R2 (app/api/epg/sync-catalog/fast/download-to-r2, chamado ANTES dessa
+// rota — ver syncFast() em GuiaTVView.tsx). Essa rota aqui só lê do R2 —
+// storage puro, nunca bloqueado — e faz o parse/upsert de sempre. Sem proxy.
 //
-// Fluxo:
-//   GET  → status do último sync
-//   POST → busca m3u_url do cliente Fast no banco → baixa (via proxy) → parseia → upsert
+// Fluxo (2 passos, encadeados pelo frontend):
+//   1. POST /api/epg/sync-catalog/fast/download-to-r2 → VM baixa M3U → sobe pro R2
+//   2. POST /api/epg/sync-catalog/fast (esta rota)     → lê do R2 → parseia → upsert
+//   GET → status do último sync
 
 import { NextRequest, NextResponse }   from "next/server";
 import { createClient }                from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
-import { fetch as undiciFetch, ProxyAgent } from "undici";
 
-const RESIDENTIAL_PROXY_URL = String(process.env.RESIDENTIAL_PROXY_URL || "").trim();
-const proxyDispatcher = RESIDENTIAL_PROXY_URL ? new ProxyAgent(RESIDENTIAL_PROXY_URL) : undefined;
+const R2_M3U_URL = `${process.env.NEXT_PUBLIC_R2_DEV_URL}/epg/fast_m3u_raw.m3u`;
 
 export const dynamic     = "force-dynamic";
 export const maxDuration = 300;
@@ -227,23 +228,8 @@ export async function POST(req: NextRequest) {
       .from("catalog_episodes").select("*", { count: "exact", head: true })
       .eq("servidor", SERVIDOR);
 
-    // ── 1. Busca m3u_url do cliente Fast no banco ─────────────────────────────
-    const { data: cliente, error: clienteErr } = await supabaseAdmin
-      .from("clients")
-      .select("m3u_url")
-      .eq("id", CLIENT_ID)
-      .single();
-
-    if (clienteErr || !cliente?.m3u_url) {
-      return NextResponse.json(
-        { error: `m3u_url do cliente Fast não encontrado: ${clienteErr?.message}` },
-        { status: 500 }
-      );
-    }
-    const m3uUrl = cliente.m3u_url as string;
-
-    // ── 2. Baixa o M3U (com retry, igual NaTV/Elite) ──────────────────────────
-    console.log(`[CATALOG-FAST] Baixando M3U...`);
+    // ── 1. Baixa o M3U do R2 (a VM já deixou ele lá — ver download-to-r2) ─────
+    console.log(`[CATALOG-FAST] Baixando M3U do R2...`);
     let m3uText = "";
     const MAX_TENTATIVAS = 3;
     let ultimoErro: any = null;
@@ -251,10 +237,9 @@ export async function POST(req: NextRequest) {
     for (let tentativa = 1; tentativa <= MAX_TENTATIVAS; tentativa++) {
       try {
         console.log(`[CATALOG-FAST] Tentativa ${tentativa}/${MAX_TENTATIVAS}...`);
-        const resp = await undiciFetch(m3uUrl, {
-          signal:  AbortSignal.timeout(180_000),
-          headers: { "User-Agent": "IPTVSmartersPro", "Accept": "*/*" },
-          ...(proxyDispatcher ? { dispatcher: proxyDispatcher } : {}),
+        const resp = await fetch(R2_M3U_URL, {
+          signal: AbortSignal.timeout(60_000),
+          cache:  "no-store",
         });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         m3uText = await resp.text();
@@ -264,18 +249,18 @@ export async function POST(req: NextRequest) {
         ultimoErro = e;
         console.warn(`[CATALOG-FAST] Tentativa ${tentativa} falhou: ${e.message}`);
         if (tentativa < MAX_TENTATIVAS) {
-          await new Promise(r => setTimeout(r, 5_000));
+          await new Promise(r => setTimeout(r, 3_000));
         }
       }
     }
 
-    if (ultimoErro) {
+    if (ultimoErro || !m3uText) {
       return NextResponse.json(
-        { error: `Falha ao baixar M3U após ${MAX_TENTATIVAS} tentativas: ${ultimoErro.message}` },
+        { error: `Falha ao baixar M3U do R2 após ${MAX_TENTATIVAS} tentativas: ${ultimoErro?.message || "arquivo vazio"}. Rode o passo 1 (download-to-r2) antes.` },
         { status: 502 }
       );
     }
-    console.log(`[CATALOG-FAST] ${m3uText.length} bytes baixados`);
+    console.log(`[CATALOG-FAST] ${m3uText.length} bytes baixados do R2`);
 
     // ── 3. Parseia ────────────────────────────────────────────────────────────
     const { masterLista, episodios, stats } = parseM3UFast(m3uText);

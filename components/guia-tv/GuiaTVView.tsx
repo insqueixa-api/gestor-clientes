@@ -610,8 +610,30 @@ useEffect(() => { carregarInfo(); }, []);
   
   async function syncNaTV(){setStatus(p=>({...p,natv:"running"}));setServerMessages(p=>({...p,natv:null}));try{const d=await fetch("/api/epg/sync-catalog/natv",{method:"POST"}).then(r=>r.json());if(d.error)throw new Error(d.error);await carregarInfo();setStatus(p=>({...p,natv:"ok"}));const msg=`Novos títulos: ${d.novos_titulos??0} · Concluído em ${d.duracao_s}s`;setServerMessages(p=>({...p,natv:{text:msg,type:"success"}}));addToast("success","NaTV sincronizado",msg);}catch(e:any){setStatus(p=>({...p,natv:"error"}));setServerMessages(p=>({...p,natv:{text:e.message||"Erro desconhecido",type:"error"}}));addToast("error","Falha ao sincronizar NaTV",e.message);}}
   
-  // ✅ Igual Elite/NaTV: uma chamada só, roda inteiro na Vercel (sem VM, sem polling).
-  async function syncFast(){setStatus(p=>({...p,fast:"running"}));setServerMessages(p=>({...p,fast:null}));try{const d=await fetch("/api/epg/sync-catalog/fast",{method:"POST"}).then(r=>r.json());if(d.error)throw new Error(d.error);await carregarInfo();setStatus(p=>({...p,fast:"ok"}));const msg=`Novos títulos: ${d.novos_titulos??0} · Concluído em ${d.duracao_s}s`;setServerMessages(p=>({...p,fast:{text:msg,type:"success"}}));addToast("success","FastTV sincronizado",msg);}catch(e:any){setStatus(p=>({...p,fast:"error"}));setServerMessages(p=>({...p,fast:{text:e.message||"Erro desconhecido",type:"error"}}));addToast("error","Falha ao sincronizar FastTV",e.message);}}
+  // ✅ 2 passos encadeados: (1) VM baixa o M3U cru e sobe pro R2 (IP dela não é
+  // bloqueado); (2) Vercel lê do R2 e processa igual Elite/NaTV — sem proxy,
+  // sem VM mandando dado de volta em centenas de requisições.
+  async function syncFast(){
+    setStatus(p=>({...p,fast:"running"}));
+    setServerMessages(p=>({...p,fast:null}));
+    try{
+      const passo1=await fetch("/api/epg/sync-catalog/fast/download-to-r2",{method:"POST"}).then(r=>r.json());
+      if(passo1.error) throw new Error(`Download (VM→R2): ${passo1.error}`);
+
+      const d=await fetch("/api/epg/sync-catalog/fast",{method:"POST"}).then(r=>r.json());
+      if(d.error) throw new Error(d.error);
+
+      await carregarInfo();
+      setStatus(p=>({...p,fast:"ok"}));
+      const msg=`Novos títulos: ${d.novos_titulos??0} · Concluído em ${d.duracao_s}s`;
+      setServerMessages(p=>({...p,fast:{text:msg,type:"success"}}));
+      addToast("success","FastTV sincronizado",msg);
+    }catch(e:any){
+      setStatus(p=>({...p,fast:"error"}));
+      setServerMessages(p=>({...p,fast:{text:e.message||"Erro desconhecido",type:"error"}}));
+      addToast("error","Falha ao sincronizar FastTV",e.message);
+    }
+  }
   
   const SERVIDORES:{id:SrvId;label:string;cor:string;bgClass:string;onSync:()=>void}[]=[{id:"elite",label:"EliteTV",cor:"#6366f1",bgClass:"bg-indigo-600 hover:bg-indigo-500",onSync:syncElite},{id:"natv",label:"NaTV",cor:"#10b981",bgClass:"bg-emerald-600 hover:bg-emerald-500",onSync:syncNaTV},{id:"fast",label:"FastTV",cor:"#06b6d4",bgClass:"bg-sky-600 hover:bg-sky-500",onSync:syncFast}];
   const [tmdbStatus,setTmdbStatus]=useState<"idle"|"running"|"ok"|"error">("idle");

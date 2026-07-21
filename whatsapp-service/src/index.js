@@ -1,7 +1,6 @@
 import "dotenv/config";
 import express from "express";
 import QRCode from "qrcode";
-import { spawn } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -12,9 +11,9 @@ import {
   getBotEvents,
 } from "./sessionManager.js";
 import { createGerenciaApp, deleteGerenciaApp } from "./gerenciaapp.js";
+import { downloadFastM3uToR2 } from "./fast-r2.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const FAST_SYNC_SCRIPT = path.join(__dirname, "..", "fast-sync", "sync-fast.cjs");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -372,32 +371,23 @@ app.post("/gerenciaapp/delete", authMiddleware, async (req, res) => {
   }
 });
 
-// ── POST /fast-sync/trigger ──────────────────────────────────
-// Dispara o sync-fast.cjs (mesmo script do cron) sob demanda. Substitui o
-// antigo fluxo via extensão de navegador (FAST_VOD_SYNC) — a VM já baixa o
-// M3U com IP não bloqueado, então não precisa mais do browser pra isso.
-let fastSyncRunning = false;
-
-app.post("/fast-sync/trigger", authMiddleware, (req, res) => {
-  if (fastSyncRunning) {
-    return res.status(409).json({ error: "Sincronização do Fast já está em andamento." });
+// ── POST /fast-sync/download-to-r2 ───────────────────────────
+// Passo 1 do sync do Fast (dos 2 — o passo 2, processar, roda inteiro na
+// Vercel lendo o arquivo daqui do R2). Baixa o M3U cru (IP da VM não é
+// bloqueado) e sobe pro R2, sempre sobrescrevendo. Síncrono — leva uns
+// 15-20s, não precisa de spawn/processo em background como o fluxo antigo.
+app.post("/fast-sync/download-to-r2", authMiddleware, async (req, res) => {
+  const { m3uUrl } = req.body || {};
+  if (!m3uUrl) {
+    return res.status(400).json({ error: "m3uUrl é obrigatório." });
   }
-  fastSyncRunning = true;
-  console.log("[FAST-SYNC] Disparado manualmente via API");
-
-  const child = spawn(process.execPath, [FAST_SYNC_SCRIPT], { env: process.env });
-  child.stdout.on("data", (d) => process.stdout.write(`[FAST-SYNC] ${d}`));
-  child.stderr.on("data", (d) => process.stderr.write(`[FAST-SYNC] ${d}`));
-  child.on("exit", (code) => {
-    fastSyncRunning = false;
-    console.log(`[FAST-SYNC] Processo finalizado (code ${code})`);
-  });
-  child.on("error", (e) => {
-    fastSyncRunning = false;
-    console.error(`[FAST-SYNC] Falha ao iniciar processo:`, e?.message);
-  });
-
-  res.json({ ok: true, message: "Sincronização do Fast iniciada na VM." });
+  try {
+    const result = await downloadFastM3uToR2(m3uUrl);
+    res.json({ ok: true, ...result });
+  } catch (e) {
+    console.error("[FAST-R2] erro:", e?.message);
+    res.status(500).json({ error: e?.message || "Falha ao baixar/subir M3U do Fast." });
+  }
 });
 
 // ── GET /bot-events — últimos eventos do bot ──────────────────
