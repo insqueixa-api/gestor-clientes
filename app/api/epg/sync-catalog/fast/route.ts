@@ -6,17 +6,25 @@
 // internet de novo entre os passos). Migrado do fluxo antigo (VM baixava o
 // M3U e mandava de volta em ~500 requisições HTTP separadas, uma por lote —
 // era isso, não o download em si, que fazia o sync levar 30+ minutos e gerar
-// centenas de logs na Vercel). O M3U do Fast não é bloqueado por IP de
-// datacenter (confirmado por teste direto), então não precisa de VM nem de
-// proxy residencial pra baixar — só como os outros dois servidores já fazem.
+// centenas de logs na Vercel).
+//
+// O M3U do Fast É bloqueado (HTTP 403) quando o pedido sai da faixa de IP de
+// datacenter da própria Vercel (confirmado: falha da Vercel, passa de outros
+// IPs) — por isso só o download (RESIDENTIAL_PROXY_URL, undici ProxyAgent)
+// sai pelo proxy residencial pago. Todo o resto (parse, upserts no Supabase)
+// continua direto, sem proxy — arquivo é só uns 60MB, ~$0,06 por sync.
 //
 // Fluxo:
 //   GET  → status do último sync
-//   POST → busca m3u_url do cliente Fast no banco → baixa → parseia → upsert
+//   POST → busca m3u_url do cliente Fast no banco → baixa (via proxy) → parseia → upsert
 
 import { NextRequest, NextResponse }   from "next/server";
 import { createClient }                from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
+import { fetch as undiciFetch, ProxyAgent } from "undici";
+
+const RESIDENTIAL_PROXY_URL = String(process.env.RESIDENTIAL_PROXY_URL || "").trim();
+const proxyDispatcher = RESIDENTIAL_PROXY_URL ? new ProxyAgent(RESIDENTIAL_PROXY_URL) : undefined;
 
 export const dynamic     = "force-dynamic";
 export const maxDuration = 300;
@@ -243,9 +251,10 @@ export async function POST(req: NextRequest) {
     for (let tentativa = 1; tentativa <= MAX_TENTATIVAS; tentativa++) {
       try {
         console.log(`[CATALOG-FAST] Tentativa ${tentativa}/${MAX_TENTATIVAS}...`);
-        const resp = await fetch(m3uUrl, {
+        const resp = await undiciFetch(m3uUrl, {
           signal:  AbortSignal.timeout(180_000),
           headers: { "User-Agent": "IPTVSmartersPro", "Accept": "*/*" },
+          ...(proxyDispatcher ? { dispatcher: proxyDispatcher } : {}),
         });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         m3uText = await resp.text();
@@ -312,14 +321,20 @@ export async function POST(req: NextRequest) {
         .in("titulo_normalizado", titulos);
       for (const row of idsRows || []) masterIdMap.set(row.titulo_normalizado, row.id);
 
-      const availRows = loteNorm
-        .map(e => {
-          const master_id = masterIdMap.get(e.titulo_normalizado);
-          return master_id
-            ? { master_id, servidor: SERVIDOR, categoria_origem: e.categoria_origem, sincronizado_em: agora }
-            : null;
-        })
-        .filter(Boolean) as any[];
+      // Dedup por master_id: como limparTitulo() normaliza mais agressivo que a
+      // 1ª passada do parser, títulos DIFERENTES no M3U podem cair no mesmo
+      // master_id aqui — sem isso, o upsert falha com "ON CONFLICT DO UPDATE
+      // command cannot affect row a second time" (2 linhas do lote mirando o
+      // mesmo master_id/servidor no mesmo upsert).
+      const availMap = new Map<string, any>();
+      for (const e of loteNorm) {
+        const master_id = masterIdMap.get(e.titulo_normalizado);
+        if (!master_id) continue;
+        availMap.set(`${master_id}|${SERVIDOR}`, {
+          master_id, servidor: SERVIDOR, categoria_origem: e.categoria_origem, sincronizado_em: agora,
+        });
+      }
+      const availRows = [...availMap.values()];
 
       if (availRows.length > 0) {
         const { error: availErr } = await supabaseAdmin
