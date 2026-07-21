@@ -17,15 +17,28 @@
 // Pra essa rota aqui é transparente — é só a URL de onde vem o fetch.
 //
 // Fluxo:
-//   GET  → status do último sync
+//   GET  → status do último sync (log no R2)
 //   POST → busca m3u_url do cliente Fast → pede pra VM (relay) → parseia → upsert
 
 import { NextRequest, NextResponse }   from "next/server";
 import { createClient }                from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
+import { S3Client, PutObjectCommand }  from "@aws-sdk/client-s3";
 
 export const dynamic     = "force-dynamic";
 export const maxDuration = 300;
+
+// ─── R2 ───────────────────────────────────────────────────────────────────────
+const s3 = new S3Client({
+  region:   "auto",
+  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  credentials: {
+    accessKeyId:     process.env.R2_ACCESS_KEY_ID     || "",
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || "",
+  },
+});
+const R2_BUCKET = process.env.R2_BUCKET_NAME || "unigestor-media";
+const LOG_KEY   = "epg/catalog_fast_log.json";
 
 const SERVIDOR  = "FAST" as const;
 const CLIENT_ID = "aefcff7a-9b8f-46be-9a1b-155a73a472de";
@@ -206,6 +219,7 @@ export async function GET(req: Request) {
 // ─── POST — Sync completo (autocontido, igual NaTV/Elite) ─────────────────────
 export async function POST(req: NextRequest) {
   const inicio = Date.now();
+  const execTimestamp = new Date().toISOString();
 
   const authHeader = req.headers.get("authorization");
   const isCron = authHeader === `Bearer ${process.env.EPG_SYNC_CRON_SECRET}`;
@@ -215,6 +229,11 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
+
+  const log: Record<string, any> = {
+    servidor: SERVIDOR, executado_em: execTimestamp,
+    etapas: {}, resultado: {}, erro: null,
+  };
 
   try {
     // ── 0. Snapshot dos totais ANTES do sync ─────────────────────────────────
@@ -233,17 +252,18 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (clienteErr || !cliente?.m3u_url) {
-      return NextResponse.json(
-        { error: `m3u_url do cliente Fast não encontrado: ${clienteErr?.message}` },
-        { status: 500 }
-      );
+      log.erro = `m3u_url do cliente Fast não encontrado: ${clienteErr?.message}`;
+      await salvarLog(log);
+      return NextResponse.json({ error: log.erro }, { status: 500 });
     }
     const m3uUrl = cliente.m3u_url as string;
 
     const waBaseUrl = String(process.env.UNIGESTOR_WA_BASE_URL || "").trim();
     const waToken   = String(process.env.UNIGESTOR_WA_TOKEN || "").trim();
     if (!waBaseUrl || !waToken) {
-      return NextResponse.json({ error: "Server misconfigured (VM)." }, { status: 500 });
+      log.erro = "Server misconfigured (VM).";
+      await salvarLog(log);
+      return NextResponse.json({ error: log.erro }, { status: 500 });
     }
 
     // ── 2. Baixa o M3U via relay da VM (IP dela não é bloqueado — a nossa é) ──
@@ -278,16 +298,17 @@ export async function POST(req: NextRequest) {
     }
 
     if (ultimoErro || !m3uText) {
-      return NextResponse.json(
-        { error: `Falha ao baixar M3U (via VM) após ${MAX_TENTATIVAS} tentativas: ${ultimoErro?.message || "arquivo vazio"}` },
-        { status: 502 }
-      );
+      log.erro = `Falha ao baixar M3U (via VM) após ${MAX_TENTATIVAS} tentativas: ${ultimoErro?.message || "arquivo vazio"}`;
+      await salvarLog(log);
+      return NextResponse.json({ error: log.erro }, { status: 502 });
     }
     console.log(`[CATALOG-FAST] ${m3uText.length} bytes baixados`);
+    log.etapas.download = { ok: true, bytes: m3uText.length };
 
     // ── 3. Parseia ────────────────────────────────────────────────────────────
     const { masterLista, episodios, stats } = parseM3UFast(m3uText);
     console.log(`[CATALOG-FAST] Parse: ${stats.filmes} filmes, ${stats.series} séries, ${episodios.length} episódios`);
+    log.etapas.parse = { ok: true, ...stats, total_entradas: masterLista.length + episodios.length };
 
     // ── 4a. Upsert master + availability, em lotes (direto no Supabase) ──────
     const agora = new Date().toISOString();
@@ -319,6 +340,8 @@ export async function POST(req: NextRequest) {
         .upsert(masterRows, { onConflict: "titulo_normalizado", ignoreDuplicates: false });
       if (error) {
         console.error(`[CATALOG-FAST] Erro master lote ${i}:`, error.message);
+        log.erro = `Erro master lote ${i}: ${error.message}`;
+        await salvarLog(log);
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
@@ -407,6 +430,8 @@ export async function POST(req: NextRequest) {
           });
         if (error) {
           console.error(`[CATALOG-FAST] Erro episodes lote ${i}:`, error.message);
+          log.erro = `Erro episodes lote ${i}: ${error.message}`;
+          await salvarLog(log);
           return NextResponse.json({ error: error.message }, { status: 500 });
         }
       }
@@ -449,10 +474,23 @@ export async function POST(req: NextRequest) {
       banco_episodios: totalEpisodiosDepois || 0,
     };
 
+    log.resultado = resultado;
+    await salvarLog(log);
     console.log(`[CATALOG-FAST] Concluído em ${duracao}s`, resultado);
     return NextResponse.json({ ok: true, ...resultado });
   } catch (e: any) {
+    log.erro = e.message;
+    await salvarLog(log);
     console.error(`[CATALOG-FAST] Erro fatal:`, e.message);
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
+}
+
+async function salvarLog(log: Record<string, any>) {
+  try {
+    await s3.send(new PutObjectCommand({
+      Bucket: R2_BUCKET, Key: LOG_KEY,
+      Body: JSON.stringify(log, null, 2), ContentType: "application/json",
+    }));
+  } catch (e) { console.error("[CATALOG-FAST] Erro ao salvar log:", e); }
 }

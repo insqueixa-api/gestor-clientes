@@ -2660,7 +2660,7 @@ useEffect(()=>{
   // Lógica de fetch EPG com interceptação para Renomeios e Recategorizações
   useEffect(()=>{
     setLoadingEpg(true);setErroEpg(null);
-    fetch(`${process.env.NEXT_PUBLIC_R2_DEV_URL}/epg/epg_br.json?t=${Date.now()}`,{cache:"no-store"})
+    fetch(`${process.env.NEXT_PUBLIC_R2_DEV_URL}/epg/epg_claro.json?t=${Date.now()}`,{cache:"no-store"})
       .then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json();})
       .then(data => { setEpg(data); })
       .catch(()=>setErroEpg("Grade de canais não encontrada localmente. Rode o botão 'Sync EPG Grade' para gerar.")).finally(()=>setLoadingEpg(false));

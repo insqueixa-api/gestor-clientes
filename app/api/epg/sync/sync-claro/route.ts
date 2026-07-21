@@ -32,7 +32,7 @@ const s3 = new S3Client({
 
 const R2_BUCKET = process.env.R2_BUCKET_NAME        || "unigestor-media";
 const R2_URL    = process.env.NEXT_PUBLIC_R2_DEV_URL || "";
-const EPG_KEY   = "epg/epg_br.json";
+const EPG_KEY   = "epg/epg_claro.json";
 
 const CIDADES = ["22", "1"]; // RJ e SP — Globo/SBT/Record/Band têm afiliadas regionais
 const IMG_BASE  = "https://getcdn.nowonline.com.br/images_epg/360_540";
