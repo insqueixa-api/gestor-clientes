@@ -3,6 +3,7 @@ import { GerenciaAppIntegration } from "./gerenciaapp";
 import { DupleCastIntegration } from "./duplecast";
 import { IbosolAPI as IboSolIntegration } from "@/app/api/integrations/apps/ibosol/ibosol";
 import { IboProAPI as IboProIntegration } from "@/app/api/integrations/apps/ibopro/ibopro";
+import { QuickPlayerAPI } from "./quickplayer";
 
 const INTEGRATION_REGISTRY: Record<string, any> = {
     "GERENCIAAPP":      GerenciaAppIntegration,
@@ -18,6 +19,7 @@ const INTEGRATION_REGISTRY: Record<string, any> = {
     "DUPLECAST":        DupleCastIntegration,
     "IBOSOL":           IboSolIntegration,
     "IBOPRO":           IboProIntegration,
+    "QUICKPLAYER":      QuickPlayerAPI,
 };
 
 export function getIntegrationHandler(integrationType: string) {

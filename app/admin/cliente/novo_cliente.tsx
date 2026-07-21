@@ -2464,6 +2464,7 @@ const canSyncAgenda = canSyncAuto;
       serverName: selectedServerName.replace(/\s+/g, ""),
       m3uUrl: m3uToSend,
       appName: appName,
+      serverId, // usado pelo QUICKPLAYER pra achar o DNS #1 do servidor
     });
 
     // ✅ IBOSOL: chama API direta (sem extensão)
