@@ -11,6 +11,7 @@ import {
   getSessionConfig, updateSessionConfig, getContactProfilePicture,
   getBotEvents,
 } from "./sessionManager.js";
+import { createGerenciaApp, deleteGerenciaApp } from "./gerenciaapp.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FAST_SYNC_SCRIPT = path.join(__dirname, "..", "fast-sync", "sync-fast.cjs");
@@ -337,6 +338,38 @@ app.post("/system/restart", authMiddleware, async (req, res) => {
   console.log("[SYSTEM] Restart solicitado via API");
   res.json({ ok: true, message: "Reiniciando serviço..." });
   setTimeout(() => process.exit(0), 500);
+});
+
+// ── POST /gerenciaapp/create | /gerenciaapp/delete ────────────
+// Migrado da extensão de navegador: mesma lógica (login → cria/apaga),
+// mas rodando aqui, saindo pelo proxy residencial (GERENCIAAPP_PROXY_URL)
+// em vez do navegador do Márcio — evita o bloqueio de IP de datacenter.
+app.post("/gerenciaapp/create", authMiddleware, async (req, res) => {
+  const { baseUrl, email, password, payload } = req.body || {};
+  if (!baseUrl || !email || !password || !payload) {
+    return res.status(400).json({ ok: false, error: "baseUrl, email, password e payload são obrigatórios." });
+  }
+  try {
+    const result = await createGerenciaApp({ baseUrl, email, password, payload });
+    res.json(result);
+  } catch (e) {
+    console.error("[GERENCIAAPP_CREATE] erro:", e?.message);
+    res.status(500).json({ ok: false, error: e?.message || "Falha ao criar no GerenciaApp." });
+  }
+});
+
+app.post("/gerenciaapp/delete", authMiddleware, async (req, res) => {
+  const { baseUrl, email, password, searchName, macDevice } = req.body || {};
+  if (!baseUrl || !email || !password || !searchName) {
+    return res.status(400).json({ ok: false, error: "baseUrl, email, password e searchName são obrigatórios." });
+  }
+  try {
+    const result = await deleteGerenciaApp({ baseUrl, email, password, searchName, macDevice });
+    res.json(result);
+  } catch (e) {
+    console.error("[GERENCIAAPP_DELETE] erro:", e?.message);
+    res.status(500).json({ ok: false, error: e?.message || "Falha ao apagar no GerenciaApp." });
+  }
 });
 
 // ── POST /fast-sync/trigger ──────────────────────────────────
