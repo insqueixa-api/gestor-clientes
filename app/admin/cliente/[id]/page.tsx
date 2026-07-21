@@ -224,6 +224,7 @@ export default function ClientDetailsPage() {
   const clientIdSafe = (clientId ?? "").trim();
 
 const [valuesHidden, setValuesHidden] = useState(false);
+  const [expandedAppIcon, setExpandedAppIcon] = useState<{ url: string; name: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
@@ -722,6 +723,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
                 onChanged={loadData}
                 addToast={addToast}
                 size="lg"
+                hideWhenEmpty
               />
             )}
             <button
@@ -900,11 +902,6 @@ className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 tex
                 (client as any).apps_details.length > 0 && (
                   <div className="space-y-3 pt-1">
                     {(client as any).apps_details.map((app: any) => {
-                      const temIntegracao =
-                        app.integration_type &&
-                        app.integration_type !== "SEM_INTEGRACAO";
-                      const label = temIntegracao ? `⚡ ${app.name}` : app.name;
-
                       // ✅ Verifica se o vencimento é inferior a 30 dias (ou se já venceu)
                       const expirationDatePart = app.expiration
                         ? String(app.expiration).split("T")[0]
@@ -923,18 +920,27 @@ className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 tex
                         >
                           <span
                             className="text-muted-foreground font-medium flex items-center gap-1.5"
-                            title={label}
+                            title={app.name}
                           >
                             {app.icon_url ? (
-                              <img
-                                src={app.icon_url}
-                                alt=""
-                                className="w-4 h-4 rounded object-cover shrink-0"
-                              />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedAppIcon({ url: app.icon_url, name: app.name })
+                                }
+                                className="shrink-0 rounded overflow-hidden active:scale-95 transition-transform"
+                                title={`Ampliar ícone: ${app.name}`}
+                              >
+                                <img
+                                  src={app.icon_url}
+                                  alt=""
+                                  className="w-6 h-6 rounded object-cover"
+                                />
+                              </button>
                             ) : (
                               <span className="text-[11px]">📱</span>
                             )}
-                            {label}
+                            {app.name}
                           </span>
                           <span
                             className={`text-xs text-right ${app.expiration ? (isExpiringSoon ? "text-rose-500 font-medium" : "text-emerald-500 font-medium") : "text-muted-foreground/60 italic"}`}
@@ -1369,6 +1375,23 @@ className="inline-flex items-center gap-1.5 text-emerald-500 font-medium hover:u
             }, 150);
           }}
         />
+      )}
+      {expandedAppIcon && (
+        <div
+          className="fixed inset-0 z-[999998] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm"
+          onClick={() => setExpandedAppIcon(null)}
+        >
+          <div className="flex flex-col items-center gap-3">
+            <img
+              src={expandedAppIcon.url}
+              alt=""
+              className="w-40 h-40 sm:w-56 sm:h-56 rounded-2xl object-cover shadow-2xl"
+            />
+            <span className="text-sm font-medium text-white/90">
+              {expandedAppIcon.name}
+            </span>
+          </div>
+        </div>
       )}
       <div className="relative z-[999999]">
         <ToastNotifications toasts={toasts} removeToast={removeToast} />

@@ -2256,26 +2256,10 @@ className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-co
                                 normAppKey(app)
                               ] as any;
 
-                              // ✅ Vencimento: busca a primeira instância deste app com data
-                              // Para clientes com o mesmo app múltiplas vezes, usa a N-ésima ocorrência correta
-                              const prevCount = r.apps
-                                .slice(0, i)
-                                .filter((n) => n === app).length;
-                              let matchCount = 0;
-                              const matchedData =
-                                r.appsData?.find((a) => {
-                                  if (a.name !== app) return false;
-                                  if (matchCount === prevCount) return true;
-                                  matchCount++;
-                                  return false;
-                                }) ?? null;
-                              const appExpiry =
-                                matchedData?.expire_date ?? null;
-                              const appDiffDays = appExpiry
-                                ? getDiffDays(appExpiry)
-                                : null;
-                              const appIsExpiring =
-                                appDiffDays !== null && appDiffDays <= 30;
+                              const hasIntegration = Boolean(
+                                catApp?.integration_type &&
+                                  catApp.integration_type !== "SEM_INTEGRACAO",
+                              );
 
                               return (
                                 <button
@@ -2284,65 +2268,16 @@ className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-co
                                     e.stopPropagation();
                                     openEditById(r.id, "apps");
                                   }}
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-[10px] font-medium tracking-tight shadow-sm hover:bg-emerald-500/20 active:scale-95 transition-all max-w-[170px] truncate"
+                                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm active:scale-95 transition-all max-w-[170px] truncate ${
+                                    hasIntegration
+                                      ? "border-sky-500/20 bg-sky-500/10 text-sky-400 hover:bg-sky-500/20"
+                                      : "border-amber-500/20 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20"
+                                  }`}
                                   title={`Configurar aplicativo: ${app}`}
                                 >
                                   <span className="truncate flex-1 min-w-0 text-left">
                                     {app}
                                   </span>
-
-                                  {/* Ícone da Integração (Azul) */}
-                                  {catApp?.integration_type &&
-                                    catApp.integration_type !==
-                                      "SEM_INTEGRACAO" && (
-                                      <span
-                                        className="shrink-0 inline-flex items-center justify-center w-4 h-4 rounded bg-sky-500/20 border border-sky-500/30 text-sky-400"
-                                        title={
-                                          catApp.integration_type ===
-                                          "GERENCIAAPP"
-                                            ? "GerenciaApp"
-                                            : catApp.integration_type ===
-                                                "DUPLECAST"
-                                              ? "Duplecast"
-                                              : catApp.integration_type ===
-                                                  "IBOSOL"
-                                                ? "Ibo Sol"
-                                                : catApp.integration_type ===
-                                                    "IBOPRO"
-                                                  ? "Ibo Pro"
-                                                  : catApp.integration_type
-                                        }
-                                      >
-                                        <svg
-                                          width="8"
-                                          height="8"
-                                          viewBox="0 0 24 24"
-                                          fill="none"
-                                          stroke="currentColor"
-                                          strokeWidth="2.5"
-                                        >
-                                          <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"
-                                          />
-                                        </svg>
-                                      </span>
-                                    )}
-
-                                  {/* ✅ Ícone de Vencimento do App (Rose) */}
-                                  {appIsExpiring && (
-                                    <span
-                                      className="shrink-0 inline-flex items-center justify-center w-4 h-4 rounded bg-rose-500/20 border border-rose-500/20 text-rose-400 animate-pulse"
-                                      title={
-                                        appDiffDays! < 0
-                                          ? "Vencido no painel"
-                                          : `App vence em ${appDiffDays} dias`
-                                      }
-                                    >
-                                      <Clock className="w-4 h-4" />
-                                    </span>
-                                  )}
                                 </button>
                               );
                             })

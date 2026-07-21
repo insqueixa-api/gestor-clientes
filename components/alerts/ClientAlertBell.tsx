@@ -125,6 +125,7 @@ const ClientAlertBell = forwardRef<
       message?: string,
     ) => void;
     size?: "sm" | "lg";
+    hideWhenEmpty?: boolean;
   }
 >(function ClientAlertBell(
   {
@@ -136,6 +137,7 @@ const ClientAlertBell = forwardRef<
     onChanged,
     addToast,
     size = "sm",
+    hideWhenEmpty = false,
   },
   ref,
 ) {
@@ -372,30 +374,33 @@ const ClientAlertBell = forwardRef<
     }
   }
 
-  const bellSizeClasses = size === "lg" ? "p-2.5" : "p-1.5";
-  const bellIconClasses = size === "lg" ? "w-5 h-5" : "w-4 h-4";
+  const bellSizeClasses = size === "lg" ? "p-2" : "p-1.5";
+  const bellIconClasses = size === "lg" ? "w-4 h-4" : "w-3.5 h-3.5";
+  const showButton = alertsCount > 0 || !hideWhenEmpty;
 
   return (
     <>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          openBell();
-        }}
-        title={alertsCount > 0 ? `${alertsCount} alerta(s)` : "Novo alerta"}
-        className={`relative ${bellSizeClasses} rounded-lg border transition-all ${
-          alertsCount > 0
-            ? "text-amber-500 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20"
-            : "text-purple-500 bg-purple-500/10 border-purple-500/20 hover:bg-purple-500/20"
-        }`}
-      >
-        <Bell className={bellIconClasses} />
-        {alertsCount > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
-            {alertsCount}
-          </span>
-        )}
-      </button>
+      {showButton && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            openBell();
+          }}
+          title={alertsCount > 0 ? `${alertsCount} alerta(s)` : "Novo alerta"}
+          className={`relative ${bellSizeClasses} rounded-lg border transition-all ${
+            alertsCount > 0
+              ? "text-amber-500 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20"
+              : "text-purple-500 bg-purple-500/10 border-purple-500/20 hover:bg-purple-500/20"
+          }`}
+        >
+          <Bell className={bellIconClasses} />
+          {alertsCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
+              {alertsCount}
+            </span>
+          )}
+        </button>
+      )}
 
       {showList && (
         <Modal
