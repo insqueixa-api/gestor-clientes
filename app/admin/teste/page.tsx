@@ -1639,6 +1639,13 @@ export default function TrialsPage() {
                           <div className="flex flex-wrap gap-1 max-w-[300px]">
                             {r.apps_names.map((appName, idx) => {
                               const name = String(appName || "").trim();
+                              const catApp = appsIndex.byName[
+                                normKey(name)
+                              ] as any;
+                              const hasIntegration = Boolean(
+                                catApp?.integration_type &&
+                                  catApp.integration_type !== "SEM_INTEGRACAO",
+                              );
                               return (
                                 <button
                                   key={`${r.id}-${name}-${idx}`}
@@ -1647,51 +1654,14 @@ export default function TrialsPage() {
                                     e.stopPropagation();
                                     openEditById(r.id, "apps");
                                   }}
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-500 text-[10px] font-medium tracking-tight shadow-sm hover:bg-emerald-500/20 active:scale-95 transition-all"
+                                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm active:scale-95 transition-all ${
+                                    hasIntegration
+                                      ? "border-sky-500/20 bg-sky-500/10 text-sky-400 hover:bg-sky-500/20"
+                                      : "border-amber-500/20 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20"
+                                  }`}
                                   title="Configurar aplicativo"
                                 >
                                   {name || "App"}
-                                  {(() => {
-                                    const catApp = appsIndex.byName[
-                                      normKey(name)
-                                    ] as any;
-                                    if (!catApp?.integration_type) return null;
-                                    return (
-                                      <span
-                                        className="shrink-0 inline-flex items-center justify-center w-4 h-4 rounded bg-sky-500/10 border border-sky-500/30 text-sky-500"
-                                        title={
-                                          catApp.integration_type ===
-                                          "GERENCIAAPP"
-                                            ? "GerenciaApp"
-                                            : catApp.integration_type ===
-                                                "DUPLECAST"
-                                              ? "Duplecast"
-                                              : catApp.integration_type ===
-                                                  "IBOSOL"
-                                                ? "Ibo Sol"
-                                                : catApp.integration_type ===
-                                                    "IBOPRO"
-                                                  ? "Ibo Pro"
-                                                  : catApp.integration_type
-                                        }
-                                      >
-                                        <svg
-                                          width="8"
-                                          height="8"
-                                          viewBox="0 0 24 24"
-                                          fill="none"
-                                          stroke="currentColor"
-                                          strokeWidth="2.5"
-                                        >
-                                          <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"
-                                          />
-                                        </svg>
-                                      </span>
-                                    );
-                                  })()}
                                 </button>
                               );
                             })}
