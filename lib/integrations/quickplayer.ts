@@ -35,4 +35,12 @@ export const QuickPlayerAPI = {
       playlist_name: serverName || finalServerName || "",
     };
   },
+
+  buildDeletePayload({ macValue }: { macValue: string }) {
+    // deviceKey vem injetado pelo modal, igual no create.
+    return {
+      action: "delete",
+      mac: macValue,
+    };
+  },
 };

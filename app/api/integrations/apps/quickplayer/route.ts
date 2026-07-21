@@ -29,6 +29,20 @@ function buildM3uUrl(dnsHost: string, username: string, password: string): strin
   return `http://${cleanHost}/get.php?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&type=m3u_plus&output=ts`;
 }
 
+// Login por MAC + Device Key — devolve o token JWT (message) ou lança erro.
+async function loginByMac(mac: string, key: string): Promise<string> {
+  const loginRes = await fetch(`${API_BASE}/login_by_mac`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ mac, key }),
+  });
+  const loginJson = await loginRes.json().catch(() => null);
+  if (!loginRes.ok || !loginJson || loginJson.error) {
+    throw new Error(loginJson?.message || `Falha no login (HTTP ${loginRes.status}). Confira o MAC e o Device Key.`);
+  }
+  return loginJson.message as string;
+}
+
 export async function POST(req: Request) {
   try {
     const supabase = await createClient();
@@ -39,8 +53,46 @@ export async function POST(req: Request) {
     const { action, mac, deviceKey, device_key, username, password, server_id, playlist_name } = body;
     const key = deviceKey || device_key; // aceita os dois formatos (o modal injeta "deviceKey")
 
+    if (action === "delete") {
+      if (!mac || !key) {
+        return NextResponse.json({ ok: false, error: "mac e deviceKey são obrigatórios." }, { status: 400 });
+      }
+      try {
+        const token = await loginByMac(mac, key);
+
+        const listRes = await fetch(`${API_BASE}/playlist`, {
+          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+        });
+        const listJson = await listRes.json().catch(() => null);
+        const playlists: any[] = Array.isArray(listJson?.message) ? listJson.message : [];
+
+        if (playlists.length === 0) {
+          return NextResponse.json({ ok: true, message: "Nenhuma playlist configurada neste dispositivo." });
+        }
+
+        for (const pl of playlists) {
+          const delRes = await fetch(`${API_BASE}/palylist_from_web`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
+            body: JSON.stringify({ id: pl.id }),
+          });
+          const delJson = await delRes.json().catch(() => null);
+          if (!delRes.ok || !delJson || delJson.error) {
+            return NextResponse.json(
+              { ok: false, error: delJson?.message || `Falha ao apagar playlist ${pl.id} (HTTP ${delRes.status}).` },
+              { status: 400 }
+            );
+          }
+        }
+
+        return NextResponse.json({ ok: true, message: "Playlist removida com sucesso." });
+      } catch (e: any) {
+        return NextResponse.json({ ok: false, error: e?.message || "Falha ao remover playlist." }, { status: 400 });
+      }
+    }
+
     if (action !== "create") {
-      return NextResponse.json({ ok: false, error: "Remoção não está disponível para o Quick Player. Remova manualmente pelo painel." }, { status: 400 });
+      return NextResponse.json({ ok: false, error: "action inválida. Use: create | delete" }, { status: 400 });
     }
     if (!mac || !key || !username || !server_id) {
       return NextResponse.json({ ok: false, error: "mac, deviceKey, username e server_id são obrigatórios." }, { status: 400 });
@@ -60,19 +112,12 @@ export async function POST(req: Request) {
     const m3uUrl = buildM3uUrl(dnsList[0], username, password || "");
 
     // ── 2. Login por MAC + Device Key ──────────────────────────────────────
-    const loginRes = await fetch(`${API_BASE}/login_by_mac`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ mac, key }),
-    });
-    const loginJson = await loginRes.json().catch(() => null);
-    if (!loginRes.ok || !loginJson || loginJson.error) {
-      return NextResponse.json(
-        { ok: false, error: loginJson?.message || `Falha no login (HTTP ${loginRes.status}). Confira o MAC e o Device Key.` },
-        { status: 400 }
-      );
+    let token: string;
+    try {
+      token = await loginByMac(mac, key);
+    } catch (e: any) {
+      return NextResponse.json({ ok: false, error: e?.message }, { status: 400 });
     }
-    const token = loginJson.message as string;
 
     // ── 3. Adiciona a playlist (FormData — a API não aceita JSON aqui) ─────
     // A API do Quick Player rejeita nome de playlist com mais de 30 caracteres
