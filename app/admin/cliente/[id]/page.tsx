@@ -527,7 +527,6 @@ const [valuesHidden, setValuesHidden] = useState(false);
             id: item.id,
             name: catalogApp?.name || "App (Não encontrado)",
             expiration: expiration,
-            integration_type: catalogApp?.integration_type || null,
             icon_url: catalogApp?.icon_url || null,
           };
         });
