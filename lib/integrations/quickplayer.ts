@@ -32,7 +32,9 @@ export const QuickPlayerAPI = {
       username,
       password: password || "",
       server_id: serverId || "",
-      playlist_name: serverName || finalServerName || "",
+      // Padrão usado pelos outros apps: "usuário_servidor" (finalServerName),
+      // não só o nome do servidor sozinho.
+      playlist_name: finalServerName || serverName || "",
     };
   },
 
