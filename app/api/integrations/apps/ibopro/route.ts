@@ -1,6 +1,7 @@
 // app/api/integrations/apps/ibopro/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { isInternalRequest, hasBadInternalHeader } from "@/lib/internal-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -105,9 +106,14 @@ async function login(mac: string, deviceKey: string): Promise<string> {
 
 export async function POST(req: Request) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ ok: false, error: "Não autorizado" }, { status: 401 });
+    if (hasBadInternalHeader(req)) {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
+    if (!isInternalRequest(req)) {
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return NextResponse.json({ ok: false, error: "Não autorizado" }, { status: 401 });
+    }
 
     const body = await req.json().catch(() => ({}));
     const { action, mac, deviceKey, playlist_name, playlist_url, pin } = body;

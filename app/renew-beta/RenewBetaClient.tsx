@@ -7,6 +7,7 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 import Image from "next/image";
 import { useConfirm } from "@/hooks/useConfirm";
 import { Pencil, CheckCircle2, ShieldCheck } from "lucide-react";
+import { ALL_DEVICE_TYPES, DEVICE_TYPE_LABELS } from "@/lib/apps/device-types";
 
 // ========= TYPES =========
 interface ClientAccount {
@@ -252,19 +253,51 @@ export default function RenewClient() {
   const [activeSection, setActiveSection] = useState<
     "menu" | "payment" | "apps"
   >("menu");
-  const [installedApps, setInstalledApps] = useState<
-    {
-      id: string;
-      name: string;
-      icon_url: string | null;
-      expiration: string | null;
-      fields: { label: string; value: string }[];
-    }[]
-  >([]);
+  type InstalledAppField = { id: string; type: string; label: string; value: string };
+  type InstalledApp = {
+    id: string;
+    app_id: string;
+    name: string;
+    icon_url: string | null;
+    has_integration: boolean;
+    expiration: string | null;
+    fields: InstalledAppField[];
+  };
+  const [installedApps, setInstalledApps] = useState<InstalledApp[]>([]);
   const [installedAppsLoading, setInstalledAppsLoading] = useState(false);
   const [installedAppsError, setInstalledAppsError] = useState<string | null>(
     null,
   );
+  const [accountM3uUrl, setAccountM3uUrl] = useState<string | null>(null);
+  const [m3uBusy, setM3uBusy] = useState(false);
+  const [m3uVisible, setM3uVisible] = useState(false);
+
+  // Bloco 3 — sub-abas
+  const [appsSubTab, setAppsSubTab] = useState<
+    "meus-apps" | "novo-dispositivo" | "duvidas"
+  >("meus-apps");
+
+  // Edição inline de um card de app instalado
+  const [editingAppId, setEditingAppId] = useState<string | null>(null);
+  const [editingValues, setEditingValues] = useState<Record<string, string>>({});
+  const [appActionBusy, setAppActionBusy] = useState<string | null>(null);
+
+  // Picker "+ Adicionar aplicativo"
+  const [showAddAppPicker, setShowAddAppPicker] = useState(false);
+  const [addAppSearch, setAddAppSearch] = useState("");
+  const [appCatalog, setAppCatalog] = useState<
+    { id: string; name: string; icon_url: string | null }[]
+  >([]);
+  const [appCatalogLoading, setAppCatalogLoading] = useState(false);
+
+  // Sub-abas 2 e 3 — conteúdo vindo de bot_knowledge (curado no admin)
+  const [faqData, setFaqData] = useState<{
+    device_setup: { title: string; content: string; device_types: string[] }[];
+    faq: { title: string; content: string; category: string }[];
+  } | null>(null);
+  const [faqLoading, setFaqLoading] = useState(false);
+  const [deviceFilter, setDeviceFilter] = useState<string | null>(null);
+
   const [prices, setPrices] = useState<PlanPrice[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<string>("MONTHLY");
   const [showOtherPlans, setShowOtherPlans] = useState(false);
@@ -506,36 +539,194 @@ export default function RenewClient() {
     loadPrices();
   }, [selectedAccountId, accounts, session]);
 
-  // ========= LOAD INSTALLED APPS (BLOCO 3, SOMENTE LEITURA) =========
-  useEffect(() => {
-    async function loadInstalledApps() {
-      if (activeSection !== "apps") return;
-      if (!selectedAccountId || !session) return;
+  // ========= BLOCO 3 — CARREGAMENTO E AÇÕES =========
+  async function refreshInstalledApps() {
+    if (!selectedAccountId || !session) return;
+    setInstalledAppsLoading(true);
+    setInstalledAppsError(null);
+    try {
+      const res = await fetch("/api/client-portal/apps/list", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_token: session, client_id: selectedAccountId }),
+        cache: "no-store",
+      });
+      const result = await res.json().catch(() => null);
+      if (!result?.ok) throw new Error("Não foi possível carregar seus aplicativos");
+      setInstalledApps(result.data || []);
+      setAccountM3uUrl(result.m3u_url || null);
+    } catch (err: any) {
+      setInstalledAppsError(safeUserError(err?.message));
+    } finally {
+      setInstalledAppsLoading(false);
+    }
+  }
 
-      setInstalledAppsLoading(true);
-      setInstalledAppsError(null);
+  useEffect(() => {
+    if (activeSection !== "apps") return;
+    refreshInstalledApps();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSection, selectedAccountId, session]);
+
+  // FAQ / instruções de novo dispositivo — carrega uma vez ao entrar no Bloco 3
+  useEffect(() => {
+    async function loadFaq() {
+      if (activeSection !== "apps" || !session || faqData) return;
+      setFaqLoading(true);
       try {
-        const res = await fetch("/api/client-portal/apps/list", {
+        const res = await fetch("/api/client-portal/faq", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            session_token: session,
-            client_id: selectedAccountId,
-          }),
+          body: JSON.stringify({ session_token: session }),
           cache: "no-store",
         });
         const result = await res.json().catch(() => null);
-        if (!result?.ok) throw new Error("Não foi possível carregar seus aplicativos");
-        setInstalledApps(result.data || []);
-      } catch (err: any) {
-        setInstalledAppsError(safeUserError(err?.message));
+        if (result?.ok) setFaqData(result.data);
+      } catch {
       } finally {
-        setInstalledAppsLoading(false);
+        setFaqLoading(false);
       }
     }
+    loadFaq();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSection, session]);
 
-    loadInstalledApps();
-  }, [activeSection, selectedAccountId, session]);
+  async function loadAppCatalog() {
+    if (!selectedAccountId || !session) return;
+    setAppCatalogLoading(true);
+    try {
+      const res = await fetch("/api/client-portal/apps/catalog", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_token: session, client_id: selectedAccountId }),
+        cache: "no-store",
+      });
+      const result = await res.json().catch(() => null);
+      if (result?.ok) setAppCatalog(result.data || []);
+    } catch {
+    } finally {
+      setAppCatalogLoading(false);
+    }
+  }
+
+  function startEditingApp(app: InstalledApp) {
+    setEditingAppId(app.id);
+    const vals: Record<string, string> = {};
+    for (const f of app.fields) vals[f.id] = f.value;
+    setEditingValues(vals);
+  }
+
+  async function handleSaveAppFields(clientAppId: string) {
+    if (!selectedAccountId || !session) return;
+    setAppActionBusy(clientAppId);
+    try {
+      const res = await fetch("/api/client-portal/apps/update-fields", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_token: session,
+          client_id: selectedAccountId,
+          client_app_id: clientAppId,
+          fields: editingValues,
+        }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!result?.ok) throw new Error(result?.error || "Não foi possível salvar.");
+      setEditingAppId(null);
+      await refreshInstalledApps();
+    } catch (err: any) {
+      alertError(err?.message || "Não foi possível salvar.");
+    } finally {
+      setAppActionBusy(null);
+    }
+  }
+
+  async function handleConfigureApp(clientAppId: string) {
+    if (!selectedAccountId || !session) return;
+    setAppActionBusy(clientAppId);
+    try {
+      const res = await fetch("/api/client-portal/apps/configure", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_token: session, client_id: selectedAccountId, client_app_id: clientAppId }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!result?.ok) throw new Error(result?.error || "Falha ao configurar.");
+      await refreshInstalledApps();
+    } catch (err: any) {
+      alertError(err?.message || "Falha ao configurar.");
+    } finally {
+      setAppActionBusy(null);
+    }
+  }
+
+  async function handleRemoveApp(clientAppId: string, appName: string) {
+    if (!selectedAccountId || !session) return;
+    const ok = await confirm({
+      title: "Remover aplicativo?",
+      subtitle: `"${appName}" será removido dessa conta e do painel do parceiro (quando aplicável).`,
+      tone: "rose",
+      confirmText: "Remover",
+      cancelText: "Cancelar",
+    });
+    if (!ok) return;
+
+    setAppActionBusy(clientAppId);
+    try {
+      const res = await fetch("/api/client-portal/apps/remove", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_token: session, client_id: selectedAccountId, client_app_id: clientAppId }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!result?.ok) throw new Error(result?.error || "Falha ao remover.");
+      await refreshInstalledApps();
+    } catch (err: any) {
+      alertError(err?.message || "Falha ao remover.");
+    } finally {
+      setAppActionBusy(null);
+    }
+  }
+
+  async function handleAddApp(appId: string) {
+    if (!selectedAccountId || !session) return;
+    setAppActionBusy(`add-${appId}`);
+    try {
+      const res = await fetch("/api/client-portal/apps/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_token: session, client_id: selectedAccountId, app_id: appId }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!result?.ok) throw new Error(result?.error || "Falha ao adicionar.");
+      setShowAddAppPicker(false);
+      setAddAppSearch("");
+      await refreshInstalledApps();
+    } catch (err: any) {
+      alertError(err?.message || "Falha ao adicionar.");
+    } finally {
+      setAppActionBusy(null);
+    }
+  }
+
+  async function handleM3uAction(action: "generate" | "remove") {
+    if (!selectedAccountId || !session) return;
+    setM3uBusy(true);
+    try {
+      const res = await fetch("/api/client-portal/m3u", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_token: session, client_id: selectedAccountId, action }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!result?.ok) throw new Error(result?.error || "Falha na operação.");
+      setAccountM3uUrl(result.data?.m3u_url ?? null);
+    } catch (err: any) {
+      alertError(err?.message || "Falha na operação.");
+    } finally {
+      setM3uBusy(false);
+    }
+  }
 
   // ========= COMPUTED =========
   const selectedAccount = useMemo(
@@ -2966,8 +3157,14 @@ export default function RenewClient() {
     );
   }
 
-  // ========= RENDER: APPS (BLOCO 3, SOMENTE LEITURA) =========
+  // ========= RENDER: APPS (BLOCO 3) =========
   if (activeSection === "apps") {
+    const SUB_TABS: { id: typeof appsSubTab; label: string }[] = [
+      { id: "meus-apps", label: "Meus aplicativos" },
+      { id: "novo-dispositivo", label: "Novo dispositivo" },
+      { id: "duvidas", label: "Dúvidas" },
+    ];
+
     return (
       <div className="min-h-screen bg-background">
         {renderTopBar(() => setActiveSection("menu"))}
@@ -2975,77 +3172,331 @@ export default function RenewClient() {
         <div className="max-w-2xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4">
           <div className="mb-2">
             <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
-              Aplicativos
+              Configuração de Aplicativo
             </h1>
-            <p className="text-foreground/70 text-sm mt-1">
-              Aplicativos instalados nessa conta
-            </p>
           </div>
 
-          {installedAppsLoading && (
-            <div className="text-center py-8 text-muted-foreground">
-              Carregando...
-            </div>
-          )}
-
-          {!installedAppsLoading && installedAppsError && (
-            <div className="text-center py-8 text-rose-500 bg-rose-500/10 rounded-xl border border-dashed border-rose-500/30">
-              {installedAppsError}
-            </div>
-          )}
-
-          {!installedAppsLoading && !installedAppsError && installedApps.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground bg-muted/40 rounded-xl border border-dashed border-border">
-              Nenhum aplicativo instalado nessa conta.
-            </div>
-          )}
-
-          {!installedAppsLoading &&
-            !installedAppsError &&
-            installedApps.map((app) => (
-              <div
-                key={app.id}
-                className="bg-card rounded-xl p-4 border border-border shadow-sm flex items-center gap-3"
+          {/* Sub-abas */}
+          <div className="flex gap-1.5 p-1 bg-muted rounded-xl">
+            {SUB_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setAppsSubTab(tab.id)}
+                className={`flex-1 text-xs sm:text-sm font-bold py-2 rounded-lg transition-colors ${
+                  appsSubTab === tab.id
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
               >
-                {app.icon_url ? (
-                  <img
-                    src={app.icon_url}
-                    alt={app.name}
-                    className="w-10 h-10 rounded-lg object-cover border border-border shrink-0"
-                  />
-                ) : (
-                  <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-lg shrink-0">
-                    📱
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-foreground truncate">
-                    {app.name}
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* ===== SUB-ABA 1: MEUS APLICATIVOS ===== */}
+          {appsSubTab === "meus-apps" && (
+            <div className="space-y-4">
+              {/* Bloco M3U */}
+              <div className="bg-card rounded-xl p-4 border border-border shadow-sm space-y-2">
+                <p className="text-sm font-bold text-foreground">Link M3U</p>
+                {accountM3uUrl ? (
+                  <p className="text-xs font-mono text-muted-foreground break-all bg-muted rounded-lg p-2">
+                    {m3uVisible ? accountM3uUrl : "•".repeat(28)}
                   </p>
-                  {app.expiration && (
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Vencimento: {String(app.expiration).split("T")[0].split("-").reverse().join("/")}
-                    </p>
-                  )}
-                  {app.fields.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mt-1.5">
-                      {app.fields.map((f, i) => (
-                        <span
-                          key={i}
-                          className="px-2 py-0.5 bg-muted text-muted-foreground border border-border text-[10px] font-mono rounded"
-                        >
-                          {f.label}: {f.value}
-                        </span>
-                      ))}
-                    </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Nenhum link gerado ainda.</p>
+                )}
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <button
+                    disabled={m3uBusy}
+                    onClick={() => handleM3uAction("generate")}
+                    className="px-3 py-1.5 rounded-lg bg-sky-500/10 text-sky-500 border border-sky-500/20 text-xs font-bold hover:bg-sky-500/20 transition-colors disabled:opacity-50"
+                  >
+                    Gerar
+                  </button>
+                  {accountM3uUrl && (
+                    <>
+                      <button
+                        onClick={() => setM3uVisible((v) => !v)}
+                        className="px-3 py-1.5 rounded-lg bg-muted text-foreground border border-border text-xs font-bold hover:bg-muted/70 transition-colors"
+                      >
+                        {m3uVisible ? "Ocultar" : "Mostrar"}
+                      </button>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard?.writeText(accountM3uUrl);
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-muted text-foreground border border-border text-xs font-bold hover:bg-muted/70 transition-colors"
+                      >
+                        Copiar
+                      </button>
+                      <button
+                        disabled={m3uBusy}
+                        onClick={() => handleM3uAction("remove")}
+                        className="px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 text-xs font-bold hover:bg-rose-500/20 transition-colors disabled:opacity-50"
+                      >
+                        Remover
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
-            ))}
 
-          <div className="text-center text-xs text-muted-foreground pt-2 pb-4">
-            Configurar novos aplicativos e fazer manutenção — em breve por aqui.
-          </div>
+              {installedAppsLoading && (
+                <div className="text-center py-8 text-muted-foreground">Carregando...</div>
+              )}
+              {!installedAppsLoading && installedAppsError && (
+                <div className="text-center py-8 text-rose-500 bg-rose-500/10 rounded-xl border border-dashed border-rose-500/30">
+                  {installedAppsError}
+                </div>
+              )}
+              {!installedAppsLoading && !installedAppsError && installedApps.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground bg-muted/40 rounded-xl border border-dashed border-border">
+                  Nenhum aplicativo instalado nessa conta.
+                </div>
+              )}
+
+              {!installedAppsLoading &&
+                !installedAppsError &&
+                installedApps.map((app) => {
+                  const isEditing = editingAppId === app.id;
+                  const busy = appActionBusy === app.id;
+                  return (
+                    <div key={app.id} className="bg-card rounded-xl p-4 border border-border shadow-sm space-y-3">
+                      <div className="flex items-center gap-3">
+                        {app.icon_url ? (
+                          <img src={app.icon_url} alt={app.name} className="w-10 h-10 rounded-lg object-cover border border-border shrink-0" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-lg shrink-0">📱</div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-foreground truncate">{app.name}</p>
+                          {app.expiration && (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              Vencimento: {String(app.expiration).split("T")[0].split("-").reverse().join("/")}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {isEditing ? (
+                        <div className="space-y-2">
+                          {app.fields.map((f) => (
+                            <div key={f.id}>
+                              <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">{f.label}</label>
+                              <input
+                                type="text"
+                                value={editingValues[f.id] ?? ""}
+                                onChange={(e) =>
+                                  setEditingValues((prev) => ({ ...prev, [f.id]: e.target.value }))
+                                }
+                                className="w-full h-9 px-3 bg-muted border border-border rounded-lg text-sm text-foreground outline-none focus:border-sky-500"
+                              />
+                            </div>
+                          ))}
+                          <div className="flex gap-2 pt-1">
+                            <button
+                              disabled={busy}
+                              onClick={() => handleSaveAppFields(app.id)}
+                              className="flex-1 h-9 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold disabled:opacity-50"
+                            >
+                              Salvar
+                            </button>
+                            <button
+                              disabled={busy}
+                              onClick={() => setEditingAppId(null)}
+                              className="flex-1 h-9 rounded-lg bg-muted text-foreground border border-border text-xs font-bold"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          {app.fields.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {app.fields.map((f) => (
+                                <span key={f.id} className="px-2 py-0.5 bg-muted text-muted-foreground border border-border text-[10px] font-mono rounded">
+                                  {f.label}: {f.value || "—"}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              onClick={() => startEditingApp(app)}
+                              className="px-3 py-1.5 rounded-lg bg-muted text-foreground border border-border text-xs font-bold hover:bg-muted/70 transition-colors"
+                            >
+                              Editar
+                            </button>
+                            {app.has_integration && (
+                              <button
+                                disabled={busy}
+                                onClick={() => handleConfigureApp(app.id)}
+                                className="px-3 py-1.5 rounded-lg bg-sky-500/10 text-sky-500 border border-sky-500/20 text-xs font-bold hover:bg-sky-500/20 transition-colors disabled:opacity-50"
+                              >
+                                {busy ? "Configurando..." : "Reconfigurar"}
+                              </button>
+                            )}
+                            <button
+                              disabled={busy}
+                              onClick={() => handleRemoveApp(app.id, app.name)}
+                              className="px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 text-xs font-bold hover:bg-rose-500/20 transition-colors disabled:opacity-50"
+                            >
+                              Remover
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+
+              {/* + Adicionar aplicativo */}
+              {!showAddAppPicker ? (
+                <button
+                  onClick={() => {
+                    setShowAddAppPicker(true);
+                    loadAppCatalog();
+                  }}
+                  className="w-full py-3 rounded-xl border-2 border-dashed border-border text-sm font-bold text-muted-foreground hover:border-sky-500 hover:text-sky-500 transition-colors"
+                >
+                  + Adicionar aplicativo
+                </button>
+              ) : (
+                <div className="bg-card rounded-xl p-4 border border-border shadow-sm space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-bold text-foreground">Adicionar aplicativo</p>
+                    <button onClick={() => setShowAddAppPicker(false)} className="text-muted-foreground hover:text-foreground text-xs">
+                      Fechar
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Buscar aplicativo..."
+                    value={addAppSearch}
+                    onChange={(e) => setAddAppSearch(e.target.value)}
+                    className="w-full h-10 px-3 bg-muted border border-border rounded-lg text-sm text-foreground outline-none focus:border-sky-500"
+                  />
+                  {appCatalogLoading ? (
+                    <p className="text-xs text-muted-foreground text-center py-4">Carregando...</p>
+                  ) : (
+                    <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                      {appCatalog
+                        .filter((a) => a.name.toLowerCase().includes(addAppSearch.trim().toLowerCase()))
+                        .map((a) => (
+                          <button
+                            key={a.id}
+                            disabled={appActionBusy === `add-${a.id}`}
+                            onClick={() => handleAddApp(a.id)}
+                            className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-muted transition-colors text-left disabled:opacity-50"
+                          >
+                            {a.icon_url ? (
+                              <img src={a.icon_url} alt={a.name} className="w-7 h-7 rounded object-cover border border-border" />
+                            ) : (
+                              <div className="w-7 h-7 rounded bg-muted flex items-center justify-center text-xs">📱</div>
+                            )}
+                            <span className="text-sm text-foreground">{a.name}</span>
+                          </button>
+                        ))}
+                      {appCatalog.length === 0 && (
+                        <p className="text-xs text-muted-foreground text-center py-4">
+                          Nenhum aplicativo disponível pra adicionar.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ===== SUB-ABA 2: NOVO DISPOSITIVO ===== */}
+          {appsSubTab === "novo-dispositivo" && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  onClick={() => setDeviceFilter(null)}
+                  className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-colors ${
+                    !deviceFilter ? "bg-sky-500 text-white border-sky-500" : "bg-muted text-muted-foreground border-border"
+                  }`}
+                >
+                  Todos
+                </button>
+                {ALL_DEVICE_TYPES.map((dt) => (
+                  <button
+                    key={dt}
+                    onClick={() => setDeviceFilter(dt)}
+                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-colors ${
+                      deviceFilter === dt ? "bg-sky-500 text-white border-sky-500" : "bg-muted text-muted-foreground border-border"
+                    }`}
+                  >
+                    {DEVICE_TYPE_LABELS[dt]}
+                  </button>
+                ))}
+              </div>
+
+              {faqLoading && <p className="text-center text-muted-foreground py-8">Carregando...</p>}
+
+              {!faqLoading &&
+                (faqData?.device_setup || [])
+                  .filter((d) => !deviceFilter || d.device_types.includes(deviceFilter))
+                  .map((d, i) => (
+                    <div key={i} className="bg-card rounded-xl p-4 border border-border shadow-sm">
+                      <p className="text-sm font-bold text-foreground mb-1">{d.title}</p>
+                      <p className="text-xs text-muted-foreground whitespace-pre-line">{d.content}</p>
+                    </div>
+                  ))}
+
+              {!faqLoading && (faqData?.device_setup || []).length === 0 && (
+                <div className="text-center py-8 text-muted-foreground bg-muted/40 rounded-xl border border-dashed border-border">
+                  Nenhuma instrução disponível ainda.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ===== SUB-ABA 3: DÚVIDAS E SUGESTÕES ===== */}
+          {appsSubTab === "duvidas" && (
+            <div className="space-y-4">
+              {faqLoading && <p className="text-center text-muted-foreground py-8">Carregando...</p>}
+
+              {!faqLoading && (faqData?.faq || []).length === 0 && (
+                <div className="text-center py-8 text-muted-foreground bg-muted/40 rounded-xl border border-dashed border-border">
+                  Nenhuma pergunta frequente cadastrada ainda.
+                </div>
+              )}
+
+              {!faqLoading &&
+                Object.entries(
+                  (faqData?.faq || []).reduce<Record<string, typeof faqData.faq>>((acc, item) => {
+                    (acc[item.category] ||= []).push(item);
+                    return acc;
+                  }, {}),
+                ).map(([category, items]) => (
+                  <div key={category} className="space-y-2">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{category}</p>
+                    {items!.map((item, i) => (
+                      <details key={i} className="bg-card rounded-xl p-4 border border-border shadow-sm group">
+                        <summary className="text-sm font-bold text-foreground cursor-pointer list-none">{item.title}</summary>
+                        <p className="text-xs text-muted-foreground whitespace-pre-line mt-2">{item.content}</p>
+                      </details>
+                    ))}
+                  </div>
+                ))}
+
+              {supportPhone && (
+                <a
+                  href={`https://wa.me/${supportPhone.replace(/\D/g, "")}?text=Olá,%20tenho%20uma%20dúvida%20sobre%20configuração%20de%20aplicativo!`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#25D366]/10 text-[#25D366] border border-[#25D366]/20 text-sm font-bold hover:bg-[#25D366]/20 transition-colors"
+                >
+                  <IconWhatsapp /> Falar com o suporte
+                </a>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );

@@ -13,6 +13,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
+import { isInternalRequest, hasBadInternalHeader } from "@/lib/internal-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,9 +46,14 @@ async function loginByMac(mac: string, key: string): Promise<string> {
 
 export async function POST(req: Request) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ ok: false, error: "Não autorizado" }, { status: 401 });
+    if (hasBadInternalHeader(req)) {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
+    if (!isInternalRequest(req)) {
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return NextResponse.json({ ok: false, error: "Não autorizado" }, { status: 401 });
+    }
 
     const body = await req.json().catch(() => ({}));
     const { action, mac, deviceKey, device_key, username, password, server_id, playlist_name } = body;

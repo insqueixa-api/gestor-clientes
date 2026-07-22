@@ -12,6 +12,7 @@ import { useConfirm } from "@/hooks/useConfirm";
 import { usePrompt } from "@/hooks/usePrompt";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import BotMenuTreeEditor from "@/components/whatsapp/BotMenuTreeEditor";
+import { ALL_DEVICE_TYPES, DEVICE_TYPE_LABELS } from "@/lib/apps/device-types";
 
 
 
@@ -47,6 +48,10 @@ type KnowledgeItem = {
   applies_to_servers: string[] | null;
   created_at: string;
   updated_at: string;
+  portal_visible: boolean;
+  portal_category: "faq" | "device_setup" | null;
+  portal_content: string | null;
+  portal_device_types: string[];
 };
 
 // ✅ Enum fechado do sistema — os únicos providers de servidor suportados.
@@ -766,8 +771,19 @@ const [editActive, setEditActive] = useState(true);
   const [editAppliesTo, setEditAppliesTo] = useState<string[]>([]);
   const [showMonitor, setShowMonitor] = useState(false);
 
+  // ── Curadoria pro portal do cliente (separado do content, que é
+  // instrução pro bot) ──
+  const [editPortalVisible, setEditPortalVisible] = useState(false);
+  const [editPortalCategory, setEditPortalCategory] = useState<"faq" | "device_setup">("faq");
+  const [editPortalContent, setEditPortalContent] = useState("");
+  const [editPortalDeviceTypes, setEditPortalDeviceTypes] = useState<string[]>([]);
+
   function toggleEditServer(value: string) {
     setEditAppliesTo((prev) => prev.includes(value) ? prev.filter((s) => s !== value) : [...prev, value]);
+  }
+
+  function toggleEditPortalDeviceType(value: string) {
+    setEditPortalDeviceTypes((prev) => prev.includes(value) ? prev.filter((s) => s !== value) : [...prev, value]);
   }
 
   const categories = [...new Set(items.map((i) => i.category))].sort();
@@ -804,6 +820,10 @@ const [editActive, setEditActive] = useState(true);
     // sempre envia o campo explicitamente, então não dá pra confiar em
     // "omitir = todos" do lado do servidor aqui.
     setEditAppliesTo(SERVER_OPTIONS.map((s) => s.value));
+    setEditPortalVisible(false);
+    setEditPortalCategory("faq");
+    setEditPortalContent("");
+    setEditPortalDeviceTypes([]);
   }
 
   function openEdit(item: KnowledgeItem) {
@@ -819,20 +839,34 @@ const [editActive, setEditActive] = useState(true);
         ? SERVER_OPTIONS.map((s) => s.value)
         : item.applies_to_servers
     );
+    setEditPortalVisible(item.portal_visible || false);
+    setEditPortalCategory(item.portal_category || "faq");
+    setEditPortalContent(item.portal_content || "");
+    setEditPortalDeviceTypes(item.portal_device_types || []);
   }
 
   function closeEditor() { setSelected(null); setIsNew(false); }
 
   async function handleSave() {
     if (!editTitle.trim() || !editContent.trim()) { addToast("error", "Campos obrigatórios", "Título e conteúdo são necessários."); return; }
+    if (editPortalVisible && !editPortalContent.trim()) {
+      addToast("error", "Texto pro cliente obrigatório", "Pra ficar visível no portal, preencha o texto client-facing.");
+      return;
+    }
     setSaving(true);
     try {
       const token = await getToken();
+      const portalFields = {
+        portal_visible: editPortalVisible,
+        portal_category: editPortalCategory,
+        portal_content: editPortalContent,
+        portal_device_types: editPortalDeviceTypes,
+      };
       if (isNew) {
         const res = await fetch("/api/whatsapp/bot/knowledge", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ title: editTitle, category: editCategory, content: editContent, applies_to_servers: editAppliesTo }),
+          body: JSON.stringify({ title: editTitle, category: editCategory, content: editContent, applies_to_servers: editAppliesTo, ...portalFields }),
         });
         const json = await res.json();
         if (!json.ok) throw new Error(json.error);
@@ -841,7 +875,7 @@ const [editActive, setEditActive] = useState(true);
         const res = await fetch("/api/whatsapp/bot/knowledge", {
           method: "PUT",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ id: selected!.id, title: editTitle, category: editCategory, content: editContent, is_active: editActive, applies_to_servers: editAppliesTo }),
+          body: JSON.stringify({ id: selected!.id, title: editTitle, category: editCategory, content: editContent, is_active: editActive, applies_to_servers: editAppliesTo, ...portalFields }),
         });
         const json = await res.json();
         if (!json.ok) throw new Error(json.error);
@@ -1055,6 +1089,58 @@ const [editActive, setEditActive] = useState(true);
                   placeholder="Explique livremente. Ex: Para cancelar, o cliente não precisa fazer nada — o acesso para automaticamente no vencimento. Não existe multa."
                   className="flex-1 p-3 text-xs bg-muted/50 border border-border rounded-lg outline-none focus:border-violet-500/50 resize-none leading-relaxed"
                 />
+              </div>
+
+              <div className="space-y-2 p-3 bg-violet-500/5 rounded-lg border border-violet-500/20">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-semibold text-foreground uppercase tracking-wider">
+                    Visível no portal do cliente
+                  </label>
+                  <button
+                    onClick={() => setEditPortalVisible((v) => !v)}
+                    className={`relative w-11 h-6 rounded-full transition-colors ${editPortalVisible ? "bg-violet-500" : "bg-muted border border-border"}`}
+                  >
+                    <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-card shadow-sm transition-transform ${editPortalVisible ? "translate-x-5" : ""}`} />
+                  </button>
+                </div>
+                <p className="text-[10px] text-muted-foreground/70">
+                  O texto acima ("O que o bot precisa saber?") é instrução pro
+                  bot — nunca aparece pro cliente. Pra mostrar no portal,
+                  escreva um texto separado abaixo.
+                </p>
+
+                {editPortalVisible && (
+                  <div className="space-y-2 pt-1">
+                    <div className="flex gap-3">
+                      <label className="flex items-center gap-1.5 text-xs text-foreground cursor-pointer">
+                        <input type="radio" checked={editPortalCategory === "faq"} onChange={() => setEditPortalCategory("faq")} />
+                        Dúvidas e sugestões (FAQ)
+                      </label>
+                      <label className="flex items-center gap-1.5 text-xs text-foreground cursor-pointer">
+                        <input type="radio" checked={editPortalCategory === "device_setup"} onChange={() => setEditPortalCategory("device_setup")} />
+                        Como configurar novo dispositivo
+                      </label>
+                    </div>
+
+                    {editPortalCategory === "device_setup" && (
+                      <div className="flex flex-wrap gap-3">
+                        {ALL_DEVICE_TYPES.map((dt) => (
+                          <label key={dt} className="flex items-center gap-1.5 text-xs text-foreground cursor-pointer">
+                            <input type="checkbox" checked={editPortalDeviceTypes.includes(dt)} onChange={() => toggleEditPortalDeviceType(dt)} />
+                            {DEVICE_TYPE_LABELS[dt]}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+
+                    <textarea
+                      value={editPortalContent}
+                      onChange={(e) => setEditPortalContent(e.target.value)}
+                      placeholder="Texto pronto pro cliente ler, direto no portal. Ex: Instale o app X na loja do seu aparelho, abra e toque em 'Entrar com Xtream Codes'..."
+                      className="w-full min-h-[100px] p-3 text-xs bg-muted/50 border border-border rounded-lg outline-none focus:border-violet-500/50 resize-none leading-relaxed"
+                    />
+                  </div>
+                )}
               </div>
 
               {!isNew && (

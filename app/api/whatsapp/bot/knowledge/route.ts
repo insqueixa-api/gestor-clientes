@@ -72,7 +72,7 @@ export async function GET(req: Request) {
 
   let query = sb
     .from("bot_knowledge")
-    .select("id, title, category, content, is_active, applies_to_servers, created_at, updated_at")
+    .select("id, title, category, content, is_active, applies_to_servers, created_at, updated_at, portal_visible, portal_category, portal_content, portal_device_types")
     .eq("tenant_id", tenantId)
     .order("category", { ascending: true })
     .order("title", { ascending: true });
@@ -104,7 +104,7 @@ export async function POST(req: Request) {
   let body: any;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "JSON inválido" }, { status: 400 }); }
 
-  const { title, category, content, applies_to_servers } = body;
+  const { title, category, content, applies_to_servers, portal_visible, portal_category, portal_content, portal_device_types } = body;
   if (!title?.trim() || !content?.trim()) {
     return NextResponse.json({ error: "title e content são obrigatórios" }, { status: 400 });
   }
@@ -122,7 +122,13 @@ export async function POST(req: Request) {
     // ✅ null/vazio = aplica a todos os servidores (NaTV/Fast/Elite).
     applies_to_servers: normalizeAppliesToServers(applies_to_servers),
     is_active: true,
-  }).select("id, title, category, content, is_active, applies_to_servers, created_at").single();
+    // ✅ Curadoria pro portal do cliente — nunca herda o content acima
+    // (aquele é instrução pro bot, não texto pra cliente ler).
+    portal_visible: !!portal_visible,
+    portal_category: portal_category || null,
+    portal_content: portal_content?.trim() || null,
+    portal_device_types: Array.isArray(portal_device_types) ? portal_device_types : [],
+  }).select("id, title, category, content, is_active, applies_to_servers, created_at, portal_visible, portal_category, portal_content, portal_device_types").single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -146,7 +152,7 @@ export async function PUT(req: Request) {
   let body: any;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "JSON inválido" }, { status: 400 }); }
 
-  const { id, title, category, content, is_active, applies_to_servers } = body;
+  const { id, title, category, content, is_active, applies_to_servers, portal_visible, portal_category, portal_content, portal_device_types } = body;
   if (!id) return NextResponse.json({ error: "id é obrigatório" }, { status: 400 });
 
   const updatePayload: any = {};
@@ -156,6 +162,12 @@ export async function PUT(req: Request) {
   if (is_active !== undefined) updatePayload.is_active = is_active;
   if (applies_to_servers !== undefined) {
     updatePayload.applies_to_servers = normalizeAppliesToServers(applies_to_servers);
+  }
+  if (portal_visible !== undefined) updatePayload.portal_visible = !!portal_visible;
+  if (portal_category !== undefined) updatePayload.portal_category = portal_category || null;
+  if (portal_content !== undefined) updatePayload.portal_content = portal_content?.trim() || null;
+  if (portal_device_types !== undefined) {
+    updatePayload.portal_device_types = Array.isArray(portal_device_types) ? portal_device_types : [];
   }
 
   // Regenera embedding sempre que chamado com geminiKey disponível
@@ -179,7 +191,7 @@ export async function PUT(req: Request) {
     .update(updatePayload)
     .eq("id", id)
     .eq("tenant_id", tenantId)
-    .select("id, title, category, content, is_active, applies_to_servers, updated_at")
+    .select("id, title, category, content, is_active, applies_to_servers, updated_at, portal_visible, portal_category, portal_content, portal_device_types")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

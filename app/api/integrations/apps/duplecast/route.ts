@@ -1,6 +1,8 @@
 // app/api/integrations/apps/duplecast/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createAdmin } from "@supabase/supabase-js";
+import { isInternalRequest, hasBadInternalHeader } from "@/lib/internal-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -99,9 +101,22 @@ async function login(siteRoot: string, jar: CookieJar, username: string, passwor
 
 export async function POST(req: Request) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ ok: false, error: "Não autorizado" }, { status: 401 });
+    if (hasBadInternalHeader(req)) {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
+    const internal = isInternalRequest(req);
+
+    let supabase: Awaited<ReturnType<typeof createClient>> | ReturnType<typeof createAdmin>;
+    if (internal) {
+      supabase = createAdmin(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      );
+    } else {
+      supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return NextResponse.json({ ok: false, error: "Não autorizado" }, { status: 401 });
+    }
 
     const body = await req.json().catch(() => ({}));
     const { action, macValue, finalServerName, m3uUrl, password, username } = body;

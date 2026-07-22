@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { Resvg } from "@resvg/resvg-js";
 import { callGemini } from "@/lib/whatsapp/gemini-client";
+import { isInternalRequest, hasBadInternalHeader } from "@/lib/internal-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -254,9 +255,14 @@ function baseHeaders(cookie: string, referer: string, isPost = false, origin = "
 // ============================================================
 export async function POST(req: Request) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ ok: false, error: "Não autorizado" }, { status: 401 });
+    if (hasBadInternalHeader(req)) {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
+    if (!isInternalRequest(req)) {
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return NextResponse.json({ ok: false, error: "Não autorizado" }, { status: 401 });
+    }
 
     const body = await req.json().catch(() => ({}));
     const {

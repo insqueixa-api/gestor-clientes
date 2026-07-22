@@ -1,0 +1,37 @@
+// lib/apps/panel.ts
+// Helpers compartilhados entre app/api/client-portal/apps/{configure,remove}
+// — espelham a lógica de resolveIntegration/getMacFromApp/getDeviceKeyFromApp
+// de app/admin/cliente/novo_cliente.tsx, mas server-side (sem state do React).
+
+// Handlers cujo campo "password" do payload é o PIN da integração
+// (app_integrations.pin), não a senha real do cliente — mesma regra do admin.
+export const PIN_HANDLERS = new Set(["DUPLECAST", "IBOSOL", "IBOPRO"]);
+
+export function extractFieldByType(fieldsConfig: any[], values: Record<string, any>, type: string) {
+  const field = (fieldsConfig || []).find(
+    (f: any) =>
+      String(f?.type || "").toLowerCase() === type ||
+      (type === "device_key" && String(f?.label || "").toLowerCase().includes("device key")),
+  );
+  if (!field) return "";
+  const key = String(field.id || field.label || "").trim();
+  return values?.[key] || "";
+}
+
+export function findFieldByType(fieldsConfig: any[], type: string) {
+  return (fieldsConfig || []).find((f: any) => String(f?.type || "").toLowerCase() === type) || null;
+}
+
+export function internalAppUrl(path: string) {
+  const base = String(process.env.UNIGESTOR_APP_URL || process.env.APP_URL || "").replace(/\/+$/, "");
+  return `${base}${path}`;
+}
+
+// Réplica de buildM3uUrlSilent (novo_cliente.tsx) — domínio aleatório da
+// lista de DNS do servidor, mesma regra usada pelo admin.
+export function buildM3uUrlFromDns(dnsList: string[], username: string, password: string): string {
+  if (!username || !dnsList || dnsList.length === 0) return "";
+  const randomDomain = dnsList[Math.floor(Math.random() * dnsList.length)];
+  const cleanDomain = randomDomain.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  return `http://${cleanDomain}/get.php?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&type=m3u_plus&output=ts`;
+}

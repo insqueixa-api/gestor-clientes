@@ -9,83 +9,27 @@ import ToastNotifications, {
 } from "@/hooks/ToastNotifications";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { useConfirm } from "@/hooks/useConfirm";
+import {
+  AppFieldType,
+  ALL_FIELD_TYPES,
+  APP_FIELD_LABELS as FIELD_LABELS,
+  FIELD_ICONS,
+} from "@/lib/apps/field-types";
+import {
+  Technology,
+  DeviceType,
+  ALL_DEVICE_TYPES,
+  DEVICE_TYPE_LABELS,
+} from "@/lib/apps/device-types";
 
 // --- TIPOS ---
-type AppFieldType =
-  | "date"
-  | "mac"
-  | "device_key"
-  | "email"
-  | "password"
-  | "url"
-  | "obs";
-
 type AppField = {
   id: string;
   type: AppFieldType;
 };
 
-// Label fixo derivado do tipo — usado no card e no export
-const FIELD_LABELS: Record<AppFieldType, string> = {
-  date: "Vencimento",
-  mac: "Device ID (MAC)",
-  device_key: "Device Key",
-  email: "E-mail",
-  password: "Senha",
-  url: "URL",
-  obs: "Obs",
-};
-
-// Ícone visual por tipo
-const FIELD_ICONS: Record<AppFieldType, string> = {
-  date: "📅",
-  mac: "🔌",
-  device_key: "🔑",
-  email: "✉️",
-  password: "🔒",
-  url: "🔗",
-  obs: "📝",
-};
-
-// Ordem de exibição no construtor
-const ALL_FIELD_TYPES: AppFieldType[] = [
-  "date",
-  "mac",
-  "device_key",
-  "email",
-  "password",
-  "url",
-  "obs",
-];
-
 type CostType = "free" | "paid" | "partnership";
 type LicensePeriod = "annual" | "lifetime";
-type Technology = "IPTV" | "P2P";
-type DeviceType =
-  | "SAMSUNG_LG"
-  | "ANDROID_TVBOX"
-  | "IOS"
-  | "COMPUTADOR"
-  | "FIRE_TV"
-  | "ROKU";
-
-const ALL_DEVICE_TYPES: DeviceType[] = [
-  "SAMSUNG_LG",
-  "ANDROID_TVBOX",
-  "IOS",
-  "COMPUTADOR",
-  "FIRE_TV",
-  "ROKU",
-];
-
-const DEVICE_TYPE_LABELS: Record<DeviceType, string> = {
-  SAMSUNG_LG: "Samsung / LG",
-  ANDROID_TVBOX: "Android / TV Box",
-  IOS: "iPhone / iOS",
-  COMPUTADOR: "Computador",
-  FIRE_TV: "Fire TV Stick",
-  ROKU: "Roku",
-};
 
 type AppData = {
   id: string;

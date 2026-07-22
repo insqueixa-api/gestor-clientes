@@ -10,6 +10,7 @@ import { useConfirm } from "@/hooks/useConfirm"; // ✅ Trazendo a caixa de conf
 import { getIntegrationHandler } from "@/lib/integrations"; // ✅ O Roteador Inteligente
 import { createPortal } from "react-dom";
 import FormattedTimeInput from "@/components/ui/FormattedTimeInput";
+import { APP_FIELD_LABELS, normalizeMacInput } from "@/lib/apps/field-types";
 
 // --- TIPOS ---
 type SelectOption = {
@@ -93,16 +94,6 @@ interface MessageTemplate {
   category?: string | null; // ✅ Busca a Categoria
 }
 
-const APP_FIELD_LABELS: Record<string, string> = {
-  date: "Vencimento",
-  mac: "Device ID (MAC)",
-  device_key: "Device Key",
-  email: "E-mail",
-  password: "Senha",
-  url: "URL",
-  obs: "Obs",
-};
-
 const PLAN_LABELS: Record<string, string> = {
   MONTHLY: "Mensal",
   BIMONTHLY: "Bimestral",
@@ -129,19 +120,6 @@ function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
 // --- HELPERS ---
 function onlyDigits(raw: string) {
   return raw.replace(/\D+/g, "");
-}
-
-function normalizeMacInput(raw: string) {
-  // ✅ MAC: mantém formatação XX:XX:XX:XX:XX:XX mas aceita todo o alfabeto
-  const s = String(raw ?? "").toUpperCase();
-  // mantém somente 0-9 e A-Z (remove :, -, espaços, etc)
-  const hex = s.replace(/[^0-9A-Z]/g, "");
-  // MAC padrão = 12 hex (6 bytes)
-  const trimmed = hex.slice(0, 12);
-  // quebra em pares (mantém par incompleto enquanto digita)
-  const pairs = trimmed.match(/.{1,2}/g) || [];
-
-  return pairs.join(":");
 }
 
 function normalizeE164(raw: string) {
