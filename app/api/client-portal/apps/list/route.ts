@@ -2,6 +2,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { APP_FIELD_LABELS, HIDDEN_CLIENT_FIELD_TYPES, AppFieldType } from "@/lib/apps/field-types";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
+import { getIntegrationHandler } from "@/lib/integrations";
+import { PIN_HANDLERS } from "@/lib/apps/panel";
 
 export const dynamic = "force-dynamic";
 
@@ -42,8 +44,8 @@ function extractExpiration(vals: Record<string, any>, config: any[]) {
   return expiration || null;
 }
 
-// ✅ Campos que o cliente pode ver e editar (mac, device_key, url, email) —
-// nunca senha/pin/obs (HIDDEN_CLIENT_FIELD_TYPES) nem o próprio "date"
+// ✅ Campos que o cliente pode ver e editar (mac, device_key, obs, url,
+// email) — nunca senha/pin (HIDDEN_CLIENT_FIELD_TYPES) nem o próprio "date"
 // (esse já vira "expiration" acima; editar data manual não faz sentido,
 // quem atualiza é a chamada "Reconfigurar").
 function extractEditableFields(vals: Record<string, any>, config: any[]) {
@@ -59,12 +61,18 @@ function extractEditableFields(vals: Record<string, any>, config: any[]) {
         !HIDDEN_KEY_PATTERN.test(f.id) &&
         !HIDDEN_KEY_PATTERN.test(f.label || ""),
     )
-    .map((f: any) => ({
-      id: String(f.id),
-      type: String(f.type || ""),
-      label: String(f.label || APP_FIELD_LABELS[f.type as AppFieldType] || f.id),
-      value: vals[f.id] ?? vals[f.label] ?? "",
-    }));
+    .map((f: any) => {
+      // ✅ "Obs" (genérico, herdado do admin) vira "Ambiente" no portal —
+      // mais claro pro cliente preencher onde o aparelho fica (sala, quarto...).
+      const label =
+        f.label || (f.type === "obs" ? "Ambiente" : APP_FIELD_LABELS[f.type as AppFieldType]) || f.id;
+      return {
+        id: String(f.id),
+        type: String(f.type || ""),
+        label: String(label),
+        value: vals[f.id] ?? vals[f.label] ?? "",
+      };
+    });
 }
 
 export async function POST(req: NextRequest) {
@@ -105,6 +113,13 @@ export async function POST(req: NextRequest) {
       const vals = row.field_values || {};
       const config = Array.isArray(row.apps?.fields_config) ? row.apps.fields_config : [];
       const integrationType = row.apps?.integration_type || null;
+      // ✅ Apps "parceria" (custo embutido no plano do servidor, sem
+      // vencimento próprio rastreado) nunca mostram vencimento — o campo
+      // "date" nesses casos costuma ser placeholder/sem sentido.
+      const isPartnership = String(vals["_config_cost"] || "") === "partnership";
+      const handler = integrationType ? getIntegrationHandler(integrationType) : null;
+      const canCheckValidity =
+        !isPartnership && !!handler && (handler as any).useApi && PIN_HANDLERS.has((handler as any).actionPrefix);
 
       return {
         id: row.id,
@@ -112,7 +127,8 @@ export async function POST(req: NextRequest) {
         name: row.apps?.name || "Aplicativo",
         icon_url: row.apps?.icon_url || null,
         has_integration: !!integrationType,
-        expiration: extractExpiration(vals, config),
+        can_check_validity: canCheckValidity,
+        expiration: isPartnership ? null : extractExpiration(vals, config),
         fields: extractEditableFields(vals, config),
       };
     });

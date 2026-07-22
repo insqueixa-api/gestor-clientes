@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isInternalRequest, hasBadInternalHeader } from "@/lib/internal-auth";
+import { extractDateOnly } from "@/lib/apps/panel";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -125,6 +126,22 @@ export async function POST(req: Request) {
     const token = await login(mac, deviceKey);
 
     // ===========================================================
+    // ACTION: check — só consulta o vencimento (/me), sem criar/alterar
+    // nada. Usado pelo botão "Verificar validade" do portal, nos apps
+    // que não são parceria.
+    // ===========================================================
+    if (action === "check") {
+      const meRes = await apiCall("POST", "/me", mac, token);
+      const rawExp = meRes.json?.expiration;
+      const expireDate = rawExp ? extractDateOnly(String(rawExp)) : null;
+      return NextResponse.json({
+        ok: true,
+        expireDate,
+        message: expireDate ? "Vencimento atualizado." : "Não foi possível localizar o vencimento no painel.",
+      });
+    }
+
+    // ===========================================================
     // ACTION: create
     // 1. POST /me → data de expiração
     // 2. POST /playlistw → cria a playlist
@@ -138,12 +155,10 @@ export async function POST(req: Request) {
       try {
         const meRes = await apiCall("POST", "/me", mac, token);
         const rawExp = meRes.json?.expiration;
-        if (rawExp) {
-          const d2 = new Date(String(rawExp).replace(" ", "T") + "-03:00");
-          if (!isNaN(d2.getTime())) {
-            expireDate = `${d2.getFullYear()}-${String(d2.getMonth() + 1).padStart(2, "0")}-${String(d2.getDate()).padStart(2, "0")}`;
-          }
-        }
+        // ✅ Sem Date()/offset aqui de propósito — o painel já manda a data
+        // pronta, reinterpretar com fuso é o que causava salvar um dia a
+        // menos/a mais dependendo de onde o código rodava.
+        if (rawExp) expireDate = extractDateOnly(String(rawExp));
       } catch {
         // não bloqueia o create
       }

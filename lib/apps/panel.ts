@@ -22,6 +22,25 @@ export function findFieldByType(fieldsConfig: any[], type: string) {
   return (fieldsConfig || []).find((f: any) => String(f?.type || "").toLowerCase() === type) || null;
 }
 
+// Extrai só a data (YYYY-MM-DD) de uma string vinda do painel de um
+// parceiro — sem NUNCA passar por `new Date()`/getters locais. Cada painel
+// já manda a data pronta (no fuso dele); reinterpretar via Date() é
+// exatamente o que causava vencimento salvo um dia a menos/a mais
+// dependendo do fuso do processo que rodava o código. Aceita
+// "YYYY-MM-DD..." e "DD/MM/YYYY..." (com ou sem hora/segundos junto).
+export function extractDateOnly(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const s = String(raw).trim();
+
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+
+  const br = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (br) return `${br[3]}-${br[2]}-${br[1]}`;
+
+  return null;
+}
+
 export function internalAppUrl(path: string) {
   const base = String(process.env.UNIGESTOR_APP_URL || process.env.APP_URL || "").replace(/\/+$/, "");
   return `${base}${path}`;

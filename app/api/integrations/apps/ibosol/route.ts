@@ -216,12 +216,10 @@ function extractExpireDate(html: string): string | null {
   const m = html.match(/Expiration Date<\/div>\s*<p[^>]*>\s*([\d-]+)\s*<\/p>/);
   if (!m) return null;
   
-  const rawDate = m[1].trim(); // Extrai algo como "2027-03-20"
-  
-  // Ancorando a data no meio-dia (12:00 UTC)
-  // Isso cria uma "gordura" de 12 horas que impede o Timezone do Brasil (ou qualquer outro)
-  // de acidentalmente pular um dia para frente ou para trás ao processar a string.
-  return `${rawDate}T12:00:00.000Z`; 
+  // ✅ Só a data, sem hora/timezone nenhum — o painel já manda pronta
+  // ("2027-03-20"), qualquer Date()/offset em cima disso é o que causava
+  // salvar um dia a menos/a mais dependendo de onde o código rodava.
+  return m[1].trim();
 }
 
 function didSucceed(html: string, keyword: string): boolean {
@@ -303,6 +301,44 @@ export async function POST(req: Request) {
     }
 
     const jar = new CookieJar();
+
+    // ===========================================================
+    // ACTION: check — só consulta o vencimento no painel (GET+POST
+    // check-mac), sem criar/alterar nada. Usado pelo botão "Verificar
+    // validade" do portal, nos apps que não são parceria.
+    // ===========================================================
+    if (action === "check") {
+      const getCheckRes = await fetch(`${BASE_URL}/check-mac`, {
+        headers: baseHeaders("", `${BASE_URL}/`),
+        redirect: "follow",
+      });
+      jar.absorb(getCheckRes.headers);
+      const getCheckHtml = await getCheckRes.text();
+      const checkToken = extractCsrfToken(getCheckHtml);
+      if (!checkToken) throw new Error("CSRF token não encontrado em check-mac.");
+
+      const checkParams = new URLSearchParams();
+      checkParams.set("_token", checkToken);
+      checkParams.set("_method", "POST");
+      checkParams.set("product", productId);
+      checkParams.set("mac_address", mac_address);
+
+      const postCheckRes = await fetch(`${BASE_URL}/check-mac`, {
+        method: "POST",
+        headers: baseHeaders(jar.toString(), `${BASE_URL}/check-mac`, true, BASE_URL),
+        body: checkParams.toString(),
+        redirect: "follow",
+      });
+      jar.absorb(postCheckRes.headers);
+      const checkHtml = await postCheckRes.text();
+      const expireDate = extractExpireDate(checkHtml);
+
+      return NextResponse.json({
+        ok: true,
+        expireDate: expireDate ?? null,
+        message: expireDate ? "Vencimento atualizado." : "Não foi possível localizar o vencimento no painel.",
+      });
+    }
 
     // ===========================================================
     // ACTION: create

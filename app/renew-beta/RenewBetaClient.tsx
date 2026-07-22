@@ -260,6 +260,7 @@ export default function RenewClient() {
     name: string;
     icon_url: string | null;
     has_integration: boolean;
+    can_check_validity: boolean;
     expiration: string | null;
     fields: InstalledAppField[];
   };
@@ -655,6 +656,25 @@ export default function RenewClient() {
       await refreshInstalledApps();
     } catch (err: any) {
       alertError(err?.message || "Falha ao configurar.");
+    } finally {
+      setAppActionBusy(null);
+    }
+  }
+
+  async function handleCheckValidity(clientAppId: string) {
+    if (!selectedAccountId || !session) return;
+    setAppActionBusy(clientAppId);
+    try {
+      const res = await fetch("/api/client-portal/apps/check-validity", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_token: session, client_id: selectedAccountId, client_app_id: clientAppId }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!result?.ok) throw new Error(result?.error || "Falha ao verificar.");
+      await refreshInstalledApps();
+    } catch (err: any) {
+      alertError(err?.message || "Falha ao verificar.");
     } finally {
       setAppActionBusy(null);
     }
@@ -3273,7 +3293,7 @@ export default function RenewClient() {
                           <p className="text-sm font-bold text-foreground truncate">{app.name}</p>
                           {app.expiration && (
                             <p className="text-xs text-muted-foreground mt-0.5">
-                              Vencimento: {String(app.expiration).split("T")[0].split("-").reverse().join("/")}
+                              Vencimento do aplicativo: {String(app.expiration).split("T")[0].split("-").reverse().join("/")}
                             </p>
                           )}
                         </div>
@@ -3290,6 +3310,7 @@ export default function RenewClient() {
                                 onChange={(e) =>
                                   setEditingValues((prev) => ({ ...prev, [f.id]: e.target.value }))
                                 }
+                                placeholder={f.type === "obs" ? "Ex: Sala, Quarto, Escritório..." : undefined}
                                 className="w-full h-9 px-3 bg-muted border border-border rounded-lg text-sm text-foreground outline-none focus:border-sky-500"
                               />
                             </div>
@@ -3336,6 +3357,15 @@ export default function RenewClient() {
                                 className="px-3 py-1.5 rounded-lg bg-sky-500/10 text-sky-500 border border-sky-500/20 text-xs font-bold hover:bg-sky-500/20 transition-colors disabled:opacity-50"
                               >
                                 {busy ? "Configurando..." : "Reconfigurar"}
+                              </button>
+                            )}
+                            {app.can_check_validity && (
+                              <button
+                                disabled={busy}
+                                onClick={() => handleCheckValidity(app.id)}
+                                className="px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-xs font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+                              >
+                                {busy ? "Verificando..." : "Verificar validade"}
                               </button>
                             )}
                             <button

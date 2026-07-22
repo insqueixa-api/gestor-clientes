@@ -42,8 +42,9 @@ export const FIELD_ICONS: Record<AppFieldType, string> = {
   obs: "📝",
 };
 
-// Campos que o cliente nunca deve ver nem editar pelo portal.
-export const HIDDEN_CLIENT_FIELD_TYPES: AppFieldType[] = ["password", "obs"];
+// Campos que o cliente nunca deve ver nem editar pelo portal — só senha
+// mesmo; "obs" é observação normal do app, o cliente pode ver e editar.
+export const HIDDEN_CLIENT_FIELD_TYPES: AppFieldType[] = ["password"];
 
 // MAC: mantém formatação XX:XX:XX:XX:XX:XX, aceita o alfabeto inteiro,
 // mas guarda só 12 hex (6 bytes) — mesma lógica usada no admin.

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { isInternalRequest, hasBadInternalHeader } from "@/lib/internal-auth";
+import { extractDateOnly } from "@/lib/apps/panel";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -99,6 +100,51 @@ async function login(siteRoot: string, jar: CookieJar, username: string, passwor
   }
 }
 
+// Consulta client_codes por MAC e devolve o maior vencimento encontrado —
+// só leitura, não cria/altera nada. Usado tanto no "create" (best-effort)
+// quanto sozinho na action "check".
+async function lookupExpireDate(siteRoot: string, jar: CookieJar, macValue: string): Promise<string | null> {
+  const codesUrl = `${siteRoot}/plugin/duplecast/client_codes/`;
+  const getCodesRes = await fetch(codesUrl, {
+    headers: baseHeaders(jar.toString(), `${siteRoot}/client/`),
+    redirect: "follow",
+  });
+  jar.absorb(getCodesRes.headers);
+  const codesHtml = await getCodesRes.text();
+  const codesToken = extractCsrfToken(codesHtml);
+  if (!codesToken) return null;
+
+  const searchParams = new URLSearchParams();
+  searchParams.set("_csrf_token", codesToken);
+  searchParams.set("filters[mac]", macValue);
+  searchParams.set("filters[code]", "");
+  searchParams.set("filters[per_page]", "20");
+
+  const searchRes = await fetch(`${siteRoot}/client/plugin/duplecast/client_codes/index/all`, {
+    method: "POST",
+    headers: ajaxHeaders(jar.toString(), codesUrl, siteRoot),
+    body: searchParams.toString(),
+  });
+  const searchJson = await searchRes.json().catch(() => null);
+  const content: string = searchJson?.content || "";
+
+  const rowMatches = [...content.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)];
+  // ✅ Sem Date() aqui de propósito — comparação de string funciona certinho
+  // pra datas ISO zero-padded, e evita o bug de fuso que fazia o vencimento
+  // salvar um dia a menos.
+  let maxDateStr: string | null = null;
+  for (const rowMatch of rowMatches) {
+    const cells = [...rowMatch[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((c) =>
+      c[1].replace(/<[^>]+>/g, "").trim(),
+    );
+    if (cells.length >= 6) {
+      const dateStr = extractDateOnly(cells[5]);
+      if (dateStr && (!maxDateStr || dateStr > maxDateStr)) maxDateStr = dateStr;
+    }
+  }
+  return maxDateStr;
+}
+
 export async function POST(req: Request) {
   try {
     if (hasBadInternalHeader(req)) {
@@ -142,6 +188,20 @@ export async function POST(req: Request) {
     const siteRoot = new URL(integ.api_url).origin;
     const jar = new CookieJar();
     await login(siteRoot, jar, integ.login_email, integ.login_password);
+
+    // ===========================================================
+    // ACTION: check — só consulta o vencimento (client_codes por MAC),
+    // sem criar/alterar nada. Usado pelo botão "Verificar validade" do
+    // portal, nos apps que não são parceria.
+    // ===========================================================
+    if (action === "check") {
+      const expireDate = await lookupExpireDate(siteRoot, jar, macValue);
+      return NextResponse.json({
+        ok: true,
+        expireDate,
+        message: expireDate ? "Vencimento atualizado." : "Não foi possível localizar o vencimento no painel.",
+      });
+    }
 
     // ===========================================================
     // ACTION: create
@@ -198,43 +258,7 @@ export async function POST(req: Request) {
       // Busca vencimento (best-effort, não falha o create se não achar)
       let expireDate: string | null = null;
       try {
-        const codesUrl = `${siteRoot}/plugin/duplecast/client_codes/`;
-        const getCodesRes = await fetch(codesUrl, {
-          headers: baseHeaders(jar.toString(), addUrl),
-          redirect: "follow",
-        });
-        jar.absorb(getCodesRes.headers);
-        const codesHtml = await getCodesRes.text();
-        const codesToken = extractCsrfToken(codesHtml) || token;
-
-        const searchParams = new URLSearchParams();
-        searchParams.set("_csrf_token", codesToken);
-        searchParams.set("filters[mac]", macValue);
-        searchParams.set("filters[code]", "");
-        searchParams.set("filters[per_page]", "20");
-
-        const searchRes = await fetch(`${siteRoot}/client/plugin/duplecast/client_codes/index/all`, {
-          method: "POST",
-          headers: ajaxHeaders(jar.toString(), codesUrl, siteRoot),
-          body: searchParams.toString(),
-        });
-        const searchJson = await searchRes.json().catch(() => null);
-        const content: string = searchJson?.content || "";
-
-        const rowMatches = [...content.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)];
-        let maxDate: Date | null = null;
-        for (const rowMatch of rowMatches) {
-          const cells = [...rowMatch[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((c) =>
-            c[1].replace(/<[^>]+>/g, "").trim(),
-          );
-          if (cells.length >= 6) {
-            const d = new Date(cells[5]);
-            if (!isNaN(d.getTime()) && (!maxDate || d > maxDate)) maxDate = d;
-          }
-        }
-        if (maxDate) {
-          expireDate = `${maxDate.getFullYear()}-${String(maxDate.getMonth() + 1).padStart(2, "0")}-${String(maxDate.getDate()).padStart(2, "0")}`;
-        }
+        expireDate = await lookupExpireDate(siteRoot, jar, macValue);
       } catch {
         // não bloqueia o create
       }
