@@ -6,8 +6,9 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import Image from "next/image";
 import { useConfirm } from "@/hooks/useConfirm";
-import { Pencil, CheckCircle2, ShieldCheck } from "lucide-react";
+import { Pencil, CheckCircle2, ShieldCheck, Loader2 } from "lucide-react";
 import { ALL_DEVICE_TYPES, DEVICE_TYPE_LABELS } from "@/lib/apps/device-types";
+import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 
 // ========= TYPES =========
 interface ClientAccount {
@@ -282,6 +283,15 @@ export default function RenewClient() {
   const [editingAppId, setEditingAppId] = useState<string | null>(null);
   const [editingValues, setEditingValues] = useState<Record<string, string>>({});
   const [appActionBusy, setAppActionBusy] = useState<string | null>(null);
+
+  // Toasts (feedback de sucesso/erro nas ações do Bloco 3)
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  function addToast(type: ToastMessage["type"], title: string, message?: string) {
+    setToasts((prev) => [...prev, { id: Date.now() + Math.random(), type, title, message }]);
+  }
+  function removeToast(id: number) {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }
 
   // Picker "+ Adicionar aplicativo"
   const [showAddAppPicker, setShowAddAppPicker] = useState(false);
@@ -634,9 +644,10 @@ export default function RenewClient() {
       const result = await res.json().catch(() => null);
       if (!result?.ok) throw new Error(result?.error || "Não foi possível salvar.");
       setEditingAppId(null);
+      addToast("success", "Salvo!", "Campos atualizados.");
       await refreshInstalledApps();
     } catch (err: any) {
-      alertError(err?.message || "Não foi possível salvar.");
+      addToast("error", "Não foi possível salvar", err?.message);
     } finally {
       setAppActionBusy(null);
     }
@@ -653,9 +664,10 @@ export default function RenewClient() {
       });
       const result = await res.json().catch(() => null);
       if (!result?.ok) throw new Error(result?.error || "Falha ao configurar.");
+      addToast("success", "Configurado!", result.expireDate ? `Vencimento: ${String(result.expireDate).split("-").reverse().join("/")}` : undefined);
       await refreshInstalledApps();
     } catch (err: any) {
-      alertError(err?.message || "Falha ao configurar.");
+      addToast("error", "Falha ao configurar", err?.message);
     } finally {
       setAppActionBusy(null);
     }
@@ -672,9 +684,10 @@ export default function RenewClient() {
       });
       const result = await res.json().catch(() => null);
       if (!result?.ok) throw new Error(result?.error || "Falha ao verificar.");
+      addToast("success", "Validade verificada!", result.expireDate ? `Vencimento: ${String(result.expireDate).split("-").reverse().join("/")}` : "Não encontrado no painel.");
       await refreshInstalledApps();
     } catch (err: any) {
-      alertError(err?.message || "Falha ao verificar.");
+      addToast("error", "Falha ao verificar", err?.message);
     } finally {
       setAppActionBusy(null);
     }
@@ -700,9 +713,10 @@ export default function RenewClient() {
       });
       const result = await res.json().catch(() => null);
       if (!result?.ok) throw new Error(result?.error || "Falha ao remover.");
+      addToast("success", "Removido!", `"${appName}" foi removido dessa conta.`);
       await refreshInstalledApps();
     } catch (err: any) {
-      alertError(err?.message || "Falha ao remover.");
+      addToast("error", "Falha ao remover", err?.message);
     } finally {
       setAppActionBusy(null);
     }
@@ -721,9 +735,10 @@ export default function RenewClient() {
       if (!result?.ok) throw new Error(result?.error || "Falha ao adicionar.");
       setShowAddAppPicker(false);
       setAddAppSearch("");
+      addToast("success", "Adicionado!", "Preencha os campos e configure quando estiver pronto.");
       await refreshInstalledApps();
     } catch (err: any) {
-      alertError(err?.message || "Falha ao adicionar.");
+      addToast("error", "Falha ao adicionar", err?.message);
     } finally {
       setAppActionBusy(null);
     }
@@ -741,8 +756,9 @@ export default function RenewClient() {
       const result = await res.json().catch(() => null);
       if (!result?.ok) throw new Error(result?.error || "Falha na operação.");
       setAccountM3uUrl(result.data?.m3u_url ?? null);
+      addToast("success", action === "generate" ? "Link gerado!" : "Link removido!");
     } catch (err: any) {
-      alertError(err?.message || "Falha na operação.");
+      addToast("error", "Falha na operação", err?.message);
     } finally {
       setM3uBusy(false);
     }
@@ -3187,6 +3203,7 @@ export default function RenewClient() {
 
     return (
       <div className="min-h-screen bg-background">
+        <ToastNotifications toasts={toasts} removeToast={removeToast} />
         {renderTopBar(() => setActiveSection("menu"))}
 
         <div className="max-w-2xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4">
@@ -3230,9 +3247,10 @@ export default function RenewClient() {
                   <button
                     disabled={m3uBusy}
                     onClick={() => handleM3uAction("generate")}
-                    className="px-3 py-1.5 rounded-lg bg-sky-500/10 text-sky-500 border border-sky-500/20 text-xs font-bold hover:bg-sky-500/20 transition-colors disabled:opacity-50"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500/10 text-sky-500 border border-sky-500/20 text-xs font-bold hover:bg-sky-500/20 transition-colors disabled:opacity-50"
                   >
-                    Gerar
+                    {m3uBusy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    {m3uBusy ? "Gerando..." : "Gerar"}
                   </button>
                   {accountM3uUrl && (
                     <>
@@ -3253,9 +3271,10 @@ export default function RenewClient() {
                       <button
                         disabled={m3uBusy}
                         onClick={() => handleM3uAction("remove")}
-                        className="px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 text-xs font-bold hover:bg-rose-500/20 transition-colors disabled:opacity-50"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 text-xs font-bold hover:bg-rose-500/20 transition-colors disabled:opacity-50"
                       >
-                        Remover
+                        {m3uBusy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                        {m3uBusy ? "Removendo..." : "Remover"}
                       </button>
                     </>
                   )}
@@ -3319,9 +3338,10 @@ export default function RenewClient() {
                             <button
                               disabled={busy}
                               onClick={() => handleSaveAppFields(app.id)}
-                              className="flex-1 h-9 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold disabled:opacity-50"
+                              className="flex-1 h-9 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold disabled:opacity-50 flex items-center justify-center gap-1.5"
                             >
-                              Salvar
+                              {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                              {busy ? "Salvando..." : "Salvar"}
                             </button>
                             <button
                               disabled={busy}
@@ -3354,8 +3374,9 @@ export default function RenewClient() {
                               <button
                                 disabled={busy}
                                 onClick={() => handleConfigureApp(app.id)}
-                                className="px-3 py-1.5 rounded-lg bg-sky-500/10 text-sky-500 border border-sky-500/20 text-xs font-bold hover:bg-sky-500/20 transition-colors disabled:opacity-50"
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500/10 text-sky-500 border border-sky-500/20 text-xs font-bold hover:bg-sky-500/20 transition-colors disabled:opacity-50"
                               >
+                                {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                                 {busy ? "Configurando..." : "Reconfigurar"}
                               </button>
                             )}
@@ -3363,17 +3384,19 @@ export default function RenewClient() {
                               <button
                                 disabled={busy}
                                 onClick={() => handleCheckValidity(app.id)}
-                                className="px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-xs font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-xs font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
                               >
+                                {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                                 {busy ? "Verificando..." : "Verificar validade"}
                               </button>
                             )}
                             <button
                               disabled={busy}
                               onClick={() => handleRemoveApp(app.id, app.name)}
-                              className="px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 text-xs font-bold hover:bg-rose-500/20 transition-colors disabled:opacity-50"
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 text-xs font-bold hover:bg-rose-500/20 transition-colors disabled:opacity-50"
                             >
-                              Remover
+                              {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                              {busy ? "Removendo..." : "Remover"}
                             </button>
                           </div>
                         </>
@@ -3414,21 +3437,26 @@ export default function RenewClient() {
                     <div className="space-y-1.5 max-h-64 overflow-y-auto">
                       {appCatalog
                         .filter((a) => a.name.toLowerCase().includes(addAppSearch.trim().toLowerCase()))
-                        .map((a) => (
-                          <button
-                            key={a.id}
-                            disabled={appActionBusy === `add-${a.id}`}
-                            onClick={() => handleAddApp(a.id)}
-                            className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-muted transition-colors text-left disabled:opacity-50"
-                          >
-                            {a.icon_url ? (
-                              <img src={a.icon_url} alt={a.name} className="w-7 h-7 rounded object-cover border border-border" />
-                            ) : (
-                              <div className="w-7 h-7 rounded bg-muted flex items-center justify-center text-xs">📱</div>
-                            )}
-                            <span className="text-sm text-foreground">{a.name}</span>
-                          </button>
-                        ))}
+                        .map((a) => {
+                          const addBusy = appActionBusy === `add-${a.id}`;
+                          return (
+                            <button
+                              key={a.id}
+                              disabled={addBusy}
+                              onClick={() => handleAddApp(a.id)}
+                              className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-muted transition-colors text-left disabled:opacity-50"
+                            >
+                              {addBusy ? (
+                                <Loader2 className="w-7 h-7 p-1.5 animate-spin text-sky-500" />
+                              ) : a.icon_url ? (
+                                <img src={a.icon_url} alt={a.name} className="w-7 h-7 rounded object-cover border border-border" />
+                              ) : (
+                                <div className="w-7 h-7 rounded bg-muted flex items-center justify-center text-xs">📱</div>
+                              )}
+                              <span className="text-sm text-foreground">{addBusy ? "Adicionando..." : a.name}</span>
+                            </button>
+                          );
+                        })}
                       {appCatalog.length === 0 && (
                         <p className="text-xs text-muted-foreground text-center py-4">
                           Nenhum aplicativo disponível pra adicionar.
