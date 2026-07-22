@@ -302,43 +302,11 @@ export async function POST(req: Request) {
 
     const jar = new CookieJar();
 
-    // ===========================================================
-    // ACTION: check — só consulta o vencimento no painel (GET+POST
-    // check-mac), sem criar/alterar nada. Usado pelo botão "Verificar
-    // validade" do portal, nos apps que não são parceria.
-    // ===========================================================
-    if (action === "check") {
-      const getCheckRes = await fetch(`${BASE_URL}/check-mac`, {
-        headers: baseHeaders("", `${BASE_URL}/`),
-        redirect: "follow",
-      });
-      jar.absorb(getCheckRes.headers);
-      const getCheckHtml = await getCheckRes.text();
-      const checkToken = extractCsrfToken(getCheckHtml);
-      if (!checkToken) throw new Error("CSRF token não encontrado em check-mac.");
-
-      const checkParams = new URLSearchParams();
-      checkParams.set("_token", checkToken);
-      checkParams.set("_method", "POST");
-      checkParams.set("product", productId);
-      checkParams.set("mac_address", mac_address);
-
-      const postCheckRes = await fetch(`${BASE_URL}/check-mac`, {
-        method: "POST",
-        headers: baseHeaders(jar.toString(), `${BASE_URL}/check-mac`, true, BASE_URL),
-        body: checkParams.toString(),
-        redirect: "follow",
-      });
-      jar.absorb(postCheckRes.headers);
-      const checkHtml = await postCheckRes.text();
-      const expireDate = extractExpireDate(checkHtml);
-
-      return NextResponse.json({
-        ok: true,
-        expireDate: expireDate ?? null,
-        message: expireDate ? "Vencimento atualizado." : "Não foi possível localizar o vencimento no painel.",
-      });
-    }
+    // ⚠️ Não existe action "check" aqui — activation.iboplayer.com bloqueia
+    // essa consulta com um desafio Cloudflare que nem Playwright real
+    // (headless ou headed) resolve. Investigado e confirmado sem solução
+    // via código em 21-22/07/2026. "Verificar validade" fica indisponível
+    // pra esses apps (ver CHECK_VALIDITY_HANDLERS em lib/apps/panel.ts).
 
     // ===========================================================
     // ACTION: create

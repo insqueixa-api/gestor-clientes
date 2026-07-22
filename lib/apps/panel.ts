@@ -10,7 +10,11 @@ export const PIN_HANDLERS = new Set(["DUPLECAST", "IBOSOL", "IBOPRO"]);
 // Handlers cuja rota de integração já implementa action:"check" (consulta
 // só leitura do vencimento real, sem criar/alterar nada). QuickPlayer não
 // rastreia vencimento no painel (o campo "date" é preenchido manualmente).
-export const CHECK_VALIDITY_HANDLERS = new Set(["DUPLECAST", "IBOSOL", "IBOPRO", "GERENCIAAPP"]);
+// IBOSOL fica de fora: activation.iboplayer.com bloqueia a ação de check
+// com um desafio Cloudflare que nem Playwright real (headless ou headed)
+// consegue passar — mesma assinatura de detecção de automação do Elite,
+// investigado e confirmado sem solução via código em 21-22/07/2026.
+export const CHECK_VALIDITY_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP"]);
 
 export function extractFieldByType(fieldsConfig: any[], values: Record<string, any>, type: string) {
   const field = (fieldsConfig || []).find(
