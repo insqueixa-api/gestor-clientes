@@ -60,6 +60,32 @@ const ALL_FIELD_TYPES: AppFieldType[] = [
 
 type CostType = "free" | "paid" | "partnership";
 type LicensePeriod = "annual" | "lifetime";
+type Technology = "IPTV" | "P2P";
+type DeviceType =
+  | "SAMSUNG_LG"
+  | "ANDROID_TVBOX"
+  | "IOS"
+  | "COMPUTADOR"
+  | "FIRE_TV"
+  | "ROKU";
+
+const ALL_DEVICE_TYPES: DeviceType[] = [
+  "SAMSUNG_LG",
+  "ANDROID_TVBOX",
+  "IOS",
+  "COMPUTADOR",
+  "FIRE_TV",
+  "ROKU",
+];
+
+const DEVICE_TYPE_LABELS: Record<DeviceType, string> = {
+  SAMSUNG_LG: "Samsung / LG",
+  ANDROID_TVBOX: "Android / TV Box",
+  IOS: "iPhone / iOS",
+  COMPUTADOR: "Computador",
+  FIRE_TV: "Fire TV Stick",
+  ROKU: "Roku",
+};
 
 type AppData = {
   id: string;
@@ -75,6 +101,8 @@ type AppData = {
   partner_server_id?: string | null;
   license_price?: number | null;
   license_period?: LicensePeriod | null;
+  device_types?: DeviceType[] | null;
+  technology?: Technology | null;
 };
 
 type ServerOption = {
@@ -139,6 +167,8 @@ const [apps, setApps] = useState<AppData[]>([]);
     "Todos" | "com" | "sem"
   >("Todos");
   const [partnerServerFilter, setPartnerServerFilter] = useState("Todos");
+  const [deviceTypeFilter, setDeviceTypeFilter] = useState<"Todos" | DeviceType>("Todos");
+  const [technologyFilter, setTechnologyFilter] = useState<"Todos" | Technology>("Todos");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -191,6 +221,8 @@ const [apps, setApps] = useState<AppData[]>([]);
   const [formPartnerServerId, setFormPartnerServerId] = useState<string>("");
   const [formLicensePrice, setFormLicensePrice] = useState<string>("");
   const [formLicensePeriod, setFormLicensePeriod] = useState<LicensePeriod | "">("");
+  const [formDeviceTypes, setFormDeviceTypes] = useState<DeviceType[]>([]);
+  const [formTechnology, setFormTechnology] = useState<Technology>("IPTV");
 
   async function handleIconUpload(file: File) {
     if (!file.type.startsWith("image/")) {
@@ -338,18 +370,40 @@ setApps(formattedApps);
       )
         return false;
 
+      if (
+        deviceTypeFilter !== "Todos" &&
+        !(a.device_types || []).includes(deviceTypeFilter)
+      )
+        return false;
+
+      if (technologyFilter !== "Todos" && (a.technology || "IPTV") !== technologyFilter)
+        return false;
+
       return true;
     });
-  }, [search, apps, costFilter, integrationFilter, partnerServerFilter]);
+  }, [
+    search,
+    apps,
+    costFilter,
+    integrationFilter,
+    partnerServerFilter,
+    deviceTypeFilter,
+    technologyFilter,
+  ]);
 
   const hasActiveFilters =
-    costFilter !== "Todos" || integrationFilter !== "Todos";
+    costFilter !== "Todos" ||
+    integrationFilter !== "Todos" ||
+    deviceTypeFilter !== "Todos" ||
+    technologyFilter !== "Todos";
 
   function clearFilters() {
     setSearch("");
     setCostFilter("Todos");
     setIntegrationFilter("Todos");
     setPartnerServerFilter("Todos");
+    setDeviceTypeFilter("Todos");
+    setTechnologyFilter("Todos");
   }
 
   // ✅ Filtro direto de Custo: "Parceria" já vem com o servidor aninhado (sem 2º passo)
@@ -445,6 +499,8 @@ setApps(formattedApps);
     setFormPartnerServerId("");
     setFormLicensePrice("");
     setFormLicensePeriod("");
+    setFormDeviceTypes([]);
+    setFormTechnology("IPTV");
     setIsModalOpen(true);
   }
 
@@ -459,7 +515,15 @@ setApps(formattedApps);
     setFormPartnerServerId(app.partner_server_id || "");
     setFormLicensePrice(app.license_price != null ? String(app.license_price) : "");
     setFormLicensePeriod((app.license_period as LicensePeriod) || "");
+    setFormDeviceTypes((app.device_types as DeviceType[]) || []);
+    setFormTechnology((app.technology as Technology) || "IPTV");
     setIsModalOpen(true);
+  }
+
+  function toggleDeviceType(dt: DeviceType) {
+    setFormDeviceTypes((prev) =>
+      prev.includes(dt) ? prev.filter((d) => d !== dt) : [...prev, dt],
+    );
   }
 
   const generateShortId = () =>
@@ -515,6 +579,8 @@ setApps(formattedApps);
         partner_server_id: isPartnership ? formPartnerServerId : null,
         license_price: isPaid && formLicensePrice ? Number(formLicensePrice) : null,
         license_period: isPaid && formLicensePeriod ? formLicensePeriod : null,
+        device_types: formDeviceTypes,
+        technology: formTechnology,
       };
 
       if (editingId) {
@@ -528,6 +594,8 @@ setApps(formattedApps);
           partner_server_id: isPartnership ? formPartnerServerId : null,
           license_price: isPaid && formLicensePrice ? Number(formLicensePrice) : null,
           license_period: isPaid && formLicensePeriod ? formLicensePeriod : null,
+          device_types: formDeviceTypes,
+          technology: formTechnology,
         };
         const { error } = await supabaseBrowser
           .from("apps")
@@ -679,6 +747,21 @@ setApps(formattedApps);
                     : "Pago"}
                 </span>
               )}
+
+              {app.technology === "P2P" && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-fuchsia-500/10 text-fuchsia-500 border border-fuchsia-500/20">
+                  P2P
+                </span>
+              )}
+
+              {(app.device_types || []).map((dt) => (
+                <span
+                  key={dt}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-muted text-muted-foreground border border-border"
+                >
+                  {DEVICE_TYPE_LABELS[dt]}
+                </span>
+              ))}
             </div>
           </div>
 
@@ -864,6 +947,35 @@ setApps(formattedApps);
               </Select>
             </div>
 
+            <div className="w-[190px]">
+              <Select
+                value={deviceTypeFilter}
+                onChange={(e) =>
+                  setDeviceTypeFilter(e.target.value as "Todos" | DeviceType)
+                }
+              >
+                <option value="Todos">Dispositivo (Todos)</option>
+                {ALL_DEVICE_TYPES.map((dt) => (
+                  <option key={dt} value={dt}>
+                    {DEVICE_TYPE_LABELS[dt]}
+                  </option>
+                ))}
+              </Select>
+            </div>
+
+            <div className="w-[130px]">
+              <Select
+                value={technologyFilter}
+                onChange={(e) =>
+                  setTechnologyFilter(e.target.value as "Todos" | Technology)
+                }
+              >
+                <option value="Todos">Tec. (Todas)</option>
+                <option value="IPTV">IPTV</option>
+                <option value="P2P">P2P</option>
+              </Select>
+            </div>
+
             <button
               onClick={clearFilters}
               className="h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
@@ -905,6 +1017,31 @@ setApps(formattedApps);
                 <option value="Todos">Integração (Todas)</option>
                 {hasComIntegracao && <option value="com">Com integração</option>}
                 {hasSemIntegracao && <option value="sem">Sem integração</option>}
+              </Select>
+
+              <Select
+                value={deviceTypeFilter}
+                onChange={(e) =>
+                  setDeviceTypeFilter(e.target.value as "Todos" | DeviceType)
+                }
+              >
+                <option value="Todos">Dispositivo (Todos)</option>
+                {ALL_DEVICE_TYPES.map((dt) => (
+                  <option key={dt} value={dt}>
+                    {DEVICE_TYPE_LABELS[dt]}
+                  </option>
+                ))}
+              </Select>
+
+              <Select
+                value={technologyFilter}
+                onChange={(e) =>
+                  setTechnologyFilter(e.target.value as "Todos" | Technology)
+                }
+              >
+                <option value="Todos">Tecnologia (Todas)</option>
+                <option value="IPTV">IPTV</option>
+                <option value="P2P">P2P</option>
               </Select>
 
               <button
@@ -1219,6 +1356,65 @@ setApps(formattedApps);
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* DISPOSITIVO E TECNOLOGIA */}
+              <div className="bg-transparent border border-border rounded-xl p-4 space-y-4">
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Dispositivo e Tecnologia
+                </h3>
+
+                <div>
+                  <Label>Tecnologia</Label>
+                  <div className="flex gap-2">
+                    {(["IPTV", "P2P"] as Technology[]).map((tech) => (
+                      <button
+                        key={tech}
+                        type="button"
+                        onClick={() => setFormTechnology(tech)}
+                        className={`flex-1 h-10 rounded-lg border text-sm font-medium transition-colors ${
+                          formTechnology === tech
+                            ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-500"
+                            : "bg-transparent border-border text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {tech}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Só aparece pro cliente se bater com a tecnologia do
+                    servidor dele (IPTV ou P2P).
+                  </p>
+                </div>
+
+                <div>
+                  <Label>Dispositivos compatíveis</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {ALL_DEVICE_TYPES.map((dt) => {
+                      const active = formDeviceTypes.includes(dt);
+                      return (
+                        <button
+                          key={dt}
+                          type="button"
+                          onClick={() => toggleDeviceType(dt)}
+                          className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                            active
+                              ? "bg-sky-500/10 border-sky-500/40 text-sky-500"
+                              : "bg-transparent border-border text-muted-foreground hover:bg-muted"
+                          }`}
+                        >
+                          {DEVICE_TYPE_LABELS[dt]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Marque todos os aparelhos onde esse app funciona. Usado
+                    pra filtrar aqui e (no futuro) na tela de manutenção do
+                    portal do cliente.
+                  </p>
+                </div>
               </div>
 
               {/* CONSTRUTOR DE CAMPOS */}
