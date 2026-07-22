@@ -1,13 +1,13 @@
 // app/api/client-portal/apps/check-validity/route.ts
-// Botão "Verificar validade" do Bloco 3 — só consulta o vencimento no
-// painel do parceiro (Duplecast/IboSol/IboPro), sem criar/alterar nada.
-// Só disponível pros apps que não são parceria (esses não têm vencimento
-// próprio rastreado) e cuja integração suporta uma consulta somente
-// leitura (PIN_HANDLERS — os mesmos 3 que usam PIN em vez da senha real).
+// Botão "Verificar validade" do Bloco 3 — só consulta o vencimento real no
+// painel do parceiro (Duplecast/IboSol/IboPro/GerenciaApp-family), sem
+// criar/alterar nada. Só disponível pros apps que não são parceria (esses
+// não têm vencimento próprio rastreado) e cuja integração suporta uma
+// consulta somente leitura (CHECK_VALIDITY_HANDLERS).
 import { NextRequest, NextResponse } from "next/server";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { getIntegrationHandler } from "@/lib/integrations";
-import { PIN_HANDLERS, extractFieldByType, findFieldByType, internalAppUrl } from "@/lib/apps/panel";
+import { CHECK_VALIDITY_HANDLERS, extractFieldByType, findFieldByType, internalAppUrl } from "@/lib/apps/panel";
 
 export const dynamic = "force-dynamic";
 
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     const fieldsConfig: any[] = Array.isArray((row as any).apps?.fields_config) ? (row as any).apps.fields_config : [];
 
     const handler = integrationType ? getIntegrationHandler(integrationType) : null;
-    if (!handler || !(handler as any).useApi || !PIN_HANDLERS.has((handler as any).actionPrefix)) {
+    if (!handler || !(handler as any).useApi || !CHECK_VALIDITY_HANDLERS.has((handler as any).actionPrefix)) {
       return jsonError("Verificação de validade não disponível para este aplicativo.", 400);
     }
 

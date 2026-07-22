@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { APP_FIELD_LABELS, HIDDEN_CLIENT_FIELD_TYPES, AppFieldType } from "@/lib/apps/field-types";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { getIntegrationHandler } from "@/lib/integrations";
-import { PIN_HANDLERS } from "@/lib/apps/panel";
+import { CHECK_VALIDITY_HANDLERS } from "@/lib/apps/panel";
 
 export const dynamic = "force-dynamic";
 
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
       const isPartnership = String(vals["_config_cost"] || "") === "partnership";
       const handler = integrationType ? getIntegrationHandler(integrationType) : null;
       const canCheckValidity =
-        !isPartnership && !!handler && (handler as any).useApi && PIN_HANDLERS.has((handler as any).actionPrefix);
+        !isPartnership && !!handler && (handler as any).useApi && CHECK_VALIDITY_HANDLERS.has((handler as any).actionPrefix);
 
       return {
         id: row.id,
