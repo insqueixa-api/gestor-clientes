@@ -1264,7 +1264,7 @@ export default function TrialsPage() {
                               ? "IBO Pro"
                               : app.integration_type;
                     const label = temIntegracao
-                      ? `⚡ ${app.name} (${nomeIntegracao})`
+                      ? `${app.name} (${nomeIntegracao})`
                       : app.name;
                     return (
                       <option key={app.id} value={app.name}>
@@ -1367,7 +1367,7 @@ export default function TrialsPage() {
                               ? "IBO Pro"
                               : app.integration_type;
                     const label = temIntegracao
-                      ? `⚡ ${app.name} (${nomeIntegracao})`
+                      ? `${app.name} (${nomeIntegracao})`
                       : app.name;
                     return (
                       <option key={app.id} value={app.name}>

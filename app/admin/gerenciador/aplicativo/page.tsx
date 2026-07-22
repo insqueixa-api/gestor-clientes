@@ -718,9 +718,8 @@ setApps(formattedApps);
 
               {app.integration_type && (
                 <span
-                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm ${needsConfiguration ? "bg-amber-500/10 text-amber-500 border border-amber-500/20" : "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"}`}
+                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm ${needsConfiguration ? "bg-amber-500/10 text-amber-500 border border-amber-500/20" : "bg-sky-500/10 text-sky-500 border border-sky-500/20"}`}
                 >
-                  ⚡{" "}
                   {needsConfiguration
                     ? `${appLabel} - Configurar API`
                     : `${appLabel} - Integrado`}
