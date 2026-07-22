@@ -168,10 +168,73 @@ export async function createGerenciaApp({ baseUrl, email, password, payload }) {
 }
 
 // ============================================================
-// DELETE
+// DELETE / CHECK (compartilham a mesma busca de usuário no painel)
 // ============================================================
 function normalizeMac(mac) {
   return String(mac || "").replace(/[^a-fA-F0-9]/g, "").toUpperCase();
+}
+
+async function searchUsersOnPanel(BASE_URL, session, term) {
+  if (!term || !term.trim()) return [];
+  const url = `${BASE_URL}/users?page=1&search=${encodeURIComponent(term)}`;
+  try {
+    const res = await pfetch(url, {
+      headers: { Accept: "text/html", Cookie: session.cookieHeader },
+    });
+    if (!res.ok || res.url.includes("/login")) return [];
+    const html = await res.text();
+    const m = html.match(/data-page="([^"]+)"/);
+    if (!m) return [];
+    const decoded = m[1].replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+    const json = JSON.parse(decoded);
+    if (json.props?.users?.data) return json.props.users.data;
+    if (Array.isArray(json.props?.users)) return json.props.users;
+    if (Array.isArray(json.data)) return json.data;
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+// Acha o registro certo entre os resultados da busca — mesma lógica usada
+// no delete: por nome exato, senão por nome+MAC, senão por MAC sozinho.
+function pickUserRecord(byName, byMac, searchName, macDevice) {
+  if (byName.length === 1) return byName[0];
+  if (byName.length > 1 && macDevice) {
+    const macNorm = normalizeMac(macDevice);
+    const exact = byName.find((u) => normalizeMac(JSON.stringify(u)).includes(macNorm));
+    if (exact) return exact;
+  }
+  if (byMac.length === 1) return byMac[0];
+  if (byMac.length > 1) {
+    const nameLower = String(searchName || "").toLowerCase();
+    const exact = byMac.find((u) => JSON.stringify(u).toLowerCase().includes(nameLower));
+    if (exact) return exact;
+  }
+  return null;
+}
+
+// ============================================================
+// CHECK — só consulta o vencimento real (expire_account) no painel, sem
+// criar/apagar nada. O painel já rastreia isso por usuário; antes a gente
+// só chutava "1 ano a partir de hoje" no momento de configurar.
+// ============================================================
+export async function checkGerenciaApp({ baseUrl, email, password, searchName, macDevice }) {
+  const BASE_URL = baseUrl.replace(/\/$/, "");
+  const session = await getSession(BASE_URL, email, password);
+
+  const byName = await searchUsersOnPanel(BASE_URL, session, searchName);
+  const byMac = macDevice ? await searchUsersOnPanel(BASE_URL, session, macDevice) : [];
+  const user = pickUserRecord(byName, byMac, searchName, macDevice);
+
+  if (!user) {
+    return {
+      ok: false,
+      error: `Usuário/MAC não encontrado no painel do GerenciaApp. (Buscado: ${searchName} / MAC: ${macDevice})`,
+    };
+  }
+
+  return { ok: true, expireDate: user.expire_account || null };
 }
 
 export async function deleteGerenciaApp({ baseUrl, email, password, searchName, macDevice }) {
@@ -179,25 +242,7 @@ export async function deleteGerenciaApp({ baseUrl, email, password, searchName, 
   const session = await getSession(BASE_URL, email, password);
 
   async function searchUsers(term) {
-    if (!term || !term.trim()) return [];
-    const url = `${BASE_URL}/users?page=1&search=${encodeURIComponent(term)}`;
-    try {
-      const res = await pfetch(url, {
-        headers: { Accept: "text/html", Cookie: session.cookieHeader },
-      });
-      if (!res.ok || res.url.includes("/login")) return [];
-      const html = await res.text();
-      const m = html.match(/data-page="([^"]+)"/);
-      if (!m) return [];
-      const decoded = m[1].replace(/&quot;/g, '"').replace(/&amp;/g, "&");
-      const json = JSON.parse(decoded);
-      if (json.props?.users?.data) return json.props.users.data;
-      if (Array.isArray(json.props?.users)) return json.props.users;
-      if (Array.isArray(json.data)) return json.data;
-      return [];
-    } catch {
-      return [];
-    }
+    return searchUsersOnPanel(BASE_URL, session, term);
   }
 
   let userIdToDelete = null;

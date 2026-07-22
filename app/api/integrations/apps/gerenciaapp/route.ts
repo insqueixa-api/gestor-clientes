@@ -35,8 +35,8 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
     const { action, base_url } = body;
 
-    if (!action || (action !== "create" && action !== "delete")) {
-      return NextResponse.json({ ok: false, error: "action inválida. Use: create | delete" }, { status: 400 });
+    if (!action || (action !== "create" && action !== "delete" && action !== "check")) {
+      return NextResponse.json({ ok: false, error: "action inválida. Use: create | delete | check" }, { status: 400 });
     }
     if (!base_url) {
       return NextResponse.json({ ok: false, error: "base_url é obrigatório." }, { status: 400 });
@@ -62,7 +62,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Server misconfigured (VM)." }, { status: 500 });
     }
 
-    const vmPath = action === "create" ? "/gerenciaapp/create" : "/gerenciaapp/delete";
+    const vmPath =
+      action === "create" ? "/gerenciaapp/create" : action === "check" ? "/gerenciaapp/check" : "/gerenciaapp/delete";
     const vmBody =
       action === "create"
         ? {

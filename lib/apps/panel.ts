@@ -10,10 +10,7 @@ export const PIN_HANDLERS = new Set(["DUPLECAST", "IBOSOL", "IBOPRO"]);
 // Handlers cuja rota de integração já implementa action:"check" (consulta
 // só leitura do vencimento real, sem criar/alterar nada). QuickPlayer não
 // rastreia vencimento no painel (o campo "date" é preenchido manualmente).
-// GERENCIAAPP também dá pra fazer (o painel expõe expire_account na mesma
-// busca já usada pelo delete) — fica pra depois, roda na VM separada e
-// ainda não foi implementado lá.
-export const CHECK_VALIDITY_HANDLERS = new Set(["DUPLECAST", "IBOSOL", "IBOPRO"]);
+export const CHECK_VALIDITY_HANDLERS = new Set(["DUPLECAST", "IBOSOL", "IBOPRO", "GERENCIAAPP"]);
 
 export function extractFieldByType(fieldsConfig: any[], values: Record<string, any>, type: string) {
   const field = (fieldsConfig || []).find(

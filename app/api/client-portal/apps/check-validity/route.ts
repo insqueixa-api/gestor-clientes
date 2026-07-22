@@ -71,6 +71,22 @@ export async function POST(req: NextRequest) {
     }
     const deviceKey = extractFieldByType(fieldsConfig, values, "device_key");
 
+    // ✅ GerenciaApp-family busca por "username_servidor" (igual ao delete),
+    // não só pelo MAC — precisa dos dados do servidor do cliente.
+    let username = "";
+    if ((handler as any).actionPrefix === "GERENCIAAPP") {
+      const { data: client } = await supabaseAdmin
+        .from("clients")
+        .select("server_username, server_id")
+        .eq("id", client_id)
+        .single();
+      const { data: server } = client?.server_id
+        ? await supabaseAdmin.from("servers").select("name").eq("id", client.server_id).maybeSingle()
+        : { data: null };
+      const serverNameClean = String(server?.name || "Servidor").replace(/\s+/g, "");
+      username = client ? `${client.server_username}_${serverNameClean}` : "";
+    }
+
     const { data: integ } = await supabaseAdmin
       .from("app_integrations")
       .select("api_url")
@@ -86,6 +102,7 @@ export async function POST(req: NextRequest) {
         macValue,
         mac: macValue,
         mac_address: macValue,
+        username,
         deviceKey,
         app_name: appName,
         base_url: integ?.api_url || "",

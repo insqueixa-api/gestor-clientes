@@ -10,7 +10,7 @@ import {
   getSessionConfig, updateSessionConfig, getContactProfilePicture,
   getBotEvents,
 } from "./sessionManager.js";
-import { createGerenciaApp, deleteGerenciaApp } from "./gerenciaapp.js";
+import { createGerenciaApp, deleteGerenciaApp, checkGerenciaApp } from "./gerenciaapp.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -353,6 +353,22 @@ app.post("/gerenciaapp/create", authMiddleware, async (req, res) => {
   } catch (e) {
     console.error("[GERENCIAAPP_CREATE] erro:", e?.message);
     res.status(500).json({ ok: false, error: e?.message || "Falha ao criar no GerenciaApp." });
+  }
+});
+
+// Só consulta o vencimento real (expire_account) no painel, sem criar/
+// apagar nada — usado pelo botão "Verificar validade" do portal.
+app.post("/gerenciaapp/check", authMiddleware, async (req, res) => {
+  const { baseUrl, email, password, searchName, macDevice } = req.body || {};
+  if (!baseUrl || !email || !password || !searchName) {
+    return res.status(400).json({ ok: false, error: "baseUrl, email, password e searchName são obrigatórios." });
+  }
+  try {
+    const result = await checkGerenciaApp({ baseUrl, email, password, searchName, macDevice });
+    res.json(result);
+  } catch (e) {
+    console.error("[GERENCIAAPP_CHECK] erro:", e?.message);
+    res.status(500).json({ ok: false, error: e?.message || "Falha ao consultar o GerenciaApp." });
   }
 });
 
