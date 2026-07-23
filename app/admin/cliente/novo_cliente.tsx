@@ -11,6 +11,7 @@ import { getIntegrationHandler } from "@/lib/integrations"; // ✅ O Roteador In
 import { createPortal } from "react-dom";
 import FormattedTimeInput from "@/components/ui/FormattedTimeInput";
 import { APP_FIELD_LABELS, normalizeMacInput } from "@/lib/apps/field-types";
+import { ADMIN_CHECK_HANDLERS } from "@/lib/apps/panel";
 
 // --- TIPOS ---
 type SelectOption = {
@@ -2790,6 +2791,206 @@ const canSyncAgenda = canSyncAuto;
           action: `${handler.actionPrefix}_DELETE`,
           baseUrl: appBaseUrl,
           payload: payloadDelete,
+        },
+      }),
+    );
+
+    setTimeout(() => {
+      setLoading((prev) => {
+        if (prev) {
+          window.removeEventListener(
+            "UNIGESTOR_INTEGRATION_RESPONSE",
+            responseHandler,
+          );
+          addToast("warning", "Aviso", "A resposta demorou.");
+          setLoadingStep("");
+          return false;
+        }
+        return prev;
+      });
+    }, 20000);
+  }
+
+  // ✅ Verifica o vencimento sem reconfigurar nada — hoje só a família
+  // IBOSOL tem essa ação via extensão (IBOSOL_CHECK), reaproveitando o
+  // mesmo check-mac usado internamente pelo Configurar.
+  async function handleCheckApp(instanceId: string) {
+    const currentApp = selectedApps.find((a) => a.instanceId === instanceId);
+    if (!currentApp) return;
+
+    const appName = currentApp.name;
+    const handler = resolveIntegration(currentApp);
+    if (!handler || !ADMIN_CHECK_HANDLERS.has(handler.actionPrefix)) {
+      addToast(
+        "warning",
+        "Não disponível",
+        `Verificação de vencimento ainda não existe para "${appName}".`,
+      );
+      return;
+    }
+
+    const macValue = getMacFromApp(currentApp);
+    if (!macValue || macValue.trim() === "") {
+      addToast(
+        "error",
+        "MAC Obrigatório",
+        "Preencha o Device ID (MAC) antes de verificar o vencimento.",
+      );
+      return;
+    }
+
+    const catAppForCheck = catalog.find(
+      (c) => c.id === currentApp.app_id,
+    ) as any;
+    const appIntegKeyCheck =
+      String(catAppForCheck?.integration_type || "")
+        .trim()
+        .toUpperCase() || handler.actionPrefix.toUpperCase();
+    const appIntegData = appIntegrations.find(
+      (a) => a.app_name.toUpperCase() === appIntegKeyCheck,
+    );
+    const appBaseUrl = appIntegData?.api_url || "";
+
+    const dateField = currentApp?.fields_config?.find(
+      (f: any) => String(f?.type || "").toLowerCase() === "date",
+    );
+
+    const dkFieldCheck = currentApp?.fields_config?.find(
+      (f: any) =>
+        String(f?.type || "").toLowerCase() === "device_key" ||
+        String(f?.label || "")
+          .toLowerCase()
+          .includes("device key"),
+    );
+    const deviceKeyCheck = dkFieldCheck
+      ? currentApp?.values[
+          String(dkFieldCheck.id || dkFieldCheck.label || "").trim()
+        ] || ""
+      : "";
+
+    const persistExpireDate = async (expireDate: string) => {
+      if (!dateField) return;
+      const fieldKey = dateField.id || dateField.label;
+      updateAppFieldValue(
+        currentApp!.instanceId,
+        String(fieldKey),
+        expireDate,
+      );
+      if (clientToEdit?.id) {
+        const { data: currentDbData } = await supabaseBrowser
+          .from("client_apps")
+          .select("field_values")
+          .eq("client_id", clientToEdit.id)
+          .eq("app_id", currentApp.app_id)
+          .maybeSingle();
+        const dbVals = currentDbData?.field_values || {};
+        await supabaseBrowser
+          .from("client_apps")
+          .update({
+            field_values: { ...dbVals, [String(fieldKey)]: expireDate },
+          })
+          .eq("client_id", clientToEdit.id)
+          .eq("app_id", currentApp.app_id);
+      }
+    };
+
+    setLoading(true);
+    setLoadingStep("Verificando vencimento...");
+
+    // ✅ DUPLECAST/IBOPRO/GERENCIAAPP: chama a API direta — mesma rota que
+    // já implementa action:"check" pro botão "Verificar validade" do portal.
+    if ((handler as any).useApi) {
+      try {
+        const selectedServerName =
+          servers.find((s) => s.id === serverId)?.name || "Servidor";
+        const finalServerName = `${username}_${selectedServerName.replace(/\s+/g, "")}`;
+
+        const checkBody: Record<string, any> =
+          handler.actionPrefix === "IBOPRO"
+            ? { action: "check", mac: macValue, deviceKey: deviceKeyCheck }
+            : handler.actionPrefix === "GERENCIAAPP"
+              ? {
+                  action: "check",
+                  base_url: appBaseUrl,
+                  username: finalServerName,
+                  macValue,
+                }
+              : { action: "check", macValue };
+
+        const apiRes = await fetch((handler as any).apiEndpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(checkBody),
+        });
+        const apiJson = await apiRes.json().catch(() => ({}));
+        setLoading(false);
+        setLoadingStep("");
+
+        if (apiJson?.ok && apiJson.expireDate) {
+          await persistExpireDate(apiJson.expireDate);
+          addToast(
+            "success",
+            "Vencimento verificado",
+            `${appName}: ${apiJson.expireDate.split("T")[0].split("-").reverse().join("/")}`,
+          );
+        } else if (apiJson?.ok) {
+          addToast(
+            "warning",
+            "Sem vencimento",
+            apiJson.message ||
+              "Não foi possível localizar o vencimento no painel.",
+          );
+        } else {
+          addToast(
+            "error",
+            "Não foi possível verificar",
+            apiJson?.error || "Falha desconhecida.",
+          );
+        }
+      } catch (err: any) {
+        setLoading(false);
+        setLoadingStep("");
+        addToast(
+          "error",
+          "Não foi possível verificar",
+          err.message || "Falha.",
+        );
+      }
+      return;
+    }
+
+    // ✅ IBOSOL: via extensão (IBOSOL_CHECK)
+    const responseHandler = async (e: any) => {
+      window.removeEventListener(
+        "UNIGESTOR_INTEGRATION_RESPONSE",
+        responseHandler,
+      );
+      setLoading(false);
+      setLoadingStep("");
+
+      if (e.detail?.ok && e.detail.expireDate) {
+        await persistExpireDate(e.detail.expireDate);
+        addToast(
+          "success",
+          "Vencimento verificado",
+          `${appName}: ${e.detail.expireDate.split("T")[0].split("-").reverse().join("/")}`,
+        );
+      } else {
+        addToast(
+          "error",
+          "Não foi possível verificar",
+          e.detail?.error || "Falha desconhecida.",
+        );
+      }
+    };
+    window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
+
+    window.dispatchEvent(
+      new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
+        detail: {
+          action: `${handler.actionPrefix}_CHECK`,
+          baseUrl: appBaseUrl,
+          payload: { app_name: appName, mac_address: macValue },
         },
       }),
     );
@@ -5833,6 +6034,11 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                       String(catApp?.name || "")
                         .trim()
                         .toLowerCase() === "ibo player";
+                    // ✅ "Verificar vencimento" — divide o botão "Painel" em
+                    // dois ícones quando o handler suporta check (server-side
+                    // pra DUPLECAST/IBOPRO/GERENCIAAPP, via extensão pro IBOSOL).
+                    const canCheckVencimento =
+                      ADMIN_CHECK_HANDLERS.has(integrationType);
                     const appLabel =
                       integrationType === "GERENCIAAPP"
                         ? "GerenciaApp"
@@ -6028,52 +6234,128 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                                         Configurar
                                       </span>
                                     </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const catAppLink = catalog.find(
-                                          (c) => c.id === app.app_id,
-                                        ) as any;
-                                        const intKeyLink = String(
-                                          catAppLink?.integration_type || "",
-                                        )
-                                          .trim()
-                                          .toUpperCase();
-                                        const intDataLink =
-                                          appIntegrations.find(
-                                            (a) =>
-                                              a.app_name.toUpperCase() ===
-                                              intKeyLink,
-                                          );
-                                        const url = intDataLink?.api_url || "";
-                                        if (url) window.open(url, "_blank");
-                                        else
-                                          addToast(
-                                            "warning",
-                                            "Sem URL",
-                                            "Nenhum link configurado para esta integração.",
-                                          );
-                                      }}
-className="h-10 rounded-lg bg-transparent border border-border text-muted-foreground hover:bg-muted transition-colors flex items-center justify-center gap-1.5"
-                                      title="Abrir painel no navegador"
-                                    >
-                                      <svg
-                                        className="w-4 h-4 shrink-0"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                        strokeWidth="2"
+                                    {canCheckVencimento ? (
+                                      // Painel dividido em 2 ícones: abrir
+                                      // site + verificar vencimento
+                                      <div className="h-10 rounded-lg border border-border overflow-hidden flex divide-x divide-border">
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const catAppLink = catalog.find(
+                                              (c) => c.id === app.app_id,
+                                            ) as any;
+                                            const intKeyLink = String(
+                                              catAppLink?.integration_type ||
+                                                "",
+                                            )
+                                              .trim()
+                                              .toUpperCase();
+                                            const intDataLink =
+                                              appIntegrations.find(
+                                                (a) =>
+                                                  a.app_name.toUpperCase() ===
+                                                  intKeyLink,
+                                              );
+                                            const url =
+                                              intDataLink?.api_url || "";
+                                            if (url)
+                                              window.open(url, "_blank");
+                                            else
+                                              addToast(
+                                                "warning",
+                                                "Sem URL",
+                                                "Nenhum link configurado para esta integração.",
+                                              );
+                                          }}
+                                          className="flex-1 bg-transparent text-muted-foreground hover:bg-muted transition-colors flex items-center justify-center"
+                                          title="Abrir painel no navegador"
+                                        >
+                                          <svg
+                                            className="w-4 h-4 shrink-0"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                                            />
+                                          </svg>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            handleCheckApp(app.instanceId)
+                                          }
+                                          className="flex-1 bg-transparent text-emerald-500 hover:bg-emerald-500/10 transition-colors flex items-center justify-center"
+                                          title="Verificar vencimento no painel"
+                                        >
+                                          <svg
+                                            className="w-4 h-4 shrink-0"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                                            />
+                                          </svg>
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const catAppLink = catalog.find(
+                                            (c) => c.id === app.app_id,
+                                          ) as any;
+                                          const intKeyLink = String(
+                                            catAppLink?.integration_type || "",
+                                          )
+                                            .trim()
+                                            .toUpperCase();
+                                          const intDataLink =
+                                            appIntegrations.find(
+                                              (a) =>
+                                                a.app_name.toUpperCase() ===
+                                                intKeyLink,
+                                            );
+                                          const url =
+                                            intDataLink?.api_url || "";
+                                          if (url) window.open(url, "_blank");
+                                          else
+                                            addToast(
+                                              "warning",
+                                              "Sem URL",
+                                              "Nenhum link configurado para esta integração.",
+                                            );
+                                        }}
+                                        className="h-10 rounded-lg bg-transparent border border-border text-muted-foreground hover:bg-muted transition-colors flex items-center justify-center gap-1.5"
+                                        title="Abrir painel no navegador"
                                       >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                                        />
-                                      </svg>
-                                      <span className="hidden sm:inline text-xs font-medium">
-                                        Painel
-                                      </span>
-                                    </button>
+                                        <svg
+                                          className="w-4 h-4 shrink-0"
+                                          fill="none"
+                                          viewBox="0 0 24 24"
+                                          stroke="currentColor"
+                                          strokeWidth="2"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                                          />
+                                        </svg>
+                                        <span className="hidden sm:inline text-xs font-medium">
+                                          Painel
+                                        </span>
+                                      </button>
+                                    )}
                                     {canAutoDelete && (
                                       <button
                                         type="button"

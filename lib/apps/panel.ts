@@ -16,6 +16,12 @@ export const PIN_HANDLERS = new Set(["DUPLECAST", "IBOSOL", "IBOPRO"]);
 // investigado e confirmado sem solução via código em 21-22/07/2026.
 export const CHECK_VALIDITY_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP"]);
 
+// Igual ao CHECK_VALIDITY_HANDLERS acima, mas pro botão "Verificar
+// vencimento" do ADMIN (novo_cliente.tsx) — que também inclui IBOSOL, cujo
+// check roda via extensão do Chrome (só existe no navegador do admin, por
+// isso não pode entrar no CHECK_VALIDITY_HANDLERS do portal do cliente).
+export const ADMIN_CHECK_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP", "IBOSOL"]);
+
 export function extractFieldByType(fieldsConfig: any[], values: Record<string, any>, type: string) {
   const field = (fieldsConfig || []).find(
     (f: any) =>
