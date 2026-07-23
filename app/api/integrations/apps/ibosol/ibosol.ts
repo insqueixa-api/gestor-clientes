@@ -3,7 +3,11 @@
 
 export const IbosolAPI = {
   actionPrefix: "IBOSOL",
-  useApi: true, // ← sinaliza para o modal chamar API direta (não extensão)
+  // ❌ Voltou a ser via extensão (21-22/07/2026): activation.iboplayer.com e
+  // iboplayer.com bloqueiam qualquer chamada server-to-server (Vercel ou
+  // local) com um desafio Cloudflare que nem Playwright real resolve — só
+  // funciona de dentro de um navegador genuíno, não controlado por CDP.
+  useApi: false,
   apiEndpoint: "/api/integrations/apps/ibosol",
 
   buildCreatePayload({
