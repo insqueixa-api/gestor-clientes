@@ -10,10 +10,10 @@ const NO_STORE_HEADERS = {
   Expires: "0",
 };
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// ✅ Log estruturado — sempre ativo (antes o corpo do "if" era vazio e
+// silenciava todo erro desta rota mesmo em produção).
 function safeServerLog(...args: any[]) {
-  if (process.env.NODE_ENV !== "production") {
-  }
+  console.error("[login]", ...args);
 }
 
 function makeSupabaseAdmin() {

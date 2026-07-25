@@ -4,7 +4,7 @@
 // portal_content preenchido (o content original é escrito como instrução
 // pro bot, não é seguro mostrar direto pro cliente).
 import { NextRequest, NextResponse } from "next/server";
-import { makeSupabaseAdmin, isPlausibleSessionToken } from "@/lib/client-portal/session";
+import { makeSupabaseAdmin, isPlausibleSessionToken, touchPortalSession } from "@/lib/client-portal/session";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +43,8 @@ export async function POST(req: NextRequest) {
       .gt("expires_at", new Date().toISOString())
       .single();
     if (sessErr || !sess) return jsonError("Sessão inválida", 401);
+
+    await touchPortalSession(supabaseAdmin, session_token);
 
     const { data: rows, error } = await supabaseAdmin
       .from("bot_knowledge")

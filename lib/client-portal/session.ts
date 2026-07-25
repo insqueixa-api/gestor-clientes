@@ -27,6 +27,29 @@ export type PortalClientContext = {
   client_id: string;
 };
 
+// Sessão desliza: cada chamada válida empurra expires_at +30min de novo
+// (mesma janela do login, portal_start_session). Sem isso, um cliente que
+// demora a navegar/pagar (ex: PIX gerado aos 20min, pago aos 35min) perdia
+// a sessão no meio do fluxo — o polling de payment-status levava 401 e
+// parava silenciosamente, travando a tela em "aguardando pagamento" mesmo
+// que o pagamento fosse aprovado depois. Falha aberta: se o update não
+// rolar por qualquer motivo, não derruba a chamada que já validou a sessão.
+const SESSION_TTL_MS = 30 * 60 * 1000;
+
+export async function touchPortalSession(supabaseAdmin: SupabaseClient, sessionToken: string) {
+  try {
+    await supabaseAdmin
+      .from("client_portal_sessions")
+      .update({
+        expires_at: new Date(Date.now() + SESSION_TTL_MS).toISOString(),
+        last_seen_at: new Date().toISOString(),
+      })
+      .eq("session_token", sessionToken);
+  } catch {
+    // não bloqueia a requisição por causa disso
+  }
+}
+
 // Valida session_token contra client_portal_sessions e confirma que
 // client_id pertence a esse whatsapp (dono ou secundário). Retorna null em
 // qualquer falha — o chamador decide a mensagem/status de erro.
@@ -57,6 +80,8 @@ export async function validatePortalClient(
     .single();
 
   if (clientErr || !client) return null;
+
+  await touchPortalSession(supabaseAdmin, session_token);
 
   return { tenant_id: sess.tenant_id, whatsapp_username: sess.whatsapp_username, client_id };
 }

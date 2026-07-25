@@ -7,6 +7,7 @@ import {
   checkCouponAbuseGuard,
   COUPON_ABUSE_BLOCKED_MESSAGE,
 } from "@/lib/client-portal/coupons";
+import { touchPortalSession } from "@/lib/client-portal/session";
 
 export const dynamic = "force-dynamic";
 
@@ -79,6 +80,8 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (sessErr || !sess) return jsonError("Sessão inválida", 401);
+
+    await touchPortalSession(supabaseAdmin, session_token);
 
     // Mesma resolução de preço de create-payment/route.ts:143-239 —
     // duplicada de propósito (mesmo padrão de pending-charges), pra não
@@ -217,6 +220,7 @@ export async function POST(req: NextRequest) {
       { status: 200, headers: NO_STORE_HEADERS },
     );
   } catch (err: any) {
+    console.error("[validate-coupon]", err?.message);
     return jsonError("Erro interno", 500);
   }
 }

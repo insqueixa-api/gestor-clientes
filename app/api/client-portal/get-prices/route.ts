@@ -1,6 +1,7 @@
 // app/api/client-portal/get-prices/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { touchPortalSession } from "@/lib/client-portal/session";
 
 export const dynamic = "force-dynamic";
 
@@ -20,10 +21,10 @@ const NO_STORE_HEADERS = {
   Expires: "0",
 };
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// ✅ Log estruturado — sempre ativo (antes o corpo do "if" era vazio e
+// silenciava todo erro desta rota mesmo em produção).
 function safeServerLog(...args: any[]) {
-  if (process.env.NODE_ENV !== "production") {
-  }
+  console.error("[get-prices]", ...args);
 }
 
 function normalizeStr(v: unknown) {
@@ -92,6 +93,8 @@ export async function POST(req: NextRequest) {
       safeServerLog("get-prices: invalid/expired session");
       return jsonError("Sessão inválida", 401);
     }
+
+    await touchPortalSession(supabaseAdmin, session_token);
 
     // 2. Buscar dados do cliente
     // ✅ CRÍTICO: garante que o client_id é do mesmo whatsapp da sessão (Principal ou Secundário)

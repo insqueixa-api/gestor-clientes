@@ -8,6 +8,7 @@ import {
   tryAcquireFulfillmentLock,
   toPeriodMonths,
 } from "@/lib/client-portal/fulfillment";
+import { touchPortalSession } from "@/lib/client-portal/session";
 
 export const dynamic = "force-dynamic";
 
@@ -18,11 +19,15 @@ const NO_STORE_HEADERS = {
   Expires: "0",
 };
 
-// ✅ Log “cego”: em produção não imprime detalhes
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// ✅ Log estruturado — sempre ativo (aparece no log de função da Vercel em
+// produção). Antes essa função tinha o corpo do "if" vazio e silenciava
+// TODO erro/exceção desta rota, inclusive em produção — isso mascarou a
+// causa raiz de pagamentos "approved" que nunca terminam o fulfillment
+// (nenhum rastro do que falhou entre o status virar approved e o lock ser
+// adquirido). Nunca loga o body inteiro do request nem dados sensíveis,
+// só os args que cada call site já escolhe passar (mensagens/ids curtos).
 function safeServerLog(...args: any[]) {
-  if (process.env.NODE_ENV !== "production") {
-  }
+  console.error("[payment-status]", ...args);
 }
 
 function normalizeStr(v: unknown) {
@@ -184,6 +189,13 @@ export async function POST(req: NextRequest) {
     if (sErr || !sess?.tenant_id || !sess?.whatsapp_username) {
       return NextResponse.json({ ok: false, error: "Sessão inválida" }, { status: 401, headers: NO_STORE_HEADERS });
     }
+
+    // ✅ Sessão desliza enquanto o cliente fica na tela de pagamento
+    // (polling a cada 3s aqui) — sem isso, um PIX que demora pra ser pago
+    // podia sobreviver à sessão (30min contados do LOGIN, não da geração do
+    // PIX), o polling levava 401 e parava silenciosamente, travando a UI
+    // em "aguardando pagamento" mesmo que o pagamento fosse aprovado depois.
+    await touchPortalSession(supabaseAdmin, session_token);
 
     const tenantId = String(sess.tenant_id);
     const whatsapp = String(sess.whatsapp_username);

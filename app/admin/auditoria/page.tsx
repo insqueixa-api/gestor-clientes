@@ -68,6 +68,7 @@ const FULFILLMENT_OPTIONS = [
   { value: "manual_done", label: "Concluídos Manualmente" },
   { value: "manual_pending", label: "Ação Manual (Pendentes)" },
   { value: "error", label: "Erros na Renovação" },
+  { value: "stuck", label: "Travada (sem retorno)" },
   { value: "aguardando_pagamento", label: "Aguardando Pagamento" },
   { value: "awaiting_transfer", label: "Aguardando Transferência" },
   { value: "cancelled", label: "Cancelada" },
@@ -75,10 +76,30 @@ const FULFILLMENT_OPTIONS = [
   { value: "processando", label: "Processando" },
 ];
 
+// Pagamento aprovado cujo fulfillment nunca terminou nem gerou erro — o
+// webhook do MP e o polling do navegador (payment-status) são as ÚNICAS
+// coisas que disparam a renovação automática; se os dois falharem (cliente
+// fecha a aba logo após pagar, webhook atrasa/não chega), o pagamento fica
+// com fulfillment_status "pending"/"processing" pra sempre, indistinguível
+// de um pagamento processando normalmente há 2 segundos. Achado em
+// auditoria 24/07/2026. 10min de folga é bem mais que o tempo normal de
+// fulfillment (segundos) e mais que a janela de "zumbi" do lock (3min).
+const STUCK_THRESHOLD_MS = 10 * 60 * 1000;
+
+function isStuckFulfillment(status: string, paymentStatus: string, createdAt: string): boolean {
+  const isApproved =
+    paymentStatus === "approved" || paymentStatus === "PAGO" || paymentStatus === "manual_approved";
+  if (!isApproved) return false;
+  const st = String(status || "").toLowerCase();
+  if (st !== "pending" && st !== "processing" && st !== "") return false;
+  const ageMs = Date.now() - new Date(createdAt).getTime();
+  return ageMs > STUCK_THRESHOLD_MS;
+}
+
 // ✅ Mesma prioridade de regras usada em getFulfillmentBadge — filtro e badge
 // nunca mais podem discordar (ex: pagamento recusado sempre vira "Cancelada",
 // mesmo que a coluna fulfillment_status ainda esteja com um valor antigo/"pending").
-function getFulfillmentBucket(status: string, paymentStatus: string): string {
+function getFulfillmentBucket(status: string, paymentStatus: string, createdAt: string): string {
   if (status === "manual_cancelled") return "manual_cancelled";
   if (status === "cancelled" || paymentStatus === "rejected" || paymentStatus === "cancelled")
     return "cancelled";
@@ -93,6 +114,7 @@ function getFulfillmentBucket(status: string, paymentStatus: string): string {
   if (status === "manual_done") return "manual_done";
   if (status === "manual_pending") return "manual_pending";
   if (status === "error") return "error";
+  if (isStuckFulfillment(status, paymentStatus, createdAt)) return "stuck";
   return "processando";
 }
 
@@ -112,7 +134,7 @@ const WHATSAPP_OPTIONS = [
 ];
 
 function matchesFulfillment(r: LogRow, value: string) {
-  return getFulfillmentBucket(r.fulfillment_status, r.payment_status) === value;
+  return getFulfillmentBucket(r.fulfillment_status, r.payment_status, r.created_at) === value;
 }
 
 function matchesPayment(r: LogRow, value: string) {
@@ -205,6 +227,9 @@ function AuditoriaPageContent() {
 
   const { confirm, ConfirmUI } = useConfirm();
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  // ✅ NOVO: id do pagamento sendo reprocessado agora (botão "Reprocessar")
+  const [reprocessingId, setReprocessingId] = useState<string | null>(null);
 
   // ✅ NOVO: Estado para abrir o modal de renovação
   const [renewState, setRenewState] = useState<{
@@ -501,6 +526,39 @@ function AuditoriaPageContent() {
   }, [search, filterFulfillment, filterPayment, filterGateway, filterWhatsapp]);
 
   // --- AÇÕES ---
+
+  // ✅ NOVO: "Reprocessar" — pagamento aprovado que ficou sem fulfillment
+  // (webhook do MP e polling do cliente falharam/não aconteceram, achado em
+  // auditoria 24/07/2026). Chama a mesma sequência de lock+runFulfillment
+  // que roda normalmente, só que disparada por você em vez de por uma aba
+  // aberta do cliente.
+  const handleReprocessar = async (log: LogRow) => {
+    if (!tenantId) return;
+    setReprocessingId(log.id);
+    try {
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess.session?.access_token;
+      const res = await fetch("/api/admin/payments/retry-fulfillment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ tenant_id: tenantId, payment_id: log.id }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(result?.error || "Falha ao reprocessar.");
+
+      if (result.outcome === "manual_pending") {
+        addToast("success", "Caiu pra ação manual", "Esse cliente precisa de renovação manual — veja o botão roxo.");
+      } else {
+        addToast("success", "Reprocessado!", "Renovação concluída com sucesso.");
+      }
+      loadData();
+    } catch (e: any) {
+      addToast("error", "Não foi possível reprocessar", e?.message);
+    } finally {
+      setReprocessingId(null);
+    }
+  };
+
   const handleMarcarConcluido = async (log: LogRow) => {
     if (!tenantId) return;
 
@@ -753,8 +811,8 @@ if (paymentMethod === "manual") {
     );
   }
 
-  function getFulfillmentBadge(status: string, paymentStatus: string) {
-    const bucket = getFulfillmentBucket(status, paymentStatus);
+  function getFulfillmentBadge(status: string, paymentStatus: string, createdAt: string) {
+    const bucket = getFulfillmentBucket(status, paymentStatus, createdAt);
 
     if (bucket === "manual_cancelled" || bucket === "cancelled") {
       return (
@@ -800,6 +858,12 @@ if (paymentMethod === "manual") {
       return (
         <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-rose-500/10 text-rose-500 text-[10px] font-medium uppercase border border-rose-500/20">
           Erro API
+        </span>
+      );
+    if (bucket === "stuck")
+      return (
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-amber-500/10 text-amber-500 text-[10px] font-medium uppercase border border-amber-500/20 animate-pulse">
+          Travada
         </span>
       );
 
@@ -1147,8 +1211,14 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
                       r.whatsapp_status === "error" &&
                       (r.fulfillment_status === "done" ||
                         r.fulfillment_status === "manual_done");
+                    const isStuck = isStuckFulfillment(
+                      r.fulfillment_status,
+                      r.payment_status,
+                      r.created_at,
+                    );
 
-                    const canShowAction = isManualPending || isAwaitingTransfer || isWhatsappError;
+                    const canShowAction =
+                      isManualPending || isAwaitingTransfer || isWhatsappError || isStuck;
 
                     return (
                       <tr
@@ -1246,6 +1316,7 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
                             {getFulfillmentBadge(
                               r.fulfillment_status,
                               r.payment_status,
+                              r.created_at,
                             )}
                             {/* Cor neutra para todos os fluxos manuais (Pendente, Concluído ou Cancelado) */}
                             {r.fulfillment_status === "manual_pending" ||
@@ -1361,6 +1432,20 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
                                   <IconX />
                                 </button>
                               </>
+                            )}
+
+                            {/* ✅ NOVO: pagamento aprovado sem fulfillment concluído há mais
+                                de 10min — tenta rodar a renovação de novo na hora. */}
+                            {isStuck && (
+                              <button
+                                onClick={() => handleReprocessar(r)}
+                                disabled={reprocessingId === r.id}
+                                className="gap-1 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 text-[10px] font-medium uppercase rounded-lg transition-colors border border-amber-500/30 shadow-sm flex items-center justify-center gap-1 disabled:opacity-50"
+                                title="Tentar concluir a renovação automática de novo"
+                              >
+                                <IconRefresh />{" "}
+                                {reprocessingId === r.id ? "Reprocessando..." : "Reprocessar"}
+                              </button>
                             )}
 
                             {/* ✅ NOVO: Botão direto para reenviar o comprovante de WhatsApp */}

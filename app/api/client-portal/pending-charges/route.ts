@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getPendingCharges } from "@/lib/client-portal/pending-charges";
+import { touchPortalSession } from "@/lib/client-portal/session";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +64,8 @@ export async function POST(req: NextRequest) {
 
     if (sessErr || !sess) return jsonError("Sessão inválida", 401);
 
+    await touchPortalSession(supabaseAdmin, session_token);
+
     const { data: client, error: clientErr } = await supabaseAdmin
       .from("clients")
       .select("id, whatsapp_username, secondary_whatsapp_username, price_currency")
@@ -92,6 +95,7 @@ export async function POST(req: NextRequest) {
       { status: 200, headers: NO_STORE_HEADERS }
     );
   } catch (err: any) {
+    console.error("[pending-charges]", err?.message);
     return jsonError("Erro interno", 500);
   }
 }

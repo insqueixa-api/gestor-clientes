@@ -4,6 +4,7 @@
 // Alimenta o picker "+ Adicionar aplicativo" do Bloco 3.
 import { NextRequest, NextResponse } from "next/server";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
+import { getIntegrationHandler } from "@/lib/integrations";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
 
     let query = supabaseAdmin
       .from("apps")
-      .select("id, name, icon_url, technology, device_types")
+      .select("id, name, icon_url, technology, device_types, integration_type")
       .eq("tenant_id", ctx.tenant_id)
       .order("name", { ascending: true });
 
@@ -58,7 +59,19 @@ export async function POST(req: NextRequest) {
     const { data: apps, error: appsErr } = await query;
     if (appsErr) return jsonError("Erro interno", 500);
 
-    const available = (apps || []).filter((a: any) => !installedIds.has(a.id));
+    // ✅ Não oferece pra adicionar um app cuja integração está com
+    // useApi:false (ex: IBOSOL, bloqueio Cloudflare) — cliente adicionaria
+    // esperando automação e o "Reconfigurar" sempre falharia. Apps sem
+    // nenhuma integração (integration_type null) continuam disponíveis —
+    // esses nunca prometeram automação.
+    const available = (apps || [])
+      .filter((a: any) => !installedIds.has(a.id))
+      .filter((a: any) => {
+        if (!a.integration_type) return true;
+        const handler = getIntegrationHandler(a.integration_type);
+        return !!handler && (handler as any).useApi;
+      })
+      .map(({ integration_type, ...rest }: any) => rest);
 
     return NextResponse.json({ ok: true, data: available }, { status: 200, headers: NO_STORE_HEADERS });
   } catch {

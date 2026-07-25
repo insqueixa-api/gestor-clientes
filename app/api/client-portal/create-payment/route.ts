@@ -9,6 +9,7 @@ import {
   couponRejectReason,
   checkCouponAbuseGuard,
 } from "@/lib/client-portal/coupons";
+import { touchPortalSession } from "@/lib/client-portal/session";
 
 export const dynamic = "force-dynamic";
 
@@ -28,11 +29,12 @@ const NO_STORE_HEADERS = {
   Expires: "0",
 };
 
-// ✅ Log “cego”: em produção não imprime detalhes
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// ✅ Log estruturado — sempre ativo (aparece no log de função da Vercel em
+// produção). Antes o corpo do "if" era vazio e silenciava todo erro desta
+// rota mesmo em produção. Nunca loga o body inteiro nem dado sensível, só
+// os args que cada call site já escolhe passar.
 function safeServerLog(...args: any[]) {
-  if (process.env.NODE_ENV !== "production") {
-  }
+  console.error("[create-payment]", ...args);
 }
 
 function normalizeStr(v: unknown) {
@@ -117,6 +119,8 @@ if (!session_token || !client_id || !period) {
       safeServerLog("create-payment: invalid/expired session");
       return jsonError("Sessão inválida", 401);
     }
+
+    await touchPortalSession(supabaseAdmin, session_token);
 
     // 2) Buscar dados do cliente
     // ✅ CRÍTICO: garante que o client_id pertence ao whatsapp da sessão (Principal ou Secundário)

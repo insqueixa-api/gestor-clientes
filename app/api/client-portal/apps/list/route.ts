@@ -118,6 +118,11 @@ export async function POST(req: NextRequest) {
       // "date" nesses casos costuma ser placeholder/sem sentido.
       const isPartnership = String(vals["_config_cost"] || "") === "partnership";
       const handler = integrationType ? getIntegrationHandler(integrationType) : null;
+      // ✅ "has_integration" decide se o botão "Reconfigurar" aparece — precisa
+      // refletir automação REAL (handler.useApi), não só a presença de
+      // integration_type. IBOSOL, por ex., tem handler cadastrado mas
+      // useApi:false (bloqueio Cloudflare, ver ibosol.ts) — sem essa checagem
+      // o botão aparecia e sempre falhava ao clicar.
       const canCheckValidity =
         !isPartnership && !!handler && (handler as any).useApi && CHECK_VALIDITY_HANDLERS.has((handler as any).actionPrefix);
 
@@ -126,7 +131,7 @@ export async function POST(req: NextRequest) {
         app_id: row.app_id,
         name: row.apps?.name || "Aplicativo",
         icon_url: row.apps?.icon_url || null,
-        has_integration: !!integrationType,
+        has_integration: !!handler && (handler as any).useApi,
         can_check_validity: canCheckValidity,
         expiration: isPartnership ? null : extractExpiration(vals, config),
         fields: extractEditableFields(vals, config),

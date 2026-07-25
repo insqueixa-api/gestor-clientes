@@ -1,6 +1,7 @@
 // app/api/client-portal/get-accounts/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { touchPortalSession } from "@/lib/client-portal/session";
 
 export const dynamic = "force-dynamic";
 
@@ -30,11 +31,10 @@ function isPlausibleSessionToken(t: string) {
   return /^[a-zA-Z0-9=_\-\.]+$/.test(t);
 }
 
-// ✅ Log “cego”: em produção não imprime detalhes
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// ✅ Log estruturado — sempre ativo (antes o corpo do "if" era vazio e
+// silenciava todo erro desta rota mesmo em produção).
 function safeServerLog(...args: any[]) {
-  if (process.env.NODE_ENV !== "production") {
-  }
+  console.error("[get-accounts]", ...args);
 }
 
 export async function POST(req: NextRequest) {
@@ -83,6 +83,8 @@ if (!session_token) {
         { status: 401, headers: NO_STORE_HEADERS }
       );
     }
+
+    await touchPortalSession(supabaseAdmin, session_token);
 
     // 2. Buscar contas do cliente
     const { data: accounts, error: accErr } = await supabaseAdmin

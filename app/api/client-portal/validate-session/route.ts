@@ -1,6 +1,7 @@
 // app/api/client-portal/validate-session/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { touchPortalSession } from "@/lib/client-portal/session";
 
 export const dynamic = "force-dynamic";
 
@@ -32,12 +33,10 @@ function isPlausibleSessionToken(t: string) {
   return /^[a-zA-Z0-9=_\-\.]+$/.test(t);
 }
 
-// ✅ log “cego”: nada de imprimir erro do supabase / stack em produção
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// ✅ Log estruturado — sempre ativo (antes o corpo do "if" era vazio e
+// silenciava todo erro desta rota mesmo em produção).
 function safeServerLog(...args: any[]) {
-  if (process.env.NODE_ENV !== "production") {
-    // em dev, ok logar pra depurar
-  }
+  console.error("[validate-session]", ...args);
 }
 
 export async function POST(req: NextRequest) {
@@ -77,6 +76,8 @@ export async function POST(req: NextRequest) {
         { status: 401, headers: NO_STORE_HEADERS }
       );
     }
+
+    await touchPortalSession(supabaseAdmin, session_token);
 
     // ✅ BUSCA O WHATSAPP DO DONO DO SISTEMA COM PERMISSÃO DE ADMIN (Bypassa o RLS)
     let admin_whatsapp = null;

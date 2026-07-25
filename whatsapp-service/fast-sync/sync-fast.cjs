@@ -5,9 +5,13 @@
 // própria VM (POST /fast-sync/proxy-m3u) numa única chamada — sem R2, sem
 // proxy residencial, sem mandar dado de volta em centenas de requisições.
 const API_BASE  = 'https://unigestor.net.br'
-const API_TOKEN = process.env.EPG_SYNC_CRON_SECRET || '5f69b42084838eb6106b5eadea61265a1e3844b27fe4c28720b113bc3ad22f4e'
+const API_TOKEN = process.env.EPG_SYNC_CRON_SECRET
 
 async function main() {
+  if (!API_TOKEN) {
+    console.error('[FAST-SYNC] FATAL: EPG_SYNC_CRON_SECRET não definido no ambiente')
+    process.exit(1)
+  }
   console.log('[FAST-SYNC] Iniciando —', new Date().toISOString())
 
   const res = await fetch(`${API_BASE}/api/epg/sync-catalog/fast`, {
