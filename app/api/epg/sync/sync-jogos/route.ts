@@ -99,11 +99,25 @@ interface GameDetail extends GameSummary {
   venue?: { id: number; name: string }
 }
 
+// País da competição não vem dentro do jogo — a API devolve um array
+// `competitions` à parte (com countryId) junto da resposta de allscores.
+interface CompetitionInfo {
+  id: number
+  countryId: number
+  name: string
+}
+interface CountryInfo {
+  id: number
+  name: string
+}
+
 interface JogoDia {
   game_id: number
   sport_id: number
   competition_id: number
   competition_nome: string
+  pais_id: number | null
+  pais_nome: string | null
   stage_nome: string | null
   home_id: number
   home_nome: string
@@ -150,8 +164,11 @@ async function pLimit<T>(
   return results
 }
 
-/** Busca lista de todos os jogos do dia */
-async function fetchAllScores(date: string): Promise<GameSummary[]> {
+/** Busca lista de todos os jogos do dia + as competições/países do dia (país
+ *  não vem dentro do jogo, só nesse array à parte da mesma resposta). */
+async function fetchAllScores(
+  date: string
+): Promise<{ games: GameSummary[]; competitions: CompetitionInfo[]; countries: CountryInfo[] }> {
   const url =
     `${API_BASE}/games/allscores/` +
     `?appTypeId=${APP_TYPE}` +
@@ -167,7 +184,11 @@ async function fetchAllScores(date: string): Promise<GameSummary[]> {
   const res = await fetch(url, { headers: API_HEADERS })
   if (!res.ok) throw new Error(`allscores HTTP ${res.status}`)
   const data = await res.json()
-  return (data.games ?? []) as GameSummary[]
+  return {
+    games: (data.games ?? []) as GameSummary[],
+    competitions: (data.competitions ?? []) as CompetitionInfo[],
+    countries: (data.countries ?? []) as CountryInfo[],
+  }
 }
 
 /** Busca detalhe de um jogo (inclui tvNetworks e venue) */
@@ -190,13 +211,18 @@ async function fetchGameDetail(gameId: number): Promise<GameDetail | null> {
   }
 }
 
-/** Converte GameDetail para o formato da tabela jogos_dia */
-function toJogoDia(g: GameDetail): JogoDia {
+/** Converte GameDetail para o formato da tabela jogos_dia — `paisPorCompeticao`
+ *  é o mapa competitionId->país (Brasil, Argentina, etc.), montado a partir do
+ *  array `competitions` que a API devolve à parte de cada jogo. */
+function toJogoDia(g: GameDetail, paisPorCompeticao: Map<number, CountryInfo>): JogoDia {
+  const pais = paisPorCompeticao.get(g.competitionId) ?? null
   return {
     game_id: g.id,
     sport_id: g.sportId,
     competition_id: g.competitionId,
     competition_nome: g.competitionDisplayName,
+    pais_id: pais?.id ?? null,
+    pais_nome: pais?.name ?? null,
     stage_nome: g.stageName ?? null,
     home_id: g.homeCompetitor.id,
     home_nome: g.homeCompetitor.name,
@@ -266,14 +292,24 @@ export async function GET(request: Request) {
 
   try {
 // ── 1. Busca jogos de hoje e amanhã em paralelo ─────────────────────────
-    const [gamesHoje, gamesAmanha] = await Promise.all([
+    const [respHoje, respAmanha] = await Promise.all([
       fetchAllScores(hoje),
       fetchAllScores(dataAmanha),
     ])
-    const todosGames = [...gamesHoje, ...gamesAmanha]
+    const todosGames = [...respHoje.games, ...respAmanha.games]
     // Deduplica por game_id (caso a API retorne o mesmo jogo nos dois ranges)
     const gamesSemDup = [...new Map(todosGames.map(g => [g.id, g])).values()]
     console.log(`[sync-jogos] Total de jogos (hoje+amanhã): ${gamesSemDup.length}`)
+
+    // ── 1b. Monta o mapa competitionId -> país (Brasil, Argentina...) a
+    // partir dos arrays `competitions`/`countries` das duas respostas.
+    const countriesById = new Map<number, CountryInfo>()
+    for (const c of [...respHoje.countries, ...respAmanha.countries]) countriesById.set(c.id, c)
+    const paisPorCompeticao = new Map<number, CountryInfo>()
+    for (const comp of [...respHoje.competitions, ...respAmanha.competitions]) {
+      const pais = countriesById.get(comp.countryId)
+      if (pais) paisPorCompeticao.set(comp.id, pais)
+    }
 
     // ── 2. Filtra só os que têm transmissão em TV ───────────────────────────
     const comTV = gamesSemDup.filter((g) => g.hasTVNetworks)
@@ -312,7 +348,7 @@ export async function GET(request: Request) {
     )
 
     // ── 4. Converte para formato da tabela ──────────────────────────────────
-    const jogos = validosFiltrados.map(toJogoDia)
+    const jogos = validosFiltrados.map((g) => toJogoDia(g, paisPorCompeticao))
 
     // ── 5. Upsert no Supabase ───────────────────────────────────────────────
     const { error: upsertError } = await supabaseAdmin

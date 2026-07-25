@@ -1469,12 +1469,14 @@ function JogosDoDia({ data, loading, sportAtivo, busca }: { data: JogosDiaData |
 // Sem filtro de competição — agrupamento por competição já organiza a visualização
   const jogosFiltrados = jogosSport
 
-  // Agrupa por competição para exibição
+  // Agrupa por competição para exibição — Brasileirão Série A > resto do
+  // Brasil > demais países (ver ordenarGruposPorPais)
   const grupos = agruparPorCompeticao(jogosFiltrados)
+  const gruposOrdenados = ordenarGruposPorPais(grupos)
 
   return (
     <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-5 space-y-6 bg-background">
-      {[...grupos.entries()].map(([competicao, jogos]) => (
+      {gruposOrdenados.map(([competicao, jogos]) => (
         <GrupoCompeticao key={competicao} competicao={competicao} jogos={jogos} />
       ))}
     </div>
@@ -1693,7 +1695,8 @@ type TVNetworkJogo = {
 }
 type JogoDiaItem = {
   game_id: number; sport_id: number; competition_id: number
-  competition_nome: string; stage_nome: string | null
+  competition_nome: string; pais_id: number | null; pais_nome: string | null
+  stage_nome: string | null
   home_id: number; home_nome: string; home_image_ver: number | null
   home_color: string | null; home_logo: string | null
   away_id: number; away_nome: string; away_image_ver: number | null
@@ -1722,6 +1725,33 @@ function agruparPorCompeticao(jogos: JogoDiaItem[]): Map<string, JogoDiaItem[]> 
     map.set(j.competition_nome, arr)
   }
   return map
+}
+
+// Ordem de exibição pedida pelo Marcio (25/07/2026): Brasileirão - Série A
+// sempre no topo, depois o resto das competições do Brasil, só então as
+// dos outros países (ordenadas por país, pra não ficar na ordem crua que a
+// API devolve). `pais_nome`/`pais_id` vêm do sync (ver sync-jogos/route.ts,
+// que resolve o país de cada competição contra o array `competitions` da
+// API — o jogo em si não carrega essa informação).
+function ordenarGruposPorPais(grupos: Map<string, JogoDiaItem[]>): [string, JogoDiaItem[]][] {
+  function prioridade(competicao: string, jogos: JogoDiaItem[]): number {
+    const pais = jogos[0]?.pais_nome || ''
+    if (pais === 'Brasil' && competicao.toLowerCase().includes('série a')) return 0
+    if (pais === 'Brasil') return 1
+    return 2
+  }
+  return [...grupos.entries()].sort(([compA, jogosA], [compB, jogosB]) => {
+    const prioA = prioridade(compA, jogosA)
+    const prioB = prioridade(compB, jogosB)
+    if (prioA !== prioB) return prioA - prioB
+    if (prioA === 2) {
+      const paisA = jogosA[0]?.pais_nome || ''
+      const paisB = jogosB[0]?.pais_nome || ''
+      const cmpPais = paisA.localeCompare(paisB, 'pt-BR')
+      if (cmpPais !== 0) return cmpPais
+    }
+    return compA.localeCompare(compB, 'pt-BR')
+  })
 }
 
 function ModalUsageStats({onClose}:{onClose:()=>void}) {
