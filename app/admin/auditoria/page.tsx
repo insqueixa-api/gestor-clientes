@@ -70,17 +70,33 @@ const PERIOD_LABELS: Record<string, string> = {
 
 // --- OPÇÕES DE FILTRO (só aparecem no select se houver ao menos 1 registro) ---
 const FULFILLMENT_OPTIONS = [
-  { value: "done", label: "Concluídos (Auto)" },
-  { value: "manual_done", label: "Concluídos Manualmente" },
+  { value: "done", label: "Concluído (Automático)" },
+  { value: "manual_done", label: "Concluído (Manual)" },
   { value: "manual_pending", label: "Ação Manual (Pendentes)" },
   { value: "error", label: "Erros na Renovação" },
   { value: "stuck", label: "Travada (sem retorno)" },
   { value: "aguardando_pagamento", label: "Aguardando Pagamento" },
   { value: "awaiting_transfer", label: "Aguardando Transferência" },
-  { value: "cancelled", label: "Cancelada" },
-  { value: "manual_cancelled", label: "Cancelada Manualmente" },
+  { value: "cancelled", label: "Cancelado (Automático)" },
+  { value: "manual_cancelled", label: "Cancelado (Manual)" },
   { value: "processando", label: "Processando" },
 ];
+
+// ✅ Nomes "corretos" dos gateways (25/07/2026) — a tabela sempre guardou o
+// enum cru (mercadopago/stripe/transfer_manual_eur/...); os dois tipos de
+// transferência manual (EUR/USD) e o PIX manual viram um único rótulo aqui —
+// já são tratados como "manual" no resto da tela (getPaymentBadge etc.).
+const GATEWAY_LABELS: Record<string, string> = {
+  mercadopago: "Mercado Pago",
+  stripe: "Stripe",
+  pix_manual: "Transferência Manual",
+  transfer_manual_eur: "Transferência Manual",
+  transfer_manual_usd: "Transferência Manual",
+  manual: "Transferência Manual",
+};
+function gatewayLabel(raw: string) {
+  return GATEWAY_LABELS[raw] || raw;
+}
 
 // Pagamento aprovado cujo fulfillment nunca terminou nem gerou erro — o
 // webhook do MP e o polling do navegador (payment-status) são as ÚNICAS
@@ -125,8 +141,8 @@ function getFulfillmentBucket(status: string, paymentStatus: string, createdAt: 
 }
 
 const PAYMENT_OPTIONS = [
-  { value: "aprovado", label: "Aprovado" },
-  { value: "aprovado_manual", label: "Aprovado Manualmente" },
+  { value: "aprovado", label: "Aprovado (Automático)" },
+  { value: "aprovado_manual", label: "Aprovado (Manual)" },
   { value: "pendente", label: "Pendente" },
   { value: "renovacao_manual", label: "Renovação Manual" },
   { value: "recusado", label: "Recusado" },
@@ -136,7 +152,7 @@ const WHATSAPP_OPTIONS = [
   { value: "sent", label: "Enviado" },
   { value: "error", label: "Erro" },
   { value: "aguardando", label: "Aguardando" },
-  { value: "na", label: "Não se aplica" },
+  { value: "na", label: "Não se Aplica" },
 ];
 
 function matchesFulfillment(r: LogRow, value: string) {
@@ -158,6 +174,11 @@ function matchesPayment(r: LogRow, value: string) {
 }
 
 function matchesWhatsapp(r: LogRow, value: string) {
+  // ✅ Licença de app avulsa nunca dispara WhatsApp (achado em auditoria
+  // 25/07/2026: markAppRenewalPaid não manda mensagem — só o fulfillment de
+  // assinatura IPTV faz isso). Sem isso, esses pagamentos ficavam presos
+  // pra sempre em "Aguardando" na coluna/filtro de Mensagem WA.
+  if (r.payment_type === "app_renewal") return value === "na";
   const isApprovedPayment =
     r.payment_status === "approved" ||
     r.payment_status === "PAGO" ||
@@ -463,7 +484,7 @@ function AuditoriaPageContent() {
     const set = new Set<string>();
     rows.forEach((r) => {
       const g = (r.gateway_name || r.payment_method || "").trim();
-      if (g) set.add(g);
+      if (g) set.add(gatewayLabel(g));
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
   }, [rows]);
@@ -510,7 +531,7 @@ function AuditoriaPageContent() {
 
       if (filterGateway !== "Todos") {
         const g = r.gateway_name || r.payment_method || "";
-        if (g !== filterGateway) return false;
+        if (gatewayLabel(g) !== filterGateway) return false;
       }
 
       if (filterPayment !== "Todos" && !matchesPayment(r, filterPayment))
@@ -819,7 +840,7 @@ function AuditoriaPageContent() {
     if (status === "approved" || status === "PAGO")
       return (
         <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-emerald-500/10 text-emerald-500 text-[10px] font-medium uppercase border border-emerald-500/20">
-          Aprovado
+          Aprovado (Automático)
         </span>
       );
     if (status === "pending") {
@@ -841,7 +862,7 @@ if (paymentMethod === "manual") {
     if (status === "manual_approved") {
       return (
         <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-emerald-500/10 text-emerald-500 text-[10px] font-medium uppercase border border-emerald-500/20">
-          Aprovado Manualmente
+          Aprovado (Manual)
         </span>
       );
     }
@@ -864,7 +885,7 @@ if (paymentMethod === "manual") {
     if (bucket === "manual_cancelled" || bucket === "cancelled") {
       return (
         <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-rose-500/10 text-rose-500 text-[10px] font-medium uppercase border border-rose-500/20">
-          {bucket === "manual_cancelled" ? "Cancelada Manualmente" : "Cancelada"}
+          {bucket === "manual_cancelled" ? "Cancelado (Manual)" : "Cancelado (Automático)"}
         </span>
       );
     }
@@ -886,13 +907,13 @@ if (paymentMethod === "manual") {
     if (bucket === "done")
       return (
         <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-emerald-500/10 text-emerald-500 text-[10px] font-medium uppercase border border-emerald-500/20">
-          Concluído
+          Concluído (Automático)
         </span>
       );
     if (bucket === "manual_done")
       return (
         <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-sky-500/10 text-sky-500 text-[10px] font-medium uppercase border border-sky-500/20">
-          Concluído Manualmente
+          Concluído (Manual)
         </span>
       );
     if (bucket === "manual_pending")
@@ -925,7 +946,13 @@ if (paymentMethod === "manual") {
     status: string | null,
     paymentStatus: string,
     fulfillmentStatus: string,
+    paymentType: LogRow["payment_type"],
   ) {
+    // 0. Licença de app avulsa nunca dispara WhatsApp — ver matchesWhatsapp.
+    if (paymentType === "app_renewal") {
+      return <span className="text-muted-foreground/60 font-medium">—</span>;
+    }
+
     // 1. Se o pagamento NÃO foi aprovado, a mensagem nunca é enviada.
 if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !== "manual_approved") {
       return (
@@ -1167,7 +1194,7 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
               onChange={(e) => setFilterWhatsapp(e.target.value)}
               className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
             >
-              <option value="Todos">Mensagem WA (Todas)</option>
+              <option value="Todos">WhatsApp (Todos)</option>
               {availableWhatsappOptions.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
@@ -1231,7 +1258,7 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
               onChange={(e) => setFilterWhatsapp(e.target.value)}
               className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
             >
-              <option value="Todos">Mensagem WA (Todas)</option>
+              <option value="Todos">WhatsApp (Todos)</option>
               {availableWhatsappOptions.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
@@ -1269,7 +1296,7 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
                   <th className="px-4 py-3 text-center">Banco</th>
                   <th className="px-4 py-3 text-center">Pagamento</th>
                   <th className="px-4 py-3 text-center">Renovação</th>
-                  <th className="px-4 py-3 text-center">Mensagem WA</th>
+                  <th className="px-4 py-3 text-center">WhatsApp</th>
                   <th className="px-4 py-3 text-center">Valor</th>
                   <th className="px-4 py-3 text-center">Ações</th>
                 </tr>
@@ -1377,7 +1404,7 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
                         {/* Banco */}
                         <td className="px-4 py-3 text-center">
                           <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                            {r.gateway_name || r.payment_method}
+                            {gatewayLabel(r.gateway_name || r.payment_method)}
                           </span>
                         </td>
 
@@ -1449,6 +1476,7 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
                             r.whatsapp_status,
                             r.payment_status,
                             r.fulfillment_status,
+                            r.payment_type,
                           )}
                         </td>
 

@@ -338,7 +338,12 @@ async function executeLeaf(
     let msg: string;
     if (vencido) {
       const link = await toolGerarLinkPortal(sb, tenantId, rawClient, client.is_secondary);
-      msg = `Vi aqui que seu acesso está vencido — por isso o sinal parou. 😊\n\nPara renovar:\n👉 ${link}\nSenha: últimos 4 dígitos do seu WhatsApp`;
+      // ✅ Achado em auditoria (25/07/2026): essas 2 mensagens ainda pediam
+      // "Senha: últimos 4 dígitos do seu WhatsApp" — resquício de um PIN que
+      // o LoginClient não pede mais (login hoje é só o link mágico +
+      // Turnstile, ver app/LoginClient.tsx). Cliente vencido que mandava
+      // mensagem pro bot recebia instrução pra um passo que não existe.
+      msg = `Vi aqui que seu acesso está vencido — por isso o sinal parou. 😊\n\nPara renovar, é só acessar:\n👉 ${link}`;
     } else {
       msg = "Seu acesso está em dia! Vamos tentar o reset padrão: desligue o modem da tomada por 5 minutos, depois a TV, e teste de novo. Se persistir, me avisa!";
     }
@@ -443,7 +448,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
       const vencido = gateClient?.vencimento ? new Date(gateClient.vencimento).getTime() < Date.now() : false;
       if (vencido) {
         const link = await toolGerarLinkPortal(sb, tenantId, gateRawClient, gateClient.is_secondary);
-        const msg = `Vi aqui que seu acesso está vencido — por isso o sinal parou. 😊\n\nPara renovar:\n👉 ${link}\nSenha: últimos 4 dígitos do seu WhatsApp`;
+        const msg = `Vi aqui que seu acesso está vencido — por isso o sinal parou. 😊\n\nPara renovar, é só acessar:\n👉 ${link}`;
         await send(msg);
         return { action: "gate_vencido_global", markRead: true, nextState: "geral" };
       }

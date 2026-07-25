@@ -62,8 +62,13 @@ export default function AddAppModal({
 
   if (!mounted || !open) return null;
 
+  // ✅ App sem device_types cadastrado (achado em auditoria 25/07/2026: 15
+  // dos 34 apps do catálogo do Marcio, incluindo DupleCast/IBO Player/IBO
+  // Pro Player) nunca deve ficar invisível — antes desse modal, device_types
+  // nunca travava a lista de apps (só era usado de forma informativa). Sem
+  // esse fallback, esses 15 apps sumiriam de TODAS as categorias.
   const filteredApps = catalog
-    .filter((a) => !deviceType || (a.device_types || []).includes(deviceType))
+    .filter((a) => !deviceType || !a.device_types?.length || a.device_types.includes(deviceType))
     .filter((a) => a.name.toLowerCase().includes(search.trim().toLowerCase()));
 
   return createPortal(

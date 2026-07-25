@@ -13,42 +13,15 @@ async function resolveTenantIdForUser(supabase: any, userId: string, tenantFromQ
   const { data, error } = await supabase
     .from("tenant_members")
     .select("tenant_id")
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .limit(1)
+    .maybeSingle();
 
-  if (error) {
-    return { tenant_id: null as string | null, status: 500, error: "tenant_lookup_failed", details: error.message };
+  if (error || !data) {
+    return { tenant_id: null as string | null, status: 500, error: "tenant_lookup_failed", details: error?.message || "Sem tenant" };
   }
 
-  const tenantIds = Array.from(
-    new Set((data ?? []).map((r: any) => String(r.tenant_id || "")).filter(Boolean))
-  );
-
-  if (tenantIds.length === 0) {
-    return { tenant_id: null, status: 400, error: "tenant_id_missing", hint: "Seu usu\u00e1rio n\u00e3o est\u00e1 vinculado a um tenant." };
-  }
-
-  if (tenantIds.length === 1) {
-    const only = tenantIds[0];
-    if (tenantFromQuery && tenantFromQuery !== only) {
-      return { tenant_id: null, status: 403, error: "forbidden_tenant", hint: "tenant_id n\u00e3o pertence ao seu usu\u00e1rio." };
-    }
-    return { tenant_id: only, status: 200 };
-  }
-
-  if (!tenantFromQuery) {
-    return {
-      tenant_id: null,
-      status: 400,
-      error: "tenant_required",
-      hint: "Voc\u00ea participa de m\u00faltiplos tenants. Informe tenant_id na querystring para importar o tenant desejado.",
-    };
-  }
-
-  if (!tenantIds.includes(tenantFromQuery)) {
-    return { tenant_id: null, status: 403, error: "forbidden_tenant", hint: "tenant_id n\u00e3o pertence ao seu usu\u00e1rio." };
-  }
-
-  return { tenant_id: tenantFromQuery, status: 200 };
+  return { tenant_id: data.tenant_id, status: 200 };
 }
 
 export async function POST(req: Request) {

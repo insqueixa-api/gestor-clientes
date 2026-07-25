@@ -164,22 +164,18 @@ function normalizeRecorrencia(raw: string): "UNICA" | "RECORRENTE" | "PARCELADA"
 // ============================================================================
 
 async function resolveTenantIdForUser(supabase: any, userId: string, tenantFromQuery: string | null) {
-  const { data, error } = await supabase.from("tenant_members").select("tenant_id").eq("user_id", userId);
-  if (error) return { tenant_id: null as string | null, status: 500, error: "tenant_lookup_failed", details: error.message };
+  const { data, error } = await supabase
+    .from("tenant_members")
+    .select("tenant_id")
+    .eq("user_id", userId)
+    .limit(1)
+    .maybeSingle();
 
-  const tenantIds: string[] = Array.from(
-    new Set((data ?? []).map((r: any) => String(r.tenant_id || "")).filter(Boolean))
-  );
-
-  if (tenantIds.length === 0) return { tenant_id: null, status: 400, error: "tenant_id_missing", hint: "Sem tenant vinculado." };
-  if (tenantIds.length === 1) {
-    const only = tenantIds[0];
-    if (tenantFromQuery && tenantFromQuery !== only) return { tenant_id: null, status: 403, error: "forbidden_tenant" };
-    return { tenant_id: only, status: 200 };
+  if (error || !data) {
+    return { tenant_id: null as string | null, status: 500, error: "tenant_lookup_failed", details: error?.message || "Sem tenant" };
   }
-  if (!tenantFromQuery) return { tenant_id: null, status: 400, error: "tenant_required", hint: "Informe tenant_id na querystring." };
-  if (!tenantIds.includes(tenantFromQuery)) return { tenant_id: null, status: 403, error: "forbidden_tenant" };
-  return { tenant_id: tenantFromQuery, status: 200 };
+
+  return { tenant_id: data.tenant_id, status: 200 };
 }
 
 // ============================================================================

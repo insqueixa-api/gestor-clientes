@@ -259,7 +259,6 @@ export default function AppDetailClient() {
           clearInterval(interval);
           setRenewPollInterval(null);
           setRenewPaymentDone(true);
-          addToast("success", "Pagamento confirmado!", "A licença do aplicativo foi renovada.");
         }
       } catch {
         // continua tentando
@@ -499,7 +498,11 @@ export default function AppDetailClient() {
                 <div className="flex flex-col items-center gap-2 text-center py-4">
                   <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center text-3xl">✅</div>
                   <p className="text-base font-bold text-foreground">Pagamento confirmado!</p>
-                  <p className="text-xs text-muted-foreground">A licença do aplicativo foi renovada.</p>
+                  <p className="text-xs text-muted-foreground">
+                    {app?.has_integration
+                      ? 'O pagamento da licença foi registrado. Agora clique em "Configurar aplicativo" pra ativar de verdade.'
+                      : 'O pagamento da licença foi registrado. Nosso suporte vai finalizar a ativação em breve.'}
+                  </p>
                 </div>
                 <button
                   onClick={closeRenewPaymentModal}

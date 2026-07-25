@@ -10,17 +10,18 @@ function normalizeStr(s: any) {
 }
 
 async function resolveTenantIdForUser(supabase: any, userId: string, tenantFromQuery: string | null) {
-  const { data, error } = await supabase.from("tenant_members").select("tenant_id").eq("user_id", userId);
-  if (error) return { tenant_id: null as string | null, status: 500, error: "tenant_lookup_failed", details: error.message };
-  const tenantIds = Array.from(new Set((data ?? []).map((r: any) => String(r.tenant_id || "")).filter(Boolean))) as string[];
-  if (tenantIds.length === 0) return { tenant_id: null, status: 400, error: "tenant_id_missing", hint: "Sem vínculo." };
-  if (tenantIds.length === 1) {
-    if (tenantFromQuery && tenantFromQuery !== tenantIds[0]) return { tenant_id: null, status: 403, error: "forbidden" };
-    return { tenant_id: tenantIds[0], status: 200 };
+  const { data, error } = await supabase
+    .from("tenant_members")
+    .select("tenant_id")
+    .eq("user_id", userId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) {
+    return { tenant_id: null as string | null, status: 500, error: "tenant_lookup_failed", details: error?.message || "Sem tenant" };
   }
-  if (!tenantFromQuery) return { tenant_id: null, status: 400, error: "tenant_required", hint: "Múltiplos tenants." };
-  if (!tenantIds.includes(tenantFromQuery)) return { tenant_id: null, status: 403, error: "forbidden" };
-  return { tenant_id: tenantFromQuery, status: 200 };
+
+  return { tenant_id: data.tenant_id, status: 200 };
 }
 
 export async function POST(req: Request) {
