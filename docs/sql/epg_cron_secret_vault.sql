@@ -1,0 +1,55 @@
+-- Incidente 25/07/2026: o Marcio rotacionou EPG_SYNC_CRON_SECRET na Vercel
+-- e no .env.local, mas os 6 cron jobs de sync (Claro/jogos/Elite/NaTV/
+-- limpeza/TMDB) tinham o token antigo hardcoded como texto literal dentro
+-- de cron.job.command — sem nenhum vínculo com a env var. Resultado: todos
+-- os 6 tomaram 401 silenciosamente por um dia inteiro (cron.job_run_details
+-- mostra "succeeded" mesmo quando a resposta HTTP em si é 401, porque
+-- net.http_post só falha se o enqueue falhar, não se a resposta for erro —
+-- só dá pra ver o status real em net._http_response.status_code).
+--
+-- Mesmo problema, mesmo dia, achado por varredura: wa-daily-reboot
+-- (CRON_CONTROL_SECRET) e fin-snapshot-previsao-mensal
+-- (FIN_SNAPSHOT_CRON_SECRET) tinham o MESMO padrão frágil — só não tinham
+-- quebrado ainda porque esses 2 não foram rotacionados recentemente.
+--
+-- Correção: os 3 segredos agora moram no Supabase Vault (extensão
+-- supabase_vault, já instalada) em vez de hardcoded no texto do cron.
+-- ALTER DATABASE ... SET não funciona nesse plano gerenciado ("permission
+-- denied", reservado pro superuser da Supabase) — Vault é o mecanismo
+-- oficial deles pra isso.
+--
+-- ============================================================
+-- COMO ROTACIONAR DE NOVO NO FUTURO (só isso, nada de cron.alter_job):
+-- ============================================================
+--   select vault.update_secret(
+--     (select id from vault.decrypted_secrets where name = 'epg_cron_secret'),
+--     'NOVO_TOKEN_AQUI'
+--   );
+-- Troque 'epg_cron_secret' por 'cron_control_secret' ou
+-- 'fin_snapshot_cron_secret' conforme o caso. NÃO precisa mexer em
+-- cron.job nenhum — os 8 jobs (6 EPG + wa-daily-reboot +
+-- fin-snapshot-previsao-mensal) leem o valor atual do Vault a cada
+-- execução, via subquery em vault.decrypted_secrets. Atualize também
+-- .env.local e a Vercel (pro código da própria rota, que ainda lê
+-- process.env.* pra validar a chamada — o Vault só resolve o lado do
+-- CRON, não o lado da API que recebe).
+--
+-- Comandos que criaram os secrets e reescreveram os cron jobs (histórico,
+-- não precisa rodar de novo):
+--
+--   select vault.create_secret('<token>', 'epg_cron_secret', '...');
+--   select vault.create_secret('<token>', 'cron_control_secret', '...');
+--   select vault.create_secret('<token>', 'fin_snapshot_cron_secret', '...');
+--
+--   select cron.alter_job(<jobid>, command => $$
+--     SELECT net.http_post(
+--       url     := '...',
+--       headers := jsonb_build_object(
+--         'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'epg_cron_secret')
+--       ),
+--       body    := '{}'::jsonb
+--     );
+--   $$);
+--
+-- (repetido pros 8 jobs, cada um com a URL/nome de secret correspondente —
+-- ver `select jobname, command from cron.job` pro estado atual completo.)

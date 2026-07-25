@@ -33,9 +33,13 @@ const TZ = 'America%2FSao_Paulo'
 const LANG = 31
 const COUNTRY = 21
 const APP_TYPE = 5
-// Sports: 1=Futebol, 2=Basquete, 3=Tênis, 8=Vôlei, 6=Futebol Americano
-// Sem filtro fixo — a API retorna todos e filtramos por hasTVNetworks
-const SPORTS = '1,2,3,6,8'
+// Sports: 1=Futebol, 2=Basquete, 3=Tênis, 8=Vôlei, 6=Futebol Americano,
+// 7=Beisebol, 4=Hóquei, 9=Rugby (adicionados 25/07/2026 — auditoria achou
+// jogo real de MLB com TV perdido no dia por não estarem na lista;
+// confirmados via /web/games/allscores/ da própria API, campo `sports`).
+// O filtro real de "aparece ou não" é hasTVNetworks, não esta lista — ela só
+// limita quais esportes a API considera de início.
+const SPORTS = '1,2,3,6,8,7,4,9'
 
 // Headers obrigatórios — sem eles a API retorna games: []
 const API_HEADERS = {

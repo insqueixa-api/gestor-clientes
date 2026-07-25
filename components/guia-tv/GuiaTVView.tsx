@@ -1710,10 +1710,12 @@ type JogosDiaData = {
   sports: number[]; jogos: JogoDiaItem[]
 }
 const SPORT_LABEL: Record<number, string> = {
-  1: 'Futebol', 2: 'Basquete', 3: 'Tênis', 6: 'Futebol Americano', 8: 'Vôlei'
+  1: 'Futebol', 2: 'Basquete', 3: 'Tênis', 6: 'Futebol Americano', 8: 'Vôlei',
+  7: 'Beisebol', 4: 'Hóquei', 9: 'Rugby'
 }
 const SPORT_EMOJI: Record<number, string> = {
-  1: '⚽', 2: '🏀', 3: '🎾', 6: '🏈', 8: '🏐'
+  1: '⚽', 2: '🏀', 3: '🎾', 6: '🏈', 8: '🏐',
+  7: '⚾', 4: '🏒', 9: '🏉'
 }
 
 // Agrupa jogos por competição
