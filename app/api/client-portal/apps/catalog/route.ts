@@ -1,7 +1,8 @@
 // app/api/client-portal/apps/catalog/route.ts
 // Lista de apps do catálogo do tenant que o cliente ainda PODE adicionar —
-// filtrado por tecnologia da conta (IPTV/P2P) e excluindo os já instalados.
-// Alimenta o picker "+ Adicionar aplicativo" do Bloco 3.
+// filtrado por tecnologia da conta (IPTV/P2P). Alimenta o picker "+
+// Adicionar aplicativo" do Bloco 3. Mesmo app pode ser adicionado mais de
+// uma vez (2 TVs, 2 celulares...) — não exclui os já instalados.
 import { NextRequest, NextResponse } from "next/server";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { getIntegrationHandler } from "@/lib/integrations";
@@ -42,12 +43,6 @@ export async function POST(req: NextRequest) {
       .eq("id", client_id)
       .single();
 
-    const { data: installed } = await supabaseAdmin
-      .from("client_apps")
-      .select("app_id")
-      .eq("client_id", client_id);
-    const installedIds = new Set((installed || []).map((r: any) => r.app_id));
-
     let query = supabaseAdmin
       .from("apps")
       .select("id, name, icon_url, technology, device_types, integration_type")
@@ -65,7 +60,6 @@ export async function POST(req: NextRequest) {
     // nenhuma integração (integration_type null) continuam disponíveis —
     // esses nunca prometeram automação.
     const available = (apps || [])
-      .filter((a: any) => !installedIds.has(a.id))
       .filter((a: any) => {
         if (!a.integration_type) return true;
         const handler = getIntegrationHandler(a.integration_type);

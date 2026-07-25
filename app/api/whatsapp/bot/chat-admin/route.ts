@@ -36,7 +36,10 @@ async function resolveStateLabel(sb: any, nextState: string | undefined | null):
     const origin = await getNodeById(sb, originId);
     return `Confirmando troca para: ${target?.label || "nó removido"} (estava em: ${origin?.label || "nó removido"})`;
   }
-  const m = /^(menunode_retry|menunode|conta|awaiting_resolution_retry|awaiting_resolution):([a-f0-9-]+)$/.exec(nextState);
+  // ✅ "menunode"/"menunode_retry" carregam "|<accountId>" opcional no fim
+  // (conta já resolvida pro nó, ver bot-engine.ts) — ignorado aqui, só pro
+  // rótulo de debug ficar legível mesmo com o sufixo novo.
+  const m = /^(menunode_retry|menunode|conta|awaiting_resolution_retry|awaiting_resolution):([a-f0-9-]+)(?:\|[a-f0-9-]*)?$/.exec(nextState);
   if (m) {
     const node = await getNodeById(sb, m[2]);
     const label = node?.label || "nó removido";

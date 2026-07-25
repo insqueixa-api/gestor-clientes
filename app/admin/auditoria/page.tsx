@@ -3,6 +3,8 @@
 import { X } from "lucide-react";
 
 import { useEffect, useMemo, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import AplicativosLog from "./AplicativosLog";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/hooks/useConfirm";
@@ -211,6 +213,15 @@ function IconRefresh() {
 }
 
 function AuditoriaPageContent() {
+  const searchParams = useSearchParams();
+  // ✅ Toggle IPTV (log de pagamentos, existente) / Aplicativos (pedidos de
+  // configuração manual do Bloco 3, novo) — mesmo padrão visual do toggle
+  // do Dashboard (app/admin/dashboard-filter.tsx), mas local a esta página
+  // (não navega, só troca o que renderiza). Aceita ?view=aplicativos pra
+  // abrir direto nessa aba (usado pelo link da notificação do sino).
+  const [activeLogView, setActiveLogView] = useState<"iptv" | "aplicativos">(
+    searchParams.get("view") === "aplicativos" ? "aplicativos" : "iptv",
+  );
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [rows, setRows] = useState<LogRow[]>([]);
   const [loading, setLoading] = useState(true); // Filtros
@@ -252,11 +263,26 @@ function AuditoriaPageContent() {
     );
   }
 
+  // ✅ NOVO: contador vermelho no toggle "📱 Aplicativos" — quantos pedidos
+  // pendentes existem, mesmo que a aba não esteja aberta agora (senão o
+  // admin só descobre que tem pendência abrindo a aba por acaso).
+  const [appRequestsPendingCount, setAppRequestsPendingCount] = useState(0);
+
+  async function loadAppRequestsPendingCount(tid: string) {
+    const { count } = await supabaseBrowser
+      .from("client_app_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tid)
+      .eq("status", "pending");
+    setAppRequestsPendingCount(count || 0);
+  }
+
   async function loadData(searchTerm = "") {
     setLoading(true);
     try {
       const tid = await getCurrentTenantId();
       setTenantId(tid);
+      if (tid) loadAppRequestsPendingCount(tid);
 
       if (tid) {
         // 1. Busca os logs exatos de pagamento
@@ -447,6 +473,21 @@ function AuditoriaPageContent() {
   );
   const availableWhatsappOptions = useMemo(
     () => WHATSAPP_OPTIONS.filter((o) => rows.some((r) => matchesWhatsapp(r, o.value))),
+    [rows],
+  );
+
+  // ✅ NOVO: contador vermelho no toggle "📺 IPTV" — quantas linhas têm
+  // botão de ação esperando por você (ação manual, transferência aguardando,
+  // whatsapp com erro, ou travada sem retorno).
+  const iptvActionableCount = useMemo(
+    () =>
+      rows.filter(
+        (r) =>
+          r.fulfillment_status === "manual_pending" ||
+          r.fulfillment_status === "awaiting_transfer" ||
+          (r.whatsapp_status === "error" && (r.fulfillment_status === "done" || r.fulfillment_status === "manual_done")) ||
+          isStuckFulfillment(r.fulfillment_status, r.payment_status, r.created_at),
+      ).length,
     [rows],
   );
 
@@ -939,15 +980,62 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
           </p>
         </div>
         <div className="flex items-center gap-2 justify-end shrink-0">
-          <button
-            onClick={() => loadData(search)}
-            className="h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
-          >
-            <IconRefresh /> <span className="hidden sm:inline">Atualizar</span>
-          </button>
+          <div className="flex bg-transparent p-1 rounded-xl border border-border">
+            <button
+              onClick={() => setActiveLogView("iptv")}
+              className={`relative px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all flex items-center gap-1.5 ${
+                activeLogView === "iptv"
+                  ? "bg-card text-emerald-500 shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <span>📺</span>
+              <span>IPTV</span>
+              {iptvActionableCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center">
+                  {iptvActionableCount > 99 ? "99+" : iptvActionableCount}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveLogView("aplicativos")}
+              className={`relative px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all flex items-center gap-1.5 ${
+                activeLogView === "aplicativos"
+                  ? "bg-card text-emerald-500 shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <span>📱</span>
+              <span>Aplicativos</span>
+              {appRequestsPendingCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center">
+                  {appRequestsPendingCount > 99 ? "99+" : appRequestsPendingCount}
+                </span>
+              )}
+            </button>
+          </div>
+          {activeLogView === "iptv" && (
+            <button
+              onClick={() => loadData(search)}
+              className="h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
+            >
+              <IconRefresh /> <span className="hidden sm:inline">Atualizar</span>
+            </button>
+          )}
         </div>
       </div>
 
+      {activeLogView === "aplicativos" && tenantId && (
+        <AplicativosLog
+          tenantId={tenantId}
+          addToast={addToast}
+          confirm={confirm}
+          onPendingCountChange={setAppRequestsPendingCount}
+        />
+      )}
+
+      {activeLogView === "iptv" && (
+      <>
       {/* FILTROS */}
       <div className="px-3 md:p-4 bg-transparent md:bg-card border-0 md:border md:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20">
         <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground tracking-wider">
@@ -1486,6 +1574,8 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
             pageSizeOptions={[25, 50, 100, 200]}
           />
         </div>
+      )}
+      </>
       )}
 
       {/* ✅ Renderiza o Modal de Recarga ao clicar em Concluir */}

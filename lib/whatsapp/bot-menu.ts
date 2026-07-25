@@ -415,12 +415,20 @@ export function isConfirmSwitchYes(text: string): boolean {
   return text.split("\n").some((line) => CONFIRM_SWITCH_YES_RE.test(line.trim()));
 }
 
-const RESOLUTION_RESOLVED_RE = /^(1|sim|resolveu|resolvido|deu certo|funcionou)$/i;
+// ✅ Achado testando o fluxo: "resolveu, obrigado!" não batia (só o exato
+// "resolveu" batia), então o bot ignorava a confirmação e repetia a
+// pergunta 1/2 — sensação de "não escutou", justamente o que o Márcio não
+// quer. Aceita agora um agradecimento/emoji SOLTO grudado no final (sem
+// "mas"/continuação, que continua sinalizando problema real e cai fora
+// deste match) — mesmo espírito de isSimpleConfirmation, escopo restrito
+// de propósito pra não confundir com objeção.
+const TRAILING_PLEASANTRY = "[\\s,!.]*([ ]*obrigad[oa]|[ ]*valeu|[ ]*vlw|[ ]*😊|[ ]*🙏|[ ]*👍)?[\\s,!.]*$";
+const RESOLUTION_RESOLVED_RE = new RegExp(`^(1|sim|resolveu|resolvido|deu certo|funcionou)${TRAILING_PLEASANTRY}`, "i");
 export function isResolutionResolved(text: string): boolean {
   return text.split("\n").some((line) => RESOLUTION_RESOLVED_RE.test(line.trim()));
 }
 
-const RESOLUTION_NOT_RESOLVED_RE = /^(2|não|nao|não resolveu|nao resolveu|continua|ainda não|ainda nao)$/i;
+const RESOLUTION_NOT_RESOLVED_RE = new RegExp(`^(2|não|nao|não resolveu|nao resolveu|continua|ainda não|ainda nao)${TRAILING_PLEASANTRY}`, "i");
 export function isResolutionNotResolved(text: string): boolean {
   return text.split("\n").some((line) => RESOLUTION_NOT_RESOLVED_RE.test(line.trim()));
 }
@@ -547,12 +555,36 @@ export const ACCOUNT_DEPENDENT_ACTIONS = [
 // com uma dessas tags nunca perguntaria "qual conta?" antes de resolver —
 // resolveria sempre pra primeira conta, errado pra quem tem mais de uma
 // (cupom/pendência são por conta, não pela pessoa — ver coupons.ts).
-export const ACCOUNT_DEPENDENT_VARS = ["{link_pagamento}", "{tabela_precos}", "{cupom_frase}", "{pendencia_detalhe}"];
+// ✅ {usuario_app}/{senha_app}/{dns_servidor}/{servidor_nome} adicionados
+// (auditoria 2026-07-24): são credenciais/identidade da CONTA, não da
+// pessoa — igual cupom/pendência, nunca devem resolver pra clients[0] sem
+// perguntar quando há mais de uma conta.
+export const ACCOUNT_DEPENDENT_VARS = [
+  "{link_pagamento}", "{tabela_precos}", "{cupom_frase}", "{pendencia_detalhe}",
+  "{usuario_app}", "{senha_app}", "{dns_servidor}", "{servidor_nome}",
+];
 
-export async function nodeNeedsAccount(sb: any, node: MenuNode, provider?: ServerProvider | null): Promise<boolean> {
+// ✅ Achado em auditoria (2026-07-24): nós com variante de texto POR SERVIDOR
+// (ex: "Samsung ou LG", "Roku" — código/app muda entre NaTV/Fast/Elite) NÃO
+// disparavam esta checagem quando o provider já resolvido (de clients[0]) era
+// null/diferente do servidor certo — porque a versão antiga buscava os steps
+// JÁ FILTRADOS por esse provider (getSteps(..., provider)), e um nó só-com-
+// variantes sem fallback universal devolve ZERO linhas pra provider errado/
+// desconhecido, então a busca por {tag} nunca achava nada e nunca pedia conta.
+// Corrigido buscando os steps CRUS (sem filtro de provider): se o nó tem
+// QUALQUER linha com `server` preenchido, o conteúdo em si já depende de qual
+// conta/servidor é — precisa perguntar, mesmo sem nenhuma tag explícita.
+export async function nodeNeedsAccount(sb: any, node: MenuNode): Promise<boolean> {
   const actions = node.special_actions || [];
   if (actions.some((a) => ACCOUNT_DEPENDENT_ACTIONS.includes(a))) return true;
-  const stepsText = (await getSteps(sb, node.id, provider)).join(" ");
+
+  const { data } = await sb.from("bot_menu_steps").select("message_text, server").eq("node_id", node.id);
+  const rows: any[] = data || [];
+  if (!rows.length) return false;
+
+  if (rows.some((r) => r.server)) return true;
+
+  const stepsText = rows.map((r) => r.message_text).join(" ");
   return ACCOUNT_DEPENDENT_VARS.some((v) => stepsText.includes(v));
 }
 

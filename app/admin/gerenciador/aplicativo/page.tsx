@@ -47,6 +47,7 @@ type AppData = {
   license_period?: LicensePeriod | null;
   device_types?: DeviceType[] | null;
   technology?: Technology | null;
+  portal_setup_instructions?: string | null;
 };
 
 type ServerOption = {
@@ -167,6 +168,7 @@ const [apps, setApps] = useState<AppData[]>([]);
   const [formLicensePeriod, setFormLicensePeriod] = useState<LicensePeriod | "">("");
   const [formDeviceTypes, setFormDeviceTypes] = useState<DeviceType[]>([]);
   const [formTechnology, setFormTechnology] = useState<Technology>("IPTV");
+  const [formPortalInstructions, setFormPortalInstructions] = useState<string>("");
 
   async function handleIconUpload(file: File) {
     if (!file.type.startsWith("image/")) {
@@ -445,6 +447,7 @@ setApps(formattedApps);
     setFormLicensePeriod("");
     setFormDeviceTypes([]);
     setFormTechnology("IPTV");
+    setFormPortalInstructions("");
     setIsModalOpen(true);
   }
 
@@ -461,6 +464,7 @@ setApps(formattedApps);
     setFormLicensePeriod((app.license_period as LicensePeriod) || "");
     setFormDeviceTypes((app.device_types as DeviceType[]) || []);
     setFormTechnology((app.technology as Technology) || "IPTV");
+    setFormPortalInstructions(app.portal_setup_instructions || "");
     setIsModalOpen(true);
   }
 
@@ -525,6 +529,7 @@ setApps(formattedApps);
         license_period: isPaid && formLicensePeriod ? formLicensePeriod : null,
         device_types: formDeviceTypes,
         technology: formTechnology,
+        portal_setup_instructions: formPortalInstructions.trim() || null,
       };
 
       if (editingId) {
@@ -540,6 +545,7 @@ setApps(formattedApps);
           license_period: isPaid && formLicensePeriod ? formLicensePeriod : null,
           device_types: formDeviceTypes,
           technology: formTechnology,
+          portal_setup_instructions: formPortalInstructions.trim() || null,
         };
         const { error } = await supabaseBrowser
           .from("apps")
@@ -1356,6 +1362,21 @@ setApps(formattedApps);
                     Marque todos os aparelhos onde esse app funciona. Usado
                     pra filtrar aqui e (no futuro) na tela de manutenção do
                     portal do cliente.
+                  </p>
+                </div>
+
+                <div>
+                  <Label>Instruções de configuração (portal do cliente)</Label>
+                  <textarea
+                    value={formPortalInstructions}
+                    onChange={(e) => setFormPortalInstructions(e.target.value)}
+                    rows={5}
+                    placeholder="Passo a passo pro cliente configurar esse app sozinho (ex: onde baixar, como inserir o Device ID, etc). Fica vazio até você preencher — a seção some da página do app no portal se não tiver nada aqui."
+                    className="w-full px-3 py-2 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 resize-y"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Aparece na página de detalhe desse app no portal
+                    (/renew-beta/apps/[id]), abaixo dos campos e ações.
                   </p>
                 </div>
               </div>

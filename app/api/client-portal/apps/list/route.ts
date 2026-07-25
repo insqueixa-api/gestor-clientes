@@ -103,11 +103,21 @@ export async function POST(req: NextRequest) {
       return jsonError("Erro interno", 500);
     }
 
-    const { data: client } = await supabaseAdmin
-      .from("clients")
-      .select("m3u_url")
-      .eq("id", client_id)
-      .maybeSingle();
+    // ✅ Pra apps sem integração automática, o portal mostra "Solicitar
+    // configuração"/"Exclusão solicitada" quando já existe um pedido
+    // pendente (setup ou removal) — evita duplicar pedido e avisa o
+    // cliente que já está na fila do admin.
+    const { data: pendingRequests } = await supabaseAdmin
+      .from("client_app_requests")
+      .select("client_app_id, action")
+      .eq("client_id", client_id)
+      .eq("status", "pending");
+    const pendingSetupByAppId = new Set(
+      (pendingRequests || []).filter((r: any) => r.action === "setup").map((r: any) => r.client_app_id),
+    );
+    const pendingRemovalByAppId = new Set(
+      (pendingRequests || []).filter((r: any) => r.action === "removal").map((r: any) => r.client_app_id),
+    );
 
     const apps = (rows || []).map((row: any) => {
       const vals = row.field_values || {};
@@ -133,13 +143,15 @@ export async function POST(req: NextRequest) {
         icon_url: row.apps?.icon_url || null,
         has_integration: !!handler && (handler as any).useApi,
         can_check_validity: canCheckValidity,
+        has_pending_setup_request: pendingSetupByAppId.has(row.id),
+        has_pending_removal_request: pendingRemovalByAppId.has(row.id),
         expiration: isPartnership ? null : extractExpiration(vals, config),
         fields: extractEditableFields(vals, config),
       };
     });
 
     return NextResponse.json(
-      { ok: true, data: apps, m3u_url: client?.m3u_url || null },
+      { ok: true, data: apps },
       { status: 200, headers: NO_STORE_HEADERS },
     );
   } catch {

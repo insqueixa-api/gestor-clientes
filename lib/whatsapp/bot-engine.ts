@@ -34,6 +34,7 @@ import {
   findChildByKeyword,
   matchAccountFromText,
   nodeNeedsAccount,
+  resolveClientProvider,
   RESOLUTION_QUESTION,
   isResolutionResolved,
   isResolutionNotResolved,
@@ -397,7 +398,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
   // (ex: foto classificada como "tela de app expirado" pelo Gemini).
   if (p.forceNodeId) {
     const forced = await getNodeById(sb, p.forceNodeId);
-    if (forced) return enterNode(forced, null, 1);
+    if (forced) return enterNode(forced, null, 1, 0, true);
   }
 
   // ── Item 1: escalonamento explícito — prioridade máxima ─────────────────
@@ -530,15 +531,33 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
     node: MenuNode,
     resolved: { client: any; rawClient: any } | null,
     attempt: 1 | 2,
-    redirectDepth: number = 0
+    redirectDepth: number = 0,
+    // ✅ Achado em auditoria (2026-07-24): quando `trimmed` era um dígito puro
+    // já CONSUMIDO pra escolher este mesmo nó num menu numerado (ex: "2" pra
+    // entrar em "Samsung ou LG"), `resolveAccount(trimmed)` reaproveitava
+    // esse MESMO "2" e o reinterpretava como "conta 2" — se o cliente
+    // tivesse 2+ contas, o bot silenciosamente resolvia (errado, por
+    // coincidência) pra uma conta aleatória em vez de perguntar qual é.
+    // `true` força ignorar esse aproveitamento e perguntar de propósito;
+    // usado em toda chamada onde `trimmed` já foi gasto navegando o menu
+    // (seleção numérica de raiz/filho, redirect, troca de assunto,
+    // resolução de fluxo) — nunca na resposta a "qual conta?" de verdade
+    // (`contaMatch`), onde reaproveitar `trimmed` é o comportamento certo.
+    skipAccountFromTrimmed: boolean = false
   ): Promise<BotEngineResult> {
     if (redirectDepth > MAX_REDIRECT_DEPTH) {
       await sendFlow(flow.escalate_message);
       return { action: "redirect_loop", escalate: true, markRead: false, nextState: "__clear__" };
     }
 
-    if ((await nodeNeedsAccount(sb, node, clientProvider)) && !resolved) {
-      resolved = resolveAccount(trimmed);
+    if ((await nodeNeedsAccount(sb, node)) && !resolved) {
+      // ✅ O atalho de conta única (`clients.length <= 1`) não olha `trimmed`
+      // pra nada — sempre seguro, mesmo quando `skipAccountFromTrimmed` é
+      // true. Só a interpretação de `trimmed` como número/nome de conta
+      // (`matchAccountFromText`, usada quando há 2+ contas) é que precisa
+      // ser pulada nesse caso, pra não reaproveitar um dígito já gasto
+      // navegando o menu.
+      resolved = clients.length <= 1 || !skipAccountFromTrimmed ? resolveAccount(trimmed) : null;
       if (!resolved) {
         if (attempt === 2) {
           await sendFlow(flow.escalate_message);
@@ -551,7 +570,20 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
     const client = resolved?.client || clients[0];
     const rawClient = resolved?.rawClient || clientMatchesRaw[0];
 
-    const children = await getChildren(sb, node.id, clientProvider);
+    // ✅ Achado em auditoria (2026-07-24): `clientProvider` (parâmetro de fora)
+    // reflete só clients[0] — a PRIMEIRA conta que a query por telefone
+    // devolveu, não necessariamente a conta que o cliente está pedindo ajuda
+    // agora. Um cliente com contas em servidores diferentes (ex: NaTV +
+    // Elite) podia cair no conteúdo/credencial da conta ERRADA em nós como
+    // "Samsung ou LG"/"Roku"/"Computador" (variam por servidor), sem o bot
+    // nunca perguntar qual conta — porque a filtragem de children/steps usava
+    // sempre esse valor "congelado". Recalcula aqui a partir da conta
+    // EFETIVAMENTE resolvida pra este nó (explícita ou default de conta
+    // única), pra `getChildren`/`getSteps`/`buildVarsForNode`/`executeLeaf`
+    // usarem o servidor certo — nunca mais o de outra conta.
+    const nodeProvider = await resolveClientProvider(sb, client?.server_id || null);
+
+    const children = await getChildren(sb, node.id, nodeProvider);
 
     if (children.length > 0) {
       const gate = await runGateChecks(node, client, sb, tenantId);
@@ -562,13 +594,26 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
       const directChild = findChildByKeyword(children, trimmed);
       if (directChild) return enterNode(directChild, null, 1, redirectDepth);
 
-      const vars = await buildVarsForNode(sb, tenantId, node, client, rawClient, clientProvider);
-      for (const m of (await getSteps(sb, node.id, clientProvider)).map((s) => renderTemplate(s, vars))) await sendWithLogos(m);
+      const vars = await buildVarsForNode(sb, tenantId, node, client, rawClient, nodeProvider);
+      for (const m of (await getSteps(sb, node.id, nodeProvider)).map((s) => renderTemplate(s, vars))) await sendWithLogos(m);
       await send(renderChildrenMenu(children, undefined, true));
-      return { action: "menu_shown", markRead: true, nextState: `menunode:${node.id}` };
+      // ✅ Carrega a conta já em uso no próprio estado — sem isso, escolher o
+      // PRÓXIMO filho (outro turno, outro despacho em runBotEngine) esquecia
+      // a conta e perguntava de novo mesmo dentro do mesmo assunto (ex:
+      // "Problema técnico" pede conta pro gate → filho "Canal travando"
+      // perguntaria de novo). Formato usa "|" (não ":") antes do id da
+      // conta pra não colidir com o separador do node id.
+      // ⚠️ Só embuti quando `resolved` é verdadeiro (resolução DE VERDADE:
+      // escolha explícita, ou conta única) — nunca o `client = clients[0]`
+      // default de um nó que nem precisava de conta. Senão um nó raso sem
+      // essa exigência (ex: "Nova instalação") "vazaria" a 1ª conta como se
+      // fosse resolvida, e um filho mais fundo que precisa mesmo (ex:
+      // "Samsung ou LG") pularia a pergunta e usaria a conta errada — o
+      // mesmíssimo bug que essa auditoria corrigiu, só que por outra porta.
+      return { action: "menu_shown", markRead: true, nextState: `menunode:${node.id}|${resolved?.client?.id || ""}` };
     }
 
-    const result = await executeLeaf(node, client, rawClient, sb, tenantId, flow, clientProvider);
+    const result = await executeLeaf(node, client, rawClient, sb, tenantId, flow, nodeProvider);
 
     const redirectMatch = /^__redirect_node__:([0-9a-f-]{36})$/i.exec(result.nextState || "");
     if (redirectMatch || result.nextState === "__redirect_instalacao__") {
@@ -580,7 +625,12 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
         const { data: instalacaoRoot } = await sb.from("bot_menu_nodes").select("*").eq("tenant_id", tenantId).eq("slug", "instalacao").maybeSingle();
         target = (instalacaoRoot as MenuNode) || null;
       }
-      if (target) return enterNode(target, null, 1, redirectDepth + 1);
+      // ✅ Preserva a conta já resolvida na cadeia de redirect (ex: "app
+      // vencido" → "testar app parceiro" → instalação) — evita perguntar
+      // "qual conta?" de novo pro destino se já sabíamos a resposta aqui.
+      // Se ainda não tinha sido resolvida, `trimmed` é de uma mensagem
+      // anterior (o gatilho do nó de origem) — não reaproveitar pro destino.
+      if (target) return enterNode(target, resolved, 1, redirectDepth + 1, true);
       await sendFlow(flow.escalate_message);
       return { action: "redirect_destino_ausente", escalate: true, markRead: false, nextState: "__clear__" };
     }
@@ -608,7 +658,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
 
     if (kind === "node" && target.kind === "node") {
       const dest = await getNodeById(sb, target.nodeId);
-      if (dest) return enterNode(dest, null, 1, 0);
+      if (dest) return enterNode(dest, null, 1, 0, true);
       await sendFlow(flow.escalate_message);
       return { action: "target_node_missing", escalate: true, markRead: false, nextState: "__clear__", transferReason: node?.transfer_situation_label || null };
     }
@@ -636,13 +686,13 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
     const [, targetId, originId] = confirmSwitchMatch;
     if (isConfirmSwitchYes(trimmed)) {
       const target = await getNodeById(sb, targetId);
-      if (target) return enterNode(target, null, 1);
+      if (target) return enterNode(target, null, 1, 0, true);
     }
     const origin = await getNodeById(sb, originId);
     if (!origin) return { action: "erro_no_estado", markRead: true, nextState: "__clear__" };
     const originChildren = await getChildren(sb, origin.id, clientProvider);
     await send(renderChildrenMenu(originChildren, "Combinado, seguimos por aqui! Escolha uma das opções:", true));
-    return { action: "confirm_switch_declined", markRead: true, nextState: `menunode:${origin.id}` };
+    return { action: "confirm_switch_declined", markRead: true, nextState: `menunode:${origin.id}|` };
   }
 
   // ── Estado: aguardando resolução de conta ────────────────────────────────
@@ -677,24 +727,37 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
   }
 
   // ── Estado: dentro de um nó com filhos (escolhendo opção) ────────────────
-  const menuNodeMatch = /^menunode:([a-f0-9-]+)$/.exec(botState || "");
-  const menuNodeRetryMatch = /^menunode_retry:([a-f0-9-]+)$/.exec(botState || "");
+  // ✅ "|<accountId>" (opcional, vazio se nunca resolvida) carrega a conta já
+  // em uso pra escolha do PRÓXIMO filho não perguntar de novo — ver
+  // comentário completo onde o estado é gerado (`enterNode`, ramo com filhos).
+  const menuNodeMatch = /^menunode:([a-f0-9-]+)\|([a-f0-9-]*)$/.exec(botState || "");
+  const menuNodeRetryMatch = /^menunode_retry:([a-f0-9-]+)\|([a-f0-9-]*)$/.exec(botState || "");
   if (menuNodeMatch || menuNodeRetryMatch) {
-    const nodeId = (menuNodeMatch || menuNodeRetryMatch)![1];
+    const [, nodeId, carriedAccountId] = (menuNodeMatch || menuNodeRetryMatch)!;
     const isSecondMiss = !!menuNodeRetryMatch;
     const currentNode = await getNodeById(sb, nodeId);
     if (!currentNode) return { action: "erro_no_estado", markRead: true, nextState: "__clear__" };
 
+    const carriedIdx = carriedAccountId ? clients.findIndex((c: any) => c.id === carriedAccountId) : -1;
+    const carriedResolved = carriedIdx >= 0 ? { client: clients[carriedIdx], rawClient: clientMatchesRaw[carriedIdx] } : null;
+
     const children = await getChildren(sb, currentNode.id, clientProvider);
     const numeric = extractSingleDigitSelection(trimmed);
-    const chosen = (numeric ? findChildByNumber(children, numeric) : null) || findChildByKeyword(children, trimmed);
+    const chosenByNumber = numeric ? findChildByNumber(children, numeric) : null;
+    const chosen = chosenByNumber || findChildByKeyword(children, trimmed);
 
-    if (chosen) return enterNode(chosen, null, 1);
+    // ✅ Só pula o reaproveitamento de `trimmed` quando a escolha foi por
+    // NÚMERO — é aí que a colisão com "qual conta" acontece (ver comentário
+    // em `enterNode`). Por palavra-chave, o texto pode legitimamente
+    // mencionar a conta ("quero pagar a conta 2") e vale deixar passar.
+    // A conta já carregada no estado (`carriedResolved`) vale pro filho
+    // escolhido — só pergunta de novo se essa conta ainda não era conhecida.
+    if (chosen) return enterNode(chosen, carriedResolved, 1, 0, !!chosenByNumber);
 
     if (!isSecondMiss) {
       const intro = renderTemplate(pickInvalidIntro(currentNode, 1, flow.menu_invalid_intro_1, flow.menu_invalid_intro_2), flowVars);
       await send(buildInvalidMenuRetry(children, intro, true));
-      return { action: "menu_retry", markRead: true, nextState: `menunode_retry:${currentNode.id}` };
+      return { action: "menu_retry", markRead: true, nextState: `menunode_retry:${currentNode.id}|${carriedAccountId}` };
     }
 
     const switched = await detectMenuContextFromTree(sb, tenantId, trimmed, clientProvider);
@@ -725,7 +788,14 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
   if (botState === "geral" || botState === "geral_retry") {
     const isRetry = botState === "geral_retry";
     try {
-      const embedding = await generateEmbedding(geminiKey, trimmed);
+      // ✅ Achado testando o fluxo: mensagens curtas/de baixo sinal ("conta 5",
+      // "não sei, qualquer uma", até texto sem nexo nenhum) estavam batendo por
+      // similaridade com artigos completamente sem relação — o RAG livre não
+      // tinha o mesmo piso de sinal mínimo que a detecção de categoria raiz já
+      // usa (hasSemanticSignal, ver mais abaixo). Sem embedding pra bater com
+      // nada, cai direto pro "não encontrei" — igual a nenhum candidato ter
+      // vindo da busca.
+      const embedding = hasSemanticSignal(trimmed) ? await generateEmbedding(geminiKey, trimmed) : null;
       const candidates = embedding ? await searchBotKnowledgeCandidates(sb, tenantId, embedding) : [];
       const top = await pickCompatibleKnowledgeMatch(sb, candidates, clientProvider);
       if (top) {
@@ -766,7 +836,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
   if (extractSingleDigitSelection(trimmed) !== null) {
     const roots = await getRootNodes(sb, tenantId, clientProvider);
     const chosenRoot = findRootByNumber(roots, trimmed);
-    if (chosenRoot) return enterNode(chosenRoot, null, 1);
+    if (chosenRoot) return enterNode(chosenRoot, null, 1, 0, true);
   }
 
   const detected = await detectMenuContextFromTree(sb, tenantId, trimmed, clientProvider);

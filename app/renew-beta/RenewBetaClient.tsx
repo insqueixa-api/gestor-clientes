@@ -262,6 +262,8 @@ export default function RenewClient() {
     icon_url: string | null;
     has_integration: boolean;
     can_check_validity: boolean;
+    has_pending_setup_request: boolean;
+    has_pending_removal_request: boolean;
     expiration: string | null;
     fields: InstalledAppField[];
   };
@@ -270,10 +272,6 @@ export default function RenewClient() {
   const [installedAppsError, setInstalledAppsError] = useState<string | null>(
     null,
   );
-  const [accountM3uUrl, setAccountM3uUrl] = useState<string | null>(null);
-  const [m3uBusy, setM3uBusy] = useState(false);
-  const [m3uVisible, setM3uVisible] = useState(false);
-
   // Bloco 3 — sub-abas
   const [appsSubTab, setAppsSubTab] = useState<
     "meus-apps" | "novo-dispositivo" | "duvidas"
@@ -565,7 +563,6 @@ export default function RenewClient() {
       const result = await res.json().catch(() => null);
       if (!result?.ok) throw new Error("Não foi possível carregar seus aplicativos");
       setInstalledApps(result.data || []);
-      setAccountM3uUrl(result.m3u_url || null);
     } catch (err: any) {
       setInstalledAppsError(safeUserError(err?.message));
     } finally {
@@ -673,6 +670,30 @@ export default function RenewClient() {
     }
   }
 
+  async function handleRequestSetup(clientAppId: string) {
+    if (!selectedAccountId || !session) return;
+    setAppActionBusy(clientAppId);
+    try {
+      const res = await fetch("/api/client-portal/apps/request-setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_token: session, client_id: selectedAccountId, client_app_id: clientAppId }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!result?.ok) throw new Error(result?.error || "Falha ao solicitar configuração.");
+      addToast(
+        "success",
+        result.data?.already_pending ? "Já solicitado" : "Solicitado!",
+        "Nosso suporte vai configurar esse aplicativo pra você em breve.",
+      );
+      await refreshInstalledApps();
+    } catch (err: any) {
+      addToast("error", "Falha ao solicitar", err?.message);
+    } finally {
+      setAppActionBusy(null);
+    }
+  }
+
   async function handleCheckValidity(clientAppId: string) {
     if (!selectedAccountId || !session) return;
     setAppActionBusy(clientAppId);
@@ -696,10 +717,10 @@ export default function RenewClient() {
   async function handleRemoveApp(clientAppId: string, appName: string) {
     if (!selectedAccountId || !session) return;
     const ok = await confirm({
-      title: "Remover aplicativo?",
-      subtitle: `"${appName}" será removido dessa conta e do painel do parceiro (quando aplicável).`,
+      title: "Excluir aplicativo?",
+      subtitle: `"${appName}" será removido dessa conta. Se tiver configuração automática, também some do painel do parceiro; se não tiver, seu pedido vai pro nosso suporte concluir.`,
       tone: "rose",
-      confirmText: "Remover",
+      confirmText: "Excluir",
       cancelText: "Cancelar",
     });
     if (!ok) return;
@@ -712,11 +733,19 @@ export default function RenewClient() {
         body: JSON.stringify({ session_token: session, client_id: selectedAccountId, client_app_id: clientAppId }),
       });
       const result = await res.json().catch(() => null);
-      if (!result?.ok) throw new Error(result?.error || "Falha ao remover.");
-      addToast("success", "Removido!", `"${appName}" foi removido dessa conta.`);
+      if (!result?.ok) throw new Error(result?.error || "Falha ao excluir.");
+      if (result.data?.pending_admin) {
+        addToast(
+          "success",
+          result.data?.already_requested ? "Já solicitado" : "Exclusão solicitada",
+          "Nosso suporte vai remover esse aplicativo em breve.",
+        );
+      } else {
+        addToast("success", "Excluído!", `"${appName}" foi removido dessa conta.`);
+      }
       await refreshInstalledApps();
     } catch (err: any) {
-      addToast("error", "Falha ao remover", err?.message);
+      addToast("error", "Falha ao excluir", err?.message);
     } finally {
       setAppActionBusy(null);
     }
@@ -741,26 +770,6 @@ export default function RenewClient() {
       addToast("error", "Falha ao adicionar", err?.message);
     } finally {
       setAppActionBusy(null);
-    }
-  }
-
-  async function handleM3uAction(action: "generate" | "remove") {
-    if (!selectedAccountId || !session) return;
-    setM3uBusy(true);
-    try {
-      const res = await fetch("/api/client-portal/m3u", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_token: session, client_id: selectedAccountId, action }),
-      });
-      const result = await res.json().catch(() => null);
-      if (!result?.ok) throw new Error(result?.error || "Falha na operação.");
-      setAccountM3uUrl(result.data?.m3u_url ?? null);
-      addToast("success", action === "generate" ? "Link gerado!" : "Link removido!");
-    } catch (err: any) {
-      addToast("error", "Falha na operação", err?.message);
-    } finally {
-      setM3uBusy(false);
     }
   }
 
@@ -3233,54 +3242,6 @@ export default function RenewClient() {
           {/* ===== SUB-ABA 1: MEUS APLICATIVOS ===== */}
           {appsSubTab === "meus-apps" && (
             <div className="space-y-4">
-              {/* Bloco M3U */}
-              <div className="bg-card rounded-xl p-4 border border-border shadow-sm space-y-2">
-                <p className="text-sm font-bold text-foreground">Link M3U</p>
-                {accountM3uUrl ? (
-                  <p className="text-xs font-mono text-muted-foreground break-all bg-muted rounded-lg p-2">
-                    {m3uVisible ? accountM3uUrl : "•".repeat(28)}
-                  </p>
-                ) : (
-                  <p className="text-xs text-muted-foreground">Nenhum link gerado ainda.</p>
-                )}
-                <div className="flex flex-wrap gap-2 pt-1">
-                  <button
-                    disabled={m3uBusy}
-                    onClick={() => handleM3uAction("generate")}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500/10 text-sky-500 border border-sky-500/20 text-xs font-bold hover:bg-sky-500/20 transition-colors disabled:opacity-50"
-                  >
-                    {m3uBusy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                    {m3uBusy ? "Gerando..." : "Gerar"}
-                  </button>
-                  {accountM3uUrl && (
-                    <>
-                      <button
-                        onClick={() => setM3uVisible((v) => !v)}
-                        className="px-3 py-1.5 rounded-lg bg-muted text-foreground border border-border text-xs font-bold hover:bg-muted/70 transition-colors"
-                      >
-                        {m3uVisible ? "Ocultar" : "Mostrar"}
-                      </button>
-                      <button
-                        onClick={() => {
-                          navigator.clipboard?.writeText(accountM3uUrl);
-                        }}
-                        className="px-3 py-1.5 rounded-lg bg-muted text-foreground border border-border text-xs font-bold hover:bg-muted/70 transition-colors"
-                      >
-                        Copiar
-                      </button>
-                      <button
-                        disabled={m3uBusy}
-                        onClick={() => handleM3uAction("remove")}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 text-xs font-bold hover:bg-rose-500/20 transition-colors disabled:opacity-50"
-                      >
-                        {m3uBusy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                        {m3uBusy ? "Removendo..." : "Remover"}
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-
               {installedAppsLoading && (
                 <div className="text-center py-8 text-muted-foreground">Carregando...</div>
               )}
@@ -3303,19 +3264,38 @@ export default function RenewClient() {
                   return (
                     <div key={app.id} className="bg-card rounded-xl p-4 border border-border shadow-sm space-y-3">
                       <div className="flex items-center gap-3">
-                        {app.icon_url ? (
-                          <img src={app.icon_url} alt={app.name} className="w-10 h-10 rounded-lg object-cover border border-border shrink-0" />
-                        ) : (
-                          <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-lg shrink-0">📱</div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-foreground truncate">{app.name}</p>
-                          {app.expiration && (
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              Vencimento do aplicativo: {String(app.expiration).split("T")[0].split("-").reverse().join("/")}
-                            </p>
+                        <button
+                          onClick={() => router.push(`/renew-beta/apps/${app.id}?conta=${selectedAccountId}`)}
+                          className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                          title="Ver detalhes do aplicativo"
+                        >
+                          {app.icon_url ? (
+                            <img src={app.icon_url} alt={app.name} className="w-10 h-10 rounded-lg object-cover border border-border shrink-0" />
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-lg shrink-0">📱</div>
                           )}
-                        </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-foreground truncate hover:underline">{app.name}</p>
+                            {app.expiration && (
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                Vencimento do aplicativo: {String(app.expiration).split("T")[0].split("-").reverse().join("/")}
+                              </p>
+                            )}
+                          </div>
+                        </button>
+                        {app.has_pending_removal_request ? (
+                          <span className="shrink-0 px-2 py-1 rounded-lg bg-muted text-muted-foreground border border-border text-[10px] font-bold">
+                            Exclusão solicitada
+                          </span>
+                        ) : (
+                          <button
+                            disabled={busy}
+                            onClick={() => handleRemoveApp(app.id, app.name)}
+                            className="shrink-0 px-2.5 py-1.5 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 text-[10px] font-bold uppercase hover:bg-rose-500/20 transition-colors disabled:opacity-50"
+                          >
+                            {busy ? "..." : "Excluir Aplicativo"}
+                          </button>
+                        )}
                       </div>
 
                       {isEditing ? (
@@ -3377,8 +3357,27 @@ export default function RenewClient() {
                                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500/10 text-sky-500 border border-sky-500/20 text-xs font-bold hover:bg-sky-500/20 transition-colors disabled:opacity-50"
                               >
                                 {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                                {busy ? "Configurando..." : "Reconfigurar"}
+                                {busy ? "Configurando..." : "Configurar aplicativo"}
                               </button>
+                            )}
+                            {/* ✅ Apps sem integração automática (ex: IboSol hoje, ou
+                                qualquer app sempre manual) — cliente pede pro suporte
+                                configurar em vez de tentar sozinho. */}
+                            {!app.has_integration && (
+                              app.has_pending_setup_request ? (
+                                <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-muted-foreground border border-border text-xs font-bold">
+                                  ✓ Configuração solicitada
+                                </span>
+                              ) : (
+                                <button
+                                  disabled={busy}
+                                  onClick={() => handleRequestSetup(app.id)}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20 text-xs font-bold hover:bg-amber-500/20 transition-colors disabled:opacity-50"
+                                >
+                                  {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                  {busy ? "Solicitando..." : "Solicitar configuração"}
+                                </button>
+                              )
                             )}
                             {app.can_check_validity && (
                               <button
@@ -3390,14 +3389,6 @@ export default function RenewClient() {
                                 {busy ? "Verificando..." : "Verificar validade"}
                               </button>
                             )}
-                            <button
-                              disabled={busy}
-                              onClick={() => handleRemoveApp(app.id, app.name)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 text-xs font-bold hover:bg-rose-500/20 transition-colors disabled:opacity-50"
-                            >
-                              {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                              {busy ? "Removendo..." : "Remover"}
-                            </button>
                           </div>
                         </>
                       )}

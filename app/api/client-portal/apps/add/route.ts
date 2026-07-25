@@ -38,14 +38,26 @@ export async function POST(req: NextRequest) {
     if (!ctx) return jsonError("Sessão inválida ou cliente não encontrado", 401);
     if (!app_id) return jsonError("app_id é obrigatório", 400);
 
-    // Confirma que o cliente ainda não tem esse app instalado
-    const { data: existing } = await supabaseAdmin
+    // ✅ Mesmo app pode ser adicionado mais de uma vez de propósito (pedido
+    // do Marcio, 24/07/2026) — cliente pode ter 2 TVs da mesma marca ou 2
+    // celulares Android, cada instalação com seu próprio MAC/Device Key.
+    // Mesmo comportamento que o modal de cliente do admin já permite hoje.
+
+    // ✅ Limite de 5 aplicativos por conta via self-service (pedido do
+    // Marcio, 24/07/2026) — clientes que já tinham mais de 5 antes desse
+    // limite continuam com os que já têm, só não conseguem adicionar mais
+    // pelo portal. Precisar de mais é caso pra falar direto com o suporte.
+    const MAX_APPS_PER_CLIENT = 5;
+    const { count: installedCount } = await supabaseAdmin
       .from("client_apps")
-      .select("id")
-      .eq("client_id", client_id)
-      .eq("app_id", app_id)
-      .maybeSingle();
-    if (existing) return jsonError("Esse aplicativo já está instalado nessa conta.", 409);
+      .select("id", { count: "exact", head: true })
+      .eq("client_id", client_id);
+    if ((installedCount || 0) >= MAX_APPS_PER_CLIENT) {
+      return jsonError(
+        `Limite de ${MAX_APPS_PER_CLIENT} aplicativos por conta atingido. Fale com o suporte se precisar de mais.`,
+        400,
+      );
+    }
 
     // Confirma que o app pertence ao catálogo do tenant e é compatível com
     // a tecnologia da conta (mesma trava de apps.technology/device_types)
