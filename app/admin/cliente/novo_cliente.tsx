@@ -2470,6 +2470,38 @@ const canSyncAgenda = canSyncAuto;
             ] || ""
           : "";
 
+        // ✅ "Configurar" = deletar (tolerante a "não encontrado") + criar —
+        // muitos clientes já têm o app configurado de verdade no painel do
+        // parceiro de antes (cadastro manual antigo, ou reinstalação).
+        // Resultado do delete nunca é checado de propósito: "nada pra
+        // apagar" é o caso normal (app nunca configurado antes).
+        try {
+          const preDeletePayload = handler.buildDeletePayload({
+            username: username.trim(),
+            finalServerName,
+            serverName: selectedServerName.replace(/\s+/g, ""),
+            macValue,
+            appName,
+            password:
+              handler.actionPrefix === "DUPLECAST" ||
+              handler.actionPrefix === "IBOSOL" ||
+              handler.actionPrefix === "IBOPRO"
+                ? appPin
+                : password,
+          });
+          await fetch((handler as any).apiEndpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...preDeletePayload,
+              base_url: appBaseUrl,
+              deviceKey: deviceKeyForApi,
+            }),
+          });
+        } catch {
+          // best-effort — segue pro create de qualquer jeito
+        }
+
         const apiRes = await fetch((handler as any).apiEndpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -2481,16 +2513,41 @@ const canSyncAgenda = canSyncAuto;
         });
 
         const apiJson = await apiRes.json().catch(() => ({}));
-        setLoading(false);
-        setLoadingStep("");
 
         if (apiJson?.ok) {
-          if (apiJson.expireDate && dateField) {
+          // ✅ GERENCIAAPP: o create manda "hoje + 1 ano" fixo pro payload
+          // deles (não é vencimento real). Busca o vencimento de verdade
+          // via "check" logo em seguida — mesma chamada do botão "Verificar
+          // vencimento" — e usa esse valor se vier.
+          let expireDate = apiJson.expireDate || null;
+          if (handler.actionPrefix === "GERENCIAAPP") {
+            try {
+              const checkRes = await fetch((handler as any).apiEndpoint, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  action: "check",
+                  base_url: appBaseUrl,
+                  username: finalServerName,
+                  macValue,
+                }),
+              });
+              const checkJson = await checkRes.json().catch(() => ({}));
+              if (checkJson?.ok && checkJson.expireDate) expireDate = checkJson.expireDate;
+            } catch {
+              // mantém o expireDate do create como fallback
+            }
+          }
+
+          setLoading(false);
+          setLoadingStep("");
+
+          if (expireDate && dateField) {
             const fieldKey = dateField.id || dateField.label; // ✅ 1. Atualiza no state (para aparecer na tela na hora)
             updateAppFieldValue(
               currentApp!.instanceId,
               String(fieldKey),
-              apiJson.expireDate,
+              expireDate,
             );
             // ✅ 2. SALVA NO BANCO IMEDIATAMENTE (igual fazemos com a extensão) —
             // por id da linha, nunca por client_id+app_id: com o mesmo app
@@ -2511,7 +2568,7 @@ const canSyncAgenda = canSyncAuto;
                 .update({
                   field_values: {
                     ...dbVals,
-                    [String(fieldKey)]: apiJson.expireDate,
+                    [String(fieldKey)]: expireDate,
                   },
                 })
                 .eq("id", currentApp!.client_app_id);
@@ -2520,7 +2577,7 @@ const canSyncAgenda = canSyncAuto;
             addToast(
               "success",
               "Integrado!",
-              `App configurado! Vencimento: ${apiJson.expireDate.split("T")[0].split("-").reverse().join("/")}`,
+              `App configurado! Vencimento: ${expireDate.split("T")[0].split("-").reverse().join("/")}`,
             );
           } else {
             addToast(
@@ -2530,6 +2587,8 @@ const canSyncAgenda = canSyncAuto;
             );
           }
         } else {
+          setLoading(false);
+          setLoadingStep("");
           addToast("error", "Erro na Integração", apiJson?.error || "Falha.");
         }
       } catch (err: any) {
@@ -4129,7 +4188,30 @@ if (syncOperadora) {
                     const apiJson = await apiRes.json().catch(() => ({}));
 
                     if (apiJson?.ok) {
-                      if (apiJson.expireDate) {
+                      // ✅ GERENCIAAPP: busca o vencimento real via "check"
+                      // logo após criar — o create deles sempre manda "hoje
+                      // + 1 ano" fixo, não é vencimento de verdade.
+                      let expireDateAuto = apiJson.expireDate || null;
+                      if (handler.actionPrefix === "GERENCIAAPP") {
+                        try {
+                          const checkResAuto = await fetch((handler as any).apiEndpoint, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              action: "check",
+                              base_url: appBaseUrl,
+                              username: finalServerName,
+                              macValue: macValueAuto,
+                            }),
+                          });
+                          const checkJsonAuto = await checkResAuto.json().catch(() => ({}));
+                          if (checkJsonAuto?.ok && checkJsonAuto.expireDate) expireDateAuto = checkJsonAuto.expireDate;
+                        } catch {
+                          // mantém expireDateAuto do create como fallback
+                        }
+                      }
+
+                      if (expireDateAuto) {
                         const dField = app.fields_config?.find(
                           (f: any) =>
                             String(f?.type || "").toLowerCase() === "date",
@@ -4147,7 +4229,7 @@ if (syncOperadora) {
                             .update({
                               field_values: {
                                 ...dbVals,
-                                [String(fieldKey)]: apiJson.expireDate,
+                                [String(fieldKey)]: expireDateAuto,
                               },
                             })
                             .eq("id", insertedAppId);
@@ -4155,7 +4237,7 @@ if (syncOperadora) {
                         queueListToast("trial", {
                           type: "success",
                           title: "App Integrado",
-                          message: `${app.name} ativado. Vencimento: ${apiJson.expireDate.split("T")[0].split("-").reverse().join("/")}`,
+                          message: `${app.name} ativado. Vencimento: ${expireDateAuto.split("T")[0].split("-").reverse().join("/")}`,
                         });
                       } else {
                         queueListToast("trial", {

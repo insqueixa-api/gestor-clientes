@@ -10,6 +10,13 @@ export const PIN_HANDLERS = new Set(["DUPLECAST", "IBOSOL", "IBOPRO"]);
 // Handlers cuja rota de integração já implementa action:"check" (consulta
 // só leitura do vencimento real, sem criar/alterar nada). QuickPlayer não
 // rastreia vencimento no painel (o campo "date" é preenchido manualmente).
+// DUPLECAST voltou pra cá em 25/07/2026, depois de reescrever a integração
+// pro login por dispositivo (mac+device_key,
+// /plugin/duplecast/device_login/) — essa tela mostra "Expire on" de
+// verdade. Antes, com login de revendedor + relatório client_codes, nunca
+// tinha vencimento real pra devolver (client_codes é um relatório de
+// códigos de ativação avulsos, sem relação com as playlists xtream criadas
+// por essa integração — ver app/api/integrations/apps/duplecast/route.ts).
 // IBOSOL fica de fora: activation.iboplayer.com bloqueia a ação de check
 // com um desafio Cloudflare que nem Playwright real (headless ou headed)
 // consegue passar — mesma assinatura de detecção de automação do Elite,

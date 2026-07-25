@@ -113,6 +113,34 @@ export async function POST(req: NextRequest) {
       ? integ?.pin || ""
       : client.server_password || "";
 
+    const internalSecret = String(process.env.INTERNAL_API_SECRET || "");
+    const apiEndpointUrl = internalAppUrl((handler as any).apiEndpoint);
+
+    // ✅ "Configurar" agora é deletar (tolerante a "não encontrado") + criar
+    // — pedido do Márcio (25/07/2026): muitos clientes já têm o app
+    // configurado de verdade no painel do parceiro de antes do Bloco 3
+    // existir. Sem isso, adicionar esse app pelo portal e clicar Configurar
+    // podia colidir com uma entrada antiga pro mesmo MAC. O resultado do
+    // delete nunca é checado aqui de propósito — "nada pra apagar" é
+    // exatamente o caso normal (app nunca configurado antes).
+    try {
+      const deletePayload = (handler as any).buildDeletePayload({
+        username: client.server_username,
+        finalServerName,
+        serverName: serverNameClean,
+        macValue,
+        appName,
+        password: payloadPassword,
+      });
+      await fetch(apiEndpointUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-internal-secret": internalSecret },
+        body: JSON.stringify({ ...deletePayload, base_url: integ?.api_url || "", deviceKey }),
+      });
+    } catch {
+      // best-effort — segue pro create de qualquer jeito
+    }
+
     const payload = (handler as any).buildCreatePayload({
       username: client.server_username,
       password: payloadPassword,
@@ -124,8 +152,7 @@ export async function POST(req: NextRequest) {
       serverId: client.server_id,
     });
 
-    const internalSecret = String(process.env.INTERNAL_API_SECRET || "");
-    const apiRes = await fetch(internalAppUrl((handler as any).apiEndpoint), {
+    const apiRes = await fetch(apiEndpointUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-internal-secret": internalSecret },
       body: JSON.stringify({ ...payload, base_url: integ?.api_url || "", deviceKey }),
@@ -144,13 +171,39 @@ export async function POST(req: NextRequest) {
       return jsonError(apiJson?.error || "Falha ao configurar no painel do parceiro.", 400);
     }
 
-    // Persiste o vencimento retornado (quando existir) na própria linha.
+    // ✅ GERENCIAAPP: o create sempre manda "hoje + 1 ano" fixo pro payload
+    // deles (achado do Márcio, 25/07/2026: não é vencimento real, é só o
+    // que o payload de criação deles exige). Busca o vencimento de verdade
+    // logo em seguida via "check" — mesma chamada do botão "Verificar
+    // validade" — e usa esse valor se vier; só cai pro valor do create se o
+    // check falhar por qualquer motivo.
+    let expireDate = apiJson.expireDate || null;
+    if ((handler as any).actionPrefix === "GERENCIAAPP") {
+      try {
+        const checkRes = await fetch(apiEndpointUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-internal-secret": internalSecret },
+          body: JSON.stringify({
+            action: "check",
+            base_url: integ?.api_url || "",
+            username: finalServerName,
+            macValue,
+          }),
+        });
+        const checkJson = await checkRes.json().catch(() => ({} as any));
+        if (checkJson?.ok && checkJson.expireDate) expireDate = checkJson.expireDate;
+      } catch {
+        // mantém o expireDate do create como fallback
+      }
+    }
+
+    // Persiste o vencimento (real, quando disponível) na própria linha.
     const dateField = findFieldByType(fieldsConfig, "date");
-    if (apiJson.expireDate && dateField) {
+    if (expireDate && dateField) {
       const fieldKey = String(dateField.id || dateField.label);
       await supabaseAdmin
         .from("client_apps")
-        .update({ field_values: { ...values, [fieldKey]: apiJson.expireDate } })
+        .update({ field_values: { ...values, [fieldKey]: expireDate } })
         .eq("id", client_app_id);
     }
 
@@ -160,11 +213,11 @@ export async function POST(req: NextRequest) {
       clientAppId: client_app_id,
       appName,
       event: "configured",
-      detail: apiJson.expireDate ? { expireDate: apiJson.expireDate } : null,
+      detail: expireDate ? { expireDate } : null,
     });
 
     return NextResponse.json(
-      { ok: true, expireDate: apiJson.expireDate || null, message: apiJson.message || "Configurado com sucesso." },
+      { ok: true, expireDate, message: apiJson.message || "Configurado com sucesso." },
       { status: 200, headers: NO_STORE_HEADERS },
     );
   } catch {

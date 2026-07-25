@@ -86,22 +86,37 @@ export async function POST(req: Request) {
           return NextResponse.json({ ok: true, message: "Nenhuma playlist configurada neste dispositivo." });
         }
 
-        for (const pl of playlists) {
-          const delBody: Record<string, any> = { id: pl.id };
-          if (pl.is_protected && pin) delBody.pin = pin;
-
-          const delRes = await fetch(`${API_BASE}/palylist_from_web`, {
+        const doDelete = async (id: number, withPin: string | null) => {
+          const delBody: Record<string, any> = { id };
+          if (withPin) delBody.pin = withPin;
+          const res = await fetch(`${API_BASE}/palylist_from_web`, {
             method: "DELETE",
             headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
             body: JSON.stringify(delBody),
           });
-          const delJson = await delRes.json().catch(() => null);
-          if (!delRes.ok || !delJson || delJson.error) {
-            return NextResponse.json(
-              { ok: false, error: delJson?.message || `Falha ao apagar playlist ${pl.id} (HTTP ${delRes.status}).` },
-              { status: 400 }
-            );
+          const json = await res.json().catch(() => null);
+          return { ok: res.ok && !!json && !json.error, message: json?.message };
+        };
+
+        for (const pl of playlists) {
+          const firstAttempt = await doDelete(pl.id, pl.is_protected && pin ? pin : null);
+          if (firstAttempt.ok) continue;
+
+          // ✅ Retry sem PIN — pedido do Márcio (25/07/2026): raras exceções
+          // têm cliente com playlist configurada sem PIN mesmo com o PIN
+          // padrão cadastrado em app_integrations, e mandar um PIN nesse
+          // caso faz a API recusar o delete. Só tenta de novo se a 1ª
+          // tentativa mandou PIN — sem isso repetir a mesma chamada não
+          // muda nada.
+          if (pl.is_protected && pin) {
+            const retry = await doDelete(pl.id, null);
+            if (retry.ok) continue;
           }
+
+          return NextResponse.json(
+            { ok: false, error: firstAttempt.message || `Falha ao apagar playlist ${pl.id}.` },
+            { status: 400 }
+          );
         }
 
         return NextResponse.json({ ok: true, message: "Playlist removida com sucesso." });
