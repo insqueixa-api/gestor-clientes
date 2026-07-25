@@ -129,8 +129,16 @@ export async function POST(req: NextRequest) {
       // "parceria" (custo já embutido no plano do servidor) não tem
       // vencimento próprio pra mostrar. Todo o resto mostra, inclusive apps
       // vencidos (o cliente pode reconfigurar mesmo assim).
-      const costType = String(vals["_config_cost"] || row.apps?.cost_type || "").trim();
-      const isPartnership = costType === "partnership";
+      //
+      // ✅ Lê SÓ do catálogo (apps.cost_type) — achado em produção
+      // (25/07/2026): o snapshot por instância (field_values._config_cost)
+      // não é confiável pra decidir isso. O admin sempre grava "paid" por
+      // padrão ao adicionar um app (novo_cliente.tsx, addAppToClient), e
+      // ninguém tinha motivo pra corrigir isso antes porque o campo era só
+      // cosmético — resultado: apps "parceria" de verdade (ex: Quick Player
+      // Pro) ficavam com _config_cost="paid" salvo e mostravam vencimento
+      // indevidamente. Import em massa também nunca preenche esse campo.
+      const isPartnership = row.apps?.cost_type === "partnership";
       const handler = integrationType ? getIntegrationHandler(integrationType) : null;
       // ✅ "has_integration" decide se o botão "Reconfigurar" aparece — precisa
       // refletir automação REAL (handler.useApi), não só a presença de

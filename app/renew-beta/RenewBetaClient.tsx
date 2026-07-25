@@ -3345,7 +3345,7 @@ export default function RenewClient() {
                             <p className="text-sm font-bold text-foreground truncate hover:underline">{app.name}</p>
                             {app.expiration && (
                               <p className="text-xs text-muted-foreground mt-0.5">
-                                Vencimento do aplicativo: {String(app.expiration).split("T")[0].split("-").reverse().join("/")}
+                                Validade do aplicativo: {String(app.expiration).split("T")[0].split("-").reverse().join("/")}
                               </p>
                             )}
                           </div>
@@ -3405,66 +3405,69 @@ export default function RenewClient() {
                         </div>
                       ) : (
                         <>
-                          {app.fields.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5">
+                          {/* Linha 2: campos (Device ID, Device Key, Ambiente...) à
+                              esquerda, Editar à direita */}
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
                               {app.fields.map((f) => (
                                 <span key={f.id} className="px-2 py-0.5 bg-muted text-muted-foreground border border-border text-[10px] font-mono rounded">
                                   {f.label}: {f.value || "—"}
                                 </span>
                               ))}
                             </div>
-                          )}
-                          <div className="flex flex-wrap gap-2">
                             <button
                               onClick={() => startEditingApp(app)}
-                              className="px-3 py-1.5 rounded-lg bg-muted text-foreground border border-border text-xs font-bold hover:bg-muted/70 transition-colors"
+                              className="shrink-0 px-3 py-1.5 rounded-lg bg-muted text-foreground border border-border text-xs font-bold hover:bg-muted/70 transition-colors"
                             >
                               Editar
                             </button>
-                            {app.has_integration && (
-                              <button
-                                disabled={busy}
-                                onClick={() => handleConfigureApp(app.id)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500/10 text-sky-500 border border-sky-500/20 text-xs font-bold hover:bg-sky-500/20 transition-colors disabled:opacity-50"
-                              >
-                                {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                                {busy ? "Configurando..." : "Configurar aplicativo"}
-                              </button>
-                            )}
-                            {/* ✅ Apps sem integração automática (ex: IboSol hoje, ou
-                                qualquer app sempre manual) — cliente pede pro suporte
-                                configurar em vez de tentar sozinho. */}
-                            {!app.has_integration && (
-                              app.has_pending_setup_request ? (
-                                <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-muted-foreground border border-border text-xs font-bold">
-                                  ✓ Configuração solicitada
-                                </span>
-                              ) : (
+                          </div>
+
+                          {/* Linha 3: Configurar/Reconfigurar + Verificar licença à
+                              esquerda, Renovar aplicativo à direita */}
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <div className="flex flex-wrap gap-2">
+                              {app.has_integration && (
                                 <button
                                   disabled={busy}
-                                  onClick={() => handleRequestSetup(app.id)}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20 text-xs font-bold hover:bg-amber-500/20 transition-colors disabled:opacity-50"
+                                  onClick={() => handleConfigureApp(app.id)}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500/10 text-sky-500 border border-sky-500/20 text-xs font-bold hover:bg-sky-500/20 transition-colors disabled:opacity-50"
                                 >
                                   {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                                  {busy ? "Solicitando..." : "Solicitar configuração"}
+                                  {busy ? "Configurando..." : app.expiration ? "Reconfigurar aplicativo" : "Configurar aplicativo"}
                                 </button>
-                              )
-                            )}
-                            {app.can_check_validity && (
-                              <button
-                                disabled={busy}
-                                onClick={() => handleCheckValidity(app.id)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-xs font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
-                              >
-                                {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                                {busy ? "Verificando..." : "Verificar validade"}
-                              </button>
-                            )}
-                          </div>
-                          {/* ✅ Renovar licença — embaixo, alinhado à direita
-                              (Excluir Aplicativo fica em cima, no cabeçalho) */}
-                          {app.license_price != null && (
-                            <div className="flex justify-end">
+                              )}
+                              {/* ✅ Apps sem integração automática (ex: IboSol hoje, ou
+                                  qualquer app sempre manual) — cliente pede pro suporte
+                                  configurar em vez de tentar sozinho. */}
+                              {!app.has_integration && (
+                                app.has_pending_setup_request ? (
+                                  <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-muted-foreground border border-border text-xs font-bold">
+                                    ✓ Configuração solicitada
+                                  </span>
+                                ) : (
+                                  <button
+                                    disabled={busy}
+                                    onClick={() => handleRequestSetup(app.id)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20 text-xs font-bold hover:bg-amber-500/20 transition-colors disabled:opacity-50"
+                                  >
+                                    {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                    {busy ? "Solicitando..." : "Solicitar configuração"}
+                                  </button>
+                                )
+                              )}
+                              {app.can_check_validity && (
+                                <button
+                                  disabled={busy}
+                                  onClick={() => handleCheckValidity(app.id)}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-xs font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+                                >
+                                  {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                  {busy ? "Verificando..." : "Verificar licença"}
+                                </button>
+                              )}
+                            </div>
+                            {app.license_price != null && (
                               <button
                                 disabled={renewPaymentBusyId === app.id}
                                 onClick={() => handleRenewPayment(app.id)}
@@ -3475,8 +3478,8 @@ export default function RenewClient() {
                                   ? "Gerando pagamento..."
                                   : `Renovar aplicativo — ${formatMoney(app.license_price, "BRL")}${app.license_period === "annual" ? "/ano" : ""}`}
                               </button>
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </>
                       )}
                     </div>

@@ -91,10 +91,10 @@ export async function POST(req: NextRequest) {
     const config = Array.isArray((row as any).apps?.fields_config) ? (row as any).apps.fields_config : [];
     const integrationType = (row as any).apps?.integration_type || null;
     // ✅ Vencimento é validade real no painel do parceiro — só "parceria"
-    // (custo embutido no plano do servidor) não tem. Ver mesma regra em
-    // apps/list/route.ts.
-    const costType = String(vals["_config_cost"] || (row as any).apps?.cost_type || "").trim();
-    const isPartnership = costType === "partnership";
+    // (custo embutido no plano do servidor) não tem. Lê SÓ do catálogo
+    // (apps.cost_type), não do snapshot por instância — ver comentário
+    // completo em apps/list/route.ts.
+    const isPartnership = (row as any).apps?.cost_type === "partnership";
     const handler = integrationType ? getIntegrationHandler(integrationType) : null;
     const canCheckValidity =
       !isPartnership && !!handler && (handler as any).useApi && CHECK_VALIDITY_HANDLERS.has((handler as any).actionPrefix);

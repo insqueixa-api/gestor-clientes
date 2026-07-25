@@ -1271,6 +1271,7 @@ const canSyncAgenda = canSyncAuto;
     fields_config: any[];
     info_url: string | null;
     integration_type?: string | null;
+    cost_type?: "free" | "paid" | "partnership" | null;
   };
   type SelectedAppInstance = {
     instanceId: string;
@@ -2214,7 +2215,13 @@ const canSyncAgenda = canSyncAuto;
 
       values: {},
 
-      costType: "paid",
+      // ✅ Nasce refletindo o cost_type real do catálogo (achado em
+      // produção, 25/07/2026): antes nascia sempre "paid" fixo, e como esse
+      // campo raramente era revisado depois, apps "free"/"parceria" de
+      // verdade (ex: Quick Player Pro) ficavam salvos como "paid" —
+      // afetando a checagem de vencimento no portal do cliente, que confiava
+      // nesse valor.
+      costType: (app.cost_type as any) || "paid",
       partnerServerId: "",
       is_minimized: false, // ✅ AGORA O APP NOVO JÁ NASCE ABERTO PRA DIGITAR O MAC
       auto_configure: true, // ✅ Nasce com a integração marcada para sim
@@ -6176,9 +6183,13 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                     // ✅ Vencimento é validade real no painel do parceiro (7-15
                     // dias pra app novo, renovável) — só "parceria" (custo
                     // embutido no plano do servidor) não tem vencimento
-                    // próprio. Mesma regra do portal do cliente.
+                    // próprio. Mesma regra do portal do cliente. Lê do
+                    // catálogo (catApp.cost_type), não de app.costType — esse
+                    // último é só o snapshot por instância, que fica errado
+                    // com frequência (nasce "paid" por padrão em cadastros
+                    // antigos, mesmo pra apps que são "parceria" de verdade).
                     const isExpiringSoon =
-                      app.costType !== "partnership" &&
+                      catApp?.cost_type !== "partnership" &&
                       diffDays !== null &&
                       Number.isFinite(diffDays) &&
                       diffDays <= 30;

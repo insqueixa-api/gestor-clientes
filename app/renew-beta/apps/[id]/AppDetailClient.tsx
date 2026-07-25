@@ -261,7 +261,7 @@ export default function AppDetailClient() {
                   <p className="text-lg font-bold text-foreground truncate">{app.name}</p>
                   {app.expiration && (
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Vencimento do aplicativo: {String(app.expiration).split("T")[0].split("-").reverse().join("/")}
+                      Validade do aplicativo: {String(app.expiration).split("T")[0].split("-").reverse().join("/")}
                     </p>
                   )}
                 </div>
@@ -343,7 +343,7 @@ export default function AppDetailClient() {
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500/10 text-sky-500 border border-sky-500/20 text-xs font-bold hover:bg-sky-500/20 transition-colors disabled:opacity-50"
                       >
                         {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                        {busy ? "Configurando..." : "Configurar aplicativo"}
+                        {busy ? "Configurando..." : app.expiration ? "Reconfigurar aplicativo" : "Configurar aplicativo"}
                       </button>
                     )}
                     {!app.has_integration &&
@@ -368,7 +368,7 @@ export default function AppDetailClient() {
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-xs font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
                       >
                         {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                        {busy ? "Verificando..." : "Verificar validade"}
+                        {busy ? "Verificando..." : "Verificar licença"}
                       </button>
                     )}
                   </div>
