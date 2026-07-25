@@ -15,7 +15,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { getIntegrationHandler } from "@/lib/integrations";
-import { PIN_HANDLERS, extractFieldByType, internalAppUrl } from "@/lib/apps/panel";
+import { PIN_HANDLERS, extractFieldByType, internalAppUrl, logAppActivity } from "@/lib/apps/panel";
 import { notify } from "@/lib/notifications/notify";
 
 export const dynamic = "force-dynamic";
@@ -158,12 +158,24 @@ export async function POST(req: NextRequest) {
     });
     const apiJson = await apiRes.json().catch(() => ({} as any));
 
-    if (!apiJson?.ok) {
-      return jsonError(apiJson?.error || "Falha ao remover do painel do parceiro.", 400);
-    }
-
+    // ✅ Remove localmente de qualquer jeito — mesmo comportamento do admin
+    // (o botão "REMOVER" de novo_cliente.tsx nunca depende do painel do
+    // parceiro pra tirar o app da conta do cliente). Antes, uma falha aqui
+    // (app nunca configurado = nada pra apagar no parceiro, MAC vazio, etc.)
+    // travava o app na conta do cliente pra sempre, sem nenhuma saída. Se a
+    // exclusão no parceiro falhou, loga pro admin conferir manualmente —
+    // client_apps já não existe mais, então perder esse rastro pioraria.
     const { error: delErr } = await supabaseAdmin.from("client_apps").delete().eq("id", client_app_id);
     if (delErr) return jsonError("Erro interno", 500);
+
+    await logAppActivity(supabaseAdmin, {
+      tenantId: ctx.tenant_id,
+      clientId: client_id,
+      clientAppId: null,
+      appName,
+      event: apiJson?.ok ? "removed" : "removed_partner_failed",
+      detail: apiJson?.ok ? null : { error: apiJson?.error || "Falha ao remover do painel do parceiro." },
+    });
 
     return NextResponse.json({ ok: true, data: { pending_admin: false } }, { status: 200, headers: NO_STORE_HEADERS });
   } catch {

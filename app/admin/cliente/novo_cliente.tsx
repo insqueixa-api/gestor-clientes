@@ -1284,6 +1284,13 @@ const canSyncAgenda = canSyncAuto;
     partnerServerId: string;
     is_minimized?: boolean; // ✅ NOVO
     auto_configure?: boolean; // ✅ Automação na criação
+
+    // 🔥 id real da linha em client_apps — undefined enquanto a instância
+    // ainda não foi salva (app novo, adicionado nesta sessão de edição).
+    // Sem isso, updates imediatos pós-integração (Configurar/Verificar)
+    // tinham que buscar por client_id+app_id, o que corrompe as duas linhas
+    // quando o mesmo app está instalado 2x pro mesmo cliente (2 TVs, etc).
+    client_app_id?: string;
   };
 
   // --- ESTADOS ---
@@ -1964,7 +1971,7 @@ const canSyncAgenda = canSyncAuto;
           if (appsSourceId) {
             const { data: currentApps } = await supabaseBrowser
               .from("client_apps")
-              .select("app_id, field_values, apps(name, fields_config)")
+              .select("id, app_id, field_values, apps(name, fields_config)")
               .eq("client_id", appsSourceId);
 
             if (currentApps) {
@@ -2011,6 +2018,8 @@ const canSyncAgenda = canSyncAuto;
                 return {
                   instanceId: crypto.randomUUID(),
 
+                  client_app_id: ca.id,
+
                   app_id: ca.app_id,
 
                   name: ca.apps?.name || "App Removido",
@@ -2026,8 +2035,6 @@ const canSyncAgenda = canSyncAuto;
                   is_minimized: isEditing, // editando = minimizado; criando teste = aberto
                 };
               });
-
-              setSelectedApps(instances);
 
               setSelectedApps(instances);
             }
@@ -2484,24 +2491,31 @@ const canSyncAgenda = canSyncAuto;
               currentApp!.instanceId,
               String(fieldKey),
               apiJson.expireDate,
-            ); // ✅ 2. SALVA NO BANCO IMEDIATAMENTE (Igual fazemos com a extensão)
-            const { data: currentDbData } = await supabaseBrowser
-              .from("client_apps")
-              .select("field_values")
-              .eq("client_id", clientToEdit!.id)
-              .eq("app_id", currentApp.app_id)
-              .maybeSingle();
-            const dbVals = currentDbData?.field_values || {};
-            await supabaseBrowser
-              .from("client_apps")
-              .update({
-                field_values: {
-                  ...dbVals,
-                  [String(fieldKey)]: apiJson.expireDate,
-                },
-              })
-              .eq("client_id", clientToEdit!.id)
-              .eq("app_id", currentApp.app_id);
+            );
+            // ✅ 2. SALVA NO BANCO IMEDIATAMENTE (igual fazemos com a extensão) —
+            // por id da linha, nunca por client_id+app_id: com o mesmo app
+            // instalado 2x (2 TVs, etc.) essa busca batia nas duas linhas e
+            // sobrescrevia o field_values (MAC/Device Key) da instância errada.
+            // Sem client_app_id (instância nova, ainda não salva) não tem o que
+            // atualizar agora — o valor já está no state e vai pro banco no
+            // próximo "Salvar".
+            if (currentApp!.client_app_id) {
+              const { data: currentDbData } = await supabaseBrowser
+                .from("client_apps")
+                .select("field_values")
+                .eq("id", currentApp!.client_app_id)
+                .maybeSingle();
+              const dbVals = currentDbData?.field_values || {};
+              await supabaseBrowser
+                .from("client_apps")
+                .update({
+                  field_values: {
+                    ...dbVals,
+                    [String(fieldKey)]: apiJson.expireDate,
+                  },
+                })
+                .eq("id", currentApp!.client_app_id);
+            }
 
             addToast(
               "success",
@@ -2876,12 +2890,14 @@ const canSyncAgenda = canSyncAuto;
         String(fieldKey),
         expireDate,
       );
-      if (clientToEdit?.id) {
+      // ✅ Por id da linha (não client_id+app_id) — mesma razão do
+      // handleConfigApp: evita sobrescrever a instância errada quando o
+      // mesmo app está instalado 2x pro cliente.
+      if (currentApp.client_app_id) {
         const { data: currentDbData } = await supabaseBrowser
           .from("client_apps")
           .select("field_values")
-          .eq("client_id", clientToEdit.id)
-          .eq("app_id", currentApp.app_id)
+          .eq("id", currentApp.client_app_id)
           .maybeSingle();
         const dbVals = currentDbData?.field_values || {};
         await supabaseBrowser
@@ -2889,8 +2905,7 @@ const canSyncAgenda = canSyncAuto;
           .update({
             field_values: { ...dbVals, [String(fieldKey)]: expireDate },
           })
-          .eq("client_id", clientToEdit.id)
-          .eq("app_id", currentApp.app_id);
+          .eq("id", currentApp.client_app_id);
       }
     };
 
@@ -4019,11 +4034,22 @@ if (syncOperadora) {
               _config_partner: app.partnerServerId,
             },
           }));
-          await supabaseBrowser.from("client_apps").insert(toInsert);
+          // ✅ Captura o id real de cada linha inserida (na mesma ordem de
+          // toInsert/selectedApps) — necessário pra persistir o vencimento
+          // pós-automação na linha certa, não em "todas as linhas com esse
+          // app_id" (bug: 2 instâncias do mesmo app pro cliente novo
+          // acabavam com o field_values idêntico, perdendo MAC/Device Key
+          // de uma delas).
+          const { data: insertedApps } = await supabaseBrowser
+            .from("client_apps")
+            .insert(toInsert)
+            .select("id");
 
           // ✅ AUTOMAÇÃO SILENCIOSA DOS APPS (USANDO O ROTEADOR INTELIGENTE)
           if (!isEditing) {
-            for (const app of selectedApps) {
+            for (let appIdx = 0; appIdx < selectedApps.length; appIdx++) {
+              const app = selectedApps[appIdx];
+              const insertedAppId = insertedApps?.[appIdx]?.id;
               // Pede o código correto usando o Salva-Vidas que acabamos de criar
               const handler = resolveIntegration(app);
 
@@ -4108,13 +4134,12 @@ if (syncOperadora) {
                           (f: any) =>
                             String(f?.type || "").toLowerCase() === "date",
                         );
-                        if (dField) {
+                        if (dField && insertedAppId) {
                           const fieldKey = dField.id || dField.label;
                           const { data } = await supabaseBrowser
                             .from("client_apps")
                             .select("field_values")
-                            .eq("client_id", clientId)
-                            .eq("app_id", app.app_id)
+                            .eq("id", insertedAppId)
                             .maybeSingle();
                           const dbVals = data?.field_values || {};
                           await supabaseBrowser
@@ -4125,8 +4150,7 @@ if (syncOperadora) {
                                 [String(fieldKey)]: apiJson.expireDate,
                               },
                             })
-                            .eq("client_id", clientId)
-                            .eq("app_id", app.app_id);
+                            .eq("id", insertedAppId);
                         }
                         queueListToast("trial", {
                           type: "success",
@@ -4166,13 +4190,12 @@ if (syncOperadora) {
                                   String(f?.type || "").toLowerCase() ===
                                   "date",
                               );
-                              if (dField) {
+                              if (dField && insertedAppId) {
                                 const fieldKey = dField.id || dField.label;
                                 const { data } = await supabaseBrowser
                                   .from("client_apps")
                                   .select("field_values")
-                                  .eq("client_id", clientId)
-                                  .eq("app_id", app.app_id)
+                                  .eq("id", insertedAppId)
                                   .maybeSingle();
                                 const dbVals = data?.field_values || {};
                                 await supabaseBrowser
@@ -4183,8 +4206,7 @@ if (syncOperadora) {
                                       [String(fieldKey)]: e.detail.expireDate,
                                     },
                                   })
-                                  .eq("client_id", clientId)
-                                  .eq("app_id", app.app_id);
+                                  .eq("id", insertedAppId);
                               }
                               queueListToast("trial", {
                                 type: "success",
@@ -6069,7 +6091,13 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                         );
                       }
                     }
+                    // ✅ Só app "universal" (costType "free") tem vencimento
+                    // real rastreado no painel do parceiro — "pago"/"parceria"
+                    // não têm validade própria (ex: GerenciaApp manda sempre
+                    // "hoje + 1 ano" fixo, não é vencimento de verdade). Mesma
+                    // regra aplicada no portal do cliente.
                     const isExpiringSoon =
+                      app.costType === "free" &&
                       diffDays !== null &&
                       Number.isFinite(diffDays) &&
                       diffDays <= 30;

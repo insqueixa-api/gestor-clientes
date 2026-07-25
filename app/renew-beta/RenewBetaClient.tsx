@@ -9,6 +9,7 @@ import { useConfirm } from "@/hooks/useConfirm";
 import { Pencil, CheckCircle2, ShieldCheck, Loader2 } from "lucide-react";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import AddAppModal from "./AddAppModal";
+import { normalizeMacInput } from "@/lib/apps/field-types";
 
 // ========= TYPES =========
 interface ClientAccount {
@@ -292,7 +293,14 @@ export default function RenewClient() {
   // Picker "+ Adicionar aplicativo" (modal por tipo de equipamento)
   const [showAddAppPicker, setShowAddAppPicker] = useState(false);
   const [appCatalog, setAppCatalog] = useState<
-    { id: string; name: string; icon_url: string | null; device_types?: string[] }[]
+    {
+      id: string;
+      name: string;
+      icon_url: string | null;
+      device_types?: string[];
+      license_price?: number | null;
+      license_period?: "annual" | "lifetime" | null;
+    }[]
   >([]);
   const [appCatalogLoading, setAppCatalogLoading] = useState(false);
 
@@ -3289,10 +3297,14 @@ export default function RenewClient() {
                               <input
                                 type="text"
                                 value={editingValues[f.id] ?? ""}
-                                onChange={(e) =>
-                                  setEditingValues((prev) => ({ ...prev, [f.id]: e.target.value }))
-                                }
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  const next = f.type === "mac" ? normalizeMacInput(raw) : raw;
+                                  setEditingValues((prev) => ({ ...prev, [f.id]: next }));
+                                }}
                                 placeholder={f.type === "obs" ? "Ex: Sala, Quarto, Escritório..." : undefined}
+                                autoCapitalize={f.type === "mac" ? "characters" : "none"}
+                                spellCheck={false}
                                 className="w-full h-9 px-3 bg-muted border border-border rounded-lg text-sm text-foreground outline-none focus:border-sky-500"
                               />
                             </div>

@@ -5,6 +5,8 @@
 // passos do admin: adicionar → preencher → Configurar).
 import { NextRequest, NextResponse } from "next/server";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
+import { getIntegrationHandler } from "@/lib/integrations";
+import { logAppActivity } from "@/lib/apps/panel";
 
 export const dynamic = "force-dynamic";
 
@@ -69,7 +71,7 @@ export async function POST(req: NextRequest) {
 
     const { data: app, error: appErr } = await supabaseAdmin
       .from("apps")
-      .select("id, name, technology")
+      .select("id, name, technology, integration_type, cost_type, partner_server_id")
       .eq("id", app_id)
       .eq("tenant_id", ctx.tenant_id)
       .maybeSingle();
@@ -79,13 +81,44 @@ export async function POST(req: NextRequest) {
       return jsonError("Esse aplicativo não é compatível com a tecnologia dessa conta.", 400);
     }
 
+    // ✅ Mesma trava do catalog/route.ts (defesa em profundidade — o catálogo
+    // já esconde esses apps do seletor, mas essa rota não pode confiar só no
+    // front): não deixa adicionar um app cuja integração está cadastrada mas
+    // com useApi:false (ex: IBOSOL hoje, bloqueio Cloudflare).
+    if (app.integration_type) {
+      const handler = getIntegrationHandler(app.integration_type);
+      if (!handler || !(handler as any).useApi) {
+        return jsonError("Esse aplicativo não está disponível pra adicionar no momento.", 400);
+      }
+    }
+
+    // ✅ Snapshot do custo no momento do add (igual o admin já faz em
+    // novo_cliente.tsx) — sem isso, list/detail/check-validity nunca sabiam
+    // se esse app era "parceria"/pago (field_values._config_cost sempre
+    // vinha vazio pra apps adicionados pelo próprio cliente).
     const { data: inserted, error: insertErr } = await supabaseAdmin
       .from("client_apps")
-      .insert({ client_id, tenant_id: ctx.tenant_id, app_id, field_values: {} })
+      .insert({
+        client_id,
+        tenant_id: ctx.tenant_id,
+        app_id,
+        field_values: {
+          _config_cost: app.cost_type || "paid",
+          _config_partner: app.partner_server_id || "",
+        },
+      })
       .select("id")
       .single();
 
     if (insertErr || !inserted) return jsonError("Erro interno", 500);
+
+    await logAppActivity(supabaseAdmin, {
+      tenantId: ctx.tenant_id,
+      clientId: client_id,
+      clientAppId: inserted.id,
+      appName: app.name || "Aplicativo",
+      event: "added",
+    });
 
     return NextResponse.json({ ok: true, data: { id: inserted.id } }, { status: 200, headers: NO_STORE_HEADERS });
   } catch {

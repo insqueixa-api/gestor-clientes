@@ -124,6 +124,13 @@ export async function markAppRenewalPaid(
   tenantId: string,
   paymentRowId: string
 ) {
+  const { data: payment } = await supabaseAdmin
+    .from("client_portal_payments")
+    .select("client_app_id")
+    .eq("tenant_id", tenantId)
+    .eq("id", paymentRowId)
+    .maybeSingle();
+
   await supabaseAdmin
     .from("client_portal_payments")
     .update({
@@ -133,6 +140,44 @@ export async function markAppRenewalPaid(
     })
     .eq("tenant_id", tenantId)
     .eq("id", paymentRowId);
+
+  // ✅ Libera o "Configurar aplicativo" pra apps pagos — configure/route.ts
+  // bloqueia a ativação de verdade no painel do parceiro até essa data
+  // existir/estar válida (achado: antes o cliente ativava de graça, sem
+  // nunca ter pago a licença). Sem client_app_id (app já removido nesse
+  // meio-tempo) não tem o que atualizar.
+  if (payment?.client_app_id) {
+    const { data: clientApp } = await supabaseAdmin
+      .from("client_apps")
+      .select("license_paid_until, apps(license_period)")
+      .eq("id", payment.client_app_id)
+      .maybeSingle();
+
+    if (clientApp) {
+      const licensePeriod = (clientApp as any)?.apps?.license_period;
+      const now = new Date();
+      let paidUntil: string;
+      if (licensePeriod === "lifetime") {
+        // Pago uma vez, vale sempre — configure/route.ts trata "lifetime"
+        // checando só se a coluna está preenchida, sem comparar com now().
+        paidUntil = now.toISOString();
+      } else {
+        // annual (ou não definido — default conservador de 1 ano). Soma a
+        // partir de agora, ou da validade atual se ainda não venceu, pra
+        // não "perder" tempo já pago numa renovação antecipada.
+        const currentPaidUntil = clientApp.license_paid_until ? new Date(clientApp.license_paid_until) : null;
+        const base = currentPaidUntil && currentPaidUntil.getTime() > now.getTime() ? currentPaidUntil : now;
+        const next = new Date(base);
+        next.setFullYear(next.getFullYear() + 1);
+        paidUntil = next.toISOString();
+      }
+
+      await supabaseAdmin
+        .from("client_apps")
+        .update({ license_paid_until: paidUntil })
+        .eq("id", payment.client_app_id);
+    }
+  }
 }
 
 // ============================================================

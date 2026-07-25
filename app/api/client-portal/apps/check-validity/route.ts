@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { getIntegrationHandler } from "@/lib/integrations";
-import { CHECK_VALIDITY_HANDLERS, extractFieldByType, findFieldByType, internalAppUrl } from "@/lib/apps/panel";
+import { CHECK_VALIDITY_HANDLERS, extractFieldByType, findFieldByType, internalAppUrl, logAppActivity } from "@/lib/apps/panel";
 
 export const dynamic = "force-dynamic";
 
@@ -43,17 +43,19 @@ export async function POST(req: NextRequest) {
 
     const { data: row, error: rowErr } = await supabaseAdmin
       .from("client_apps")
-      .select("id, field_values, apps(name, integration_type, fields_config)")
+      .select("id, field_values, apps(name, integration_type, fields_config, cost_type)")
       .eq("id", client_app_id)
       .eq("client_id", client_id)
       .single();
     if (rowErr || !row) return jsonError("Aplicativo não encontrado", 404);
 
-    // ✅ App "parceria" não tem vencimento próprio rastreado — não faz
-    // sentido "verificar validade".
+    // ✅ Só app "universal" (cost_type=free) tem vencimento próprio
+    // rastreado no painel do parceiro — "pago"/"parceria" não têm validade
+    // real (mesma regra de apps/list e apps/detail).
     const values = row.field_values || {};
-    if (String(values["_config_cost"] || "") === "partnership") {
-      return jsonError("Esse aplicativo não tem vencimento próprio — está incluso no plano.", 400);
+    const costType = String(values["_config_cost"] || (row as any).apps?.cost_type || "").trim();
+    if (costType !== "free") {
+      return jsonError("Esse aplicativo não tem vencimento próprio rastreado.", 400);
     }
 
     const appName = (row as any).apps?.name || "Aplicativo";
@@ -111,6 +113,14 @@ export async function POST(req: NextRequest) {
     const apiJson = await apiRes.json().catch(() => ({} as any));
 
     if (!apiJson?.ok) {
+      await logAppActivity(supabaseAdmin, {
+        tenantId: ctx.tenant_id,
+        clientId: client_id,
+        clientAppId: client_app_id,
+        appName,
+        event: "check_validity_failed",
+        detail: { error: apiJson?.error || "Falha ao consultar o painel do parceiro." },
+      });
       return jsonError(apiJson?.error || "Falha ao consultar o painel do parceiro.", 400);
     }
 
@@ -122,6 +132,15 @@ export async function POST(req: NextRequest) {
         .update({ field_values: { ...values, [fieldKey]: apiJson.expireDate } })
         .eq("id", client_app_id);
     }
+
+    await logAppActivity(supabaseAdmin, {
+      tenantId: ctx.tenant_id,
+      clientId: client_id,
+      clientAppId: client_app_id,
+      appName,
+      event: "check_validity",
+      detail: apiJson.expireDate ? { expireDate: apiJson.expireDate } : null,
+    });
 
     return NextResponse.json(
       { ok: true, expireDate: apiJson.expireDate || null },

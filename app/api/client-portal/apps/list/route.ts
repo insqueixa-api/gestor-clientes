@@ -58,10 +58,14 @@ function extractEditableFields(vals: Record<string, any>, config: any[]) {
         !HIDDEN_CLIENT_FIELD_TYPES.includes(f.type as AppFieldType),
     )
     .map((f: any) => {
-      // ✅ "Obs" (genérico, herdado do admin) vira "Ambiente" no portal —
+      // ✅ Rótulo padrão por TIPO tem prioridade sobre o label customizado
+      // do app (igual o admin já faz em novo_cliente.tsx) — sem isso, um
+      // app cujo campo MAC foi cadastrado com label solto "MAC" mostrava
+      // "MAC" no portal e "Device ID (MAC)" no admin pro mesmo campo.
+      // "Obs" (genérico, herdado do admin) vira "Ambiente" no portal —
       // mais claro pro cliente preencher onde o aparelho fica (sala, quarto...).
       const label =
-        f.label || (f.type === "obs" ? "Ambiente" : APP_FIELD_LABELS[f.type as AppFieldType]) || f.id;
+        (f.type === "obs" ? "Ambiente" : APP_FIELD_LABELS[f.type as AppFieldType]) || f.label || f.id;
       return {
         id: String(f.id),
         type: String(f.type || ""),
@@ -92,7 +96,7 @@ export async function POST(req: NextRequest) {
 
     const { data: rows, error: rowsErr } = await supabaseAdmin
       .from("client_apps")
-      .select("id, app_id, field_values, apps(name, icon_url, fields_config, integration_type)")
+      .select("id, app_id, field_values, apps(name, icon_url, fields_config, integration_type, cost_type)")
       .eq("client_id", client_id);
 
     if (rowsErr) {
@@ -119,10 +123,16 @@ export async function POST(req: NextRequest) {
       const vals = row.field_values || {};
       const config = Array.isArray(row.apps?.fields_config) ? row.apps.fields_config : [];
       const integrationType = row.apps?.integration_type || null;
-      // ✅ Apps "parceria" (custo embutido no plano do servidor, sem
-      // vencimento próprio rastreado) nunca mostram vencimento — o campo
-      // "date" nesses casos costuma ser placeholder/sem sentido.
-      const isPartnership = String(vals["_config_cost"] || "") === "partnership";
+      // ✅ Só aplicativo "universal" (cost_type=free — rótulo "Gratuito
+      // (universal)" no admin) tem vencimento de verdade rastreado no painel
+      // do parceiro. "Paga"/"Parceria" não têm validade própria (a data que
+      // porventura exista em field_values é placeholder — ex: GerenciaApp
+      // sempre manda "hoje + 1 ano" fixo pro payload, não é um vencimento
+      // real) — então nunca mostra pro cliente, mesmo que exista valor
+      // salvo. Prioriza o snapshot por instância (_config_cost, gravado no
+      // momento do add) e cai pro cost_type atual do catálogo se não tiver.
+      const costType = String(vals["_config_cost"] || row.apps?.cost_type || "").trim();
+      const isFreeUniversal = costType === "free";
       const handler = integrationType ? getIntegrationHandler(integrationType) : null;
       // ✅ "has_integration" decide se o botão "Reconfigurar" aparece — precisa
       // refletir automação REAL (handler.useApi), não só a presença de
@@ -130,7 +140,7 @@ export async function POST(req: NextRequest) {
       // useApi:false (bloqueio Cloudflare, ver ibosol.ts) — sem essa checagem
       // o botão aparecia e sempre falhava ao clicar.
       const canCheckValidity =
-        !isPartnership && !!handler && (handler as any).useApi && CHECK_VALIDITY_HANDLERS.has((handler as any).actionPrefix);
+        isFreeUniversal && !!handler && (handler as any).useApi && CHECK_VALIDITY_HANDLERS.has((handler as any).actionPrefix);
 
       return {
         id: row.id,
@@ -141,7 +151,7 @@ export async function POST(req: NextRequest) {
         can_check_validity: canCheckValidity,
         has_pending_setup_request: pendingSetupByAppId.has(row.id),
         has_pending_removal_request: pendingRemovalByAppId.has(row.id),
-        expiration: isPartnership ? null : extractExpiration(vals, config),
+        expiration: isFreeUniversal ? extractExpiration(vals, config) : null,
         fields: extractEditableFields(vals, config),
       };
     });

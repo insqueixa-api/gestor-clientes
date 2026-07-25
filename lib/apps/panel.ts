@@ -56,6 +56,47 @@ export function extractDateOnly(raw: string | null | undefined): string | null {
   return null;
 }
 
+// Eventos do Bloco 3 do portal (/renew-beta) que hoje ficavam 100% invisíveis
+// pro admin — client_app_requests só cobre pedidos manuais (apps sem
+// integração) e client_portal_payments só cobre pagamento. Grava em
+// client_app_activity_log (docs/sql/client_app_activity_log.sql), lido na
+// aba "Aplicativos" da Auditoria. Nunca lança — log não pode derrubar a
+// ação real do cliente.
+export type AppActivityEvent =
+  | "added"
+  | "removed"
+  | "removed_partner_failed"
+  | "configured"
+  | "configure_failed"
+  | "fields_updated"
+  | "check_validity"
+  | "check_validity_failed";
+
+export async function logAppActivity(
+  supabaseAdmin: any,
+  params: {
+    tenantId: string;
+    clientId: string;
+    clientAppId?: string | null;
+    appName: string;
+    event: AppActivityEvent;
+    detail?: Record<string, any> | null;
+  },
+) {
+  try {
+    await supabaseAdmin.from("client_app_activity_log").insert({
+      tenant_id: params.tenantId,
+      client_id: params.clientId,
+      client_app_id: params.clientAppId || null,
+      app_name: params.appName,
+      event: params.event,
+      detail: params.detail || null,
+    });
+  } catch {
+    // não bloqueia a ação do cliente por falha no log
+  }
+}
+
 export function internalAppUrl(path: string) {
   const base = String(process.env.UNIGESTOR_APP_URL || process.env.APP_URL || "").replace(/\/+$/, "");
   return `${base}${path}`;

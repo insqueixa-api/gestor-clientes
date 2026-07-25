@@ -20,7 +20,14 @@ const DEVICE_ICONS: Record<DeviceType, string> = {
   ROKU: "🟣",
 };
 
-type CatalogApp = { id: string; name: string; icon_url: string | null; device_types?: string[] };
+type CatalogApp = {
+  id: string;
+  name: string;
+  icon_url: string | null;
+  device_types?: string[];
+  license_price?: number | null;
+  license_period?: "annual" | "lifetime" | null;
+};
 
 export default function AddAppModal({
   open,
@@ -156,7 +163,15 @@ export default function AddAppModal({
                       ) : (
                         <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-sm shrink-0">📱</div>
                       )}
-                      <span className="text-sm text-foreground font-medium">{busy ? "Adicionando..." : a.name}</span>
+                      <span className="flex-1 min-w-0 flex items-center justify-between gap-2">
+                        <span className="text-sm text-foreground font-medium truncate">{busy ? "Adicionando..." : a.name}</span>
+                        {a.license_price != null && (
+                          <span className="shrink-0 px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px] font-bold">
+                            {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(a.license_price)}
+                            {a.license_period === "annual" ? "/ano" : ""}
+                          </span>
+                        )}
+                      </span>
                     </button>
                   );
                 })

@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { getIntegrationHandler } from "@/lib/integrations";
-import { PIN_HANDLERS, extractFieldByType, findFieldByType, internalAppUrl, buildM3uUrlFromDns } from "@/lib/apps/panel";
+import { PIN_HANDLERS, extractFieldByType, findFieldByType, internalAppUrl, buildM3uUrlFromDns, logAppActivity } from "@/lib/apps/panel";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
 
     const { data: row, error: rowErr } = await supabaseAdmin
       .from("client_apps")
-      .select("id, field_values, apps(name, integration_type, fields_config)")
+      .select("id, field_values, license_paid_until, apps(name, integration_type, fields_config, cost_type, license_price, license_period)")
       .eq("id", client_app_id)
       .eq("client_id", client_id)
       .single();
@@ -56,6 +56,21 @@ export async function POST(req: NextRequest) {
     const handler = integrationType ? getIntegrationHandler(integrationType) : null;
     if (!handler || !(handler as any).useApi) {
       return jsonError("Esse aplicativo não tem integração automática disponível.", 400);
+    }
+
+    // ✅ App com licença paga (cost_type='paid', ex: Duplecast R$30/ano) só
+    // ativa de verdade no painel do parceiro depois de pagar — antes disso
+    // o cliente conseguia ativar de graça, sem cobrança nenhuma. Free e
+    // parceria não passam por essa checagem.
+    const costType = (row as any).apps?.cost_type;
+    const licensePrice = Number((row as any).apps?.license_price || 0);
+    if (costType === "paid" && licensePrice > 0) {
+      const licensePeriod = (row as any).apps?.license_period;
+      const paidUntil = (row as any).license_paid_until ? new Date((row as any).license_paid_until) : null;
+      const isPaid = licensePeriod === "lifetime" ? !!paidUntil : !!paidUntil && paidUntil.getTime() > Date.now();
+      if (!isPaid) {
+        return jsonError("Pague a licença desse aplicativo antes de configurar — abra os detalhes do app pra gerar o PIX.", 402);
+      }
     }
 
     const macValue = extractFieldByType(fieldsConfig, values, "mac");
@@ -118,6 +133,14 @@ export async function POST(req: NextRequest) {
     const apiJson = await apiRes.json().catch(() => ({} as any));
 
     if (!apiJson?.ok) {
+      await logAppActivity(supabaseAdmin, {
+        tenantId: ctx.tenant_id,
+        clientId: client_id,
+        clientAppId: client_app_id,
+        appName,
+        event: "configure_failed",
+        detail: { error: apiJson?.error || "Falha ao configurar no painel do parceiro." },
+      });
       return jsonError(apiJson?.error || "Falha ao configurar no painel do parceiro.", 400);
     }
 
@@ -130,6 +153,15 @@ export async function POST(req: NextRequest) {
         .update({ field_values: { ...values, [fieldKey]: apiJson.expireDate } })
         .eq("id", client_app_id);
     }
+
+    await logAppActivity(supabaseAdmin, {
+      tenantId: ctx.tenant_id,
+      clientId: client_id,
+      clientAppId: client_app_id,
+      appName,
+      event: "configured",
+      detail: apiJson.expireDate ? { expireDate: apiJson.expireDate } : null,
+    });
 
     return NextResponse.json(
       { ok: true, expireDate: apiJson.expireDate || null, message: apiJson.message || "Configurado com sucesso." },

@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
 
     let query = supabaseAdmin
       .from("apps")
-      .select("id, name, icon_url, technology, device_types, integration_type")
+      .select("id, name, icon_url, technology, device_types, integration_type, cost_type, license_price, license_period")
       .eq("tenant_id", ctx.tenant_id)
       .order("name", { ascending: true });
 
@@ -59,13 +59,20 @@ export async function POST(req: NextRequest) {
     // esperando automação e o "Reconfigurar" sempre falharia. Apps sem
     // nenhuma integração (integration_type null) continuam disponíveis —
     // esses nunca prometeram automação.
+    // ✅ Preço da licença exposto aqui de propósito (achado: cliente só
+    // descobria que o app era pago DEPOIS de já ter adicionado e
+    // configurado — o catálogo nunca mandava cost_type/license_price).
     const available = (apps || [])
       .filter((a: any) => {
         if (!a.integration_type) return true;
         const handler = getIntegrationHandler(a.integration_type);
         return !!handler && (handler as any).useApi;
       })
-      .map(({ integration_type, ...rest }: any) => rest);
+      .map(({ integration_type, cost_type, license_price, license_period, ...rest }: any) => ({
+        ...rest,
+        license_price: cost_type === "paid" && Number(license_price) > 0 ? Number(license_price) : null,
+        license_period: cost_type === "paid" ? license_period || null : null,
+      }));
 
     return NextResponse.json({ ok: true, data: available }, { status: 200, headers: NO_STORE_HEADERS });
   } catch {

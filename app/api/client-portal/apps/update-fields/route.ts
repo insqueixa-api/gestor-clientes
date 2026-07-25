@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { HIDDEN_CLIENT_FIELD_TYPES, AppFieldType, normalizeMacInput } from "@/lib/apps/field-types";
+import { logAppActivity } from "@/lib/apps/panel";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
 
     const { data: row, error: rowErr } = await supabaseAdmin
       .from("client_apps")
-      .select("id, field_values, apps(fields_config)")
+      .select("id, field_values, apps(name, fields_config)")
       .eq("id", client_app_id)
       .eq("client_id", client_id)
       .single();
@@ -57,10 +58,13 @@ export async function POST(req: NextRequest) {
     const typeById = new Map(config.map((f: any) => [String(f.id), String(f.type || "")]));
 
     const nextVals = { ...(row.field_values || {}) };
+    const changedKeys: string[] = [];
     for (const [key, value] of Object.entries(fields)) {
       if (!editableIds.has(key)) continue; // ignora silenciosamente campos ocultos/inexistentes
       const type = typeById.get(key);
-      nextVals[key] = type === "mac" ? normalizeMacInput(String(value ?? "")) : String(value ?? "").trim();
+      const normalized = type === "mac" ? normalizeMacInput(String(value ?? "")) : String(value ?? "").trim();
+      if (normalized !== (nextVals[key] ?? "")) changedKeys.push(key);
+      nextVals[key] = normalized;
     }
 
     const { error: updErr } = await supabaseAdmin
@@ -69,6 +73,17 @@ export async function POST(req: NextRequest) {
       .eq("id", client_app_id);
 
     if (updErr) return jsonError("Erro interno", 500);
+
+    if (changedKeys.length > 0) {
+      await logAppActivity(supabaseAdmin, {
+        tenantId: ctx.tenant_id,
+        clientId: client_id,
+        clientAppId: client_app_id,
+        appName: (row as any).apps?.name || "Aplicativo",
+        event: "fields_updated",
+        detail: { fields: changedKeys },
+      });
+    }
 
     return NextResponse.json({ ok: true }, { status: 200, headers: NO_STORE_HEADERS });
   } catch {

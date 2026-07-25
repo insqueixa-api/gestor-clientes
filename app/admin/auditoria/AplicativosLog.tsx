@@ -28,6 +28,40 @@ type AppRequestRow = {
   completed_at: string | null;
 };
 
+// ✅ client_app_activity_log (docs/sql/client_app_activity_log.sql) — cobre
+// os eventos que client_app_requests não vê: adicionar, remover app com
+// integração automática, configurar (sucesso/falha), editar campos,
+// verificar validade. Auditado em 25/07/2026.
+type ActivityEvent =
+  | "added"
+  | "removed"
+  | "removed_partner_failed"
+  | "configured"
+  | "configure_failed"
+  | "fields_updated"
+  | "check_validity"
+  | "check_validity_failed";
+
+type ActivityRow = {
+  id: string;
+  client_name: string;
+  app_name: string;
+  event: ActivityEvent;
+  detail: Record<string, any> | null;
+  created_at: string;
+};
+
+const ACTIVITY_LABELS: Record<ActivityEvent, { label: string; tone: string }> = {
+  added: { label: "Adicionou", tone: "bg-sky-500/10 text-sky-500 border-sky-500/20" },
+  removed: { label: "Removeu", tone: "bg-muted text-muted-foreground border-border" },
+  removed_partner_failed: { label: "Removeu (painel falhou)", tone: "bg-amber-500/10 text-amber-500 border-amber-500/20" },
+  configured: { label: "Configurou", tone: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" },
+  configure_failed: { label: "Falha ao configurar", tone: "bg-rose-500/10 text-rose-500 border-rose-500/20" },
+  fields_updated: { label: "Editou campos", tone: "bg-sky-500/10 text-sky-500 border-sky-500/20" },
+  check_validity: { label: "Verificou validade", tone: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" },
+  check_validity_failed: { label: "Falha ao verificar", tone: "bg-rose-500/10 text-rose-500 border-rose-500/20" },
+};
+
 type ConfirmFn = (
   options: Omit<ConfirmDialogProps, "open" | "onConfirm" | "onCancel" | "loading">,
 ) => Promise<boolean>;
@@ -56,6 +90,39 @@ export default function AplicativosLog({
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<"pending" | "todos">("pending");
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  const [tab, setTab] = useState<"pedidos" | "atividade">("pedidos");
+  const [activityRows, setActivityRows] = useState<ActivityRow[]>([]);
+  const [activityLoading, setActivityLoading] = useState(true);
+
+  async function loadActivity() {
+    setActivityLoading(true);
+    const { data, error } = await supabaseBrowser
+      .from("client_app_activity_log")
+      .select("id, app_name, event, detail, created_at, clients(display_name)")
+      .eq("tenant_id", tenantId)
+      .order("created_at", { ascending: false })
+      .limit(200);
+
+    if (!error && data) {
+      setActivityRows(
+        data.map((r: any) => ({
+          id: r.id,
+          client_name: r.clients?.display_name || "Cliente",
+          app_name: r.app_name,
+          event: r.event,
+          detail: r.detail,
+          created_at: r.created_at,
+        })),
+      );
+    }
+    setActivityLoading(false);
+  }
+
+  useEffect(() => {
+    if (tab === "atividade") loadActivity();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, tenantId]);
 
   async function loadData() {
     setLoading(true);
@@ -178,6 +245,79 @@ export default function AplicativosLog({
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center gap-2 px-3 md:px-0 border-b border-border pb-3">
+        <button
+          onClick={() => setTab("pedidos")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
+            tab === "pedidos"
+              ? "bg-card text-foreground border-border shadow-sm"
+              : "bg-transparent text-muted-foreground border-transparent hover:bg-muted"
+          }`}
+        >
+          Pedidos manuais
+        </button>
+        <button
+          onClick={() => setTab("atividade")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
+            tab === "atividade"
+              ? "bg-card text-foreground border-border shadow-sm"
+              : "bg-transparent text-muted-foreground border-transparent hover:bg-muted"
+          }`}
+        >
+          Atividade do portal
+        </button>
+      </div>
+
+      {tab === "atividade" ? (
+        <div className="space-y-3">
+          {activityLoading ? (
+            <div className="p-12 text-center text-muted-foreground animate-pulse bg-card rounded-none sm:rounded-xl border border-border">
+              Carregando atividade...
+            </div>
+          ) : activityRows.length === 0 ? (
+            <div className="p-12 text-center text-muted-foreground italic bg-card rounded-none sm:rounded-xl border border-border">
+              Nenhuma atividade registrada ainda.
+            </div>
+          ) : (
+            <div className="bg-card border border-border rounded-none sm:rounded-xl shadow-sm overflow-visible sm:mx-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-[650px]">
+                  <thead>
+                    <tr className="border-b border-border text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                      <th className="px-4 py-3">Quando</th>
+                      <th className="px-4 py-3">Cliente</th>
+                      <th className="px-4 py-3">Aplicativo</th>
+                      <th className="px-4 py-3">Evento</th>
+                      <th className="px-4 py-3">Detalhe</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-sm divide-y divide-border">
+                    {activityRows.map((r) => {
+                      const meta = ACTIVITY_LABELS[r.event] || { label: r.event, tone: "bg-muted text-muted-foreground border-border" };
+                      return (
+                        <tr key={r.id} className="hover:bg-muted/50 transition-colors">
+                          <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">há {timeAgo(r.created_at)}</td>
+                          <td className="px-4 py-3 font-medium text-foreground">{r.client_name}</td>
+                          <td className="px-4 py-3 text-foreground/90">{r.app_name}</td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-1 rounded-lg text-[10px] font-medium uppercase border ${meta.tone}`}>
+                              {meta.label}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-muted-foreground font-mono">
+                            {r.detail?.error || (r.detail?.expireDate ? `Vencimento: ${String(r.detail.expireDate).split("T")[0].split("-").reverse().join("/")}` : "") || (r.detail?.fields ? `Campos: ${r.detail.fields.join(", ")}` : "") || "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
       <div className="flex items-center gap-2 px-3 md:px-0">
         <button
           onClick={() => setFilterStatus("pending")}
@@ -302,6 +442,8 @@ export default function AplicativosLog({
             </table>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

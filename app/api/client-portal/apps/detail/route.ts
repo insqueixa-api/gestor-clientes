@@ -48,7 +48,9 @@ function extractEditableFields(vals: Record<string, any>, config: any[]) {
         !HIDDEN_CLIENT_FIELD_TYPES.includes(f.type as AppFieldType),
     )
     .map((f: any) => {
-      const label = f.label || (f.type === "obs" ? "Ambiente" : APP_FIELD_LABELS[f.type as AppFieldType]) || f.id;
+      // ✅ Mesma prioridade do admin (novo_cliente.tsx) e de apps/list —
+      // rótulo padrão por tipo antes do label customizado do app.
+      const label = (f.type === "obs" ? "Ambiente" : APP_FIELD_LABELS[f.type as AppFieldType]) || f.label || f.id;
       return { id: String(f.id), type: String(f.type || ""), label: String(label), value: vals[f.id] ?? vals[f.label] ?? "" };
     });
 }
@@ -70,6 +72,8 @@ export async function POST(req: NextRequest) {
     const { data: row, error: rowErr } = await supabaseAdmin
       .from("client_apps")
       .select("id, app_id, field_values, apps(name, icon_url, fields_config, integration_type, info_url, portal_setup_instructions, cost_type, license_price, license_period)")
+      // (cost_type já vinha selecionado aqui — reaproveitado abaixo pra
+      // decidir se mostra vencimento, não só pro preço da licença)
       .eq("id", client_app_id)
       .eq("client_id", client_id)
       .single();
@@ -86,10 +90,13 @@ export async function POST(req: NextRequest) {
     const vals = row.field_values || {};
     const config = Array.isArray((row as any).apps?.fields_config) ? (row as any).apps.fields_config : [];
     const integrationType = (row as any).apps?.integration_type || null;
-    const isPartnership = String(vals["_config_cost"] || "") === "partnership";
+    // ✅ Só app "universal" (cost_type=free) tem vencimento real — ver
+    // mesma regra/comentário em apps/list/route.ts.
+    const costType = String(vals["_config_cost"] || (row as any).apps?.cost_type || "").trim();
+    const isFreeUniversal = costType === "free";
     const handler = integrationType ? getIntegrationHandler(integrationType) : null;
     const canCheckValidity =
-      !isPartnership && !!handler && (handler as any).useApi && CHECK_VALIDITY_HANDLERS.has((handler as any).actionPrefix);
+      isFreeUniversal && !!handler && (handler as any).useApi && CHECK_VALIDITY_HANDLERS.has((handler as any).actionPrefix);
 
     return NextResponse.json(
       {
@@ -104,7 +111,7 @@ export async function POST(req: NextRequest) {
           can_check_validity: canCheckValidity,
           has_pending_setup_request: hasPendingSetup,
           has_pending_removal_request: hasPendingRemoval,
-          expiration: isPartnership ? null : extractExpiration(vals, config),
+          expiration: isFreeUniversal ? extractExpiration(vals, config) : null,
           fields: extractEditableFields(vals, config),
           portal_setup_instructions: (row as any).apps?.portal_setup_instructions || null,
           license_price:
