@@ -107,6 +107,18 @@ export async function POST(req: NextRequest) {
     } else {
       resultado[srv] = countAntes || 0;
     }
+
+    // 4b. ✅ Remove episódios órfãos desse servidor — catalog_episodes nunca
+    // teve limpeza própria, só catalog_availability. Um título que sai do
+    // servidor deixa de ter linha em catalog_availability, mas os episódios
+    // continuavam acumulando pra sempre (achado: 4.821 órfãos acumulados).
+    // Feito via RPC (NOT EXISTS no banco) — uma lista IN com dezenas de
+    // milhares de ids não cabe na URL do PostgREST.
+    const { data: episodiosRemovidos, error: epErr } = await supabaseAdmin
+      .rpc("remover_episodios_orfaos", { p_servidor: srv });
+
+    if (epErr) console.error(`[LIMPAR] Erro ao remover episódios órfãos de ${srv}:`, epErr.message);
+    else resultado[`${srv}_episodios_orfaos`] = episodiosRemovidos || 0;
   }
 
   // 4. Remove órfãos via RPC — uma query só

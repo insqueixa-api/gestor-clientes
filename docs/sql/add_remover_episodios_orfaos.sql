@@ -1,0 +1,25 @@
+-- catalog_episodes nunca teve limpeza própria — só catalog_availability
+-- (via /api/catalogo/limpar) e catalog_master (via remover_master_orfaos()).
+-- Um título que some do servidor perde a linha em catalog_availability, mas
+-- os episódios continuavam acumulando pra sempre. Achado: 4.821 episódios
+-- órfãos acumulados (4705 ELITE, 92 FAST, 24 NATV) antes desta correção.
+--
+-- Mesmo padrão de remover_master_orfaos(), mas por servidor (episódio de um
+-- título ainda disponível no NATV não pode ser removido só porque saiu do
+-- ELITE — cada (master_id, servidor) é independente).
+CREATE OR REPLACE FUNCTION public.remover_episodios_orfaos(p_servidor text)
+RETURNS integer
+LANGUAGE sql
+SECURITY DEFINER
+AS $function$
+  WITH deletados AS (
+    DELETE FROM catalog_episodes ce
+    WHERE ce.servidor = p_servidor
+      AND NOT EXISTS (
+        SELECT 1 FROM catalog_availability ca
+        WHERE ca.master_id = ce.master_id AND ca.servidor = ce.servidor
+      )
+    RETURNING ce.id
+  )
+  SELECT count(*)::integer FROM deletados;
+$function$;
