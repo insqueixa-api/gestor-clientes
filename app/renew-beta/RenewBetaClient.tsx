@@ -267,6 +267,8 @@ export default function RenewClient() {
     has_pending_removal_request: boolean;
     expiration: string | null;
     fields: InstalledAppField[];
+    license_price: number | null;
+    license_period: "annual" | "lifetime" | null;
   };
   const [installedApps, setInstalledApps] = useState<InstalledApp[]>([]);
   const [installedAppsLoading, setInstalledAppsLoading] = useState(false);
@@ -280,6 +282,80 @@ export default function RenewClient() {
   const [editingAppId, setEditingAppId] = useState<string | null>(null);
   const [editingValues, setEditingValues] = useState<Record<string, string>>({});
   const [appActionBusy, setAppActionBusy] = useState<string | null>(null);
+
+  // ✅ Pagamento avulso de licença — pedido do Márcio (25/07/2026): movido da
+  // página de detalhe pra cá (tela principal), embaixo do "Excluir
+  // Aplicativo" no mesmo card. Não mexe na assinatura IPTV.
+  type AppPayment = { clientAppId: string; payment_id: string; pix_qr_code?: string; pix_qr_code_base64?: string; price_amount: number };
+  const [renewPayment, setRenewPayment] = useState<AppPayment | null>(null);
+  const [renewPaymentBusyId, setRenewPaymentBusyId] = useState<string | null>(null);
+  const [renewPaymentDone, setRenewPaymentDone] = useState(false);
+  const [renewPollInterval, setRenewPollInterval] = useState<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (renewPollInterval) clearInterval(renewPollInterval);
+    };
+  }, [renewPollInterval]);
+
+  function startPollingAppPayment(paymentId: string) {
+    if (!session) return;
+    if (renewPollInterval) clearInterval(renewPollInterval);
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch("/api/client-portal/payment-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_token: session, payment_id: paymentId }),
+          cache: "no-store",
+        });
+        const result = await res.json().catch(() => null);
+        if (!result?.ok) return;
+        if (String(result.phase || "").toLowerCase() === "done") {
+          clearInterval(interval);
+          setRenewPollInterval(null);
+          setRenewPaymentDone(true);
+        }
+      } catch {
+        // continua tentando
+      }
+    }, 3000);
+    setRenewPollInterval(interval);
+  }
+
+  async function handleRenewPayment(clientAppId: string) {
+    if (!selectedAccountId || !session) return;
+    setRenewPaymentBusyId(clientAppId);
+    try {
+      const res = await fetch("/api/client-portal/apps/renew-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_token: session, client_id: selectedAccountId, client_app_id: clientAppId }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!result?.ok) throw new Error(result?.error || "Falha ao gerar pagamento.");
+      setRenewPaymentDone(false);
+      setRenewPayment({
+        clientAppId,
+        payment_id: result.payment_id,
+        pix_qr_code: result.pix_qr_code,
+        pix_qr_code_base64: result.pix_qr_code_base64,
+        price_amount: result.price_amount,
+      });
+      startPollingAppPayment(result.payment_id);
+    } catch (err: any) {
+      addToast("error", "Falha ao gerar pagamento", err?.message);
+    } finally {
+      setRenewPaymentBusyId(null);
+    }
+  }
+
+  function closeRenewPaymentModal() {
+    if (renewPollInterval) clearInterval(renewPollInterval);
+    setRenewPollInterval(null);
+    setRenewPayment(null);
+    setRenewPaymentDone(false);
+  }
 
   // Toasts (feedback de sucesso/erro nas ações do Bloco 3)
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -3385,6 +3461,22 @@ export default function RenewClient() {
                               </button>
                             )}
                           </div>
+                          {/* ✅ Renovar licença — embaixo, alinhado à direita
+                              (Excluir Aplicativo fica em cima, no cabeçalho) */}
+                          {app.license_price != null && (
+                            <div className="flex justify-end">
+                              <button
+                                disabled={renewPaymentBusyId === app.id}
+                                onClick={() => handleRenewPayment(app.id)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition-colors disabled:opacity-50"
+                              >
+                                {renewPaymentBusyId === app.id && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                {renewPaymentBusyId === app.id
+                                  ? "Gerando pagamento..."
+                                  : `Renovar aplicativo — ${formatMoney(app.license_price, "BRL")}${app.license_period === "annual" ? "/ano" : ""}`}
+                              </button>
+                            </div>
+                          )}
                         </>
                       )}
                     </div>
@@ -3410,6 +3502,73 @@ export default function RenewClient() {
                 busyAppId={appActionBusy?.startsWith("add-") ? appActionBusy.slice(4) : null}
                 onSelectApp={(appId) => handleAddApp(appId)}
               />
+
+              {/* Modal de pagamento avulso da licença — nunca mexe na assinatura */}
+              {renewPayment && (
+                <div
+                  className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+                  onMouseDown={(e) => {
+                    if (e.target === e.currentTarget && renewPaymentDone) closeRenewPaymentModal();
+                  }}
+                >
+                  <div className="w-full max-w-sm bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-4">
+                    {renewPaymentDone ? (
+                      <>
+                        <div className="flex flex-col items-center gap-2 text-center py-4">
+                          <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center text-3xl">✅</div>
+                          <p className="text-base font-bold text-foreground">Pagamento confirmado!</p>
+                          <p className="text-xs text-muted-foreground">
+                            {installedApps.find((a) => a.id === renewPayment.clientAppId)?.has_integration
+                              ? 'O pagamento da licença foi registrado. Agora clique em "Configurar aplicativo" pra ativar de verdade.'
+                              : "O pagamento da licença foi registrado. Nosso suporte vai finalizar a ativação em breve."}
+                          </p>
+                        </div>
+                        <button
+                          onClick={closeRenewPaymentModal}
+                          className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
+                        >
+                          Fechar
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-bold text-foreground">
+                            Renovar licença — {installedApps.find((a) => a.id === renewPayment.clientAppId)?.name}
+                          </p>
+                          <button onClick={closeRenewPaymentModal} className="text-muted-foreground hover:text-foreground text-xs">
+                            ✕
+                          </button>
+                        </div>
+                        <p className="text-xs text-muted-foreground text-center">
+                          {formatMoney(renewPayment.price_amount, "BRL")} — escaneie o QR Code ou copie o código PIX
+                        </p>
+                        {renewPayment.pix_qr_code_base64 && (
+                          <img
+                            src={`data:image/png;base64,${renewPayment.pix_qr_code_base64}`}
+                            alt="QR Code PIX"
+                            className="w-48 h-48 mx-auto rounded-lg border border-border"
+                          />
+                        )}
+                        {renewPayment.pix_qr_code && (
+                          <button
+                            onClick={() => {
+                              navigator.clipboard?.writeText(renewPayment.pix_qr_code || "");
+                              addToast("success", "Copiado!", "Código PIX copiado.");
+                            }}
+                            className="w-full h-10 rounded-lg bg-muted border border-border text-xs font-bold text-foreground hover:bg-muted/70 transition-colors"
+                          >
+                            Copiar código PIX
+                          </button>
+                        )}
+                        <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-1">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Aguardando pagamento...
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

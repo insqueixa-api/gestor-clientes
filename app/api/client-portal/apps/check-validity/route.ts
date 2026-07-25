@@ -49,13 +49,12 @@ export async function POST(req: NextRequest) {
       .single();
     if (rowErr || !row) return jsonError("Aplicativo não encontrado", 404);
 
-    // ✅ Só app "universal" (cost_type=free) tem vencimento próprio
-    // rastreado no painel do parceiro — "pago"/"parceria" não têm validade
-    // real (mesma regra de apps/list e apps/detail).
+    // ✅ Só "parceria" (custo embutido no plano do servidor) não tem
+    // vencimento próprio rastreado — mesma regra de apps/list e apps/detail.
     const values = row.field_values || {};
     const costType = String(values["_config_cost"] || (row as any).apps?.cost_type || "").trim();
-    if (costType !== "free") {
-      return jsonError("Esse aplicativo não tem vencimento próprio rastreado.", 400);
+    if (costType === "partnership") {
+      return jsonError("Esse aplicativo não tem vencimento próprio — está incluso no plano.", 400);
     }
 
     const appName = (row as any).apps?.name || "Aplicativo";

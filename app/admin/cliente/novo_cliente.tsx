@@ -6173,13 +6173,12 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                         );
                       }
                     }
-                    // ✅ Só app "universal" (costType "free") tem vencimento
-                    // real rastreado no painel do parceiro — "pago"/"parceria"
-                    // não têm validade própria (ex: GerenciaApp manda sempre
-                    // "hoje + 1 ano" fixo, não é vencimento de verdade). Mesma
-                    // regra aplicada no portal do cliente.
+                    // ✅ Vencimento é validade real no painel do parceiro (7-15
+                    // dias pra app novo, renovável) — só "parceria" (custo
+                    // embutido no plano do servidor) não tem vencimento
+                    // próprio. Mesma regra do portal do cliente.
                     const isExpiringSoon =
-                      app.costType === "free" &&
+                      app.costType !== "partnership" &&
                       diffDays !== null &&
                       Number.isFinite(diffDays) &&
                       diffDays <= 30;

@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
 
     const { data: row, error: rowErr } = await supabaseAdmin
       .from("client_apps")
-      .select("id, field_values, license_paid_until, apps(name, integration_type, fields_config, cost_type, license_price, license_period)")
+      .select("id, field_values, apps(name, integration_type, fields_config)")
       .eq("id", client_app_id)
       .eq("client_id", client_id)
       .single();
@@ -58,20 +58,15 @@ export async function POST(req: NextRequest) {
       return jsonError("Esse aplicativo não tem integração automática disponível.", 400);
     }
 
-    // ✅ App com licença paga (cost_type='paid', ex: Duplecast R$30/ano) só
-    // ativa de verdade no painel do parceiro depois de pagar — antes disso
-    // o cliente conseguia ativar de graça, sem cobrança nenhuma. Free e
-    // parceria não passam por essa checagem.
-    const costType = (row as any).apps?.cost_type;
-    const licensePrice = Number((row as any).apps?.license_price || 0);
-    if (costType === "paid" && licensePrice > 0) {
-      const licensePeriod = (row as any).apps?.license_period;
-      const paidUntil = (row as any).license_paid_until ? new Date((row as any).license_paid_until) : null;
-      const isPaid = licensePeriod === "lifetime" ? !!paidUntil : !!paidUntil && paidUntil.getTime() > Date.now();
-      if (!isPaid) {
-        return jsonError("Pague a licença desse aplicativo antes de configurar — abra os detalhes do app pra gerar o PIX.", 402);
-      }
-    }
+    // ⚠️ Removido em 25/07/2026 (pedido do Márcio): a licença do app é paga
+    // ao DESENVOLVEDOR do app, não a ele — o pagamento pelo portal
+    // ("Renovar aplicativo") é só uma cobrança avulsa opcional, nunca um
+    // pré-requisito. O app funciona normalmente até a validade dele vencer
+    // de verdade no painel do parceiro (checável via "check"), e mesmo
+    // vencido continua sendo possível reconfigurar — quem decide isso é o
+    // painel do parceiro, não o nosso sistema. Achado em produção: a trava
+    // bloqueava retroativamente dezenas de clientes reais que já usavam o
+    // app normalmente antes dessa coluna existir.
 
     const macValue = extractFieldByType(fieldsConfig, values, "mac");
     if (!macValue) {

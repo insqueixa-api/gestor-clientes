@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
 
     const { data: rows, error: rowsErr } = await supabaseAdmin
       .from("client_apps")
-      .select("id, app_id, field_values, apps(name, icon_url, fields_config, integration_type, cost_type)")
+      .select("id, app_id, field_values, apps(name, icon_url, fields_config, integration_type, cost_type, license_price, license_period)")
       .eq("client_id", client_id);
 
     if (rowsErr) {
@@ -123,16 +123,14 @@ export async function POST(req: NextRequest) {
       const vals = row.field_values || {};
       const config = Array.isArray(row.apps?.fields_config) ? row.apps.fields_config : [];
       const integrationType = row.apps?.integration_type || null;
-      // ✅ Só aplicativo "universal" (cost_type=free — rótulo "Gratuito
-      // (universal)" no admin) tem vencimento de verdade rastreado no painel
-      // do parceiro. "Paga"/"Parceria" não têm validade própria (a data que
-      // porventura exista em field_values é placeholder — ex: GerenciaApp
-      // sempre manda "hoje + 1 ano" fixo pro payload, não é um vencimento
-      // real) — então nunca mostra pro cliente, mesmo que exista valor
-      // salvo. Prioriza o snapshot por instância (_config_cost, gravado no
-      // momento do add) e cai pro cost_type atual do catálogo se não tiver.
+      // ✅ Voltado atrás em 25/07/2026 (pedido do Márcio): vencimento é uma
+      // validade REAL do app no painel do parceiro (7-15 dias pra app novo,
+      // renovável) — não tem nada a ver com "cost_type"/licença paga. Só
+      // "parceria" (custo já embutido no plano do servidor) não tem
+      // vencimento próprio pra mostrar. Todo o resto mostra, inclusive apps
+      // vencidos (o cliente pode reconfigurar mesmo assim).
       const costType = String(vals["_config_cost"] || row.apps?.cost_type || "").trim();
-      const isFreeUniversal = costType === "free";
+      const isPartnership = costType === "partnership";
       const handler = integrationType ? getIntegrationHandler(integrationType) : null;
       // ✅ "has_integration" decide se o botão "Reconfigurar" aparece — precisa
       // refletir automação REAL (handler.useApi), não só a presença de
@@ -140,7 +138,7 @@ export async function POST(req: NextRequest) {
       // useApi:false (bloqueio Cloudflare, ver ibosol.ts) — sem essa checagem
       // o botão aparecia e sempre falhava ao clicar.
       const canCheckValidity =
-        isFreeUniversal && !!handler && (handler as any).useApi && CHECK_VALIDITY_HANDLERS.has((handler as any).actionPrefix);
+        !isPartnership && !!handler && (handler as any).useApi && CHECK_VALIDITY_HANDLERS.has((handler as any).actionPrefix);
 
       return {
         id: row.id,
@@ -151,8 +149,13 @@ export async function POST(req: NextRequest) {
         can_check_validity: canCheckValidity,
         has_pending_setup_request: pendingSetupByAppId.has(row.id),
         has_pending_removal_request: pendingRemovalByAppId.has(row.id),
-        expiration: isFreeUniversal ? extractExpiration(vals, config) : null,
+        expiration: isPartnership ? null : extractExpiration(vals, config),
         fields: extractEditableFields(vals, config),
+        license_price:
+          row.apps?.cost_type === "paid" && Number(row.apps?.license_price) > 0
+            ? Number(row.apps.license_price)
+            : null,
+        license_period: row.apps?.license_period || null,
       };
     });
 

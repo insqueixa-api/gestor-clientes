@@ -90,13 +90,14 @@ export async function POST(req: NextRequest) {
     const vals = row.field_values || {};
     const config = Array.isArray((row as any).apps?.fields_config) ? (row as any).apps.fields_config : [];
     const integrationType = (row as any).apps?.integration_type || null;
-    // ✅ Só app "universal" (cost_type=free) tem vencimento real — ver
-    // mesma regra/comentário em apps/list/route.ts.
+    // ✅ Vencimento é validade real no painel do parceiro — só "parceria"
+    // (custo embutido no plano do servidor) não tem. Ver mesma regra em
+    // apps/list/route.ts.
     const costType = String(vals["_config_cost"] || (row as any).apps?.cost_type || "").trim();
-    const isFreeUniversal = costType === "free";
+    const isPartnership = costType === "partnership";
     const handler = integrationType ? getIntegrationHandler(integrationType) : null;
     const canCheckValidity =
-      isFreeUniversal && !!handler && (handler as any).useApi && CHECK_VALIDITY_HANDLERS.has((handler as any).actionPrefix);
+      !isPartnership && !!handler && (handler as any).useApi && CHECK_VALIDITY_HANDLERS.has((handler as any).actionPrefix);
 
     return NextResponse.json(
       {
@@ -111,7 +112,7 @@ export async function POST(req: NextRequest) {
           can_check_validity: canCheckValidity,
           has_pending_setup_request: hasPendingSetup,
           has_pending_removal_request: hasPendingRemoval,
-          expiration: isFreeUniversal ? extractExpiration(vals, config) : null,
+          expiration: isPartnership ? null : extractExpiration(vals, config),
           fields: extractEditableFields(vals, config),
           portal_setup_instructions: (row as any).apps?.portal_setup_instructions || null,
           license_price:
