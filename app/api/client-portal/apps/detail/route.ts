@@ -39,16 +39,13 @@ function extractExpiration(vals: Record<string, any>, config: any[]) {
 }
 
 function extractEditableFields(vals: Record<string, any>, config: any[]) {
-  const HIDDEN_KEY_PATTERN = /senha|password|pin/i;
   return config
     .filter(
       (f: any) =>
         f &&
         f.id &&
         f.type !== "date" &&
-        !HIDDEN_CLIENT_FIELD_TYPES.includes(f.type as AppFieldType) &&
-        !HIDDEN_KEY_PATTERN.test(f.id) &&
-        !HIDDEN_KEY_PATTERN.test(f.label || ""),
+        !HIDDEN_CLIENT_FIELD_TYPES.includes(f.type as AppFieldType),
     )
     .map((f: any) => {
       const label = f.label || (f.type === "obs" ? "Ambiente" : APP_FIELD_LABELS[f.type as AppFieldType]) || f.id;
@@ -72,7 +69,7 @@ export async function POST(req: NextRequest) {
 
     const { data: row, error: rowErr } = await supabaseAdmin
       .from("client_apps")
-      .select("id, app_id, field_values, apps(name, icon_url, fields_config, integration_type, info_url, portal_setup_instructions)")
+      .select("id, app_id, field_values, apps(name, icon_url, fields_config, integration_type, info_url, portal_setup_instructions, cost_type, license_price, license_period)")
       .eq("id", client_app_id)
       .eq("client_id", client_id)
       .single();
@@ -110,6 +107,11 @@ export async function POST(req: NextRequest) {
           expiration: isPartnership ? null : extractExpiration(vals, config),
           fields: extractEditableFields(vals, config),
           portal_setup_instructions: (row as any).apps?.portal_setup_instructions || null,
+          license_price:
+            (row as any).apps?.cost_type === "paid" && Number((row as any).apps?.license_price) > 0
+              ? Number((row as any).apps.license_price)
+              : null,
+          license_period: (row as any).apps?.license_period || null,
         },
       },
       { status: 200, headers: NO_STORE_HEADERS },

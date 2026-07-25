@@ -26,6 +26,15 @@ type AppDetail = {
   expiration: string | null;
   fields: AppField[];
   portal_setup_instructions: string | null;
+  license_price: number | null;
+  license_period: "annual" | "lifetime" | null;
+};
+
+type AppPayment = {
+  payment_id: string;
+  pix_qr_code?: string;
+  pix_qr_code_base64?: string;
+  price_amount: number;
 };
 
 function getStoredSession() {
@@ -58,6 +67,18 @@ export default function AppDetailClient() {
   const [isEditing, setIsEditing] = useState(false);
   const [editingValues, setEditingValues] = useState<Record<string, string>>({});
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  // ✅ Pagamento avulso de licença (não mexe na assinatura IPTV)
+  const [renewPayment, setRenewPayment] = useState<AppPayment | null>(null);
+  const [renewPaymentBusy, setRenewPaymentBusy] = useState(false);
+  const [renewPaymentDone, setRenewPaymentDone] = useState(false);
+  const [renewPollInterval, setRenewPollInterval] = useState<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (renewPollInterval) clearInterval(renewPollInterval);
+    };
+  }, [renewPollInterval]);
 
   function addToast(type: ToastMessage["type"], title: string, message?: string) {
     setToasts((prev) => [...prev, { id: Date.now() + Math.random(), type, title, message }]);
@@ -221,6 +242,65 @@ export default function AppDetailClient() {
     }
   }
 
+  function startPollingAppPayment(paymentId: string) {
+    if (!session) return;
+    if (renewPollInterval) clearInterval(renewPollInterval);
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch("/api/client-portal/payment-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_token: session, payment_id: paymentId }),
+          cache: "no-store",
+        });
+        const result = await res.json().catch(() => null);
+        if (!result?.ok) return; // erro de rede momentâneo — tenta de novo no próximo tick
+        if (String(result.phase || "").toLowerCase() === "done") {
+          clearInterval(interval);
+          setRenewPollInterval(null);
+          setRenewPaymentDone(true);
+          addToast("success", "Pagamento confirmado!", "A licença do aplicativo foi renovada.");
+        }
+      } catch {
+        // continua tentando
+      }
+    }, 3000);
+    setRenewPollInterval(interval);
+  }
+
+  async function handleRenewPayment() {
+    if (!session || !clientId || !app) return;
+    setRenewPaymentBusy(true);
+    try {
+      const res = await fetch("/api/client-portal/apps/renew-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_token: session, client_id: clientId, client_app_id: clientAppId }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!result?.ok) throw new Error(result?.error || "Falha ao gerar pagamento.");
+      setRenewPaymentDone(false);
+      setRenewPayment({
+        payment_id: result.payment_id,
+        pix_qr_code: result.pix_qr_code,
+        pix_qr_code_base64: result.pix_qr_code_base64,
+        price_amount: result.price_amount,
+      });
+      startPollingAppPayment(result.payment_id);
+    } catch (err: any) {
+      addToast("error", "Falha ao gerar pagamento", err?.message);
+    } finally {
+      setRenewPaymentBusy(false);
+    }
+  }
+
+  function closeRenewPaymentModal() {
+    if (renewPollInterval) clearInterval(renewPollInterval);
+    setRenewPollInterval(null);
+    setRenewPayment(null);
+    setRenewPaymentDone(false);
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <ToastNotifications toasts={toasts} removeToast={removeToast} />
@@ -362,6 +442,18 @@ export default function AppDetailClient() {
                         {busy ? "Verificando..." : "Verificar validade"}
                       </button>
                     )}
+                    {app.license_price != null && (
+                      <button
+                        disabled={renewPaymentBusy}
+                        onClick={handleRenewPayment}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition-colors disabled:opacity-50"
+                      >
+                        {renewPaymentBusy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                        {renewPaymentBusy
+                          ? "Gerando pagamento..."
+                          : `Renovar aplicativo — ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(app.license_price)}${app.license_period === "annual" ? "/ano" : ""}`}
+                      </button>
+                    )}
                   </div>
                 </>
               )}
@@ -392,6 +484,67 @@ export default function AppDetailClient() {
           </>
         )}
       </div>
+
+      {/* Modal de pagamento avulso da licença — nunca mexe na assinatura */}
+      {renewPayment && (
+        <div
+          className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget && renewPaymentDone) closeRenewPaymentModal();
+          }}
+        >
+          <div className="w-full max-w-sm bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-4">
+            {renewPaymentDone ? (
+              <>
+                <div className="flex flex-col items-center gap-2 text-center py-4">
+                  <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center text-3xl">✅</div>
+                  <p className="text-base font-bold text-foreground">Pagamento confirmado!</p>
+                  <p className="text-xs text-muted-foreground">A licença do aplicativo foi renovada.</p>
+                </div>
+                <button
+                  onClick={closeRenewPaymentModal}
+                  className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
+                >
+                  Fechar
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-bold text-foreground">Renovar licença — {app?.name}</p>
+                  <button onClick={closeRenewPaymentModal} className="text-muted-foreground hover:text-foreground text-xs">
+                    ✕
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground text-center">
+                  {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(renewPayment.price_amount)} — escaneie o QR Code ou copie o código PIX
+                </p>
+                {renewPayment.pix_qr_code_base64 && (
+                  <img
+                    src={`data:image/png;base64,${renewPayment.pix_qr_code_base64}`}
+                    alt="QR Code PIX"
+                    className="w-48 h-48 mx-auto rounded-lg border border-border"
+                  />
+                )}
+                {renewPayment.pix_qr_code && (
+                  <button
+                    onClick={() => {
+                      navigator.clipboard?.writeText(renewPayment.pix_qr_code || "");
+                      addToast("success", "Copiado!", "Código PIX copiado.");
+                    }}
+                    className="w-full h-10 rounded-lg bg-muted border border-border text-xs font-bold text-foreground hover:bg-muted/70 transition-colors"
+                  >
+                    Copiar código PIX
+                  </button>
+                )}
+                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-1">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Aguardando pagamento...
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

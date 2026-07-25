@@ -112,6 +112,30 @@ export async function markFulfillmentError(
 }
 
 // ============================================================
+// Pagamento avulso de licença de app (payment_type='app_renewal')
+// ============================================================
+// "Fulfillment" aqui é deliberadamente simples: só marca a cobrança como
+// concluída. NUNCA chama runFulfillment (isso é só pra assinatura IPTV) —
+// pagar a licença de um app não renova a assinatura do cliente nem mexe em
+// clients.vencimento. O "Renovar aplicativo" de verdade no painel do
+// parceiro continua sendo o botão "Configurar aplicativo", separado.
+export async function markAppRenewalPaid(
+  supabaseAdmin: any,
+  tenantId: string,
+  paymentRowId: string
+) {
+  await supabaseAdmin
+    .from("client_portal_payments")
+    .update({
+      fulfillment_status: "done",
+      fulfilled_at: new Date().toISOString(),
+      fulfillment_error: null,
+    })
+    .eq("tenant_id", tenantId)
+    .eq("id", paymentRowId);
+}
+
+// ============================================================
 // runFulfillment
 // ============================================================
 export async function runFulfillment(params: FulfillmentParams) {

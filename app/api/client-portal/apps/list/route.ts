@@ -49,17 +49,13 @@ function extractExpiration(vals: Record<string, any>, config: any[]) {
 // (esse já vira "expiration" acima; editar data manual não faz sentido,
 // quem atualiza é a chamada "Reconfigurar").
 function extractEditableFields(vals: Record<string, any>, config: any[]) {
-  const HIDDEN_KEY_PATTERN = /senha|password|pin/i;
-
   return config
     .filter(
       (f: any) =>
         f &&
         f.id &&
         f.type !== "date" &&
-        !HIDDEN_CLIENT_FIELD_TYPES.includes(f.type as AppFieldType) &&
-        !HIDDEN_KEY_PATTERN.test(f.id) &&
-        !HIDDEN_KEY_PATTERN.test(f.label || ""),
+        !HIDDEN_CLIENT_FIELD_TYPES.includes(f.type as AppFieldType),
     )
     .map((f: any) => {
       // ✅ "Obs" (genérico, herdado do admin) vira "Ambiente" no portal —

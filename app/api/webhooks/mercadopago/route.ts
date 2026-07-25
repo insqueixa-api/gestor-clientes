@@ -9,6 +9,7 @@ import {
   markFulfillmentDone as markIptvDone,
   markFulfillmentError as markIptvError,
   tryAcquireFulfillmentLock as tryAcquireIptvLock,
+  markAppRenewalPaid,
   prodLog
 } from "@/lib/client-portal/fulfillment";
 
@@ -81,7 +82,7 @@ export async function POST(req: NextRequest) {
     // =========================================================================
     const { data: iptvPayment } = await supabaseAdmin
       .from("client_portal_payments")
-      .select("id, tenant_id, client_id, mp_payment_id, status, fulfillment_status, period, plan_label, price_amount, plan_price_amount, price_currency, new_vencimento, settled_alert_ids, coupon_id, coupon_discount_amount")
+      .select("id, tenant_id, client_id, mp_payment_id, status, fulfillment_status, period, plan_label, price_amount, plan_price_amount, price_currency, new_vencimento, settled_alert_ids, coupon_id, coupon_discount_amount, payment_type")
       .eq("mp_payment_id", paymentId)
       .maybeSingle();
 
@@ -128,10 +129,19 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true });
       }
 
-      // Preparar Fulfillment IPTV
+      // Preparar Fulfillment
       const updatePayload: any = { status: "approved" };
       if (!iptvPayment.fulfillment_status) updatePayload.fulfillment_status = "pending";
       await supabaseAdmin.from("client_portal_payments").update(updatePayload).eq("id", iptvPayment.id);
+
+      // ✅ Pagamento avulso de licença de app (payment_type='app_renewal') —
+      // NUNCA passa pelo runIptvFulfillment (isso renovaria a assinatura
+      // IPTV do cliente, o que não tem nada a ver com pagar a licença de um
+      // app). Só marca a cobrança como concluída.
+      if (iptvPayment.payment_type === "app_renewal") {
+        await markAppRenewalPaid(supabaseAdmin, iptvPayment.tenant_id, iptvPayment.id);
+        return NextResponse.json({ ok: true });
+      }
 
       const origin = String(process.env.UNIGESTOR_APP_URL || process.env.APP_URL || "").replace(/\/+$/, "");
       if (origin) {

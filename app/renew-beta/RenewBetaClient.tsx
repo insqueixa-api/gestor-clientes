@@ -7,8 +7,8 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 import Image from "next/image";
 import { useConfirm } from "@/hooks/useConfirm";
 import { Pencil, CheckCircle2, ShieldCheck, Loader2 } from "lucide-react";
-import { ALL_DEVICE_TYPES, DEVICE_TYPE_LABELS } from "@/lib/apps/device-types";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
+import AddAppModal from "./AddAppModal";
 
 // ========= TYPES =========
 interface ClientAccount {
@@ -273,9 +273,7 @@ export default function RenewClient() {
     null,
   );
   // Bloco 3 — sub-abas
-  const [appsSubTab, setAppsSubTab] = useState<
-    "meus-apps" | "novo-dispositivo" | "duvidas"
-  >("meus-apps");
+  const [appsSubTab, setAppsSubTab] = useState<"meus-apps" | "duvidas">("meus-apps");
 
   // Edição inline de um card de app instalado
   const [editingAppId, setEditingAppId] = useState<string | null>(null);
@@ -291,21 +289,19 @@ export default function RenewClient() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }
 
-  // Picker "+ Adicionar aplicativo"
+  // Picker "+ Adicionar aplicativo" (modal por tipo de equipamento)
   const [showAddAppPicker, setShowAddAppPicker] = useState(false);
-  const [addAppSearch, setAddAppSearch] = useState("");
   const [appCatalog, setAppCatalog] = useState<
-    { id: string; name: string; icon_url: string | null }[]
+    { id: string; name: string; icon_url: string | null; device_types?: string[] }[]
   >([]);
   const [appCatalogLoading, setAppCatalogLoading] = useState(false);
 
-  // Sub-abas 2 e 3 — conteúdo vindo de bot_knowledge (curado no admin)
+  // Sub-aba "Dúvidas" — conteúdo vindo de bot_knowledge (curado no admin)
   const [faqData, setFaqData] = useState<{
     device_setup: { title: string; content: string; device_types: string[] }[];
     faq: { title: string; content: string; category: string }[];
   } | null>(null);
   const [faqLoading, setFaqLoading] = useState(false);
-  const [deviceFilter, setDeviceFilter] = useState<string | null>(null);
 
   const [prices, setPrices] = useState<PlanPrice[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<string>("MONTHLY");
@@ -763,7 +759,6 @@ export default function RenewClient() {
       const result = await res.json().catch(() => null);
       if (!result?.ok) throw new Error(result?.error || "Falha ao adicionar.");
       setShowAddAppPicker(false);
-      setAddAppSearch("");
       addToast("success", "Adicionado!", "Preencha os campos e configure quando estiver pronto.");
       await refreshInstalledApps();
     } catch (err: any) {
@@ -3206,7 +3201,6 @@ export default function RenewClient() {
   if (activeSection === "apps") {
     const SUB_TABS: { id: typeof appsSubTab; label: string }[] = [
       { id: "meus-apps", label: "Meus aplicativos" },
-      { id: "novo-dispositivo", label: "Novo dispositivo" },
       { id: "duvidas", label: "Dúvidas" },
     ];
 
@@ -3396,116 +3390,29 @@ export default function RenewClient() {
                   );
                 })}
 
-              {/* + Adicionar aplicativo */}
-              {!showAddAppPicker ? (
-                <button
-                  onClick={() => {
-                    setShowAddAppPicker(true);
-                    loadAppCatalog();
-                  }}
-                  className="w-full py-3 rounded-xl border-2 border-dashed border-border text-sm font-bold text-muted-foreground hover:border-sky-500 hover:text-sky-500 transition-colors"
-                >
-                  + Adicionar aplicativo
-                </button>
-              ) : (
-                <div className="bg-card rounded-xl p-4 border border-border shadow-sm space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-bold text-foreground">Adicionar aplicativo</p>
-                    <button onClick={() => setShowAddAppPicker(false)} className="text-muted-foreground hover:text-foreground text-xs">
-                      Fechar
-                    </button>
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Buscar aplicativo..."
-                    value={addAppSearch}
-                    onChange={(e) => setAddAppSearch(e.target.value)}
-                    className="w-full h-10 px-3 bg-muted border border-border rounded-lg text-sm text-foreground outline-none focus:border-sky-500"
-                  />
-                  {appCatalogLoading ? (
-                    <p className="text-xs text-muted-foreground text-center py-4">Carregando...</p>
-                  ) : (
-                    <div className="space-y-1.5 max-h-64 overflow-y-auto">
-                      {appCatalog
-                        .filter((a) => a.name.toLowerCase().includes(addAppSearch.trim().toLowerCase()))
-                        .map((a) => {
-                          const addBusy = appActionBusy === `add-${a.id}`;
-                          return (
-                            <button
-                              key={a.id}
-                              disabled={addBusy}
-                              onClick={() => handleAddApp(a.id)}
-                              className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-muted transition-colors text-left disabled:opacity-50"
-                            >
-                              {addBusy ? (
-                                <Loader2 className="w-7 h-7 p-1.5 animate-spin text-sky-500" />
-                              ) : a.icon_url ? (
-                                <img src={a.icon_url} alt={a.name} className="w-7 h-7 rounded object-cover border border-border" />
-                              ) : (
-                                <div className="w-7 h-7 rounded bg-muted flex items-center justify-center text-xs">📱</div>
-                              )}
-                              <span className="text-sm text-foreground">{addBusy ? "Adicionando..." : a.name}</span>
-                            </button>
-                          );
-                        })}
-                      {appCatalog.length === 0 && (
-                        <p className="text-xs text-muted-foreground text-center py-4">
-                          Nenhum aplicativo disponível pra adicionar.
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* + Adicionar aplicativo — abre o modal por tipo de equipamento */}
+              <button
+                onClick={() => {
+                  setShowAddAppPicker(true);
+                  loadAppCatalog();
+                }}
+                className="w-full py-3 rounded-xl border-2 border-dashed border-border text-sm font-bold text-muted-foreground hover:border-sky-500 hover:text-sky-500 transition-colors"
+              >
+                + Adicionar aplicativo
+              </button>
+
+              <AddAppModal
+                open={showAddAppPicker}
+                onClose={() => setShowAddAppPicker(false)}
+                catalog={appCatalog}
+                catalogLoading={appCatalogLoading}
+                busyAppId={appActionBusy?.startsWith("add-") ? appActionBusy.slice(4) : null}
+                onSelectApp={(appId) => handleAddApp(appId)}
+              />
             </div>
           )}
 
-          {/* ===== SUB-ABA 2: NOVO DISPOSITIVO ===== */}
-          {appsSubTab === "novo-dispositivo" && (
-            <div className="space-y-4">
-              <div className="flex flex-wrap gap-1.5">
-                <button
-                  onClick={() => setDeviceFilter(null)}
-                  className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-colors ${
-                    !deviceFilter ? "bg-sky-500 text-white border-sky-500" : "bg-muted text-muted-foreground border-border"
-                  }`}
-                >
-                  Todos
-                </button>
-                {ALL_DEVICE_TYPES.map((dt) => (
-                  <button
-                    key={dt}
-                    onClick={() => setDeviceFilter(dt)}
-                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-colors ${
-                      deviceFilter === dt ? "bg-sky-500 text-white border-sky-500" : "bg-muted text-muted-foreground border-border"
-                    }`}
-                  >
-                    {DEVICE_TYPE_LABELS[dt]}
-                  </button>
-                ))}
-              </div>
-
-              {faqLoading && <p className="text-center text-muted-foreground py-8">Carregando...</p>}
-
-              {!faqLoading &&
-                (faqData?.device_setup || [])
-                  .filter((d) => !deviceFilter || d.device_types.includes(deviceFilter))
-                  .map((d, i) => (
-                    <div key={i} className="bg-card rounded-xl p-4 border border-border shadow-sm">
-                      <p className="text-sm font-bold text-foreground mb-1">{d.title}</p>
-                      <p className="text-xs text-muted-foreground whitespace-pre-line">{d.content}</p>
-                    </div>
-                  ))}
-
-              {!faqLoading && (faqData?.device_setup || []).length === 0 && (
-                <div className="text-center py-8 text-muted-foreground bg-muted/40 rounded-xl border border-dashed border-border">
-                  Nenhuma instrução disponível ainda.
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ===== SUB-ABA 3: DÚVIDAS E SUGESTÕES ===== */}
+          {/* ===== SUB-ABA 2: DÚVIDAS E SUGESTÕES ===== */}
           {appsSubTab === "duvidas" && (
             <div className="space-y-4">
               {faqLoading && <p className="text-center text-muted-foreground py-8">Carregando...</p>}

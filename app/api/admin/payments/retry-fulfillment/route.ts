@@ -20,6 +20,7 @@ import {
   markFulfillmentDone,
   markFulfillmentError,
   tryAcquireFulfillmentLock,
+  markAppRenewalPaid,
 } from "@/lib/client-portal/fulfillment";
 
 export const dynamic = "force-dynamic";
@@ -74,7 +75,7 @@ export async function POST(req: NextRequest) {
   const { data: payment, error: payErr } = await supabaseAdmin
     .from("client_portal_payments")
     .select(
-      "id,tenant_id,client_id,mp_payment_id,status,period,plan_label,price_amount,plan_price_amount,price_currency,new_vencimento,fulfillment_status,fulfillment_error,fulfillment_started_at,settled_alert_ids,coupon_id,coupon_discount_amount"
+      "id,tenant_id,client_id,mp_payment_id,status,period,plan_label,price_amount,plan_price_amount,price_currency,new_vencimento,fulfillment_status,fulfillment_error,fulfillment_started_at,settled_alert_ids,coupon_id,coupon_discount_amount,payment_type"
     )
     .eq("tenant_id", tenantId)
     .eq("id", paymentId)
@@ -86,6 +87,14 @@ export async function POST(req: NextRequest) {
   // por engano num pagamento ainda pendente/recusado.
   if (String(payment.status).toLowerCase() !== "approved") {
     return NextResponse.json({ error: "Esse pagamento não está aprovado." }, { status: 400 });
+  }
+
+  // ✅ Pagamento avulso de licença de app — NUNCA pode cair no
+  // runFulfillment de assinatura IPTV (renovaria a conta do cliente sem
+  // relação nenhuma com o valor pago). Só marca como concluído.
+  if (payment.payment_type === "app_renewal") {
+    await markAppRenewalPaid(supabaseAdmin, tenantId, payment.id);
+    return NextResponse.json({ ok: true, outcome: "done" });
   }
 
   const lock = await tryAcquireFulfillmentLock(supabaseAdmin, tenantId, payment.id);

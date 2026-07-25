@@ -43,6 +43,10 @@ type LogRow = {
   coupon_code: string | null;
   coupon_discount_amount: number | null;
   pendencies: { label: string; amount: number }[];
+  // ✅ Pagamento avulso de licença de app (25/07/2026) — nunca mexe na
+  // assinatura, precisa ficar bem distinto na tela pra você nunca confundir.
+  payment_type: "subscription" | "app_renewal";
+  app_name_snapshot: string | null;
 };
 
 function fmtMoney(amount: number, currency: string = "BRL") {
@@ -289,7 +293,7 @@ function AuditoriaPageContent() {
         let query = supabaseBrowser
           .from("client_portal_payments")
           .select(
-            "id, created_at, client_id, payment_method, status, fulfillment_status, fulfillment_error, price_amount, price_currency, period, plan_label, gateway_type, mp_payment_id, whatsapp_status, coupon_code, coupon_discount_amount, settled_alert_ids",
+            "id, created_at, client_id, payment_method, status, fulfillment_status, fulfillment_error, price_amount, price_currency, period, plan_label, gateway_type, mp_payment_id, whatsapp_status, coupon_code, coupon_discount_amount, settled_alert_ids, payment_type, app_name_snapshot",
           ) // ✅ Adicionado whatsapp_status, coupon_code/coupon_discount_amount, settled_alert_ids (resumo do valor)
           .eq("tenant_id", tid)
           .order("created_at", { ascending: false })
@@ -407,6 +411,8 @@ function AuditoriaPageContent() {
             coupon_code: r.coupon_code || null,
             coupon_discount_amount: r.coupon_discount_amount != null ? Number(r.coupon_discount_amount) : null,
             pendencies,
+            payment_type: r.payment_type === "app_renewal" ? "app_renewal" : "subscription",
+            app_name_snapshot: r.app_name_snapshot || null,
           };
         });
 
@@ -1014,14 +1020,6 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
               )}
             </button>
           </div>
-          {activeLogView === "iptv" && (
-            <button
-              onClick={() => loadData(search)}
-              className="h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
-            >
-              <IconRefresh /> <span className="hidden sm:inline">Atualizar</span>
-            </button>
-          )}
         </div>
       </div>
 
@@ -1351,18 +1349,29 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
                           </div>
                         </td>
 
-                        {/* Plano / Telas */}
+                        {/* Plano / Telas (ou App, se for licença avulsa) */}
                         <td className="px-4 py-3 text-center">
-                          <div className="flex flex-col gap-0.5 items-center">
-<span className="text-xs font-medium text-foreground/80">
-                              {r.plan_label ||
-                                PERIOD_LABELS[r.period] ||
-                                r.period}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground">
-                              {r.screens} {r.screens === 1 ? "tela" : "telas"}
-                            </span>
-                          </div>
+                          {r.payment_type === "app_renewal" ? (
+                            <div className="flex flex-col gap-0.5 items-center">
+                              <span className="px-2 py-0.5 rounded-lg bg-sky-500/10 text-sky-500 border border-sky-500/20 text-[10px] font-bold uppercase">
+                                📱 Licença de App
+                              </span>
+                              <span className="text-[10px] text-muted-foreground truncate max-w-[140px]">
+                                {r.app_name_snapshot || "Aplicativo"}
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col gap-0.5 items-center">
+                              <span className="text-xs font-medium text-foreground/80">
+                                {r.plan_label ||
+                                  PERIOD_LABELS[r.period] ||
+                                  r.period}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">
+                                {r.screens} {r.screens === 1 ? "tela" : "telas"}
+                              </span>
+                            </div>
+                          )}
                         </td>
 
                         {/* Banco */}

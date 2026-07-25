@@ -7,6 +7,7 @@ import {
   markFulfillmentError,
   tryAcquireFulfillmentLock,
   toPeriodMonths,
+  markAppRenewalPaid,
 } from "@/lib/client-portal/fulfillment";
 import { touchPortalSession } from "@/lib/client-portal/session";
 
@@ -60,7 +61,7 @@ async function fetchPayment(supabaseAdmin: any, tenantId: string, paymentId: str
     .from("client_portal_payments")
     .select(
       // ✅ CORREÇÃO: Adicionado fulfillment_started_at
-      "id,tenant_id,client_id,mp_payment_id,status,period,plan_label,price_amount,plan_price_amount,price_currency,new_vencimento,fulfillment_status,fulfillment_error,fulfillment_started_at,settled_alert_ids,coupon_id,coupon_discount_amount"
+      "id,tenant_id,client_id,mp_payment_id,status,period,plan_label,price_amount,plan_price_amount,price_currency,new_vencimento,fulfillment_status,fulfillment_error,fulfillment_started_at,settled_alert_ids,coupon_id,coupon_discount_amount,payment_type"
     )
     .eq("tenant_id", tenantId)
     .eq("mp_payment_id", String(paymentId))
@@ -251,6 +252,20 @@ export async function POST(req: NextRequest) {
           .eq("id", payment.id)
           .is("fulfillment_status", null);
       }
+    }
+
+    // ✅ Pagamento avulso de licença de app — nunca passa pela lógica de
+    // fulfillment de assinatura IPTV abaixo (manual_pending/zumbi/lock/
+    // runFulfillment são todos específicos de renovação de assinatura).
+    // Só confirma a cobrança e devolve "done".
+    if (payment.payment_type === "app_renewal") {
+      if (fStatus !== "done") {
+        await markAppRenewalPaid(supabaseAdmin, tenantId, payment.id);
+      }
+      return NextResponse.json(
+        { ok: true, status: "approved", phase: "done" },
+        { status: 200, headers: NO_STORE_HEADERS }
+      );
     }
 
     // 5) Se fulfillment já terminou

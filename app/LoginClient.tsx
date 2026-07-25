@@ -35,6 +35,11 @@ function formatWhatsApp(phone: string): string {
 // ========= BLINDAGEM (SEM TOKEN NA URL) =========
 const KEY_LOGIN_TOKEN = "cp_login_token";
 const KEY_SESSION = "cp_session";
+// ✅ Pra onde mandar depois do login — hoje só usado pelo link do bot de
+// atendimento (25/07/2026, ainda não está no ar), que já aponta pro
+// /renew-beta. Todo outro gerador de link (Régua de Cobrança, admin) não
+// manda "dest", então continua caindo no /renew de sempre.
+const KEY_LOGIN_DEST = "cp_login_dest";
 
 function getStored(key: string) {
   if (typeof window === "undefined") return "";
@@ -80,6 +85,7 @@ export default function LoginClient() {
 
     // ✅ suporta link mais seguro no futuro: /#t=TOKEN (hash não vai pro servidor)
     let fromHash = "";
+    let destFromHash = "";
     if (typeof window !== "undefined") {
       const h = window.location.hash || "";
       const m = h.match(/(?:^#|[&#])t=([^&]+)/);
@@ -90,12 +96,15 @@ export default function LoginClient() {
           fromHash = m[1];
         }
       }
+      const dm = h.match(/[&#]dest=([^&]+)/);
+      if (dm?.[1]) destFromHash = dm[1];
     }
 
     const stored = getStored(KEY_LOGIN_TOKEN);
 
     const t = fromQuery || fromHash || stored || "";
     if (t) setStored(KEY_LOGIN_TOKEN, t);
+    if (destFromHash) setStored(KEY_LOGIN_DEST, destFromHash);
 
     // ✅ remove token da querystring
     if (fromQuery) removeParamFromUrl("t");
@@ -241,13 +250,18 @@ export default function LoginClient() {
         return;
       }
 
-      // ✅ BLINDADO: guarda sessão e vai pra /renew SEM querystring
+      // ✅ BLINDADO: guarda sessão e vai pro destino SEM querystring
       setStored(KEY_SESSION, String(sessionToken));
 
-      // ✅ remove o login token do storage depois do sucesso
-      clearStored(KEY_LOGIN_TOKEN);
+      // ✅ dest só existe pra links que passaram explicitamente por isso
+      // (hoje só o bot) — todo o resto continua indo pro /renew de sempre.
+      const dest = getStored(KEY_LOGIN_DEST) === "renew-beta" ? "renew-beta" : "renew";
 
-      window.location.href = "/renew";
+      // ✅ remove o login token/dest do storage depois do sucesso
+      clearStored(KEY_LOGIN_TOKEN);
+      clearStored(KEY_LOGIN_DEST);
+
+      window.location.href = `/${dest}`;
     } catch {
       turnstileRef.current?.reset();
       setTurnstileToken(null);
