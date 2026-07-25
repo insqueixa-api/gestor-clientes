@@ -3124,8 +3124,8 @@ export default function RenewClient() {
                 <p className="text-base font-bold text-foreground">
                   Pagamentos e Renovação
                 </p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Veja seu plano, renove ou pague pendências
+                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                  Confira seu plano, renove sua assinatura ou quite pendências
                 </p>
               </div>
               <span className="text-emerald-500 text-xl group-hover:translate-x-0.5 transition-transform shrink-0">
@@ -3148,20 +3148,9 @@ export default function RenewClient() {
                   <p className="text-base font-bold text-foreground">
                     Novidades e Conteúdo
                   </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Grade de programação, jogos do dia e lançamentos
+                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                    Grade de canais e jogos do dia, confira lançamentos de filmes e séries
                   </p>
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    <span className="px-2 py-0.5 bg-sky-500/10 text-sky-500 border border-sky-500/20 text-[10px] font-bold rounded-full">
-                      Grade de programação
-                    </span>
-                    <span className="px-2 py-0.5 bg-sky-500/10 text-sky-500 border border-sky-500/20 text-[10px] font-bold rounded-full">
-                      Jogos do dia
-                    </span>
-                    <span className="px-2 py-0.5 bg-sky-500/10 text-sky-500 border border-sky-500/20 text-[10px] font-bold rounded-full">
-                      Filmes e séries
-                    </span>
-                  </div>
                 </div>
                 <span className="text-sky-500 text-xl group-hover:translate-x-0.5 transition-transform shrink-0">
                   →
@@ -3183,8 +3172,8 @@ export default function RenewClient() {
                 <p className="text-base font-bold text-foreground">
                   Configuração de Aplicativo
                 </p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Veja os aplicativos instalados nessa conta
+                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                  Reconfigure, atualize seus dados ou instale novos aplicativos
                 </p>
               </div>
               <span className="text-amber-500 text-xl group-hover:translate-x-0.5 transition-transform shrink-0">
