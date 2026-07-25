@@ -22,6 +22,24 @@ function normalizar(s: string): string {
     .trim();
 }
 
+// ✅ Relevância (25/07/2026) — antes a ordenação só olhava poster+nota, então
+// um resultado "meio a ver" com poster bonito passava na frente de um match
+// bem mais próximo. Isso pesava principalmente contra animes com título
+// gigante e descritivo (ex: "RICH GIRL CARETAKER: I'M SECRETLY THE
+// CAREGIVER OF..."): uma busca curta que bate numa palavra solta lá dentro
+// aparecia como se fosse "lixo" sem relação nenhuma com a busca. Agora o
+// título mais PARECIDO com o termo digitado vem primeiro, sempre.
+function relevancia(tituloNorm: string, termoNorm: string): number {
+  if (!tituloNorm || !termoNorm) return 0;
+  if (tituloNorm === termoNorm) return 100;
+  if (tituloNorm.startsWith(termoNorm)) return 80;
+  if (tituloNorm.includes(termoNorm)) return 60;
+  // Todas as palavras batem, mas espalhadas pelo título — quanto mais curto
+  // o título em relação ao termo buscado, mais provável que seja o match
+  // certo (e não uma palavra solta perdida num título gigante).
+  return Math.round(40 * (termoNorm.length / tituloNorm.length));
+}
+
 // Palavras que sozinhas não servem como filtro no banco
 const STOP_WORDS = new Set(["a","o","e","i","u","as","os","de","do","da","dos","das","em","na","no","nas","nos","the","and","of","to","in","is","it","for"]);
 
@@ -44,16 +62,20 @@ export async function GET(req: NextRequest) {
   if (palavras.length === 0) return NextResponse.json({ ok: true, data: [] });
 
   try {
-    // Busca IDs em catalog_master usando titulo_busca (unaccent + lower, sem acentos)
+    // Busca IDs em catalog_master usando titulo_busca (unaccent + lower, sem
+    // acentos) OU titulo_alt_busca (título no outro idioma — pt-BR/original,
+    // preenchido pelo enriquecimento TMDB) — cada palavra precisa aparecer em
+    // pelo menos uma das duas colunas, pra achar tanto quem catalogou em
+    // português quanto quem catalogou em inglês.
     let masterQuery = supabaseAdmin
       .from("catalog_master")
-      .select("id, titulo_normalizado, tipo, cover_url, poster_tmdb_url, ano, sinopse, avaliacao, generos, total_temporadas, total_episodios, tmdb_confirmado")
+      .select("id, titulo_normalizado, titulo_alt_busca, tipo, cover_url, poster_tmdb_url, ano, sinopse, avaliacao, generos, total_temporadas, total_episodios, tmdb_confirmado")
       .limit(500);
 
     if (tipo !== "TODOS") masterQuery = masterQuery.eq("tipo", tipo);
 
     for (const palavra of palavras.slice(0, 4)) {
-      masterQuery = masterQuery.ilike("titulo_busca", `%${palavra}%`);
+      masterQuery = masterQuery.or(`titulo_busca.ilike.%${palavra}%,titulo_alt_busca.ilike.%${palavra}%`);
     }
 
     const { data: masterData, error: masterErr } = await masterQuery;
@@ -82,11 +104,14 @@ export async function GET(req: NextRequest) {
       rotasPorId.set(row.master_id, arr);
     }
 
-    // Filtra no JS com normalização completa
+    // Filtra no JS com normalização completa — bate se TODAS as palavras da
+    // busca aparecem no título catalogado OU no título alternativo (outro
+    // idioma), não precisa ser a mesma coluna pra cada palavra.
     const resultados = masterData.filter((item: any) => {
       if (servidor !== "TODOS" && !rotasPorId.has(item.id)) return false;
       const tituloNorm = normalizar(item.titulo_normalizado);
-      return todasPalavras.every((p) => tituloNorm.includes(p));
+      const altNorm = normalizar(item.titulo_alt_busca || "");
+      return todasPalavras.every((p) => tituloNorm.includes(p) || altNorm.includes(p));
     });
 
     // Agrupa por titulo_normalizado
@@ -106,10 +131,20 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Ordena: com poster TMDB primeiro, depois por avaliação
+    // Ordena por relevância (o quão perto o título/título alternativo está
+    // do termo buscado) primeiro, depois poster TMDB, depois avaliação.
     const lista = [...agrupado.values()]
       .sort((a, b) => {
-        // Prioriza quem tem poster_tmdb_url
+        const relA = Math.max(
+          relevancia(normalizar(a.item.titulo_normalizado), termoNorm),
+          relevancia(normalizar(a.item.titulo_alt_busca || ""), termoNorm),
+        );
+        const relB = Math.max(
+          relevancia(normalizar(b.item.titulo_normalizado), termoNorm),
+          relevancia(normalizar(b.item.titulo_alt_busca || ""), termoNorm),
+        );
+        if (relB !== relA) return relB - relA;
+        // Empate de relevância — prioriza quem tem poster_tmdb_url
         const aPoster = a.item.poster_tmdb_url ? 1 : 0;
         const bPoster = b.item.poster_tmdb_url ? 1 : 0;
         if (bPoster !== aPoster) return bPoster - aPoster;

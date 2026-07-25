@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
+import { normalizarTituloBusca } from "@/lib/catalog/catalog-parser";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +45,16 @@ export async function POST(req: NextRequest) {
     const total_temporadas = tipo === "SERIE" ? (det.number_of_seasons || null) : null;
     const total_episodios  = tipo === "SERIE" ? (det.number_of_episodes || null) : null;
 
+    // ✅ Busca bilíngue (pedido do Marcio, 25/07/2026): o TMDB já devolve o
+    // título em pt-BR (pedido acima) E o título original (idioma de
+    // produção — geralmente inglês pra Hollywood) na MESMA resposta, sem
+    // custo de chamada extra. Guarda os dois normalizados numa coluna à
+    // parte pra busca casar em qualquer um dos dois idiomas.
+    const tituloPt = tipo === "SERIE" ? det.name : det.title;
+    const tituloOriginal = tipo === "SERIE" ? det.original_name : det.original_title;
+    const altCandidatos = [...new Set([tituloPt, tituloOriginal].filter(Boolean))];
+    const titulo_alt_busca = altCandidatos.length ? normalizarTituloBusca(altCandidatos.join(" ")) : null;
+
     const update: Record<string, any> = {
       tmdb_id,
       tmdb_confirmado: true,
@@ -52,6 +63,7 @@ export async function POST(req: NextRequest) {
       sinopse,
       avaliacao,
       generos,
+      titulo_alt_busca,
       atualizado_em: new Date().toISOString(),
     };
     if (ano) update.ano = ano;

@@ -16,6 +16,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient }              from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
+import { normalizarTituloBusca } from "@/lib/catalog/catalog-parser";
 
 export const dynamic     = "force-dynamic";
 export const maxDuration = 60;
@@ -213,6 +214,13 @@ export async function POST(req: NextRequest) {
         const avaliacao     = resultado.vote_average ? parseFloat(resultado.vote_average.toFixed(1)) : null;
         const confirmado    = score >= 0.8;
 
+        // ✅ Busca bilíngue (25/07/2026) — mesmo princípio do tmdb-aplicar:
+        // o título em pt-BR (nomeResultado, já buscado com language=pt-BR)
+        // e o original (idioma de produção) vêm de graça na mesma resposta.
+        const tituloOriginal = titulo.tipo === "FILME" ? resultado.original_title : resultado.original_name;
+        const altCandidatos  = [...new Set([nomeResultado, tituloOriginal].filter(Boolean))];
+        const titulo_alt_busca = altCandidatos.length ? normalizarTituloBusca(altCandidatos.join(" ")) : null;
+
         await supabaseAdmin.from("catalog_master").update({
           tmdb_id:         resultado.id,
           sinopse:         sinopse || null,
@@ -221,6 +229,7 @@ export async function POST(req: NextRequest) {
           poster_tmdb_url: poster,
           tmdb_confirmado: confirmado,
           tmdb_buscado_em: agora,
+          titulo_alt_busca,
         }).eq("id", titulo.id);
 
         encontrados++;
