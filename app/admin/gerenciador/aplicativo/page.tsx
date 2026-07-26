@@ -48,6 +48,7 @@ type AppData = {
   device_types?: DeviceType[] | null;
   technology?: Technology | null;
   portal_setup_instructions?: string | null;
+  discontinued_replacement_name?: string | null;
 };
 
 type ServerOption = {
@@ -170,6 +171,12 @@ const [apps, setApps] = useState<AppData[]>([]);
   const [formTechnology, setFormTechnology] = useState<Technology>("IPTV");
   const [formPortalInstructions, setFormPortalInstructions] = useState<string>("");
   const portalInstructionsRef = useRef<HTMLTextAreaElement>(null);
+  // ✅ "Descontinuado" — reaproveita apps.is_active (existia, mas nunca era
+  // exposto em lugar nenhum). Pedido do Márcio (25/07/2026): DuplexPlay saiu
+  // de linha, clientes que já têm precisam ver aviso pra trocar; app some do
+  // catálogo de "adicionar novo" mas continua listado pra quem já tem.
+  const [formIsActive, setFormIsActive] = useState(true);
+  const [formDiscontinuedReplacement, setFormDiscontinuedReplacement] = useState<string>("");
 
   // ✅ Variáveis disponíveis nas instruções de configuração (25/07/2026) —
   // mesmo motor {variavel} do restante do sistema (lib/whatsapp/template-vars.ts,
@@ -480,6 +487,8 @@ setApps(formattedApps);
     setFormDeviceTypes([]);
     setFormTechnology("IPTV");
     setFormPortalInstructions("");
+    setFormIsActive(true);
+    setFormDiscontinuedReplacement("");
     setIsModalOpen(true);
   }
 
@@ -497,6 +506,8 @@ setApps(formattedApps);
     setFormDeviceTypes((app.device_types as DeviceType[]) || []);
     setFormTechnology((app.technology as Technology) || "IPTV");
     setFormPortalInstructions(app.portal_setup_instructions || "");
+    setFormIsActive(app.is_active !== false);
+    setFormDiscontinuedReplacement(app.discontinued_replacement_name || "");
     setIsModalOpen(true);
   }
 
@@ -562,6 +573,8 @@ setApps(formattedApps);
         device_types: formDeviceTypes,
         technology: formTechnology,
         portal_setup_instructions: formPortalInstructions.trim() || null,
+        is_active: formIsActive,
+        discontinued_replacement_name: !formIsActive && formDiscontinuedReplacement.trim() ? formDiscontinuedReplacement.trim() : null,
       };
 
       if (editingId) {
@@ -578,6 +591,8 @@ setApps(formattedApps);
           device_types: formDeviceTypes,
           technology: formTechnology,
           portal_setup_instructions: formPortalInstructions.trim() || null,
+          is_active: formIsActive,
+          discontinued_replacement_name: !formIsActive && formDiscontinuedReplacement.trim() ? formDiscontinuedReplacement.trim() : null,
         };
         const { error } = await supabaseBrowser
           .from("apps")
@@ -695,6 +710,12 @@ setApps(formattedApps);
              {app.tenant_id !== myTenantId && (
                 <span className="inline-flex items-center text-[10px] font-medium bg-muted text-muted-foreground border border-border px-2 py-0.5 rounded-full">
                   🔒
+                </span>
+              )}
+
+              {app.is_active === false && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                  🚫 Descontinuado
                 </span>
               )}
 
@@ -1426,6 +1447,36 @@ setApps(formattedApps);
                     de instruções (ⓘ) ao lado de "Editar", no card do app no
                     portal (Meus Aplicativos).
                   </p>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between">
+                    <Label>Aplicativo descontinuado</Label>
+                    <button
+                      type="button"
+                      onClick={() => setFormIsActive((v) => !v)}
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${!formIsActive ? "bg-rose-500" : "bg-muted"}`}
+                    >
+                      <span
+                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-card transition ${!formIsActive ? "translate-x-4.5" : "translate-x-1"}`}
+                      />
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Continua aparecendo no catálogo de "+ Adicionar
+                    aplicativo" do portal (quem já usa precisa achar ele lá),
+                    mas ao tentar adicionar mostra um aviso pra trocar em vez
+                    de adicionar. Quem já tem também vê o aviso no card.
+                  </p>
+                  {!formIsActive && (
+                    <input
+                      type="text"
+                      value={formDiscontinuedReplacement}
+                      onChange={(e) => setFormDiscontinuedReplacement(e.target.value)}
+                      placeholder="Recomendar no lugar (opcional) — ex: DupleCast"
+                      className="w-full h-9 px-3 mt-2 bg-transparent border border-rose-500/30 rounded-lg text-sm text-foreground outline-none focus:border-rose-500/60"
+                    />
+                  )}
                 </div>
               </div>
 

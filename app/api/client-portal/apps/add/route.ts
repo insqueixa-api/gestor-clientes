@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
 
     const { data: app, error: appErr } = await supabaseAdmin
       .from("apps")
-      .select("id, name, technology, integration_type, cost_type, partner_server_id")
+      .select("id, name, technology, integration_type, cost_type, partner_server_id, is_active, discontinued_replacement_name")
       .eq("id", app_id)
       .eq("tenant_id", ctx.tenant_id)
       .maybeSingle();
@@ -79,6 +79,18 @@ export async function POST(req: NextRequest) {
     if (appErr || !app) return jsonError("Aplicativo não encontrado", 404);
     if (client?.technology && app.technology && client.technology !== app.technology) {
       return jsonError("Esse aplicativo não é compatível com a tecnologia dessa conta.", 400);
+    }
+
+    // ✅ Descontinuado continua visível no catálogo (pedido do Marcio,
+    // 25/07/2026 — muita gente já usa e não sabe que saiu de linha, precisa
+    // achar ele na lista pra entender o motivo), só bloqueia adicionar NOVO.
+    if (app.is_active === false) {
+      return jsonError(
+        app.discontinued_replacement_name
+          ? `Esse aplicativo foi descontinuado. Recomendamos o ${app.discontinued_replacement_name}.`
+          : "Esse aplicativo foi descontinuado.",
+        400,
+      );
     }
 
     // ✅ Mesma trava do catalog/route.ts (defesa em profundidade — o catálogo

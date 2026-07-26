@@ -270,6 +270,8 @@ export default function RenewClient() {
     portal_setup_instructions: string | null;
     license_price: number | null;
     license_period: "annual" | "lifetime" | null;
+    is_active: boolean;
+    discontinued_replacement_name: string | null;
   };
   const [installedApps, setInstalledApps] = useState<InstalledApp[]>([]);
   // ✅ Instruções de configuração — pedido do Márcio (25/07/2026): substitui
@@ -382,6 +384,8 @@ export default function RenewClient() {
       device_types?: string[];
       license_price?: number | null;
       license_period?: "annual" | "lifetime" | null;
+      is_active?: boolean;
+      discontinued_replacement_name?: string | null;
     }[]
   >([]);
   const [appCatalogLoading, setAppCatalogLoading] = useState(false);
@@ -839,6 +843,20 @@ export default function RenewClient() {
 
   async function handleAddApp(appId: string) {
     if (!selectedAccountId || !session) return;
+    // ✅ App descontinuado continua na lista (senão quem já usa não acha
+    // pra saber que precisa trocar) — mas ao tentar adicionar, mostra o
+    // aviso em vez de adicionar (pedido do Marcio, 25/07/2026).
+    const catalogEntry = appCatalog.find((a) => a.id === appId);
+    if (catalogEntry?.is_active === false) {
+      addToast(
+        "warning",
+        "Aplicativo descontinuado",
+        catalogEntry.discontinued_replacement_name
+          ? `Esse aplicativo não é mais suportado. Recomendamos o ${catalogEntry.discontinued_replacement_name}.`
+          : "Esse aplicativo não é mais suportado.",
+      );
+      return;
+    }
     setAppActionBusy(`add-${appId}`);
     try {
       const res = await fetch("/api/client-portal/apps/add", {
@@ -3336,20 +3354,48 @@ export default function RenewClient() {
                   const busy = appActionBusy === app.id;
                   const ambienteField = app.fields.find((f) => f.type === "obs");
                   const otherFields = app.fields.filter((f) => f.type !== "obs");
+                  const expirationDatePart = app.expiration ? String(app.expiration).split("T")[0] : "";
+                  // ✅ 3 estados (pedido do Marcio, 25/07/2026): já vencido
+                  // fica vermelho ("Vencido"), vencendo em menos de 30 dias
+                  // (mesmo limiar do admin em cliente/[id]/page.tsx) fica
+                  // âmbar ("Vencendo"), resto fica neutro ("Validade").
+                  const expirationDiffDays = expirationDatePart
+                    ? (new Date(`${expirationDatePart}T12:00:00`).getTime() - Date.now()) / 86400000
+                    : null;
+                  const isExpired = expirationDiffDays !== null && expirationDiffDays < 0;
+                  const isExpiringSoon = expirationDiffDays !== null && expirationDiffDays >= 0 && expirationDiffDays < 30;
                   return (
                     <div key={app.id} className="bg-card rounded-xl p-4 border border-border shadow-sm space-y-3">
                       <div className="flex items-center gap-3">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
                           {app.icon_url ? (
-                            <img src={app.icon_url} alt={app.name} className="w-10 h-10 rounded-lg object-cover border border-border shrink-0" />
+                            <img src={app.icon_url} alt={app.name} className="w-12 h-12 rounded-lg object-cover border border-border shrink-0" />
                           ) : (
-                            <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-lg shrink-0">📱</div>
+                            <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center text-xl shrink-0">📱</div>
                           )}
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-bold text-foreground truncate">
                               {app.name}
-                              {ambienteField?.value ? ` (${ambienteField.value})` : ""}
+                              {ambienteField?.value ? (
+                                <span className="font-normal text-muted-foreground"> ({ambienteField.value})</span>
+                              ) : null}
                             </p>
+                            {app.expiration && (
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <p className={`text-xs ${isExpired ? "text-rose-500 font-bold" : isExpiringSoon ? "text-amber-500 font-bold" : "text-muted-foreground"}`}>
+                                  {isExpired ? "Vencido" : isExpiringSoon ? "Vencendo" : "Validade"}: {expirationDatePart.split("-").reverse().join("/")}
+                                </p>
+                                {app.can_check_validity && (
+                                  <button
+                                    disabled={busy}
+                                    onClick={() => handleCheckValidity(app.id)}
+                                    className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+                                  >
+                                    {busy ? "..." : "Atualizar"}
+                                  </button>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
@@ -3374,22 +3420,6 @@ export default function RenewClient() {
                           </button>
                         </div>
                       </div>
-                      {app.expiration && (
-                        <div className="flex items-center gap-1.5 -mt-2">
-                          <p className="text-xs text-muted-foreground">
-                            Validade do aplicativo: {String(app.expiration).split("T")[0].split("-").reverse().join("/")}
-                          </p>
-                          {app.can_check_validity && (
-                            <button
-                              disabled={busy}
-                              onClick={() => handleCheckValidity(app.id)}
-                              className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
-                            >
-                              {busy ? "..." : "Atualizar"}
-                            </button>
-                          )}
-                        </div>
-                      )}
 
                       {isEditing ? (
                         <div className="space-y-2">
@@ -3475,52 +3505,67 @@ export default function RenewClient() {
 
                           {/* Linha 3: Configurar/Reconfigurar à esquerda,
                               Renovar aplicativo à direita (Verificar virou o
-                              "Atualizar" ao lado da validade, lá em cima) */}
-                          <div className="flex items-center justify-between gap-2 flex-wrap">
-                            <div className="flex flex-wrap gap-2">
-                              {app.has_integration && (
-                                <button
-                                  disabled={busy}
-                                  onClick={() => handleConfigureApp(app.id)}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500/10 text-sky-500 border border-sky-500/20 text-xs font-bold hover:bg-sky-500/20 transition-colors disabled:opacity-50"
-                                >
-                                  {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                                  {busy ? "Configurando..." : app.expiration ? "Reconfigurar aplicativo" : "Configurar aplicativo"}
-                                </button>
-                              )}
-                              {/* ✅ Apps sem integração automática (ex: IboSol hoje, ou
-                                  qualquer app sempre manual) — cliente pede pro suporte
-                                  configurar em vez de tentar sozinho. */}
-                              {!app.has_integration && (
-                                app.has_pending_setup_request ? (
-                                  <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-muted-foreground border border-border text-xs font-bold">
-                                    ✓ Configuração solicitada
-                                  </span>
-                                ) : (
-                                  <button
-                                    disabled={busy}
-                                    onClick={() => handleRequestSetup(app.id)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20 text-xs font-bold hover:bg-amber-500/20 transition-colors disabled:opacity-50"
-                                  >
-                                    {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                                    {busy ? "Solicitando..." : "Solicitar configuração"}
-                                  </button>
-                                )
+                              "Atualizar" ao lado da validade, lá em cima).
+                              Se o app foi descontinuado (apps.is_active=false,
+                              ex: DuplexPlay), não faz mais sentido oferecer
+                              configurar/renovar — vira um aviso pra trocar. */}
+                          {!app.is_active ? (
+                            <div className="text-xs font-medium text-rose-500 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">
+                              Aplicativo descontinuado — exclua e configure um novo.
+                              {app.discontinued_replacement_name && (
+                                <>
+                                  {" "}Recomendamos o{" "}
+                                  <span className="font-semibold text-rose-500/70">{app.discontinued_replacement_name}</span>.
+                                </>
                               )}
                             </div>
-                            {app.license_price != null && (
-                              <button
-                                disabled={renewPaymentBusyId === app.id}
-                                onClick={() => handleRenewPayment(app.id)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition-colors disabled:opacity-50"
-                              >
-                                {renewPaymentBusyId === app.id && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                                {renewPaymentBusyId === app.id
-                                  ? "Gerando pagamento..."
-                                  : `Renovar aplicativo — ${formatMoney(app.license_price, "BRL")}${app.license_period === "annual" ? "/ano" : ""}`}
-                              </button>
-                            )}
-                          </div>
+                          ) : (
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <div className="flex flex-wrap gap-2">
+                                {app.has_integration && (
+                                  <button
+                                    disabled={busy}
+                                    onClick={() => handleConfigureApp(app.id)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500/10 text-sky-500 border border-sky-500/20 text-xs font-bold hover:bg-sky-500/20 transition-colors disabled:opacity-50"
+                                  >
+                                    {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                    {busy ? "Configurando..." : app.expiration ? "Reconfigurar aplicativo" : "Configurar aplicativo"}
+                                  </button>
+                                )}
+                                {/* ✅ Apps sem integração automática (ex: IboSol hoje, ou
+                                    qualquer app sempre manual) — cliente pede pro suporte
+                                    configurar em vez de tentar sozinho. */}
+                                {!app.has_integration && (
+                                  app.has_pending_setup_request ? (
+                                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-muted-foreground border border-border text-xs font-bold">
+                                      ✓ Configuração solicitada
+                                    </span>
+                                  ) : (
+                                    <button
+                                      disabled={busy}
+                                      onClick={() => handleRequestSetup(app.id)}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20 text-xs font-bold hover:bg-amber-500/20 transition-colors disabled:opacity-50"
+                                    >
+                                      {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                      {busy ? "Solicitando..." : "Solicitar configuração"}
+                                    </button>
+                                  )
+                                )}
+                              </div>
+                              {app.license_price != null && (
+                                <button
+                                  disabled={renewPaymentBusyId === app.id}
+                                  onClick={() => handleRenewPayment(app.id)}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition-colors disabled:opacity-50"
+                                >
+                                  {renewPaymentBusyId === app.id && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                  {renewPaymentBusyId === app.id
+                                    ? "Gerando pagamento..."
+                                    : `Renovar aplicativo — ${formatMoney(app.license_price, "BRL")}${app.license_period === "annual" ? "/ano" : app.license_period === "lifetime" ? " (vitalícia)" : ""}`}
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </>
                       )}
                     </div>

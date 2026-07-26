@@ -43,9 +43,13 @@ export async function POST(req: NextRequest) {
       .eq("id", client_id)
       .single();
 
+    // ✅ Descontinuado (is_active=false) continua na lista de propósito
+    // (pedido do Marcio, 25/07/2026) — sumir faria quem já usa não achar o
+    // app pra saber que precisa trocar. O aviso aparece só ao tentar
+    // adicionar (bloqueado em /apps/add, defesa em profundidade).
     let query = supabaseAdmin
       .from("apps")
-      .select("id, name, icon_url, technology, device_types, integration_type, cost_type, license_price, license_period")
+      .select("id, name, icon_url, technology, device_types, integration_type, cost_type, license_price, license_period, is_active, discontinued_replacement_name")
       .eq("tenant_id", ctx.tenant_id)
       .order("name", { ascending: true });
 

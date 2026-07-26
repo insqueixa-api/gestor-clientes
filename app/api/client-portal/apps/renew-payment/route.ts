@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
 
     const { data: row, error: rowErr } = await supabaseAdmin
       .from("client_apps")
-      .select("id, apps(name, cost_type, license_price, license_period)")
+      .select("id, apps(name, cost_type, license_price, license_period, is_active)")
       .eq("id", client_app_id)
       .eq("client_id", client_id)
       .single();
@@ -60,6 +60,10 @@ export async function POST(req: NextRequest) {
     const appName = (row as any).apps?.name || "Aplicativo";
     const costType = (row as any).apps?.cost_type;
     const licensePrice = Number((row as any).apps?.license_price || 0);
+
+    if ((row as any).apps?.is_active === false) {
+      return jsonError("Esse aplicativo foi descontinuado — exclua e configure um novo.", 400);
+    }
 
     if (costType !== "paid" || !(licensePrice > 0)) {
       return jsonError("Esse aplicativo não tem cobrança de licença configurada.", 400);

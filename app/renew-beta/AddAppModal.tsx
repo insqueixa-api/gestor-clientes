@@ -27,6 +27,8 @@ type CatalogApp = {
   device_types?: string[];
   license_price?: number | null;
   license_period?: "annual" | "lifetime" | null;
+  is_active?: boolean;
+  discontinued_replacement_name?: string | null;
 };
 
 export default function AddAppModal({
@@ -165,11 +167,17 @@ export default function AddAppModal({
                       )}
                       <span className="flex-1 min-w-0 flex items-center justify-between gap-2">
                         <span className="text-sm text-foreground font-medium truncate">{busy ? "Adicionando..." : a.name}</span>
-                        {a.license_price != null && (
-                          <span className="shrink-0 px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px] font-bold">
-                            {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(a.license_price)}
-                            {a.license_period === "annual" ? "/ano" : ""}
+                        {a.is_active === false ? (
+                          <span className="shrink-0 px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-500 border border-rose-500/20 text-[10px] font-bold">
+                            Descontinuado
                           </span>
+                        ) : (
+                          a.license_price != null && (
+                            <span className="shrink-0 px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px] font-bold">
+                              {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(a.license_price)}
+                              {a.license_period === "annual" ? "/ano" : a.license_period === "lifetime" ? " vitalícia" : ""}
+                            </span>
+                          )
                         )}
                       </span>
                     </button>

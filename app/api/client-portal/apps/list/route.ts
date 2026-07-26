@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
 
     const { data: rows, error: rowsErr } = await supabaseAdmin
       .from("client_apps")
-      .select("id, app_id, field_values, apps(name, icon_url, fields_config, integration_type, cost_type, license_price, license_period, portal_setup_instructions)")
+      .select("id, app_id, field_values, apps(name, icon_url, fields_config, integration_type, cost_type, license_price, license_period, portal_setup_instructions, is_active, discontinued_replacement_name)")
       .eq("client_id", client_id);
 
     if (rowsErr) {
@@ -198,6 +198,8 @@ export async function POST(req: NextRequest) {
             ? Number(row.apps.license_price)
             : null,
         license_period: row.apps?.license_period || null,
+        is_active: row.apps?.is_active !== false,
+        discontinued_replacement_name: row.apps?.discontinued_replacement_name || null,
       };
     });
 
