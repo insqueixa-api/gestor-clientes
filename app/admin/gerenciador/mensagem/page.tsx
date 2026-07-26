@@ -845,6 +845,83 @@ function EditorModal({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ✅ Variações da mensagem (sorteadas aleatoriamente no envio automático)
+  const [variants, setVariants] = useState<{ id: string; content: string }[]>(
+    [],
+  );
+  const [variantsLoading, setVariantsLoading] = useState(false);
+  const [savingVariantId, setSavingVariantId] = useState<string | null>(null);
+  const { confirm: confirmVariant } = useConfirm();
+
+  useEffect(() => {
+    if (!templateToEdit?.id) return;
+    (async () => {
+      setVariantsLoading(true);
+      const { data } = await supabaseBrowser
+        .from("message_template_variants")
+        .select("id, content")
+        .eq("template_id", templateToEdit.id)
+        .order("created_at", { ascending: true });
+      setVariants(data || []);
+      setVariantsLoading(false);
+    })();
+  }, [templateToEdit?.id]);
+
+  async function handleAddVariant() {
+    if (!templateToEdit?.id) return;
+    const tid = await getCurrentTenantId();
+    if (!tid) return;
+    const { data, error } = await supabaseBrowser
+      .from("message_template_variants")
+      .insert({
+        tenant_id: tid,
+        template_id: templateToEdit.id,
+        content: content || "",
+      })
+      .select("id, content")
+      .single();
+    if (error) {
+      onError(error.message);
+      return;
+    }
+    setVariants((prev) => [...prev, data]);
+  }
+
+  async function handleSaveVariant(id: string, text: string) {
+    if (!text.trim()) {
+      onError("A variação não pode ficar vazia.");
+      return;
+    }
+    setSavingVariantId(id);
+    const { error } = await supabaseBrowser
+      .from("message_template_variants")
+      .update({ content: text })
+      .eq("id", id);
+    setSavingVariantId(null);
+    if (error) onError(error.message);
+  }
+
+  async function handleDeleteVariant(id: string) {
+    const ok = await confirmVariant({
+      title: "Excluir variação?",
+      subtitle:
+        "Essa variação deixa de ser sorteada nos envios automáticos.",
+      tone: "rose",
+      confirmText: "Excluir",
+      cancelText: "Cancelar",
+    });
+    if (!ok) return;
+    const { error } = await supabaseBrowser
+      .from("message_template_variants")
+      .delete()
+      .eq("id", id);
+    if (error) {
+      onError(error.message);
+      return;
+    }
+    setVariants((prev) => prev.filter((v) => v.id !== id));
+  }
+
   // ✅ Motor de Compressão Frontend (Gera JPEGs super leves)
   async function compressImage(file: File): Promise<Blob> {
     return new Promise((resolve, reject) => {
@@ -1229,6 +1306,92 @@ className={`w-full h-12 px-4 border rounded-xl text-foreground outline-none focu
                 />
               </div>
             </div>
+
+            {/* ✅ Variações da mensagem — sorteadas aleatoriamente junto com o texto acima nos envios automáticos */}
+            {templateToEdit?.id ? (
+              <div className="border-t border-border pt-5">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Variações desta mensagem
+                  </label>
+                  <span className="text-[10px] text-muted-foreground">
+                    {variants.length} variação
+                    {variants.length === 1 ? "" : "ões"}
+                  </span>
+                </div>
+                <p className="text-[10px] text-muted-foreground mb-3 leading-relaxed">
+                  No envio automático, o sistema sorteia aleatoriamente entre
+                  o texto acima e as variações abaixo — reduz o padrão
+                  repetitivo que o WhatsApp pode identificar como disparo em
+                  massa.
+                </p>
+
+                {variantsLoading ? (
+                  <div className="text-xs text-muted-foreground py-4">
+                    Carregando variações...
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {variants.map((v, idx) => (
+                      <div
+                        key={v.id}
+                        className="rounded-xl border border-border p-3 bg-transparent"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                            Variação {idx + 1}
+                          </span>
+                          <button
+                            onClick={() => handleDeleteVariant(v.id)}
+                            className="flex items-center justify-center w-7 h-7 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 transition-all"
+                            title="Excluir variação"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <textarea
+                          value={v.content}
+                          onChange={(e) => {
+                            const text = e.target.value;
+                            setVariants((prev) =>
+                              prev.map((x) =>
+                                x.id === v.id ? { ...x, content: text } : x,
+                              ),
+                            );
+                          }}
+                          className="w-full min-h-[120px] p-3 bg-transparent border border-border rounded-lg text-foreground/90 outline-none focus:border-emerald-500 transition-colors resize-none text-xs font-mono"
+                        />
+                        <div className="flex justify-end mt-2">
+                          <button
+                            onClick={() =>
+                              handleSaveVariant(v.id, v.content)
+                            }
+                            disabled={savingVariantId === v.id}
+                            className="px-4 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 text-[11px] font-medium disabled:opacity-50 transition-colors"
+                          >
+                            {savingVariantId === v.id
+                              ? "Salvando..."
+                              : "Salvar variação"}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <button
+                  onClick={handleAddVariant}
+                  className="mt-3 w-full h-10 rounded-xl border border-dashed border-emerald-500/40 text-emerald-500 text-xs font-medium hover:bg-emerald-500/10 transition-colors"
+                >
+                  + Adicionar variação
+                </button>
+              </div>
+            ) : (
+              <div className="border-t border-border pt-4 text-[10px] text-muted-foreground">
+                💡 Salve esta mensagem primeiro para poder cadastrar
+                variações que serão sorteadas nos envios automáticos.
+              </div>
+            )}
           </div>
 
           {/* DESKTOP: Variáveis na lateral (sem mudar lógica) */}

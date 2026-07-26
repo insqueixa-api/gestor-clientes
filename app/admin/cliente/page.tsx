@@ -2491,8 +2491,10 @@ className="p-8 text-center text-muted-foreground italic"
                 )}
               </tbody>
             </table>
-            {/* ✅ espaço fixo depois do último cliente (para popups/menus não serem cortados) */}
-            <div className="h-24 md:h-20" />
+            {/* ✅ espaço fixo depois do último cliente (para popups/menus não serem cortados) —
+                aumentado (26/07/2026) porque o menu de mensagem agora tem 3 itens (Enviar
+                agora/Programar/Envio Simulado), mais alto que antes */}
+            <div className="h-40 md:h-32" />
           </div>
 
           {/* --- RODAPÉ: Paginação --- */}
