@@ -20,8 +20,11 @@ type Automation = {
   is_active: boolean;
   is_automatic: boolean;
   type: string;
-  schedule_time: string;
-  schedule_days: number[];
+  // ✅ Legado — não usados mais pelo billing_enqueue_scheduled (agora lê
+  // billing_campaign_settings, compartilhado entre as regras). Ficam
+  // opcionais/nuláveis porque regras novas não os preenchem mais.
+  schedule_time?: string | null;
+  schedule_days?: number[] | null;
 
   // Regras
   target_status: string[];
@@ -484,6 +487,196 @@ function GlobalQueueMonitor({
           document.body,
         )}
     </>
+  );
+}
+
+// ✅ Configuração única por tenant do início/intervalo de disparo compartilhado
+// entre TODAS as regras automáticas — substitui o horário fixo por regra
+// (schedule_time/delay_min individuais) por uma janela única embaralhada
+// entre si, reduzindo o padrão robótico de horário. Ver
+// docs/sql/billing_enqueue_scheduled_campaign_window.sql.
+function CampaignWindowCard({
+  addToast,
+}: {
+  addToast: (type: "success" | "error", title: string, msg?: string) => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [settings, setSettings] = useState({
+    window_start: "09:30",
+    delay_min_secs: 120,
+    delay_max_secs: 300,
+    schedule_days: [0, 1, 2, 3, 4, 5, 6] as number[],
+    is_active: true,
+  });
+
+  useEffect(() => {
+    (async () => {
+      const tid = await getCurrentTenantId();
+      if (!tid) {
+        setLoading(false);
+        return;
+      }
+      const { data } = await supabaseBrowser
+        .from("billing_campaign_settings")
+        .select("window_start, delay_min_secs, delay_max_secs, schedule_days, is_active")
+        .eq("tenant_id", tid)
+        .maybeSingle();
+      if (data) {
+        setSettings({
+          window_start: String(data.window_start || "09:30").slice(0, 5),
+          delay_min_secs: data.delay_min_secs ?? 120,
+          delay_max_secs: data.delay_max_secs ?? 300,
+          schedule_days: Array.isArray(data.schedule_days)
+            ? data.schedule_days
+            : [0, 1, 2, 3, 4, 5, 6],
+          is_active: data.is_active ?? true,
+        });
+      }
+      setLoading(false);
+    })();
+  }, []);
+
+  const handleSave = async () => {
+    if (settings.delay_max_secs < settings.delay_min_secs) {
+      addToast("error", "Intervalo inválido", "O máximo não pode ser menor que o mínimo.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const tid = await getCurrentTenantId();
+      if (!tid) throw new Error("Sessão inválida.");
+
+      const { error } = await supabaseBrowser
+        .from("billing_campaign_settings")
+        .upsert(
+          {
+            tenant_id: tid,
+            window_start: settings.window_start,
+            delay_min_secs: settings.delay_min_secs,
+            delay_max_secs: settings.delay_max_secs,
+            schedule_days: settings.schedule_days,
+            is_active: settings.is_active,
+          },
+          { onConflict: "tenant_id" },
+        );
+
+      if (error) throw error;
+      addToast("success", "Salvo", "Configuração de disparo atualizada.");
+    } catch (e: any) {
+      addToast("error", "Erro ao salvar", e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return null;
+
+  return (
+    <div className="px-3 sm:px-0 md:px-4">
+      <div className="p-4 bg-card border border-border rounded-xl shadow-sm space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+              ⏱️ Início do disparo (compartilhado entre as regras)
+            </h3>
+            <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed max-w-2xl">
+              Todas as regras automáticas abaixo passam a disparar a partir
+              desse horário, embaralhadas entre si (não uma de cada vez por
+              regra), com um intervalo aleatório entre cada mensagem. Sem
+              horário final — se o volume do dia for grande, a fila
+              simplesmente continua sendo drenada nos ticks seguintes.
+            </p>
+          </div>
+          <button
+            onClick={() => setSettings((s) => ({ ...s, is_active: !s.is_active }))}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 ${settings.is_active ? "bg-emerald-500" : "bg-muted"}`}
+            title={settings.is_active ? "Ativo" : "Desativado — nenhuma automação dispara"}
+          >
+            <span
+              className={`inline-block h-3.5 w-3.5 transform rounded-full bg-card transition ${settings.is_active ? "translate-x-4.5" : "translate-x-1"}`}
+            />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div>
+            <Label>Início</Label>
+            <FormattedTimeInput
+              value={settings.window_start}
+              onChange={(e) =>
+                setSettings((s) => ({ ...s, window_start: e.target.value }))
+              }
+              className="w-full h-10 text-sm"
+            />
+          </div>
+          <div>
+            <Label>Intervalo mín. (min)</Label>
+            <Input
+              type="number"
+              min={0}
+              step={0.5}
+              value={settings.delay_min_secs / 60}
+              onChange={(e) =>
+                setSettings((s) => ({
+                  ...s,
+                  delay_min_secs: Math.max(0, Math.round(Number(e.target.value) * 60)),
+                }))
+              }
+            />
+          </div>
+          <div>
+            <Label>Intervalo máx. (min)</Label>
+            <Input
+              type="number"
+              min={0}
+              step={0.5}
+              value={settings.delay_max_secs / 60}
+              onChange={(e) =>
+                setSettings((s) => ({
+                  ...s,
+                  delay_max_secs: Math.max(0, Math.round(Number(e.target.value) * 60)),
+                }))
+              }
+            />
+          </div>
+          <div>
+            <Label>Dias da semana</Label>
+            <div className="flex flex-wrap gap-1 pt-1">
+              {DAYS_OF_WEEK.map((d) => {
+                const selected = settings.schedule_days.includes(d.id);
+                return (
+                  <button
+                    key={d.id}
+                    onClick={() =>
+                      setSettings((s) => ({
+                        ...s,
+                        schedule_days: selected
+                          ? s.schedule_days.filter((x) => x !== d.id)
+                          : [...s.schedule_days, d.id],
+                      }))
+                    }
+                    className={`w-8 h-8 rounded-full font-medium text-[10px] transition-all border ${selected ? "bg-emerald-500 border-emerald-500 text-white" : "bg-muted border-border text-muted-foreground"}`}
+                  >
+                    {d.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-5 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 text-xs font-medium disabled:opacity-50 transition-colors uppercase tracking-wider"
+          >
+            {saving ? "Salvando..." : "Salvar"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1065,6 +1258,8 @@ const delaySecs = Math.max(rule.delay_min || 20, 15); // piso de segurança de 1
           </button>
         </div>
       </div>
+      {/* Início do disparo compartilhado (janela única entre as regras) */}
+      <CampaignWindowCard addToast={addToast} />
       {/* Barra de busca (padrão admin: sticky no desktop) */}
       <div className="p-0 px-3 sm:px-0 md:px-4">
 <div className="p-0 md:p-4 bg-transparent md:bg-card border-0 md:border md:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm md:sticky md:top-4 z-20">
@@ -1283,9 +1478,7 @@ function AutomationCard({
         {data.is_automatic && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="text-base">⏰</span>
-            <span>
-              Envio às <strong>{data.schedule_time?.slice(0, 5)}</strong>
-            </span>
+            <span>Dentro da janela de disparo do grupo</span>
           </div>
         )}
         {/* ✅ SESSÃO DO WHATSAPP COM STATUS E NÚMERO REAIS */}
@@ -1745,8 +1938,7 @@ function AutomationWizard({
     type: "Vencimento",
     message_template_id: "",
     whatsapp_session: "default",
-    delay_min: 15,
-    
+
     is_active: true,
 
     status: ["ACTIVE"],
@@ -1758,8 +1950,6 @@ function AutomationWizard({
     rule_days_diff: -3,
 
     is_automatic: true,
-    schedule_time: "10:00",
-    schedule_days: [1, 2, 3, 4, 5],
   });
 
   // ✅ EFEITO PARA PREENCHER DADOS NA EDIÇÃO
@@ -1774,7 +1964,6 @@ function AutomationWizard({
           editingRule.message_template?.id ||
           "",
         whatsapp_session: editingRule.whatsapp_session || "default",
-        delay_min: editingRule.delay_min || 15,
         is_active: editingRule.is_active,
         is_automatic: editingRule.is_automatic,
         status: editingRule.target_status || [],
@@ -1787,8 +1976,6 @@ function AutomationWizard({
             : editingRule.rule_date_field) || "vencimento",
 
         rule_days_diff: editingRule.rule_days_diff,
-        schedule_time: editingRule.schedule_time || "10:00",
-        schedule_days: editingRule.schedule_days || [1, 2, 3, 4, 5],
       });
     }
   }, [editingRule]);
@@ -1831,8 +2018,12 @@ function AutomationWizard({
 
         message_template_id: form.message_template_id,
         whatsapp_session: form.whatsapp_session,
-        delay_min: form.delay_min,
-        
+        // ✅ Piso de segurança usado só pelo "Enfileirar Agora" manual e
+        // pelo espaçamento entre jobs que caem no mesmo tick do cron — o
+        // horário/intervalo da campanha automática agora é definido em
+        // billing_campaign_settings (card "Início do disparo").
+        delay_min: 20,
+
         target_status: form.status,
         target_servers: form.servers,
         target_plans: form.plans,
@@ -1844,9 +2035,6 @@ function AutomationWizard({
             : form.rule_date_field,
 
         rule_days_diff: form.rule_days_diff,
-
-        schedule_time: form.schedule_time,
-        schedule_days: form.schedule_days,
       };
 
       let error;
@@ -1966,23 +2154,6 @@ function AutomationWizard({
                       </option>
                     ))}
                   </Select>
-                </div>
-              </div>
-
-              <div>
-                <Label>Segurança (Intervalo entre envios)</Label>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">Aguardar</span>
-                  <Input
-                    type="number"
-                    value={form.delay_min}
-                    onChange={(e) =>
-                      setForm({ ...form, delay_min: Number(e.target.value) })
-                    }
-                  />
-                  <span className="text-xs text-muted-foreground">
-                    segundos entre cada envio
-                  </span>
                 </div>
               </div>
 
@@ -2115,44 +2286,14 @@ function AutomationWizard({
                 </div>
               </div>
               {form.is_automatic && (
-                <div className="bg-transparent p-6 rounded-2xl border border-border space-y-6 animate-in fade-in slide-in-from-bottom-4">
-                  <div>
-                    <Label>Horário do Disparo (Brasília)</Label>
-                    <div className="flex justify-center mt-2">
-                      <FormattedTimeInput
-                        value={form.schedule_time}
-                        onChange={(e) =>
-                          setForm({ ...form, schedule_time: e.target.value })
-                        }
-                        className="text-3xl font-medium text-center w-32 border-emerald-500"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label>Dias da Semana</Label>
-                    <div className="flex justify-center gap-2 mt-3">
-                      {DAYS_OF_WEEK.map((d) => {
-                        const selected = form.schedule_days.includes(d.id);
-                        return (
-                          <button
-                            key={d.id}
-                            onClick={() => {
-                              const current = form.schedule_days;
-                              setForm({
-                                ...form,
-                                schedule_days: current.includes(d.id)
-                                  ? current.filter((x) => x !== d.id)
-                                  : [...current, d.id],
-                              });
-                            }}
-                            className={`w-10 h-10 rounded-full font-medium text-xs transition-all border ${selected ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/30" : "bg-muted border-border text-muted-foreground"}`}
-                          >
-                            {d.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
+                <div className="bg-transparent p-6 rounded-2xl border border-border space-y-3 animate-in fade-in slide-in-from-bottom-4 text-center">
+                  <span className="text-3xl">⏱️</span>
+                  <p className="text-sm text-foreground/80 max-w-sm mx-auto">
+                    O horário de disparo agora é compartilhado entre todas as
+                    regras automáticas — configure o início e o intervalo
+                    entre mensagens no card{" "}
+                    <strong>"Início do disparo"</strong>, no topo desta tela.
+                  </p>
                 </div>
               )}
             </div>
