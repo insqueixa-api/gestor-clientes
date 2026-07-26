@@ -15,6 +15,8 @@ import {
   RefreshCcw,
   Timer,
   Trash2,
+  Copy,
+  Check,
 } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
@@ -553,6 +555,56 @@ const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
     useState<string>(""); // modal enviar agora
   const [selectedTemplateScheduleId, setSelectedTemplateScheduleId] =
     useState<string>(""); // modal agendar
+
+  // ✅ Envio Simulado — paliativo urgente (pedido do Márcio, 26/07/2026,
+  // enquanto o envio real via WhatsApp está falhando: WhatsApp deslogando a
+  // sessão sozinho). Mesma escolha de template de sempre, mas sem sessão
+  // nenhuma — só resolve as variáveis (DNS, tabela de preços, pendência,
+  // cupom, link de pagamento) e mostra o texto pronto pra copiar e colar
+  // manualmente no WhatsApp Web.
+  const [showSimulate, setShowSimulate] = useState<{
+    open: boolean;
+    clientId: string | null;
+  }>({ open: false, clientId: null });
+  const [simulateText, setSimulateText] = useState("");
+  const [selectedTemplateSimId, setSelectedTemplateSimId] =
+    useState<string>("");
+  const [simulating, setSimulating] = useState(false);
+  const [simResult, setSimResult] = useState<
+    { phone: string; label: string; text: string }[] | null
+  >(null);
+
+  async function handleSimulateMessage() {
+    if (!tenantId || !showSimulate.clientId) return;
+    const msg = (simulateText || "").trim();
+    if (!msg) {
+      addToast("error", "Mensagem vazia", "Escolha um template ou digite uma mensagem.");
+      return;
+    }
+    try {
+      setSimulating(true);
+      const token = await getToken();
+      const res = await fetch("/api/whatsapp/envio_simulado", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        cache: "no-store",
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          client_id: showSimulate.clientId,
+          message: msg,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || "Falha ao gerar simulação");
+      setSimResult(json.previews || []);
+      setShowSimulate({ open: false, clientId: null });
+    } catch (e: any) {
+      addToast("error", "Erro ao simular", e?.message);
+    } finally {
+      setSimulating(false);
+    }
+  }
+
   const { confirm, ConfirmUI } = useConfirm();
 
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -2340,6 +2392,21 @@ className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-co
                                     ensureMessagingDataLoaded(); // ✅ NOVO
                                   }}
                                 />
+
+                                <MenuItem
+                                  icon={<IconCopy />}
+                                  label="Envio Simulado"
+                                  onClick={() => {
+                                    setMsgMenuForId(null);
+                                    setSelectedTemplateSimId("");
+                                    setSimulateText("");
+                                    setShowSimulate({
+                                      open: true,
+                                      clientId: r.id,
+                                    });
+                                    ensureMessagingDataLoaded();
+                                  }}
+                                />
                               </div>
                             )}
                           </div>
@@ -2681,6 +2748,117 @@ className="p-8 text-center text-muted-foreground italic"
                 className="px-6 py-2 rounded-lg bg-sky-600 text-white font-bold hover:bg-sky-500 shadow-lg shadow-sky-900/20 flex items-center gap-2 text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <IconSend /> {sendingNow ? "Enviando..." : "Enviar Agora"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* --- MODAL DE ENVIO SIMULADO (paliativo, sem sessão) --- */}
+      {showSimulate.open && (
+        <Modal
+          title="Envio Simulado"
+          onClose={() => {
+            setShowSimulate({ open: false, clientId: null });
+            setSelectedTemplateSimId("");
+            setSimulateText("");
+          }}
+        >
+          <div className="space-y-4">
+            <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-lg flex items-center gap-3">
+              <span className="text-xl">
+                <IconCopy />
+              </span>
+              <div className="text-sm text-foreground/90">
+                Não envia nada pelo WhatsApp — só monta o texto pronto (com as variáveis já resolvidas) pra você copiar e mandar manualmente pelo WhatsApp Web.
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
+                Mensagem pronta (opcional)
+              </label>
+              <select
+                value={selectedTemplateSimId}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setSelectedTemplateSimId(id);
+                  if (id) {
+                    const tpl = messageTemplates.find((t) => t.id === id);
+                    setSimulateText(tpl?.content ?? "");
+                  } else {
+                    setSimulateText("");
+                  }
+                }}
+                className="w-full h-11 px-3 bg-transparent border border-border rounded-xl text-foreground outline-none focus:border-sky-500 transition-colors text-sm"
+              >
+                <option value="">Selecionar...</option>
+                {Object.entries(
+                  messageTemplates.reduce(
+                    (acc, t) => {
+                      const cat = t.category || "Geral";
+                      if (!acc[cat]) acc[cat] = [];
+                      acc[cat].push(t);
+                      return acc;
+                    },
+                    {} as Record<string, typeof messageTemplates>,
+                  ),
+                ).map(([catName, tmpls]) => (
+                  <optgroup key={catName} label={`— ${catName} —`}>
+                    {tmpls.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
+
+            <textarea
+              value={simulateText}
+              disabled={!!selectedTemplateSimId}
+              onChange={(e) => {
+                if (selectedTemplateSimId) setSelectedTemplateSimId("");
+                setSimulateText(e.target.value);
+              }}
+              className="w-full bg-transparent border border-border rounded-xl p-4 text-foreground outline-none focus:border-sky-500 transition-colors min-h-[120px] text-sm resize-none disabled:opacity-70"
+              placeholder="Olá, gostaria de informar que..."
+              autoFocus
+            />
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => setShowSimulate({ open: false, clientId: null })}
+                className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted text-sm font-medium transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSimulateMessage}
+                disabled={simulating}
+                className="px-6 py-2 rounded-lg bg-amber-500 text-white font-bold hover:bg-amber-400 shadow-lg shadow-amber-900/20 flex items-center gap-2 text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <IconCopy /> {simulating ? "Gerando..." : "Ver Mensagem"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* --- MODAL DE RESULTADO DO ENVIO SIMULADO --- */}
+      {simResult && (
+        <Modal title="Mensagem pronta pra copiar" onClose={() => setSimResult(null)}>
+          <div className="space-y-4">
+            {simResult.map((p, i) => (
+              <SimResultBubble key={i} phone={p.phone} label={p.label} text={p.text} />
+            ))}
+            <div className="flex justify-end pt-1">
+              <button
+                onClick={() => setSimResult(null)}
+                className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted text-sm font-medium transition-colors"
+              >
+                Fechar
               </button>
             </div>
           </div>
@@ -3272,6 +3450,40 @@ function Modal({
   );
 }
 
+// ✅ Bolha estilo conversa pro resultado do Envio Simulado — mostra o texto
+// já com as variáveis resolvidas e um botão de copiar com feedback visual.
+function SimResultBubble({ phone, label, text }: { phone: string; label: string; text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+          {label} · {phone}
+        </span>
+        <button
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(text);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            } catch {}
+          }}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors ${
+            copied
+              ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
+              : "bg-sky-500/10 text-sky-500 border border-sky-500/20 hover:bg-sky-500/20"
+          }`}
+        >
+          {copied ? <Check className="w-3.5 h-3.5" /> : <IconCopy />} {copied ? "Copiado!" : "Copiar"}
+        </button>
+      </div>
+      <div className="rounded-2xl rounded-tl-sm bg-[#dcf8c6] dark:bg-[#025144] text-[#111b21] dark:text-[#e9edef] p-3 text-sm whitespace-pre-line shadow-sm border border-black/5">
+        {text}
+      </div>
+    </div>
+  );
+}
+
 // --- ICONES ---
 function IconX() {
   return <X className="w-4 h-4" />;
@@ -3287,6 +3499,9 @@ function IconChat() {
 }
 function IconSend() {
   return <Send className="w-4 h-4" />;
+}
+function IconCopy() {
+  return <Copy className="w-4 h-4" />;
 }
 function IconClock() {
   return <Clock className="w-4 h-4" />;
