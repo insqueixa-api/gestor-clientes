@@ -3,7 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { APP_FIELD_LABELS, HIDDEN_CLIENT_FIELD_TYPES, AppFieldType } from "@/lib/apps/field-types";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { getIntegrationHandler } from "@/lib/integrations";
-import { CHECK_VALIDITY_HANDLERS } from "@/lib/apps/panel";
+import { CHECK_VALIDITY_HANDLERS, buildM3uUrlFromDns } from "@/lib/apps/panel";
+import { renderTemplate, pickRandomDns } from "@/lib/whatsapp/template-vars";
 
 export const dynamic = "force-dynamic";
 
@@ -117,6 +118,37 @@ export async function POST(req: NextRequest) {
       (pendingRequests || []).filter((r: any) => r.action === "removal").map((r: any) => r.client_app_id),
     );
 
+    // ✅ Variáveis nas instruções de configuração (25/07/2026, pedido do
+    // Márcio) — mesmo motor {variavel} dos templates de mensagem do
+    // WhatsApp (renderTemplate, lib/whatsapp/template-vars.ts), pra não
+    // reinventar. "usuario_app"/"senha_app"/"dns_servidor" usam o MESMO
+    // nome já usado lá de propósito (mesma variável, sem duplicar
+    // convenção); "m3u_url" é nova. Só busca client/server (2 queries a
+    // mais) quando pelo menos 1 app tem instrução cadastrada — não vale a
+    // pena pra maioria das contas, que não usa esse campo.
+    const hasAnyInstructions = (rows || []).some((r: any) => r.apps?.portal_setup_instructions);
+    let instructionVars: Record<string, string> | null = null;
+    if (hasAnyInstructions) {
+      const { data: client } = await supabaseAdmin
+        .from("clients")
+        .select("server_username, server_password, server_id, m3u_url")
+        .eq("id", client_id)
+        .maybeSingle();
+      const { data: server } = client?.server_id
+        ? await supabaseAdmin.from("servers").select("dns").eq("id", client.server_id).maybeSingle()
+        : { data: null };
+      const dns = pickRandomDns(Array.isArray(server?.dns) ? server.dns : []);
+      const m3uUrl =
+        String(client?.m3u_url || "").trim() ||
+        (dns ? buildM3uUrlFromDns([dns], client?.server_username || "", client?.server_password || "") : "");
+      instructionVars = {
+        usuario_app: client?.server_username || "",
+        senha_app: client?.server_password || "",
+        dns_servidor: dns,
+        m3u_url: m3uUrl,
+      };
+    }
+
     const apps = (rows || []).map((row: any) => {
       const vals = row.field_values || {};
       const config = Array.isArray(row.apps?.fields_config) ? row.apps.fields_config : [];
@@ -157,7 +189,10 @@ export async function POST(req: NextRequest) {
         has_pending_removal_request: pendingRemovalByAppId.has(row.id),
         expiration: isPartnership ? null : extractExpiration(vals, config),
         fields: extractEditableFields(vals, config),
-        portal_setup_instructions: row.apps?.portal_setup_instructions || null,
+        portal_setup_instructions:
+          row.apps?.portal_setup_instructions && instructionVars
+            ? renderTemplate(row.apps.portal_setup_instructions, instructionVars)
+            : row.apps?.portal_setup_instructions || null,
         license_price:
           row.apps?.cost_type === "paid" && Number(row.apps?.license_price) > 0
             ? Number(row.apps.license_price)

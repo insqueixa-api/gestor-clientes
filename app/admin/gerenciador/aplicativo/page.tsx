@@ -169,6 +169,38 @@ const [apps, setApps] = useState<AppData[]>([]);
   const [formDeviceTypes, setFormDeviceTypes] = useState<DeviceType[]>([]);
   const [formTechnology, setFormTechnology] = useState<Technology>("IPTV");
   const [formPortalInstructions, setFormPortalInstructions] = useState<string>("");
+  const portalInstructionsRef = useRef<HTMLTextAreaElement>(null);
+
+  // ✅ Variáveis disponíveis nas instruções de configuração (25/07/2026) —
+  // mesmo motor {variavel} do restante do sistema (lib/whatsapp/template-vars.ts,
+  // renderTemplate), resolvidas de verdade em app/api/client-portal/apps/list/route.ts
+  // com os dados reais do cliente antes de mostrar no portal. "usuario_app"/
+  // "senha_app"/"dns_servidor" usam o MESMO nome já usado nos templates de
+  // mensagem do WhatsApp de propósito (mesma variável, sem duplicar
+  // convenção); "m3u_url" é nova, não existia em lugar nenhum ainda.
+  const PORTAL_INSTRUCTION_TAGS: { tag: string; label: string }[] = [
+    { tag: "{usuario_app}", label: "Usuário" },
+    { tag: "{senha_app}", label: "Senha" },
+    { tag: "{dns_servidor}", label: "DNS" },
+    { tag: "{m3u_url}", label: "Link M3U" },
+  ];
+
+  function insertInstructionTag(tag: string) {
+    const el = portalInstructionsRef.current;
+    if (!el) {
+      setFormPortalInstructions((prev) => `${prev}${tag}`);
+      return;
+    }
+    const start = el.selectionStart ?? formPortalInstructions.length;
+    const end = el.selectionEnd ?? formPortalInstructions.length;
+    const next = formPortalInstructions.slice(0, start) + tag + formPortalInstructions.slice(end);
+    setFormPortalInstructions(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      const pos = start + tag.length;
+      el.setSelectionRange(pos, pos);
+    });
+  }
 
   async function handleIconUpload(file: File) {
     if (!file.type.startsWith("image/")) {
@@ -1368,15 +1400,31 @@ setApps(formattedApps);
                 <div>
                   <Label>Instruções de configuração (portal do cliente)</Label>
                   <textarea
+                    ref={portalInstructionsRef}
                     value={formPortalInstructions}
                     onChange={(e) => setFormPortalInstructions(e.target.value)}
                     rows={5}
-                    placeholder="Passo a passo pro cliente configurar esse app sozinho (ex: onde baixar, como inserir o Device ID, etc). Fica vazio até você preencher — a seção some da página do app no portal se não tiver nada aqui."
+                    placeholder="Passo a passo pro cliente configurar esse app sozinho (ex: onde baixar, como inserir o Device ID, etc). Fica vazio até você preencher — o botão de instruções some do portal se não tiver nada aqui."
                     className="w-full px-3 py-2 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 resize-y"
                   />
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {PORTAL_INSTRUCTION_TAGS.map((t) => (
+                      <button
+                        key={t.tag}
+                        type="button"
+                        onClick={() => insertInstructionTag(t.tag)}
+                        className="px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[11px] font-mono hover:bg-emerald-500/20 transition-colors"
+                        title={`Inserir ${t.tag}`}
+                      >
+                        {t.label} <span className="opacity-70">{t.tag}</span>
+                      </button>
+                    ))}
+                  </div>
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    Aparece na página de detalhe desse app no portal
-                    (/renew-beta/apps/[id]), abaixo dos campos e ações.
+                    Clique numa tag pra inserir no texto — é substituída pelo
+                    dado real do cliente na hora de mostrar. Aparece no botão
+                    de instruções (ⓘ) ao lado de "Editar", no card do app no
+                    portal (Meus Aplicativos).
                   </p>
                 </div>
               </div>

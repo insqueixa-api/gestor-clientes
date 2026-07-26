@@ -3438,7 +3438,7 @@ export default function RenewClient() {
                             <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
                               {otherFields.map((f) => (
                                 <span key={f.id} className="flex items-center gap-1 px-2 py-0.5 bg-muted text-muted-foreground border border-border text-[10px] font-mono rounded">
-                                  <span className={f.type === "mac" || f.type === "device_key" ? "font-extrabold text-foreground" : ""}>{f.label}</span>: {f.value || "—"}
+                                  <span className={f.type === "mac" || f.type === "device_key" ? "font-bold text-foreground/80" : ""}>{f.label}</span>: {f.value || "—"}
                                   {f.value && (
                                     <button
                                       type="button"
@@ -3610,6 +3610,31 @@ export default function RenewClient() {
                         </div>
                       </>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {/* Modal de instruções de configuração — substitui a página de
+                  detalhe (/renew-beta/apps/[id]), que ficou redundante */}
+              {instructionsAppId && (
+                <div
+                  className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+                  onMouseDown={(e) => {
+                    if (e.target === e.currentTarget) setInstructionsAppId(null);
+                  }}
+                >
+                  <div className="w-full max-w-sm bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-3 max-h-[80vh]">
+                    <div className="flex items-center justify-between shrink-0">
+                      <p className="text-sm font-bold text-foreground">
+                        Como configurar — {installedApps.find((a) => a.id === instructionsAppId)?.name}
+                      </p>
+                      <button onClick={() => setInstructionsAppId(null)} className="text-muted-foreground hover:text-foreground text-xs">
+                        ✕
+                      </button>
+                    </div>
+                    <p className="text-xs text-muted-foreground whitespace-pre-line overflow-y-auto">
+                      {installedApps.find((a) => a.id === instructionsAppId)?.portal_setup_instructions}
+                    </p>
                   </div>
                 </div>
               )}

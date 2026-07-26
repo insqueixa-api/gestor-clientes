@@ -125,7 +125,12 @@ async function toolGerarLinkPortal(sb: any, tenantId: string, rawClient: any, is
 
 // Mantém a checagem de servidor Elite (exclui o período Anual da tabela) —
 // já reconciliada entre agent/chat-admin antes desta unificação.
-async function toolConsultarPrecosTexto(sb: any, tenantId: string, client: any): Promise<string> {
+// ✅ Exportada em 25/07/2026 pra envio_agora/envio_programado reaproveitarem
+// — {tabela_precos} existia só no bot, causando confusão (mesma tag, uma
+// tela resolve e a outra não). Função já era genérica (só usa campos do
+// `client`/`clientRow` que a view de envio também tem: plan_table_id,
+// price_currency, screens, price_amount, server_id).
+export async function toolConsultarPrecosTexto(sb: any, tenantId: string, client: any): Promise<string> {
   const PERIOD_LABELS: Record<string, string> = {
     MONTHLY: "Mensal", BIMONTHLY: "Bimestral", QUARTERLY: "Trimestral",
     SEMIANNUAL: "Semestral", ANNUAL: "Anual",
@@ -211,14 +216,26 @@ async function resolveCouponPendencyVars(sb: any, tenantId: string, client: any,
   return vars;
 }
 
+// ✅ Base compartilhada — extraída em 25/07/2026 pra acabar com a mesma
+// lógica repetida em 3 lugares (buildVarsForNode, flowVars da saudação/
+// escalonamento, e o "geral"/RAG), achado em auditoria anterior ("2 lugares
+// resolvem vars" — na real eram 3). O `client`/`rawClient` do bot vêm de uma
+// query crua em `clients`+`servers` (agent/route.ts), com nomes de campo
+// diferentes da view usada por envio_agora/envio_programado — por isso os
+// overrides aqui, em cima do que buildClientTemplateVars já resolve.
+function buildBotClientVars(client: any, rawClient: any, isSecondary?: boolean): Record<string, any> {
+  const vars = buildClientTemplateVars({ clientRow: rawClient, isSecondary }) as Record<string, any>;
+  vars.usuario_app = client?.server_username || "";
+  vars.plano_nome = client?.plan_label || "";
+  vars.servidor_nome = client?.server_name || "";
+  vars.dns_servidor = pickRandomDns(client?.server_dns);
+  return vars;
+}
+
 async function buildVarsForNode(
   sb: any, tenantId: string, node: MenuNode, client: any, rawClient: any, provider: ServerProvider | null
 ): Promise<Record<string, any>> {
-  const vars = buildClientTemplateVars({ clientRow: rawClient, isSecondary: client.is_secondary }) as Record<string, any>;
-  vars.usuario_app = client.server_username || "";
-  vars.plano_nome = client.plan_label || "";
-  vars.servidor_nome = client.server_name || "";
-  vars.dns_servidor = pickRandomDns(client.server_dns);
+  const vars = buildBotClientVars(client, rawClient, client.is_secondary);
   const stepsText = (await getSteps(sb, node.id, provider)).join(" ");
   if (stepsText.includes("{link_pagamento}")) {
     vars.link_pagamento = await toolGerarLinkPortal(sb, tenantId, rawClient, client.is_secondary);
@@ -376,11 +393,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
   // ✅ As mensagens globais (saudação, sucesso, escalar, retry de menu) podem
   // usar variáveis do cliente (ex: {primeiro_nome}, {saudacao_tempo}) — antes
   // eram mandadas cruas, então {primeiro_nome} chegava literal pro cliente.
-  const flowVars = buildClientTemplateVars({ clientRow: clientMatchesRaw[0], isSecondary: clients[0]?.is_secondary }) as Record<string, any>;
-  flowVars.usuario_app = clients[0]?.server_username || "";
-  flowVars.plano_nome = clients[0]?.plan_label || "";
-  flowVars.servidor_nome = clients[0]?.server_name || "";
-  flowVars.dns_servidor = pickRandomDns(clients[0]?.server_dns);
+  const flowVars = buildBotClientVars(clients[0], clientMatchesRaw[0], clients[0]?.is_secondary);
   const sendFlow = (text: string) => send(renderTemplate(text, flowVars));
 
   // ✅ {NomeDoApp+logo} — só busca a lista de apps (1x por turno, cacheada)
@@ -809,11 +822,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
       const candidates = embedding ? await searchBotKnowledgeCandidates(sb, tenantId, embedding) : [];
       const top = await pickCompatibleKnowledgeMatch(sb, candidates, clientProvider);
       if (top) {
-        const vars = buildClientTemplateVars({ clientRow: clientMatchesRaw[0], isSecondary: clients[0]?.is_secondary }) as any;
-        vars.usuario_app = clients[0]?.server_username || "";
-        vars.plano_nome = clients[0]?.plan_label || "";
-        vars.servidor_nome = clients[0]?.server_name || "";
-        vars.dns_servidor = pickRandomDns(clients[0]?.server_dns);
+        const vars = buildBotClientVars(clients[0], clientMatchesRaw[0], clients[0]?.is_secondary);
         // ✅ Achado em auditoria: {link_pagamento}/{tabela_precos} só resolviam
         // em mensagem de nó (buildVarsForNode) — um artigo da Base de
         // Conhecimento usando essas tags mandava o texto literal "{link_pagamento}"

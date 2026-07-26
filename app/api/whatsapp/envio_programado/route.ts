@@ -14,9 +14,11 @@ import {
   generatePortalLink,
   renderTemplate,
   getSPParts,
+  pickRandomDns,
 } from "@/lib/whatsapp/template-vars";
 import { notify } from "@/lib/notifications/notify";
-import { getCouponPhraseForClient, fetchActiveCoupons, type CouponRow } from "@/lib/client-portal/coupons";
+import { getCouponPhraseForClient, getPendencyPhraseForClient, fetchActiveCoupons, type CouponRow } from "@/lib/client-portal/coupons";
+import { toolConsultarPrecosTexto } from "@/lib/whatsapp/bot-engine";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function safeServerLog(...args: any[]) {
@@ -411,6 +413,28 @@ export async function POST(req: Request) {
         // tenant no tick inteiro, não 1x por job (cache acima).
         const manualPaymentVars = await getCachedManualPaymentVars(String(job.tenant_id));
 
+        // ✅ {dns_servidor}/{tabela_precos}/{pendencia_detalhe} — mesmas
+        // funções que o bot de atendimento já usa (toolConsultarPrecosTexto,
+        // getPendencyPhraseForClient); antes só existiam lá, então um
+        // template de envio agendado usando essas tags mandava o texto cru
+        // "{tabela_precos}" pro cliente. Calculado 1x por job, não muda
+        // entre o contato principal/secundário do mesmo cliente.
+        let dnsServidor = "";
+        let tabelaPrecos = "";
+        let pendenciaDetalhe = "";
+        if (recipientType !== "reseller") {
+          try {
+            if (wa.row?.server_id) {
+              const { data: srv } = await sb.from("servers").select("dns").eq("id", wa.row.server_id).maybeSingle();
+              dnsServidor = pickRandomDns(Array.isArray(srv?.dns) ? srv.dns : []);
+            }
+            tabelaPrecos = await toolConsultarPrecosTexto(sb, String(job.tenant_id), wa.row);
+            pendenciaDetalhe = await getPendencyPhraseForClient(sb, String(job.tenant_id), wa.row.id, wa.row.price_currency || "BRL");
+          } catch (e: any) {
+            safeServerLog("[WA][envio_programado][dns_tabela_pendencia] falhou", e?.message ?? e);
+          }
+        }
+
         // ✅ Loop de envios para os contatos vinculados à conta
         for (let i = 0; i < wa.phones.length; i++) {
           const contact = wa.phones[i];
@@ -419,6 +443,12 @@ export async function POST(req: Request) {
             recipientType === "reseller"
               ? buildResellerTemplateVars({ resellerRow: wa.row })
               : buildClientTemplateVars({ clientRow: wa.row, isSecondary: contact.is_secondary });
+
+          if (recipientType !== "reseller") {
+            (vars as any).dns_servidor = dnsServidor;
+            (vars as any).tabela_precos = tabelaPrecos;
+            (vars as any).pendencia_detalhe = pendenciaDetalhe;
+          }
 
           Object.assign(vars, manualPaymentVars);
 

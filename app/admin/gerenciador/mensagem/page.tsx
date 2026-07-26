@@ -115,6 +115,7 @@ const TAG_GROUPS = [
       { label: "{telas_qtd}", desc: "Telas (screens)" },
       { label: "{tecnologia}", desc: "Tecnologia (technology)" },
       { label: "{servidor_nome}", desc: "Nome do Servidor" },
+      { label: "{dns_servidor}", desc: "DNS aleatória do servidor (evita a 1ª cadastrada)" },
     ],
   },
   {
@@ -146,9 +147,11 @@ const TAG_GROUPS = [
     tags: [
       { label: "{venda_creditos}", desc: "Qtd. de Créditos da Última Recarga" },
       { label: "{link_pagamento}", desc: "Link Área do Cliente / Fatura" },
+      { label: "{tabela_precos}", desc: "Tabela de preços do cliente (todos os períodos), texto pronto" },
       { label: "{valor_fatura}", desc: "Valor da renovação" },
       { label: "{moeda_cliente}", desc: "BRL/USD/EUR" },
       { label: "{cupom_frase}", desc: "Frase pronta com o cupom elegível do cliente (só contas BRL) — some sozinha se não houver nenhum" },
+      { label: "{pendencia_detalhe}", desc: "Lista as pendências financeiras em aberto (app + data + valor) — vazia se não houver nenhuma" },
       { label: "{pix_copia_cola}", desc: "Código PIX copia-e-cola automático (gateway online)" },
 
       // ✅ PIX Manual

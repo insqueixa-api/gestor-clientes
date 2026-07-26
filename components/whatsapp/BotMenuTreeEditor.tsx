@@ -69,8 +69,12 @@ const SPECIAL_ACTIONS = [
   { value: "escalar_se_elite", label: "Passar pro Márcio só se for Elite", desc: "Mostra os passos e transfere só quando o cliente é do servidor Elite — NaTV/Fast seguem normal, sem transferir." },
 ];
 
-// Reaproveita o mesmo conjunto de variáveis da página de mensagens, filtrado
-// pro que faz sentido num atendimento de bot + as 2 novas específicas daqui.
+// Subconjunto curado do mesmo TAG_GROUPS de app/admin/gerenciador/mensagem
+// (filtrado pro que faz sentido num atendimento de bot) — 25/07/2026:
+// {dns_servidor}/{tabela_precos}/{pendencia_detalhe} eram exclusivas daqui
+// (causava confusão — mesma tag resolvia num lugar e não no outro); agora
+// resolvem em todo lugar (envio_agora/envio_programado também), só o
+// PICKER aqui continua menor de propósito.
 const TAG_GROUPS = [
   {
     title: "👤 Dados do Cliente",

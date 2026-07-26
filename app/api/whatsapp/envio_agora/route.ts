@@ -13,8 +13,10 @@ import {
   fetchManualPaymentVars,
   generatePortalLink,
   renderTemplate,
+  pickRandomDns,
 } from "@/lib/whatsapp/template-vars";
-import { getCouponPhraseForClient } from "@/lib/client-portal/coupons";
+import { getCouponPhraseForClient, getPendencyPhraseForClient } from "@/lib/client-portal/coupons";
+import { toolConsultarPrecosTexto } from "@/lib/whatsapp/bot-engine";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function safeServerLog(...args: any[]) {
@@ -312,6 +314,28 @@ export async function POST(req: Request) {
     safeServerLog("[WA][send_now][manual_payments] falhou", e?.message ?? e);
   }
 
+  // ✅ {dns_servidor}/{tabela_precos}/{pendencia_detalhe} — pedido do Márcio
+  // (25/07/2026): essas 3 tags existiam só no bot de atendimento, causando
+  // confusão (mesma tag, uma tela resolvia e a outra mandava o texto cru
+  // "{tabela_precos}" pro cliente). Mesmas funções que o bot já usa
+  // (toolConsultarPrecosTexto, getPendencyPhraseForClient), calculadas 1x
+  // pra conta inteira (não muda entre o contato principal/secundário).
+  let dnsServidor = "";
+  let tabelaPrecos = "";
+  let pendenciaDetalhe = "";
+  if (recipientType !== "reseller") {
+    try {
+      if (wa.row?.server_id) {
+        const { data: srv } = await sb.from("servers").select("dns").eq("id", wa.row.server_id).maybeSingle();
+        dnsServidor = pickRandomDns(Array.isArray(srv?.dns) ? srv.dns : []);
+      }
+      tabelaPrecos = await toolConsultarPrecosTexto(sb, tenantId, wa.row);
+      pendenciaDetalhe = await getPendencyPhraseForClient(sb, tenantId, wa.row.id, wa.row.price_currency || "BRL");
+    } catch (e: any) {
+      safeServerLog("[WA][send_now][dns_tabela_pendencia] falhou", e?.message ?? e);
+    }
+  }
+
   // ✅ Jitter anti-flood: chamadas internas (webhook/renovação) esperam
   // um tempo aleatório antes de bater na VM, evitando pico simultâneo
   if (internal) {
@@ -338,6 +362,12 @@ export async function POST(req: Request) {
         : buildClientTemplateVars({ clientRow: wa.row, isSecondary: contact.is_secondary });
 
     Object.assign(vars, manualPaymentVars); // ✅ Injeta o PIX e o IBAN na mensagem final
+
+    if (recipientType !== "reseller") {
+      vars.dns_servidor = dnsServidor;
+      vars.tabela_precos = tabelaPrecos;
+      vars.pendencia_detalhe = pendenciaDetalhe;
+    }
 
     // ✅ LINK DO PORTAL — crítico, gerado via lib (mesmo RPC, mesmos logs, mesmo fallback)
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(authedUserId);
