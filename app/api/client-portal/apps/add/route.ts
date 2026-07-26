@@ -3,9 +3,8 @@
 // tenant à conta do cliente. Cria a linha client_apps vazia; o cliente
 // preenche os campos e chama /configure separadamente (mesmo fluxo em 2
 // passos do admin: adicionar → preencher → Configurar).
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
-import { getIntegrationHandler } from "@/lib/integrations";
 import { logAppActivity } from "@/lib/apps/panel";
 
 export const dynamic = "force-dynamic";
@@ -50,31 +49,36 @@ export async function POST(req: NextRequest) {
     // limite continuam com os que já têm, só não conseguem adicionar mais
     // pelo portal. Precisar de mais é caso pra falar direto com o suporte.
     const MAX_APPS_PER_CLIENT = 5;
-    const { count: installedCount } = await supabaseAdmin
-      .from("client_apps")
-      .select("id", { count: "exact", head: true })
-      .eq("client_id", client_id);
+    // ✅ As 3 queries abaixo são independentes entre si (nenhuma usa o
+    // resultado da outra) — paralelizadas (pedido do Márcio, 26/07/2026,
+    // lentidão sentida ao adicionar app): eram 3 round-trips sequenciais,
+    // agora é 1 (o tempo do mais lento dos 3, não a soma dos 3).
+    const [{ count: installedCount }, { data: client }, { data: app, error: appErr }] = await Promise.all([
+      supabaseAdmin
+        .from("client_apps")
+        .select("id", { count: "exact", head: true })
+        .eq("client_id", client_id),
+      // Confirma que o app pertence ao catálogo do tenant e é compatível com
+      // a tecnologia da conta (mesma trava de apps.technology/device_types)
+      supabaseAdmin
+        .from("clients")
+        .select("technology")
+        .eq("id", client_id)
+        .single(),
+      supabaseAdmin
+        .from("apps")
+        .select("id, name, technology, integration_type, cost_type, partner_server_id, is_active, discontinued_replacement_name")
+        .eq("id", app_id)
+        .eq("tenant_id", ctx.tenant_id)
+        .maybeSingle(),
+    ]);
+
     if ((installedCount || 0) >= MAX_APPS_PER_CLIENT) {
       return jsonError(
         `Limite de ${MAX_APPS_PER_CLIENT} aplicativos por conta atingido. Fale com o suporte se precisar de mais.`,
         400,
       );
     }
-
-    // Confirma que o app pertence ao catálogo do tenant e é compatível com
-    // a tecnologia da conta (mesma trava de apps.technology/device_types)
-    const { data: client } = await supabaseAdmin
-      .from("clients")
-      .select("technology")
-      .eq("id", client_id)
-      .single();
-
-    const { data: app, error: appErr } = await supabaseAdmin
-      .from("apps")
-      .select("id, name, technology, integration_type, cost_type, partner_server_id, is_active, discontinued_replacement_name")
-      .eq("id", app_id)
-      .eq("tenant_id", ctx.tenant_id)
-      .maybeSingle();
 
     if (appErr || !app) return jsonError("Aplicativo não encontrado", 404);
     if (client?.technology && app.technology && client.technology !== app.technology) {
@@ -93,16 +97,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ✅ Mesma trava do catalog/route.ts (defesa em profundidade — o catálogo
-    // já esconde esses apps do seletor, mas essa rota não pode confiar só no
-    // front): não deixa adicionar um app cuja integração está cadastrada mas
-    // com useApi:false (ex: IBOSOL hoje, bloqueio Cloudflare).
-    if (app.integration_type) {
-      const handler = getIntegrationHandler(app.integration_type);
-      if (!handler || !(handler as any).useApi) {
-        return jsonError("Esse aplicativo não está disponível pra adicionar no momento.", 400);
-      }
-    }
+    // ✅ Removido em 26/07/2026 (pedido do Márcio): apps com integração
+    // useApi:false (ex: IBOSOL, bloqueio Cloudflare) podem ser adicionados
+    // normalmente — has_integration (list/route.ts) já reflete useApi e faz
+    // o card cair pra "Solicitar configuração" em vez de prometer automação
+    // que falharia. Bloquear aqui só escondia apps pagos válidos do cliente.
 
     // ✅ Snapshot do custo no momento do add (igual o admin já faz em
     // novo_cliente.tsx) — sem isso, list/detail/check-validity nunca sabiam
@@ -124,13 +123,18 @@ export async function POST(req: NextRequest) {
 
     if (insertErr || !inserted) return jsonError("Erro interno", 500);
 
-    await logAppActivity(supabaseAdmin, {
-      tenantId: ctx.tenant_id,
-      clientId: client_id,
-      clientAppId: inserted.id,
-      appName: app.name || "Aplicativo",
-      event: "added",
-    });
+    // ✅ Log de auditoria não bloqueia a resposta (mesmo motivo do
+    // touchPortalSession em session.ts) — o cliente não precisa esperar
+    // esse round-trip a mais pra saber que o app foi adicionado.
+    after(() =>
+      logAppActivity(supabaseAdmin, {
+        tenantId: ctx.tenant_id,
+        clientId: client_id,
+        clientAppId: inserted.id,
+        appName: app.name || "Aplicativo",
+        event: "added",
+      }),
+    );
 
     return NextResponse.json({ ok: true, data: { id: inserted.id } }, { status: 200, headers: NO_STORE_HEADERS });
   } catch {

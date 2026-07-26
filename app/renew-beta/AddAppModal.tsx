@@ -81,14 +81,13 @@ export default function AddAppModal({
 
   if (!mounted || !open) return null;
 
-  // ✅ App sem device_types cadastrado (achado em auditoria 25/07/2026: 15
-  // dos 34 apps do catálogo do Marcio, incluindo DupleCast/IBO Player/IBO
-  // Pro Player) nunca deve ficar invisível — antes desse modal, device_types
-  // nunca travava a lista de apps (só era usado de forma informativa). Sem
-  // esse fallback, esses 15 apps sumiriam de TODAS as categorias.
-  const appsForDevice = catalog.filter(
-    (a) => !deviceType || !a.device_types?.length || a.device_types.includes(deviceType),
-  );
+  // ✅ Voltado atrás em 26/07/2026 (pedido do Márcio): app sem device_types
+  // cadastrado NÃO aparece em categoria nenhuma — cada categoria mostra só
+  // os apps marcados pra ela, simples assim. Antes tinha um fallback pra
+  // apps sem device_types aparecerem em toda categoria (pensado pra apps
+  // "universais" tipo IPTV Smarters); o Márcio prefere manter estrito e
+  // cadastrar device_types em todo app, sem exceção por trás das cortinas.
+  const appsForDevice = catalog.filter((a) => !deviceType || a.device_types?.includes(deviceType));
 
   // ✅ Seletor "Aplicativos Pagos (Recomendado)" / "Aplicativos Parceiros
   // (Gratuito)" — pedido do Marcio (26/07/2026). "Parceiros" agrupa
@@ -106,14 +105,14 @@ export default function AddAppModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4 animate-in fade-in duration-200"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
         onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-200 max-h-[85vh]"
+        className="w-full max-w-2xl bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-200 max-h-[85vh]"
       >
         <div className="flex items-center gap-3">
           {deviceType && (

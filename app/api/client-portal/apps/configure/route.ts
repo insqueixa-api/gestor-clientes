@@ -3,7 +3,7 @@
 // (Duplecast/GerenciaApp-family/IboSol/IboPro/QuickPlayer), server-to-server
 // via x-internal-secret. Espelha handleConfigApp de novo_cliente.tsx, mas
 // sem sessão admin — os dados (username/senha/servidor) vêm de `clients`.
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { getIntegrationHandler } from "@/lib/integrations";
 import { PIN_HANDLERS, extractFieldByType, findFieldByType, internalAppUrl, buildM3uUrlFromDns, logAppActivity } from "@/lib/apps/panel";
@@ -155,14 +155,16 @@ export async function POST(req: NextRequest) {
     const apiJson = await apiRes.json().catch(() => ({} as any));
 
     if (!apiJson?.ok) {
-      await logAppActivity(supabaseAdmin, {
-        tenantId: ctx.tenant_id,
-        clientId: client_id,
-        clientAppId: client_app_id,
-        appName,
-        event: "configure_failed",
-        detail: { error: apiJson?.error || "Falha ao configurar no painel do parceiro." },
-      });
+      after(() =>
+        logAppActivity(supabaseAdmin, {
+          tenantId: ctx.tenant_id,
+          clientId: client_id,
+          clientAppId: client_app_id,
+          appName,
+          event: "configure_failed",
+          detail: { error: apiJson?.error || "Falha ao configurar no painel do parceiro." },
+        }),
+      );
       return jsonError(apiJson?.error || "Falha ao configurar no painel do parceiro.", 400);
     }
 
@@ -202,14 +204,16 @@ export async function POST(req: NextRequest) {
         .eq("id", client_app_id);
     }
 
-    await logAppActivity(supabaseAdmin, {
-      tenantId: ctx.tenant_id,
-      clientId: client_id,
-      clientAppId: client_app_id,
-      appName,
-      event: "configured",
-      detail: expireDate ? { expireDate } : null,
-    });
+    after(() =>
+      logAppActivity(supabaseAdmin, {
+        tenantId: ctx.tenant_id,
+        clientId: client_id,
+        clientAppId: client_app_id,
+        appName,
+        event: "configured",
+        detail: expireDate ? { expireDate } : null,
+      }),
+    );
 
     return NextResponse.json(
       { ok: true, expireDate, message: apiJson.message || "Configurado com sucesso." },

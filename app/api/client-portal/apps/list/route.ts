@@ -93,24 +93,29 @@ export async function POST(req: NextRequest) {
       return jsonError("Sessão inválida ou cliente não encontrado", 401);
     }
 
-    const { data: rows, error: rowsErr } = await supabaseAdmin
-      .from("client_apps")
-      .select("id, app_id, field_values, apps(name, icon_url, fields_config, integration_type, cost_type, license_price, license_period, portal_setup_instructions, is_active, discontinued_replacement_name)")
-      .eq("client_id", client_id);
+    // ✅ Paralelizado (pedido do Márcio, 26/07/2026, lentidão sentida ao
+    // carregar os apps) — as duas queries são independentes entre si (só
+    // precisam de client_id), eram 2 round-trips sequenciais.
+    const [{ data: rows, error: rowsErr }, { data: pendingRequests }] = await Promise.all([
+      supabaseAdmin
+        .from("client_apps")
+        .select("id, app_id, field_values, apps(name, icon_url, fields_config, integration_type, cost_type, license_price, license_period, portal_setup_instructions, is_active, discontinued_replacement_name)")
+        .eq("client_id", client_id),
+      // ✅ Pra apps sem integração automática, o portal mostra "Solicitar
+      // configuração"/"Exclusão solicitada" quando já existe um pedido
+      // pendente (setup ou removal) — evita duplicar pedido e avisa o
+      // cliente que já está na fila do admin.
+      supabaseAdmin
+        .from("client_app_requests")
+        .select("client_app_id, action")
+        .eq("client_id", client_id)
+        .eq("status", "pending"),
+    ]);
 
     if (rowsErr) {
       return jsonError("Erro interno", 500);
     }
 
-    // ✅ Pra apps sem integração automática, o portal mostra "Solicitar
-    // configuração"/"Exclusão solicitada" quando já existe um pedido
-    // pendente (setup ou removal) — evita duplicar pedido e avisa o
-    // cliente que já está na fila do admin.
-    const { data: pendingRequests } = await supabaseAdmin
-      .from("client_app_requests")
-      .select("client_app_id, action")
-      .eq("client_id", client_id)
-      .eq("status", "pending");
     const pendingSetupByAppId = new Set(
       (pendingRequests || []).filter((r: any) => r.action === "setup").map((r: any) => r.client_app_id),
     );

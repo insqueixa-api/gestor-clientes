@@ -4,6 +4,7 @@
 // pra não copiar de novo em cada rota nova do Bloco 3 (add/update-fields/
 // configure/remove/m3u).
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { after } from "next/server";
 
 export function makeSupabaseAdmin(): SupabaseClient | null {
   const supabaseUrl = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
@@ -81,7 +82,13 @@ export async function validatePortalClient(
 
   if (clientErr || !client) return null;
 
-  await touchPortalSession(supabaseAdmin, session_token);
+  // ✅ Não bloqueia a resposta por causa disso (pedido do Márcio, 26/07/2026
+  // — lentidão sentida ao carregar/adicionar apps): touchPortalSession é só
+  // bookkeeping (estende expiração + last_seen), não precisa que o cliente
+  // espere esse round-trip a mais antes de receber a resposta de verdade.
+  // `after()` roda depois de a resposta já ter saído, mas a Vercel mantém a
+  // function viva até terminar — sem risco de a sessão nunca ser tocada.
+  after(() => touchPortalSession(supabaseAdmin, session_token));
 
   return { tenant_id: sess.tenant_id, whatsapp_username: sess.whatsapp_username, client_id };
 }

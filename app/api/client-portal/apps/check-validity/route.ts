@@ -4,7 +4,7 @@
 // criar/alterar nada. Só disponível pros apps que não são parceria (esses
 // não têm vencimento próprio rastreado) e cuja integração suporta uma
 // consulta somente leitura (CHECK_VALIDITY_HANDLERS).
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { getIntegrationHandler } from "@/lib/integrations";
 import { CHECK_VALIDITY_HANDLERS, extractFieldByType, findFieldByType, internalAppUrl, logAppActivity } from "@/lib/apps/panel";
@@ -112,14 +112,16 @@ export async function POST(req: NextRequest) {
     const apiJson = await apiRes.json().catch(() => ({} as any));
 
     if (!apiJson?.ok) {
-      await logAppActivity(supabaseAdmin, {
-        tenantId: ctx.tenant_id,
-        clientId: client_id,
-        clientAppId: client_app_id,
-        appName,
-        event: "check_validity_failed",
-        detail: { error: apiJson?.error || "Falha ao consultar o painel do parceiro." },
-      });
+      after(() =>
+        logAppActivity(supabaseAdmin, {
+          tenantId: ctx.tenant_id,
+          clientId: client_id,
+          clientAppId: client_app_id,
+          appName,
+          event: "check_validity_failed",
+          detail: { error: apiJson?.error || "Falha ao consultar o painel do parceiro." },
+        }),
+      );
       return jsonError(apiJson?.error || "Falha ao consultar o painel do parceiro.", 400);
     }
 
@@ -132,14 +134,16 @@ export async function POST(req: NextRequest) {
         .eq("id", client_app_id);
     }
 
-    await logAppActivity(supabaseAdmin, {
-      tenantId: ctx.tenant_id,
-      clientId: client_id,
-      clientAppId: client_app_id,
-      appName,
-      event: "check_validity",
-      detail: apiJson.expireDate ? { expireDate: apiJson.expireDate } : null,
-    });
+    after(() =>
+      logAppActivity(supabaseAdmin, {
+        tenantId: ctx.tenant_id,
+        clientId: client_id,
+        clientAppId: client_app_id,
+        appName,
+        event: "check_validity",
+        detail: apiJson.expireDate ? { expireDate: apiJson.expireDate } : null,
+      }),
+    );
 
     return NextResponse.json(
       { ok: true, expireDate: apiJson.expireDate || null },

@@ -2,7 +2,7 @@
 // Salva os campos editáveis de um client_apps já instalado — só isso, sem
 // chamar painel de parceiro nenhum (isso é o /configure). Update de 1
 // linha por id, nunca o padrão delete-all-then-reinsert do admin.
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { APP_FIELD_LABELS, HIDDEN_CLIENT_FIELD_TYPES, AppFieldType, normalizeMacInput } from "@/lib/apps/field-types";
 import { logAppActivity } from "@/lib/apps/panel";
@@ -82,14 +82,16 @@ export async function POST(req: NextRequest) {
         config.map((f: any) => [String(f.id), (APP_FIELD_LABELS as any)[f.type] || f.label || String(f.id)]),
       );
       const changedLabels = changedKeys.map((k) => labelById.get(k) || k);
-      await logAppActivity(supabaseAdmin, {
-        tenantId: ctx.tenant_id,
-        clientId: client_id,
-        clientAppId: client_app_id,
-        appName: (row as any).apps?.name || "Aplicativo",
-        event: "fields_updated",
-        detail: { fields: changedLabels },
-      });
+      after(() =>
+        logAppActivity(supabaseAdmin, {
+          tenantId: ctx.tenant_id,
+          clientId: client_id,
+          clientAppId: client_app_id,
+          appName: (row as any).apps?.name || "Aplicativo",
+          event: "fields_updated",
+          detail: { fields: changedLabels },
+        }),
+      );
     }
 
     return NextResponse.json({ ok: true }, { status: 200, headers: NO_STORE_HEADERS });
