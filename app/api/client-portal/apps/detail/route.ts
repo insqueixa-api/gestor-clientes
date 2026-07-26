@@ -49,8 +49,9 @@ function extractEditableFields(vals: Record<string, any>, config: any[]) {
     )
     .map((f: any) => {
       // ✅ Mesma prioridade do admin (novo_cliente.tsx) e de apps/list —
-      // rótulo padrão por tipo antes do label customizado do app.
-      const label = (f.type === "obs" ? "Ambiente" : APP_FIELD_LABELS[f.type as AppFieldType]) || f.label || f.id;
+      // rótulo padrão por tipo antes do label customizado do app. "obs" já
+      // vem como "Ambiente" de APP_FIELD_LABELS (fonte única).
+      const label = APP_FIELD_LABELS[f.type as AppFieldType] || f.label || f.id;
       return { id: String(f.id), type: String(f.type || ""), label: String(label), value: vals[f.id] ?? vals[f.label] ?? "" };
     });
 }

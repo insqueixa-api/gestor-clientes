@@ -258,27 +258,36 @@ export default function AppDetailClient() {
                   <div className="w-14 h-14 rounded-xl bg-muted flex items-center justify-center text-2xl shrink-0">📱</div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className="text-lg font-bold text-foreground truncate">{app.name}</p>
-                  {app.expiration && (
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Validade do aplicativo: {String(app.expiration).split("T")[0].split("-").reverse().join("/")}
-                    </p>
+                  <p className="text-lg font-bold text-foreground truncate">
+                    {app.name}
+                    {app.fields.find((f) => f.type === "obs")?.value
+                      ? ` (${app.fields.find((f) => f.type === "obs")?.value})`
+                      : ""}
+                  </p>
+                </div>
+                <button
+                  onClick={startEditing}
+                  className="shrink-0 px-3 py-1.5 rounded-lg bg-muted text-foreground border border-border text-xs font-bold hover:bg-muted/70 transition-colors"
+                >
+                  Editar
+                </button>
+              </div>
+              {app.expiration && (
+                <div className="flex items-center gap-1.5 -mt-2">
+                  <p className="text-xs text-muted-foreground">
+                    Validade do aplicativo: {String(app.expiration).split("T")[0].split("-").reverse().join("/")}
+                  </p>
+                  {app.can_check_validity && (
+                    <button
+                      disabled={busy}
+                      onClick={handleCheckValidity}
+                      className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+                    >
+                      {busy ? "..." : "Atualizar"}
+                    </button>
                   )}
                 </div>
-                {app.has_pending_removal_request ? (
-                  <span className="shrink-0 px-2 py-1 rounded-lg bg-muted text-muted-foreground border border-border text-[10px] font-bold">
-                    Exclusão solicitada
-                  </span>
-                ) : (
-                  <button
-                    disabled={busy}
-                    onClick={handleDelete}
-                    className="shrink-0 px-2.5 py-1.5 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 text-[10px] font-bold uppercase hover:bg-rose-500/20 transition-colors disabled:opacity-50"
-                  >
-                    Excluir Aplicativo
-                  </button>
-                )}
-              </div>
+              )}
 
               {isEditing ? (
                 <div className="space-y-2">
@@ -320,22 +329,45 @@ export default function AppDetailClient() {
                 </div>
               ) : (
                 <>
-                  {app.fields.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {app.fields.map((f) => (
-                        <span key={f.id} className="px-2 py-0.5 bg-muted text-muted-foreground border border-border text-[10px] font-mono rounded">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
+                      {app.fields.filter((f) => f.type !== "obs").map((f) => (
+                        <span key={f.id} className="flex items-center gap-1 px-2 py-0.5 bg-muted text-muted-foreground border border-border text-[10px] font-mono rounded">
                           {f.label}: {f.value || "—"}
+                          {f.value && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard?.writeText(f.value);
+                                addToast("success", "Copiado!", `${f.label} copiado.`);
+                              }}
+                              className="text-muted-foreground hover:text-sky-500 transition-colors"
+                              title="Copiar"
+                            >
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                              </svg>
+                            </button>
+                          )}
                         </span>
                       ))}
                     </div>
-                  )}
+                    {app.has_pending_removal_request ? (
+                      <span className="shrink-0 px-2 py-1 rounded-lg bg-muted text-muted-foreground border border-border text-[10px] font-bold">
+                        Exclusão solicitada
+                      </span>
+                    ) : (
+                      <button
+                        disabled={busy}
+                        onClick={handleDelete}
+                        className="shrink-0 px-2.5 py-1.5 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 text-[10px] font-bold uppercase hover:bg-rose-500/20 transition-colors disabled:opacity-50"
+                      >
+                        Excluir Aplicativo
+                      </button>
+                    )}
+                  </div>
                   <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={startEditing}
-                      className="px-3 py-1.5 rounded-lg bg-muted text-foreground border border-border text-xs font-bold hover:bg-muted/70 transition-colors"
-                    >
-                      Editar
-                    </button>
                     {app.has_integration && (
                       <button
                         disabled={busy}
@@ -361,16 +393,6 @@ export default function AppDetailClient() {
                           {busy ? "Solicitando..." : "Solicitar configuração"}
                         </button>
                       ))}
-                    {app.can_check_validity && (
-                      <button
-                        disabled={busy}
-                        onClick={handleCheckValidity}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-xs font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
-                      >
-                        {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                        {busy ? "Verificando..." : "Verificar licença"}
-                      </button>
-                    )}
                   </div>
                 </>
               )}

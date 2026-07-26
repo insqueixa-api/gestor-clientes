@@ -62,10 +62,8 @@ function extractEditableFields(vals: Record<string, any>, config: any[]) {
       // do app (igual o admin já faz em novo_cliente.tsx) — sem isso, um
       // app cujo campo MAC foi cadastrado com label solto "MAC" mostrava
       // "MAC" no portal e "Device ID (MAC)" no admin pro mesmo campo.
-      // "Obs" (genérico, herdado do admin) vira "Ambiente" no portal —
-      // mais claro pro cliente preencher onde o aparelho fica (sala, quarto...).
-      const label =
-        (f.type === "obs" ? "Ambiente" : APP_FIELD_LABELS[f.type as AppFieldType]) || f.label || f.id;
+      // "obs" já vem como "Ambiente" de APP_FIELD_LABELS (fonte única).
+      const label = APP_FIELD_LABELS[f.type as AppFieldType] || f.label || f.id;
       return {
         id: String(f.id),
         type: String(f.type || ""),
@@ -96,7 +94,7 @@ export async function POST(req: NextRequest) {
 
     const { data: rows, error: rowsErr } = await supabaseAdmin
       .from("client_apps")
-      .select("id, app_id, field_values, apps(name, icon_url, fields_config, integration_type, cost_type, license_price, license_period)")
+      .select("id, app_id, field_values, apps(name, icon_url, fields_config, integration_type, cost_type, license_price, license_period, portal_setup_instructions)")
       .eq("client_id", client_id);
 
     if (rowsErr) {
@@ -159,6 +157,7 @@ export async function POST(req: NextRequest) {
         has_pending_removal_request: pendingRemovalByAppId.has(row.id),
         expiration: isPartnership ? null : extractExpiration(vals, config),
         fields: extractEditableFields(vals, config),
+        portal_setup_instructions: row.apps?.portal_setup_instructions || null,
         license_price:
           row.apps?.cost_type === "paid" && Number(row.apps?.license_price) > 0
             ? Number(row.apps.license_price)

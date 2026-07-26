@@ -29,7 +29,11 @@ export const APP_FIELD_LABELS: Record<AppFieldType, string> = {
   email: "E-mail",
   password: "Senha",
   url: "URL",
-  obs: "Obs",
+  // ✅ "Ambiente" em vez de "Obs" (25/07/2026, pedido do Márcio) — fonte
+  // única, então isso já reflete no admin (novo_cliente.tsx e no
+  // construtor de campos do app manager) e no portal (que antes só
+  // renomeava isso localmente pra "Ambiente" nas rotas do Bloco 3).
+  obs: "Ambiente",
 };
 
 export const FIELD_ICONS: Record<AppFieldType, string> = {

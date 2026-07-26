@@ -267,10 +267,16 @@ export default function RenewClient() {
     has_pending_removal_request: boolean;
     expiration: string | null;
     fields: InstalledAppField[];
+    portal_setup_instructions: string | null;
     license_price: number | null;
     license_period: "annual" | "lifetime" | null;
   };
   const [installedApps, setInstalledApps] = useState<InstalledApp[]>([]);
+  // ✅ Instruções de configuração — pedido do Márcio (25/07/2026): substitui
+  // a página de detalhe (/renew-beta/apps/[id]), que ficou redundante depois
+  // que o card da lista passou a mostrar tudo. Só o texto curado pelo admin
+  // (apps.portal_setup_instructions) ainda não estava na lista.
+  const [instructionsAppId, setInstructionsAppId] = useState<string | null>(null);
   const [installedAppsLoading, setInstalledAppsLoading] = useState(false);
   const [installedAppsError, setInstalledAppsError] = useState<string | null>(
     null,
@@ -3328,42 +3334,62 @@ export default function RenewClient() {
                 installedApps.map((app) => {
                   const isEditing = editingAppId === app.id;
                   const busy = appActionBusy === app.id;
+                  const ambienteField = app.fields.find((f) => f.type === "obs");
+                  const otherFields = app.fields.filter((f) => f.type !== "obs");
                   return (
                     <div key={app.id} className="bg-card rounded-xl p-4 border border-border shadow-sm space-y-3">
                       <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => router.push(`/renew-beta/apps/${app.id}?conta=${selectedAccountId}`)}
-                          className="flex items-center gap-3 flex-1 min-w-0 text-left"
-                          title="Ver detalhes do aplicativo"
-                        >
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
                           {app.icon_url ? (
                             <img src={app.icon_url} alt={app.name} className="w-10 h-10 rounded-lg object-cover border border-border shrink-0" />
                           ) : (
                             <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-lg shrink-0">📱</div>
                           )}
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-foreground truncate hover:underline">{app.name}</p>
-                            {app.expiration && (
-                              <p className="text-xs text-muted-foreground mt-0.5">
-                                Validade do aplicativo: {String(app.expiration).split("T")[0].split("-").reverse().join("/")}
-                              </p>
-                            )}
+                            <p className="text-sm font-bold text-foreground truncate">
+                              {app.name}
+                              {ambienteField?.value ? ` (${ambienteField.value})` : ""}
+                            </p>
                           </div>
-                        </button>
-                        {app.has_pending_removal_request ? (
-                          <span className="shrink-0 px-2 py-1 rounded-lg bg-muted text-muted-foreground border border-border text-[10px] font-bold">
-                            Exclusão solicitada
-                          </span>
-                        ) : (
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {app.portal_setup_instructions && (
+                            <button
+                              onClick={() => setInstructionsAppId(app.id)}
+                              className="w-8 h-8 flex items-center justify-center rounded-lg bg-muted text-foreground border border-border hover:bg-muted/70 transition-colors"
+                              title="Como configurar"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="16" x2="12" y2="12"></line>
+                                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                              </svg>
+                            </button>
+                          )}
                           <button
-                            disabled={busy}
-                            onClick={() => handleRemoveApp(app.id, app.name)}
-                            className="shrink-0 px-2.5 py-1.5 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 text-[10px] font-bold uppercase hover:bg-rose-500/20 transition-colors disabled:opacity-50"
+                            onClick={() => startEditingApp(app)}
+                            className="shrink-0 px-3 py-1.5 rounded-lg bg-muted text-foreground border border-border text-xs font-bold hover:bg-muted/70 transition-colors"
                           >
-                            {busy ? "..." : "Excluir Aplicativo"}
+                            Editar
                           </button>
-                        )}
+                        </div>
                       </div>
+                      {app.expiration && (
+                        <div className="flex items-center gap-1.5 -mt-2">
+                          <p className="text-xs text-muted-foreground">
+                            Validade do aplicativo: {String(app.expiration).split("T")[0].split("-").reverse().join("/")}
+                          </p>
+                          {app.can_check_validity && (
+                            <button
+                              disabled={busy}
+                              onClick={() => handleCheckValidity(app.id)}
+                              className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+                            >
+                              {busy ? "..." : "Atualizar"}
+                            </button>
+                          )}
+                        </div>
+                      )}
 
                       {isEditing ? (
                         <div className="space-y-2">
@@ -3406,25 +3432,50 @@ export default function RenewClient() {
                       ) : (
                         <>
                           {/* Linha 2: campos (Device ID, Device Key, Ambiente...) à
-                              esquerda, Editar à direita */}
+                              esquerda, Excluir à direita (Editar subiu pro
+                              cabeçalho, Ambiente saiu daqui — vai junto do nome) */}
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
-                              {app.fields.map((f) => (
-                                <span key={f.id} className="px-2 py-0.5 bg-muted text-muted-foreground border border-border text-[10px] font-mono rounded">
-                                  {f.label}: {f.value || "—"}
+                              {otherFields.map((f) => (
+                                <span key={f.id} className="flex items-center gap-1 px-2 py-0.5 bg-muted text-muted-foreground border border-border text-[10px] font-mono rounded">
+                                  <span className={f.type === "mac" || f.type === "device_key" ? "font-extrabold text-foreground" : ""}>{f.label}</span>: {f.value || "—"}
+                                  {f.value && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        navigator.clipboard?.writeText(f.value);
+                                        addToast("success", "Copiado!", `${f.label} copiado.`);
+                                      }}
+                                      className="text-muted-foreground hover:text-sky-500 transition-colors"
+                                      title="Copiar"
+                                    >
+                                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                      </svg>
+                                    </button>
+                                  )}
                                 </span>
                               ))}
                             </div>
-                            <button
-                              onClick={() => startEditingApp(app)}
-                              className="shrink-0 px-3 py-1.5 rounded-lg bg-muted text-foreground border border-border text-xs font-bold hover:bg-muted/70 transition-colors"
-                            >
-                              Editar
-                            </button>
+                            {app.has_pending_removal_request ? (
+                              <span className="shrink-0 px-2 py-1 rounded-lg bg-muted text-muted-foreground border border-border text-[10px] font-bold">
+                                Exclusão solicitada
+                              </span>
+                            ) : (
+                              <button
+                                disabled={busy}
+                                onClick={() => handleRemoveApp(app.id, app.name)}
+                                className="shrink-0 px-2.5 py-1.5 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 text-[10px] font-bold uppercase hover:bg-rose-500/20 transition-colors disabled:opacity-50"
+                              >
+                                {busy ? "..." : "Excluir Aplicativo"}
+                              </button>
+                            )}
                           </div>
 
-                          {/* Linha 3: Configurar/Reconfigurar + Verificar licença à
-                              esquerda, Renovar aplicativo à direita */}
+                          {/* Linha 3: Configurar/Reconfigurar à esquerda,
+                              Renovar aplicativo à direita (Verificar virou o
+                              "Atualizar" ao lado da validade, lá em cima) */}
                           <div className="flex items-center justify-between gap-2 flex-wrap">
                             <div className="flex flex-wrap gap-2">
                               {app.has_integration && (
@@ -3455,16 +3506,6 @@ export default function RenewClient() {
                                     {busy ? "Solicitando..." : "Solicitar configuração"}
                                   </button>
                                 )
-                              )}
-                              {app.can_check_validity && (
-                                <button
-                                  disabled={busy}
-                                  onClick={() => handleCheckValidity(app.id)}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-xs font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
-                                >
-                                  {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                                  {busy ? "Verificando..." : "Verificar licença"}
-                                </button>
                               )}
                             </div>
                             {app.license_price != null && (
