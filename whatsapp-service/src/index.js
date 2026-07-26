@@ -5,7 +5,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 import {
-  createSession, disconnectSession, reconnectSession, sendMessage, validateNumber,
+  createSession, disconnectSession, reconnectSession, hardResetSession, sendMessage, validateNumber,
   getSession, getAllSessions, restoreExistingSessions, qrCallbacks,
   getSessionConfig, updateSessionConfig, getContactProfilePicture,
   getBotEvents,
@@ -335,6 +335,35 @@ const config = updateSessionConfig(sessionKey, { rejectCalls, rejectMessage, all
 app.post("/system/restart", authMiddleware, async (req, res) => {
   console.log("[SYSTEM] Restart solicitado via API");
   res.json({ ok: true, message: "Reiniciando serviço..." });
+  setTimeout(() => process.exit(0), 500);
+});
+
+// ── POST /system/hard-reset ───────────────────────────────────
+// Apaga TODAS as pastas de sessão (credenciais completas, sem preservar
+// config) das sessionKeys informadas e reinicia o processo — o Docker
+// (restart: unless-stopped) sobe o container de novo sozinho, mas como as
+// pastas já não existem mais, restoreExistingSessions() não tenta
+// reconectar nenhuma delas. Fica "em branco" até alguém pedir QR novo pelo
+// admin. Pedido do Márcio (26/07/2026) — reconectar com QR novo não
+// resolveu a entrega, então quis a garantia de um reset total, sem
+// nenhum resquício de credencial antiga.
+app.post("/system/hard-reset", authMiddleware, async (req, res) => {
+  const { sessionKeys } = req.body || {};
+  if (!Array.isArray(sessionKeys) || sessionKeys.length === 0) {
+    return res.status(400).json({ error: "sessionKeys (array) é obrigatório" });
+  }
+
+  console.log(`[SYSTEM] Hard reset solicitado via API para ${sessionKeys.length} sessão(ões)`);
+
+  for (const key of sessionKeys) {
+    try {
+      await hardResetSession(String(key));
+    } catch (e) {
+      console.error(`[SYSTEM] Falha no hard reset de ${String(key).slice(0, 8)}:`, e?.message);
+    }
+  }
+
+  res.json({ ok: true, reset: sessionKeys, message: "Sessões apagadas. Reiniciando serviço..." });
   setTimeout(() => process.exit(0), 500);
 });
 

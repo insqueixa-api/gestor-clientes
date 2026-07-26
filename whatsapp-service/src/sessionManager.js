@@ -1535,6 +1535,35 @@ async function disconnectSession(sessionKey) {
   return true;
 }
 
+// ✅ Hard reset (pedido do Márcio, 26/07/2026) — diferente do disconnect
+// normal (que preserva wa-config.json/lid-map.json/human-paused.json pra
+// não perder configuração à toa), esse apaga a pasta INTEIRA da sessão, sem
+// exceção nenhuma, e NÃO chama createSession() de novo — fica sem QR
+// pendente, começando do zero de verdade. Usado quando reconectar (mesmo
+// com QR novo) não resolveu e a suspeita é de sessão/credencial corrompida
+// de um jeito que um disconnect parcial não limpa.
+async function hardResetSession(sessionKey) {
+  const sess = sessions.get(sessionKey);
+
+  if (sess) {
+    if (sess.nameTracker) clearInterval(sess.nameTracker);
+    if (sess.qrTimeout) clearTimeout(sess.qrTimeout);
+    try {
+      await sess.socket?.logout();
+    } catch {}
+    try {
+      sess.socket?.end();
+    } catch {}
+    try {
+      sess.socket?.ws?.close();
+    } catch {}
+  }
+
+  sessions.delete(sessionKey);
+  deleteSessionFiles(sessionKey, true);
+  return true;
+}
+
 async function reconnectSession(sessionKey) {
   const sess = sessions.get(sessionKey);
 
@@ -1683,7 +1712,7 @@ async function getContactProfilePicture(sessionKey, jid) {
 }
 
 export {
-  createSession, disconnectSession, reconnectSession, sendMessage, validateNumber,
+  createSession, disconnectSession, reconnectSession, hardResetSession, sendMessage, validateNumber,
   getSession, getAllSessions, restoreExistingSessions, qrCallbacks,
   getSessionConfig, updateSessionConfig, renderRejectMessage, getContactProfilePicture,
 };
