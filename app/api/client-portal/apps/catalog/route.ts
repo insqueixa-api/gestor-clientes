@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
 
     const { data: client } = await supabaseAdmin
       .from("clients")
-      .select("technology")
+      .select("technology, server_id")
       .eq("id", client_id)
       .single();
 
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     // adicionar (bloqueado em /apps/add, defesa em profundidade).
     let query = supabaseAdmin
       .from("apps")
-      .select("id, name, icon_url, technology, device_types, integration_type, cost_type, license_price, license_period, is_active, discontinued_replacement_name")
+      .select("id, name, icon_url, technology, device_types, integration_type, cost_type, partner_server_id, license_price, license_period, is_active, discontinued_replacement_name")
       .eq("tenant_id", ctx.tenant_id)
       .order("name", { ascending: true });
 
@@ -72,8 +72,14 @@ export async function POST(req: NextRequest) {
         const handler = getIntegrationHandler(a.integration_type);
         return !!handler && (handler as any).useApi;
       })
-      .map(({ integration_type, cost_type, license_price, license_period, ...rest }: any) => ({
+      // ✅ App "parceria" só aparece pro cliente do SERVIDOR parceiro certo
+      // (pedido do Marcio, 26/07/2026) — o custo já vem embutido no plano
+      // DAQUELE servidor específico; oferecer pra cliente de outro servidor
+      // mostraria um app "grátis" que na prática ele não tem direito a usar.
+      .filter((a: any) => a.cost_type !== "partnership" || (a.partner_server_id && a.partner_server_id === client?.server_id))
+      .map(({ integration_type, partner_server_id, cost_type, license_price, license_period, ...rest }: any) => ({
         ...rest,
+        cost_type: cost_type || null,
         license_price: cost_type === "paid" && Number(license_price) > 0 ? Number(license_price) : null,
         license_period: cost_type === "paid" ? license_period || null : null,
       }));

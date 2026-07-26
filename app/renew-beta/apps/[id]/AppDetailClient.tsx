@@ -302,7 +302,7 @@ export default function AppDetailClient() {
                           const next = f.type === "mac" ? normalizeMacInput(raw) : raw;
                           setEditingValues((prev) => ({ ...prev, [f.id]: next }));
                         }}
-                        placeholder={f.type === "obs" ? "Ex: Sala, Quarto, Escritório..." : undefined}
+                        placeholder={f.type === "obs" ? "Ex: Sala, Quarto, Escritório, Celular..." : undefined}
                         autoCapitalize={f.type === "mac" ? "characters" : "none"}
                         spellCheck={false}
                         className="w-full h-9 px-3 bg-muted border border-border rounded-lg text-sm text-foreground outline-none focus:border-sky-500"

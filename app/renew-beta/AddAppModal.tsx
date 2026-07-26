@@ -25,6 +25,7 @@ type CatalogApp = {
   name: string;
   icon_url: string | null;
   device_types?: string[];
+  cost_type?: "free" | "paid" | "partnership" | null;
   license_price?: number | null;
   license_period?: "annual" | "lifetime" | null;
   is_active?: boolean;
@@ -49,6 +50,10 @@ export default function AddAppModal({
   const [mounted, setMounted] = useState(false);
   const [deviceType, setDeviceType] = useState<DeviceType | null>(null);
   const [search, setSearch] = useState("");
+  // ✅ "Pagos" vs "Parceiros" (pedido do Marcio, 26/07/2026) — sempre volta
+  // pra "Pagos" (recomendado) ao trocar de aparelho, mesmo padrão do resto
+  // do catálogo que prioriza os apps que geram receita de licença.
+  const [costTab, setCostTab] = useState<"paid" | "partner">("paid");
 
   useEffect(() => setMounted(true), []);
 
@@ -57,8 +62,13 @@ export default function AddAppModal({
     if (open) {
       setDeviceType(null);
       setSearch("");
+      setCostTab("paid");
     }
   }, [open]);
+
+  useEffect(() => {
+    setCostTab("paid");
+  }, [deviceType]);
 
   useEffect(() => {
     if (!open) return;
@@ -76,8 +86,22 @@ export default function AddAppModal({
   // Pro Player) nunca deve ficar invisível — antes desse modal, device_types
   // nunca travava a lista de apps (só era usado de forma informativa). Sem
   // esse fallback, esses 15 apps sumiriam de TODAS as categorias.
-  const filteredApps = catalog
-    .filter((a) => !deviceType || !a.device_types?.length || a.device_types.includes(deviceType))
+  const appsForDevice = catalog.filter(
+    (a) => !deviceType || !a.device_types?.length || a.device_types.includes(deviceType),
+  );
+
+  // ✅ Seletor "Aplicativos Pagos (Recomendado)" / "Aplicativos Parceiros
+  // (Gratuito)" — pedido do Marcio (26/07/2026). "Parceiros" agrupa
+  // cost_type "partnership" (custo já embutido no plano do servidor) e
+  // "free" (sem custo nenhum), já que pro cliente os dois são igualmente
+  // gratuitos. Só aparece "caso se aplique" — quando o aparelho tem os 2
+  // tipos disponíveis; se só tiver um tipo, mostra a lista direto.
+  const hasPaidApps = appsForDevice.some((a) => a.cost_type === "paid");
+  const hasFreeApps = appsForDevice.some((a) => a.cost_type !== "paid");
+  const showCostTabs = hasPaidApps && hasFreeApps;
+
+  const filteredApps = appsForDevice
+    .filter((a) => !showCostTabs || (costTab === "paid" ? a.cost_type === "paid" : a.cost_type !== "paid"))
     .filter((a) => a.name.toLowerCase().includes(search.trim().toLowerCase()));
 
   return createPortal(
@@ -133,6 +157,34 @@ export default function AddAppModal({
           </div>
         ) : (
           <div className="flex flex-col gap-3 min-h-0">
+            {showCostTabs && (
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCostTab("paid")}
+                  className={`flex flex-col items-center gap-0.5 py-2 rounded-lg border transition-colors ${
+                    costTab === "paid"
+                      ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-500"
+                      : "bg-transparent border-border text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  <span className="text-xs font-bold">Aplicativos Pagos</span>
+                  <span className="text-[10px] opacity-80">(Recomendado)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCostTab("partner")}
+                  className={`flex flex-col items-center gap-0.5 py-2 rounded-lg border transition-colors ${
+                    costTab === "partner"
+                      ? "bg-sky-500/10 border-sky-500/40 text-sky-500"
+                      : "bg-transparent border-border text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  <span className="text-xs font-bold">Aplicativos Parceiros</span>
+                  <span className="text-[10px] opacity-80">(Gratuito)</span>
+                </button>
+              </div>
+            )}
             <input
               type="text"
               autoFocus

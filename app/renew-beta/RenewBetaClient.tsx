@@ -381,6 +381,7 @@ export default function RenewClient() {
       name: string;
       icon_url: string | null;
       device_types?: string[];
+      cost_type?: "free" | "paid" | "partnership" | null;
       license_price?: number | null;
       license_period?: "annual" | "lifetime" | null;
       is_active?: boolean;
@@ -3088,10 +3089,10 @@ export default function RenewClient() {
   if (!selectedAccount) return null;
 
   // ========= TOPO FIXO REUTILIZÁVEL (menu / apps) =========
-  function renderTopBar(onBack: (() => void) | null) {
+  function renderTopBar(onBack: (() => void) | null, widthClass: string = "max-w-2xl") {
     return (
       <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
-        <div className="mx-auto flex w-full max-w-2xl items-center gap-2 px-4 py-2">
+        <div className={`mx-auto flex w-full ${widthClass} items-center gap-2 px-4 py-2`}>
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             {onBack && (
               <button
@@ -3268,13 +3269,26 @@ export default function RenewClient() {
     return (
       <div className="min-h-screen bg-background">
         <ToastNotifications toasts={toasts} removeToast={removeToast} />
-        {renderTopBar(() => setActiveSection("menu"))}
+        {renderTopBar(() => setActiveSection("menu"), "max-w-6xl")}
 
-        <div className="max-w-2xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4">
-          <div className="mb-2">
+        {/* ✅ Mais larga (pedido do Márcio, 26/07/2026): max-w-6xl em vez de
+            max-w-2xl — mesma largura da página de perfil do admin
+            (settings/profile). No celular o cap não muda nada na prática
+            (tela já é bem menor que 672px), então continua ocupando 100%. */}
+        <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4">
+          <div className="mb-2 flex items-center justify-between gap-3 flex-wrap">
             <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
               Configuração de Aplicativo
             </h1>
+            <button
+              onClick={() => {
+                setShowAddAppPicker(true);
+                loadAppCatalog();
+              }}
+              className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all shrink-0"
+            >
+              <span>+</span> Adicionar aplicativo
+            </button>
           </div>
 
           <div className="space-y-4">
@@ -3383,7 +3397,7 @@ export default function RenewClient() {
                                   const next = f.type === "mac" ? normalizeMacInput(raw) : raw;
                                   setEditingValues((prev) => ({ ...prev, [f.id]: next }));
                                 }}
-                                placeholder={f.type === "obs" ? "Ex: Sala, Quarto, Escritório..." : undefined}
+                                placeholder={f.type === "obs" ? "Ex: Sala, Quarto, Escritório, Celular..." : undefined}
                                 autoCapitalize={f.type === "mac" ? "characters" : "none"}
                                 spellCheck={false}
                                 className="w-full h-9 px-3 bg-muted border border-border rounded-lg text-sm text-foreground outline-none focus:border-sky-500"
@@ -3520,17 +3534,6 @@ export default function RenewClient() {
                     </div>
                   );
                 })}
-
-              {/* + Adicionar aplicativo — abre o modal por tipo de equipamento */}
-              <button
-                onClick={() => {
-                  setShowAddAppPicker(true);
-                  loadAppCatalog();
-                }}
-                className="w-full py-3 rounded-xl border-2 border-dashed border-border text-sm font-bold text-muted-foreground hover:border-sky-500 hover:text-sky-500 transition-colors"
-              >
-                + Adicionar aplicativo
-              </button>
 
               <AddAppModal
                 open={showAddAppPicker}
