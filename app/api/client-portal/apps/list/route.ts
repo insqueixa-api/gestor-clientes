@@ -188,6 +188,7 @@ export async function POST(req: NextRequest) {
         has_pending_setup_request: pendingSetupByAppId.has(row.id),
         has_pending_removal_request: pendingRemovalByAppId.has(row.id),
         expiration: isPartnership ? null : extractExpiration(vals, config),
+        is_partnership: isPartnership,
         fields: extractEditableFields(vals, config),
         portal_setup_instructions:
           row.apps?.portal_setup_instructions && instructionVars

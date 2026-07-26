@@ -266,6 +266,7 @@ export default function RenewClient() {
     has_pending_setup_request: boolean;
     has_pending_removal_request: boolean;
     expiration: string | null;
+    is_partnership: boolean;
     fields: InstalledAppField[];
     portal_setup_instructions: string | null;
     license_price: number | null;
@@ -283,8 +284,6 @@ export default function RenewClient() {
   const [installedAppsError, setInstalledAppsError] = useState<string | null>(
     null,
   );
-  // Bloco 3 — sub-abas
-  const [appsSubTab, setAppsSubTab] = useState<"meus-apps" | "duvidas">("meus-apps");
 
   // Edição inline de um card de app instalado
   const [editingAppId, setEditingAppId] = useState<string | null>(null);
@@ -389,13 +388,6 @@ export default function RenewClient() {
     }[]
   >([]);
   const [appCatalogLoading, setAppCatalogLoading] = useState(false);
-
-  // Sub-aba "Dúvidas" — conteúdo vindo de bot_knowledge (curado no admin)
-  const [faqData, setFaqData] = useState<{
-    device_setup: { title: string; content: string; device_types: string[] }[];
-    faq: { title: string; content: string; category: string }[];
-  } | null>(null);
-  const [faqLoading, setFaqLoading] = useState(false);
 
   const [prices, setPrices] = useState<PlanPrice[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<string>("MONTHLY");
@@ -665,29 +657,6 @@ export default function RenewClient() {
     refreshInstalledApps();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSection, selectedAccountId, session]);
-
-  // FAQ / instruções de novo dispositivo — carrega uma vez ao entrar no Bloco 3
-  useEffect(() => {
-    async function loadFaq() {
-      if (activeSection !== "apps" || !session || faqData) return;
-      setFaqLoading(true);
-      try {
-        const res = await fetch("/api/client-portal/faq", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ session_token: session }),
-          cache: "no-store",
-        });
-        const result = await res.json().catch(() => null);
-        if (result?.ok) setFaqData(result.data);
-      } catch {
-      } finally {
-        setFaqLoading(false);
-      }
-    }
-    loadFaq();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSection, session]);
 
   async function loadAppCatalog() {
     if (!selectedAccountId || !session) return;
@@ -3296,11 +3265,6 @@ export default function RenewClient() {
 
   // ========= RENDER: APPS (BLOCO 3) =========
   if (activeSection === "apps") {
-    const SUB_TABS: { id: typeof appsSubTab; label: string }[] = [
-      { id: "meus-apps", label: "Meus aplicativos" },
-      { id: "duvidas", label: "Dúvidas" },
-    ];
-
     return (
       <div className="min-h-screen bg-background">
         <ToastNotifications toasts={toasts} removeToast={removeToast} />
@@ -3313,26 +3277,7 @@ export default function RenewClient() {
             </h1>
           </div>
 
-          {/* Sub-abas */}
-          <div className="flex gap-1.5 p-1 bg-muted rounded-xl">
-            {SUB_TABS.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setAppsSubTab(tab.id)}
-                className={`flex-1 text-xs sm:text-sm font-bold py-2 rounded-lg transition-colors ${
-                  appsSubTab === tab.id
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* ===== SUB-ABA 1: MEUS APLICATIVOS ===== */}
-          {appsSubTab === "meus-apps" && (
-            <div className="space-y-4">
+          <div className="space-y-4">
               {installedAppsLoading && (
                 <div className="text-center py-8 text-muted-foreground">Carregando...</div>
               )}
@@ -3380,21 +3325,25 @@ export default function RenewClient() {
                                 <span className="font-normal text-muted-foreground"> ({ambienteField.value})</span>
                               ) : null}
                             </p>
-                            {app.expiration && (
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                <p className={`text-xs ${isExpired ? "text-rose-500 font-bold" : isExpiringSoon ? "text-amber-500 font-bold" : "text-muted-foreground"}`}>
-                                  {isExpired ? "Vencido" : isExpiringSoon ? "Vencendo" : "Validade"}: {expirationDatePart.split("-").reverse().join("/")}
-                                </p>
-                                {app.can_check_validity && (
-                                  <button
-                                    disabled={busy}
-                                    onClick={() => handleCheckValidity(app.id)}
-                                    className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
-                                  >
-                                    {busy ? "..." : "Atualizar"}
-                                  </button>
-                                )}
-                              </div>
+                            {app.is_partnership ? (
+                              <p className="text-xs text-muted-foreground mt-0.5">Vencimento: Parceria (gratuito)</p>
+                            ) : (
+                              app.expiration && (
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <p className={`text-xs ${isExpired ? "text-rose-500 font-bold" : isExpiringSoon ? "text-amber-500 font-bold" : "text-muted-foreground"}`}>
+                                    {isExpired ? "Vencido" : isExpiringSoon ? "Vencendo" : "Validade"}: {expirationDatePart.split("-").reverse().join("/")}
+                                  </p>
+                                  {app.can_check_validity && (
+                                    <button
+                                      disabled={busy}
+                                      onClick={() => handleCheckValidity(app.id)}
+                                      className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+                                    >
+                                      {busy ? "..." : "Atualizar"}
+                                    </button>
+                                  )}
+                                </div>
+                              )
                             )}
                           </div>
                         </div>
@@ -3684,49 +3633,6 @@ export default function RenewClient() {
                 </div>
               )}
             </div>
-          )}
-
-          {/* ===== SUB-ABA 2: DÚVIDAS E SUGESTÕES ===== */}
-          {appsSubTab === "duvidas" && (
-            <div className="space-y-4">
-              {faqLoading && <p className="text-center text-muted-foreground py-8">Carregando...</p>}
-
-              {!faqLoading && (faqData?.faq || []).length === 0 && (
-                <div className="text-center py-8 text-muted-foreground bg-muted/40 rounded-xl border border-dashed border-border">
-                  Nenhuma pergunta frequente cadastrada ainda.
-                </div>
-              )}
-
-              {!faqLoading &&
-                Object.entries(
-                  (faqData?.faq || []).reduce<Record<string, typeof faqData.faq>>((acc, item) => {
-                    (acc[item.category] ||= []).push(item);
-                    return acc;
-                  }, {}),
-                ).map(([category, items]) => (
-                  <div key={category} className="space-y-2">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{category}</p>
-                    {items!.map((item, i) => (
-                      <details key={i} className="bg-card rounded-xl p-4 border border-border shadow-sm group">
-                        <summary className="text-sm font-bold text-foreground cursor-pointer list-none">{item.title}</summary>
-                        <p className="text-xs text-muted-foreground whitespace-pre-line mt-2">{item.content}</p>
-                      </details>
-                    ))}
-                  </div>
-                ))}
-
-              {supportPhone && (
-                <a
-                  href={`https://wa.me/${supportPhone.replace(/\D/g, "")}?text=Olá,%20tenho%20uma%20dúvida%20sobre%20configuração%20de%20aplicativo!`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#25D366]/10 text-[#25D366] border border-[#25D366]/20 text-sm font-bold hover:bg-[#25D366]/20 transition-colors"
-                >
-                  <IconWhatsapp /> Falar com o suporte
-                </a>
-              )}
-            </div>
-          )}
         </div>
       </div>
     );

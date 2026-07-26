@@ -4,7 +4,7 @@
 // linha por id, nunca o padrão delete-all-then-reinsert do admin.
 import { NextRequest, NextResponse } from "next/server";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
-import { HIDDEN_CLIENT_FIELD_TYPES, AppFieldType, normalizeMacInput } from "@/lib/apps/field-types";
+import { APP_FIELD_LABELS, HIDDEN_CLIENT_FIELD_TYPES, AppFieldType, normalizeMacInput } from "@/lib/apps/field-types";
 import { logAppActivity } from "@/lib/apps/panel";
 
 export const dynamic = "force-dynamic";
@@ -75,13 +75,20 @@ export async function POST(req: NextRequest) {
     if (updErr) return jsonError("Erro interno", 500);
 
     if (changedKeys.length > 0) {
+      // ✅ Grava o LABEL do campo (ex: "Device ID (MAC)"), não o id cru
+      // (ex: "f_9mpc3") — pedido do Márcio (26/07/2026): a auditoria
+      // mostrava só o id, ilegível sem abrir o catálogo do app.
+      const labelById = new Map(
+        config.map((f: any) => [String(f.id), (APP_FIELD_LABELS as any)[f.type] || f.label || String(f.id)]),
+      );
+      const changedLabels = changedKeys.map((k) => labelById.get(k) || k);
       await logAppActivity(supabaseAdmin, {
         tenantId: ctx.tenant_id,
         clientId: client_id,
         clientAppId: client_app_id,
         appName: (row as any).apps?.name || "Aplicativo",
         event: "fields_updated",
-        detail: { fields: changedKeys },
+        detail: { fields: changedLabels },
       });
     }
 
