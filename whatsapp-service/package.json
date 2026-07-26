@@ -12,6 +12,7 @@
     "pino-pretty": "^10.2.0",
     "qrcode": "^1.5.3",
     "dotenv": "^16.3.1",
+    "https-proxy-agent": "^7.0.6",
     "undici": "^6.19.8"
   }
 }

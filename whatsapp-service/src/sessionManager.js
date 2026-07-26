@@ -10,8 +10,23 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import pino from "pino";
+import { HttpsProxyAgent } from "https-proxy-agent";
 
-
+// ✅ Proxy residencial pro socket do WhatsApp (pedido do Márcio, 26/07/2026)
+// — achado real: conexão saindo direto do IP de datacenter da Hetzner batia
+// 401 (loggedOut) repetido a cada reconexão, o WhatsApp derrubando o
+// "aparelho vinculado" de propósito por reconhecer padrão de datacenter.
+// Roteando pelo mesmo provedor residencial já usado no GerenciaApp
+// (DataImpulse) via `agent`/`fetchAgent` do Baileys (suporte nativo:
+// https://mintlify.wiki/whiskeysockets/Baileys/api/socket-config), a
+// conexão passa a sair de um IP residencial brasileiro em vez do IP da VM.
+// Env var PRÓPRIA (WHATSAPP_PROXY_URL), separada de GERENCIAAPP_PROXY_URL —
+// mesmo provedor, mas dá pra usar uma sessão/IP diferente se precisar
+// (ex: sticky session diferente pra não competir com o scraping).
+const WA_PROXY_URL = String(process.env.WHATSAPP_PROXY_URL || "").trim();
+if (WA_PROXY_URL) {
+  console.log("[WA] Proxy residencial ativo pra conexão com o WhatsApp");
+}
 
 // Adiciona no topo do arquivo, após os imports:
 const processedCalls = new Map();
@@ -731,7 +746,14 @@ const sock = makeWASocket({
     logger: baileysLogger,
     printQRInTerminal: false,
     browser: ["UniGestor", "Chrome", "120.0.0"],
-    
+
+    // ✅ Proxy residencial (ver comentário no topo do arquivo) — sai por IP
+    // brasileiro em vez do IP de datacenter da VM. `agent` é o socket
+    // WebSocket em si, `fetchAgent` é upload/download de mídia.
+    ...(WA_PROXY_URL
+      ? { agent: new HttpsProxyAgent(WA_PROXY_URL), fetchAgent: new HttpsProxyAgent(WA_PROXY_URL) }
+      : {}),
+
 // ✅ CONFIGURAÇÕES DE SAAS (Alta Tolerância)
     connectTimeoutMs: 60_000,        
     defaultQueryTimeoutMs: 60_000,   
