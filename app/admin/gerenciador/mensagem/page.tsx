@@ -887,6 +887,57 @@ function EditorModal({
     setVariants((prev) => [...prev, data]);
   }
 
+  // ✅ Gera uma variação com IA (Gemini) a partir do texto principal —
+  // mantém as variáveis {tag} usadas, reescreve o resto livremente. A
+  // rota já valida que nenhuma variável some antes de responder.
+  const [generatingVariant, setGeneratingVariant] = useState(false);
+
+  async function handleGenerateVariantWithAI() {
+    if (!templateToEdit?.id) return;
+    if (!content.trim()) {
+      onError("Escreva a mensagem principal antes de gerar uma variação.");
+      return;
+    }
+    setGeneratingVariant(true);
+    try {
+      const tid = await getCurrentTenantId();
+      if (!tid) throw new Error("Sessão inválida.");
+
+      const { data: sessionData } = await supabaseBrowser.auth.getSession();
+      const token = sessionData.session?.access_token;
+
+      const res = await fetch("/api/whatsapp/generate-variant", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ tenant_id: tid, content }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) {
+        throw new Error(json?.error || "Falha ao gerar variação com IA.");
+      }
+
+      const { data, error } = await supabaseBrowser
+        .from("message_template_variants")
+        .insert({
+          tenant_id: tid,
+          template_id: templateToEdit.id,
+          content: json.content,
+        })
+        .select("id, content")
+        .single();
+      if (error) throw error;
+
+      setVariants((prev) => [...prev, data]);
+    } catch (e: any) {
+      onError(e.message || "Falha ao gerar variação com IA.");
+    } finally {
+      setGeneratingVariant(false);
+    }
+  }
+
   async function handleSaveVariant(id: string, text: string) {
     if (!text.trim()) {
       onError("A variação não pode ficar vazia.");
@@ -1379,12 +1430,24 @@ className={`w-full h-12 px-4 border rounded-xl text-foreground outline-none focu
                   </div>
                 )}
 
-                <button
-                  onClick={handleAddVariant}
-                  className="mt-3 w-full h-10 rounded-xl border border-dashed border-emerald-500/40 text-emerald-500 text-xs font-medium hover:bg-emerald-500/10 transition-colors"
-                >
-                  + Adicionar variação
-                </button>
+                <div className="mt-3 flex flex-col sm:flex-row gap-2">
+                  <button
+                    onClick={handleGenerateVariantWithAI}
+                    disabled={generatingVariant}
+                    className="flex-1 h-10 rounded-xl border border-dashed border-violet-500/40 text-violet-500 text-xs font-medium hover:bg-violet-500/10 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+                    title="A IA reescreve a mensagem principal mantendo as variáveis usadas"
+                  >
+                    {generatingVariant
+                      ? "Gerando com IA..."
+                      : "✨ Gerar variação com IA"}
+                  </button>
+                  <button
+                    onClick={handleAddVariant}
+                    className="flex-1 h-10 rounded-xl border border-dashed border-emerald-500/40 text-emerald-500 text-xs font-medium hover:bg-emerald-500/10 transition-colors"
+                  >
+                    + Adicionar variação em branco
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="border-t border-border pt-4 text-[10px] text-muted-foreground">
