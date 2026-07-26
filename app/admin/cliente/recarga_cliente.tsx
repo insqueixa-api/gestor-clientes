@@ -1659,10 +1659,26 @@ const clientMessageAuto = `Renovação automática via painel Admin · ${monthsT
 
           // ✅ BUSCA O TEMPLATE INTEIRO PARA PEGAR A IMAGEM (se foi escolhido um modelo)
           let imageUrlToSend = null;
+          let finalMessage = messageContent;
           if (selectedTemplateId) {
             const tpl = templates.find((t) => t.id === selectedTemplateId);
             if (tpl && tpl.image_url) {
               imageUrlToSend = tpl.image_url;
+            }
+
+            // ✅ Sorteia entre o texto do template e as variantes cadastradas
+            // (mesma estratégia anti-detecção usada no billing automático e
+            // no fulfillment do portal) — sem variantes, envia o original.
+            const { data: variants } = await supabaseBrowser
+              .from("message_template_variants")
+              .select("content")
+              .eq("tenant_id", tid)
+              .eq("template_id", selectedTemplateId);
+            const pool = [tpl?.content, ...(variants || []).map((v: any) => v.content)].filter(
+              (c): c is string => !!c && String(c).trim().length > 0,
+            );
+            if (pool.length > 0) {
+              finalMessage = pool[Math.floor(Math.random() * pool.length)];
             }
           }
 
@@ -1675,7 +1691,7 @@ const clientMessageAuto = `Renovação automática via painel Admin · ${monthsT
             body: JSON.stringify({
               tenant_id: tid,
               client_id: clientId,
-              message: messageContent,
+              message: finalMessage,
               message_template_id: selectedTemplateId || null, // Opcional, para histórico
               image_url: imageUrlToSend, // ✅ ENVIA A IMAGEM AQUI!
               whatsapp_session: selectedSession, // ✅ Usando a sessão escolhida

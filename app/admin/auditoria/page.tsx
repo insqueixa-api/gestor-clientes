@@ -835,6 +835,57 @@ function AuditoriaPageContent() {
     }
   };
 
+  // ✅ NOVA FUNÇÃO: Marca a pendência de erro do WhatsApp como resolvida
+  // manualmente (ex: enviado via Envio Simulado / WhatsApp Web), sem tentar
+  // reenviar pela sessão automatizada — útil enquanto o número está
+  // restrito e o "Reenviar Zap" só volta a dar erro.
+  const handleResolverWhatsappManual = async (log: LogRow) => {
+    if (!tenantId) return;
+
+    const ok = await confirm({
+      title: "Marcar como resolvido?",
+      subtitle:
+        "Encerra a pendência de erro sem tentar reenviar pela sessão automatizada. Use quando já mandou o comprovante manualmente (Envio Simulado / WhatsApp Web).",
+      tone: "sky",
+      icon: "✅",
+      details: [`Cliente: ${log.client_name}`, `Login: ${log.server_username}`],
+      confirmText: "Sim, Resolvido",
+      cancelText: "Voltar",
+    });
+
+    if (!ok) return;
+
+    try {
+      setLoading(true);
+
+      const { error: rpcErr } = await supabaseBrowser.rpc("update_whatsapp_status", {
+        p_log_id: log.id,
+        p_tenant_id: tenantId,
+        p_status: "manual",
+      });
+      if (rpcErr) throw rpcErr;
+
+      try {
+        await supabaseBrowser.rpc("resolve_notification", {
+          p_tenant_id: tenantId,
+          p_type: "whatsapp_falha",
+          p_source_id: log.id,
+        });
+      } catch {}
+
+      addToast(
+        "success",
+        "Pendência resolvida",
+        "Marcado como enviado manualmente.",
+      );
+      loadData();
+    } catch (err: any) {
+      addToast("error", "Erro ao resolver", err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // --- HELPERS VISUAIS (Com Bloqueio de Fluxo) ---
   function getPaymentBadge(status: string, paymentMethod: string) {
     if (status === "approved" || status === "PAGO")
@@ -988,6 +1039,16 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
       return (
         <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-rose-500/10 text-rose-500 text-[10px] font-medium uppercase border border-rose-500/20">
           Erro
+        </span>
+      );
+    // ✅ Resolvido fora do fluxo automatizado (Envio Simulado / WhatsApp Web)
+    if (status === "manual")
+      return (
+        <span
+          className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-transparent text-muted-foreground text-[10px] font-medium uppercase border border-border"
+          title="Enviado manualmente (fora do sistema)"
+        >
+          Manual
         </span>
       );
     return (
@@ -1575,13 +1636,22 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
 
                             {/* ✅ NOVO: Botão direto para reenviar o comprovante de WhatsApp */}
                             {isWhatsappError && (
-                              <button
-                                onClick={() => handleReenviarWhatsapp(r)}
-                                className="gap-1 px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-500 text-[10px] font-medium uppercase rounded-lg transition-colors border border-sky-500/30 shadow-sm flex items-center justify-center gap-1"
-                                title="Reenviar comprovante via WhatsApp"
-                              >
-                                💬 Reenviar Zap
-                              </button>
+                              <>
+                                <button
+                                  onClick={() => handleReenviarWhatsapp(r)}
+                                  className="gap-1 px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-500 text-[10px] font-medium uppercase rounded-lg transition-colors border border-sky-500/30 shadow-sm flex items-center justify-center gap-1"
+                                  title="Reenviar comprovante via WhatsApp"
+                                >
+                                  💬 Reenviar Zap
+                                </button>
+                                <button
+                                  onClick={() => handleResolverWhatsappManual(r)}
+                                  className="gap-1 px-3 py-1.5 bg-muted/40 hover:bg-muted text-muted-foreground text-[10px] font-medium uppercase rounded-lg transition-colors border border-border shadow-sm flex items-center justify-center gap-1"
+                                  title="Marcar como resolvido manualmente (sem tentar reenviar)"
+                                >
+                                  <IconCheckCircle /> Resolvido
+                                </button>
+                              </>
                             )}
 
                             {!canShowAction && (

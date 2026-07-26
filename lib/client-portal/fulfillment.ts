@@ -708,7 +708,25 @@ credits_used: months * qtyScreens,
       .limit(1)
       .maybeSingle();
 
-    messageToSend = String(tmpl?.content || "").trim();
+    // ✅ Sorteia entre o texto original e as variantes cadastradas (mesma
+    // estratégia anti-detecção usada em billing_enqueue_scheduled) — sem
+    // variantes, comportamento idêntico a antes (só o original).
+    let pickedContent = String(tmpl?.content || "").trim();
+    if (tmpl?.id) {
+      const { data: variants } = await supabaseAdmin
+        .from("message_template_variants")
+        .select("content")
+        .eq("tenant_id", tenantId)
+        .eq("template_id", tmpl.id);
+      const pool = [tmpl.content, ...(variants || []).map((v) => v.content)].filter(
+        (c): c is string => !!c && String(c).trim().length > 0,
+      );
+      if (pool.length > 0) {
+        pickedContent = pool[Math.floor(Math.random() * pool.length)].trim();
+      }
+    }
+
+    messageToSend = pickedContent;
     imageToSend = tmpl?.image_url || null; // ✅ Guarda a imagem
     templateIdToSend = tmpl?.id || null;   // ✅ Guarda o ID
     if (!messageToSend) throw new Error("Template de pagamento não encontrado.");
