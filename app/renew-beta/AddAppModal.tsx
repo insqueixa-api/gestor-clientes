@@ -30,6 +30,7 @@ type CatalogApp = {
   license_period?: "annual" | "lifetime" | null;
   is_active?: boolean;
   discontinued_replacement_name?: string | null;
+  has_integration?: boolean;
 };
 
 export default function AddAppModal({
@@ -99,9 +100,13 @@ export default function AddAppModal({
   const hasFreeApps = appsForDevice.some((a) => a.cost_type !== "paid");
   const showCostTabs = hasPaidApps && hasFreeApps;
 
+  // ✅ App com integração automática sobe pro topo da lista (pedido do
+  // Márcio, 26/07/2026) — sort estável, então dentro de cada grupo
+  // (integrado / manual) a ordem alfabética que já vem da API é mantida.
   const filteredApps = appsForDevice
     .filter((a) => !showCostTabs || (costTab === "paid" ? a.cost_type === "paid" : a.cost_type !== "paid"))
-    .filter((a) => a.name.toLowerCase().includes(search.trim().toLowerCase()));
+    .filter((a) => a.name.toLowerCase().includes(search.trim().toLowerCase()))
+    .sort((a, b) => Number(!!b.has_integration) - Number(!!a.has_integration));
 
   return createPortal(
     <div
@@ -217,7 +222,14 @@ export default function AddAppModal({
                         <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-sm shrink-0">📱</div>
                       )}
                       <span className="flex-1 min-w-0 flex items-center justify-between gap-2">
-                        <span className="text-sm text-foreground font-medium truncate">{busy ? "Adicionando..." : a.name}</span>
+                        <span className="flex items-center gap-1 min-w-0">
+                          {a.has_integration && (
+                            <span className="shrink-0 text-amber-500" title="Ativação automática">
+                              ⚡
+                            </span>
+                          )}
+                          <span className="text-sm text-foreground font-medium truncate">{busy ? "Adicionando..." : a.name}</span>
+                        </span>
                         {a.is_active === false ? (
                           <span className="shrink-0 px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-500 border border-rose-500/20 text-[10px] font-bold">
                             Descontinuado

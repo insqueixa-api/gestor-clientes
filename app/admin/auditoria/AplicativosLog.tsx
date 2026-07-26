@@ -391,6 +391,17 @@ export default function AplicativosLog({
                 </button>
               )}
             </div>
+            {/* ✅ A aba só carrega quando você entra nela (sem polling) — se o
+                cliente adicionar/remover algo enquanto você está olhando, não
+                aparece sozinho. Pedido do Márcio (26/07/2026). */}
+            <button
+              onClick={loadActivity}
+              disabled={activityLoading}
+              className="h-10 px-3 rounded-lg border border-border bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground transition-colors text-sm font-medium disabled:opacity-50 shrink-0"
+              title="Atualizar"
+            >
+              {activityLoading ? "..." : "↻ Atualizar"}
+            </button>
           </div>
 
           {activityLoading ? (
@@ -499,6 +510,14 @@ export default function AplicativosLog({
             </button>
           )}
         </div>
+        <button
+          onClick={() => loadData()}
+          disabled={loading}
+          className="h-9 px-3 rounded-lg border border-border bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground transition-colors text-sm font-medium disabled:opacity-50 shrink-0"
+          title="Atualizar"
+        >
+          {loading ? "..." : "↻ Atualizar"}
+        </button>
       </div>
 
       {loading ? (

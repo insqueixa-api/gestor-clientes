@@ -382,6 +382,7 @@ export default function RenewClient() {
       icon_url: string | null;
       device_types?: string[];
       cost_type?: "free" | "paid" | "partnership" | null;
+      has_integration?: boolean;
       license_price?: number | null;
       license_period?: "annual" | "lifetime" | null;
       is_active?: boolean;

@@ -5,6 +5,7 @@
 // uma vez (2 TVs, 2 celulares...) — não exclui os já instalados.
 import { NextRequest, NextResponse } from "next/server";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
+import { getIntegrationHandler } from "@/lib/integrations";
 
 export const dynamic = "force-dynamic";
 
@@ -71,12 +72,19 @@ export async function POST(req: NextRequest) {
       // DAQUELE servidor específico; oferecer pra cliente de outro servidor
       // mostraria um app "grátis" que na prática ele não tem direito a usar.
       .filter((a: any) => a.cost_type !== "partnership" || (a.partner_server_id && a.partner_server_id === client?.server_id))
-      .map(({ integration_type, partner_server_id, cost_type, license_price, license_period, ...rest }: any) => ({
-        ...rest,
-        cost_type: cost_type || null,
-        license_price: cost_type === "paid" && Number(license_price) > 0 ? Number(license_price) : null,
-        license_period: cost_type === "paid" ? license_period || null : null,
-      }));
+      .map(({ integration_type, partner_server_id, cost_type, license_price, license_period, ...rest }: any) => {
+        // ✅ Mesmo cálculo do has_integration em list/route.ts — sinaliza no
+        // picker (ícone ⚡, pedido do Márcio 26/07/2026) quais apps ativam
+        // sozinhos vs. precisam de configuração manual pelo suporte.
+        const handler = integration_type ? getIntegrationHandler(integration_type) : null;
+        return {
+          ...rest,
+          cost_type: cost_type || null,
+          license_price: cost_type === "paid" && Number(license_price) > 0 ? Number(license_price) : null,
+          license_period: cost_type === "paid" ? license_period || null : null,
+          has_integration: !!handler && (handler as any).useApi,
+        };
+      });
 
     return NextResponse.json({ ok: true, data: available }, { status: 200, headers: NO_STORE_HEADERS });
   } catch {
