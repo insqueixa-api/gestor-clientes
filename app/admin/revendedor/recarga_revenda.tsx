@@ -611,6 +611,25 @@ export default function QuickRechargeModal({
           const { data: session } = await supabaseBrowser.auth.getSession();
           const token = session.session?.access_token;
 
+          // ✅ Sorteia entre o texto do template e as variantes cadastradas
+          // (mesma estratégia anti-detecção usada no billing automático e
+          // no fulfillment do portal) — sem variantes, envia o original.
+          let finalMessage = messageContent;
+          if (selectedTemplateId && tenantId) {
+            const tpl = templates.find((t: any) => t.id === selectedTemplateId);
+            const { data: variants } = await supabaseBrowser
+              .from("message_template_variants")
+              .select("content")
+              .eq("tenant_id", tenantId)
+              .eq("template_id", selectedTemplateId);
+            const pool = [tpl?.content, ...(variants || []).map((v: any) => v.content)].filter(
+              (c): c is string => !!c && String(c).trim().length > 0,
+            );
+            if (pool.length > 0) {
+              finalMessage = pool[Math.floor(Math.random() * pool.length)];
+            }
+          }
+
           const res = await fetch("/api/whatsapp/envio_agora", {
             method: "POST",
             headers: {
@@ -622,7 +641,7 @@ export default function QuickRechargeModal({
               reseller_id: resellerId,
               reseller_server_id: selectedResellerServerId, // ✅ Mandamos a chave exata do vínculo
               credits_recharged: qty, // ✅ Mandamos a quantidade exata feita AGORA
-              message: messageContent,
+              message: finalMessage,
               whatsapp_session: selectedSession, // ✅ Usando a Sessão Escolhida
             }),
           });

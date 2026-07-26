@@ -592,6 +592,7 @@ const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
           tenant_id: tenantId,
           client_id: showSimulate.clientId,
           message: msg,
+          message_template_id: selectedTemplateSimId || null,
         }),
       });
       const json = await res.json().catch(() => ({}));

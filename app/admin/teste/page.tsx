@@ -544,6 +544,7 @@ export default function TrialsPage() {
           tenant_id: tenantId,
           client_id: showSimulate.trialId,
           message: msg,
+          message_template_id: selectedTemplateSimId || null,
         }),
       });
       const json = await res.json().catch(() => ({}));

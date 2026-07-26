@@ -1176,17 +1176,42 @@ export default function BillingPage() {
         .single();
 
       if (tplErr || !tpl)
-        throw new Error("Falha ao carregar o texto do template."); // ======================================================
-      // ✅ LÓGICA DE AGENDAMENTO (ESCADINHA DE HORÁRIOS)
-      // ======================================================
+        throw new Error("Falha ao carregar o texto do template.");
+
+      // ✅ Mesma estratégia anti-detecção do motor automático: sorteia entre
+      // o texto original e as variantes cadastradas (uma por cliente), e usa
+      // o intervalo aleatório configurado no card "Início do disparo" — em
+      // vez de mandar o texto idêntico pra todo mundo com um intervalo fixo
+      // e previsível.
+      const [{ data: variantRows }, { data: campaignSettings }] =
+        await Promise.all([
+          supabaseBrowser
+            .from("message_template_variants")
+            .select("content")
+            .eq("tenant_id", tid)
+            .eq("template_id", templateId),
+          supabaseBrowser
+            .from("billing_campaign_settings")
+            .select("delay_min_secs, delay_max_secs")
+            .eq("tenant_id", tid)
+            .maybeSingle(),
+        ]);
+
+      const textPool = [tpl.content, ...(variantRows || []).map((v: any) => v.content)].filter(
+        (c): c is string => !!c && String(c).trim().length > 0,
+      );
+      const delayMinSecs = Math.max(campaignSettings?.delay_min_secs || 20, 15);
+      const delayMaxSecs = Math.max(campaignSettings?.delay_max_secs || delayMinSecs, delayMinSecs);
 
       let currentSendAt = new Date(); // Começa "Agora"
 
       const inserts = affected.map((client) => {
-        // ✅ Intervalo fixo (mesma lógica do cron automático), sem sorteio
-const delaySecs = Math.max(rule.delay_min || 20, 15); // piso de segurança de 15s
-        // Isso cria datas futuras: T+15s, T+35s, T+50s...
+        const delaySecs =
+          delayMinSecs +
+          Math.floor(Math.random() * (delayMaxSecs - delayMinSecs + 1));
         currentSendAt = new Date(currentSendAt.getTime() + delaySecs * 1000);
+
+        const pickedText = textPool[Math.floor(Math.random() * textPool.length)];
 
         return {
           tenant_id: tid,
@@ -1194,7 +1219,7 @@ const delaySecs = Math.max(rule.delay_min || 20, 15); // piso de segurança de 1
           automation_id: rule.id,
 
           message_template_id: templateId,
-          message: tpl.content,
+          message: pickedText,
           image_url: tpl.image_url || null, // ✅ SALVA A IMAGEM NA FILA (CRON)
           status: "SCHEDULED",
           send_at: currentSendAt.toISOString(),

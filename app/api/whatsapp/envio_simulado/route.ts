@@ -53,8 +53,27 @@ export async function POST(req: Request) {
 
   const tenantId = String(body?.tenant_id || "").trim();
   const message = String(body?.message || "").trim();
+  const messageTemplateId = String(body?.message_template_id || "").trim();
   if (!tenantId || !message) {
     return NextResponse.json({ error: "tenant_id e message são obrigatórios" }, { status: 400 });
+  }
+
+  // ✅ Sorteia entre o texto do template e as variantes cadastradas (mesma
+  // estratégia anti-detecção usada no billing automático, no fulfillment e
+  // nos envios manuais) — sem variantes, usa o texto original mesmo.
+  let pickedMessage = message;
+  if (messageTemplateId) {
+    const { data: variants } = await sb
+      .from("message_template_variants")
+      .select("content")
+      .eq("tenant_id", tenantId)
+      .eq("template_id", messageTemplateId);
+    const pool = [message, ...(variants || []).map((v: any) => v.content)].filter(
+      (c): c is string => !!c && String(c).trim().length > 0,
+    );
+    if (pool.length > 0) {
+      pickedMessage = pool[Math.floor(Math.random() * pool.length)];
+    }
   }
 
   const { data: mem, error: memErr } = await sb
@@ -158,7 +177,7 @@ export async function POST(req: Request) {
     previews.push({
       phone: contact.number,
       label: contact.is_secondary ? "Contato secundário" : "Contato principal",
-      text: renderTemplate(message, vars),
+      text: renderTemplate(pickedMessage, vars),
     });
   }
 

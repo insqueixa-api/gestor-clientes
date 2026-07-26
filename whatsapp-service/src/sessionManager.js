@@ -1064,21 +1064,29 @@ if (connection === "open") {
 }
 
 // ── Debounce por contato — agrupa mensagens consecutivas ─────
-// ✅ Dois estágios: 15s de silêncio → mostra "digitando..." → mais 15s de
-// silêncio (30s no total) → processa de fato. Os timers resetam do zero
-// quando: (a) chega mensagem nova, OU (b) o PRÓPRIO CLIENTE liga o
-// indicador "digitando..." dele (via presence.update, ver abaixo) — assim
-// o bot espera ele terminar de escrever em vez de atropelar uma mensagem
-// longa digitada aos poucos.
+// ✅ Dois estágios: silêncio → mostra "digitando..." → processa de fato. Os
+// timers resetam do zero quando: (a) chega mensagem nova, OU (b) o PRÓPRIO
+// CLIENTE liga o indicador "digitando..." dele (via presence.update, ver
+// abaixo) — assim o bot espera ele terminar de escrever em vez de atropelar
+// uma mensagem longa digitada aos poucos.
+//
+// ✅ Timing diferente pra primeira mensagem da conversa vs mensagens já
+// dentro do menu (pedido do Márcio, 26/07/2026) — imita alguém que demora
+// mais pra notar a notificação e responder a PRIMEIRA mensagem, mas depois
+// já está com o celular na mão acompanhando a conversa. "Primeira mensagem"
+// = contato sem bot_state salvo ainda (getContactState === null).
 const pendingAgentCalls = new Map(); // "sessionKey:phone" -> { typingTimer, processTimer, msgs[], firstMsgAt }
 
-const TYPING_DELAY_MS = 15_000;   // 1º estágio: silêncio antes de mostrar "digitando..."
-const PROCESS_DELAY_MS = 15_000;  // 2º estágio: silêncio adicional antes de processar
+const FIRST_SILENCE_MS = 15_000; // 1ª mensagem — 1º estágio: silêncio antes de mostrar "digitando..."
+const FIRST_TYPING_MS = 15_000;  // 1ª mensagem — 2º estágio: "digitando..." antes de processar (30s no total)
+const MENU_SILENCE_MS = 5_000;   // já no menu — 1º estágio
+const MENU_TYPING_MS = 5_000;    // já no menu — 2º estágio (10s no total)
 // ✅ Teto de segurança: nem todo contato emite o evento "composing" (depende
 // da configuração de privacidade dele no WhatsApp) — sem um limite, um
 // contato que nunca solta o "paused" travaria o lote pra sempre. Passado
 // esse tempo desde a 1ª mensagem do lote, sinais de digitação são ignorados
-// e o processamento segue seu curso normal.
+// e o processamento segue seu curso normal. Maior que os dois totais acima
+// (30s e 10s) de propósito, pra nunca cortar nenhum dos dois cenários.
 const MAX_TYPING_WAIT_MS = 90_000;
 
 // ── Exclusividade por contato ──────────────────────────────────────────────
@@ -1130,16 +1138,22 @@ function resetDebounceTimers(sessionKey, phone, entry) {
   clearTimeout(entry.typingTimer);
   clearTimeout(entry.processTimer);
 
-  // ── Estágio 1: após 15s de silêncio, mostra "digitando..." ────────────────
+  // ✅ Sem bot_state salvo ainda = primeira mensagem da conversa → timing
+  // mais lento. Com bot_state salvo = já dentro do menu → mais ágil.
+  const isFirstMessage = getContactState(sessionKey, phone) === null;
+  const silenceMs = isFirstMessage ? FIRST_SILENCE_MS : MENU_SILENCE_MS;
+  const typingMs = isFirstMessage ? FIRST_TYPING_MS : MENU_TYPING_MS;
+
+  // ── Estágio 1: após o silêncio, mostra "digitando..." ──────────────────
   entry.typingTimer = setTimeout(() => {
     const sess = sessions.get(sessionKey);
     const jid = getEntryRemoteJid(entry);
     if (sess?.socket && sess.status === "connected" && jid) {
       sess.socket.sendPresenceUpdate("composing", jid).catch(() => {});
     }
-  }, TYPING_DELAY_MS);
+  }, silenceMs);
 
-  // ── Estágio 2: mais 15s depois (30s no total) → processa de fato ──────────
+  // ── Estágio 2: mais um tempo "digitando..." → processa de fato ─────────
   entry.processTimer = setTimeout(async () => {
     pendingAgentCalls.delete(key);
     const msgs = entry.msgs;
@@ -1159,7 +1173,7 @@ function resetDebounceTimers(sessionKey, phone, entry) {
       return;
     }
     runBotAgentExclusive(sessionKey, phone, msgs);
-  }, TYPING_DELAY_MS + PROCESS_DELAY_MS);
+  }, silenceMs + typingMs);
 }
 
 function scheduleBotAgent(sessionKey, phone, msg) {
