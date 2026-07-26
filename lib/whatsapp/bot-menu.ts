@@ -13,6 +13,20 @@ export const HUMAN_REQUESTED_MSG =
 export const BOT_GAVE_UP_MSG =
   "Poxa, que pena não ter conseguido ajudar! 😔 Mas fique tranquilo, o Márcio dará sequência a partir daqui.";
 
+export const PORTAL_HANDOFF_MSG =
+  "Entendido, {primeiro_nome}! Como você já veio transferido pelo Portal do Cliente, peço que aguarde um momento — o Márcio vai continuar seu atendimento em instantes. 🙏";
+
+// ── Transferência vinda do Portal do Cliente (botão "Fale com o suporte" do
+// Bloco 3 — app/renew-beta/RenewBetaClient.tsx) ────────────────────────────────
+// Prioridade MAIOR que isEscalationTrigger: a mensagem já avisa que o
+// cliente veio do portal sem achar o app ou com dúvida — rodar o fluxo
+// normal do bot mandaria ele de volta pro mesmo portal que ele acabou de
+// sair, o que não faz sentido nenhum. Marcador ("Vim do Portal do Cliente")
+// é fixo no texto padrão do link wa.me, então basta bater a frase.
+export function isPortalHandoffTrigger(text: string): boolean {
+  return /\bvim do portal( do cliente)?\b/i.test(text);
+}
+
 // ── Escalonamento explícito por texto do cliente ──────────────────────────────
 
 // ✅ Linha-a-linha, não a string inteira: quando o debounce agrupa várias

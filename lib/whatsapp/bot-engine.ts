@@ -10,6 +10,7 @@ import { generatePortalLink, renderTemplate, buildClientTemplateVars, toBRDate, 
 import { getCouponPhraseForClient, getPendencyPhraseForClient } from "@/lib/client-portal/coupons";
 import {
   type MenuNode,
+  isPortalHandoffTrigger,
   isEscalationTrigger,
   isBackToMenuTrigger,
   isSimpleConfirmation,
@@ -422,6 +423,19 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
   if (p.forceNodeId) {
     const forced = await getNodeById(sb, p.forceNodeId);
     if (forced) return enterNode(forced, null, 1, 0, true);
+  }
+
+  // ── Item 0: veio transferido do Portal do Cliente — prioridade MAIOR que
+  // o escalonamento genérico. O texto já avisa que o cliente veio do botão
+  // de suporte do portal (não achou o app ou ficou com dúvida) — rodar o
+  // fluxo normal do bot só mandaria ele de volta pro mesmo portal que ele
+  // acabou de sair, o que não faz sentido nenhum.
+  if (isPortalHandoffTrigger(trimmed)) {
+    await sendFlow(flow.portal_handoff_message);
+    return {
+      action: "portal_handoff", escalate: true, markRead: false, nextState: "__clear__",
+      transferReason: "Veio transferido do Portal do Cliente (não achou o app ou ficou com dúvida)",
+    };
   }
 
   // ── Item 1: escalonamento explícito — prioridade máxima ─────────────────

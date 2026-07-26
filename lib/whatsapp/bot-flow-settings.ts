@@ -8,6 +8,7 @@
 import {
   BOT_GAVE_UP_MSG,
   HUMAN_REQUESTED_MSG,
+  PORTAL_HANDOFF_MSG,
 } from "@/lib/whatsapp/bot-menu";
 
 export type FlowSettings = {
@@ -15,6 +16,8 @@ export type FlowSettings = {
   success_message: string;
   escalate_message: string;
   human_requested_message: string;
+  /** Resposta quando o cliente vem transferido do Portal do Cliente (botão de suporte do Bloco 3). Use {primeiro_nome}. */
+  portal_handoff_message: string;
   /** 1ª resposta inválida em menu (use {menu} onde quiser reexibir as opções). */
   invalid_retry_message_1: string;
   /** 2ª resposta inválida no menu raiz / reforço. */
@@ -29,6 +32,7 @@ export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
   success_message: "Que bom! Fico feliz que resolveu 😊",
   escalate_message: BOT_GAVE_UP_MSG,
   human_requested_message: HUMAN_REQUESTED_MSG,
+  portal_handoff_message: PORTAL_HANDOFF_MSG,
   invalid_retry_message_1: "Não entendi — pode escolher uma das opções abaixo, por favor? 😊",
   invalid_retry_message_2: "Sem pressa! 😊 Escolha uma das opções digitando o número correspondente:",
   menu_invalid_intro_1: "Não entendi — pode escolher uma das opções abaixo, por favor? 😊",
@@ -49,6 +53,7 @@ export function mergeFlowSettings(row: Record<string, any> | null | undefined): 
     success_message: pickStr(row.success_message, d.success_message),
     escalate_message: pickStr(row.escalate_message, d.escalate_message),
     human_requested_message: pickStr(row.human_requested_message, d.human_requested_message),
+    portal_handoff_message: pickStr(row.portal_handoff_message, d.portal_handoff_message),
     invalid_retry_message_1: pickStr(row.invalid_retry_message_1, d.invalid_retry_message_1),
     invalid_retry_message_2: pickStr(row.invalid_retry_message_2, d.invalid_retry_message_2),
     menu_invalid_intro_1: pickStr(row.menu_invalid_intro_1, d.menu_invalid_intro_1),
@@ -83,6 +88,7 @@ export async function upsertFlowSettings(
     "success_message",
     "escalate_message",
     "human_requested_message",
+    "portal_handoff_message",
     "invalid_retry_message_1",
     "invalid_retry_message_2",
     "menu_invalid_intro_1",

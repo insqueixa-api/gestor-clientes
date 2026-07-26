@@ -3341,23 +3341,38 @@ export default function RenewClient() {
                             </p>
                             {app.is_partnership ? (
                               <p className="text-xs text-muted-foreground mt-0.5">Vencimento: Parceria (gratuito)</p>
+                            ) : app.expiration ? (
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <p className={`text-xs ${isExpired ? "text-rose-500 font-bold" : isExpiringSoon ? "text-amber-500 font-bold" : "text-muted-foreground"}`}>
+                                  {isExpired ? "Vencido" : isExpiringSoon ? "Vencendo" : "Validade"}: {expirationDatePart.split("-").reverse().join("/")}
+                                </p>
+                                {app.can_check_validity && (
+                                  <button
+                                    disabled={busy}
+                                    onClick={() => handleCheckValidity(app.id)}
+                                    className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+                                  >
+                                    {busy ? "..." : "Atualizar"}
+                                  </button>
+                                )}
+                              </div>
                             ) : (
-                              app.expiration && (
-                                <div className="flex items-center gap-1.5 mt-0.5">
-                                  <p className={`text-xs ${isExpired ? "text-rose-500 font-bold" : isExpiringSoon ? "text-amber-500 font-bold" : "text-muted-foreground"}`}>
-                                    {isExpired ? "Vencido" : isExpiringSoon ? "Vencendo" : "Validade"}: {expirationDatePart.split("-").reverse().join("/")}
-                                  </p>
-                                  {app.can_check_validity && (
-                                    <button
-                                      disabled={busy}
-                                      onClick={() => handleCheckValidity(app.id)}
-                                      className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
-                                    >
-                                      {busy ? "..." : "Atualizar"}
-                                    </button>
-                                  )}
-                                </div>
-                              )
+                              // ✅ Sem data configurada ainda (pedido do Márcio, 26/07/2026) — antes
+                              // não mostrava nada, e sem o botão Atualizar aqui, só reconfigurando
+                              // o app inteiro dava pra popular a validade. Agora mostra "vazio" +
+                              // Atualizar (quando disponível) pra checar sem precisar reconfigurar.
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <p className="text-xs text-muted-foreground">Vencimento: —</p>
+                                {app.can_check_validity && (
+                                  <button
+                                    disabled={busy}
+                                    onClick={() => handleCheckValidity(app.id)}
+                                    className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+                                  >
+                                    {busy ? "..." : "Atualizar"}
+                                  </button>
+                                )}
+                              </div>
                             )}
                           </div>
                         </div>
@@ -3473,12 +3488,12 @@ export default function RenewClient() {
                               ex: DuplexPlay), não faz mais sentido oferecer
                               configurar/renovar — vira um aviso pra trocar. */}
                           {!app.is_active ? (
-                            <div className="text-xs font-medium text-rose-500 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">
+                            <div className="text-xs font-medium text-rose-500/70 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">
                               Aplicativo descontinuado — exclua e configure um novo.
                               {app.discontinued_replacement_name && (
                                 <>
                                   {" "}Recomendamos o{" "}
-                                  <span className="font-semibold text-rose-500/70">{app.discontinued_replacement_name}</span>.
+                                  <span className="font-bold text-rose-500">{app.discontinued_replacement_name}</span>.
                                 </>
                               )}
                             </div>
@@ -3534,6 +3549,27 @@ export default function RenewClient() {
                     </div>
                   );
                 })}
+
+              {/* ✅ Volta a linha pontilhada de antes (pedido do Márcio, 26/07/2026)
+                  — não é mais o botão de adicionar (isso subiu pro cabeçalho), agora
+                  é um convite pro suporte via WhatsApp pra quem não achou o app que
+                  usa ou ficou com dúvida. A mensagem padrão tem um marcador
+                  ("Vim do Portal do Cliente") que o bot reconhece pra já avisar o
+                  cliente que foi transferido, sem tentar rodar o fluxo normal e
+                  mandar ele de volta pro portal que ele acabou de sair. */}
+              {supportPhone && (
+                <a
+                  href={`https://wa.me/${supportPhone.replace(/\D/g, "")}?text=${encodeURIComponent(
+                    "Olá! Vim do Portal do Cliente e não encontrei o aplicativo que uso, ou tive dúvidas. Pode me ajudar?",
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-border text-xs sm:text-sm font-bold text-muted-foreground hover:border-[#25D366] hover:text-[#25D366] transition-colors"
+                >
+                  <IconWhatsapp />
+                  Não achou o aplicativo ou teve dúvidas? Fale com o suporte
+                </a>
+              )}
 
               <AddAppModal
                 open={showAddAppPicker}
