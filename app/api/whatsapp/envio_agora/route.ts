@@ -391,7 +391,10 @@ export async function POST(req: Request) {
 
     try {
       const sendController = new AbortController();
-      const sendTimeout = setTimeout(() => sendController.abort(), 15_000);
+      // ✅ 30s (era 15s) — a VM agora simula "digitando..." (5-10s) + presença
+      // "disponível" antes de mandar (pedido do Márcio, 26/07/2026), então o
+      // envio real passou a demorar mais só nesse preparo, sem contar a rede.
+      const sendTimeout = setTimeout(() => sendController.abort(), 30_000);
       let res: Response;
       try {
         res = await fetch(`${baseUrl}/send`, {

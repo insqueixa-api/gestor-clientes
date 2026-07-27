@@ -65,13 +65,15 @@ export default function AppIntegracaoModal({
   const isIboSol = appName === "IBOSOL";
   const isIboPro = appName === "IBOPRO";
   const isQuickPlayer = appName === "QUICKPLAYER";
+  const isMessiTv = appName === "MESSITV";
   const needsPin =
     isDuplecast ||
     isIboSol ||
     isIboPro ||
-    isQuickPlayer;
+    isQuickPlayer ||
+    isMessiTv;
   const noCredentials =
-    isIboSol || isIboPro || isQuickPlayer; // Apps que não usam email/senha (login é por MAC+Device Key, por aparelho)
+    isIboSol || isIboPro || isQuickPlayer || isMessiTv; // Apps que não usam email/senha (login é por MAC+Device Key, por aparelho)
 
   useEffect(() => {
     if (integration) {
@@ -260,6 +262,7 @@ export default function AppIntegracaoModal({
                 <option value="IBOSOL">IBO Sol</option>
                 <option value="IBOPRO">IBO Pro Player</option>
                 <option value="QUICKPLAYER">Quick Player / Quick Player Pro</option>
+                <option value="MESSITV">MessiTV</option>
               </select>
             </div>
 
@@ -280,7 +283,9 @@ export default function AppIntegracaoModal({
                         ? 'Ex: "IBO Pro Player"'
                         : isQuickPlayer
                           ? 'Ex: "Quick Player"'
-                          : 'Ex: "Nome do aplicativo"'
+                          : isMessiTv
+                            ? 'Ex: "MessiTV"'
+                            : 'Ex: "Nome do aplicativo"'
                 }
                 className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors"
               />
@@ -303,7 +308,9 @@ export default function AppIntegracaoModal({
                         ? "Ex: https://iboproapp.com"
                         : isQuickPlayer
                           ? "Ex: https://api.quickplayer.app"
-                          : "Ex: https://gerenciaapp.top"
+                          : isMessiTv
+                            ? "Ex: https://messitvplayer.com"
+                            : "Ex: https://gerenciaapp.top"
                 }
                 type="url"
                 className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors font-mono text-xs"

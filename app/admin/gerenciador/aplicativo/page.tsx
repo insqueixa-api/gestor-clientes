@@ -675,7 +675,9 @@ setApps(formattedApps);
               ? "IBO Pro Player"
               : app.integration_type === "QUICKPLAYER"
                 ? "Quick Player"
-                : app.integration_type === "LAZERPLAY"
+                : app.integration_type === "MESSITV"
+                  ? "MessiTV"
+                  : app.integration_type === "LAZERPLAY"
                     ? "Lazer Play"
                     : app.integration_type === "FUNPLAY"
                       ? "Fun Play"
@@ -1287,6 +1289,8 @@ setApps(formattedApps);
                       <option value="DUPLECAST">DupleCast</option>
                       <option value="IBOSOL">IBO Sol</option>
                       <option value="IBOPRO">IBO Pro Player</option>
+                      <option value="QUICKPLAYER">Quick Player</option>
+                      <option value="MESSITV">MessiTV</option>
                     </select>
                     <p className="text-[11px] text-muted-foreground mt-1">
                       Quando configurado, habilita automação ao criar clientes.

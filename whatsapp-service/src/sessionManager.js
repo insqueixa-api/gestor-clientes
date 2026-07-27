@@ -4,6 +4,7 @@ import {
   DisconnectReason,
   fetchLatestBaileysVersion,
   downloadMediaMessage,
+  Browsers,
 } from "@whiskeysockets/baileys";
 import { Boom } from "@hapi/boom";
 import path from "path";
@@ -745,7 +746,14 @@ const sock = makeWASocket({
     auth: state,
     logger: baileysLogger,
     printQRInTerminal: false,
-    browser: ["UniGestor", "Chrome", "120.0.0"],
+    // ✅ Fingerprint do "aparelho vinculado" (pedido do Márcio, 26/07/2026) —
+    // antes era ["UniGestor", "Chrome", "120.0.0"], um nome de app entregue
+    // direto pro WhatsApp na tela de Dispositivos Conectados (denuncia
+    // ferramenta de automação de cara) + uma versão de Chrome inventada, não
+    // atrelada a nenhum SO real. Browsers.windows("Chrome") é um preset da
+    // própria lib do Baileys — usa "Windows" + build real (10.0.22631),
+    // mesmo formato que uma sessão de WhatsApp Web genuína mostra.
+    browser: Browsers.windows("Chrome"),
 
     // ✅ Proxy residencial (ver comentário no topo do arquivo) — sai por IP
     // brasileiro em vez do IP de datacenter da VM. `agent` é o socket
@@ -873,8 +881,13 @@ if (connection === "open") {
         }
       } catch {}
 
-      // ✅ Aparece como offline para os contatos mesmo com socket ativo
-      // Sem isso, o WhatsApp exibe "online" 24h enquanto a sessão estiver conectada
+      // ✅ Começa "indisponível" ao conectar (pedido original do Márcio: sem
+      // isso, o WhatsApp exibe "online" 24h enquanto a sessão estiver
+      // conectada). AJUSTADO 26/07/2026: ficar 100% offline o tempo todo,
+      // inclusive quando manda várias mensagens, não é natural — ninguém usa
+      // WhatsApp assim. Agora fica só "indisponível" em repouso; sendMessage()
+      // liga "disponível" durante o envio e agenda a volta pra "indisponível"
+      // sozinho depois de alguns segundos (ver goOnlineForSend/scheduleGoOffline).
       sock.sendPresenceUpdate("unavailable").catch(() => {});
 
       // Rastreador persistente para capturar o nome real (Normal ou Business)
@@ -1318,7 +1331,8 @@ const hasText = !!(
       : null;
     if (msgTimestamp && Date.now() - msgTimestamp > 3 * 60 * 1000) continue;
 
-// Debounce em dois estágios (30s + 15s = 45s) — agrupa mensagens consecutivas
+// Debounce em dois estágios (timing depende de 1ª mensagem vs já-no-menu,
+// ver FIRST_/MENU_*_MS lá em cima) — agrupa mensagens consecutivas
     scheduleBotAgent(sessionKey, phone, msg);
   }
 }
@@ -1560,6 +1574,7 @@ async function disconnectSession(sessionKey) {
   // removida do Map (a referência sobrevive no closure).
   if (sess.nameTracker) clearInterval(sess.nameTracker);
   if (sess.qrTimeout) clearTimeout(sess.qrTimeout);
+  if (sess.presenceOfflineTimer) clearTimeout(sess.presenceOfflineTimer);
 
   try {
     await sess.socket?.logout();
@@ -1584,6 +1599,7 @@ async function hardResetSession(sessionKey) {
   if (sess) {
     if (sess.nameTracker) clearInterval(sess.nameTracker);
     if (sess.qrTimeout) clearTimeout(sess.qrTimeout);
+    if (sess.presenceOfflineTimer) clearTimeout(sess.presenceOfflineTimer);
     try {
       await sess.socket?.logout();
     } catch {}
@@ -1607,6 +1623,7 @@ async function reconnectSession(sessionKey) {
     // Mata o socket e os timers sem apagar nenhum arquivo
     if (sess.nameTracker) clearInterval(sess.nameTracker);
     if (sess.qrTimeout) clearTimeout(sess.qrTimeout);
+    if (sess.presenceOfflineTimer) clearTimeout(sess.presenceOfflineTimer);
     try { sess.socket?.end(); } catch {}
     try { sess.socket?.ws?.close(); } catch {}
     sessions.delete(sessionKey);
@@ -1648,28 +1665,85 @@ function deleteSessionFiles(sessionKey, fullDelete = false) {
   console.log(`[WA][${sessionKey.slice(0, 8)}] Arquivos de auth removidos (config preservada)`);
 }
 
-async function sendMessage(sessionKey, phone, message, imageUrl = null) {
+// ✅ Presença dinâmica (pedido do Márcio, 26/07/2026) — em repouso a sessão
+// fica "indisponível" (ver connection.update acima), mas mandar mensagens
+// 100% offline o tempo todo não é natural. Aqui ela liga "disponível" bem
+// antes de enviar, e agenda a volta pra "indisponível" sozinha depois de um
+// tempo sem NENHUM envio novo — imita alguém abrindo o WhatsApp, mandando
+// uma ou várias mensagens, e fechando o app de novo. O timer é por SESSÃO
+// (global, sem jid — mesmo padrão do "unavailable" inicial), então vários
+// envios seguidos (ex: campanha de cobrança) mantêm "disponível" contínuo
+// em vez de piscar online/offline a cada mensagem.
+const ONLINE_BEFORE_SEND_MS = 3_000; // fica "disponível" um instante antes de mandar, como se tivesse acabado de abrir o app
+const ONLINE_LINGER_MS = 12_000; // some tempos depois do ÚLTIMO envio, sem mensagem nova, antes de voltar a "indisponível"
+
+function scheduleGoOffline(sess) {
+  if (sess.presenceOfflineTimer) clearTimeout(sess.presenceOfflineTimer);
+  sess.presenceOfflineTimer = setTimeout(() => {
+    try { sess.socket?.sendPresenceUpdate("unavailable"); } catch {}
+  }, ONLINE_LINGER_MS);
+}
+
+async function goOnlineForSend(sess) {
+  // Já está com o timer de "ficar online" pendente (ou seja, já apareceu
+  // disponível há pouco) — não precisa religar nem esperar de novo, só
+  // adia a volta pro "indisponível".
+  if (sess.presenceOfflineTimer) {
+    clearTimeout(sess.presenceOfflineTimer);
+    sess.presenceOfflineTimer = null;
+    return;
+  }
+  try { sess.socket?.sendPresenceUpdate("available"); } catch {}
+  await new Promise((r) => setTimeout(r, ONLINE_BEFORE_SEND_MS));
+}
+
+// ✅ "Digitando..." antes de mandar (pedido do Márcio, 26/07/2026: "ninguém
+// consegue enviar nada sem digitar"). Vale pra quem INICIA a conversa —
+// cobrança automática, nudge, redirecionamento — que hoje mandava
+// instantâneo, sem nenhuma simulação. NÃO se aplica à resposta do bot de
+// atendimento: essa já mostrou "digitando..." durante o debounce
+// (resetDebounceTimers) antes de chegar em sendMessage() — repetir aqui
+// duplicaria o efeito (quem chama passa skipTypingSimulation:true nesse caso).
+// Tempo sorteado entre 5-10s, não fixo — mesma filosofia anti-padrão-robótico
+// já aplicada no timing do bot e no intervalo da campanha de cobrança.
+const TYPING_BEFORE_SEND_MIN_MS = 5_000;
+const TYPING_BEFORE_SEND_MAX_MS = 10_000;
+
+async function sendMessage(sessionKey, phone, message, imageUrl = null, opts = {}) {
   const sess = sessions.get(sessionKey);
   if (!sess || sess.status !== "connected") {
     throw new Error("Sessão não conectada");
   }
 
-  // Normaliza número para JID do WhatsApp
+  // Normaliza número para WhatsApp
   const jid = normalizeJid(phone);
 
+  await goOnlineForSend(sess);
+
+  if (!opts.skipTypingSimulation) {
+    const typingMs =
+      TYPING_BEFORE_SEND_MIN_MS +
+      Math.floor(Math.random() * (TYPING_BEFORE_SEND_MAX_MS - TYPING_BEFORE_SEND_MIN_MS + 1));
+    try { sess.socket.sendPresenceUpdate("composing", jid); } catch {}
+    await new Promise((r) => setTimeout(r, typingMs));
+    try { sess.socket.sendPresenceUpdate("paused", jid); } catch {}
+  }
+
   let result;
-  
+
   // ✅ LÓGICA DO BAILEYS: Se tem imagem, manda como mídia. Se não, manda só texto.
   if (imageUrl) {
-    result = await sess.socket.sendMessage(jid, { 
-      image: { url: imageUrl }, 
-      caption: message 
+    result = await sess.socket.sendMessage(jid, {
+      image: { url: imageUrl },
+      caption: message
     });
   } else {
-    result = await sess.socket.sendMessage(jid, { 
-      text: message 
+    result = await sess.socket.sendMessage(jid, {
+      text: message
     });
   }
+
+  scheduleGoOffline(sess);
 
   const messageId = result?.key?.id || null;
 

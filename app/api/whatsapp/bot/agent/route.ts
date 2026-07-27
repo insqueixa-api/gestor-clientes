@@ -59,7 +59,15 @@ async function sendWAMessage(sessionKey: string, phone: string, message: string,
         "x-session-key": sessionKey,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ phone, message, ...(imageUrl ? { image_url: imageUrl } : {}) }),
+      body: JSON.stringify({
+        phone,
+        message,
+        ...(imageUrl ? { image_url: imageUrl } : {}),
+        // ✅ O bot já mostrou "digitando..." durante o debounce (sessionManager.js,
+        // resetDebounceTimers) antes de chegar até aqui — sem essa flag, o VM
+        // simularia "digitando" de novo bem antes de mandar, duplicando o efeito.
+        skip_typing_delay: true,
+      }),
       signal: controller.signal,
     });
     if (!res.ok) {

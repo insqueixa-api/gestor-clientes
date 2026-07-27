@@ -267,7 +267,7 @@ app.post("/send", authMiddleware, async (req, res) => {
   if (!sessionKey) return res.status(400).json({ error: "x-session-key obrigatório" });
 
   // ✅ EXTRAI A IMAGEM TAMBÉM
-  const { phone, message, image_url } = req.body || {};
+  const { phone, message, image_url, skip_typing_delay } = req.body || {};
   if (!phone || !message) {
     return res.status(400).json({ error: "phone e message são obrigatórios" });
   }
@@ -279,7 +279,11 @@ app.post("/send", authMiddleware, async (req, res) => {
 
   try {
     // ✅ PASSA A IMAGEM PARA A FUNÇÃO (SE EXISTIR)
-    const result = await sendMessage(sessionKey, phone, message, image_url);
+    // ✅ skip_typing_delay: quem já simulou "digitando..." antes de chamar aqui
+    // (hoje só o bot, durante o debounce) manda essa flag pra não duplicar.
+    const result = await sendMessage(sessionKey, phone, message, image_url, {
+      skipTypingSimulation: !!skip_typing_delay,
+    });
     return res.json(result);
   } catch (e) {
     console.error(`[SEND] Erro:`, e?.message);

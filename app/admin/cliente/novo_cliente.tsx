@@ -2449,7 +2449,8 @@ const canSyncAgenda = canSyncAuto;
       password:
         handler.actionPrefix === "DUPLECAST" ||
         handler.actionPrefix === "IBOSOL" ||
-        handler.actionPrefix === "IBOPRO"
+        handler.actionPrefix === "IBOPRO" ||
+        handler.actionPrefix === "MESSITV"
           ? appPin
           : password,
       macValue,
@@ -2492,7 +2493,8 @@ const canSyncAgenda = canSyncAuto;
             password:
               handler.actionPrefix === "DUPLECAST" ||
               handler.actionPrefix === "IBOSOL" ||
-              handler.actionPrefix === "IBOPRO"
+              handler.actionPrefix === "IBOPRO" ||
+              handler.actionPrefix === "MESSITV"
                 ? appPin
                 : password,
           });
@@ -2795,7 +2797,8 @@ const canSyncAgenda = canSyncAuto;
         password:
           handler.actionPrefix === "DUPLECAST" ||
           handler.actionPrefix === "IBOSOL" ||
-          handler.actionPrefix === "IBOPRO"
+          handler.actionPrefix === "IBOPRO" ||
+          handler.actionPrefix === "MESSITV"
             ? appPinDelete
             : password,
       }),
@@ -4157,16 +4160,18 @@ if (syncOperadora) {
                     password:
                       handler.actionPrefix === "DUPLECAST" ||
                       handler.actionPrefix === "IBOSOL" ||
-                      handler.actionPrefix === "IBOPRO"
+                      handler.actionPrefix === "IBOPRO" ||
+                      handler.actionPrefix === "MESSITV"
                         ? appPinAuto
                         : apiPassword,
                     macValue: macValueAuto,
                     finalServerName,
                     m3uUrl: finalM3u || apiM3uUrl || m3uUrl || "",
                     appName: app.name,
+                    serverId, // usado pelo QUICKPLAYER pra achar o DNS #1 do servidor
                   });
 
-                  // ✅ Distingue apps via API (QuickPlayer, IboSol) vs Extensão (Duplecast)
+                  // ✅ Distingue apps via API (QuickPlayer, IboPro, Duplecast, GerenciaApp) vs Extensão (IboSol)
                   if ((handler as any).useApi) {
                     const dkFieldAuto = app.fields_config?.find(
                       (f: any) =>
@@ -4257,7 +4262,7 @@ if (syncOperadora) {
                       queueListToast("trial", {
                         type: "error",
                         title: "Aviso do App",
-                        message: `Falha ao integrar ${app.name}.`,
+                        message: apiJson?.error || `Falha ao integrar ${app.name}.`,
                       });
                     }
                   } else {
@@ -6846,7 +6851,9 @@ className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify
                                       ? "IBO Pro Player"
                                       : intType === "QUICKPLAYER"
                                         ? "Quick Player"
-                                        : intType;
+                                        : intType === "MESSITV"
+                                          ? "MessiTV"
+                                          : intType;
 
                             return (
                               <button

@@ -5,7 +5,7 @@
 
 // Handlers cujo campo "password" do payload é o PIN da integração
 // (app_integrations.pin), não a senha real do cliente — mesma regra do admin.
-export const PIN_HANDLERS = new Set(["DUPLECAST", "IBOSOL", "IBOPRO"]);
+export const PIN_HANDLERS = new Set(["DUPLECAST", "IBOSOL", "IBOPRO", "MESSITV"]);
 
 // Handlers cuja rota de integração já implementa action:"check" (consulta
 // só leitura do vencimento real, sem criar/alterar nada). QuickPlayer não
@@ -21,13 +21,16 @@ export const PIN_HANDLERS = new Set(["DUPLECAST", "IBOSOL", "IBOPRO"]);
 // com um desafio Cloudflare que nem Playwright real (headless ou headed)
 // consegue passar — mesma assinatura de detecção de automação do Elite,
 // investigado e confirmado sem solução via código em 21-22/07/2026.
-export const CHECK_VALIDITY_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP"]);
+// MESSITV entrou em 27/07/2026: login (mac+device_key, com captcha resolvido
+// via Gemini) devolve o expire_date real do dispositivo — igual DUPLECAST,
+// sem precisar de heurística.
+export const CHECK_VALIDITY_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP", "MESSITV"]);
 
 // Igual ao CHECK_VALIDITY_HANDLERS acima, mas pro botão "Verificar
 // vencimento" do ADMIN (novo_cliente.tsx) — que também inclui IBOSOL, cujo
 // check roda via extensão do Chrome (só existe no navegador do admin, por
 // isso não pode entrar no CHECK_VALIDITY_HANDLERS do portal do cliente).
-export const ADMIN_CHECK_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP", "IBOSOL"]);
+export const ADMIN_CHECK_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP", "IBOSOL", "MESSITV"]);
 
 export function extractFieldByType(fieldsConfig: any[], values: Record<string, any>, type: string) {
   const field = (fieldsConfig || []).find(
