@@ -3038,11 +3038,18 @@ const canSyncAgenda = canSyncAuto;
             `${appName}: ${apiJson.expireDate.split("T")[0].split("-").reverse().join("/")}`,
           );
         } else if (apiJson?.ok) {
+          // ✅ DUPLEXTV não tem endpoint de status real (só "já ativado",
+          // sem data — ver iptvduplex/route.ts... digo, duplextv/route.ts).
+          // Mantém o vencimento já salvo no banco (não mexe em nada) e
+          // avisa o admin pra conferir manualmente no painel do IBOSOL —
+          // aviso só aqui no admin, nunca no portal do cliente.
           addToast(
             "warning",
             "Sem vencimento",
-            apiJson.message ||
-              "Não foi possível localizar o vencimento no painel.",
+            handler.actionPrefix === "DUPLEXTV"
+              ? "Não encontrado automaticamente — confira manualmente no painel do IBOSOL. O vencimento salvo no banco foi mantido."
+              : apiJson.message ||
+                "Não foi possível localizar o vencimento no painel.",
           );
         } else {
           addToast(
@@ -6883,7 +6890,9 @@ className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify
                                               ? "IBO Player"
                                               : intType === "IPTVDUPLEX"
                                                 ? "IPTV Duplex Play"
-                                                : intType;
+                                                : intType === "DUPLEXTV"
+                                                  ? "Duplex TV"
+                                                  : intType;
 
                             return (
                               <button

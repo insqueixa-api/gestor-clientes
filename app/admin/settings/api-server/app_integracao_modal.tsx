@@ -69,6 +69,7 @@ export default function AppIntegracaoModal({
   const isBobPlayer = appName === "BOBPLAYER";
   const isIboPlayer = appName === "IBOPLAYER";
   const isIptvDuplex = appName === "IPTVDUPLEX";
+  const isDuplexTv = appName === "DUPLEXTV";
   const needsPin =
     isDuplecast ||
     isIboSol ||
@@ -77,9 +78,16 @@ export default function AppIntegracaoModal({
     isMessiTv ||
     isBobPlayer ||
     isIboPlayer ||
-    isIptvDuplex;
+    isIptvDuplex; // DUPLEXTV fica de fora — não usa PIN, só MAC
   const noCredentials =
-    isIboSol || isIboPro || isQuickPlayer || isMessiTv || isBobPlayer || isIboPlayer || isIptvDuplex; // Apps que não usam email/senha (login é por MAC+Device Key, por aparelho)
+    isIboSol ||
+    isIboPro ||
+    isQuickPlayer ||
+    isMessiTv ||
+    isBobPlayer ||
+    isIboPlayer ||
+    isIptvDuplex ||
+    isDuplexTv; // Apps que não usam email/senha (login é por MAC, com ou sem Device Key)
 
   useEffect(() => {
     if (integration) {
@@ -93,19 +101,14 @@ export default function AppIntegracaoModal({
     }
   }, [integration]);
 
-  // ✅ Validação dinâmica ocultando e-mail e senha para IBO Sol
-  const canSave = noCredentials
-    ? label.trim() && apiUrl.trim() && pin.trim()
-    : needsPin
-      ? label.trim() &&
-        loginEmail.trim() &&
-        loginPassword.trim() &&
-        apiUrl.trim() &&
-        pin.trim()
-      : label.trim() &&
-        loginEmail.trim() &&
-        loginPassword.trim() &&
-        apiUrl.trim();
+  // ✅ Validação dinâmica — noCredentials e needsPin são independentes desde
+  // o DUPLEXTV (27/07/2026): sem email/senha E sem PIN (só MAC), diferente
+  // de todos os apps anteriores onde os dois sempre coincidiam.
+  const canSave =
+    label.trim() &&
+    apiUrl.trim() &&
+    (noCredentials || (loginEmail.trim() && loginPassword.trim())) &&
+    (!needsPin || pin.trim());
 
   async function handleUploadExtension(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -279,6 +282,7 @@ export default function AppIntegracaoModal({
                 <option value="BOBPLAYER">BOB Player</option>
                 <option value="IBOPLAYER">IBO Player</option>
                 <option value="IPTVDUPLEX">IPTV Duplex Play</option>
+                <option value="DUPLEXTV">Duplex TV</option>
               </select>
             </div>
 
@@ -307,7 +311,9 @@ export default function AppIntegracaoModal({
                                 ? 'Ex: "IBO Player"'
                                 : isIptvDuplex
                                   ? 'Ex: "IPTV Duplex Play"'
-                                  : 'Ex: "Nome do aplicativo"'
+                                  : isDuplexTv
+                                    ? 'Ex: "Duplex TV"'
+                                    : 'Ex: "Nome do aplicativo"'
                 }
                 className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors"
               />
@@ -338,7 +344,9 @@ export default function AppIntegracaoModal({
                                 ? "Ex: https://iboplayer.com"
                                 : isIptvDuplex
                                   ? "Ex: https://iptvduplex.com"
-                                  : "Ex: https://gerenciaapp.top"
+                                  : isDuplexTv
+                                    ? "Ex: https://duplex24.com"
+                                    : "Ex: https://gerenciaapp.top"
                 }
                 type="url"
                 className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors font-mono text-xs"

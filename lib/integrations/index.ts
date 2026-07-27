@@ -1,13 +1,13 @@
 // lib/integrations/index.ts
 import { GerenciaAppIntegration } from "./gerenciaapp";
 import { DupleCastIntegration } from "./duplecast";
-import { IbosolAPI as IboSolIntegration } from "@/app/api/integrations/apps/ibosol/ibosol";
 import { IboProAPI as IboProIntegration } from "@/app/api/integrations/apps/ibopro/ibopro";
 import { QuickPlayerAPI } from "./quickplayer";
 import { MessiTVIntegration } from "./messitv";
 import { BobPlayerIntegration } from "./bobplayer";
 import { IboPlayerIntegration } from "./iboplayer";
 import { IptvDuplexIntegration } from "./iptvduplex";
+import { DuplexTvIntegration } from "./duplextv";
 
 const INTEGRATION_REGISTRY: Record<string, any> = {
     "GERENCIAAPP":      GerenciaAppIntegration,
@@ -21,13 +21,13 @@ const INTEGRATION_REGISTRY: Record<string, any> = {
     "GPCLG":            GerenciaAppIntegration,
 
     "DUPLECAST":        DupleCastIntegration,
-    "IBOSOL":           IboSolIntegration,
     "IBOPRO":           IboProIntegration,
     "QUICKPLAYER":      QuickPlayerAPI,
     "MESSITV":          MessiTVIntegration,
     "BOBPLAYER":        BobPlayerIntegration,
     "IBOPLAYER":        IboPlayerIntegration,
     "IPTVDUPLEX":       IptvDuplexIntegration,
+    "DUPLEXTV":         DuplexTvIntegration,
 };
 
 export function getIntegrationHandler(integrationType: string) {
