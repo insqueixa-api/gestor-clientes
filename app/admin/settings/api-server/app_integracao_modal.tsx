@@ -68,6 +68,7 @@ export default function AppIntegracaoModal({
   const isMessiTv = appName === "MESSITV";
   const isBobPlayer = appName === "BOBPLAYER";
   const isIboPlayer = appName === "IBOPLAYER";
+  const isIptvDuplex = appName === "IPTVDUPLEX";
   const needsPin =
     isDuplecast ||
     isIboSol ||
@@ -75,9 +76,10 @@ export default function AppIntegracaoModal({
     isQuickPlayer ||
     isMessiTv ||
     isBobPlayer ||
-    isIboPlayer;
+    isIboPlayer ||
+    isIptvDuplex;
   const noCredentials =
-    isIboSol || isIboPro || isQuickPlayer || isMessiTv || isBobPlayer || isIboPlayer; // Apps que não usam email/senha (login é por MAC+Device Key, por aparelho)
+    isIboSol || isIboPro || isQuickPlayer || isMessiTv || isBobPlayer || isIboPlayer || isIptvDuplex; // Apps que não usam email/senha (login é por MAC+Device Key, por aparelho)
 
   useEffect(() => {
     if (integration) {
@@ -276,6 +278,7 @@ export default function AppIntegracaoModal({
                 <option value="MESSITV">MessiTV</option>
                 <option value="BOBPLAYER">BOB Player</option>
                 <option value="IBOPLAYER">IBO Player</option>
+                <option value="IPTVDUPLEX">IPTV Duplex Play</option>
               </select>
             </div>
 
@@ -302,7 +305,9 @@ export default function AppIntegracaoModal({
                               ? 'Ex: "BOB Player"'
                               : isIboPlayer
                                 ? 'Ex: "IBO Player"'
-                                : 'Ex: "Nome do aplicativo"'
+                                : isIptvDuplex
+                                  ? 'Ex: "IPTV Duplex Play"'
+                                  : 'Ex: "Nome do aplicativo"'
                 }
                 className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors"
               />
@@ -331,7 +336,9 @@ export default function AppIntegracaoModal({
                               ? "Ex: https://www.bobplayer.com"
                               : isIboPlayer
                                 ? "Ex: https://iboplayer.com"
-                                : "Ex: https://gerenciaapp.top"
+                                : isIptvDuplex
+                                  ? "Ex: https://api.iptvduplex.com"
+                                  : "Ex: https://gerenciaapp.top"
                 }
                 type="url"
                 className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors font-mono text-xs"

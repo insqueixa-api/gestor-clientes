@@ -681,7 +681,9 @@ setApps(formattedApps);
                     ? "BOB Player"
                     : app.integration_type === "IBOPLAYER"
                       ? "IBO Player"
-                      : app.integration_type === "LAZERPLAY"
+                      : app.integration_type === "IPTVDUPLEX"
+                        ? "IPTV Duplex Play"
+                        : app.integration_type === "LAZERPLAY"
                     ? "Lazer Play"
                     : app.integration_type === "FUNPLAY"
                       ? "Fun Play"
@@ -1302,6 +1304,7 @@ setApps(formattedApps);
                       <option value="MESSITV">MessiTV</option>
                       <option value="BOBPLAYER">BOB Player</option>
                       <option value="IBOPLAYER">IBO Player</option>
+                      <option value="IPTVDUPLEX">IPTV Duplex Play</option>
                     </select>
                     <p className="text-[11px] text-muted-foreground mt-1">
                       Quando configurado, habilita automação ao criar clientes.

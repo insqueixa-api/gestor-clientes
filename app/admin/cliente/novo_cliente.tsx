@@ -1272,6 +1272,8 @@ const canSyncAgenda = canSyncAuto;
     info_url: string | null;
     integration_type?: string | null;
     cost_type?: "free" | "paid" | "partnership" | null;
+    is_active?: boolean | null;
+    discontinued_replacement_name?: string | null;
   };
   type SelectedAppInstance = {
     instanceId: string;
@@ -1541,10 +1543,13 @@ const canSyncAgenda = canSyncAuto;
 
         // 2. Apps (Catálogo Completo com Configuração)
         // ✅ Acesso direto e sem restrições à tabela de aplicativos
+        // ✅ Inclui os descontinuados (is_active=false) de propósito — o
+        // buscador de apps precisa achá-los pra mostrar o card "Descontinuado"
+        // (em vez de simplesmente sumir da lista, o que deixava o admin sem
+        // saber que o app existe/já foi usado por algum cliente).
         const { data: appsData, error: appsErr } = await supabaseBrowser
           .from("apps")
-          .select("*")
-          .eq("is_active", true);
+          .select("*");
 
         if (appsErr) {
         }
@@ -2452,7 +2457,8 @@ const canSyncAgenda = canSyncAuto;
         handler.actionPrefix === "IBOPRO" ||
         handler.actionPrefix === "MESSITV" ||
         handler.actionPrefix === "BOBPLAYER" ||
-        handler.actionPrefix === "IBOPLAYER"
+        handler.actionPrefix === "IBOPLAYER" ||
+        handler.actionPrefix === "IPTVDUPLEX"
           ? appPin
           : password,
       macValue,
@@ -2498,7 +2504,8 @@ const canSyncAgenda = canSyncAuto;
               handler.actionPrefix === "IBOPRO" ||
               handler.actionPrefix === "MESSITV" ||
               handler.actionPrefix === "BOBPLAYER" ||
-              handler.actionPrefix === "IBOPLAYER"
+              handler.actionPrefix === "IBOPLAYER" ||
+              handler.actionPrefix === "IPTVDUPLEX"
                 ? appPin
                 : password,
           });
@@ -2804,7 +2811,8 @@ const canSyncAgenda = canSyncAuto;
           handler.actionPrefix === "IBOPRO" ||
           handler.actionPrefix === "MESSITV" ||
           handler.actionPrefix === "BOBPLAYER" ||
-          handler.actionPrefix === "IBOPLAYER"
+          handler.actionPrefix === "IBOPLAYER" ||
+          handler.actionPrefix === "IPTVDUPLEX"
             ? appPinDelete
             : password,
       }),
@@ -4169,7 +4177,8 @@ if (syncOperadora) {
                       handler.actionPrefix === "IBOPRO" ||
                       handler.actionPrefix === "MESSITV" ||
                       handler.actionPrefix === "BOBPLAYER" ||
-                      handler.actionPrefix === "IBOPLAYER"
+                      handler.actionPrefix === "IBOPLAYER" ||
+                      handler.actionPrefix === "IPTVDUPLEX"
                         ? appPinAuto
                         : apiPassword,
                     macValue: macValueAuto,
@@ -6842,12 +6851,13 @@ className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify
                           }
 
                           return filtered.map((app) => {
+                            const isDiscontinued = app.is_active === false;
                             const intType = String(app.integration_type || "")
                               .trim()
                               .toUpperCase();
-                            const hasInteg = Boolean(
-                              intType && intType !== "SEM_INTEGRACAO",
-                            );
+                            const hasInteg =
+                              !isDiscontinued &&
+                              Boolean(intType && intType !== "SEM_INTEGRACAO");
                             const intLabel =
                               intType === "GERENCIAAPP"
                                 ? "GerenciaApp"
@@ -6865,7 +6875,9 @@ className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify
                                             ? "BOB Player"
                                             : intType === "IBOPLAYER"
                                               ? "IBO Player"
-                                              : intType;
+                                              : intType === "IPTVDUPLEX"
+                                                ? "IPTV Duplex Play"
+                                                : intType;
 
                             return (
                               <button
@@ -6877,27 +6889,45 @@ className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify
                                   <span className="font-medium">
                                     {app.name}
                                   </span>
-                                  {hasInteg && (
+                                  {isDiscontinued ? (
                                     <span
-                                      title={`Integração Automática: ${intLabel}`}
-                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-500/20 border border-sky-500/30 text-sky-400"
+                                      title={
+                                        app.discontinued_replacement_name
+                                          ? `Descontinuado — recomendado migrar para ${app.discontinued_replacement_name}`
+                                          : "Descontinuado"
+                                      }
+                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-500/20 border border-rose-500/30 text-rose-400"
                                     >
-                                      <svg
-                                        width="10"
-                                        height="10"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="2.5"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                      >
-                                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                                      </svg>
                                       <span className="text-[9px] font-medium uppercase tracking-wider">
-                                        {intLabel}
+                                        Descontinuado
+                                        {app.discontinued_replacement_name
+                                          ? ` → ${app.discontinued_replacement_name}`
+                                          : ""}
                                       </span>
                                     </span>
+                                  ) : (
+                                    hasInteg && (
+                                      <span
+                                        title={`Integração Automática: ${intLabel}`}
+                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-500/20 border border-sky-500/30 text-sky-400"
+                                      >
+                                        <svg
+                                          width="10"
+                                          height="10"
+                                          viewBox="0 0 24 24"
+                                          fill="none"
+                                          stroke="currentColor"
+                                          strokeWidth="2.5"
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                        >
+                                          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                                        </svg>
+                                        <span className="text-[9px] font-medium uppercase tracking-wider">
+                                          {intLabel}
+                                        </span>
+                                      </span>
+                                    )
                                   )}
                                 </div>
                                 <span className="text-[10px] uppercase font-medium opacity-0 group-hover:opacity-100 transition-opacity text-emerald-500">

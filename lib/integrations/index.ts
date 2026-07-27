@@ -7,6 +7,7 @@ import { QuickPlayerAPI } from "./quickplayer";
 import { MessiTVIntegration } from "./messitv";
 import { BobPlayerIntegration } from "./bobplayer";
 import { IboPlayerIntegration } from "./iboplayer";
+import { IptvDuplexIntegration } from "./iptvduplex";
 
 const INTEGRATION_REGISTRY: Record<string, any> = {
     "GERENCIAAPP":      GerenciaAppIntegration,
@@ -26,6 +27,7 @@ const INTEGRATION_REGISTRY: Record<string, any> = {
     "MESSITV":          MessiTVIntegration,
     "BOBPLAYER":        BobPlayerIntegration,
     "IBOPLAYER":        IboPlayerIntegration,
+    "IPTVDUPLEX":       IptvDuplexIntegration,
 };
 
 export function getIntegrationHandler(integrationType: string) {
