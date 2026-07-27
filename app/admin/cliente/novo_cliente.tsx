@@ -2450,7 +2450,8 @@ const canSyncAgenda = canSyncAuto;
         handler.actionPrefix === "DUPLECAST" ||
         handler.actionPrefix === "IBOSOL" ||
         handler.actionPrefix === "IBOPRO" ||
-        handler.actionPrefix === "MESSITV"
+        handler.actionPrefix === "MESSITV" ||
+        handler.actionPrefix === "BOBPLAYER"
           ? appPin
           : password,
       macValue,
@@ -2494,7 +2495,8 @@ const canSyncAgenda = canSyncAuto;
               handler.actionPrefix === "DUPLECAST" ||
               handler.actionPrefix === "IBOSOL" ||
               handler.actionPrefix === "IBOPRO" ||
-              handler.actionPrefix === "MESSITV"
+              handler.actionPrefix === "MESSITV" ||
+              handler.actionPrefix === "BOBPLAYER"
                 ? appPin
                 : password,
           });
@@ -2798,7 +2800,8 @@ const canSyncAgenda = canSyncAuto;
           handler.actionPrefix === "DUPLECAST" ||
           handler.actionPrefix === "IBOSOL" ||
           handler.actionPrefix === "IBOPRO" ||
-          handler.actionPrefix === "MESSITV"
+          handler.actionPrefix === "MESSITV" ||
+          handler.actionPrefix === "BOBPLAYER"
             ? appPinDelete
             : password,
       }),
@@ -4161,7 +4164,8 @@ if (syncOperadora) {
                       handler.actionPrefix === "DUPLECAST" ||
                       handler.actionPrefix === "IBOSOL" ||
                       handler.actionPrefix === "IBOPRO" ||
-                      handler.actionPrefix === "MESSITV"
+                      handler.actionPrefix === "MESSITV" ||
+                      handler.actionPrefix === "BOBPLAYER"
                         ? appPinAuto
                         : apiPassword,
                     macValue: macValueAuto,
@@ -6853,7 +6857,9 @@ className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify
                                         ? "Quick Player"
                                         : intType === "MESSITV"
                                           ? "MessiTV"
-                                          : intType;
+                                          : intType === "BOBPLAYER"
+                                            ? "BOB Player"
+                                            : intType;
 
                             return (
                               <button

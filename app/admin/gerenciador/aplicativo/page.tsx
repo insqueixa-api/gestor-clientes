@@ -677,7 +677,9 @@ setApps(formattedApps);
                 ? "Quick Player"
                 : app.integration_type === "MESSITV"
                   ? "MessiTV"
-                  : app.integration_type === "LAZERPLAY"
+                  : app.integration_type === "BOBPLAYER"
+                    ? "BOB Player"
+                    : app.integration_type === "LAZERPLAY"
                     ? "Lazer Play"
                     : app.integration_type === "FUNPLAY"
                       ? "Fun Play"
@@ -1287,10 +1289,16 @@ setApps(formattedApps);
                         GerenciaApp (IBO Revenda, etc)
                       </option>
                       <option value="DUPLECAST">DupleCast</option>
-                      <option value="IBOSOL">IBO Sol</option>
+                      {/* IBOSOL removido do select em 27/07/2026 (pedido do
+                          Márcio) — consolidava vários apps da família via
+                          activation.iboplayer.com, que não funciona mais.
+                          Apps que já estavam com integration_type=IBOSOL
+                          (ex: "IBO Player") continuam salvos assim até serem
+                          migrados individualmente — não afeta quem já usa. */}
                       <option value="IBOPRO">IBO Pro Player</option>
                       <option value="QUICKPLAYER">Quick Player</option>
                       <option value="MESSITV">MessiTV</option>
+                      <option value="BOBPLAYER">BOB Player</option>
                     </select>
                     <p className="text-[11px] text-muted-foreground mt-1">
                       Quando configurado, habilita automação ao criar clientes.

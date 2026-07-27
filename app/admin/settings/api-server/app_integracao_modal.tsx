@@ -66,14 +66,16 @@ export default function AppIntegracaoModal({
   const isIboPro = appName === "IBOPRO";
   const isQuickPlayer = appName === "QUICKPLAYER";
   const isMessiTv = appName === "MESSITV";
+  const isBobPlayer = appName === "BOBPLAYER";
   const needsPin =
     isDuplecast ||
     isIboSol ||
     isIboPro ||
     isQuickPlayer ||
-    isMessiTv;
+    isMessiTv ||
+    isBobPlayer;
   const noCredentials =
-    isIboSol || isIboPro || isQuickPlayer || isMessiTv; // Apps que não usam email/senha (login é por MAC+Device Key, por aparelho)
+    isIboSol || isIboPro || isQuickPlayer || isMessiTv || isBobPlayer; // Apps que não usam email/senha (login é por MAC+Device Key, por aparelho)
 
   useEffect(() => {
     if (integration) {
@@ -259,10 +261,18 @@ export default function AppIntegracaoModal({
                   GerenciaApp (IBO Revenda, etc)
                 </option>
                 <option value="DUPLECAST">DupleCast</option>
-                <option value="IBOSOL">IBO Sol</option>
+                {/* IBOSOL removido de propósito (27/07/2026, pedido do Márcio) —
+                    consolidava vários apps da família (BOB Player, Duplex TV
+                    Player etc.) via activation.iboplayer.com, que não funciona
+                    mais (bloqueio Cloudflare sem solução). Só o app "IBO Player"
+                    ainda depende dela (delete via iboplayer.com), fica pendente
+                    de ajuste numa rodada futura — não remover as linhas de
+                    isIboSol/noCredentials acima nem a rota ibosol/route.ts
+                    enquanto isso não for migrado. */}
                 <option value="IBOPRO">IBO Pro Player</option>
                 <option value="QUICKPLAYER">Quick Player / Quick Player Pro</option>
                 <option value="MESSITV">MessiTV</option>
+                <option value="BOBPLAYER">BOB Player</option>
               </select>
             </div>
 
@@ -285,7 +295,9 @@ export default function AppIntegracaoModal({
                           ? 'Ex: "Quick Player"'
                           : isMessiTv
                             ? 'Ex: "MessiTV"'
-                            : 'Ex: "Nome do aplicativo"'
+                            : isBobPlayer
+                              ? 'Ex: "BOB Player"'
+                              : 'Ex: "Nome do aplicativo"'
                 }
                 className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors"
               />
@@ -310,7 +322,9 @@ export default function AppIntegracaoModal({
                           ? "Ex: https://api.quickplayer.app"
                           : isMessiTv
                             ? "Ex: https://messitvplayer.com"
-                            : "Ex: https://gerenciaapp.top"
+                            : isBobPlayer
+                              ? "Ex: https://www.bobplayer.com"
+                              : "Ex: https://gerenciaapp.top"
                 }
                 type="url"
                 className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors font-mono text-xs"
