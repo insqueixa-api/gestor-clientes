@@ -155,7 +155,11 @@ async function savePlaylist(
       playlist_type: "general",
       email: "",
       whatsapp: "",
-      protect: pin ? 1 : 0,
+      // ⚠️ iboplayer.com espera STRING "true"/"false" aqui, não 1/0 (diferente
+      // de messitvplayer.com e bobplayer.com) — confirmado no bundle JS do
+      // site (protect:d?"true":"false") depois que um create real veio com
+      // is_protected:0 mesmo mandando protect:1 + pin preenchido.
+      protect: pin ? "true" : "false",
       xml_url: "",
       pin: pin || "",
       device_id: deviceId,
