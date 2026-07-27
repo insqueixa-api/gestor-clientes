@@ -172,7 +172,20 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: false, error: "m3uUrl é obrigatório para create." }, { status: 400 });
       }
       await createPlaylist(siteRoot, macValue, finalServerName || "Playlist", m3uUrl);
-      return NextResponse.json({ ok: true, expireDate: null, message: "Playlist configurada com sucesso." });
+
+      // ✅ Mesma tentativa best-effort do "check" (achado 27/07/2026,
+      // reportado pelo Márcio: o "Configurar" nunca avisava sobre conferir
+      // o vencimento manualmente) — quase sempre vem null (ver nota no topo
+      // do arquivo), mas o caller usa esse `message` pra decidir se mostra
+      // o aviso de conferir no painel do IBOSOL.
+      const { expireDate } = await checkMac(siteRoot, macValue);
+      return NextResponse.json({
+        ok: true,
+        expireDate,
+        message: expireDate
+          ? "Playlist configurada com sucesso."
+          : "Playlist configurada com sucesso. Não foi possível localizar o vencimento automaticamente.",
+      });
     }
 
     // ===========================================================

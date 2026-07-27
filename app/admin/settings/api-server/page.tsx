@@ -2,7 +2,7 @@
 // app/admin/settings/api-server/page.tsx
 import { Pencil, RefreshCcw, Trash2 } from "lucide-react";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode, MouseEvent } from "react";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
@@ -39,6 +39,7 @@ type AppIntegration = {
   login_password: string | null;
   api_url: string | null;
   pin?: string | null;
+  icon_url?: string | null;
   is_active: boolean;
   created_at: string;
 };
@@ -54,6 +55,24 @@ export default function ApiServerPage() {
   const [editingApp, setEditingApp] = useState<AppIntegration | null>(null);
   const [showTypeChooser, setShowTypeChooser] = useState(false);
   const [isModalAppOpen, setIsModalAppOpen] = useState(false);
+
+  // ✅ Logo dos servidores (herdada de `servers.logo_url`, já subida lá em
+  // Gerenciador → Servidor — só replicamos aqui, sem upload nesta tela).
+  const [serverLogoMap, setServerLogoMap] = useState<Map<string, string>>(
+    new Map(),
+  );
+  // ✅ Logo dos aplicativos: herdada do catálogo (`apps.icon_url`) só quando
+  // TODOS os apps que batem com esse handler têm a MESMA logo (ex: um app
+  // só, ou vários com ícone idêntico). Se não bater (ex: GERENCIAAPP cobre
+  // 7 apps com logos diferentes), a integração usa a própria
+  // `app_integrations.icon_url` (upload manual, ver handleAppIconUpload).
+  const [appIconMap, setAppIconMap] = useState<Map<string, string>>(new Map());
+  const [uploadingIconFor, setUploadingIconFor] = useState<string | null>(
+    null,
+  );
+  const appIconFileInputs = useRef<Record<string, HTMLInputElement | null>>(
+    {},
+  );
 
   const { confirm, ConfirmUI } = useConfirm();
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -82,7 +101,7 @@ export default function ApiServerPage() {
         return;
       }
 
-      const [srvRes, appRes] = await Promise.all([
+      const [srvRes, appRes, serversLogoRes, appsIconRes] = await Promise.all([
         supabaseBrowser
           .from("vw_server_integrations")
           .select("*")
@@ -93,12 +112,58 @@ export default function ApiServerPage() {
           .select("*")
           .eq("tenant_id", tenantId)
           .order("created_at", { ascending: false }),
+        supabaseBrowser
+          .from("servers")
+          .select("id,logo_url,panel_integration")
+          .eq("tenant_id", tenantId)
+          .not("panel_integration", "is", null)
+          .not("logo_url", "is", null),
+        // ⚠️ Sem filtro de tenant_id de propósito — igual a busca de catálogo
+        // em novo_cliente.tsx (achado 27/07/2026: apps pode ter linhas de
+        // tenant "raiz" que não batem com getCurrentTenantId(), fazendo a
+        // logo nunca casar — o app search do modal do cliente já não filtra
+        // por isso, então aqui segue o mesmo padrão comprovado).
+        supabaseBrowser
+          .from("apps")
+          .select("icon_url,integration_type")
+          .not("integration_type", "is", null),
       ]);
 
       if (srvRes.error) throw srvRes.error;
       if (appRes.error) throw appRes.error;
       setIntegrations((srvRes.data as IntegrationRow[]) || []);
       setAppList((appRes.data as AppIntegration[]) || []);
+
+      // Servidor → logo (1ª ocorrência não-nula por integration_id)
+      const srvLogoMap = new Map<string, string>();
+      (serversLogoRes.data || []).forEach((s: any) => {
+        if (s.panel_integration && s.logo_url && !srvLogoMap.has(s.panel_integration)) {
+          srvLogoMap.set(s.panel_integration, s.logo_url);
+        }
+      });
+      setServerLogoMap(srvLogoMap);
+
+      // Handler → logo do catálogo, só quando TODOS os apps que batem com
+      // esse handler têm logo cadastrada E é a mesma pra todos (1 app só, ou
+      // vários com ícone idêntico). Se faltar logo em qualquer um deles ou
+      // as logos divergirem (caso do GERENCIAAPP, com 7 apps diferentes),
+      // fica ambíguo e cai pro upload manual da própria integração.
+      const iconsByHandler = new Map<string, Set<string>>();
+      const missingIconByHandler = new Set<string>();
+      (appsIconRes.data || []).forEach((a: any) => {
+        const key = String(a.integration_type || "").trim().toUpperCase();
+        if (!key) return;
+        if (!iconsByHandler.has(key)) iconsByHandler.set(key, new Set());
+        if (a.icon_url) iconsByHandler.get(key)!.add(a.icon_url);
+        else missingIconByHandler.add(key);
+      });
+      const resolvedAppIconMap = new Map<string, string>();
+      iconsByHandler.forEach((icons, key) => {
+        if (icons.size === 1 && !missingIconByHandler.has(key)) {
+          resolvedAppIconMap.set(key, [...icons][0]);
+        }
+      });
+      setAppIconMap(resolvedAppIconMap);
     } catch (e: any) {
       addToast(
         "error",
@@ -285,6 +350,44 @@ export default function ApiServerPage() {
     return a || "--";
   }
 
+  // ✅ Logo manual da integração — só usada quando o catálogo não resolve
+  // uma logo única pra esse handler (ver appIconMap em fetchData).
+  async function handleAppIconUpload(row: AppIntegration, file: File) {
+    if (!file.type.startsWith("image/")) {
+      addToast("error", "Arquivo inválido", "Selecione uma imagem.");
+      return;
+    }
+    try {
+      setUploadingIconFor(row.id);
+      const presignRes = await fetch("/api/upload/presign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: file.name,
+          contentType: file.type,
+          folder: "app_integrations",
+        }),
+      });
+      const { presignedUrl, publicUrl } = await presignRes.json();
+      await fetch(presignedUrl, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type },
+      });
+      const { error } = await supabaseBrowser
+        .from("app_integrations")
+        .update({ icon_url: publicUrl })
+        .eq("id", row.id);
+      if (error) throw error;
+      addToast("success", "Logo salva", "Ícone atualizado com sucesso.");
+      fetchData();
+    } catch (e: any) {
+      addToast("error", "Erro no upload", e?.message ?? "Falha ao enviar a imagem.");
+    } finally {
+      setUploadingIconFor(null);
+    }
+  }
+
   async function handleAppDelete(row: AppIntegration) {
     const ok = await confirm({
       title: "Remover integração?",
@@ -413,6 +516,17 @@ export default function ApiServerPage() {
                   <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-border bg-transparent">
                     <div className="min-w-0 pr-3">
                       <div className="flex items-center gap-2 min-w-0">
+                        {serverLogoMap.get(row.id) ? (
+                          <img
+                            src={serverLogoMap.get(row.id)}
+                            alt=""
+                            className="w-7 h-7 rounded-lg object-cover border border-border shrink-0"
+                          />
+                        ) : (
+                          <div className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center shrink-0 text-xs">
+                            🖥️
+                          </div>
+                        )}
                         <h2
                           className="text-base font-medium truncate text-foreground/90 tracking-tight"
                           title={row.integration_name}
@@ -567,6 +681,73 @@ export default function ApiServerPage() {
                 >
                   <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-border bg-transparent">
                     <div className="flex items-center gap-2 min-w-0 pr-3">
+                      {(() => {
+                        const catalogIcon = appIconMap.get(
+                          String(row.app_name || "").trim().toUpperCase(),
+                        );
+                        if (catalogIcon) {
+                          return (
+                            <img
+                              src={catalogIcon}
+                              alt=""
+                              className="w-7 h-7 rounded-lg object-cover border border-border shrink-0"
+                            />
+                          );
+                        }
+                        // Sem logo única no catálogo (0, várias, ou
+                        // divergentes) — upload manual pra essa integração.
+                        return (
+                          <div
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              const file = e.dataTransfer.files?.[0];
+                              if (file) handleAppIconUpload(row, file);
+                            }}
+                            onPaste={(e) => {
+                              const file = Array.from(
+                                e.clipboardData.files,
+                              ).find((f) => f.type.startsWith("image/"));
+                              if (file) handleAppIconUpload(row, file);
+                            }}
+                            onClick={() =>
+                              appIconFileInputs.current[row.id]?.click()
+                            }
+                            tabIndex={0}
+                            title="Clique, arraste ou cole (Ctrl+V) uma imagem"
+                            className="relative w-7 h-7 rounded-lg border border-dashed border-border shrink-0 flex items-center justify-center cursor-pointer hover:border-emerald-500/50 transition-colors overflow-hidden"
+                          >
+                            {uploadingIconFor === row.id ? (
+                              <span className="text-[9px] text-muted-foreground animate-pulse">
+                                ...
+                              </span>
+                            ) : row.icon_url ? (
+                              <img
+                                src={row.icon_url}
+                                alt=""
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-sm text-muted-foreground">
+                                +
+                              </span>
+                            )}
+                            <input
+                              ref={(el) => {
+                                appIconFileInputs.current[row.id] = el;
+                              }}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) handleAppIconUpload(row, f);
+                                e.target.value = "";
+                              }}
+                            />
+                          </div>
+                        );
+                      })()}
                       <h2 className="text-base font-medium truncate text-foreground/90 tracking-tight">
                         {row.label}
                       </h2>

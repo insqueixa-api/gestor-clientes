@@ -2601,10 +2601,18 @@ const canSyncAgenda = canSyncAuto;
               `App configurado! Vencimento: ${expireDate.split("T")[0].split("-").reverse().join("/")}`,
             );
           } else {
+            // ✅ DUPLEXTV não tem vencimento automático (ver
+            // duplextv/route.ts) — avisa pra conferir no painel do IBOSOL
+            // aqui no "Configurar" também, igual já fazia no "Verificar".
+            // Só no admin — a mensagem que a rota devolve pro portal do
+            // cliente (client-portal/apps/configure/route.ts) fica genérica
+            // de propósito, sem mencionar IBOSOL.
             addToast(
               "success",
               "Integrado!",
-              apiJson.message || "Configurado com sucesso.",
+              handler.actionPrefix === "DUPLEXTV"
+                ? "Playlist configurada! Vencimento não encontrado automaticamente — confira manualmente no painel do IBOSOL."
+                : apiJson.message || "Configurado com sucesso.",
             );
           }
         } else {
