@@ -192,7 +192,14 @@ export async function POST(req: Request) {
     if (integErr || !integ?.api_url) {
       return NextResponse.json({ ok: false, error: "Integração IPTV Duplex Play não configurada." }, { status: 500 });
     }
-    const base = `${new URL(integ.api_url).origin}/api/`;
+    // O Link do Painel cadastrado é o site principal (ex: https://iptvduplex.com,
+    // igual aos outros apps da tela de Integrações) — a API de verdade mora no
+    // subdomínio api.*, então resolve isso aqui em vez de exigir que o admin
+    // descubra e cadastre o subdomínio certo.
+    const siteUrl = new URL(integ.api_url);
+    const bareHost = siteUrl.hostname.replace(/^www\./, "");
+    const apiHost = bareHost.startsWith("api.") ? bareHost : `api.${bareHost}`;
+    const base = `${siteUrl.protocol}//${apiHost}/api/`;
 
     // ===========================================================
     // ACTION: check — vencimento REAL da playlist específica

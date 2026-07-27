@@ -6900,9 +6900,6 @@ className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify
                                     >
                                       <span className="text-[9px] font-medium uppercase tracking-wider">
                                         Descontinuado
-                                        {app.discontinued_replacement_name
-                                          ? ` → ${app.discontinued_replacement_name}`
-                                          : ""}
                                       </span>
                                     </span>
                                   ) : (

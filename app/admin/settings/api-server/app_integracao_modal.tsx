@@ -337,7 +337,7 @@ export default function AppIntegracaoModal({
                               : isIboPlayer
                                 ? "Ex: https://iboplayer.com"
                                 : isIptvDuplex
-                                  ? "Ex: https://api.iptvduplex.com"
+                                  ? "Ex: https://iptvduplex.com"
                                   : "Ex: https://gerenciaapp.top"
                 }
                 type="url"
