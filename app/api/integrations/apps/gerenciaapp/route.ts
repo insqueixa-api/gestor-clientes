@@ -2,14 +2,19 @@
 //
 // Implementação direta (sem VM) do login/create/delete/check no GerenciaApp
 // — migrado de whatsapp-service/src/gerenciaapp.js em 27/07/2026 depois de
-// validar ao vivo (ciclo completo create→check→delete, numa conta real)
-// que gerenciaapp.top responde normal a fetch direto do servidor, SEM
-// precisar do proxy residencial que a VM usava. A suposição antiga de
-// bloqueio de IP de datacenter não se confirmou nesse teste; oproxy fica
-// mantido só na VM (whatsapp-service/.env) por precaução, sem uso aqui.
+// validar ao vivo (ciclo completo create→check→delete, numa conta real) que
+// gerenciaapp.top respondeu normal a fetch direto DO AMBIENTE DE TESTE. Na
+// Vercel de produção (unigestor.net.br) o mesmo teste falhou logo no GET
+// /login ("Não recebi XSRF-TOKEN") — ou seja, o IP da Vercel especificamente
+// TEM bloqueio/challenge que o ambiente de teste não tinha. Por isso essa
+// rota usa o mesmo proxy residencial que a VM já usava
+// (GERENCIAAPP_PROXY_URL) em TODAS as chamadas — login, busca, create,
+// check, delete —, precisa estar configurada também no ambiente da Vercel
+// (não só no whatsapp-service/.env como antes).
 //
-// Dois bugs reais corrigidos nessa migração (achados 27/07/2026, o Márcio
-// configurou um cliente e o toast disse "sucesso" mas nada foi criado):
+// Dois outros bugs reais corrigidos nessa migração (achados 27/07/2026, o
+// Márcio configurou um cliente e o toast disse "sucesso" mas nada foi
+// criado):
 //   1. Toda chamada Inertia com X-Inertia:true precisa mandar
 //      X-Inertia-Version batendo com a versão atual dos assets do painel —
 //      sem isso, Laravel/Inertia devolve 409 com corpo VAZIO (sem detalhe
@@ -22,6 +27,7 @@
 // erro de validação. Por isso SEMPRE confirma buscando o registro recém-
 // criado no painel antes de devolver ok:true pro create.
 import { NextResponse } from "next/server";
+import { fetch as undiciFetch, ProxyAgent } from "undici";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { isInternalRequest, hasBadInternalHeader } from "@/lib/internal-auth";
@@ -31,6 +37,18 @@ export const dynamic = "force-dynamic";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
+
+// Mesmo proxy residencial que a VM usa (whatsapp-service/.env) — aqui
+// precisa vir do ambiente da própria Vercel (GERENCIAAPP_PROXY_URL), não
+// só do .env.local antigo. Sem a env var configurada, cai pra chamada
+// direta (dispatcher undefined) — só funciona em ambientes que não sofrem
+// o bloqueio (não é o caso da Vercel de produção, ver nota acima).
+const PROXY_URL = String(process.env.GERENCIAAPP_PROXY_URL || "").trim();
+const proxyDispatcher = PROXY_URL ? new ProxyAgent(PROXY_URL) : undefined;
+
+function pfetch(url: string, opts: Record<string, any> = {}) {
+  return undiciFetch(url, { ...opts, ...(proxyDispatcher ? { dispatcher: proxyDispatcher } : {}) }) as unknown as Promise<Response>;
+}
 
 // Sessão em memória por conta (email+base_url) — best-effort: em serverless
 // só ajuda em invocações "quentes" na mesma instância; se não tiver cache,
@@ -62,7 +80,7 @@ function cookieHeaderFrom(cookieMap: Record<string, string>): string {
 
 async function clearAvisos(baseUrl: string, cookieHeader: string, xsrfToken: string) {
   try {
-    await fetch(`${baseUrl}/save_session_aviso`, {
+    await pfetch(`${baseUrl}/save_session_aviso`, {
       method: "POST",
       headers: {
         Accept: "application/json, text/plain, */*",
@@ -79,12 +97,12 @@ async function clearAvisos(baseUrl: string, cookieHeader: string, xsrfToken: str
 }
 
 async function performLogin(baseUrl: string, email: string, password: string) {
-  const res1 = await fetch(`${baseUrl}/login`, { headers: { "User-Agent": UA } });
+  const res1 = await pfetch(`${baseUrl}/login`, { headers: { "User-Agent": UA } });
   const cookies1 = parseSetCookies(res1.headers);
   const xsrf1 = decodeURIComponent(cookies1["XSRF-TOKEN"] || "");
   if (!xsrf1) throw new Error("Não recebi XSRF-TOKEN do painel (GET /login).");
 
-  const res2 = await fetch(`${baseUrl}/login`, {
+  const res2 = await pfetch(`${baseUrl}/login`, {
     method: "POST",
     redirect: "manual",
     headers: {
@@ -128,7 +146,7 @@ function invalidateSession(baseUrl: string, email: string) {
 }
 
 async function getInertiaVersion(baseUrl: string, session: any): Promise<string | null> {
-  const res = await fetch(`${baseUrl}/users`, {
+  const res = await pfetch(`${baseUrl}/users`, {
     headers: { Accept: "text/html", Cookie: session.cookieHeader, "User-Agent": UA },
   });
   const html = await res.text();
@@ -150,7 +168,7 @@ async function searchUsersOnPanel(baseUrl: string, session: any, term: string): 
   if (!term || !term.trim()) return [];
   const url = `${baseUrl}/users?page=1&search=${encodeURIComponent(term)}`;
   try {
-    const res = await fetch(url, { headers: { Accept: "text/html", Cookie: session.cookieHeader, "User-Agent": UA } });
+    const res = await pfetch(url, { headers: { Accept: "text/html", Cookie: session.cookieHeader, "User-Agent": UA } });
     if (!res.ok || res.url.includes("/login")) return [];
     const html = await res.text();
     const m = html.match(/data-page="([^"]+)"/);
@@ -212,7 +230,7 @@ async function createGerenciaApp({
   };
 
   const doCreate = (s: any) =>
-    fetch(`${BASE_URL}/users`, {
+    pfetch(`${BASE_URL}/users`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -365,7 +383,7 @@ async function deleteGerenciaApp({
 
   await new Promise((r) => setTimeout(r, 1000));
 
-  const deleteRes = await fetch(`${BASE_URL}/users/${userIdToDelete}`, {
+  const deleteRes = await pfetch(`${BASE_URL}/users/${userIdToDelete}`, {
     method: "DELETE",
     headers: {
       accept: "application/json, text/plain, */*",
