@@ -2607,12 +2607,21 @@ const canSyncAgenda = canSyncAuto;
             // Só no admin — a mensagem que a rota devolve pro portal do
             // cliente (client-portal/apps/configure/route.ts) fica genérica
             // de propósito, sem mencionar IBOSOL.
+            //
+            // ✅ Pra qualquer OUTRO handler (achado 27/07/2026): sem isso o
+            // toast dizia só "Configurado com sucesso." tanto quando a
+            // validade veio quanto quando o "check" pós-create falhou
+            // silenciosamente (try/catch vazio ali em cima) — impossível
+            // distinguir "funcionou e não tem data mesmo" de "algo falhou
+            // ao confirmar". Agora avisa explicitamente pra conferir com
+            // "Verificar vencimento".
             addToast(
               "success",
               "Integrado!",
               handler.actionPrefix === "DUPLEXTV"
                 ? "Playlist configurada! Vencimento não encontrado automaticamente — confira manualmente no painel do IBOSOL."
-                : apiJson.message || "Configurado com sucesso.",
+                : apiJson.message ||
+                    "App configurado, mas não foi possível confirmar o vencimento agora — clique em \"Verificar vencimento\" pra conferir.",
             );
           }
         } else {
@@ -4290,10 +4299,16 @@ if (syncOperadora) {
                           message: `${app.name} ativado. Vencimento: ${expireDateAuto.split("T")[0].split("-").reverse().join("/")}`,
                         });
                       } else {
+                        // ✅ Mesma honestidade do fluxo manual (handleConfigApp)
+                        // — sem isso parecia sucesso pleno mesmo quando o
+                        // "check" pós-create falhou silenciosamente.
                         queueListToast("trial", {
                           type: "success",
                           title: "App Integrado",
-                          message: `${app.name} ativado com sucesso!`,
+                          message:
+                            handler.actionPrefix === "DUPLEXTV"
+                              ? `${app.name} ativado. Vencimento não encontrado automaticamente — confira no painel do IBOSOL.`
+                              : `${app.name} ativado, mas não foi possível confirmar o vencimento agora.`,
                         });
                       }
                     } else {

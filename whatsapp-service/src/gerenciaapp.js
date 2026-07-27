@@ -112,12 +112,54 @@ function invalidateSession(baseUrl, email) {
   sessionCache.delete(`${baseUrl}::${email}`);
 }
 
+// ⚠️ Achado em produção (27/07/2026, Márcio configurou um cliente e o toast
+// disse "sucesso" mas nada foi criado): toda chamada Inertia com
+// `X-Inertia: true` PRECISA mandar `X-Inertia-Version` batendo com a versão
+// atual dos assets do painel — sem isso, Laravel/Inertia devolve 409 com
+// corpo VAZIO (sem detalhe de erro nenhum), interpretado até aqui como
+// "redirect = sucesso". Sem cache: cada create busca a versão atual na hora
+// (o painel pode fazer deploy novo a qualquer momento, e não vale a pena
+// gerenciar invalidação de cache só pra isso — é 1 GET a mais, barato).
+async function getInertiaVersion(BASE_URL, session) {
+  const res = await pfetch(`${BASE_URL}/users`, {
+    headers: { Accept: "text/html", Cookie: session.cookieHeader },
+  });
+  const html = await res.text();
+  const m = html.match(/data-page="([^"]+)"/);
+  if (!m) return null;
+  const decoded = m[1].replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+  try {
+    return JSON.parse(decoded)?.version || null;
+  } catch {
+    return null;
+  }
+}
+
 // ============================================================
 // CREATE
 // ============================================================
 export async function createGerenciaApp({ baseUrl, email, password, payload }) {
   const BASE_URL = baseUrl.replace(/\/$/, "");
   let session = await getSession(BASE_URL, email, password);
+  const inertiaVersion = await getInertiaVersion(BASE_URL, session);
+
+  // ⚠️ O painel mudou o formulário de criação (achado 27/07/2026, junto com
+  // o bug do X-Inertia-Version acima): os campos soltos antigos
+  // (mac_device/server_name/m3u8_list na raiz) não bastam mais — agora
+  // exige também um array `playlists`, com `modo_selecao` DENTRO de cada
+  // item (não só na raiz). Mantemos os campos antigos no payload por
+  // segurança (não atrapalham), e adicionamos o array novo por cima.
+  const enrichedPayload = {
+    ...payload,
+    playlists: [
+      {
+        modo_selecao: payload.modo_selecao ?? 1,
+        name: payload.server_name,
+        url: payload.m3u8_list,
+        m3u8_list: payload.m3u8_list,
+      },
+    ],
+  };
 
   const doCreate = (s) =>
     pfetch(`${BASE_URL}/users`, {
@@ -127,10 +169,11 @@ export async function createGerenciaApp({ baseUrl, email, password, payload }) {
         Accept: "text/html, application/xhtml+xml, application/json",
         "X-Requested-With": "XMLHttpRequest",
         "X-Inertia": "true",
+        ...(inertiaVersion ? { "X-Inertia-Version": inertiaVersion } : {}),
         "X-XSRF-TOKEN": s.xsrfToken,
         Cookie: s.cookieHeader,
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(enrichedPayload),
     });
 
   let res = await doCreate(session);
@@ -146,8 +189,51 @@ export async function createGerenciaApp({ baseUrl, email, password, payload }) {
   }
 
   const text = await res.text();
-  if (res.ok || res.status === 302 || res.redirected) {
-    return { ok: true, message: "Sucesso!" };
+
+  // ⚠️ Achado em produção (27/07/2026, Márcio configurou um cliente e o
+  // toast disse "sucesso" mas nada foi criado de verdade no painel): Inertia
+  // responde erro de validação com um REDIRECT de volta pro form (302/303),
+  // não com um HTTP de erro — `res.ok || status===302 || redirected` batia
+  // "sucesso" mesmo quando o painel rejeitou o create (ex: MAC duplicado,
+  // campo inválido). Só confiar no HTTP não é suficiente: confirma de
+  // verdade buscando o usuário recém-criado no painel antes de devolver ok.
+  const looksOk = res.ok || res.status === 302 || res.status === 303 || res.redirected;
+
+  // Com X-Inertia-Version certo, erro de validação agora costuma vir com
+  // HTTP 200 mesmo (Inertia devolve a página de volta com `props.errors`
+  // preenchido) — checa isso ANTES de confiar no HTTP, senão o "looksOk"
+  // acima trata como sucesso mesmo com erro de validação no corpo.
+  if (looksOk) {
+    try {
+      const json = JSON.parse(text);
+      const errors = json?.props?.errors || {};
+      const firstErr = Object.values(errors)[0];
+      if (firstErr) return { ok: false, error: String(firstErr) };
+    } catch {
+      // corpo não é JSON (ex: 302 puro sem body) — segue pra verificação por busca
+    }
+  }
+
+  if (looksOk) {
+    // Painel pode levar um instante pra indexar o registro novo na busca —
+    // 2 tentativas com um respiro entre elas, mesmo padrão de espera já
+    // usado no clearAvisos/getSession acima.
+    let verified = null;
+    for (let attempt = 1; attempt <= 2 && !verified; attempt++) {
+      if (attempt > 1) await new Promise((r) => setTimeout(r, 1500));
+      const found = await searchUsersOnPanel(BASE_URL, session, payload.server_name);
+      const macNorm = normalizeMac(payload.mac_device);
+      verified = found.find((u) => normalizeMac(JSON.stringify(u)).includes(macNorm)) || (found.length === 1 ? found[0] : null);
+    }
+
+    if (verified) {
+      return { ok: true, message: "Sucesso!" };
+    }
+
+    return {
+      ok: false,
+      error: `O painel respondeu sem erro, mas o usuário "${payload.server_name}" não apareceu na busca depois de criar — confira manualmente no GerenciaApp (pode ser MAC duplicado ou outra validação que o painel não devolve como erro HTTP).`,
+    };
   }
 
   let errMsg = `HTTP ${res.status}`;
