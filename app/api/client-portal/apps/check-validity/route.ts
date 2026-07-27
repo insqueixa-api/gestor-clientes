@@ -125,13 +125,23 @@ export async function POST(req: NextRequest) {
       return jsonError(apiJson?.error || "Falha ao consultar o painel do parceiro.", 400);
     }
 
+    // ✅ Quando o parceiro não devolve vencimento (ex: DUPLEXTV quase nunca
+    // devolve — o site deles não tem endpoint de status real, ver
+    // duplextv/route.ts), o cliente NUNCA deve ver "não encontrado": mantém
+    // o valor já salvo no banco e devolve ele como se tivesse achado. Achado
+    // 27/07/2026, pedido do Márcio — vale pra qualquer handler, não só
+    // DUPLEXTV.
     const dateField = findFieldByType(fieldsConfig, "date");
-    if (apiJson.expireDate && dateField) {
+    let expireDate: string | null = apiJson.expireDate || null;
+    if (expireDate && dateField) {
       const fieldKey = String(dateField.id || dateField.label);
       await supabaseAdmin
         .from("client_apps")
-        .update({ field_values: { ...values, [fieldKey]: apiJson.expireDate } })
+        .update({ field_values: { ...values, [fieldKey]: expireDate } })
         .eq("id", client_app_id);
+    } else if (dateField) {
+      const fieldKey = String(dateField.id || dateField.label);
+      expireDate = values[fieldKey] || null;
     }
 
     after(() =>
@@ -141,12 +151,14 @@ export async function POST(req: NextRequest) {
         clientAppId: client_app_id,
         appName,
         event: "check_validity",
+        // Log fica com o que o parceiro REALMENTE devolveu (pra auditoria) —
+        // `expireDate` (com fallback pro banco) é só o que vai pro cliente.
         detail: apiJson.expireDate ? { expireDate: apiJson.expireDate } : null,
       }),
     );
 
     return NextResponse.json(
-      { ok: true, expireDate: apiJson.expireDate || null },
+      { ok: true, expireDate },
       { status: 200, headers: NO_STORE_HEADERS },
     );
   } catch {
