@@ -240,11 +240,17 @@ export async function POST(req: Request) {
       let expireDate: string | null = null;
       try {
         const authToken = await login(base, macValue, deviceKey);
-        const { playlists } = await getDevice(base, authToken);
+        const { playlists, activationExpired } = await getDevice(base, authToken);
         const created = playlists.find(
           (p) => String(p.name || "").toLowerCase().trim() === String(finalServerName || "").toLowerCase().trim(),
         );
-        expireDate = created?.expired_date || null;
+        // ✅ Mesmo fallback do "check" (achado 27/07/2026, reportado pelo
+        // Márcio: "Verificar" preenchia a validade certinho, "Configurar"
+        // não) — o expired_date da playlist em si só vem depois que o
+        // parceiro valida o m3u de forma assíncrona (sempre null na hora de
+        // criar), então sem o fallback pro vencimento da conta o create
+        // nunca tinha nada pra mostrar.
+        expireDate = created?.expired_date || activationExpired || null;
       } catch {
         // best-effort — create já foi feito, não bloqueia
       }
