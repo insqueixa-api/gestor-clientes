@@ -1270,6 +1270,7 @@ const canSyncAgenda = canSyncAuto;
     name: string;
     fields_config: any[];
     info_url: string | null;
+    icon_url?: string | null;
     integration_type?: string | null;
     cost_type?: "free" | "paid" | "partnership" | null;
     is_active?: boolean | null;
@@ -3013,7 +3014,12 @@ const canSyncAgenda = canSyncAuto;
                   username: finalServerName,
                   macValue,
                 }
-              : { action: "check", macValue };
+              : // ✅ DUPLECAST/MESSITV/BOBPLAYER/IBOPLAYER/IPTVDUPLEX (e futuros
+                // handlers do mesmo padrão mac+device_key): faltava deviceKey
+                // aqui — a rota exige e o botão "Verificar vencimento" do
+                // admin sempre falhava com "Device Key é obrigatório", mesmo
+                // com o campo preenchido no app (achado 27/07/2026).
+                { action: "check", macValue, deviceKey: deviceKeyCheck };
 
         const apiRes = await fetch((handler as any).apiEndpoint, {
           method: "POST",
@@ -6886,6 +6892,15 @@ className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify
                                 className="w-full text-left px-4 py-3 text-sm text-foreground/90 hover:bg-emerald-500/10 hover:text-emerald-500 border-b border-border last:border-0 transition-colors flex items-center justify-between group"
                               >
                                 <div className="flex items-center gap-2">
+                                  {app.icon_url ? (
+                                    <img
+                                      src={app.icon_url}
+                                      alt=""
+                                      className="w-5 h-5 rounded object-cover shrink-0"
+                                    />
+                                  ) : (
+                                    <span className="shrink-0">📱</span>
+                                  )}
                                   <span className="font-medium">
                                     {app.name}
                                   </span>
