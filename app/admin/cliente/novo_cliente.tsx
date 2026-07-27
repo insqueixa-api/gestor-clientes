@@ -2451,7 +2451,8 @@ const canSyncAgenda = canSyncAuto;
         handler.actionPrefix === "IBOSOL" ||
         handler.actionPrefix === "IBOPRO" ||
         handler.actionPrefix === "MESSITV" ||
-        handler.actionPrefix === "BOBPLAYER"
+        handler.actionPrefix === "BOBPLAYER" ||
+        handler.actionPrefix === "IBOPLAYER"
           ? appPin
           : password,
       macValue,
@@ -2496,7 +2497,8 @@ const canSyncAgenda = canSyncAuto;
               handler.actionPrefix === "IBOSOL" ||
               handler.actionPrefix === "IBOPRO" ||
               handler.actionPrefix === "MESSITV" ||
-              handler.actionPrefix === "BOBPLAYER"
+              handler.actionPrefix === "BOBPLAYER" ||
+              handler.actionPrefix === "IBOPLAYER"
                 ? appPin
                 : password,
           });
@@ -2801,7 +2803,8 @@ const canSyncAgenda = canSyncAuto;
           handler.actionPrefix === "IBOSOL" ||
           handler.actionPrefix === "IBOPRO" ||
           handler.actionPrefix === "MESSITV" ||
-          handler.actionPrefix === "BOBPLAYER"
+          handler.actionPrefix === "BOBPLAYER" ||
+          handler.actionPrefix === "IBOPLAYER"
             ? appPinDelete
             : password,
       }),
@@ -4165,7 +4168,8 @@ if (syncOperadora) {
                       handler.actionPrefix === "IBOSOL" ||
                       handler.actionPrefix === "IBOPRO" ||
                       handler.actionPrefix === "MESSITV" ||
-                      handler.actionPrefix === "BOBPLAYER"
+                      handler.actionPrefix === "BOBPLAYER" ||
+                      handler.actionPrefix === "IBOPLAYER"
                         ? appPinAuto
                         : apiPassword,
                     macValue: macValueAuto,
@@ -6859,7 +6863,9 @@ className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify
                                           ? "MessiTV"
                                           : intType === "BOBPLAYER"
                                             ? "BOB Player"
-                                            : intType;
+                                            : intType === "IBOPLAYER"
+                                              ? "IBO Player"
+                                              : intType;
 
                             return (
                               <button

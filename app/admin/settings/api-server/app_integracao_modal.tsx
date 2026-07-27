@@ -67,15 +67,17 @@ export default function AppIntegracaoModal({
   const isQuickPlayer = appName === "QUICKPLAYER";
   const isMessiTv = appName === "MESSITV";
   const isBobPlayer = appName === "BOBPLAYER";
+  const isIboPlayer = appName === "IBOPLAYER";
   const needsPin =
     isDuplecast ||
     isIboSol ||
     isIboPro ||
     isQuickPlayer ||
     isMessiTv ||
-    isBobPlayer;
+    isBobPlayer ||
+    isIboPlayer;
   const noCredentials =
-    isIboSol || isIboPro || isQuickPlayer || isMessiTv || isBobPlayer; // Apps que não usam email/senha (login é por MAC+Device Key, por aparelho)
+    isIboSol || isIboPro || isQuickPlayer || isMessiTv || isBobPlayer || isIboPlayer; // Apps que não usam email/senha (login é por MAC+Device Key, por aparelho)
 
   useEffect(() => {
     if (integration) {
@@ -273,6 +275,7 @@ export default function AppIntegracaoModal({
                 <option value="QUICKPLAYER">Quick Player / Quick Player Pro</option>
                 <option value="MESSITV">MessiTV</option>
                 <option value="BOBPLAYER">BOB Player</option>
+                <option value="IBOPLAYER">IBO Player</option>
               </select>
             </div>
 
@@ -297,7 +300,9 @@ export default function AppIntegracaoModal({
                             ? 'Ex: "MessiTV"'
                             : isBobPlayer
                               ? 'Ex: "BOB Player"'
-                              : 'Ex: "Nome do aplicativo"'
+                              : isIboPlayer
+                                ? 'Ex: "IBO Player"'
+                                : 'Ex: "Nome do aplicativo"'
                 }
                 className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors"
               />
@@ -324,7 +329,9 @@ export default function AppIntegracaoModal({
                             ? "Ex: https://messitvplayer.com"
                             : isBobPlayer
                               ? "Ex: https://www.bobplayer.com"
-                              : "Ex: https://gerenciaapp.top"
+                              : isIboPlayer
+                                ? "Ex: https://iboplayer.com"
+                                : "Ex: https://gerenciaapp.top"
                 }
                 type="url"
                 className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors font-mono text-xs"

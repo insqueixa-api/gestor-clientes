@@ -5,7 +5,7 @@
 
 // Handlers cujo campo "password" do payload é o PIN da integração
 // (app_integrations.pin), não a senha real do cliente — mesma regra do admin.
-export const PIN_HANDLERS = new Set(["DUPLECAST", "IBOSOL", "IBOPRO", "MESSITV", "BOBPLAYER"]);
+export const PIN_HANDLERS = new Set(["DUPLECAST", "IBOSOL", "IBOPRO", "MESSITV", "BOBPLAYER", "IBOPLAYER"]);
 
 // Handlers cuja rota de integração já implementa action:"check" (consulta
 // só leitura do vencimento real, sem criar/alterar nada). QuickPlayer não
@@ -24,13 +24,13 @@ export const PIN_HANDLERS = new Set(["DUPLECAST", "IBOSOL", "IBOPRO", "MESSITV",
 // MESSITV/BOBPLAYER entraram em 27/07/2026: login (mac+device_key, com
 // captcha resolvido via Gemini) devolve o expire_date real do dispositivo —
 // igual DUPLECAST, sem precisar de heurística.
-export const CHECK_VALIDITY_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP", "MESSITV", "BOBPLAYER"]);
+export const CHECK_VALIDITY_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP", "MESSITV", "BOBPLAYER", "IBOPLAYER"]);
 
 // Igual ao CHECK_VALIDITY_HANDLERS acima, mas pro botão "Verificar
 // vencimento" do ADMIN (novo_cliente.tsx) — que também inclui IBOSOL, cujo
 // check roda via extensão do Chrome (só existe no navegador do admin, por
 // isso não pode entrar no CHECK_VALIDITY_HANDLERS do portal do cliente).
-export const ADMIN_CHECK_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP", "IBOSOL", "MESSITV", "BOBPLAYER"]);
+export const ADMIN_CHECK_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP", "IBOSOL", "MESSITV", "BOBPLAYER", "IBOPLAYER"]);
 
 export function extractFieldByType(fieldsConfig: any[], values: Record<string, any>, type: string) {
   const field = (fieldsConfig || []).find(

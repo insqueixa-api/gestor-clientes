@@ -6,6 +6,7 @@ import { IboProAPI as IboProIntegration } from "@/app/api/integrations/apps/ibop
 import { QuickPlayerAPI } from "./quickplayer";
 import { MessiTVIntegration } from "./messitv";
 import { BobPlayerIntegration } from "./bobplayer";
+import { IboPlayerIntegration } from "./iboplayer";
 
 const INTEGRATION_REGISTRY: Record<string, any> = {
     "GERENCIAAPP":      GerenciaAppIntegration,
@@ -24,6 +25,7 @@ const INTEGRATION_REGISTRY: Record<string, any> = {
     "QUICKPLAYER":      QuickPlayerAPI,
     "MESSITV":          MessiTVIntegration,
     "BOBPLAYER":        BobPlayerIntegration,
+    "IBOPLAYER":        IboPlayerIntegration,
 };
 
 export function getIntegrationHandler(integrationType: string) {
