@@ -1,31 +1,53 @@
 // app/api/integrations/apps/gerenciaapp/route.ts
 //
-// Implementação direta (sem VM) do login/create/delete/check no GerenciaApp
-// — migrado de whatsapp-service/src/gerenciaapp.js em 27/07/2026 depois de
-// validar ao vivo (ciclo completo create→check→delete, numa conta real) que
-// gerenciaapp.top respondeu normal a fetch direto DO AMBIENTE DE TESTE. Na
-// Vercel de produção (unigestor.net.br) o mesmo teste falhou logo no GET
-// /login ("Não recebi XSRF-TOKEN") — ou seja, o IP da Vercel especificamente
-// TEM bloqueio/challenge que o ambiente de teste não tinha. Por isso essa
-// rota usa o mesmo proxy residencial que a VM já usava
-// (GERENCIAAPP_PROXY_URL) em TODAS as chamadas — login, busca, create,
-// check, delete —, precisa estar configurada também no ambiente da Vercel
-// (não só no whatsapp-service/.env como antes).
+// 28/07/2026: o Márcio achou (inspecionando a rede do próprio navegador) o
+// jeito CERTO de mexer numa playlist sem afetar as outras do mesmo MAC.
+// Descoberta ao vivo, testada no MAC real CA:C1:BD:87:65:C7:
 //
-// Dois outros bugs reais corrigidos nessa migração (achados 27/07/2026, o
-// Márcio configurou um cliente e o toast disse "sucesso" mas nada foi
-// criado):
-//   1. Toda chamada Inertia com X-Inertia:true precisa mandar
-//      X-Inertia-Version batendo com a versão atual dos assets do painel —
-//      sem isso, Laravel/Inertia devolve 409 com corpo VAZIO (sem detalhe
-//      de erro), fácil de confundir com bloqueio/sucesso.
-//   2. O formulário de criação mudou: agora exige um array `playlists`
-//      (com `modo_selecao` DENTRO de cada item), não só os campos soltos
-//      antigos na raiz do payload.
-// Além disso, "parece sucesso" (200/302/303/redirected) não é confiável
-// sozinho — Inertia devolve HTTP 200 com `props.errors` preenchido pra
-// erro de validação. Por isso SEMPRE confirma buscando o registro recém-
-// criado no painel antes de devolver ok:true pro create.
+//   - Cada playlist é sua PRÓPRIA linha na tabela `users` do GerenciaApp
+//     (mesmo modelo de antes), todas compartilhando o campo `mac_device`.
+//   - GET /users/{id}/edit devolve, em `props.playlists`, a lista COMPLETA
+//     de todas as linhas-irmãs daquele MAC — não importa qual `id` das
+//     irmãs você usa na URL, a resposta é sempre a família inteira. Isso
+//     resolve de vez o bug antigo de "busca só acha a mais recente" (a
+//     busca só serve pra achar UM id de entrada pra essa família; a lista
+//     de verdade vem do /edit).
+//   - POST /users/{id} (multipart, mesmos campos do form de edição, com um
+//     `playlists[N][...]` por linha desejada) faz uma SINCRONIZAÇÃO: toda
+//     linha-irmã cujo `id` NÃO está no array enviado é APAGADA; toda linha
+//     cujo `id` está no array sobrevive. Validado ao vivo 3x:
+//       1. Reenviar o array completo + 1 item novo (sem `id`) = cria uma
+//          linha nova, mantém as existentes intactas (mesmos ids).
+//       2. Reenviar o array completo menos 1 item = apaga só aquela linha,
+//          mantém as outras intactas.
+//       3. ⚠️ Postar pro id de uma linha que você quer APAGAR, sem incluir
+//          esse id no array, TAMBÉM apaga essa linha — mesmo sendo "o id da
+//          URL". Ou seja, a regra de ouro é: o array enviado tem que conter
+//          o id de TODA linha que deve sobreviver, incluindo, se for o
+//          caso, o próprio id pro qual você tá postando. Testado e
+//          confirmado apagando sem querer uma playlist real nesse processo
+//          (recriada depois com os dados originais).
+//   - Achado técnico à parte: mandar a FormData nativa direto pelo
+//     ProxyAgent do `undici` chegava VAZIA no servidor (422 "campo
+//     obrigatório" pra campos que estavam sendo enviados). Contornado
+//     serializando a FormData num Buffer fixo (com Content-Length) antes de
+//     mandar pelo proxy.
+//
+// Por isso essa rota agora faz, pra CREATE (adicionar sem apagar as
+// outras) e DELETE (apagar só uma, preservando as outras):
+//   1. Busca o MAC via GET /users?search=...&ajax_search=1 (JSON direto,
+//      mais simples que o scraping antigo de data-page) — só pra achar UM
+//      id qualquer daquele MAC.
+//   2. GET /users/{id}/edit pra pegar a família completa de playlists.
+//   3. Monta o array final (com ou sem a entrada alvo) e reenvia via POST
+//      /users/{id-de-uma-linha-que-vai-sobreviver} — nunca posta pro id da
+//      linha que está sendo removida.
+// Se sobrar 0 playlists depois de remover (era a última do MAC), usa o
+// DELETE /users/{id} clássico mesmo — não tem mais nada pra preservar.
+//
+// Se o MAC não tem NENHUMA linha ainda (create em MAC novo), usa o POST
+// /users (store) clássico — mesmo fluxo já validado em rodadas anteriores
+// (X-Inertia-Version + array `playlists` no payload, ver histórico).
 import { NextResponse } from "next/server";
 import { fetch as undiciFetch, ProxyAgent } from "undici";
 import { createClient } from "@/lib/supabase/server";
@@ -38,11 +60,9 @@ export const dynamic = "force-dynamic";
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
 
-// Mesmo proxy residencial que a VM usa (whatsapp-service/.env) — aqui
-// precisa vir do ambiente da própria Vercel (GERENCIAAPP_PROXY_URL), não
-// só do .env.local antigo. Sem a env var configurada, cai pra chamada
-// direta (dispatcher undefined) — só funciona em ambientes que não sofrem
-// o bloqueio (não é o caso da Vercel de produção, ver nota acima).
+// Mesmo proxy residencial que a VM usava — precisa vir do ambiente da
+// própria Vercel (GERENCIAAPP_PROXY_URL). Sem ele, cai pra chamada direta,
+// que sofre bloqueio/challenge do Cloudflare a partir do IP da Vercel.
 const PROXY_URL = String(process.env.GERENCIAAPP_PROXY_URL || "").trim();
 const proxyDispatcher = PROXY_URL ? new ProxyAgent(PROXY_URL) : undefined;
 
@@ -50,11 +70,10 @@ function pfetch(url: string, opts: Record<string, any> = {}) {
   return undiciFetch(url, { ...opts, ...(proxyDispatcher ? { dispatcher: proxyDispatcher } : {}) }) as unknown as Promise<Response>;
 }
 
-// Sessão em memória por conta (email+base_url) — best-effort: em serverless
-// só ajuda em invocações "quentes" na mesma instância; se não tiver cache,
-// getSession loga de novo sem problema. Cookie do painel expira em 2h
-// (Max-Age=7200 real); guardamos por 100min.
-const sessionCache = new Map();
+// Sessão em memória por conta — best-effort (só ajuda em invocações
+// "quentes" na mesma instância serverless). Cookie do painel expira em 2h;
+// guardamos por 100min.
+const sessionCache = new Map<string, any>();
 const SESSION_TTL_MS = 100 * 60 * 1000;
 
 function getSetCookies(headers: Headers): string[] {
@@ -145,10 +164,29 @@ function invalidateSession(baseUrl: string, email: string) {
   sessionCache.delete(`${baseUrl}::${email}`);
 }
 
+// Sessão fica presa a um objeto mutável (cookieHeader/xsrfToken podem ser
+// atualizados a cada resposta — o painel manda cookie novo em quase toda
+// chamada).
+function updateSession(session: any, res: Response) {
+  const fresh = parseSetCookies(res.headers);
+  if (Object.keys(fresh).length === 0) return;
+  const existing: Record<string, string> = {};
+  for (const part of String(session.cookieHeader || "").split("; ")) {
+    if (!part) continue;
+    const eq = part.indexOf("=");
+    if (eq === -1) continue;
+    existing[part.slice(0, eq)] = part.slice(eq + 1);
+  }
+  const merged: Record<string, string> = { ...existing, ...fresh };
+  session.cookieHeader = cookieHeaderFrom(merged);
+  if (fresh["XSRF-TOKEN"]) session.xsrfToken = decodeURIComponent(fresh["XSRF-TOKEN"]);
+}
+
 async function getInertiaVersion(baseUrl: string, session: any): Promise<string | null> {
   const res = await pfetch(`${baseUrl}/users`, {
     headers: { Accept: "text/html", Cookie: session.cookieHeader, "User-Agent": UA },
   });
+  updateSession(session, res);
   const html = await res.text();
   const m = html.match(/data-page="([^"]+)"/);
   if (!m) return null;
@@ -160,63 +198,144 @@ async function getInertiaVersion(baseUrl: string, session: any): Promise<string 
   }
 }
 
-function normalizeMac(mac: string): string {
-  return String(mac || "").replace(/[^a-fA-F0-9]/g, "").toUpperCase();
-}
-
-async function searchUsersOnPanel(baseUrl: string, session: any, term: string): Promise<any[]> {
-  if (!term || !term.trim()) return [];
-  const url = `${baseUrl}/users?page=1&search=${encodeURIComponent(term)}`;
+// Acha QUALQUER linha (id) pertencente a esse MAC. Não confiar na lista
+// inteira que esse endpoint devolve (mesmo achado antigo: só mostra a mais
+// recente) — serve só de ponto de entrada pro /edit, que aí sim devolve a
+// família completa.
+async function searchByMac(baseUrl: string, session: any, mac: string): Promise<any[]> {
+  const url = `${baseUrl}/users?search=${encodeURIComponent(mac)}&search_id=&page=1&ajax_search=1`;
+  const res = await pfetch(url, {
+    headers: { Accept: "application/json", "X-Requested-With": "XMLHttpRequest", "X-XSRF-TOKEN": session.xsrfToken, Cookie: session.cookieHeader, "User-Agent": UA },
+  });
+  updateSession(session, res);
+  if (!res.ok) return [];
   try {
-    const res = await pfetch(url, { headers: { Accept: "text/html", Cookie: session.cookieHeader, "User-Agent": UA } });
-    if (!res.ok || res.url.includes("/login")) return [];
-    const html = await res.text();
-    const m = html.match(/data-page="([^"]+)"/);
-    if (!m) return [];
-    const decoded = m[1].replace(/&quot;/g, '"').replace(/&amp;/g, "&");
-    const json = JSON.parse(decoded);
-    if (json.props?.users?.data) return json.props.users.data;
-    if (Array.isArray(json.props?.users)) return json.props.users;
-    if (Array.isArray(json.data)) return json.data;
-    return [];
+    const json = await res.json();
+    return json?.users || [];
   } catch {
     return [];
   }
 }
 
-function pickUserRecord(byName: any[], byMac: any[], searchName: string, macDevice?: string) {
-  if (byName.length === 1) return byName[0];
-  if (byName.length > 1 && macDevice) {
-    const macNorm = normalizeMac(macDevice);
-    const exact = byName.find((u) => normalizeMac(JSON.stringify(u)).includes(macNorm));
-    if (exact) return exact;
-  }
-  if (byMac.length === 1) return byMac[0];
-  if (byMac.length > 1) {
-    const nameLower = String(searchName || "").toLowerCase();
-    const exact = byMac.find((u) => JSON.stringify(u).toLowerCase().includes(nameLower));
-    if (exact) return exact;
-  }
-  return null;
+async function getEditData(baseUrl: string, session: any, id: string | number): Promise<{ user: any; playlists: any[] }> {
+  const res = await pfetch(`${baseUrl}/users/${id}/edit`, {
+    headers: { Accept: "text/html", Cookie: session.cookieHeader, "User-Agent": UA },
+  });
+  updateSession(session, res);
+  const html = await res.text();
+  const m = html.match(/data-page="([^"]+)"/);
+  if (!m) throw new Error(`Não consegui ler os dados de edição do GerenciaApp (id ${id}).`);
+  const decoded = m[1].replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+  const json = JSON.parse(decoded);
+  return { user: json?.props?.user || {}, playlists: json?.props?.playlists || [] };
 }
 
-async function createGerenciaApp({
-  baseUrl,
-  email,
-  password,
-  payload,
-}: {
-  baseUrl: string;
-  email: string;
-  password: string;
-  payload: Record<string, any>;
-}) {
-  const BASE_URL = baseUrl.replace(/\/$/, "");
-  let session = await getSession(BASE_URL, email, password);
-  const inertiaVersion = await getInertiaVersion(BASE_URL, session);
+function findPlaylistByName(playlists: any[], name: string) {
+  const targetLower = String(name || "").toLowerCase().trim();
+  return (
+    playlists.find((p) => String(p.server_name || "").toLowerCase().trim() === targetLower) ||
+    playlists.find(
+      (p) =>
+        String(p.server_name || "").toLowerCase().includes(targetLower) ||
+        targetLower.includes(String(p.server_name || "").toLowerCase()),
+    ) ||
+    null
+  );
+}
 
-  // O painel exige o array `playlists` (com modo_selecao dentro de cada
-  // item) além dos campos soltos antigos — mantemos os dois por segurança.
+// A FormData nativa em stream direto pelo ProxyAgent do undici chega vazia
+// no servidor (422 "campo obrigatório" pra campo que foi mandado). Serializa
+// num Buffer fixo antes de mandar, com Content-Length explícito.
+async function serializeFormData(fd: FormData): Promise<{ contentType: string; buffer: Buffer }> {
+  const probe = new Request("http://x", { method: "POST", body: fd as any });
+  const contentType = probe.headers.get("content-type") || "multipart/form-data";
+  const buffer = Buffer.from(await probe.arrayBuffer());
+  return { contentType, buffer };
+}
+
+// Sincroniza a família de playlists daquele MAC: toda linha cujo id NÃO
+// está em `playlists` é apagada; toda linha cujo id está, sobrevive.
+// `postToId` TEM que ser o id de uma linha que sobrevive (presente em
+// `playlists`) — postar pro id de uma linha que está sendo removida também
+// a apaga, mesmo sendo "o id da URL" (achado ao vivo, 28/07/2026).
+async function syncPlaylists(baseUrl: string, session: any, postToId: string | number, user: any, playlists: any[]) {
+  const fd = new FormData();
+  fd.append("mac_device", user.mac_device || "");
+  fd.append("account_username", user.email || "");
+  fd.append("account_password", "");
+  fd.append("ranking_app_id", String(user.ranking_app_id ?? 10));
+  fd.append("price", String(user.price ?? "0.00"));
+  fd.append("plan_id", user.plan_id ?? "");
+  fd.append("expire_date", user.expire_account || "");
+  fd.append("is_trial", user.is_trial ? "1" : "0");
+  playlists.forEach((p, i) => {
+    fd.append(`playlists[${i}][local_id]`, String(i + 1));
+    if (p.id) fd.append(`playlists[${i}][id]`, String(p.id));
+    fd.append(`playlists[${i}][modo_selecao]`, String(p.modo_selecao ?? 1));
+    fd.append(`playlists[${i}][server_name]`, p.server_name || "");
+    fd.append(`playlists[${i}][xteam_username]`, p.xteam_username || "");
+    fd.append(`playlists[${i}][xteam_password]`, p.xteam_password || "");
+    fd.append(`playlists[${i}][dns]`, p.dns || "");
+    fd.append(`playlists[${i}][m3u8_list]`, p.m3u8_list || "");
+    fd.append(`playlists[${i}][url_epg]`, p.url_epg || "");
+    fd.append(`playlists[${i}][username_login]`, p.username_login || "");
+    fd.append(`playlists[${i}][password_login]`, p.password_login || "");
+  });
+
+  const { contentType, buffer } = await serializeFormData(fd);
+  const res = await pfetch(`${baseUrl}/users/${postToId}`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json, text/plain, */*",
+      "Content-Type": contentType,
+      "Content-Length": String(buffer.length),
+      "X-Requested-With": "XMLHttpRequest",
+      "X-XSRF-TOKEN": session.xsrfToken,
+      Cookie: session.cookieHeader,
+      Referer: `${baseUrl}/users/${postToId}/edit`,
+      "User-Agent": UA,
+    },
+    body: buffer,
+  });
+  updateSession(session, res);
+  const text = await res.text();
+
+  // Erro de validação vem como JSON {message, errors} com HTTP 422/302.
+  if (!res.ok) {
+    try {
+      const json = JSON.parse(text);
+      const errors = json?.errors || {};
+      const firstErr = Object.values(errors)[0];
+      if (firstErr) throw new Error(String(firstErr));
+      if (json?.message) throw new Error(String(json.message));
+    } catch (e: any) {
+      if (e instanceof SyntaxError) throw new Error(`Falha ao sincronizar playlists (HTTP ${res.status}).`);
+      throw e;
+    }
+  }
+  return { status: res.status };
+}
+
+async function deleteWholeRecord(baseUrl: string, session: any, id: string | number) {
+  const res = await pfetch(`${baseUrl}/users/${id}`, {
+    method: "DELETE",
+    headers: {
+      Accept: "application/json, text/plain, */*",
+      "X-Requested-With": "XMLHttpRequest",
+      "X-XSRF-TOKEN": session.xsrfToken,
+      Cookie: session.cookieHeader,
+      "User-Agent": UA,
+    },
+  });
+  updateSession(session, res);
+  if (!res.ok) throw new Error(`Falha ao apagar o registro ID ${id}.`);
+}
+
+// Create em MAC que ainda não tem NENHUMA linha — fluxo clássico "store",
+// já validado em rodadas anteriores (X-Inertia-Version + array `playlists`
+// no payload, além dos campos soltos).
+async function createFreshRecord(baseUrl: string, session: any, payload: Record<string, any>) {
+  const inertiaVersion = await getInertiaVersion(baseUrl, session);
   const enrichedPayload = {
     ...payload,
     playlists: [
@@ -229,173 +348,32 @@ async function createGerenciaApp({
     ],
   };
 
-  const doCreate = (s: any) =>
-    pfetch(`${BASE_URL}/users`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "text/html, application/xhtml+xml, application/json",
-        "X-Requested-With": "XMLHttpRequest",
-        "X-Inertia": "true",
-        ...(inertiaVersion ? { "X-Inertia-Version": inertiaVersion } : {}),
-        "X-XSRF-TOKEN": s.xsrfToken,
-        Cookie: s.cookieHeader,
-        "User-Agent": UA,
-      },
-      body: JSON.stringify(enrichedPayload),
-    });
-
-  let res = await doCreate(session);
-
-  if (res.url.includes("/login")) {
-    invalidateSession(BASE_URL, email);
-    session = await getSession(BASE_URL, email, password);
-    res = await doCreate(session);
-    if (res.url.includes("/login")) {
-      throw new Error("Falha ao validar a sessão mesmo após novo login.");
-    }
-  }
-
-  const text = await res.text();
-  const looksOk = res.ok || res.status === 302 || res.status === 303 || res.redirected;
-
-  // Inertia pode devolver HTTP 200 com `props.errors` preenchido — checa
-  // ANTES de confiar no HTTP.
-  if (looksOk) {
-    try {
-      const json = JSON.parse(text);
-      const errors = json?.props?.errors || {};
-      const firstErr = Object.values(errors)[0];
-      if (firstErr) return { ok: false, error: String(firstErr) };
-    } catch {
-      // corpo não é JSON (302 puro sem body) — segue pra verificação por busca
-    }
-  }
-
-  if (looksOk) {
-    let verified: any = null;
-    for (let attempt = 1; attempt <= 2 && !verified; attempt++) {
-      if (attempt > 1) await new Promise((r) => setTimeout(r, 1500));
-      const found = await searchUsersOnPanel(BASE_URL, session, payload.server_name);
-      const macNorm = normalizeMac(payload.mac_device);
-      verified = found.find((u) => normalizeMac(JSON.stringify(u)).includes(macNorm)) || (found.length === 1 ? found[0] : null);
-    }
-
-    if (verified) return { ok: true, message: "Sucesso!" };
-
-    return {
-      ok: false,
-      error: `O painel respondeu sem erro, mas o usuário "${payload.server_name}" não apareceu na busca depois de criar — confira manualmente no GerenciaApp (pode ser MAC duplicado ou outra validação que o painel não devolve como erro HTTP).`,
-    };
-  }
-
-  let errMsg = `HTTP ${res.status}`;
-  if (res.status === 500) {
-    const m = text.match(/<title>(.*?)<\/title>/);
-    errMsg = m?.[1] ? `Erro no GerenciaApp: ${m[1]}` : "Erro 500: O servidor do GerenciaApp travou.";
-  } else {
-    try {
-      const json = JSON.parse(text);
-      const errors = json?.props?.errors || json?.errors || {};
-      const firstErr = Object.values(errors)[0];
-      if (firstErr) errMsg = String(firstErr);
-    } catch {
-      errMsg = text.slice(0, 100);
-    }
-  }
-  return { ok: false, error: errMsg };
-}
-
-async function checkGerenciaApp({
-  baseUrl,
-  email,
-  password,
-  searchName,
-  macDevice,
-}: {
-  baseUrl: string;
-  email: string;
-  password: string;
-  searchName: string;
-  macDevice?: string;
-}) {
-  const BASE_URL = baseUrl.replace(/\/$/, "");
-  const session = await getSession(BASE_URL, email, password);
-
-  const byName = await searchUsersOnPanel(BASE_URL, session, searchName);
-  const byMac = macDevice ? await searchUsersOnPanel(BASE_URL, session, macDevice) : [];
-  const user = pickUserRecord(byName, byMac, searchName, macDevice);
-
-  if (!user) {
-    return {
-      ok: false,
-      error: `Usuário/MAC não encontrado no painel do GerenciaApp. (Buscado: ${searchName} / MAC: ${macDevice})`,
-    };
-  }
-
-  return { ok: true, expireDate: user.expire_account || null };
-}
-
-async function deleteGerenciaApp({
-  baseUrl,
-  email,
-  password,
-  searchName,
-  macDevice,
-}: {
-  baseUrl: string;
-  email: string;
-  password: string;
-  searchName: string;
-  macDevice?: string;
-}) {
-  const BASE_URL = baseUrl.replace(/\/$/, "");
-  const session = await getSession(BASE_URL, email, password);
-
-  let userIdToDelete: number | null = null;
-
-  const byName = await searchUsersOnPanel(BASE_URL, session, searchName);
-  if (byName.length === 1) {
-    userIdToDelete = byName[0].id;
-  } else if (byName.length > 1 && macDevice) {
-    const macNorm = normalizeMac(macDevice);
-    const exact = byName.find((u) => normalizeMac(JSON.stringify(u)).includes(macNorm));
-    if (exact) userIdToDelete = exact.id;
-  }
-
-  if (!userIdToDelete && macDevice) {
-    const byMac = await searchUsersOnPanel(BASE_URL, session, macDevice);
-    if (byMac.length === 1) {
-      userIdToDelete = byMac[0].id;
-    } else if (byMac.length > 1) {
-      const nameLower = String(searchName || "").toLowerCase();
-      const exact = byMac.find((u) => JSON.stringify(u).toLowerCase().includes(nameLower));
-      if (exact) userIdToDelete = exact.id;
-    }
-  }
-
-  if (!userIdToDelete) {
-    return {
-      ok: false,
-      error: `Usuário/MAC não encontrado no painel do GerenciaApp. (Buscado: ${searchName} / MAC: ${macDevice})`,
-    };
-  }
-
-  await new Promise((r) => setTimeout(r, 1000));
-
-  const deleteRes = await pfetch(`${BASE_URL}/users/${userIdToDelete}`, {
-    method: "DELETE",
+  const res = await pfetch(`${baseUrl}/users`, {
+    method: "POST",
     headers: {
-      accept: "application/json, text/plain, */*",
-      "x-requested-with": "XMLHttpRequest",
+      "Content-Type": "application/json",
+      Accept: "text/html, application/xhtml+xml, application/json",
+      "X-Requested-With": "XMLHttpRequest",
+      "X-Inertia": "true",
+      ...(inertiaVersion ? { "X-Inertia-Version": inertiaVersion } : {}),
       "X-XSRF-TOKEN": session.xsrfToken,
       Cookie: session.cookieHeader,
       "User-Agent": UA,
     },
+    body: JSON.stringify(enrichedPayload),
   });
+  updateSession(session, res);
+  const text = await res.text();
 
-  if (deleteRes.ok) return { ok: true };
-  return { ok: false, error: `Falha ao apagar o registro ID ${userIdToDelete}.` };
+  try {
+    const json = JSON.parse(text);
+    const errors = json?.props?.errors || {};
+    const firstErr = Object.values(errors)[0];
+    if (firstErr) throw new Error(String(firstErr));
+  } catch (e: any) {
+    if (!(e instanceof SyntaxError)) throw e;
+  }
+  return { status: res.status };
 }
 
 export async function POST(req: Request) {
@@ -418,13 +396,17 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { action, base_url } = body;
+    const { action, base_url, macValue } = body;
 
     if (!action || (action !== "create" && action !== "delete" && action !== "check")) {
       return NextResponse.json({ ok: false, error: "action inválida. Use: create | delete | check" }, { status: 400 });
     }
     if (!base_url) {
       return NextResponse.json({ ok: false, error: "base_url é obrigatório." }, { status: 400 });
+    }
+    const mac = String(macValue || body.mac_device || "").trim();
+    if (!mac) {
+      return NextResponse.json({ ok: false, error: "macValue é obrigatório." }, { status: 400 });
     }
 
     const { data: integ, error: integErr } = await supabase
@@ -441,35 +423,159 @@ export async function POST(req: Request) {
       );
     }
 
-    if (action === "create") {
-      const result = await createGerenciaApp({
-        baseUrl: base_url,
-        email: integ.login_email,
-        password: integ.login_password,
-        payload: body,
-      });
-      return NextResponse.json(result, { status: result.ok ? 200 : 400 });
-    }
+    const BASE_URL = String(base_url).replace(/\/$/, "");
+    let session = await getSession(BASE_URL, integ.login_email, integ.login_password);
 
     if (action === "check") {
-      const result = await checkGerenciaApp({
-        baseUrl: base_url,
-        email: integ.login_email,
-        password: integ.login_password,
-        searchName: body.username,
-        macDevice: body.macValue,
-      });
-      return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+      const searchName = String(body.username || body.server_name || "").trim();
+      const found = await searchByMac(BASE_URL, session, mac);
+      if (!found.length) {
+        return NextResponse.json({ ok: false, error: `MAC não encontrado no painel do GerenciaApp (${mac}).` }, { status: 404 });
+      }
+      const { playlists } = await getEditData(BASE_URL, session, found[0].id);
+      const match = searchName ? findPlaylistByName(playlists, searchName) : playlists[0];
+      if (!match) {
+        return NextResponse.json({ ok: false, error: `Não achei a playlist "${searchName}" nesse MAC.` }, { status: 404 });
+      }
+      return NextResponse.json({ ok: true, expireDate: match.expire_account || null });
     }
 
-    const result = await deleteGerenciaApp({
-      baseUrl: base_url,
-      email: integ.login_email,
-      password: integ.login_password,
-      searchName: body.username,
-      macDevice: body.macValue,
-    });
-    return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+    if (action === "create") {
+      if (!body.m3u8_list && !body.m3uUrl) {
+        return NextResponse.json({ ok: false, error: "m3u8_list é obrigatório para create." }, { status: 400 });
+      }
+      const serverName = String(body.server_name || "").trim();
+      if (!serverName) {
+        return NextResponse.json({ ok: false, error: "server_name é obrigatório para create." }, { status: 400 });
+      }
+
+      let existing: any[];
+      try {
+        existing = await searchByMac(BASE_URL, session, mac);
+      } catch {
+        existing = [];
+      }
+
+      if (existing.length === 0) {
+        // MAC novo — nenhuma linha ainda, usa o fluxo clássico de criação.
+        let result;
+        try {
+          result = await createFreshRecord(BASE_URL, session, body);
+        } catch (e: any) {
+          if (String(e?.message || "").toLowerCase().includes("sessão") || String(e?.message || "").toLowerCase().includes("xsrf")) {
+            invalidateSession(BASE_URL, integ.login_email);
+            session = await getSession(BASE_URL, integ.login_email, integ.login_password);
+            result = await createFreshRecord(BASE_URL, session, body);
+          } else {
+            throw e;
+          }
+        }
+
+        let verified: any = null;
+        for (let attempt = 1; attempt <= 3 && !verified; attempt++) {
+          if (attempt > 1) await new Promise((r) => setTimeout(r, 1500));
+          const after = await searchByMac(BASE_URL, session, mac);
+          if (after.length) {
+            const { playlists } = await getEditData(BASE_URL, session, after[0].id);
+            verified = findPlaylistByName(playlists, serverName);
+          }
+        }
+        if (!verified) {
+          return NextResponse.json(
+            { ok: false, error: `O painel respondeu (status ${result.status}) mas a playlist "${serverName}" não apareceu no MAC depois de criar — confira manualmente no GerenciaApp.` },
+            { status: 502 },
+          );
+        }
+        return NextResponse.json({ ok: true, expireDate: verified.expire_account || null, message: "Playlist configurada com sucesso." });
+      }
+
+      // MAC já tem linha(s) — acrescenta sem tocar nas existentes.
+      const { user, playlists } = await getEditData(BASE_URL, session, existing[0].id);
+      const newEntry = {
+        server_name: serverName,
+        m3u8_list: body.m3u8_list || body.m3uUrl || "",
+        username_login: body.username_login || body.username || "",
+        password_login: body.password_login || body.password || "",
+        xteam_username: body.xteam_username || "",
+        xteam_password: body.xteam_password || "",
+        dns: body.dns || "",
+        url_epg: body.url_epg || "",
+        modo_selecao: body.modo_selecao ?? 1,
+      };
+      await syncPlaylists(BASE_URL, session, existing[0].id, user, [...playlists, newEntry]);
+
+      let created: any = null;
+      for (let attempt = 1; attempt <= 3 && !created; attempt++) {
+        if (attempt > 1) await new Promise((r) => setTimeout(r, 1500));
+        const after = await searchByMac(BASE_URL, session, mac);
+        if (after.length) {
+          const { playlists: afterPlaylists } = await getEditData(BASE_URL, session, after[0].id);
+          const stillHasOriginals = playlists.every((orig) => afterPlaylists.some((p: any) => p.id === orig.id));
+          const match = findPlaylistByName(afterPlaylists, serverName);
+          if (stillHasOriginals && match && !playlists.some((orig) => orig.id === match.id)) {
+            created = match;
+          }
+        }
+      }
+
+      if (!created) {
+        return NextResponse.json(
+          { ok: false, error: `A playlist "${serverName}" não apareceu (ou alguma existente sumiu) depois de tentar adicionar — confira manualmente no GerenciaApp antes de tentar de novo.` },
+          { status: 502 },
+        );
+      }
+      return NextResponse.json({ ok: true, expireDate: created.expire_account || null, message: "Playlist configurada com sucesso." });
+    }
+
+    // action === "delete"
+    const searchName = String(body.username || body.server_name || "").trim();
+    if (!searchName) {
+      return NextResponse.json({ ok: false, error: "Nome do servidor não informado." }, { status: 400 });
+    }
+
+    const existing = await searchByMac(BASE_URL, session, mac);
+    if (!existing.length) {
+      return NextResponse.json({ ok: false, error: `MAC não encontrado no painel do GerenciaApp (${mac}).` }, { status: 404 });
+    }
+
+    const { user, playlists } = await getEditData(BASE_URL, session, existing[0].id);
+    const match = findPlaylistByName(playlists, searchName);
+    if (!match) {
+      return NextResponse.json(
+        { ok: false, error: `Nenhuma playlist encontrada com o nome "${searchName}" nesse MAC (${playlists.length} no total).` },
+        { status: 404 },
+      );
+    }
+
+    const remaining = playlists.filter((p) => p.id !== match.id);
+    if (remaining.length === 0) {
+      // Era a última do MAC — nada mais pra preservar, apaga direto.
+      await deleteWholeRecord(BASE_URL, session, match.id);
+    } else {
+      // Nunca postar pro id que está sendo removido — usa o id de uma
+      // linha que vai sobreviver (achado ao vivo, ver comentário no topo).
+      await syncPlaylists(BASE_URL, session, remaining[0].id, user, remaining);
+    }
+
+    let stillThere = true;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      if (attempt > 1) await new Promise((r) => setTimeout(r, 1500));
+      const after = await searchByMac(BASE_URL, session, mac);
+      if (!after.length) { stillThere = false; break; }
+      const { playlists: afterPlaylists } = await getEditData(BASE_URL, session, after[0].id);
+      const gone = !afterPlaylists.some((p: any) => p.id === match.id);
+      const othersOk = remaining.every((orig) => afterPlaylists.some((p: any) => p.id === orig.id));
+      if (gone && othersOk) { stillThere = false; break; }
+    }
+
+    if (stillThere) {
+      return NextResponse.json(
+        { ok: false, error: `O painel respondeu, mas a playlist "${searchName}" (id ${match.id}) ainda está lá, ou alguma outra do mesmo MAC sumiu — confira manualmente no GerenciaApp.` },
+        { status: 502 },
+      );
+    }
+
+    return NextResponse.json({ ok: true, message: "Playlist removida com sucesso." });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "Erro interno." }, { status: 500 });
   }
