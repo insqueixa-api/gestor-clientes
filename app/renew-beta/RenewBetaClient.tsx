@@ -275,6 +275,7 @@ export default function RenewClient() {
     license_period: "annual" | "lifetime" | null;
     is_active: boolean;
     discontinued_replacement_name: string | null;
+    is_gerenciaapp_family: boolean;
   };
   const [installedApps, setInstalledApps] = useState<InstalledApp[]>([]);
   // ✅ Instruções de configuração — pedido do Márcio (25/07/2026): substitui
@@ -772,6 +773,16 @@ export default function RenewClient() {
     } finally {
       setAppActionBusy(null);
     }
+  }
+
+  // ✅ Família GerenciaApp: "renovar licença" não é uma cobrança de
+  // verdade (é grátis) — é literalmente chamar o Reconfigurar direto, sem
+  // o modal de confirmação/escolha Principal-Secundária que o botão
+  // "Reconfigurar" normal mostra (aqui o cliente só quer atualizar o
+  // vencimento, não está resolvendo uma falha). Sempre em modo Principal
+  // — não faz sentido trocar de servidor só pra renovar.
+  function handleFreeRenewGerenciaApp(clientAppId: string) {
+    performConfigureApp(clientAppId, "principal");
   }
 
   async function handleRequestSetup(clientAppId: string) {
@@ -3574,17 +3585,37 @@ export default function RenewClient() {
                                   )
                                 )}
                               </div>
-                              {app.license_price != null && (
+                              {app.is_gerenciaapp_family ? (
                                 <button
-                                  disabled={renewPaymentBusyId === app.id}
-                                  onClick={() => handleRenewPayment(app.id)}
+                                  disabled={busy}
+                                  onClick={() => handleFreeRenewGerenciaApp(app.id)}
                                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition-colors disabled:opacity-50"
                                 >
-                                  {renewPaymentBusyId === app.id && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                                  {renewPaymentBusyId === app.id
-                                    ? "Gerando pagamento..."
-                                    : `Renovar aplicativo — ${formatMoney(app.license_price, "BRL")}${app.license_period === "annual" ? "/ano" : app.license_period === "lifetime" ? " (vitalícia)" : ""}`}
+                                  {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                  {busy ? "Renovando..." : "Renovar licença — Grátis"}
                                 </button>
+                              ) : (
+                                // ✅ Só aparece perto do vencimento (pedido do
+                                // Márcio, 28/07/2026) — um app válido até
+                                // 2054 não precisa desse botão visível o
+                                // tempo todo. Sem vencimento conhecido
+                                // (nunca configurado/verificado) mostra por
+                                // segurança — mesmo limiar de "Vencendo"
+                                // (isExpiringSoon) usado acima nessa mesma
+                                // linha do tempo.
+                                app.license_price != null &&
+                                (expirationDiffDays === null || isExpired || isExpiringSoon) && (
+                                  <button
+                                    disabled={renewPaymentBusyId === app.id}
+                                    onClick={() => handleRenewPayment(app.id)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition-colors disabled:opacity-50"
+                                  >
+                                    {renewPaymentBusyId === app.id && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                    {renewPaymentBusyId === app.id
+                                      ? "Gerando pagamento..."
+                                      : `Renovar aplicativo — ${formatMoney(app.license_price, "BRL")}${app.license_period === "annual" ? "/ano" : app.license_period === "lifetime" ? " (vitalícia)" : ""}`}
+                                  </button>
+                                )
                               )}
                             </div>
                           )}

@@ -206,6 +206,14 @@ export async function POST(req: NextRequest) {
         license_period: row.apps?.license_period || null,
         is_active: row.apps?.is_active !== false,
         discontinued_replacement_name: row.apps?.discontinued_replacement_name || null,
+        // ✅ Família GerenciaApp (IBO Revenda, Zone X, VU Revenda, Facilita,
+        // Uni Revenda, GPC Roku/Android/LG — todos mapeiam pro mesmo
+        // integration_type "GERENCIAAPP", ver lib/integrations/index.ts):
+        // reconfigurar JÁ atualiza o vencimento de verdade (o create manda
+        // uma data, depois o check busca a real), então "renovar" pra esses
+        // é só reconfigurar de novo — grátis, sem cobrança de licença.
+        // Pedido do Márcio, 28/07/2026.
+        is_gerenciaapp_family: integrationType === "GERENCIAAPP",
       };
     });
 
