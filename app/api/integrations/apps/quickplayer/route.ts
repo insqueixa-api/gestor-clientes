@@ -1,15 +1,15 @@
 // app/api/integrations/apps/quickplayer/route.ts
 // Integração direta com api.quickplayer.app (Quick Player e Quick Player
 // Pro — mesma API pros dois). Login é por MAC + Device Key (por aparelho,
-// não por conta de revenda). Confirmado via testes reais (Márcio, 21/07/2026):
+// não por conta de revenda):
 //   1. POST /api/login_by_mac {mac, key}         → token JWT
 //   2. POST /api/playlist_with_mac (FormData!)   → adiciona a playlist
 //      campos: name, mac, url, is_protected (+ pin/confirm_pin se protegido)
 //
 // A URL m3u NUNCA reaproveita o m3u_url já salvo no cliente — é montada aqui
 // com o DNS #1 cadastrado no servidor (servers.dns[0]) + usuário/senha do
-// cliente. Só o DNS #1 libera a licença do Quick Player (achado real do
-// Márcio) — se o DNS mudar, só atualiza no cadastro do servidor, sem deploy.
+// cliente. Só o DNS #1 libera a licença do Quick Player — se o DNS mudar,
+// só atualiza no cadastro do servidor, sem deploy.
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
@@ -67,7 +67,7 @@ export async function POST(req: Request) {
         const token = await loginByMac(mac, key);
 
         // Playlist protegida por PIN exige o PIN também pra deletar
-        // ("Pin is required" — confirmado, 21/07/2026).
+        // ("Pin is required").
         const { data: integ } = await supabaseAdmin
           .from("app_integrations")
           .select("pin")
@@ -102,12 +102,11 @@ export async function POST(req: Request) {
           const firstAttempt = await doDelete(pl.id, pl.is_protected && pin ? pin : null);
           if (firstAttempt.ok) continue;
 
-          // ✅ Retry sem PIN — pedido do Márcio (25/07/2026): raras exceções
-          // têm cliente com playlist configurada sem PIN mesmo com o PIN
-          // padrão cadastrado em app_integrations, e mandar um PIN nesse
-          // caso faz a API recusar o delete. Só tenta de novo se a 1ª
-          // tentativa mandou PIN — sem isso repetir a mesma chamada não
-          // muda nada.
+          // Retry sem PIN — raras exceções têm cliente com playlist
+          // configurada sem PIN mesmo com o PIN padrão cadastrado em
+          // app_integrations, e mandar um PIN nesse caso faz a API recusar
+          // o delete. Só tenta de novo se a 1ª tentativa mandou PIN — sem
+          // isso repetir a mesma chamada não muda nada.
           if (pl.is_protected && pin) {
             const retry = await doDelete(pl.id, null);
             if (retry.ok) continue;

@@ -1,9 +1,8 @@
 // lib/integrations/duplecast.ts
-// src/lib/integrations/duplecast.ts
 
 export const DupleCastIntegration = {
     actionPrefix: "DUPLECAST",
-    useApi: true, // ✅ Login+criação+remoção rodam na VM via HTTP puro, sem extensão
+    useApi: true, // login+criação+remoção rodam em app/api/integrations/apps/duplecast (server-side)
     apiEndpoint: "/api/integrations/apps/duplecast",
 
     buildCreatePayload: (params: {
@@ -11,14 +10,18 @@ export const DupleCastIntegration = {
         password?: string;
         macValue: string;
         finalServerName: string;
-        serverName: string; // ✅ Adicionado para receber apenas "Servidor"
+        serverName: string;
         m3uUrl: string;
-        appName?: string; // ✅ Adicionado Opcional
+        appName?: string;
     }) => {
         return {
             action: "create",
             macValue:         params.macValue,
-            finalServerName:  params.serverName, // ✅ Força o painel a usar apenas "Servidor" como nome da lista
+            // Convenção própria da Duplecast: usa só o nome do servidor
+            // (ex: "FastTV"), NÃO o finalServerName com o username prefixado
+            // que as outras integrações usam. Ver duplecast/route.ts pra
+            // como isso é resolvido/buscado do lado do painel.
+            finalServerName:  params.serverName,
             m3uUrl:           params.m3uUrl,
             password:         params.password || "",
         };
@@ -27,17 +30,12 @@ export const DupleCastIntegration = {
     buildDeletePayload: (params: { username: string; finalServerName?: string; serverName?: string; macValue: string; appName?: string; password?: string }) => {
         return {
             action: "delete",
-            // ✅ Busca EXATAMENTE como você pediu: Apenas o nome do Servidor (ex: FastTV)
+            // Mesma convenção do create: busca só pelo nome do servidor.
             username: params.serverName || params.username.trim(),
             macValue: params.macValue || "",
-            // 🔥 BUG achado em produção (25/07/2026): esse campo nunca existiu
-            // aqui — mesmo o chamador passando o PIN pra buildDeletePayload,
-            // ele se perdia, e a rota (duplecast/route.ts) nunca recebia pin
-            // nenhum. Playlist "Protected" precisa do PIN pra deletar de
-            // verdade (o site aceita e responde 302 mesmo sem o PIN certo,
-            // só que sem apagar nada) — sem isso, "Configurar" (que agora
-            // tenta apagar antes de recriar) e "Excluir do painel" falhavam
-            // silenciosamente pra qualquer playlist protegida.
+            // Playlist "Protected" no painel Duplecast exige o PIN pra
+            // apagar de verdade — sem ele o site responde 302 mas não apaga
+            // nada.
             password: params.password || "",
         };
     }

@@ -1,25 +1,19 @@
 // app/api/integrations/apps/duplecast/route.ts
 //
-// Reescrito em 25/07/2026 depois de descobrir (com o Márcio) o login por
-// dispositivo do Duplecast: https://duplecast.com/plugin/duplecast/device_login/
-// (mac + device_key, em vez do login de revendedor usado antes). Validado ao
-// vivo, campo por campo, antes de trocar:
+// Login por dispositivo do Duplecast: https://duplecast.com/plugin/duplecast/device_login/
+// (mac + device_key — não usa login de revendedor).
 //   - Login: POST device_login/ {mac, device_key} → sessão fica presa a ESSE
 //     dispositivo (sem precisar filtrar por MAC nas próximas chamadas).
-//   - device_main/ mostra "Expire on DD/MM/YYYY" — vencimento REAL de
-//     verdade, coisa que o fluxo antigo (login de revendedor + relatório
-//     client_codes) nunca conseguia (client_codes é um relatório de códigos
-//     de ativação avulsos, sem relação com playlists xtream — client_codes
-//     sempre voltava vazio pra um MAC com playlist real e funcionando).
-//   - Add Playlist (device_main/add/, form_action=generate_m3u_playlist) tem
-//     os MESMOS campos de antes (m3u_name, m3u_playlist, epg_url, note,
-//     locked/pin/confirm_pin) — só multa base URL.
+//   - device_main/ mostra "Expire on DD/MM/YYYY" — vencimento real do
+//     dispositivo.
+//   - Add Playlist: device_main/add/, form_action=generate_m3u_playlist
+//     (m3u_name, m3u_playlist, epg_url, note, locked/pin/confirm_pin).
 //   - Delete (device_main/delete/{id}/) exige POST com _csrf_token+0+submit=Yes
-//     (GET sozinho não apaga — confirmado ao vivo). Nunca pede PIN, mesmo
-//     pra playlist marcada "Protected" — só o Edit pede PIN via modal.
-// Login por device_key também elimina a dependência do login_email/
-// login_password de revendedor pra esse app (esses campos continuam salvos
-// em app_integrations por histórico, mas não são mais usados aqui).
+//     (GET sozinho não apaga). Nunca pede PIN, mesmo pra playlist marcada
+//     "Protected" — só o Edit pede PIN via modal.
+// Login por device_key elimina a dependência do login_email/login_password
+// de revendedor pra esse app (esses campos continuam salvos em
+// app_integrations por histórico, mas não são mais usados aqui).
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
@@ -183,12 +177,12 @@ async function createPlaylist(
   }
 }
 
-// ⚠️ Achado ao vivo (25/07/2026, com o Márcio): playlist "Protected" exige
-// PIN pra deletar — o modal real do site combina "Please Confirm" + campo
-// "Enter Pin" numa coisa só. SEM o pin, o Duplecast ainda responde 302
-// (redireciona de volta pra device_main/) só que SEM apagar nada — por isso
-// nunca confiamos no status HTTP aqui: sempre reconsulta a lista depois pra
-// confirmar que a playlist sumiu de verdade.
+// Playlist "Protected" exige PIN pra deletar de verdade — o modal real do
+// site combina "Please Confirm" + campo "Enter Pin" numa coisa só. SEM o
+// pin, o Duplecast ainda responde 302 (redireciona de volta pra
+// device_main/) só que SEM apagar nada — por isso nunca confiamos no status
+// HTTP aqui: sempre reconsulta a lista depois pra confirmar que a playlist
+// sumiu de verdade.
 async function playlistExists(siteRoot: string, jar: CookieJar, id: string): Promise<boolean> {
   const html = await fetchDeviceMain(siteRoot, jar);
   return parsePlaylistRows(html).some((r) => r.id === id);
@@ -231,10 +225,10 @@ async function deletePlaylistByName(siteRoot: string, jar: CookieJar, searchName
   await attempt(target.protected && pin ? pin : "");
   let stillThere = await playlistExists(siteRoot, jar, target.id);
 
-  // ✅ Retry sem PIN — pedido do Márcio (25/07/2026): raras exceções têm
-  // playlist marcada protegida mas com um PIN diferente do cadastrado (ou o
-  // cadastrado mudou depois). Só tenta de novo se a 1ª tentativa mandou pin
-  // — sem isso repetir a mesma chamada não muda nada.
+  // Retry sem PIN — raras exceções têm playlist marcada protegida mas com
+  // um PIN diferente do cadastrado (ou o cadastrado mudou depois). Só tenta
+  // de novo se a 1ª tentativa mandou pin — sem isso repetir a mesma chamada
+  // não muda nada.
   if (stillThere && target.protected && pin) {
     const freshHtml = await fetchDeviceMain(siteRoot, jar);
     token = extractCsrfToken(freshHtml) || token;

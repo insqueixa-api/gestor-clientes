@@ -3,13 +3,9 @@
 // IPTV Duplex Play (iptvduplex.com) — NÃO confundir com "DuplexPlay"
 // (app descontinuado no catálogo, recomenda migrar pra DupleCast — ver
 // lib/apps/panel.ts) nem com o handler "DUPLECAST" (duplecast.com, outro
-// site). Vendor completamente diferente da família IBO/Messi/BOB (esse aqui
-// é Next.js, várias marcas irmãs — api.i-player.live, api.ibopremium.com,
-// api.ottplus.app etc. — mesmo backend, achado ao vivo em 27/07/2026).
-//
-// Validado ao vivo numa conta real (mac 28:e6:a9:ad:ab:1d, 3 playlists de
-// verdade: NaTV/FastTV/Elite): criar playlist de teste protegida por PIN →
-// apareceu junto das 3 → apagada → voltou exatamente como estava.
+// site). Vendor diferente da família IBO/Messi/BOB — esse aqui é Next.js,
+// com marcas irmãs no mesmo backend (api.i-player.live, api.ibopremium.com,
+// api.ottplus.app etc.).
 //
 // Fluxo (SEM captcha, diferente da família IBO):
 //   1. GET  {base}/validate_mac?mac=X       → {message:{auth_type: "device_key"|"code", ...}}
@@ -244,12 +240,10 @@ export async function POST(req: Request) {
         const created = playlists.find(
           (p) => String(p.name || "").toLowerCase().trim() === String(finalServerName || "").toLowerCase().trim(),
         );
-        // ✅ Mesmo fallback do "check" (achado 27/07/2026, reportado pelo
-        // Márcio: "Verificar" preenchia a validade certinho, "Configurar"
-        // não) — o expired_date da playlist em si só vem depois que o
-        // parceiro valida o m3u de forma assíncrona (sempre null na hora de
-        // criar), então sem o fallback pro vencimento da conta o create
-        // nunca tinha nada pra mostrar.
+        // Mesmo fallback do "check": o expired_date da playlist em si só vem
+        // depois que o parceiro valida o m3u de forma assíncrona (sempre
+        // null na hora de criar), então sem o fallback pro vencimento da
+        // conta o create não tem nada pra mostrar.
         expireDate = created?.expired_date || activationExpired || null;
       } catch {
         // best-effort — create já foi feito, não bloqueia

@@ -1,43 +1,36 @@
 // app/api/integrations/apps/gerenciaapp/route.ts
 //
-// 28/07/2026: o Márcio achou (inspecionando a rede do próprio navegador) o
-// jeito CERTO de mexer numa playlist sem afetar as outras do mesmo MAC.
-// Descoberta ao vivo, testada no MAC real CA:C1:BD:87:65:C7:
+// Modelo de dados do GerenciaApp: cada playlist é sua PRÓPRIA linha na
+// tabela `users` do painel, todas compartilhando o campo `mac_device`.
 //
-//   - Cada playlist é sua PRÓPRIA linha na tabela `users` do GerenciaApp
-//     (mesmo modelo de antes), todas compartilhando o campo `mac_device`.
 //   - GET /users/{id}/edit devolve, em `props.playlists`, a lista COMPLETA
 //     de todas as linhas-irmãs daquele MAC — não importa qual `id` das
-//     irmãs você usa na URL, a resposta é sempre a família inteira. Isso
-//     resolve de vez o bug antigo de "busca só acha a mais recente" (a
-//     busca só serve pra achar UM id de entrada pra essa família; a lista
-//     de verdade vem do /edit).
+//     irmãs você usa na URL, a resposta é sempre a família inteira (a
+//     busca por `search=` só serve pra achar UM id de entrada pra essa
+//     família; ela só devolve o registro mais recente, nunca todos — a
+//     lista de verdade vem do /edit).
 //   - POST /users/{id} (multipart, mesmos campos do form de edição, com um
 //     `playlists[N][...]` por linha desejada) faz uma SINCRONIZAÇÃO: toda
 //     linha-irmã cujo `id` NÃO está no array enviado é APAGADA; toda linha
-//     cujo `id` está no array sobrevive. Validado ao vivo 3x:
-//       1. Reenviar o array completo + 1 item novo (sem `id`) = cria uma
+//     cujo `id` está no array sobrevive. Na prática:
+//       1. Reenviar o array completo + 1 item novo (sem `id`) cria uma
 //          linha nova, mantém as existentes intactas (mesmos ids).
-//       2. Reenviar o array completo menos 1 item = apaga só aquela linha,
+//       2. Reenviar o array completo menos 1 item apaga só aquela linha,
 //          mantém as outras intactas.
 //       3. ⚠️ Postar pro id de uma linha que você quer APAGAR, sem incluir
 //          esse id no array, TAMBÉM apaga essa linha — mesmo sendo "o id da
-//          URL". Ou seja, a regra de ouro é: o array enviado tem que conter
-//          o id de TODA linha que deve sobreviver, incluindo, se for o
-//          caso, o próprio id pro qual você tá postando. Testado e
-//          confirmado apagando sem querer uma playlist real nesse processo
-//          (recriada depois com os dados originais).
-//   - Achado técnico à parte: mandar a FormData nativa direto pelo
-//     ProxyAgent do `undici` chegava VAZIA no servidor (422 "campo
-//     obrigatório" pra campos que estavam sendo enviados). Contornado
-//     serializando a FormData num Buffer fixo (com Content-Length) antes de
-//     mandar pelo proxy.
+//          URL". A regra de ouro: o array enviado tem que conter o id de
+//          TODA linha que deve sobreviver, incluindo, se for o caso, o
+//          próprio id pro qual você está postando.
+//   - Mandar a FormData nativa direto pelo ProxyAgent do `undici` chega
+//     VAZIA no servidor (422 "campo obrigatório" pra campo que foi
+//     mandado). Contornado serializando a FormData num Buffer fixo (com
+//     Content-Length) antes de mandar pelo proxy.
 //
-// Por isso essa rota agora faz, pra CREATE (adicionar sem apagar as
-// outras) e DELETE (apagar só uma, preservando as outras):
-//   1. Busca o MAC via GET /users?search=...&ajax_search=1 (JSON direto,
-//      mais simples que o scraping antigo de data-page) — só pra achar UM
-//      id qualquer daquele MAC.
+// Por isso essa rota faz, pra CREATE (adicionar sem apagar as outras) e
+// DELETE (apagar só uma, preservando as outras):
+//   1. Busca o MAC via GET /users?search=...&ajax_search=1 (JSON direto) —
+//      só pra achar UM id qualquer daquele MAC.
 //   2. GET /users/{id}/edit pra pegar a família completa de playlists.
 //   3. Monta o array final (com ou sem a entrada alvo) e reenvia via POST
 //      /users/{id-de-uma-linha-que-vai-sobreviver} — nunca posta pro id da
@@ -46,8 +39,8 @@
 // DELETE /users/{id} clássico mesmo — não tem mais nada pra preservar.
 //
 // Se o MAC não tem NENHUMA linha ainda (create em MAC novo), usa o POST
-// /users (store) clássico — mesmo fluxo já validado em rodadas anteriores
-// (X-Inertia-Version + array `playlists` no payload, ver histórico).
+// /users (store) clássico (X-Inertia-Version + array `playlists` no
+// payload).
 import { NextResponse } from "next/server";
 import { fetch as undiciFetch, ProxyAgent } from "undici";
 import { createClient } from "@/lib/supabase/server";
@@ -199,8 +192,8 @@ async function getInertiaVersion(baseUrl: string, session: any): Promise<string 
 }
 
 // Acha QUALQUER linha (id) pertencente a esse MAC. Não confiar na lista
-// inteira que esse endpoint devolve (mesmo achado antigo: só mostra a mais
-// recente) — serve só de ponto de entrada pro /edit, que aí sim devolve a
+// inteira que esse endpoint devolve — só mostra o registro mais recente,
+// nunca todos. Serve só de ponto de entrada pro /edit, que aí sim devolve a
 // família completa.
 async function searchByMac(baseUrl: string, session: any, mac: string): Promise<any[]> {
   const url = `${baseUrl}/users?search=${encodeURIComponent(mac)}&search_id=&page=1&ajax_search=1`;
@@ -257,7 +250,7 @@ async function serializeFormData(fd: FormData): Promise<{ contentType: string; b
 // está em `playlists` é apagada; toda linha cujo id está, sobrevive.
 // `postToId` TEM que ser o id de uma linha que sobrevive (presente em
 // `playlists`) — postar pro id de uma linha que está sendo removida também
-// a apaga, mesmo sendo "o id da URL" (achado ao vivo, 28/07/2026).
+// a apaga, mesmo sendo "o id da URL".
 async function syncPlaylists(baseUrl: string, session: any, postToId: string | number, user: any, playlists: any[]) {
   const fd = new FormData();
   fd.append("mac_device", user.mac_device || "");
@@ -331,9 +324,9 @@ async function deleteWholeRecord(baseUrl: string, session: any, id: string | num
   if (!res.ok) throw new Error(`Falha ao apagar o registro ID ${id}.`);
 }
 
-// Create em MAC que ainda não tem NENHUMA linha — fluxo clássico "store",
-// já validado em rodadas anteriores (X-Inertia-Version + array `playlists`
-// no payload, além dos campos soltos).
+// Create em MAC que ainda não tem NENHUMA linha — fluxo clássico "store"
+// (X-Inertia-Version + array `playlists` no payload, além dos campos
+// soltos).
 async function createFreshRecord(baseUrl: string, session: any, payload: Record<string, any>) {
   const inertiaVersion = await getInertiaVersion(baseUrl, session);
   const enrichedPayload = {
@@ -553,7 +546,7 @@ export async function POST(req: Request) {
       await deleteWholeRecord(BASE_URL, session, match.id);
     } else {
       // Nunca postar pro id que está sendo removido — usa o id de uma
-      // linha que vai sobreviver (achado ao vivo, ver comentário no topo).
+      // linha que vai sobreviver (ver comentário no topo do arquivo).
       await syncPlaylists(BASE_URL, session, remaining[0].id, user, remaining);
     }
 

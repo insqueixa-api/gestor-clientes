@@ -1,11 +1,10 @@
 // app/api/integrations/apps/duplextv/route.ts
 //
 // Duplex TV (duplex24.com, oficialmente mactvplayer.com — mesma marca,
-// domínio alternativo) — o último app que ainda dependia do IBOSOL.
-// Diferente de toda a família IBO/Messi/BOB/IPTVDUPLEX: site antigo
-// (Express + jQuery + Vue), SEM device_key/PIN — só MAC + nome + URL.
+// domínio alternativo). Diferente de toda a família IBO/Messi/BOB/IPTVDUPLEX:
+// site antigo (Express + jQuery + Vue), SEM device_key/PIN — só MAC + nome
+// + URL.
 //
-// Validado ao vivo em 27/07/2026 (mac de teste 28:e6:a9:ad:ab:1d):
 //   - POST /savePlaylists (form-urlencoded) cria — aceita várias playlists
 //     de uma vez (names[]/urls[]), mas aqui só mandamos uma por vez.
 //   - POST /deletePlaylists apaga TODAS as playlists desse mac de uma vez —
@@ -173,11 +172,9 @@ export async function POST(req: Request) {
       }
       await createPlaylist(siteRoot, macValue, finalServerName || "Playlist", m3uUrl);
 
-      // ✅ Mesma tentativa best-effort do "check" (achado 27/07/2026,
-      // reportado pelo Márcio: o "Configurar" nunca avisava sobre conferir
-      // o vencimento manualmente) — quase sempre vem null (ver nota no topo
-      // do arquivo), mas o caller usa esse `message` pra decidir se mostra
-      // o aviso de conferir no painel do IBOSOL.
+      // Mesma tentativa best-effort do "check" — quase sempre vem null (ver
+      // nota no topo do arquivo), mas o caller usa esse `message` pra
+      // decidir se mostra o aviso de conferir no painel do IBOSOL.
       const { expireDate } = await checkMac(siteRoot, macValue);
       return NextResponse.json({
         ok: true,

@@ -1,17 +1,13 @@
 // app/api/integrations/apps/bobplayer/route.ts
 //
-// BOB Player (bobplayer.com) — mesma "unified-backend" branca da família IBO
-// SOFTWARE LTD usada por MessiTV (messitvplayer.com) e IBO Player
-// (iboplayer.com, tratado em ibosol/route.ts). Endpoints idênticos
-// (/frontend/captcha/generate, /frontend/device/login, .../savePlaylist,
-// .../deletePlayListUrl), MAS auth transport DIFERENTE: bobplayer.com usa
-// cookie de sessão Express (set-cookie no login, sem "token" no corpo),
-// enquanto messitvplayer.com devolve um JWT Bearer no corpo. Validado ao
-// vivo em 27/07/2026 (mesmo device mac 28:e6:a9:ad:ab:1d usado no teste do
-// MessiTV, conta real com playlists "ClienteTV"/"NaTV" pré-existentes):
-//   - GET  /frontend/device/playlists (com o cookie) devolve a lista REAL
-//     da conta — só funciona com cookie, Bearer devolve HTML de 404.
-//   - POST/DELETE (savePlaylist / deletePlayListUrl) aceitam o cookie normal.
+// BOB Player (bobplayer.com) — mesma "unified-backend" branca usada por
+// MessiTV (messitvplayer.com) e IBO Player (iboplayer.com, ver
+// iboplayer/route.ts). Endpoints idênticos (/frontend/captcha/generate,
+// /frontend/device/login, .../savePlaylist, .../deletePlayListUrl), MAS
+// auth transport DIFERENTE: bobplayer.com usa cookie de sessão Express
+// (set-cookie no login, sem "token" no corpo), enquanto messitvplayer.com
+// devolve um JWT Bearer no corpo. GET /frontend/device/playlists só
+// funciona com o cookie — com Bearer devolve HTML de 404.
 //
 // Fluxo:
 //   1. GET  /frontend/captcha/generate       → {svg, token}

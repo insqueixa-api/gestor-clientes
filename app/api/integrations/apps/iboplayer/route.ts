@@ -1,24 +1,13 @@
 // app/api/integrations/apps/iboplayer/route.ts
 //
-// IBO Player (iboplayer.com) — mesma "unified-backend" branca da família IBO
-// SOFTWARE LTD usada por MessiTV e BOB Player. Site DIFERENTE do
-// activation.iboplayer.com usado antes por IBOSOL pro "create" (esse sim
-// bloqueado por Cloudflare, sem solução — ver lib/apps/panel.ts e
-// ibosol/route.ts). iboplayer.com/frontend/device/login responde normal a
-// fetch direto do servidor, sem bloqueio.
+// IBO Player (iboplayer.com) — mesma "unified-backend" branca usada por
+// MessiTV e BOB Player (ver messitv/route.ts e bobplayer/route.ts). Site
+// DIFERENTE do domínio activation.iboplayer.com (hoje sem uso aqui).
+// Handler standalone, cobre create/delete/check.
 //
-// Substitui o fluxo antigo (que vivia dentro de ibosol/route.ts e só cobria
-// "delete" pro app_name==="ibo player" — create pra ele passava pelo
-// activation.iboplayer.com quebrado, e não existia "check"). Este handler
-// standalone cobre os 3 (create/delete/check), validado ao vivo em
-// 27/07/2026 numa conta real com 3 playlists de verdade (EliteTV, FastTV,
-// NaTV): criar playlist de teste → apareceu junto das 3 reais → apagada →
-// lista voltou exatamente como antes.
-//
-// Auth: igual MessiTV — login devolve JWT Bearer no corpo (sem cookie).
-// MAS a listagem usa GET (igual BOB Player), não POST como no MessiTV —
-// confirmado testando ao vivo, não assumir que é igual só pq o token é
-// Bearer.
+// Auth: igual MessiTV — login devolve JWT Bearer no corpo (sem cookie). MAS
+// a listagem usa GET (igual BOB Player), não POST como no MessiTV — não
+// assumir que é igual só porque o token é Bearer.
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";

@@ -1,8 +1,7 @@
 // lib/integrations/duplextv.ts
 // Duplex TV (duplex24.com) — SEM device_key/PIN, só mac + nome + URL.
-// Resolvido em app/api/integrations/apps/duplextv/route.ts. Último app da
-// família a sair do IBOSOL — validado ao vivo em 27/07/2026: criar + apagar
-// numa conta real, sem bloqueio de Cloudflare, sem precisar de captcha.
+// Resolvido em app/api/integrations/apps/duplextv/route.ts. Standalone —
+// não depende mais da família IBOSOL (removida por completo do projeto).
 export const DuplexTvIntegration = {
   actionPrefix: "DUPLEXTV",
   useApi: true,

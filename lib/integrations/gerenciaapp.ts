@@ -1,31 +1,36 @@
 // lib/integrations/gerenciaapp.ts
-// src/lib/integrations/gerenciaapp.ts
-
-// Função interna para descobrir qual é o ID correto baseado no nome do App
+//
+// GERENCIAAPP cobre a família de painéis white-label que rodam o mesmo
+// backend (IBO Revenda, Zone X, VU Revenda, Facilita, Uni Revenda, GPC
+// Roku/Android/LG) — ranking_app_id diz ao painel qual marca da família
+// está sendo usada; sem bater o valor certo, o painel mistura configuração
+// de uma marca com outra.
 function getRankingAppId(appName?: string): number {
-    if (!appName) return 10;
+    if (!appName) return 10;
 
-    const name = appName.trim().toUpperCase();
+    const name = appName.trim().toUpperCase();
 
-    if (name === "ZONE X" || name === "ZONEX") return 11;
-    if (name === "VU REVENDA") return 12;
-    if (name === "FACILITA" || name === "FACILITA APP") return 13;
-    if (name === "UNI REVENDA") return 15;
-    if (name === "GPC ROKU") return 17;
-    if (name === "GPC ANDROID") return 18; // ✅ Confirmado pelo cURL antes era 20, mas o ranking atual é 18. Atualizado em 30/mai.
-    if (name === "GPC LG") return 99;      // ⚠️ TODO: Atualizar em 30/mai com o rank correto
+    if (name === "ZONE X" || name === "ZONEX") return 11;
+    if (name === "VU REVENDA") return 12;
+    if (name === "FACILITA" || name === "FACILITA APP") return 13;
+    if (name === "UNI REVENDA") return 15;
+    if (name === "GPC ROKU") return 17;
+    if (name === "GPC ANDROID") return 18;
+    if (name === "GPC LG") return 99;
     if (name === "IBO REVENDA") return 10;
 
-    return 10;
+    return 10;
 }
 
 export const GerenciaAppIntegration = {
     actionPrefix: "GERENCIAAPP",
-    useApi: true, // migrado da extensão: roda na VM (proxy residencial), não mais no navegador
+    useApi: true, // create/check/delete rodam em app/api/integrations/apps/gerenciaapp (server-side, com proxy residencial — ver esse arquivo pra detalhes de como cada ação funciona hoje)
     apiEndpoint: "/api/integrations/apps/gerenciaapp",
 
     buildCreatePayload: (params: { username: string; password?: string; macValue: string; finalServerName: string; m3uUrl: string; serverName?: string; appName?: string }) => {
-        // Calcula a data exata de 1 ano para frente a partir de hoje
+        // Data de 1 ano pra frente — placeholder no create; o vencimento real
+        // vem depois via action:"check" (o painel não devolve vencimento de
+        // verdade na resposta do create em si).
         const today = new Date();
         today.setFullYear(today.getFullYear() + 1);
         const expireDate1Year = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -41,7 +46,7 @@ export const GerenciaAppIntegration = {
             xteam_password: "",
             username_login: params.username,
             password_login: params.password || "",
-            ranking_app_id: getRankingAppId(params.appName), // ✅ A mágica da unificação acontece aqui!
+            ranking_app_id: getRankingAppId(params.appName),
             dns: "",
             m3u8_list: params.m3uUrl || "",
             url_epg: "",
@@ -55,11 +60,12 @@ export const GerenciaAppIntegration = {
     },
 
     buildDeletePayload: (params: { username: string; finalServerName?: string; serverName?: string; macValue: string; appName?: string }) => {
-        return {
-            action: "delete",
-            // ✅ Regra padrão: Nome_Servidor. A extensão usa isso primeiro, se não achar, cai pro macValue.
-            username: params.finalServerName || params.username.trim(),
-            macValue: params.macValue || ""
-        };
-    }
+        return {
+            action: "delete",
+            // Busca a playlist pelo nome do servidor (Nome_Servidor); se não
+            // vier, cai pro username puro.
+            username: params.finalServerName || params.username.trim(),
+            macValue: params.macValue || ""
+        };
+    }
 };

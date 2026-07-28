@@ -3,7 +3,7 @@
 // login por MAC+Device Key (sem conta de revenda/e-mail-senha, é por
 // dispositivo). O servidor (route.ts) monta a URL m3u com o DNS #1 cadastrado
 // no servidor + usuário/senha do cliente — nunca reaproveita um m3u_url
-// pronto, porque só o DNS #1 libera a licença (achado do Márcio, 21/07/2026).
+// pronto, porque só o DNS #1 libera a licença.
 export const QuickPlayerAPI = {
   actionPrefix: "QUICKPLAYER",
   useApi: true,

@@ -1,11 +1,8 @@
 // lib/integrations/iboplayer.ts
 // IBO Player (iboplayer.com) — login por mac+device_key, captcha resolvido
 // via Gemini na rota (app/api/integrations/apps/iboplayer/route.ts). Mesma
-// família/backend do MessiTV e BOB Player. Substitui o fluxo antigo que
-// vivia dentro de ibosol/route.ts (só delete, create quebrado via
-// activation.iboplayer.com bloqueado por Cloudflare). Validado ao vivo em
-// 27/07/2026: criar + listar + apagar playlist numa conta real com 3
-// playlists de verdade (EliteTV, FastTV, NaTV), sem bloqueio de Cloudflare.
+// família/backend do MessiTV e BOB Player. Standalone — não depende mais da
+// família IBOSOL (removida por completo do projeto).
 export const IboPlayerIntegration = {
   actionPrefix: "IBOPLAYER",
   useApi: true,
@@ -23,17 +20,12 @@ export const IboPlayerIntegration = {
     // deviceKey vem injetado pelo modal (novo_cliente.tsx) como campo
     // top-level do body, igual acontece com IBOPRO/QUICKPLAYER/MESSITV/BOBPLAYER.
     //
-    // ⚠️ 27/07/2026: usar SÓ o nome do servidor (params.serverName, ex:
-    // "NaTV") aqui era um bug real, não só cosmético — o "Configurar" sempre
-    // apaga-antes-de-criar (ver handleConfigApp em novo_cliente.tsx), e a
-    // busca por nome no delete/create usa EXATAMENTE essa string. Como o
-    // nome do servidor sozinho colide com playlists de OUTROS clientes que
-    // por acaso têm o mesmo servidor, isso apaga a playlist real de um
-    // servidor pra criar uma vazia no lugar (achado em produção no
-    // IPTVDUPLEX, mesmo bug copiado pra cá). `finalServerName` (ex:
-    // "Insqueixa_NaTV") é o padrão usado por QUICKPLAYER e é único por
-    // cliente — DUPLECAST é a ÚNICA exceção de propósito (pedido específico
-    // do Márcio, documentado em duplecast.ts).
+    // finalServerName (ex: "Insqueixa_NaTV") é único por cliente — usar só
+    // o nome do servidor (params.serverName, ex: "NaTV") colidiria com
+    // playlists de OUTROS clientes que têm o mesmo servidor, já que
+    // "Configurar" sempre apaga-antes-de-criar (handleConfigApp em
+    // novo_cliente.tsx) buscando por essa mesma string. DUPLECAST é a ÚNICA
+    // exceção de propósito (ver duplecast.ts).
     return {
       action: "create",
       macValue: params.macValue,

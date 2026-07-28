@@ -1,16 +1,15 @@
 // app/api/integrations/apps/messitv/route.ts
 //
 // MessiTV (messitvplayer.com) — mesmo backend "unified-backend" branco usado
-// por outros players da família Messi SOFTWARE LTD (o "IBO Player" tratado em
-// app/api/integrations/apps/ibosol/route.ts é outro rebrand da mesma casa).
-// DIFERENTE do activation.iboplayer.com (esse sim bloqueado por Cloudflare,
-// sem solução — ver lib/apps/panel.ts): validado ao vivo em 27/07/2026 que
+// por outros players da mesma casa (IBO Player, BOB Player — ver
+// iboplayer/route.ts e bobplayer/route.ts). DIFERENTE do
+// activation.iboplayer.com (domínio antigo, hoje sem uso aqui):
 // messitvplayer.com/frontend/* responde normal a fetch server-to-server, sem
-// nenhum desafio. Único porém: login por device (mac+device_key) exige
-// resolver um captcha de imagem (SVG renderizado, sem texto real no XML —
-// precisa virar PNG e passar pelo Gemini, igual iboplayer.com/device/login).
+// desafio de Cloudflare. Único porém: login por device (mac+device_key)
+// exige resolver um captcha de imagem (SVG renderizado, sem texto real no
+// XML — precisa virar PNG e passar pelo Gemini, igual iboplayer.com).
 //
-// Fluxo (confirmado ao vivo, criar+listar+apagar de verdade numa conta real):
+// Fluxo:
 //   1. GET  /frontend/captcha/generate       → {svg, token}
 //   2. Resvg renderiza o SVG em PNG → Gemini lê o texto → answer
 //   3. POST /frontend/device/login            {mac_address, device_key, captcha, token}
@@ -22,9 +21,9 @@
 //   6. DELETE /frontend/device/deletePlayListUrl/{playlist_id}  {device_id, pin?} (Bearer)
 //
 // Sem sessão/cookie — cada chamada resolve o captcha e loga de novo (mesmo
-// padrão do IBO Player em ibosol/route.ts). O JWT dura 7 dias mas não vale a
-// pena cachear: manter isso stateless evita lidar com token expirado no meio
-// de uma automação.
+// padrão do IBO Player, ver iboplayer/route.ts). O JWT dura 7 dias mas não
+// vale a pena cachear: manter isso stateless evita lidar com token expirado
+// no meio de uma automação.
 //
 // api_url vem de app_integrations (igual Duplecast) — hoje sempre
 // https://messitvplayer.com, mas assim fica configurável se o parceiro
@@ -51,8 +50,8 @@ function originHeaders(siteRoot: string) {
 }
 
 // O site manda width/height duplicados na tag <svg> — quebra o parser XML
-// estrito do resvg. Mesmo achado/fix já usado pro captcha do IBO Player
-// (iboplayer.com, ibosol/route.ts) — é o mesmo backend por trás dos dois.
+// estrito do resvg. Mesmo fix usado pro captcha do IBO Player
+// (iboplayer/route.ts) — é o mesmo backend por trás dos dois.
 function sanitizeCaptchaSvg(svg: string): string {
   return svg.replace(/^<svg\b[^>]*>/, (openTag) => {
     let cleaned = openTag;
