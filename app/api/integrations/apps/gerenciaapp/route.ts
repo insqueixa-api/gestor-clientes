@@ -1,31 +1,41 @@
 // app/api/integrations/apps/gerenciaapp/route.ts
 //
-// Implementação direta (sem VM) do login/create/delete/check no GerenciaApp
-// — migrado de whatsapp-service/src/gerenciaapp.js em 27/07/2026 depois de
-// validar ao vivo (ciclo completo create→check→delete, numa conta real) que
-// gerenciaapp.top respondeu normal a fetch direto DO AMBIENTE DE TESTE. Na
-// Vercel de produção (unigestor.net.br) o mesmo teste falhou logo no GET
-// /login ("Não recebi XSRF-TOKEN") — ou seja, o IP da Vercel especificamente
-// TEM bloqueio/challenge que o ambiente de teste não tinha. Por isso essa
-// rota usa o mesmo proxy residencial que a VM já usava
-// (GERENCIAAPP_PROXY_URL) em TODAS as chamadas — login, busca, create,
-// check, delete —, precisa estar configurada também no ambiente da Vercel
-// (não só no whatsapp-service/.env como antes).
+// Reescrito em 27/07/2026 pra usar o portal de autoatendimento por MAC do
+// GerenciaApp (/ativador) em vez do painel admin (/users, usado pela
+// implementação anterior). Motivo: o Márcio reportou, no MAC real
+// CA:C1:BD:87:65:C7 (3 playlists cadastradas — NaTV/FastTV/Elite), que
+// "Configurar" apagava a playlist anterior em vez de adicionar uma nova, e
+// que "Remover" apagava TODAS as playlists do MAC, não só uma. Investigado
+// ao vivo nesse MAC real (com backup dos dados antes de mexer):
+//   - GET /users?search={mac} no painel admin só devolve o registro MAIS
+//     RECENTE entre os que batem com esse MAC — nunca todos. Isso fazia o
+//     fallback de busca-por-MAC do fluxo antigo (quando a busca pelo nome
+//     exato do servidor não achava nada, por ser um servidor novo) escolher
+//     um registro ERRADO (de outro servidor já configurado) e apagar ele.
+//   - DELETE /users/{id} no painel admin apaga TODOS os registros daquele
+//     mac_device, não só o {id} pedido — confirmado criando 2 registros de
+//     teste com dados totalmente distintos (usernames diferentes) e
+//     apagando só 1: os dois sumiram.
+//   - O portal /ativador (login só com o MAC, sem email/senha — endpoint
+//     POST /ativador) expõe cada playlist como um recurso individual de
+//     verdade: GET /ativador/gerenciamento lista TODAS (`props.lists`),
+//     POST /ativador/add-m3u adiciona sem tocar nas existentes, DELETE
+//     /ativador/delete/{id} apaga só aquele id — validado ao vivo no MAC
+//     real: criei uma playlist de teste extra (ficou com as 3 reais + 1),
+//     apaguei só a de teste, as 3 reais sobreviveram intactas (mesmos ids).
 //
-// Dois outros bugs reais corrigidos nessa migração (achados 27/07/2026, o
-// Márcio configurou um cliente e o toast disse "sucesso" mas nada foi
-// criado):
-//   1. Toda chamada Inertia com X-Inertia:true precisa mandar
-//      X-Inertia-Version batendo com a versão atual dos assets do painel —
-//      sem isso, Laravel/Inertia devolve 409 com corpo VAZIO (sem detalhe
-//      de erro), fácil de confundir com bloqueio/sucesso.
-//   2. O formulário de criação mudou: agora exige um array `playlists`
-//      (com `modo_selecao` DENTRO de cada item), não só os campos soltos
-//      antigos na raiz do payload.
-// Além disso, "parece sucesso" (200/302/303/redirected) não é confiável
-// sozinho — Inertia devolve HTTP 200 com `props.errors` preenchido pra
-// erro de validação. Por isso SEMPRE confirma buscando o registro recém-
-// criado no painel antes de devolver ok:true pro create.
+// Como o /ativador loga só com o MAC, não precisa mais de
+// login_email/login_password (app_integrations) nem do conceito de
+// ranking_app_id (só existia no /users antigo) — só do api_url pra saber o
+// domínio, igual DUPLEXTV/IPTVDUPLEX etc.
+//
+// Mesmo bloqueio de IP na Vercel de produção que afeta o /users também
+// afeta o /ativador (mesmo domínio, mesmo Cloudflare) — usa o mesmo proxy
+// residencial (GERENCIAAPP_PROXY_URL) em todas as chamadas.
+//
+// Mesmo achado de X-Inertia-Version de antes continua valendo aqui: toda
+// chamada com X-Inertia:true (create/update/delete) precisa desse header
+// batendo com a versão atual dos assets, senão 409 com corpo vazio.
 import { NextResponse } from "next/server";
 import { fetch as undiciFetch, ProxyAgent } from "undici";
 import { createClient } from "@/lib/supabase/server";
@@ -38,24 +48,12 @@ export const dynamic = "force-dynamic";
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
 
-// Mesmo proxy residencial que a VM usa (whatsapp-service/.env) — aqui
-// precisa vir do ambiente da própria Vercel (GERENCIAAPP_PROXY_URL), não
-// só do .env.local antigo. Sem a env var configurada, cai pra chamada
-// direta (dispatcher undefined) — só funciona em ambientes que não sofrem
-// o bloqueio (não é o caso da Vercel de produção, ver nota acima).
 const PROXY_URL = String(process.env.GERENCIAAPP_PROXY_URL || "").trim();
 const proxyDispatcher = PROXY_URL ? new ProxyAgent(PROXY_URL) : undefined;
 
 function pfetch(url: string, opts: Record<string, any> = {}) {
   return undiciFetch(url, { ...opts, ...(proxyDispatcher ? { dispatcher: proxyDispatcher } : {}) }) as unknown as Promise<Response>;
 }
-
-// Sessão em memória por conta (email+base_url) — best-effort: em serverless
-// só ajuda em invocações "quentes" na mesma instância; se não tiver cache,
-// getSession loga de novo sem problema. Cookie do painel expira em 2h
-// (Max-Age=7200 real); guardamos por 100min.
-const sessionCache = new Map();
-const SESSION_TTL_MS = 100 * 60 * 1000;
 
 function getSetCookies(headers: Headers): string[] {
   return typeof (headers as any).getSetCookie === "function"
@@ -78,324 +76,115 @@ function cookieHeaderFrom(cookieMap: Record<string, string>): string {
   return Object.entries(cookieMap).map(([k, v]) => `${k}=${v}`).join("; ");
 }
 
-async function clearAvisos(baseUrl: string, cookieHeader: string, xsrfToken: string) {
-  try {
-    await pfetch(`${baseUrl}/save_session_aviso`, {
-      method: "POST",
-      headers: {
-        Accept: "application/json, text/plain, */*",
-        "X-Requested-With": "XMLHttpRequest",
-        "X-XSRF-TOKEN": xsrfToken,
-        Cookie: cookieHeader,
-        "User-Agent": UA,
-      },
-      signal: AbortSignal.timeout(1500),
-    });
-  } catch {
-    // best-effort
-  }
-}
-
-async function performLogin(baseUrl: string, email: string, password: string) {
-  const res1 = await pfetch(`${baseUrl}/login`, { headers: { "User-Agent": UA } });
+async function activatorLogin(baseUrl: string, mac: string): Promise<{ cookieHeader: string; xsrfToken: string }> {
+  const res1 = await pfetch(`${baseUrl}/ativador`, { headers: { "User-Agent": UA } });
   const cookies1 = parseSetCookies(res1.headers);
   const xsrf1 = decodeURIComponent(cookies1["XSRF-TOKEN"] || "");
-  if (!xsrf1) throw new Error("Não recebi XSRF-TOKEN do painel (GET /login).");
+  if (!xsrf1) throw new Error("Não recebi XSRF-TOKEN do painel (GET /ativador).");
 
-  const res2 = await pfetch(`${baseUrl}/login`, {
+  const res2 = await pfetch(`${baseUrl}/ativador`, {
     method: "POST",
     redirect: "manual",
     headers: {
       "Content-Type": "application/json",
-      Accept: "application/json",
+      Accept: "text/html, application/xhtml+xml, application/json",
+      "X-Requested-With": "XMLHttpRequest",
+      "X-Inertia": "true",
       "X-XSRF-TOKEN": xsrf1,
       Cookie: cookieHeaderFrom(cookies1),
-      Referer: `${baseUrl}/login`,
+      Referer: `${baseUrl}/ativador`,
       "User-Agent": UA,
     },
-    body: JSON.stringify({ email, password, remember: false }),
+    body: JSON.stringify({ mac }),
   });
 
   if (res2.status !== 302 && res2.status !== 200) {
-    throw new Error(`Falha no login do GerenciaApp (HTTP ${res2.status}). Verifique usuário/senha.`);
+    throw new Error(`Falha ao autenticar o MAC no GerenciaApp (HTTP ${res2.status}). Confira o MAC cadastrado.`);
   }
 
   const cookies2 = parseSetCookies(res2.headers);
   const merged = { ...cookies1, ...cookies2 };
-  const xsrfToken = decodeURIComponent(merged["XSRF-TOKEN"] || xsrf1);
-  return { cookieHeader: cookieHeaderFrom(merged), xsrfToken, expiresAt: Date.now() + SESSION_TTL_MS };
+  return { cookieHeader: cookieHeaderFrom(merged), xsrfToken: decodeURIComponent(merged["XSRF-TOKEN"] || xsrf1) };
 }
 
-async function getSession(baseUrl: string, email: string, password: string) {
-  const key = `${baseUrl}::${email}`;
-  const cached = sessionCache.get(key);
-  if (cached && cached.expiresAt > Date.now()) return cached;
-
-  const session = await performLogin(baseUrl, email, password);
-  sessionCache.set(key, session);
-
-  await new Promise((r) => setTimeout(r, 1000));
-  await clearAvisos(baseUrl, session.cookieHeader, session.xsrfToken);
-  await new Promise((r) => setTimeout(r, 1500));
-
-  return session;
-}
-
-function invalidateSession(baseUrl: string, email: string) {
-  sessionCache.delete(`${baseUrl}::${email}`);
-}
-
-async function getInertiaVersion(baseUrl: string, session: any): Promise<string | null> {
-  const res = await pfetch(`${baseUrl}/users`, {
+async function getManageData(baseUrl: string, session: { cookieHeader: string }): Promise<{ version: string | null; lists: any[] }> {
+  const res = await pfetch(`${baseUrl}/ativador/gerenciamento`, {
     headers: { Accept: "text/html", Cookie: session.cookieHeader, "User-Agent": UA },
   });
   const html = await res.text();
   const m = html.match(/data-page="([^"]+)"/);
-  if (!m) return null;
+  if (!m) return { version: null, lists: [] };
   const decoded = m[1].replace(/&quot;/g, '"').replace(/&amp;/g, "&");
   try {
-    return JSON.parse(decoded)?.version || null;
-  } catch {
-    return null;
-  }
-}
-
-function normalizeMac(mac: string): string {
-  return String(mac || "").replace(/[^a-fA-F0-9]/g, "").toUpperCase();
-}
-
-async function searchUsersOnPanel(baseUrl: string, session: any, term: string): Promise<any[]> {
-  if (!term || !term.trim()) return [];
-  const url = `${baseUrl}/users?page=1&search=${encodeURIComponent(term)}`;
-  try {
-    const res = await pfetch(url, { headers: { Accept: "text/html", Cookie: session.cookieHeader, "User-Agent": UA } });
-    if (!res.ok || res.url.includes("/login")) return [];
-    const html = await res.text();
-    const m = html.match(/data-page="([^"]+)"/);
-    if (!m) return [];
-    const decoded = m[1].replace(/&quot;/g, '"').replace(/&amp;/g, "&");
     const json = JSON.parse(decoded);
-    if (json.props?.users?.data) return json.props.users.data;
-    if (Array.isArray(json.props?.users)) return json.props.users;
-    if (Array.isArray(json.data)) return json.data;
-    return [];
+    return { version: json?.version || null, lists: json?.props?.lists || [] };
   } catch {
-    return [];
+    return { version: null, lists: [] };
   }
 }
 
-function pickUserRecord(byName: any[], byMac: any[], searchName: string, macDevice?: string) {
-  if (byName.length === 1) return byName[0];
-  if (byName.length > 1 && macDevice) {
-    const macNorm = normalizeMac(macDevice);
-    const exact = byName.find((u) => normalizeMac(JSON.stringify(u)).includes(macNorm));
-    if (exact) return exact;
-  }
-  if (byMac.length === 1) return byMac[0];
-  if (byMac.length > 1) {
-    const nameLower = String(searchName || "").toLowerCase();
-    const exact = byMac.find((u) => JSON.stringify(u).toLowerCase().includes(nameLower));
-    if (exact) return exact;
-  }
-  return null;
+function findListByName(lists: any[], name: string) {
+  const targetLower = String(name || "").toLowerCase().trim();
+  return (
+    lists.find((l) => String(l.server_name || "").toLowerCase().trim() === targetLower) ||
+    lists.find(
+      (l) =>
+        String(l.server_name || "").toLowerCase().includes(targetLower) ||
+        targetLower.includes(String(l.server_name || "").toLowerCase()),
+    ) ||
+    (lists.length === 1 ? lists[0] : null)
+  );
 }
 
-async function createGerenciaApp({
-  baseUrl,
-  email,
-  password,
-  payload,
-}: {
-  baseUrl: string;
-  email: string;
-  password: string;
-  payload: Record<string, any>;
-}) {
-  const BASE_URL = baseUrl.replace(/\/$/, "");
-  let session = await getSession(BASE_URL, email, password);
-  const inertiaVersion = await getInertiaVersion(BASE_URL, session);
-
-  // O painel exige o array `playlists` (com modo_selecao dentro de cada
-  // item) além dos campos soltos antigos — mantemos os dois por segurança.
-  const enrichedPayload = {
-    ...payload,
-    playlists: [
-      {
-        modo_selecao: payload.modo_selecao ?? 1,
-        name: payload.server_name,
-        url: payload.m3u8_list,
-        m3u8_list: payload.m3u8_list,
-      },
-    ],
-  };
-
-  const doCreate = (s: any) =>
-    pfetch(`${BASE_URL}/users`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "text/html, application/xhtml+xml, application/json",
-        "X-Requested-With": "XMLHttpRequest",
-        "X-Inertia": "true",
-        ...(inertiaVersion ? { "X-Inertia-Version": inertiaVersion } : {}),
-        "X-XSRF-TOKEN": s.xsrfToken,
-        Cookie: s.cookieHeader,
-        "User-Agent": UA,
-      },
-      body: JSON.stringify(enrichedPayload),
-    });
-
-  let res = await doCreate(session);
-
-  if (res.url.includes("/login")) {
-    invalidateSession(BASE_URL, email);
-    session = await getSession(BASE_URL, email, password);
-    res = await doCreate(session);
-    if (res.url.includes("/login")) {
-      throw new Error("Falha ao validar a sessão mesmo após novo login.");
-    }
-  }
-
+async function createPlaylist(
+  baseUrl: string,
+  session: { cookieHeader: string; xsrfToken: string },
+  version: string | null,
+  { name, url }: { name: string; url: string },
+) {
+  const res = await pfetch(`${baseUrl}/ativador/add-m3u`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "text/html, application/xhtml+xml, application/json",
+      "X-Requested-With": "XMLHttpRequest",
+      "X-Inertia": "true",
+      ...(version ? { "X-Inertia-Version": version } : {}),
+      "X-XSRF-TOKEN": session.xsrfToken,
+      Cookie: session.cookieHeader,
+      "User-Agent": UA,
+    },
+    body: JSON.stringify({ url, pwd: "", epg: "", name: name || "Playlist", reseller: "", whatsapp: "" }),
+  });
   const text = await res.text();
-  const looksOk = res.ok || res.status === 302 || res.status === 303 || res.redirected;
-
-  // Inertia pode devolver HTTP 200 com `props.errors` preenchido — checa
-  // ANTES de confiar no HTTP.
-  if (looksOk) {
-    try {
-      const json = JSON.parse(text);
-      const errors = json?.props?.errors || {};
-      const firstErr = Object.values(errors)[0];
-      if (firstErr) return { ok: false, error: String(firstErr) };
-    } catch {
-      // corpo não é JSON (302 puro sem body) — segue pra verificação por busca
+  try {
+    const json = JSON.parse(text);
+    const errors = json?.props?.errors || {};
+    const firstErr = Object.values(errors)[0];
+    if (firstErr) throw new Error(String(firstErr));
+  } catch (e: any) {
+    if (e instanceof SyntaxError) {
+      // corpo não é JSON — segue, confirma por relistagem abaixo
+    } else {
+      throw e;
     }
   }
-
-  if (looksOk) {
-    let verified: any = null;
-    for (let attempt = 1; attempt <= 2 && !verified; attempt++) {
-      if (attempt > 1) await new Promise((r) => setTimeout(r, 1500));
-      const found = await searchUsersOnPanel(BASE_URL, session, payload.server_name);
-      const macNorm = normalizeMac(payload.mac_device);
-      verified = found.find((u) => normalizeMac(JSON.stringify(u)).includes(macNorm)) || (found.length === 1 ? found[0] : null);
-    }
-
-    if (verified) return { ok: true, message: "Sucesso!" };
-
-    return {
-      ok: false,
-      error: `O painel respondeu sem erro, mas o usuário "${payload.server_name}" não apareceu na busca depois de criar — confira manualmente no GerenciaApp (pode ser MAC duplicado ou outra validação que o painel não devolve como erro HTTP).`,
-    };
-  }
-
-  let errMsg = `HTTP ${res.status}`;
-  if (res.status === 500) {
-    const m = text.match(/<title>(.*?)<\/title>/);
-    errMsg = m?.[1] ? `Erro no GerenciaApp: ${m[1]}` : "Erro 500: O servidor do GerenciaApp travou.";
-  } else {
-    try {
-      const json = JSON.parse(text);
-      const errors = json?.props?.errors || json?.errors || {};
-      const firstErr = Object.values(errors)[0];
-      if (firstErr) errMsg = String(firstErr);
-    } catch {
-      errMsg = text.slice(0, 100);
-    }
-  }
-  return { ok: false, error: errMsg };
 }
 
-async function checkGerenciaApp({
-  baseUrl,
-  email,
-  password,
-  searchName,
-  macDevice,
-}: {
-  baseUrl: string;
-  email: string;
-  password: string;
-  searchName: string;
-  macDevice?: string;
-}) {
-  const BASE_URL = baseUrl.replace(/\/$/, "");
-  const session = await getSession(BASE_URL, email, password);
-
-  const byName = await searchUsersOnPanel(BASE_URL, session, searchName);
-  const byMac = macDevice ? await searchUsersOnPanel(BASE_URL, session, macDevice) : [];
-  const user = pickUserRecord(byName, byMac, searchName, macDevice);
-
-  if (!user) {
-    return {
-      ok: false,
-      error: `Usuário/MAC não encontrado no painel do GerenciaApp. (Buscado: ${searchName} / MAC: ${macDevice})`,
-    };
-  }
-
-  return { ok: true, expireDate: user.expire_account || null };
-}
-
-async function deleteGerenciaApp({
-  baseUrl,
-  email,
-  password,
-  searchName,
-  macDevice,
-}: {
-  baseUrl: string;
-  email: string;
-  password: string;
-  searchName: string;
-  macDevice?: string;
-}) {
-  const BASE_URL = baseUrl.replace(/\/$/, "");
-  const session = await getSession(BASE_URL, email, password);
-
-  let userIdToDelete: number | null = null;
-
-  const byName = await searchUsersOnPanel(BASE_URL, session, searchName);
-  if (byName.length === 1) {
-    userIdToDelete = byName[0].id;
-  } else if (byName.length > 1 && macDevice) {
-    const macNorm = normalizeMac(macDevice);
-    const exact = byName.find((u) => normalizeMac(JSON.stringify(u)).includes(macNorm));
-    if (exact) userIdToDelete = exact.id;
-  }
-
-  if (!userIdToDelete && macDevice) {
-    const byMac = await searchUsersOnPanel(BASE_URL, session, macDevice);
-    if (byMac.length === 1) {
-      userIdToDelete = byMac[0].id;
-    } else if (byMac.length > 1) {
-      const nameLower = String(searchName || "").toLowerCase();
-      const exact = byMac.find((u) => JSON.stringify(u).toLowerCase().includes(nameLower));
-      if (exact) userIdToDelete = exact.id;
-    }
-  }
-
-  if (!userIdToDelete) {
-    return {
-      ok: false,
-      error: `Usuário/MAC não encontrado no painel do GerenciaApp. (Buscado: ${searchName} / MAC: ${macDevice})`,
-    };
-  }
-
-  await new Promise((r) => setTimeout(r, 1000));
-
-  const deleteRes = await pfetch(`${BASE_URL}/users/${userIdToDelete}`, {
+async function deleteById(baseUrl: string, session: { cookieHeader: string; xsrfToken: string }, version: string | null, id: string | number) {
+  const res = await pfetch(`${baseUrl}/ativador/delete/${id}`, {
     method: "DELETE",
     headers: {
-      accept: "application/json, text/plain, */*",
-      "x-requested-with": "XMLHttpRequest",
+      Accept: "application/json, text/plain, */*",
+      "X-Requested-With": "XMLHttpRequest",
+      "X-Inertia": "true",
+      ...(version ? { "X-Inertia-Version": version } : {}),
       "X-XSRF-TOKEN": session.xsrfToken,
       Cookie: session.cookieHeader,
       "User-Agent": UA,
     },
   });
-
-  if (deleteRes.ok) return { ok: true };
-  return { ok: false, error: `Falha ao apagar o registro ID ${userIdToDelete}.` };
+  if (!res.ok) throw new Error(`Falha ao apagar a playlist (id ${id}, status ${res.status}).`);
 }
 
 export async function POST(req: Request) {
@@ -418,58 +207,81 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { action, base_url } = body;
+    const { action, macValue, finalServerName, m3uUrl, username, base_url } = body;
 
     if (!action || (action !== "create" && action !== "delete" && action !== "check")) {
       return NextResponse.json({ ok: false, error: "action inválida. Use: create | delete | check" }, { status: 400 });
     }
-    if (!base_url) {
-      return NextResponse.json({ ok: false, error: "base_url é obrigatório." }, { status: 400 });
+    if (!macValue) {
+      return NextResponse.json({ ok: false, error: "macValue é obrigatório." }, { status: 400 });
     }
 
-    const { data: integ, error: integErr } = await supabase
-      .from("app_integrations")
-      .select("login_email, login_password")
-      .eq("app_name", "GERENCIAAPP")
-      .eq("is_active", true)
-      .maybeSingle();
+    let siteRoot = String(base_url || "").replace(/\/$/, "");
+    if (!siteRoot) {
+      const { data: integ } = await supabase
+        .from("app_integrations")
+        .select("api_url")
+        .eq("app_name", "GERENCIAAPP")
+        .eq("is_active", true)
+        .maybeSingle();
+      siteRoot = String(integ?.api_url || "").replace(/\/$/, "");
+    }
+    if (!siteRoot) {
+      return NextResponse.json({ ok: false, error: "Integração GerenciaApp não configurada." }, { status: 500 });
+    }
 
-    if (integErr || !integ?.login_email || !integ?.login_password) {
-      return NextResponse.json(
-        { ok: false, error: "Credenciais do GerenciaApp não configuradas (Configurações → Integrações)." },
-        { status: 400 },
-      );
+    const session = await activatorLogin(siteRoot, macValue);
+
+    if (action === "check") {
+      const { lists } = await getManageData(siteRoot, session);
+      const searchName = String(username || finalServerName || "").trim();
+      const match = findListByName(lists, searchName);
+      const expireDate = match?.expire_account || null;
+      return NextResponse.json({
+        ok: true,
+        expireDate,
+        message: expireDate ? "Vencimento atualizado." : "Não foi possível localizar o vencimento no painel.",
+      });
     }
 
     if (action === "create") {
-      const result = await createGerenciaApp({
-        baseUrl: base_url,
-        email: integ.login_email,
-        password: integ.login_password,
-        payload: body,
-      });
-      return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+      if (!m3uUrl) {
+        return NextResponse.json({ ok: false, error: "m3uUrl é obrigatório para create." }, { status: 400 });
+      }
+      const { version } = await getManageData(siteRoot, session);
+      await createPlaylist(siteRoot, session, version, { name: finalServerName || "Playlist", url: m3uUrl });
+
+      // Best-effort: relista pra pegar o vencimento real já atribuído (o
+      // create não devolve isso diretamente).
+      let expireDate: string | null = null;
+      try {
+        const after = await getManageData(siteRoot, session);
+        const created = findListByName(after.lists, finalServerName || "Playlist");
+        expireDate = created?.expire_account || null;
+      } catch {
+        // não bloqueia — playlist já foi criada
+      }
+
+      return NextResponse.json({ ok: true, expireDate, message: "Playlist configurada com sucesso." });
     }
 
-    if (action === "check") {
-      const result = await checkGerenciaApp({
-        baseUrl: base_url,
-        email: integ.login_email,
-        password: integ.login_password,
-        searchName: body.username,
-        macDevice: body.macValue,
-      });
-      return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+    // action === "delete"
+    const searchName = String(username || finalServerName || "").trim();
+    if (!searchName) {
+      return NextResponse.json({ ok: false, error: "Nome do servidor não informado." }, { status: 400 });
     }
 
-    const result = await deleteGerenciaApp({
-      baseUrl: base_url,
-      email: integ.login_email,
-      password: integ.login_password,
-      searchName: body.username,
-      macDevice: body.macValue,
-    });
-    return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+    const { version, lists } = await getManageData(siteRoot, session);
+    const match = findListByName(lists, searchName);
+    if (!match) {
+      return NextResponse.json(
+        { ok: false, error: `Nenhuma playlist encontrada com o nome "${searchName}" nesse MAC (${lists.length} playlist(s) no total).` },
+        { status: 404 },
+      );
+    }
+
+    await deleteById(siteRoot, session, version, match.id);
+    return NextResponse.json({ ok: true, message: "Playlist removida com sucesso." });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "Erro interno." }, { status: 500 });
   }

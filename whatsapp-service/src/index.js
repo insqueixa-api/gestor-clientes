@@ -10,7 +10,6 @@ import {
   getSessionConfig, updateSessionConfig, getContactProfilePicture,
   getBotEvents,
 } from "./sessionManager.js";
-import { createGerenciaApp, deleteGerenciaApp, checkGerenciaApp } from "./gerenciaapp.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -371,53 +370,11 @@ app.post("/system/hard-reset", authMiddleware, async (req, res) => {
   setTimeout(() => process.exit(0), 500);
 });
 
-// ── POST /gerenciaapp/create | /gerenciaapp/delete ────────────
-// Migrado da extensão de navegador: mesma lógica (login → cria/apaga),
-// mas rodando aqui, saindo pelo proxy residencial (GERENCIAAPP_PROXY_URL)
-// em vez do navegador do Márcio — evita o bloqueio de IP de datacenter.
-app.post("/gerenciaapp/create", authMiddleware, async (req, res) => {
-  const { baseUrl, email, password, payload } = req.body || {};
-  if (!baseUrl || !email || !password || !payload) {
-    return res.status(400).json({ ok: false, error: "baseUrl, email, password e payload são obrigatórios." });
-  }
-  try {
-    const result = await createGerenciaApp({ baseUrl, email, password, payload });
-    res.json(result);
-  } catch (e) {
-    console.error("[GERENCIAAPP_CREATE] erro:", e?.message);
-    res.status(500).json({ ok: false, error: e?.message || "Falha ao criar no GerenciaApp." });
-  }
-});
-
-// Só consulta o vencimento real (expire_account) no painel, sem criar/
-// apagar nada — usado pelo botão "Verificar validade" do portal.
-app.post("/gerenciaapp/check", authMiddleware, async (req, res) => {
-  const { baseUrl, email, password, searchName, macDevice } = req.body || {};
-  if (!baseUrl || !email || !password || !searchName) {
-    return res.status(400).json({ ok: false, error: "baseUrl, email, password e searchName são obrigatórios." });
-  }
-  try {
-    const result = await checkGerenciaApp({ baseUrl, email, password, searchName, macDevice });
-    res.json(result);
-  } catch (e) {
-    console.error("[GERENCIAAPP_CHECK] erro:", e?.message);
-    res.status(500).json({ ok: false, error: e?.message || "Falha ao consultar o GerenciaApp." });
-  }
-});
-
-app.post("/gerenciaapp/delete", authMiddleware, async (req, res) => {
-  const { baseUrl, email, password, searchName, macDevice } = req.body || {};
-  if (!baseUrl || !email || !password || !searchName) {
-    return res.status(400).json({ ok: false, error: "baseUrl, email, password e searchName são obrigatórios." });
-  }
-  try {
-    const result = await deleteGerenciaApp({ baseUrl, email, password, searchName, macDevice });
-    res.json(result);
-  } catch (e) {
-    console.error("[GERENCIAAPP_DELETE] erro:", e?.message);
-    res.status(500).json({ ok: false, error: e?.message || "Falha ao apagar no GerenciaApp." });
-  }
-});
+// (removido em 27/07/2026) GerenciaApp saiu da VM de vez — agora roda
+// direto em app/api/integrations/apps/gerenciaapp/route.ts (Next.js),
+// usando o portal /ativador (login só por MAC) em vez do painel admin
+// /users que motivou essa rota aqui. Ver memória do projeto pro histórico
+// completo (dois bugs de dados reais encontrados no fluxo antigo).
 
 // ── POST /fast-sync/proxy-m3u ─────────────────────────────────
 // Relay puro pro M3U do Fast: a Vercel não consegue baixar direto (IP de
