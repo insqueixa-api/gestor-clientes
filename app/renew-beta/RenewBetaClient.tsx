@@ -9,6 +9,8 @@ import { useConfirm } from "@/hooks/useConfirm";
 import { Pencil, CheckCircle2, ShieldCheck, Loader2 } from "lucide-react";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import AddAppModal from "./AddAppModal";
+import ConfigureResultModal, { ConfigureResultData } from "./ConfigureResultModal";
+import ReconfigureModeModal, { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
 import { normalizeMacInput } from "@/lib/apps/field-types";
 
 // ========= TYPES =========
@@ -375,6 +377,8 @@ export default function RenewClient() {
 
   // Picker "+ Adicionar aplicativo" (modal por tipo de equipamento)
   const [showAddAppPicker, setShowAddAppPicker] = useState(false);
+  const [configureResult, setConfigureResult] = useState<ConfigureResultData | null>(null);
+  const [reconfigureModeTarget, setReconfigureModeTarget] = useState<string | null>(null);
   const [appCatalog, setAppCatalog] = useState<
     {
       id: string;
@@ -711,21 +715,60 @@ export default function RenewClient() {
     }
   }
 
-  async function handleConfigureApp(clientAppId: string) {
+  function handleConfigureApp(clientAppId: string) {
+    const targetApp = installedApps.find((a) => a.id === clientAppId);
+    if (targetApp?.expiration) {
+      // Reconfigurar (já tinha config antes) — pede pra escolher entre
+      // manter a config atual (Principal) ou gerar uma nova (Secundária).
+      setReconfigureModeTarget(clientAppId);
+      return;
+    }
+    performConfigureApp(clientAppId, "principal");
+  }
+
+  async function performConfigureApp(clientAppId: string, mode: ReconfigureMode) {
     if (!selectedAccountId || !session) return;
+
+    const targetApp = installedApps.find((a) => a.id === clientAppId);
+    const isReconfigure = !!targetApp?.expiration;
+    const appName = targetApp?.name || "Aplicativo";
+
     setAppActionBusy(clientAppId);
     try {
       const res = await fetch("/api/client-portal/apps/configure", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_token: session, client_id: selectedAccountId, client_app_id: clientAppId }),
+        body: JSON.stringify({ session_token: session, client_id: selectedAccountId, client_app_id: clientAppId, mode }),
       });
       const result = await res.json().catch(() => null);
-      if (!result?.ok) throw new Error(result?.error || "Falha ao configurar.");
-      addToast("success", "Configurado!", result.expireDate ? `Vencimento: ${String(result.expireDate).split("-").reverse().join("/")}` : undefined);
+      if (!result?.ok) {
+        setConfigureResult({
+          kind: result?.blocked ? "blocked" : "error",
+          isReconfigure,
+          appName,
+          errorMessage: result?.error || "Falha ao configurar.",
+          escalate: !!result?.escalate,
+          suggestSecondary: !!result?.suggest_secondary,
+        });
+        return;
+      }
+      setConfigureResult({
+        kind: "success",
+        isReconfigure,
+        appName,
+        expireDate: result.expireDate || null,
+        repeatWarning: !!result.repeat_warning,
+        suggestSecondary: !!result.suggest_secondary,
+      });
       await refreshInstalledApps();
     } catch (err: any) {
-      addToast("error", "Falha ao configurar", err?.message);
+      setConfigureResult({
+        kind: "error",
+        isReconfigure,
+        appName,
+        errorMessage: "Houve uma falha ao configurar esse aplicativo. Tente mais uma vez — se continuar falhando, fale com o suporte.",
+        escalate: false,
+      });
     } finally {
       setAppActionBusy(null);
     }
@@ -3579,6 +3622,24 @@ export default function RenewClient() {
                 catalogLoading={appCatalogLoading}
                 busyAppId={appActionBusy?.startsWith("add-") ? appActionBusy.slice(4) : null}
                 onSelectApp={(appId) => handleAddApp(appId)}
+              />
+
+              <ConfigureResultModal
+                open={!!configureResult}
+                onClose={() => setConfigureResult(null)}
+                data={configureResult}
+                supportPhone={supportPhone}
+              />
+
+              <ReconfigureModeModal
+                open={!!reconfigureModeTarget}
+                onClose={() => setReconfigureModeTarget(null)}
+                appName={installedApps.find((a) => a.id === reconfigureModeTarget)?.name || "Aplicativo"}
+                onChoose={(mode) => {
+                  const targetId = reconfigureModeTarget;
+                  setReconfigureModeTarget(null);
+                  if (targetId) performConfigureApp(targetId, mode);
+                }}
               />
 
               {/* Modal de pagamento avulso da licença — nunca mexe na assinatura */}

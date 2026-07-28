@@ -42,19 +42,26 @@ function jsonError(message: string, status: number) {
 }
 
 export async function POST(req: NextRequest) {
+  let tenantId = "";
+  let client_id = "";
+  let client_app_id = "";
+  let appName = "Aplicativo";
+  let supabaseAdmin: ReturnType<typeof makeSupabaseAdmin> = null;
+
   try {
-    const supabaseAdmin = makeSupabaseAdmin();
+    supabaseAdmin = makeSupabaseAdmin();
     if (!supabaseAdmin) {
       return NextResponse.json({ ok: false, error: "Erro interno" }, { status: 500, headers: NO_STORE_HEADERS });
     }
 
     const body = await req.json().catch(() => ({} as any));
     const session_token = normalizeStr(body?.session_token);
-    const client_id = normalizeStr(body?.client_id);
-    const client_app_id = normalizeStr(body?.client_app_id);
+    client_id = normalizeStr(body?.client_id);
+    client_app_id = normalizeStr(body?.client_app_id);
 
     const ctx = await validatePortalClient(supabaseAdmin, session_token, client_id);
     if (!ctx) return jsonError("Sessão inválida ou cliente não encontrado", 401);
+    tenantId = ctx.tenant_id;
     if (!client_app_id) return jsonError("client_app_id é obrigatório", 400);
 
     const { data: row, error: rowErr } = await supabaseAdmin
@@ -65,7 +72,7 @@ export async function POST(req: NextRequest) {
       .single();
     if (rowErr || !row) return jsonError("Aplicativo não encontrado", 404);
 
-    const appName = (row as any).apps?.name || "Aplicativo";
+    appName = (row as any).apps?.name || "Aplicativo";
     const integrationType = String((row as any).apps?.integration_type || "").trim().toUpperCase();
     const fieldsConfig: any[] = Array.isArray((row as any).apps?.fields_config) ? (row as any).apps.fields_config : [];
     const values = row.field_values || {};
@@ -93,7 +100,7 @@ export async function POST(req: NextRequest) {
       const { data: inserted, error: insErr } = await supabaseAdmin
         .from("client_app_requests")
         .insert({
-          tenant_id: ctx.tenant_id,
+          tenant_id: tenantId,
           client_id,
           client_app_id,
           app_name: appName,
@@ -112,7 +119,7 @@ export async function POST(req: NextRequest) {
         .maybeSingle();
 
       await notify({
-        tenantId: ctx.tenant_id,
+        tenantId,
         type: "app_removal_pending",
         title: "🗑️ Exclusão de app solicitada",
         message: `${client?.display_name || "Cliente"} pediu pra remover "${appName}" do portal.`,
@@ -184,7 +191,7 @@ export async function POST(req: NextRequest) {
 
     after(() =>
       logAppActivity(supabaseAdmin, {
-        tenantId: ctx.tenant_id,
+        tenantId,
         clientId: client_id,
         clientAppId: null,
         appName,
@@ -194,7 +201,21 @@ export async function POST(req: NextRequest) {
     );
 
     return NextResponse.json({ ok: true, data: { pending_admin: false } }, { status: 200, headers: NO_STORE_HEADERS });
-  } catch {
+  } catch (e: any) {
+    if (tenantId && client_app_id) {
+      try {
+        await logAppActivity(supabaseAdmin, {
+          tenantId,
+          clientId: client_id,
+          clientAppId: client_app_id,
+          appName,
+          event: "removed_partner_failed",
+          detail: { error: e?.message || "Erro interno inesperado.", unexpected: true },
+        });
+      } catch {
+        // não deixa o log derrubar a resposta de erro
+      }
+    }
     return NextResponse.json({ ok: false, error: "Erro interno" }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }

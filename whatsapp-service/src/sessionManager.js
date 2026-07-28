@@ -1308,6 +1308,39 @@ const hasText = !!(
       msgContent.viewOnceMessageV2?.message?.imageMessage?.caption
     );
 
+    // ✅ Mensagem vinda de um link "Fale com o suporte" do portal do cliente
+    // (renew-beta — falha de configuração / reconfiguração bloqueada) — texto
+    // fixo, mandado pelo próprio link wa.me, o cliente só aperta enviar. Bot
+    // tem que ficar quieto de verdade aqui (não é "provavelmente entende",
+    // é garantido) — pausa igual um take-over humano, ANTES de entrar no
+    // pipeline normal (debounce/LLM). Mesma frase usada em
+    // app/renew-beta/RenewBetaClient.tsx e AppDetailClient.tsx
+    // (buildPortalSupportLink em lib/client-portal/support-link.ts) — se
+    // mudar de um lado, muda do outro.
+    if (hasText) {
+      const rawText =
+        msgContent.conversation ||
+        msgContent.extendedTextMessage?.text ||
+        msgContent.imageMessage?.caption ||
+        msgContent.documentMessage?.caption ||
+        msgContent.videoMessage?.caption ||
+        msgContent.viewOnceMessageV2?.message?.imageMessage?.caption ||
+        "";
+      if (/preciso de ajuda com a configura[cç][aã]o do meu aplicativo no portal/i.test(rawText)) {
+        pauseContact(sessionKey, phone);
+        botActiveContacts.delete(`${sessionKey}:${phone}`);
+        clearContactState(sessionKey, phone);
+        emitBotEvent(sessionKey, {
+          type: "human_takeover",
+          phone,
+          display_name: null,
+          server_name: null,
+          preview: "Cliente pediu ajuda pelo portal (configuração de app) — bot pausado por 4h",
+        });
+        continue;
+      }
+    }
+
     // ✅ Documento (PDF) e foto (imageMessage) são "mídia processável" —
     // ambos podem ser comprovante de pagamento (a maioria dos clientes manda
     // print do banco como foto, não como arquivo). Antes só documento contava,

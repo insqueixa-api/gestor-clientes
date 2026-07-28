@@ -12,6 +12,8 @@ import { Loader2 } from "lucide-react";
 import { useConfirm } from "@/hooks/useConfirm";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { normalizeMacInput } from "@/lib/apps/field-types";
+import ConfigureResultModal, { ConfigureResultData } from "@/app/renew-beta/ConfigureResultModal";
+import ReconfigureModeModal, { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
 
 type AppField = { id: string; type: string; label: string; value: string };
 type AppDetail = {
@@ -29,6 +31,7 @@ type AppDetail = {
   portal_setup_instructions: string | null;
   license_price: number | null;
   license_period: "annual" | "lifetime" | null;
+  admin_whatsapp: string | null;
 };
 
 function getStoredSession() {
@@ -61,6 +64,8 @@ export default function AppDetailClient() {
   const [isEditing, setIsEditing] = useState(false);
   const [editingValues, setEditingValues] = useState<Record<string, string>>({});
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [resultModal, setResultModal] = useState<ConfigureResultData | null>(null);
+  const [showReconfigureMode, setShowReconfigureMode] = useState(false);
 
   function addToast(type: ToastMessage["type"], title: string, message?: string) {
     setToasts((prev) => [...prev, { id: Date.now() + Math.random(), type, title, message }]);
@@ -130,21 +135,57 @@ export default function AppDetailClient() {
     }
   }
 
-  async function handleConfigure() {
-    if (!session || !clientId) return;
+  function handleConfigure() {
+    if (!app) return;
+    if (app.expiration) {
+      // Reconfigurar (já tinha config antes) — pede pra escolher entre
+      // manter a config atual (Principal) ou gerar uma nova (Secundária).
+      setShowReconfigureMode(true);
+      return;
+    }
+    performConfigure("principal");
+  }
+
+  async function performConfigure(mode: ReconfigureMode) {
+    if (!session || !clientId || !app) return;
+    const isReconfigure = !!app.expiration;
+
     setBusy(true);
     try {
       const res = await fetch("/api/client-portal/apps/configure", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_token: session, client_id: clientId, client_app_id: clientAppId }),
+        body: JSON.stringify({ session_token: session, client_id: clientId, client_app_id: clientAppId, mode }),
       });
       const result = await res.json().catch(() => null);
-      if (!result?.ok) throw new Error(result?.error || "Falha ao configurar.");
-      addToast("success", "Configurado!", result.expireDate ? `Vencimento: ${String(result.expireDate).split("-").reverse().join("/")}` : undefined);
+      if (!result?.ok) {
+        setResultModal({
+          kind: result?.blocked ? "blocked" : "error",
+          isReconfigure,
+          appName: app.name,
+          errorMessage: result?.error || "Falha ao configurar.",
+          escalate: !!result?.escalate,
+          suggestSecondary: !!result?.suggest_secondary,
+        });
+        return;
+      }
+      setResultModal({
+        kind: "success",
+        isReconfigure,
+        appName: app.name,
+        expireDate: result.expireDate || null,
+        repeatWarning: !!result.repeat_warning,
+        suggestSecondary: !!result.suggest_secondary,
+      });
       await loadDetail();
     } catch (err: any) {
-      addToast("error", "Falha ao configurar", err?.message);
+      setResultModal({
+        kind: "error",
+        isReconfigure,
+        appName: app.name,
+        errorMessage: "Houve uma falha ao configurar esse aplicativo. Tente mais uma vez — se continuar falhando, fale com o suporte.",
+        escalate: false,
+      });
     } finally {
       setBusy(false);
     }
@@ -227,6 +268,21 @@ export default function AppDetailClient() {
   return (
     <div className="min-h-screen bg-background">
       <ToastNotifications toasts={toasts} removeToast={removeToast} />
+      <ConfigureResultModal
+        open={!!resultModal}
+        onClose={() => setResultModal(null)}
+        data={resultModal}
+        supportPhone={app?.admin_whatsapp || ""}
+      />
+      <ReconfigureModeModal
+        open={showReconfigureMode}
+        onClose={() => setShowReconfigureMode(false)}
+        appName={app?.name || "Aplicativo"}
+        onChoose={(mode) => {
+          setShowReconfigureMode(false);
+          performConfigure(mode);
+        }}
+      />
 
       <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
         <div className="mx-auto flex w-full max-w-2xl items-center gap-2 px-4 py-2">

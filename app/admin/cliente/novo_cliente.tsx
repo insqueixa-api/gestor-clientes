@@ -12,6 +12,7 @@ import { createPortal } from "react-dom";
 import FormattedTimeInput from "@/components/ui/FormattedTimeInput";
 import { APP_FIELD_LABELS, normalizeMacInput } from "@/lib/apps/field-types";
 import { ADMIN_CHECK_HANDLERS } from "@/lib/apps/panel";
+import ReconfigureModeModal, { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
 
 // --- TIPOS ---
 type SelectOption = {
@@ -1194,6 +1195,7 @@ const canSyncAgenda = canSyncAuto;
   // ✅ NOVO: external_user_id (ID do usuário no painel)
   const [externalUserId, setExternalUserId] = useState<string>("");
   const [serverDomains, setServerDomains] = useState<string[]>([]); // ✅ NOVO
+  const [reconfigureModeInstanceId, setReconfigureModeInstanceId] = useState<string | null>(null);
 
   // ✅ Templates WhatsApp
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
@@ -2353,7 +2355,7 @@ const canSyncAgenda = canSyncAuto;
   }
 
   // ✅ FUNÇÃO UNIVERSAL DE CONFIGURAÇÃO (Inteligente)
-  async function handleConfigApp(instanceId: string) {
+  async function handleConfigApp(instanceId: string, mode: ReconfigureMode = "principal") {
     if (!clientToEdit?.id) {
       addToast(
         "warning",
@@ -2432,9 +2434,11 @@ const canSyncAgenda = canSyncAuto;
     const finalServerName = `${username}_${selectedServerName.replace(/\s+/g, "")}`;
 
     // ✅ CORREÇÃO M3U: Resolve o link se ele estiver vazio antes de enviar!
-    let m3uToSend = m3uUrl.trim();
+    // "Secundária" sempre regenera (sorteia outra DNS), mesmo que já tenha
+    // um link preenchido — é o próprio propósito dessa opção.
+    let m3uToSend = mode === "secundaria" ? "" : m3uUrl.trim();
     if (!m3uToSend) {
-      m3uToSend = buildM3uUrlSilent();
+      m3uToSend = mode === "secundaria" ? buildM3uUrlSecondary() : buildM3uUrlSilent();
       if (!m3uToSend) {
         addToast(
           "warning",
@@ -4678,6 +4682,18 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
     }
   }
 
+  // ✅ Esquema (http/https) salvo no DNS tem que ser respeitado, não forçado
+  // — achado com o NaTV (28/07/2026): o domínio passou a exigir https, mas
+  // isso aqui sempre forçava http. Default pra http só quando o DNS salvo
+  // não tem esquema nenhum. Réplica de splitScheme em lib/apps/panel.ts.
+  function splitDnsScheme(domain: string): { scheme: string; host: string } {
+    const m = domain.match(/^(https?):\/\//i);
+    return {
+      scheme: m ? m[1].toLowerCase() : "http",
+      host: domain.replace(/^https?:\/\//i, "").replace(/\/$/, ""),
+    };
+  }
+
   // ✅ Gera M3U URL sem side effects (usado internamente no executeSave)
   function buildM3uUrlSilent(
     overrideUser?: string,
@@ -4688,10 +4704,33 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
     if (!user || serverDomains.length === 0) return "";
     const randomDomain =
       serverDomains[Math.floor(Math.random() * serverDomains.length)];
-    const cleanDomain = randomDomain
-      .replace(/^https?:\/\//, "")
-      .replace(/\/$/, "");
-    return `http://${cleanDomain}/get.php?username=${user}&password=${pass}&type=m3u_plus&output=ts`;
+    const { scheme, host } = splitDnsScheme(randomDomain);
+    return `${scheme}://${host}/get.php?username=${user}&password=${pass}&type=m3u_plus&output=ts`;
+  }
+
+  // ✅ "Secundária" do Reconfigurar/Gerar M3U (pedido do Márcio, 28/07/2026):
+  // sorteia outra DNS do servidor — pro NaTV especificamente, usa a
+  // variação de mirror própria dele (sem "s" + prefixo "r2.", ex:
+  // https://rj98.eu → http://r2.rj98.eu). Nenhum outro servidor tem esse
+  // mirror, então isso NUNCA se aplica fora do NaTV. Réplica de
+  // buildM3uUrlSecondary em lib/apps/panel.ts.
+  function buildM3uUrlSecondary(
+    overrideUser?: string,
+    overridePass?: string,
+  ): string {
+    const user = (overrideUser ?? username).trim();
+    const pass = (overridePass ?? password)?.trim() || "";
+    if (!user || serverDomains.length === 0) return "";
+
+    const selectedServerName = servers.find((s) => s.id === serverId)?.name || "";
+    const isNaTv = selectedServerName.trim().toUpperCase() === "NATV";
+    if (!isNaTv) return buildM3uUrlSilent(overrideUser, overridePass);
+
+    const randomDomain =
+      serverDomains[Math.floor(Math.random() * serverDomains.length)];
+    const { host } = splitDnsScheme(randomDomain);
+    const mirrorHost = host.toLowerCase().startsWith("r2.") ? host : `r2.${host}`;
+    return `http://${mirrorHost}/get.php?username=${user}&password=${pass}&type=m3u_plus&output=ts`;
   }
 
   // ✅ NOVO: Abre a lista de DNS do servidor selecionado
@@ -4756,45 +4795,26 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
     }
   }
 
-  // ✅ NOVO: Gera M3U URL baseado nas DNSs do servidor
+  // ✅ Gera M3U URL baseado nas DNSs do servidor — sempre "Secundária"
+  // (sorteia uma DNS nova; NaTV usa a variação de mirror própria dele, ver
+  // buildM3uUrlSecondary acima), já que o botão em si é uma ação de
+  // "gerar de novo", não existe versão "Principal" pra ele.
   function generateM3uUrl() {
     if (!username.trim()) {
       addToast("warning", "Atenção", "Preencha o usuário primeiro.");
-
       return;
     }
-
     if (serverDomains.length === 0) {
       addToast(
         "warning",
         "Sem Domínios",
         "Este servidor não possui domínios configurados.",
       );
-
       return;
     }
 
-    // Escolhe domínio aleatório
-
-    const randomDomain =
-      serverDomains[Math.floor(Math.random() * serverDomains.length)];
-
-    // Remove protocolo se houver
-
-    const cleanDomain = randomDomain
-      .replace(/^https?:\/\//, "")
-      .replace(/\/$/, "");
-
-    // Gera URL
-
-    const user = username.trim();
-
-    const pass = password?.trim() || "";
-
-    const url = `http://${cleanDomain}/get.php?username=${user}&password=${pass}&type=m3u_plus&output=ts`;
-
+    const url = buildM3uUrlSecondary();
     setM3uUrl(url);
-
     addToast("success", "Link Gerado!", "M3U URL atualizado com sucesso.");
   }
 
@@ -4873,6 +4893,17 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
           <ToastNotifications toasts={toasts} removeToast={removeToast} />
         </div>
       </div>
+
+      <ReconfigureModeModal
+        open={!!reconfigureModeInstanceId}
+        onClose={() => setReconfigureModeInstanceId(null)}
+        appName={selectedApps.find((a) => a.instanceId === reconfigureModeInstanceId)?.name || "Aplicativo"}
+        onChoose={(mode) => {
+          const instanceId = reconfigureModeInstanceId;
+          setReconfigureModeInstanceId(null);
+          if (instanceId) handleConfigApp(instanceId, mode);
+        }}
+      />
       <div
         className="fixed inset-0 z-[99990] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200"
         onPointerDown={(e) => {
@@ -6382,7 +6413,7 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                                     <button
                                       type="button"
                                       onClick={() =>
-                                        handleConfigApp(app.instanceId)
+                                        setReconfigureModeInstanceId(app.instanceId)
                                       }
                                       className="h-10 rounded-lg bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
                                       title="Enviar dados para o painel"

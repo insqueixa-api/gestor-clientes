@@ -106,11 +106,42 @@ export function internalAppUrl(path: string) {
   return `${base}${path}`;
 }
 
+// Esquema (http/https) salvo no DNS do servidor tem que ser respeitado, não
+// forçado — achado com o NaTV (28/07/2026): o domínio passou a exigir
+// https, mas o builder sempre forçava http, quebrando a lista de quem
+// reconfigurasse depois da troca. Default pra http só quando o DNS salvo
+// não tem esquema nenhum (formato antigo, sem prefixo).
+function splitScheme(domain: string): { scheme: string; host: string } {
+  const m = domain.match(/^(https?):\/\//i);
+  return {
+    scheme: m ? m[1].toLowerCase() : "http",
+    host: domain.replace(/^https?:\/\//i, "").replace(/\/$/, ""),
+  };
+}
+
 // Réplica de buildM3uUrlSilent (novo_cliente.tsx) — domínio aleatório da
 // lista de DNS do servidor, mesma regra usada pelo admin.
 export function buildM3uUrlFromDns(dnsList: string[], username: string, password: string): string {
   if (!username || !dnsList || dnsList.length === 0) return "";
   const randomDomain = dnsList[Math.floor(Math.random() * dnsList.length)];
-  const cleanDomain = randomDomain.replace(/^https?:\/\//, "").replace(/\/$/, "");
-  return `http://${cleanDomain}/get.php?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&type=m3u_plus&output=ts`;
+  const { scheme, host } = splitScheme(randomDomain);
+  return `${scheme}://${host}/get.php?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&type=m3u_plus&output=ts`;
+}
+
+// "Secundária" do Reconfigurar (pedido do Márcio, 28/07/2026): sorteia outra
+// DNS do servidor e gera um m3u novo — pro NaTV especificamente, usa a
+// variação de mirror própria dele (sem "s" + prefixo "r2.", ex:
+// https://rj98.eu → http://r2.rj98.eu). Nenhum outro servidor tem esse
+// mirror, então essa transformação NUNCA se aplica fora do NaTV (geraria
+// uma URL que não existe de verdade). Réplica de generateM3uUrlSecondary
+// (novo_cliente.tsx).
+export function buildM3uUrlSecondary(dnsList: string[], username: string, password: string, serverName?: string): string {
+  if (!username || !dnsList || dnsList.length === 0) return "";
+  const isNaTv = String(serverName || "").trim().toUpperCase() === "NATV";
+  if (!isNaTv) return buildM3uUrlFromDns(dnsList, username, password);
+
+  const randomDomain = dnsList[Math.floor(Math.random() * dnsList.length)];
+  const { host } = splitScheme(randomDomain);
+  const mirrorHost = host.toLowerCase().startsWith("r2.") ? host : `r2.${host}`;
+  return `http://${mirrorHost}/get.php?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&type=m3u_plus&output=ts`;
 }

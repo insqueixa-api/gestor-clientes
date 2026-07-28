@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
 
     const { data: row, error: rowErr } = await supabaseAdmin
       .from("client_apps")
-      .select("id, field_values, apps(name, fields_config)")
+      .select("id, app_id, field_values, apps(name, fields_config)")
       .eq("id", client_app_id)
       .eq("client_id", client_id)
       .single();
@@ -65,6 +65,37 @@ export async function POST(req: NextRequest) {
       const normalized = type === "mac" ? normalizeMacInput(String(value ?? "")) : String(value ?? "").trim();
       if (normalized !== (nextVals[key] ?? "")) changedKeys.push(key);
       nextVals[key] = normalized;
+    }
+
+    // ✅ Mesmo app pode ser instalado várias vezes na mesma conta de
+    // propósito (2 TVs, 2 celulares — ver add/route.ts), mas com os MESMOS
+    // dados (mesmo MAC/usuário/senha/device key) não faz sentido nenhum —
+    // seria literalmente a mesma instalação duplicada, o mesmo tipo de
+    // colisão que já causou bug de configuração sobrescrevendo a de outro
+    // cliente (ver histórico das integrações). Compara todos os campos
+    // editáveis MENOS "obs" (Ambiente — é só um apelido tipo "Sala"/"Quarto",
+    // não identifica o aparelho). Pedido do Márcio, 28/07/2026.
+    const comparableIds = [...editableIds].filter((id) => typeById.get(id) !== "obs");
+    const signatureOf = (vals: Record<string, any>) =>
+      comparableIds.map((id) => String(vals?.[id] ?? "").trim().toLowerCase()).join("||");
+    const hasComparableData = comparableIds.some((id) => String(nextVals[id] ?? "").trim() !== "");
+
+    if (hasComparableData && (row as any).app_id) {
+      const { data: siblings } = await supabaseAdmin
+        .from("client_apps")
+        .select("field_values")
+        .eq("client_id", client_id)
+        .eq("app_id", (row as any).app_id)
+        .neq("id", client_app_id);
+
+      const nextSignature = signatureOf(nextVals);
+      const isDuplicate = (siblings || []).some((s: any) => signatureOf(s.field_values || {}) === nextSignature);
+      if (isDuplicate) {
+        return jsonError(
+          "Você já tem outro aplicativo desse mesmo tipo cadastrado com os mesmos dados. Se for um aparelho diferente, ajuste o MAC/usuário; se for o mesmo, não precisa duplicar.",
+          409,
+        );
+      }
     }
 
     const { error: updErr } = await supabaseAdmin

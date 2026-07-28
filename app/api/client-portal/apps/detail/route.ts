@@ -100,6 +100,31 @@ export async function POST(req: NextRequest) {
     const canCheckValidity =
       !isPartnership && !!handler && (handler as any).useApi && CHECK_VALIDITY_HANDLERS.has((handler as any).actionPrefix);
 
+    // ✅ Telefone de suporte do admin do tenant — mesma busca de
+    // validate-session/route.ts (RenewBetaClient já tem isso via sessão,
+    // mas essa página é acessada direto por /renew-beta/apps/[id], sem
+    // passar por lá primeiro). Usado no link "Fale com o suporte" da tela
+    // de sucesso/erro do Configurar.
+    let admin_whatsapp: string | null = null;
+    try {
+      const { data: memberData } = await supabaseAdmin
+        .from("tenant_members")
+        .select("user_id")
+        .eq("tenant_id", ctx.tenant_id)
+        .in("role", ["ADMIN", "admin", "owner"])
+        .limit(1);
+      if (memberData && memberData.length > 0) {
+        const { data: profileData } = await supabaseAdmin
+          .from("profiles")
+          .select("whatsapp_username")
+          .eq("id", memberData[0].user_id)
+          .limit(1);
+        if (profileData && profileData.length > 0) admin_whatsapp = profileData[0].whatsapp_username;
+      }
+    } catch {
+      // best-effort — sem isso o link de suporte simplesmente não aparece
+    }
+
     return NextResponse.json(
       {
         ok: true,
@@ -121,6 +146,7 @@ export async function POST(req: NextRequest) {
               ? Number((row as any).apps.license_price)
               : null,
           license_period: (row as any).apps?.license_period || null,
+          admin_whatsapp,
         },
       },
       { status: 200, headers: NO_STORE_HEADERS },
