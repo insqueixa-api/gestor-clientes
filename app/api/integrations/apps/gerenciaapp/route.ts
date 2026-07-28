@@ -123,7 +123,12 @@ async function getManageData(baseUrl: string, session: { cookieHeader: string })
   }
 }
 
-function findListByName(lists: any[], name: string) {
+// `strict` desliga o fallback "só tem 1 na lista, deve ser essa" — usado pro
+// delete, pra nunca repetir a classe de bug achada no /users (apagar o
+// registro errado por falta de match exato). Pro create (só usado aqui pra
+// CONFIRMAR que a playlist recém-criada apareceu, com o nome que a gente
+// mesmo escolheu) o fallback é seguro e fica ligado.
+function findListByName(lists: any[], name: string, strict = false) {
   const targetLower = String(name || "").toLowerCase().trim();
   return (
     lists.find((l) => String(l.server_name || "").toLowerCase().trim() === targetLower) ||
@@ -132,7 +137,7 @@ function findListByName(lists: any[], name: string) {
         String(l.server_name || "").toLowerCase().includes(targetLower) ||
         targetLower.includes(String(l.server_name || "").toLowerCase()),
     ) ||
-    (lists.length === 1 ? lists[0] : null)
+    (!strict && lists.length === 1 ? lists[0] : null)
   );
 }
 
@@ -141,7 +146,7 @@ async function createPlaylist(
   session: { cookieHeader: string; xsrfToken: string },
   version: string | null,
   { name, url }: { name: string; url: string },
-) {
+): Promise<{ status: number; rawSnippet: string }> {
   const res = await pfetch(`${baseUrl}/ativador/add-m3u`, {
     method: "POST",
     headers: {
@@ -160,15 +165,26 @@ async function createPlaylist(
   try {
     const json = JSON.parse(text);
     const errors = json?.props?.errors || {};
-    const firstErr = Object.values(errors)[0];
-    if (firstErr) throw new Error(String(firstErr));
-  } catch (e: any) {
-    if (e instanceof SyntaxError) {
-      // corpo não é JSON — segue, confirma por relistagem abaixo
-    } else {
-      throw e;
+    const firstErr = Object.values(errors)[0] as string | undefined;
+    if (firstErr) {
+      // Achado ao vivo (27/07/2026): o /ativador limita quantas playlists
+      // "públicas" (criadas por aqui, is_private:false) podem existir AO
+      // MESMO TEMPO nesse MAC — é por CONTAGEM ATUAL, não histórico (apagar
+      // uma libera a vaga na hora). As playlists antigas criadas pelo painel
+      // admin (/users) são is_private:true e não contam nessa cota. Mensagem
+      // reescrita pra deixar isso acionável em vez do texto cru do parceiro.
+      if (/limite de listas p[uú]blicas/i.test(firstErr)) {
+        throw new Error(
+          `GerenciaApp: limite de playlists "públicas" desse MAC atingido (plano do parceiro, não é falha do UniGestor). Apague alguma playlist não usada nesse MAC pelo GerenciaApp e tente de novo. (${firstErr})`,
+        );
+      }
+      throw new Error(String(firstErr));
     }
+  } catch (e: any) {
+    if (!(e instanceof SyntaxError)) throw e;
+    // corpo não é JSON — segue, a verificação real é a relistagem no caller
   }
+  return { status: res.status, rawSnippet: text.slice(0, 300) };
 }
 
 async function deleteById(baseUrl: string, session: { cookieHeader: string; xsrfToken: string }, version: string | null, id: string | number) {
@@ -248,21 +264,34 @@ export async function POST(req: Request) {
       if (!m3uUrl) {
         return NextResponse.json({ ok: false, error: "m3uUrl é obrigatório para create." }, { status: 400 });
       }
+      const targetName = finalServerName || "Playlist";
       const { version } = await getManageData(siteRoot, session);
-      await createPlaylist(siteRoot, session, version, { name: finalServerName || "Playlist", url: m3uUrl });
+      const createResult = await createPlaylist(siteRoot, session, version, { name: targetName, url: m3uUrl });
 
-      // Best-effort: relista pra pegar o vencimento real já atribuído (o
-      // create não devolve isso diretamente).
-      let expireDate: string | null = null;
-      try {
+      // ⚠️ NUNCA confia só no HTTP pra dizer "sucesso" — achado em produção
+      // (27/07/2026, Márcio: apagou uma playlist real e recriou, a rota
+      // devolveu ok:true mas nada apareceu no painel). Mesma lição do fluxo
+      // antigo (/users): sempre confirma buscando a playlist de verdade na
+      // lista antes de devolver ok. 3 tentativas com respiro entre elas —
+      // o painel pode levar um instante pra indexar o registro novo.
+      let created: any = null;
+      for (let attempt = 1; attempt <= 3 && !created; attempt++) {
+        if (attempt > 1) await new Promise((r) => setTimeout(r, 1500));
         const after = await getManageData(siteRoot, session);
-        const created = findListByName(after.lists, finalServerName || "Playlist");
-        expireDate = created?.expire_account || null;
-      } catch {
-        // não bloqueia — playlist já foi criada
+        created = findListByName(after.lists, targetName);
       }
 
-      return NextResponse.json({ ok: true, expireDate, message: "Playlist configurada com sucesso." });
+      if (!created) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: `O painel respondeu (status ${createResult.status}) mas a playlist "${targetName}" não apareceu na lista depois de criar — confira manualmente no GerenciaApp. Resposta: ${createResult.rawSnippet}`,
+          },
+          { status: 502 },
+        );
+      }
+
+      return NextResponse.json({ ok: true, expireDate: created.expire_account || null, message: "Playlist configurada com sucesso." });
     }
 
     // action === "delete"
@@ -272,7 +301,7 @@ export async function POST(req: Request) {
     }
 
     const { version, lists } = await getManageData(siteRoot, session);
-    const match = findListByName(lists, searchName);
+    const match = findListByName(lists, searchName, true);
     if (!match) {
       return NextResponse.json(
         { ok: false, error: `Nenhuma playlist encontrada com o nome "${searchName}" nesse MAC (${lists.length} playlist(s) no total).` },
@@ -281,6 +310,24 @@ export async function POST(req: Request) {
     }
 
     await deleteById(siteRoot, session, version, match.id);
+
+    // Mesma cautela do create: confirma que sumiu de verdade antes de dizer
+    // que removeu.
+    let stillThere: any = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      if (attempt > 1) await new Promise((r) => setTimeout(r, 1500));
+      const after = await getManageData(siteRoot, session);
+      stillThere = after.lists.find((l: any) => String(l.id) === String(match.id));
+      if (!stillThere) break;
+    }
+
+    if (stillThere) {
+      return NextResponse.json(
+        { ok: false, error: `O painel respondeu como removido, mas a playlist "${searchName}" (id ${match.id}) ainda está na lista — confira manualmente no GerenciaApp.` },
+        { status: 502 },
+      );
+    }
+
     return NextResponse.json({ ok: true, message: "Playlist removida com sucesso." });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "Erro interno." }, { status: 500 });
