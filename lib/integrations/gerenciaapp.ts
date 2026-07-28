@@ -1,46 +1,65 @@
 // lib/integrations/gerenciaapp.ts
 // src/lib/integrations/gerenciaapp.ts
-//
-// Reescrito em 27/07/2026 pra usar o portal de autoatendimento por MAC do
-// GerenciaApp (/ativador) em vez do painel admin (/users) — ver
-// app/api/integrations/apps/gerenciaapp/route.ts pro motivo (o /users tinha
-// dois bugs sérios: busca por MAC só achava 1 registro entre vários, e
-// DELETE por id apagava TODOS os registros daquele MAC, não só o alvo).
-// O /ativador não precisa mais de login_email/login_password nem
-// ranking_app_id — só MAC + nome do servidor + URL do m3u.
+
+// Função interna para descobrir qual é o ID correto baseado no nome do App
+function getRankingAppId(appName?: string): number {
+    if (!appName) return 10;
+
+    const name = appName.trim().toUpperCase();
+
+    if (name === "ZONE X" || name === "ZONEX") return 11;
+    if (name === "VU REVENDA") return 12;
+    if (name === "FACILITA" || name === "FACILITA APP") return 13;
+    if (name === "UNI REVENDA") return 15;
+    if (name === "GPC ROKU") return 17;
+    if (name === "GPC ANDROID") return 18; // ✅ Confirmado pelo cURL antes era 20, mas o ranking atual é 18. Atualizado em 30/mai.
+    if (name === "GPC LG") return 99;      // ⚠️ TODO: Atualizar em 30/mai com o rank correto
+    if (name === "IBO REVENDA") return 10;
+
+    return 10;
+}
+
 export const GerenciaAppIntegration = {
     actionPrefix: "GERENCIAAPP",
-    useApi: true, // roda direto no Next.js (app/api/integrations/apps/gerenciaapp/route.ts), com proxy residencial
+    useApi: true, // migrado da extensão: roda na VM (proxy residencial), não mais no navegador
     apiEndpoint: "/api/integrations/apps/gerenciaapp",
 
-    buildCreatePayload: (params: {
-        username: string;
-        password?: string;
-        macValue: string;
-        finalServerName: string;
-        serverName?: string;
-        m3uUrl: string;
-        appName?: string;
-    }) => {
+    buildCreatePayload: (params: { username: string; password?: string; macValue: string; finalServerName: string; m3uUrl: string; serverName?: string; appName?: string }) => {
+        // Calcula a data exata de 1 ano para frente a partir de hoje
+        const today = new Date();
+        today.setFullYear(today.getFullYear() + 1);
+        const expireDate1Year = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
         return {
             action: "create",
-            macValue: params.macValue,
-            finalServerName: params.finalServerName || params.serverName,
-            m3uUrl: params.m3uUrl || "",
+            modo_selecao: 1,
+            mac_device: params.macValue,
+            server_name: params.finalServerName,
+            account_username: "",
+            account_password: "",
+            xteam_username: "",
+            xteam_password: "",
+            username_login: params.username,
+            password_login: params.password || "",
+            ranking_app_id: getRankingAppId(params.appName), // ✅ A mágica da unificação acontece aqui!
+            dns: "",
+            m3u8_list: params.m3uUrl || "",
+            url_epg: "",
+            price: 0,
+            plan_id: "",
+            expire_date: expireDate1Year,
+            dnsOptions: "",
+            whatsapp: "",
+            is_trial: 0,
         };
     },
 
-    buildDeletePayload: (params: {
-        username: string;
-        finalServerName?: string;
-        serverName?: string;
-        macValue: string;
-        appName?: string;
-    }) => {
-        return {
-            action: "delete",
-            username: params.finalServerName || params.serverName || params.username.trim(),
-            macValue: params.macValue || "",
-        };
-    }
+    buildDeletePayload: (params: { username: string; finalServerName?: string; serverName?: string; macValue: string; appName?: string }) => {
+        return {
+            action: "delete",
+            // ✅ Regra padrão: Nome_Servidor. A extensão usa isso primeiro, se não achar, cai pro macValue.
+            username: params.finalServerName || params.username.trim(),
+            macValue: params.macValue || ""
+        };
+    }
 };
