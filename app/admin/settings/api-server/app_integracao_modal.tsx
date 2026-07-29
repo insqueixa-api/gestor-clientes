@@ -71,6 +71,7 @@ export default function AppIntegracaoModal({
   const isIptvDuplex = appName === "IPTVDUPLEX";
   const isIptvPlayerio = appName === "IPTVPLAYERIO";
   const isDuplexTv = appName === "DUPLEXTV";
+  const isClouddy = appName === "CLOUDDY";
   const needsPin =
     isDuplecast ||
     isIboSol ||
@@ -80,7 +81,7 @@ export default function AppIntegracaoModal({
     isBobPlayer ||
     isIboPlayer ||
     isIptvDuplex ||
-    isIptvPlayerio; // DUPLEXTV fica de fora — não usa PIN, só MAC
+    isIptvPlayerio; // DUPLEXTV/CLOUDDY ficam de fora — não usam PIN
   const noCredentials =
     isIboSol ||
     isIboPro ||
@@ -90,7 +91,12 @@ export default function AppIntegracaoModal({
     isIboPlayer ||
     isIptvDuplex ||
     isIptvPlayerio ||
-    isDuplexTv; // Apps que não usam email/senha (login é por MAC, com ou sem Device Key)
+    isDuplexTv ||
+    isClouddy; // ✅ CLOUDDY: email/senha são POR CLIENTE
+    // (client_apps.field_values), não um só compartilhado pelo tenant —
+    // mostrar os campos aqui confundiria (pareceria que fazem algo, mas a
+    // rota nunca lê daqui). O que a rota REALMENTE usa daqui é api_url +
+    // is_active (kill-switch).
 
   useEffect(() => {
     if (integration) {
@@ -287,6 +293,7 @@ export default function AppIntegracaoModal({
                 <option value="IPTVDUPLEX">IPTV Duplex Play</option>
                 <option value="IPTVPLAYERIO">IPTV Playerio</option>
                 <option value="DUPLEXTV">Duplex TV</option>
+                <option value="CLOUDDY">ClouDDy</option>
               </select>
             </div>
 
@@ -315,9 +322,13 @@ export default function AppIntegracaoModal({
                                 ? 'Ex: "IBO Player"'
                                 : isIptvDuplex
                                   ? 'Ex: "IPTV Duplex Play"'
-                                  : isDuplexTv
-                                    ? 'Ex: "Duplex TV"'
-                                    : 'Ex: "Nome do aplicativo"'
+                                  : isIptvPlayerio
+                                    ? 'Ex: "IPTV Playerio"'
+                                    : isDuplexTv
+                                      ? 'Ex: "Duplex TV"'
+                                      : isClouddy
+                                        ? 'Ex: "ClouDDy"'
+                                        : 'Ex: "Nome do aplicativo"'
                 }
                 className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors"
               />
@@ -348,9 +359,13 @@ export default function AppIntegracaoModal({
                                 ? "Ex: https://iboplayer.com"
                                 : isIptvDuplex
                                   ? "Ex: https://iptvduplex.com"
-                                  : isDuplexTv
-                                    ? "Ex: https://duplex24.com"
-                                    : "Ex: https://gerenciaapp.top"
+                                  : isIptvPlayerio
+                                    ? "Ex: https://iptvplayer.io"
+                                    : isDuplexTv
+                                      ? "Ex: https://duplex24.com"
+                                      : isClouddy
+                                        ? "Ex: https://console.clouddy.online"
+                                        : "Ex: https://gerenciaapp.top"
                 }
                 type="url"
                 className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors font-mono text-xs"

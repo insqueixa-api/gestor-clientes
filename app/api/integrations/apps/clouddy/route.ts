@@ -43,8 +43,8 @@ function looksLikeLoginForm(html: string) {
   return html.includes('name="form[email]"') && html.includes('name="form[password]"');
 }
 
-async function clouddyFetch(path: string, sessionCookie: string, init: RequestInit = {}) {
-  return fetch(`${BASE}${path}`, {
+async function clouddyFetch(base: string, path: string, sessionCookie: string, init: RequestInit = {}) {
+  return fetch(`${base}${path}`, {
     ...init,
     headers: { ...(init.headers || {}), Cookie: `PHPSESSID=${sessionCookie}`, "User-Agent": UA },
   });
@@ -87,6 +87,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "client_app_id é obrigatório." }, { status: 400 });
     }
 
+    // ✅ Igual toda integração "normal" — lê api_url/is_active de
+    // app_integrations (tela Configurações → Integrações). Sem linha
+    // cadastrada, cai no domínio padrão (compatível com quem configurou
+    // antes dessa tela existir pro ClouDDy).
+    const { data: integ } = await supabase
+      .from("app_integrations")
+      .select("api_url, is_active")
+      .eq("app_name", "CLOUDDY")
+      .maybeSingle();
+
+    if (integ && integ.is_active === false) {
+      return NextResponse.json({ ok: false, error: "Integração ClouDDy está desativada (Configurações → Integrações)." }, { status: 400 });
+    }
+    const base = integ?.api_url ? integ.api_url.replace(/\/$/, "") : BASE;
+
     const { data: clientApp, error: clientAppErr } = await supabase
       .from("client_apps")
       .select("field_values")
@@ -110,7 +125,7 @@ export async function POST(req: Request) {
     // criar/alterar nada.
     // ===========================================================
     if (action === "check") {
-      const res = await clouddyFetch("/user/dashboard", sessionCookie);
+      const res = await clouddyFetch(base, "/user/dashboard", sessionCookie);
       const html = await res.text();
       if (looksLikeLoginForm(html)) {
         return NextResponse.json({ ok: false, error: SESSION_EXPIRED_ERROR }, { status: 401 });
@@ -140,13 +155,13 @@ export async function POST(req: Request) {
         return fd;
       };
 
-      const tvRes = await clouddyFetch("/user/tv-playlist/edit", sessionCookie, { method: "POST", body: buildForm(true) });
+      const tvRes = await clouddyFetch(base, "/user/tv-playlist/edit", sessionCookie, { method: "POST", body: buildForm(true) });
       const tvHtml = await tvRes.text();
       if (looksLikeLoginForm(tvHtml)) {
         return NextResponse.json({ ok: false, error: SESSION_EXPIRED_ERROR }, { status: 401 });
       }
 
-      const vodRes = await clouddyFetch("/user/vod-playlist/edit", sessionCookie, { method: "POST", body: buildForm(false) });
+      const vodRes = await clouddyFetch(base, "/user/vod-playlist/edit", sessionCookie, { method: "POST", body: buildForm(false) });
 
       if (!tvRes.ok || !vodRes.ok) {
         return NextResponse.json(
@@ -157,7 +172,7 @@ export async function POST(req: Request) {
 
       let expireDate: string | null = null;
       try {
-        const dashRes = await clouddyFetch("/user/dashboard", sessionCookie);
+        const dashRes = await clouddyFetch(base, "/user/dashboard", sessionCookie);
         expireDate = extractExpireDate(await dashRes.text());
       } catch {
         // best-effort — create já foi feito, não bloqueia
@@ -170,8 +185,8 @@ export async function POST(req: Request) {
     // ACTION: delete — remove TV + VOD, sempre juntos.
     // ===========================================================
     if (action === "delete") {
-      const tvRes = await clouddyFetch("/user/tv-playlist/delete", sessionCookie);
-      const vodRes = await clouddyFetch("/user/vod-playlist/delete", sessionCookie);
+      const tvRes = await clouddyFetch(base, "/user/tv-playlist/delete", sessionCookie);
+      const vodRes = await clouddyFetch(base, "/user/vod-playlist/delete", sessionCookie);
 
       if (!tvRes.ok || !vodRes.ok) {
         return NextResponse.json(
