@@ -588,7 +588,7 @@ export default function RevendaPage() {
         setResellerIdsByServer(null);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [serverFilter, tenantId]);
 
   useEffect(() => {
@@ -877,7 +877,7 @@ export default function RevendaPage() {
       return;
     }
 
-    let sendAtIso = "";
+    const sendAtIso = "";
     try {
       const sendAtRaw = scheduleDate.trim(); // ex: "2026-02-19T10:30" (sem TZ)
     } catch (e: any) {

@@ -79,3 +79,14 @@ export function useConfirm() {
   // NÃO VÃO QUEBRAR. Elas simplesmente vão renderizar null onde estava o {ConfirmUI}.
   return { confirm: context.confirm, ConfirmUI: null };
 }
+
+// Variante que nunca lança — pra componentes que renderizam tanto dentro
+// quanto fora de um ConfirmProvider (ex: GuiaTVView em modoCliente, sem
+// provider) e precisam chamar o hook incondicionalmente (regra do React:
+// hook não pode ser chamado condicionalmente). `confirm` vem `null` quando
+// não tem provider — quem usa já sabia disso antes (o call site condicional
+// antigo também deixava `confirm` undefined nesse caso).
+export function useConfirmOptional() {
+  const context = useContext(ConfirmContext);
+  return { confirm: context?.confirm ?? null, ConfirmUI: null };
+}

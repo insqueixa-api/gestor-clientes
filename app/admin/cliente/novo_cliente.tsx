@@ -11,8 +11,9 @@ import { getIntegrationHandler } from "@/lib/integrations"; // ✅ O Roteador In
 import { createPortal } from "react-dom";
 import FormattedTimeInput from "@/components/ui/FormattedTimeInput";
 import { APP_FIELD_LABELS, normalizeMacInput } from "@/lib/apps/field-types";
-import { ADMIN_CHECK_HANDLERS } from "@/lib/apps/panel";
+import { ADMIN_CHECK_HANDLERS, resolveIntegrationTypeByName } from "@/lib/apps/panel";
 import ReconfigureModeModal, { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
+import AppPickerModal from "@/components/apps/AppPickerModal";
 
 // --- TIPOS ---
 type SelectOption = {
@@ -645,7 +646,7 @@ function FormattedDateInput({
     try {
       if (type === "date") {
         // ✅ Tolera valor vindo com hora/timezone junto (ex: "2052-05-18T12:00:00.000Z"),
-        // que alguns apps (IBOSOL) mandam mesmo o campo sendo só de data.
+        // que alguns apps mandam mesmo o campo sendo só de data.
         const [y, m, d] = value.split("T")[0].split("-");
         if (y && m && d) setDisplayValue(`${d}/${m}/${y}`);
       } else if (type === "datetime-local") {
@@ -1305,7 +1306,6 @@ const canSyncAgenda = canSyncAuto;
   const [selectedApps, setSelectedApps] = useState<SelectedAppInstance[]>([]);
   const [appIntegrations, setAppIntegrations] = useState<any[]>([]); // ✅ NOVO: Guarda as URLs dos Apps
   const [showAppSelector, setShowAppSelector] = useState(false);
-  const [appSearch, setAppSearch] = useState(""); // ✅ NOVO: Controle da busca
   const [notes, setNotes] = useState("");
   const [visibleAppPasswords, setVisibleAppPasswords] = useState<
     Record<string, boolean>
@@ -2306,7 +2306,7 @@ const canSyncAgenda = canSyncAuto;
 
     // 1. Pega o que está salvo no banco de dados hoje
     const catApp = catalog.find((c) => c.id === appInstance.app_id) as any;
-    let intType = String(catApp?.integration_type || "")
+    const intType = String(catApp?.integration_type || "")
       .trim()
       .toUpperCase();
 
@@ -2314,44 +2314,30 @@ const canSyncAgenda = canSyncAuto;
     let handler = getIntegrationHandler(intType);
 
     // 3. Se a chave for velha ou vazia, deduz pelo NOME EXATO do aplicativo
+    // — mesmo "salva-vidas" que lib/apps/orchestration.ts (servidor) usa,
+    // pra nunca divergir sobre qual app tem integração automática.
     if (!handler) {
-      const appNameStr = String(appInstance.name || "")
-        .trim()
-        .toUpperCase();
-      if (appNameStr === "ZONE X" || appNameStr === "ZONEX")
-        intType = "GERENCIAAPP";
-      else if (appNameStr === "VU REVENDA") intType = "GERENCIAAPP";
-      else if (appNameStr === "FACILITA" || appNameStr === "FACILITA APP")
-        intType = "GERENCIAAPP";
-      else if (appNameStr === "UNI REVENDA") intType = "GERENCIAAPP";
-      else if (appNameStr === "GPC ANDROID") intType = "GERENCIAAPP";
-      else if (appNameStr === "GPC LG") intType = "GERENCIAAPP";
-      else if (appNameStr === "GPC ROKU") intType = "GERENCIAAPP";
-      else if (
-        appNameStr === "IBO REVENDA" ||
-        appNameStr === "GERENCIAAPP" ||
-        appNameStr === "GERENCIA APP"
-      )
-        intType = "GERENCIAAPP";
-      else if (appNameStr === "DUPLECAST") intType = "DUPLECAST";
-      else if (appNameStr === "IBO SOL" || appNameStr === "IBOSOL")
-        intType = "IBOSOL";
-      else if (
-        appNameStr === "IBO PRO" ||
-        appNameStr === "IBOPRO" ||
-        appNameStr === "IBO PRO PLAYER"
-      )
-        intType = "IBOPRO";
-      else intType = ""; // Se não for nenhum desses, NÃO tem integração.
-
-      if (intType) {
-        handler = getIntegrationHandler(intType);
-      } else {
-        handler = null;
-      }
+      const fallbackType = resolveIntegrationTypeByName(appInstance.name);
+      handler = fallbackType ? getIntegrationHandler(fallbackType) : null;
     }
 
     return handler;
+  }
+
+  // Chama a mesma orquestração compartilhada com o portal
+  // (lib/apps/orchestration.ts) via /api/admin/apps/*. Aceita tanto um app
+  // já salvo (client_app_id) quanto um ainda só no state do React — o admin
+  // adiciona o app e clica Configurar/Verificar/Remover antes de "Salvar" o
+  // cliente, fluxo real que precisa continuar funcionando.
+  async function callAdminAppApi(path: string, body: Record<string, any>) {
+    const { data: sess } = await supabaseBrowser.auth.getSession();
+    const token = sess.session?.access_token;
+    const res = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    });
+    return res.json().catch(() => ({}) as any);
   }
 
   // ✅ FUNÇÃO UNIVERSAL DE CONFIGURAÇÃO (Inteligente)
@@ -2408,30 +2394,13 @@ const canSyncAgenda = canSyncAuto;
             String(fieldKey),
             oneYearAhead,
           );
-        } // ⚠️ Qualquer outro aplicativo (DUPLECAST, IBOSOL, IBOPRO ou Genéricos) NÃO preenche a data automaticamente aqui.
-        // A configuração será puramente manual, ou via retorno da extensão (no caso do Duplecast/IBO Sol).
+        } // ⚠️ Qualquer outro aplicativo (DUPLECAST, IBOPRO ou Genéricos) NÃO preenche a data automaticamente aqui.
+        // A configuração será puramente manual, ou via retorno da extensão (no caso do Duplecast).
       }
     }
 
     setLoading(true);
     setLoadingStep("Configurando aplicativo...");
-
-    // ✅ NOVO: Procura a URL exata deste aplicativo na lista que carregámos do banco
-    const catAppForInteg = catalog.find(
-      (c) => c.id === currentApp.app_id,
-    ) as any;
-    const appIntegKey =
-      String(catAppForInteg?.integration_type || "")
-        .trim()
-        .toUpperCase() || handler.actionPrefix.toUpperCase();
-    const appIntegData = appIntegrations.find(
-      (a) => a.app_name.toUpperCase() === appIntegKey,
-    );
-    const appBaseUrl = appIntegData?.api_url || "";
-
-    const selectedServerName =
-      servers.find((s) => s.id === serverId)?.name || "Servidor";
-    const finalServerName = `${username}_${selectedServerName.replace(/\s+/g, "")}`;
 
     // ✅ CORREÇÃO M3U: Resolve o link se ele estiver vazio antes de enviar!
     // "Secundária" sempre regenera (sorteia outra DNS), mesmo que já tenha
@@ -2451,155 +2420,38 @@ const canSyncAgenda = canSyncAuto;
       setM3uUrl(m3uToSend); // Atualiza visualmente na tela para você ver
     }
 
-    // 2. Constrói o pacote com o arquivo isolado do app
-    const appPin = appIntegData?.pin || ""; // ✅ Puxando da nova coluna 'pin'
-    const payload = handler.buildCreatePayload({
-      username,
-      // ✅ Todos os apps que mandam o PIN do banco
-      password:
-        handler.actionPrefix === "DUPLECAST" ||
-        handler.actionPrefix === "IBOSOL" ||
-        handler.actionPrefix === "IBOPRO" ||
-        handler.actionPrefix === "MESSITV" ||
-        handler.actionPrefix === "BOBPLAYER" ||
-        handler.actionPrefix === "IBOPLAYER" ||
-        handler.actionPrefix === "IPTVDUPLEX" ||
-        handler.actionPrefix === "IPTVPLAYERIO"
-          ? appPin
-          : password,
-      macValue,
-      finalServerName,
-      serverName: selectedServerName.replace(/\s+/g, ""),
-      m3uUrl: m3uToSend,
-      appName: appName,
-      serverId, // usado pelo QUICKPLAYER pra achar o DNS #1 do servidor
-    });
-
-    // ✅ IBOSOL: chama API direta (sem extensão)
+    // Integrações com API própria — via /api/admin/apps/configure, a mesma
+    // orquestração compartilhada com o portal (lib/apps/orchestration.ts):
+    // delete-then-create, recheck do GERENCIAAPP e persistência do
+    // vencimento (quando já existe client_app_id) ficam todos por lá agora.
     if ((handler as any).useApi) {
       try {
-        // Extrai Device Key do app (necessário para IBO Pro Player e similares)
-        const dkFieldCreate = currentApp?.fields_config?.find(
-          (f: any) =>
-            String(f?.type || "").toLowerCase() === "device_key" ||
-            String(f?.label || "")
-              .toLowerCase()
-              .includes("device key"),
-        );
-        const deviceKeyForApi = dkFieldCreate
-          ? currentApp?.values[
-              String(dkFieldCreate.id || dkFieldCreate.label || "").trim()
-            ] || ""
-          : "";
-
-        // ✅ "Configurar" = deletar (tolerante a "não encontrado") + criar —
-        // muitos clientes já têm o app configurado de verdade no painel do
-        // parceiro de antes (cadastro manual antigo, ou reinstalação).
-        // Resultado do delete nunca é checado de propósito: "nada pra
-        // apagar" é o caso normal (app nunca configurado antes).
-        try {
-          const preDeletePayload = handler.buildDeletePayload({
-            username: username.trim(),
-            finalServerName,
-            serverName: selectedServerName.replace(/\s+/g, ""),
-            macValue,
-            appName,
-            password:
-              handler.actionPrefix === "DUPLECAST" ||
-              handler.actionPrefix === "IBOSOL" ||
-              handler.actionPrefix === "IBOPRO" ||
-              handler.actionPrefix === "MESSITV" ||
-              handler.actionPrefix === "BOBPLAYER" ||
-              handler.actionPrefix === "IBOPLAYER" ||
-              handler.actionPrefix === "IPTVDUPLEX" ||
-              handler.actionPrefix === "IPTVPLAYERIO"
-                ? appPin
-                : password,
-          });
-          await fetch((handler as any).apiEndpoint, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              ...preDeletePayload,
-              base_url: appBaseUrl,
-              deviceKey: deviceKeyForApi,
-            }),
-          });
-        } catch {
-          // best-effort — segue pro create de qualquer jeito
-        }
-
-        const apiRes = await fetch((handler as any).apiEndpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...payload,
-            base_url: appBaseUrl,
-            deviceKey: deviceKeyForApi,
-          }),
+        const apiJson = await callAdminAppApi("/api/admin/apps/configure", {
+          client_app_id: currentApp.client_app_id || undefined,
+          app_id: currentApp.client_app_id ? undefined : currentApp.app_id,
+          client_id: clientToEdit.id,
+          field_values: currentApp.values,
+          mode,
+          m3u_url: m3uToSend,
         });
 
-        const apiJson = await apiRes.json().catch(() => ({}));
+        setLoading(false);
+        setLoadingStep("");
 
         if (apiJson?.ok) {
-          // ✅ GERENCIAAPP: o create manda "hoje + 1 ano" fixo pro payload
-          // deles (não é vencimento real). Busca o vencimento de verdade
-          // via "check" logo em seguida — mesma chamada do botão "Verificar
-          // vencimento" — e usa esse valor se vier.
-          let expireDate = apiJson.expireDate || null;
-          if (handler.actionPrefix === "GERENCIAAPP") {
-            try {
-              const checkRes = await fetch((handler as any).apiEndpoint, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  action: "check",
-                  base_url: appBaseUrl,
-                  username: finalServerName,
-                  macValue,
-                }),
-              });
-              const checkJson = await checkRes.json().catch(() => ({}));
-              if (checkJson?.ok && checkJson.expireDate) expireDate = checkJson.expireDate;
-            } catch {
-              // mantém o expireDate do create como fallback
-            }
-          }
-
-          setLoading(false);
-          setLoadingStep("");
+          const expireDate = apiJson.expireDate || null;
 
           if (expireDate && dateField) {
-            const fieldKey = dateField.id || dateField.label; // ✅ 1. Atualiza no state (para aparecer na tela na hora)
+            const fieldKey = dateField.id || dateField.label;
+            // Atualiza no state (pra aparecer na tela na hora) — o banco já
+            // foi atualizado pela própria rota quando currentApp já tinha
+            // client_app_id; sem isso, o valor fica só no state até o
+            // próximo "Salvar" (igual sempre foi).
             updateAppFieldValue(
               currentApp!.instanceId,
               String(fieldKey),
               expireDate,
             );
-            // ✅ 2. SALVA NO BANCO IMEDIATAMENTE (igual fazemos com a extensão) —
-            // por id da linha, nunca por client_id+app_id: com o mesmo app
-            // instalado 2x (2 TVs, etc.) essa busca batia nas duas linhas e
-            // sobrescrevia o field_values (MAC/Device Key) da instância errada.
-            // Sem client_app_id (instância nova, ainda não salva) não tem o que
-            // atualizar agora — o valor já está no state e vai pro banco no
-            // próximo "Salvar".
-            if (currentApp!.client_app_id) {
-              const { data: currentDbData } = await supabaseBrowser
-                .from("client_apps")
-                .select("field_values")
-                .eq("id", currentApp!.client_app_id)
-                .maybeSingle();
-              const dbVals = currentDbData?.field_values || {};
-              await supabaseBrowser
-                .from("client_apps")
-                .update({
-                  field_values: {
-                    ...dbVals,
-                    [String(fieldKey)]: expireDate,
-                  },
-                })
-                .eq("id", currentApp!.client_app_id);
-            }
 
             addToast(
               "success",
@@ -2608,31 +2460,28 @@ const canSyncAgenda = canSyncAuto;
             );
           } else {
             // ✅ DUPLEXTV não tem vencimento automático (ver
-            // duplextv/route.ts) — avisa pra conferir no painel do IBOSOL
-            // aqui no "Configurar" também, igual já fazia no "Verificar".
-            // Só no admin — a mensagem que a rota devolve pro portal do
-            // cliente (client-portal/apps/configure/route.ts) fica genérica
-            // de propósito, sem mencionar IBOSOL.
+            // duplextv/route.ts) — avisa pra conferir manualmente no painel
+            // do parceiro aqui no "Configurar" também, igual já fazia no
+            // "Verificar". Só no admin — a mensagem que a rota devolve pro
+            // portal do cliente (client-portal/apps/configure/route.ts)
+            // fica genérica de propósito.
             //
             // ✅ Pra qualquer OUTRO handler (achado 27/07/2026): sem isso o
             // toast dizia só "Configurado com sucesso." tanto quando a
             // validade veio quanto quando o "check" pós-create falhou
-            // silenciosamente (try/catch vazio ali em cima) — impossível
-            // distinguir "funcionou e não tem data mesmo" de "algo falhou
-            // ao confirmar". Agora avisa explicitamente pra conferir com
-            // "Verificar vencimento".
+            // silenciosamente — impossível distinguir "funcionou e não tem
+            // data mesmo" de "algo falhou ao confirmar". Agora avisa
+            // explicitamente pra conferir com "Verificar vencimento".
             addToast(
               "success",
               "Integrado!",
               handler.actionPrefix === "DUPLEXTV"
-                ? "Playlist configurada! Vencimento não encontrado automaticamente — confira manualmente no painel do IBOSOL."
+                ? "Playlist configurada! Vencimento não encontrado automaticamente — confira manualmente no painel do parceiro."
                 : apiJson.message ||
                     "App configurado, mas não foi possível confirmar o vencimento agora — clique em \"Verificar vencimento\" pra conferir.",
             );
           }
         } else {
-          setLoading(false);
-          setLoadingStep("");
           addToast("error", "Erro na Integração", apiJson?.error || "Falha.");
         }
       } catch (err: any) {
@@ -2642,106 +2491,10 @@ const canSyncAgenda = canSyncAuto;
       }
       return;
     }
-
-    // Fluxo original via extensão (Duplecast, GerenciaApp, etc.)
-    const responseHandler = (e: any) => {
-      window.removeEventListener(
-        "UNIGESTOR_INTEGRATION_RESPONSE",
-        responseHandler,
-      );
-      setLoading(false);
-      setLoadingStep("");
-
-      if (e.detail?.ok) {
-        if (
-          handler.actionPrefix === "DUPLECAST" ||
-          handler.actionPrefix === "IBOSOL" ||
-          handler.actionPrefix === "IBOPRO"
-        ) {
-          if (e.detail.expireDate) {
-            if (dateField) {
-              const fieldKey = dateField.id || dateField.label;
-              updateAppFieldValue(
-                currentApp!.instanceId,
-                String(fieldKey),
-                e.detail.expireDate,
-              );
-            }
-            addToast(
-              "success",
-              "Integrado!",
-              `App configurado! Vencimento extraído: ${e.detail.expireDate.split("T")[0].split("-").reverse().join("/")}`,
-            );
-          } else {
-            addToast(
-              "warning",
-              "Atenção",
-              "Aplicativo configurado, mas a data de vencimento não foi localizada.",
-            );
-          }
-        } else {
-          addToast(
-            "success",
-            "Integrado!",
-            "Aplicativo configurado com sucesso!",
-          );
-        }
-      } else {
-        addToast(
-          "error",
-          "Erro na Integração",
-          e.detail?.error || "Falha desconhecida.",
-        );
-      }
-    };
-    window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
-
-    // Extrai deviceKey para handlers que precisam (ex: IBOPRO)
-    const extDkField = currentApp?.fields_config?.find(
-      (f: any) =>
-        String(f?.type || "").toLowerCase() === "device_key" ||
-        String(f?.label || "")
-          .toLowerCase()
-          .includes("device key"),
-    );
-    const extDeviceKey = extDkField
-      ? currentApp?.values[
-          String(extDkField.id || extDkField.label || "").trim()
-        ] || ""
-      : "";
-
-    window.dispatchEvent(
-      new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
-        detail: {
-          action: `${handler.actionPrefix}_CREATE`,
-          baseUrl: appBaseUrl,
-          payload: { ...payload, deviceKey: extDeviceKey },
-        },
-      }),
-    );
-
-    const extensionTimeout =
-      handler.actionPrefix === "IBOPRO"
-        ? 90000
-        : 20000;
-    setTimeout(() => {
-      setLoading((prev) => {
-        if (prev) {
-          window.removeEventListener(
-            "UNIGESTOR_INTEGRATION_RESPONSE",
-            responseHandler,
-          );
-          addToast(
-            "warning",
-            "Aviso",
-            "O comando foi enviado, mas a resposta demorou.",
-          );
-          setLoadingStep("");
-          return false;
-        }
-        return prev;
-      });
-    }, extensionTimeout);
+    // Nenhum handler registrado hoje tem useApi:false (o único que tinha,
+    // IBOSOL, foi removido em 29/07/2026) — sem fallback via extensão do
+    // Chrome aqui. CLOUDDY é tratado à parte (handleClouddy*, mais abaixo),
+    // fora deste fluxo genérico.
   }
 
   // ✅ FUNÇÃO UNIVERSAL PARA DELETAR (Inteligente)
@@ -2783,93 +2536,30 @@ const canSyncAgenda = canSyncAuto;
     setLoading(true);
     setLoadingStep("A remover do Painel...");
 
-    // ✅ RECUPERADO: Busca a URL correta do aplicativo (as linhas que tinham sumido!)
-    const catAppForIntegDel = catalog.find(
-      (c) => c.id === currentApp.app_id,
-    ) as any;
-    const appIntegKeyDel =
-      String(catAppForIntegDel?.integration_type || "")
-        .trim()
-        .toUpperCase() || handler.actionPrefix.toUpperCase();
-    const appIntegData = appIntegrations.find(
-      (a) => a.app_name.toUpperCase() === appIntegKeyDel,
-    );
-    const appBaseUrl = appIntegData?.api_url || "";
-
-    // ✅ CORREÇÃO: Monta o nome exato (Username_Servidor) para a exclusão ser cirúrgica!
-    const selectedServerName =
-      servers.find((s) => s.id === serverId)?.name || "Servidor";
-    const finalServerName = `${username}_${selectedServerName.replace(/\s+/g, "")}`;
-
-    // ✅ Extrai o Device Key do app atual
-    const getDeviceKeyFromApp = (app?: typeof currentApp) => {
-      if (!app) return "";
-      const dkField = app.fields_config?.find(
-        (f: any) =>
-          String(f?.type || "").toLowerCase() === "device_key" ||
-          String(f?.label || "")
-            .toLowerCase()
-            .includes("device key"),
-      );
-      if (dkField) {
-        const key = String(dkField.id || dkField.label || "").trim();
-        return app.values[key] || "";
-      }
-      return "";
-    };
-
-    // ✅ Puxando o PIN da integração antes de montar o payload
-    const appPinDelete = appIntegData?.pin || "";
-
-    const payloadDelete = {
-      ...handler.buildDeletePayload({
-        username: username.trim(),
-        finalServerName: finalServerName,
-        serverName: selectedServerName.replace(/\s+/g, ""),
-        macValue: getMacFromApp(currentApp),
-        appName: appName,
-        // ✅ Envia o PIN do banco
-        password:
-          handler.actionPrefix === "DUPLECAST" ||
-          handler.actionPrefix === "IBOSOL" ||
-          handler.actionPrefix === "IBOPRO" ||
-          handler.actionPrefix === "MESSITV" ||
-          handler.actionPrefix === "BOBPLAYER" ||
-          handler.actionPrefix === "IBOPLAYER" ||
-          handler.actionPrefix === "IPTVDUPLEX" ||
-          handler.actionPrefix === "IPTVPLAYERIO"
-            ? appPinDelete
-            : password,
-      }),
-      deviceKey: getDeviceKeyFromApp(currentApp),
-    };
-
-    // ✅ IBOSOL: chama API direta (sem extensão)
+    // Integrações com API própria — via /api/admin/apps/remove, a mesma
+    // orquestração compartilhada com o portal (lib/apps/orchestration.ts).
     if ((handler as any).useApi) {
+      // Sem client_app_id (app ainda não salvo) a rota precisa de um
+      // client_id de verdade pra buscar as credenciais do servidor —
+      // sem cliente salvo, não tem nada configurado no parceiro pra tirar.
+      if (!currentApp.client_app_id && !clientToEdit?.id) {
+        setLoading(false);
+        setLoadingStep("");
+        addToast("warning", "Atenção", "Salve o cliente primeiro.");
+        return;
+      }
       try {
-        const dkFieldDelete = currentApp?.fields_config?.find(
-          (f: any) =>
-            String(f?.type || "").toLowerCase() === "device_key" ||
-            String(f?.label || "")
-              .toLowerCase()
-              .includes("device key"),
-        );
-        const deviceKeyForDelete = dkFieldDelete
-          ? currentApp?.values[
-              String(dkFieldDelete.id || dkFieldDelete.label || "").trim()
-            ] || ""
-          : "";
-
-        const apiRes = await fetch((handler as any).apiEndpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...payloadDelete,
-            base_url: appBaseUrl,
-            deviceKey: deviceKeyForDelete,
-          }),
+        const apiJson = await callAdminAppApi("/api/admin/apps/remove", {
+          client_app_id: currentApp.client_app_id || undefined,
+          app_id: currentApp.client_app_id ? undefined : currentApp.app_id,
+          client_id: clientToEdit?.id,
+          field_values: currentApp.values,
+          // ✅ "Remover do painel oficial" só desconfigura no parceiro — o
+          // app continua na lista do cliente pra reconfigurar depois. Quem
+          // tira da lista de vez é o botão "REMOVER" do card (local) ou o
+          // "Concluir & Excluir" do AppRequestModal (esses não passam isto).
+          keep_row: true,
         });
-        const apiJson = await apiRes.json().catch(() => ({}));
         setLoading(false);
         setLoadingStep("");
         if (apiJson?.ok)
@@ -2887,55 +2577,12 @@ const canSyncAgenda = canSyncAuto;
       }
       return;
     }
-
-    // Fluxo original via extensão
-    const responseHandler = (e: any) => {
-      window.removeEventListener(
-        "UNIGESTOR_INTEGRATION_RESPONSE",
-        responseHandler,
-      );
-      setLoading(false);
-      setLoadingStep("");
-      if (e.detail?.ok)
-        addToast("success", "Removido!", "Configuração apagada do painel.");
-      else
-        addToast(
-          "error",
-          "Não Removido",
-          e.detail?.error || "Falha ao apagar no painel.",
-        );
-    };
-    window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
-
-    window.dispatchEvent(
-      new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
-        detail: {
-          action: `${handler.actionPrefix}_DELETE`,
-          baseUrl: appBaseUrl,
-          payload: payloadDelete,
-        },
-      }),
-    );
-
-    setTimeout(() => {
-      setLoading((prev) => {
-        if (prev) {
-          window.removeEventListener(
-            "UNIGESTOR_INTEGRATION_RESPONSE",
-            responseHandler,
-          );
-          addToast("warning", "Aviso", "A resposta demorou.");
-          setLoadingStep("");
-          return false;
-        }
-        return prev;
-      });
-    }, 20000);
+    // Nenhum handler registrado hoje tem useApi:false — sem fallback via
+    // extensão do Chrome aqui (ver mesma nota em handleConfigApp).
   }
 
-  // ✅ Verifica o vencimento sem reconfigurar nada — hoje só a família
-  // IBOSOL tem essa ação via extensão (IBOSOL_CHECK), reaproveitando o
-  // mesmo check-mac usado internamente pelo Configurar.
+  // ✅ Verifica o vencimento sem reconfigurar nada — reaproveita o mesmo
+  // check-mac usado internamente pelo Configurar.
   async function handleCheckApp(instanceId: string) {
     const currentApp = selectedApps.find((a) => a.instanceId === instanceId);
     if (!currentApp) return;
@@ -2961,101 +2608,41 @@ const canSyncAgenda = canSyncAuto;
       return;
     }
 
-    const catAppForCheck = catalog.find(
-      (c) => c.id === currentApp.app_id,
-    ) as any;
-    const appIntegKeyCheck =
-      String(catAppForCheck?.integration_type || "")
-        .trim()
-        .toUpperCase() || handler.actionPrefix.toUpperCase();
-    const appIntegData = appIntegrations.find(
-      (a) => a.app_name.toUpperCase() === appIntegKeyCheck,
-    );
-    const appBaseUrl = appIntegData?.api_url || "";
-
     const dateField = currentApp?.fields_config?.find(
       (f: any) => String(f?.type || "").toLowerCase() === "date",
     );
 
-    const dkFieldCheck = currentApp?.fields_config?.find(
-      (f: any) =>
-        String(f?.type || "").toLowerCase() === "device_key" ||
-        String(f?.label || "")
-          .toLowerCase()
-          .includes("device key"),
-    );
-    const deviceKeyCheck = dkFieldCheck
-      ? currentApp?.values[
-          String(dkFieldCheck.id || dkFieldCheck.label || "").trim()
-        ] || ""
-      : "";
-
-    const persistExpireDate = async (expireDate: string) => {
-      if (!dateField) return;
-      const fieldKey = dateField.id || dateField.label;
-      updateAppFieldValue(
-        currentApp!.instanceId,
-        String(fieldKey),
-        expireDate,
-      );
-      // ✅ Por id da linha (não client_id+app_id) — mesma razão do
-      // handleConfigApp: evita sobrescrever a instância errada quando o
-      // mesmo app está instalado 2x pro cliente.
-      if (currentApp.client_app_id) {
-        const { data: currentDbData } = await supabaseBrowser
-          .from("client_apps")
-          .select("field_values")
-          .eq("id", currentApp.client_app_id)
-          .maybeSingle();
-        const dbVals = currentDbData?.field_values || {};
-        await supabaseBrowser
-          .from("client_apps")
-          .update({
-            field_values: { ...dbVals, [String(fieldKey)]: expireDate },
-          })
-          .eq("id", currentApp.client_app_id);
-      }
-    };
-
     setLoading(true);
     setLoadingStep("Verificando vencimento...");
 
-    // ✅ DUPLECAST/IBOPRO/GERENCIAAPP: chama a API direta — mesma rota que
-    // já implementa action:"check" pro botão "Verificar validade" do portal.
+    // Integrações com API própria — via /api/admin/apps/check-validity, a
+    // mesma orquestração compartilhada com o portal (lib/apps/
+    // orchestration.ts), incluindo o fallback "sem retorno → mantém o valor
+    // salvo" (antes só o portal tinha isso).
     if ((handler as any).useApi) {
+      if (!currentApp.client_app_id && !clientToEdit?.id) {
+        setLoading(false);
+        setLoadingStep("");
+        addToast("warning", "Atenção", "Salve o cliente primeiro.");
+        return;
+      }
       try {
-        const selectedServerName =
-          servers.find((s) => s.id === serverId)?.name || "Servidor";
-        const finalServerName = `${username}_${selectedServerName.replace(/\s+/g, "")}`;
-
-        const checkBody: Record<string, any> =
-          handler.actionPrefix === "IBOPRO"
-            ? { action: "check", mac: macValue, deviceKey: deviceKeyCheck }
-            : handler.actionPrefix === "GERENCIAAPP"
-              ? {
-                  action: "check",
-                  base_url: appBaseUrl,
-                  username: finalServerName,
-                  macValue,
-                }
-              : // ✅ DUPLECAST/MESSITV/BOBPLAYER/IBOPLAYER/IPTVDUPLEX (e futuros
-                // handlers do mesmo padrão mac+device_key): faltava deviceKey
-                // aqui — a rota exige e o botão "Verificar vencimento" do
-                // admin sempre falhava com "Device Key é obrigatório", mesmo
-                // com o campo preenchido no app (achado 27/07/2026).
-                { action: "check", macValue, deviceKey: deviceKeyCheck };
-
-        const apiRes = await fetch((handler as any).apiEndpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(checkBody),
+        const tenantIdForCheck = await getCurrentTenantId();
+        const apiJson = await callAdminAppApi("/api/admin/apps/check-validity", {
+          tenant_id: tenantIdForCheck,
+          client_app_id: currentApp.client_app_id || undefined,
+          app_id: currentApp.client_app_id ? undefined : currentApp.app_id,
+          client_id: clientToEdit?.id,
+          field_values: currentApp.values,
         });
-        const apiJson = await apiRes.json().catch(() => ({}));
         setLoading(false);
         setLoadingStep("");
 
         if (apiJson?.ok && apiJson.expireDate) {
-          await persistExpireDate(apiJson.expireDate);
+          if (dateField) {
+            const fieldKey = dateField.id || dateField.label;
+            updateAppFieldValue(currentApp!.instanceId, String(fieldKey), apiJson.expireDate);
+          }
           addToast(
             "success",
             "Vencimento verificado",
@@ -3063,17 +2650,15 @@ const canSyncAgenda = canSyncAuto;
           );
         } else if (apiJson?.ok) {
           // ✅ DUPLEXTV não tem endpoint de status real (só "já ativado",
-          // sem data — ver iptvduplex/route.ts... digo, duplextv/route.ts).
-          // Mantém o vencimento já salvo no banco (não mexe em nada) e
-          // avisa o admin pra conferir manualmente no painel do IBOSOL —
-          // aviso só aqui no admin, nunca no portal do cliente.
+          // sem data). Mantém o vencimento já salvo no banco (não mexe em
+          // nada) e avisa o admin pra conferir manualmente no painel do
+          // parceiro — aviso só aqui no admin, nunca no portal do cliente.
           addToast(
             "warning",
             "Sem vencimento",
             handler.actionPrefix === "DUPLEXTV"
-              ? "Não encontrado automaticamente — confira manualmente no painel do IBOSOL. O vencimento salvo no banco foi mantido."
-              : apiJson.message ||
-                "Não foi possível localizar o vencimento no painel.",
+              ? "Não encontrado automaticamente — confira manualmente no painel do parceiro. O vencimento salvo no banco foi mantido."
+              : "Não foi possível localizar o vencimento no painel.",
           );
         } else {
           addToast(
@@ -3093,61 +2678,12 @@ const canSyncAgenda = canSyncAuto;
       }
       return;
     }
-
-    // ✅ IBOSOL: via extensão (IBOSOL_CHECK)
-    const responseHandler = async (e: any) => {
-      window.removeEventListener(
-        "UNIGESTOR_INTEGRATION_RESPONSE",
-        responseHandler,
-      );
-      setLoading(false);
-      setLoadingStep("");
-
-      if (e.detail?.ok && e.detail.expireDate) {
-        await persistExpireDate(e.detail.expireDate);
-        addToast(
-          "success",
-          "Vencimento verificado",
-          `${appName}: ${e.detail.expireDate.split("T")[0].split("-").reverse().join("/")}`,
-        );
-      } else {
-        addToast(
-          "error",
-          "Não foi possível verificar",
-          e.detail?.error || "Falha desconhecida.",
-        );
-      }
-    };
-    window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
-
-    window.dispatchEvent(
-      new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
-        detail: {
-          action: `${handler.actionPrefix}_CHECK`,
-          baseUrl: appBaseUrl,
-          payload: { app_name: appName, mac_address: macValue },
-        },
-      }),
-    );
-
-    setTimeout(() => {
-      setLoading((prev) => {
-        if (prev) {
-          window.removeEventListener(
-            "UNIGESTOR_INTEGRATION_RESPONSE",
-            responseHandler,
-          );
-          addToast("warning", "Aviso", "A resposta demorou.");
-          setLoadingStep("");
-          return false;
-        }
-        return prev;
-      });
-    }, 20000);
+    // Nenhum handler registrado hoje tem useApi:false — sem fallback via
+    // extensão do Chrome aqui (ver mesma nota em handleConfigApp).
   }
 
-  // ✅ ClouDDy (console.clouddy.online) — igual o IBOSOL: sem
-  // INTEGRATION_REGISTRY/rota de API própria, tudo via extensão. Motivo:
+  // ✅ ClouDDy (console.clouddy.online) — sem INTEGRATION_REGISTRY/rota de
+  // API própria, tudo via extensão. Motivo:
   // Cloudflare Turnstile real no login — testado exaustivamente numa VM
   // (Playwright headless/headed via Xvfb, navigator.webdriver "corrigido",
   // até com proxy residencial) e sempre rejeitou (só o CDP em si já é
@@ -3920,7 +3456,7 @@ if (syncOperadora) {
                       setExternalUserId(apiExternalUserId);
 
                       // Ajuste de data
-                      let expRaw = extData.exp_date;
+                      const expRaw = extData.exp_date;
                       if (expRaw) {
                         if (
                           typeof expRaw === "number" ||
@@ -4365,221 +3901,48 @@ if (syncOperadora) {
 
                   setLoadingStep(`Painel: ${app.name}...`);
 
-                  const selectedServerName =
-                    servers.find((s) => s.id === serverId)?.name || "Servidor";
-                  const finalServerName = `${apiUsername}_${selectedServerName.replace(/\s+/g, "")}`;
-
-                  // ✅ Pega o PIN do banco para usar na automação
-                  const appPinAuto = appIntegData?.pin || "";
-
-                  // Deixa a biblioteca externa montar o pacote
-                  const payloadAutomacao = handler.buildCreatePayload({
-                    username: apiUsername,
-                    // ✅ Todos os apps que exigem senha/PIN na automação
-                    password:
-                      handler.actionPrefix === "DUPLECAST" ||
-                      handler.actionPrefix === "IBOSOL" ||
-                      handler.actionPrefix === "IBOPRO" ||
-                      handler.actionPrefix === "MESSITV" ||
-                      handler.actionPrefix === "BOBPLAYER" ||
-                      handler.actionPrefix === "IBOPLAYER" ||
-                      handler.actionPrefix === "IPTVDUPLEX" ||
-                      handler.actionPrefix === "IPTVPLAYERIO"
-                        ? appPinAuto
-                        : apiPassword,
-                    macValue: macValueAuto,
-                    finalServerName,
-                    m3uUrl: finalM3u || apiM3uUrl || m3uUrl || "",
-                    appName: app.name,
-                    serverId, // usado pelo QUICKPLAYER pra achar o DNS #1 do servidor
+                  // Mesma orquestração compartilhada com o portal e com o
+                  // Configurar manual (lib/apps/orchestration.ts) — o app
+                  // acabou de ser inserido acima, já tem client_app_id real,
+                  // sem precisar de modo rascunho. Sem field_values aqui de
+                  // propósito: a linha acabou de ser inserida, o banco já
+                  // está correto — mandar `app.values` sozinho (sem os
+                  // campos extras _config_cost/_config_partner que também
+                  // foram salvos no insert) apagaria esses dois na hora que
+                  // o vencimento fosse persistido. Todo handler registrado
+                  // hoje tem useApi:true (ver resolveIntegration/orchestration.ts).
+                  const apiJson = await callAdminAppApi("/api/admin/apps/configure", {
+                    client_app_id: insertedAppId,
+                    mode: "principal",
+                    m3u_url: finalM3u || apiM3uUrl || m3uUrl || "",
                   });
 
-                  // ✅ Distingue apps via API (QuickPlayer, IboPro, Duplecast, GerenciaApp) vs Extensão (IboSol)
-                  if ((handler as any).useApi) {
-                    const dkFieldAuto = app.fields_config?.find(
-                      (f: any) =>
-                        String(f?.type || "").toLowerCase() === "device_key" ||
-                        String(f?.label || "")
-                          .toLowerCase()
-                          .includes("device key"),
-                    );
-                    const deviceKeyAuto = dkFieldAuto
-                      ? app.values[
-                          String(
-                            dkFieldAuto.id || dkFieldAuto.label || "",
-                          ).trim()
-                        ] || ""
-                      : "";
-
-                    const apiRes = await fetch((handler as any).apiEndpoint, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        ...payloadAutomacao,
-                        base_url: appBaseUrl,
-                        deviceKey: deviceKeyAuto,
-                      }),
-                    });
-                    const apiJson = await apiRes.json().catch(() => ({}));
-
-                    if (apiJson?.ok) {
-                      // ✅ GERENCIAAPP: busca o vencimento real via "check"
-                      // logo após criar — o create deles sempre manda "hoje
-                      // + 1 ano" fixo, não é vencimento de verdade.
-                      let expireDateAuto = apiJson.expireDate || null;
-                      if (handler.actionPrefix === "GERENCIAAPP") {
-                        try {
-                          const checkResAuto = await fetch((handler as any).apiEndpoint, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              action: "check",
-                              base_url: appBaseUrl,
-                              username: finalServerName,
-                              macValue: macValueAuto,
-                            }),
-                          });
-                          const checkJsonAuto = await checkResAuto.json().catch(() => ({}));
-                          if (checkJsonAuto?.ok && checkJsonAuto.expireDate) expireDateAuto = checkJsonAuto.expireDate;
-                        } catch {
-                          // mantém expireDateAuto do create como fallback
-                        }
-                      }
-
-                      if (expireDateAuto) {
-                        const dField = app.fields_config?.find(
-                          (f: any) =>
-                            String(f?.type || "").toLowerCase() === "date",
-                        );
-                        if (dField && insertedAppId) {
-                          const fieldKey = dField.id || dField.label;
-                          const { data } = await supabaseBrowser
-                            .from("client_apps")
-                            .select("field_values")
-                            .eq("id", insertedAppId)
-                            .maybeSingle();
-                          const dbVals = data?.field_values || {};
-                          await supabaseBrowser
-                            .from("client_apps")
-                            .update({
-                              field_values: {
-                                ...dbVals,
-                                [String(fieldKey)]: expireDateAuto,
-                              },
-                            })
-                            .eq("id", insertedAppId);
-                        }
-                        queueListToast("trial", {
-                          type: "success",
-                          title: "App Integrado",
-                          message: `${app.name} ativado. Vencimento: ${expireDateAuto.split("T")[0].split("-").reverse().join("/")}`,
-                        });
-                      } else {
-                        // ✅ Mesma honestidade do fluxo manual (handleConfigApp)
-                        // — sem isso parecia sucesso pleno mesmo quando o
-                        // "check" pós-create falhou silenciosamente.
-                        queueListToast("trial", {
-                          type: "success",
-                          title: "App Integrado",
-                          message:
-                            handler.actionPrefix === "DUPLEXTV"
-                              ? `${app.name} ativado. Vencimento não encontrado automaticamente — confira no painel do IBOSOL.`
-                              : `${app.name} ativado, mas não foi possível confirmar o vencimento agora.`,
-                        });
-                      }
-                    } else {
+                  if (apiJson?.ok) {
+                    const expireDateAuto = apiJson.expireDate || null;
+                    if (expireDateAuto) {
                       queueListToast("trial", {
-                        type: "error",
-                        title: "Aviso do App",
-                        message: apiJson?.error || `Falha ao integrar ${app.name}.`,
+                        type: "success",
+                        title: "App Integrado",
+                        message: `${app.name} ativado. Vencimento: ${expireDateAuto.split("T")[0].split("-").reverse().join("/")}`,
+                      });
+                    } else {
+                      // ✅ Mesma honestidade do fluxo manual (handleConfigApp)
+                      // — sem isso parecia sucesso pleno mesmo quando o
+                      // "check" pós-create falhou silenciosamente.
+                      queueListToast("trial", {
+                        type: "success",
+                        title: "App Integrado",
+                        message:
+                          handler.actionPrefix === "DUPLEXTV"
+                            ? `${app.name} ativado. Vencimento não encontrado automaticamente — confira no painel do parceiro.`
+                            : `${app.name} ativado, mas não foi possível confirmar o vencimento agora.`,
                       });
                     }
                   } else {
-                    await new Promise((resolve) => {
-                      const evtHandler = async (e: any) => {
-                        window.removeEventListener(
-                          "UNIGESTOR_INTEGRATION_RESPONSE",
-                          evtHandler,
-                        );
-                        if (e.detail?.ok) {
-                          if (
-                            handler.actionPrefix === "DUPLECAST" ||
-                            handler.actionPrefix === "IBOSOL" ||
-                            handler.actionPrefix === "IBOPRO"
-                          ) {
-                            if (e.detail.expireDate) {
-                              const dField = app.fields_config?.find(
-                                (f: any) =>
-                                  String(f?.type || "").toLowerCase() ===
-                                  "date",
-                              );
-                              if (dField && insertedAppId) {
-                                const fieldKey = dField.id || dField.label;
-                                const { data } = await supabaseBrowser
-                                  .from("client_apps")
-                                  .select("field_values")
-                                  .eq("id", insertedAppId)
-                                  .maybeSingle();
-                                const dbVals = data?.field_values || {};
-                                await supabaseBrowser
-                                  .from("client_apps")
-                                  .update({
-                                    field_values: {
-                                      ...dbVals,
-                                      [String(fieldKey)]: e.detail.expireDate,
-                                    },
-                                  })
-                                  .eq("id", insertedAppId);
-                              }
-                              queueListToast("trial", {
-                                type: "success",
-                                title: "App Integrado",
-                                message: `${app.name} ativado. Vencimento extraído: ${e.detail.expireDate.split("T")[0].split("-").reverse().join("/")}`,
-                              });
-                            } else {
-                              queueListToast("trial", {
-                                type: "success",
-                                title: "Atenção",
-                                message: `${app.name} ativado, mas sem vencimento localizado.`,
-                              });
-                            }
-                          } else {
-                            queueListToast("trial", {
-                              type: "success",
-                              title: "App Integrado",
-                              message: `${app.name} ativado com sucesso!`,
-                            });
-                          }
-                        } else {
-                          queueListToast("trial", {
-                            type: "error",
-                            title: "Aviso do App",
-                            message: `Falha ao integrar ${app.name}.`,
-                          });
-                        }
-                        resolve(true);
-                      };
-                      window.addEventListener(
-                        "UNIGESTOR_INTEGRATION_RESPONSE",
-                        evtHandler,
-                      );
-                      window.dispatchEvent(
-                        new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
-                          detail: {
-                            action: `${handler.actionPrefix}_CREATE`,
-                            baseUrl: appBaseUrl,
-                            payload: payloadAutomacao,
-                          },
-                        }),
-                      );
-
-                      setTimeout(() => {
-                        window.removeEventListener(
-                          "UNIGESTOR_INTEGRATION_RESPONSE",
-                          evtHandler,
-                        );
-                        resolve(false);
-                      }, 12000);
+                    queueListToast("trial", {
+                      type: "error",
+                      title: "Aviso do App",
+                      message: apiJson?.error || `Falha ao integrar ${app.name}.`,
                     });
                   }
                 } catch {}
@@ -6407,8 +5770,8 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                         .trim()
                         .toLowerCase() === "ibo player";
                     // ✅ "Verificar vencimento" — divide o botão "Painel" em
-                    // dois ícones quando o handler suporta check (server-side
-                    // pra DUPLECAST/IBOPRO/GERENCIAAPP, via extensão pro IBOSOL).
+                    // dois ícones quando o handler suporta check (server-side,
+                    // ex: DUPLECAST/IBOPRO/GERENCIAAPP).
                     const canCheckVencimento =
                       ADMIN_CHECK_HANDLERS.has(integrationType);
                     const appLabel =
@@ -7158,164 +6521,43 @@ className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify
                   })}
                 </div>
 
-                {/* Seletor de Aplicativos (Tipo Combobox) */}
-
                 <div className="relative mb-4">
-                  {!showAppSelector ? (
-                    <button
-                      onClick={() => {
-                        setShowAppSelector(true);
-                        setAppSearch("");
-                      }}
-                      className="w-full h-14 border-2 border-dashed border-border rounded-xl text-muted-foreground hover:text-emerald-500 hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all font-medium text-sm uppercase flex items-center justify-center gap-2"
-                    >
-                      <span className="text-lg">+</span> Adicionar Aplicativo
-                    </button>
-                  ) : (
-                    <div className="relative animate-in fade-in zoom-in-95 duration-200">
-                      <div className="relative">
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
-                          🔍
-                        </div>
-
-                        <input
-                          autoFocus
-                          placeholder="Digite para buscar o aplicativo..."
-                          value={appSearch}
-                          onChange={(e) => setAppSearch(e.target.value)}
-                          className="w-full h-10 pl-9 pr-10 bg-card border border-emerald-500 ring-1 ring-emerald-500/20 rounded-lg text-sm text-foreground outline-none shadow-lg"
-                        />
-
-                        <button
-                          onClick={() => setShowAppSelector(false)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 rounded transition-colors"
-                        >
-                          ✕
-                        </button>
-                      </div>
-
-                      <div className="mt-2 w-full bg-card border border-border rounded-xl shadow-xl min-h-[280px] max-h-[50vh] overflow-y-auto custom-scrollbar">
-                                               {" "}
-                        {(() => {
-                          const filtered = catalog
-                            .filter((app) => {
-                              const q = appSearch.toLowerCase();
-                              return app.name.toLowerCase().includes(q);
-                            })
-                            .sort((a, b) => a.name.localeCompare(b.name));
-
-                          if (filtered.length === 0) {
-                            return (
-                              <div className="p-4 text-center text-xs text-muted-foreground italic">
-                                Nenhum aplicativo encontrado para &quot;
-                                {appSearch}&quot;.
-                              </div>
-                            );
-                          }
-
-                          return filtered.map((app) => {
-                            const isDiscontinued = app.is_active === false;
-                            const intType = String(app.integration_type || "")
-                              .trim()
-                              .toUpperCase();
-                            const hasInteg =
-                              !isDiscontinued &&
-                              Boolean(intType && intType !== "SEM_INTEGRACAO");
-                            const intLabel =
-                              intType === "GERENCIAAPP"
-                                ? "GerenciaApp"
-                                : intType === "DUPLECAST"
-                                  ? "DupleCast"
-                                  : intType === "IBOSOL"
-                                    ? "IBO Sol"
-                                    : intType === "IBOPRO"
-                                      ? "IBO Pro Player"
-                                      : intType === "QUICKPLAYER"
-                                        ? "Quick Player"
-                                        : intType === "MESSITV"
-                                          ? "MessiTV"
-                                          : intType === "BOBPLAYER"
-                                            ? "BOB Player"
-                                            : intType === "IBOPLAYER"
-                                              ? "IBO Player"
-                                              : intType === "IPTVDUPLEX"
-                                                ? "IPTV Duplex Play"
-                                                : intType === "IPTVPLAYERIO"
-                                                  ? "IPTV Playerio"
-                                                  : intType === "DUPLEXTV"
-                                                    ? "Duplex TV"
-                                                    : intType === "CLOUDDY"
-                                                      ? "ClouDDy"
-                                                      : intType;
-
-                            return (
-                              <button
-                                key={app.id}
-                                onClick={() => addAppToClient(app)}
-                                className="w-full text-left px-4 py-3 text-sm text-foreground/90 hover:bg-emerald-500/10 hover:text-emerald-500 border-b border-border last:border-0 transition-colors flex items-center justify-between group"
-                              >
-                                <div className="flex items-center gap-2">
-                                  {app.icon_url ? (
-                                    <img
-                                      src={app.icon_url}
-                                      alt=""
-                                      className="w-5 h-5 rounded object-cover shrink-0"
-                                    />
-                                  ) : (
-                                    <span className="shrink-0">📱</span>
-                                  )}
-                                  <span className="font-medium">
-                                    {app.name}
-                                  </span>
-                                  {isDiscontinued ? (
-                                    <span
-                                      title={
-                                        app.discontinued_replacement_name
-                                          ? `Descontinuado — recomendado migrar para ${app.discontinued_replacement_name}`
-                                          : "Descontinuado"
-                                      }
-                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-500/20 border border-rose-500/30 text-rose-400"
-                                    >
-                                      <span className="text-[9px] font-medium uppercase tracking-wider">
-                                        Descontinuado
-                                      </span>
-                                    </span>
-                                  ) : (
-                                    hasInteg && (
-                                      <span
-                                        title={`Integração Automática: ${intLabel}`}
-                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-500/20 border border-sky-500/30 text-sky-400"
-                                      >
-                                        <svg
-                                          width="10"
-                                          height="10"
-                                          viewBox="0 0 24 24"
-                                          fill="none"
-                                          stroke="currentColor"
-                                          strokeWidth="2.5"
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                        >
-                                          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                                        </svg>
-                                        <span className="text-[9px] font-medium uppercase tracking-wider">
-                                          {intLabel}
-                                        </span>
-                                      </span>
-                                    )
-                                  )}
-                                </div>
-                                <span className="text-[10px] uppercase font-medium opacity-0 group-hover:opacity-100 transition-opacity text-emerald-500">
-                                  Selecionar
-                                </span>
-                              </button>
-                            );
-                          });
-                        })()}
-                      </div>
-                    </div>
-                  )}
+                  <button
+                    onClick={() => setShowAppSelector(true)}
+                    className="w-full h-14 border-2 border-dashed border-border rounded-xl text-muted-foreground hover:text-emerald-500 hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all font-medium text-sm uppercase flex items-center justify-center gap-2"
+                  >
+                    <span className="text-lg">+</span> Adicionar Aplicativo
+                  </button>
                 </div>
+
+                <AppPickerModal
+                  open={showAppSelector}
+                  onClose={() => setShowAppSelector(false)}
+                  catalog={catalog.map((app) => ({
+                    id: app.id,
+                    name: app.name,
+                    icon_url: app.icon_url ?? null,
+                    device_types: undefined,
+                    cost_type: app.cost_type as any,
+                    license_price: undefined,
+                    license_period: undefined,
+                    is_active: app.is_active ?? true,
+                    discontinued_replacement_name: app.discontinued_replacement_name ?? null,
+                    has_integration: Boolean(app.integration_type && app.integration_type !== "SEM_INTEGRACAO"),
+                  }))}
+                  catalogLoading={false}
+                  onSelectApp={(appId) => {
+                    const selectedApp = catalog.find((app) => app.id === appId);
+                    if (selectedApp) {
+                      addAppToClient(selectedApp);
+                    }
+                  }}
+                  busyAppId={null}
+                  title="Adicionar aplicativo"
+                  subtitle="Selecione o app e continue"
+                  variant="admin"
+                  helperText="Os apps são adicionados diretamente ao cliente e podem usar a integração ativa do admin."
+                />
               </div>
             )}
           </div>

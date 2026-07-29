@@ -118,7 +118,7 @@ function formatDateSP(input?: string | null): string {
 // ✅ NOVO: Função para ler a hora que já vem do banco
 function formatTimeSP(input?: string | null): string {
   if (!input) return "";
-  let d = new Date(input);
+  const d = new Date(input);
   if (isNaN(d.getTime())) return "";
   // Se veio apenas a data YYYY-MM-DD, não temos hora exata
   if (input.length === 10 && input.includes("-")) return "";
@@ -1685,8 +1685,6 @@ function ImpactListModal({
   };
   onClose: () => void;
 }) {
-  if (typeof document === "undefined") return null;
-
   // Descobre se a regra usa vencimento ou data de criação
   const isCadastro =
     data.ruleDateField === "cadastro" || data.ruleDateField === "created_at";
@@ -1777,6 +1775,8 @@ function ImpactListModal({
       </span>
     );
   }
+
+  if (typeof document === "undefined") return null;
 
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
@@ -1952,9 +1952,6 @@ function AutomationWizard({
   onSuccess: () => void;
   onError: (m: string) => void;
 }) {
-  // ✅ PROTEÇÃO SSR
-  if (typeof document === "undefined") return null;
-
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
 
@@ -2087,6 +2084,8 @@ function AutomationWizard({
       setSaving(false);
     }
   };
+
+  if (typeof document === "undefined") return null;
 
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
@@ -2560,8 +2559,6 @@ function LogsModal({
   ruleName: string;
   onClose: () => void;
 }) {
-  if (typeof document === "undefined") return null;
-
   const [logs, setLogs] = useState<JobLogRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
@@ -2824,6 +2821,8 @@ function LogsModal({
   };
 
   const selectedArr = Array.from(selected);
+
+  if (typeof document === "undefined") return null;
 
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">

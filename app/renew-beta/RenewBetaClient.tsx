@@ -8,9 +8,9 @@ import Image from "next/image";
 import { useConfirm } from "@/hooks/useConfirm";
 import { Pencil, CheckCircle2, ShieldCheck, Loader2 } from "lucide-react";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
-import AddAppModal from "./AddAppModal";
 import ConfigureResultModal, { ConfigureResultData } from "./ConfigureResultModal";
 import ReconfigureModeModal, { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
+import AppPickerModal from "@/components/apps/AppPickerModal";
 import { normalizeMacInput } from "@/lib/apps/field-types";
 
 // ========= TYPES =========
@@ -3644,13 +3644,17 @@ export default function RenewClient() {
                 </a>
               )}
 
-              <AddAppModal
+              <AppPickerModal
                 open={showAddAppPicker}
                 onClose={() => setShowAddAppPicker(false)}
                 catalog={appCatalog}
                 catalogLoading={appCatalogLoading}
                 busyAppId={appActionBusy?.startsWith("add-") ? appActionBusy.slice(4) : null}
                 onSelectApp={(appId) => handleAddApp(appId)}
+                title="Adicionar aplicativo"
+                subtitle="Escolha o app para este cliente"
+                variant="portal"
+                helperText="Aqui o fluxo é mais guiado; o app segue o mesmo processo de integração e geração de links m3u do portal."
               />
 
               <ConfigureResultModal

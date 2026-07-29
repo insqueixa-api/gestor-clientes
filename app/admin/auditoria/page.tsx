@@ -602,7 +602,7 @@ function AuditoriaPageContent() {
   // Volta para a página 1 sempre que um filtro muda (mesmo padrão da página de clientes)
   useEffect(() => {
     setPage(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [search, filterFulfillment, filterPayment, filterGateway, filterWhatsapp]);
 
   // --- AÇÕES ---

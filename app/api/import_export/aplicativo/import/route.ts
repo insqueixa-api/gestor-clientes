@@ -11,7 +11,7 @@ function normalizeMAC(raw: string): string | null {
   if (!raw) return null;
 
   // Substitui caracteres comuns de confusão
-  let s = raw
+  const s = raw
     .trim()
     .toUpperCase()
     .replace(/Ç/g, "C")   // ç digitado errado

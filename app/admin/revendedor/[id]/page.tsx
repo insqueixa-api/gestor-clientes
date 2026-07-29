@@ -208,6 +208,14 @@ const { confirm, ConfirmUI } = useConfirm();
     null,
   );
 
+  const serverNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const s of servers) {
+      if (s?.server_id) m.set(String(s.server_id), String(s.server_name || ""));
+    }
+    return m;
+  }, [servers]);
+
   async function handleDeleteHistory(h: HistoryRow) {
     const ok = await confirm({
       tone: "rose",
@@ -272,14 +280,6 @@ const { confirm, ConfirmUI } = useConfirm();
     const n = Number(v);
     return Number.isFinite(n) ? n : 0;
   }
-
-  const serverNameById = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const s of servers) {
-      if (s?.server_id) m.set(String(s.server_id), String(s.server_name || ""));
-    }
-    return m;
-  }, [servers]);
 
   // --- CARREGAMENTO ---
   async function loadData() {

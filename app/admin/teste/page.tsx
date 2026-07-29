@@ -2685,10 +2685,6 @@ function PapaTestesModal({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
 
-  useEffect(() => {
-    load();
-  }, []);
-
   async function load() {
     setLoading(true);
     try {
@@ -2705,6 +2701,11 @@ function PapaTestesModal({
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleDelete(id: string, name: string) {
     const ok = await confirm({

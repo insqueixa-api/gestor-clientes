@@ -281,7 +281,7 @@ export async function getChildren(sb: any, parentId: string, provider?: ServerPr
     .select("*")
     .eq("parent_id", parentId).eq("is_active", true)
     .order("option_number", { ascending: true });
-  let all: MenuNode[] = (data || []).filter((n: MenuNode) => !isLinkTargetOnly(n));
+  const all: MenuNode[] = (data || []).filter((n: MenuNode) => !isLinkTargetOnly(n));
   if (provider === undefined) return all;
   return all.filter((n) => appliesToProvider(n.applies_to_servers, provider));
 }
@@ -481,7 +481,7 @@ export async function getRootNodes(sb: any, tenantId: string, provider?: ServerP
     .select("*")
     .eq("tenant_id", tenantId).is("parent_id", null).eq("is_active", true)
     .order("option_number", { ascending: true });
-  let all: MenuNode[] = (roots || []).filter((n: MenuNode) => !isLinkTargetOnly(n));
+  const all: MenuNode[] = (roots || []).filter((n: MenuNode) => !isLinkTargetOnly(n));
   if (provider === undefined) return all;
   return all.filter((n) => appliesToProvider(n.applies_to_servers, provider));
 }

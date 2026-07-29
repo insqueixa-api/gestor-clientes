@@ -630,7 +630,7 @@ export default function MessagesPage() {
             return (
               <>
                 {MESSAGE_CATEGORIES.map((cat) => {
-                  let items = filteredMessages.filter(
+                  const items = filteredMessages.filter(
                     (m) => getTemplateCategory(m) === cat,
                   );
                   if (items.length === 0) return null;

@@ -3,26 +3,28 @@
 // 25/07/2026, revisado 26/07/2026):
 //   - App com integração automática (has_integration/handler.useApi): tenta
 //     apagar do painel do parceiro e, se der certo, apaga a linha
-//     client_apps na sequência — tudo automático, mesmo comportamento de
-//     sempre (espelha handleDeleteApp de novo_cliente.tsx).
+//     client_apps na sequência — tudo automático.
 //   - App sem integração MAS ainda ativo no catálogo (útil só como
-//     registro/lembrete, ex: IboSol hoje ou qualquer app 100% manual): não
-//     tem como desconfigurar sozinho, então cria um PEDIDO DE REMOÇÃO em
-//     client_app_requests (action='removal') + notifica o admin. A linha
-//     client_apps só é apagada de verdade quando o admin "Conclui" o pedido
-//     na Auditoria (aba Aplicativos) — até lá o app continua aparecendo pro
-//     cliente, marcado como "exclusão solicitada".
+//     registro/lembrete): não tem como desconfigurar sozinho, então cria um
+//     PEDIDO DE REMOÇÃO em client_app_requests (action='removal') +
+//     notifica o admin. A linha client_apps só é apagada de verdade quando
+//     o admin "Conclui" o pedido na Auditoria (aba Aplicativos) — até lá o
+//     app continua aparecendo pro cliente, marcado como "exclusão
+//     solicitada". O admin (app/api/admin/apps/remove) nunca cai nesse
+//     ramo — ele é quem resolveria o pedido, então sempre apaga direto.
 //   - App DESCONTINUADO (apps.is_active=false, ex: DuplexPlay): sempre apaga
 //     na hora, mesmo sem integração — esperar o admin "concluir" um pedido
 //     não faz sentido nenhum quando não existe mais painel de parceiro vivo
-//     pra desconfigurar. Achado em teste real (26/07/2026): cliente seguia a
-//     própria instrução "exclua e configure um novo" e ficava travado com
-//     "exclusão solicitada" pra sempre, sem conseguir sair do DuplexPlay
-//     sozinho.
+//     pra desconfigurar.
+//
+// A parte "desconfigura no painel do parceiro" mora em
+// lib/apps/orchestration.ts (removeClientAppFromPartner) — mesma função
+// usada por app/api/admin/apps/remove/route.ts. A política de pedido
+// pendente/notificação abaixo é exclusiva do portal.
 import { NextRequest, NextResponse, after } from "next/server";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
-import { getIntegrationHandler } from "@/lib/integrations";
-import { PIN_HANDLERS, extractFieldByType, internalAppUrl, logAppActivity } from "@/lib/apps/panel";
+import { logAppActivity } from "@/lib/apps/panel";
+import { loadClientApp, removeClientAppFromPartner } from "@/lib/apps/orchestration";
 import { notify } from "@/lib/notifications/notify";
 
 export const dynamic = "force-dynamic";
@@ -64,27 +66,17 @@ export async function POST(req: NextRequest) {
     tenantId = ctx.tenant_id;
     if (!client_app_id) return jsonError("client_app_id é obrigatório", 400);
 
-    const { data: row, error: rowErr } = await supabaseAdmin
-      .from("client_apps")
-      .select("id, field_values, apps(name, integration_type, fields_config, is_active)")
-      .eq("id", client_app_id)
-      .eq("client_id", client_id)
-      .single();
-    if (rowErr || !row) return jsonError("Aplicativo não encontrado", 404);
+    const row = await loadClientApp(supabaseAdmin, { clientAppId: client_app_id, tenantId, clientId: client_id });
+    if (!row) return jsonError("Aplicativo não encontrado", 404);
+    appName = row.appName;
 
-    appName = (row as any).apps?.name || "Aplicativo";
-    const integrationType = String((row as any).apps?.integration_type || "").trim().toUpperCase();
-    const fieldsConfig: any[] = Array.isArray((row as any).apps?.fields_config) ? (row as any).apps.fields_config : [];
-    const values = row.field_values || {};
-    const handler = integrationType ? getIntegrationHandler(integrationType) : null;
-    const hasWorkingIntegration = !!handler && (handler as any).useApi;
-    const appIsActive = (row as any).apps?.is_active !== false;
+    const partnerResult = await removeClientAppFromPartner(supabaseAdmin, row);
 
     // ✅ Sem integração de verdade E ainda ativo no catálogo — vira pedido
     // pro admin, não apaga nada agora. Idempotente: se já existe pedido
-    // pendente pra esse app, só confirma (não duplica notificação). App
-    // descontinuado pula direto pro delete abaixo, mesmo sem integração.
-    if (!hasWorkingIntegration && appIsActive) {
+    // pendente pra esse app, só confirma (não duplica notificação).
+    // Comparação explícita (=== false) — ver nota em .../configure/route.ts.
+    if (partnerResult.attempted === false && row.isActive) {
       const { data: existing } = await supabaseAdmin
         .from("client_app_requests")
         .select("id")
@@ -104,7 +96,7 @@ export async function POST(req: NextRequest) {
           client_id,
           client_app_id,
           app_name: appName,
-          fields_snapshot: values,
+          fields_snapshot: row.field_values,
           action: "removal",
           status: "pending",
         })
@@ -127,65 +119,13 @@ export async function POST(req: NextRequest) {
         sourceId: inserted.id,
       });
 
-      return NextResponse.json({ ok: true, data: { pending_admin: true, already_requested: false } }, { status: 200, headers: NO_STORE_HEADERS });
-    }
-
-    // ✅ App com integração real — desconfigura no painel do parceiro antes
-    // de apagar. App descontinuado sem integração (ex: DuplexPlay) pula essa
-    // parte inteira — não existe painel de parceiro vivo pra chamar — e vai
-    // direto pro delete abaixo.
-    let apiJson: { ok?: boolean; error?: string } | null = null;
-    if (hasWorkingIntegration) {
-      const macValue = extractFieldByType(fieldsConfig, values, "mac");
-      const deviceKey = extractFieldByType(fieldsConfig, values, "device_key");
-
-      const { data: client } = await supabaseAdmin
-        .from("clients")
-        .select("server_username, server_password, server_id")
-        .eq("id", client_id)
-        .single();
-
-      const { data: server } = client?.server_id
-        ? await supabaseAdmin.from("servers").select("name").eq("id", client.server_id).maybeSingle()
-        : { data: null };
-      const serverNameClean = String(server?.name || "Servidor").replace(/\s+/g, "");
-      const finalServerName = client ? `${client.server_username}_${serverNameClean}` : "";
-
-      const { data: integ } = await supabaseAdmin
-        .from("app_integrations")
-        .select("api_url, pin")
-        .eq("app_name", integrationType)
-        .maybeSingle();
-
-      const payloadPassword = PIN_HANDLERS.has((handler as any).actionPrefix)
-        ? integ?.pin || ""
-        : client?.server_password || "";
-
-      const payload = (handler as any).buildDeletePayload({
-        username: client?.server_username || "",
-        finalServerName,
-        serverName: serverNameClean,
-        macValue,
-        appName,
-        password: payloadPassword,
-      });
-
-      const internalSecret = String(process.env.INTERNAL_API_SECRET || "");
-      const apiRes = await fetch(internalAppUrl((handler as any).apiEndpoint), {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-internal-secret": internalSecret },
-        body: JSON.stringify({ ...payload, base_url: integ?.api_url || "", deviceKey }),
-      });
-      apiJson = await apiRes.json().catch(() => ({} as any));
+      return NextResponse.json({ ok: true, data: { pending_admin: false, already_requested: false } }, { status: 200, headers: NO_STORE_HEADERS });
     }
 
     // ✅ Remove localmente de qualquer jeito — mesmo comportamento do admin
-    // (o botão "REMOVER" de novo_cliente.tsx nunca depende do painel do
-    // parceiro pra tirar o app da conta do cliente). Antes, uma falha aqui
-    // (app nunca configurado = nada pra apagar no parceiro, MAC vazio, etc.)
-    // travava o app na conta do cliente pra sempre, sem nenhuma saída. Se a
-    // exclusão no parceiro falhou, loga pro admin conferir manualmente —
-    // client_apps já não existe mais, então perder esse rastro pioraria.
+    // (o botão "REMOVER" nunca depende do painel do parceiro pra tirar o
+    // app da conta do cliente). App descontinuado sem integração (ex:
+    // DuplexPlay) cai direto aqui também.
     const { error: delErr } = await supabaseAdmin.from("client_apps").delete().eq("id", client_app_id);
     if (delErr) return jsonError("Erro interno", 500);
 
@@ -195,8 +135,8 @@ export async function POST(req: NextRequest) {
         clientId: client_id,
         clientAppId: null,
         appName,
-        event: !hasWorkingIntegration || apiJson?.ok ? "removed" : "removed_partner_failed",
-        detail: !hasWorkingIntegration || apiJson?.ok ? null : { error: apiJson?.error || "Falha ao remover do painel do parceiro." },
+        event: partnerResult.attempted === false || partnerResult.ok === true ? "removed" : "removed_partner_failed",
+        detail: partnerResult.attempted === false || partnerResult.ok === true ? null : { error: partnerResult.error },
       }),
     );
 

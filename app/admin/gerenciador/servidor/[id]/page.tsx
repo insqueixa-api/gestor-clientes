@@ -174,7 +174,7 @@ const { confirm, ConfirmUI } = useConfirm();
 
       if (sErr) throw sErr;
 
-      let serverObj = { ...sData } as any;
+      const serverObj = { ...sData } as any;
 
       // ✅ Busca os dados da integração para injetar no objeto (necessário para o modal)
       if (serverObj.panel_integration) {

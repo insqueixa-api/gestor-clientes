@@ -36,7 +36,7 @@ export async function POST(req: Request) {
     // Cria ou encontra o grupo no Google
     const groupsRes = await fetch("https://people.googleapis.com/v1/contactGroups?pageSize=200", { headers: { Authorization: `Bearer ${accessToken}` } });
     const groupsData = await groupsRes.json();
-    let existingGroups: any[] = groupsData.contactGroups || [];
+    const existingGroups: any[] = groupsData.contactGroups || [];
 
     let groupResourceName: string | null = null;
     const found = existingGroups.find((g: any) => g.name === label.trim() || g.formattedName === label.trim());

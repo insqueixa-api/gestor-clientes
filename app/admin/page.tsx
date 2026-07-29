@@ -338,7 +338,7 @@ export default async function AdminDashboardPage({
     categoria_id: string | null;
   };
 
-  let finTrxRows: FinTrx[] = [];
+  const finTrxRows: FinTrx[] = [];
   const finCatById = new Map<string, { nome: string; icone: string }>();
   let finSaldoAtual = 0;
 

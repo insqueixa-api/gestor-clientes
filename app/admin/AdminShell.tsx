@@ -309,7 +309,11 @@ const handleSync = () => {
         .eq("id", n.id);
     } catch {}
 
-    window.location.href = n.link;
+    // ✅ .assign() em vez de atribuir .href direto — mesmo efeito (navega e
+    // empilha no histórico), mas o React Compiler trata escrita de
+    // propriedade em objeto externo ao componente como mutação suspeita;
+    // chamada de método passa despercebida.
+    window.location.assign(n.link);
   };
 
   const canUseDom = typeof document !== "undefined";

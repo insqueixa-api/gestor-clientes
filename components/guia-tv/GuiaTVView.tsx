@@ -17,7 +17,7 @@ import {
 // Certifique-se de que esses arquivos existem no caminho especificado
 import ToastNotifications from "@/hooks/ToastNotifications"; 
 // Você precisará criar ou importar este hook se ele já existir em @/hooks
-import { useConfirm } from "@/hooks/useConfirm";
+import { useConfirmOptional } from "@/hooks/useConfirm";
 
 // ADICIONAR ISSO:
 type ServidorCliente = "ELITE" | "NATV" | "FAST" | "TODOS";
@@ -838,8 +838,10 @@ function ModalDetalhe({id,onClose,modoCliente,servidorFiltro}:{id:string;onClose
   const [deleteOk,setDeleteOk]=useState(false);
   const [showDeleteMenu,setShowDeleteMenu]=useState(false);
 
-  // ✅ Hook só chamado no modo admin — evita crash fora do ConfirmProvider
-  const adminConfirm = !modoCliente ? useConfirm() : null;
+  // ✅ useConfirmOptional nunca lança fora de um ConfirmProvider (modoCliente
+  // não tem provider) — pode ser chamado incondicionalmente, como todo hook
+  // precisa ser. `confirm` sai null nesse caso, igual sempre saiu.
+  const adminConfirm = useConfirmOptional();
   const confirm = adminConfirm?.confirm;
   const ConfirmUI = adminConfirm?.ConfirmUI ?? null;
 

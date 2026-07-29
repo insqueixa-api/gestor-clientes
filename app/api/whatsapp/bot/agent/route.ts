@@ -201,7 +201,7 @@ export async function POST(req: Request) {
       // em silêncio total, mesmo já existindo um nó pronto pra esse assunto.
       // Agora classifica em 3 categorias e roteia "app_expired" direto pro
       // nó certo da árvore (busca por keyword, não texto fixo hardcoded).
-      let analysisPayload: any = {
+      const analysisPayload: any = {
         contents: [{
           role: "user",
           parts: [

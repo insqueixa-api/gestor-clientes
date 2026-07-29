@@ -116,7 +116,7 @@ export async function POST(req: Request) {
       { headers: { Authorization: `Bearer ${accessToken}` } },
     );
     const groupsData = await groupsRes.json();
-    let existingGroups: any[] = groupsData.contactGroups || [];
+    const existingGroups: any[] = groupsData.contactGroups || [];
 
     async function getOrCreateGroup(name: string): Promise<string | null> {
       const found = existingGroups.find(

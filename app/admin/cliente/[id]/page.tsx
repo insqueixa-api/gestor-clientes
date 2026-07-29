@@ -310,8 +310,9 @@ const [valuesHidden, setValuesHidden] = useState(false);
   }
 
   const isMessageBlocked = useMemo(() => {
-    if (!client?.dont_message_until) return false;
-    return new Date(client.dont_message_until).getTime() > Date.now();
+    const until = client?.dont_message_until;
+    if (!until) return false;
+    return new Date(until).getTime() > Date.now();
   }, [client?.dont_message_until]);
 
   async function loadData() {
@@ -328,7 +329,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
       }
 
       // ✅ 0) Prepara dicionário de Apps direto da tabela (Acesso Total e Direto)
-      let localAppsById: Record<string, any> = {};
+      const localAppsById: Record<string, any> = {};
       const { data: rawAppsData } = await supabaseBrowser
         .from("apps")
         .select("*")

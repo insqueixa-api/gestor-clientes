@@ -76,11 +76,11 @@ export async function POST(req: Request) {
     const personCurrentData = await getPersonRes.json();
     const etag = personCurrentData.etag;
 
-    let finalMemberships: any[] = [];
+    const finalMemberships: any[] = [];
     if (labels !== undefined) {
       const groupsRes = await fetch("https://people.googleapis.com/v1/contactGroups", { headers: { Authorization: `Bearer ${accessToken}` } });
       const groupsData = await groupsRes.json();
-      let existingGroups = groupsData.contactGroups || [];
+      const existingGroups = groupsData.contactGroups || [];
 
       for (const lbl of labels) {
         const cleanLbl = lbl.trim();

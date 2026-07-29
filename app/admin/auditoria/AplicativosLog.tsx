@@ -13,6 +13,8 @@
 // marcado como "exclusão solicitada").
 import { useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import dynamic from "next/dynamic";
+const AppRequestModal = dynamic(() => import("@/components/apps/AppRequestModal"), { ssr: false });
 import type { ConfirmDialogProps } from "@/components/ui/ConfirmDialog";
 import Pagination from "@/components/ui/Pagination";
 import { APP_FIELD_LABELS, AppFieldType } from "@/lib/apps/field-types";
@@ -98,6 +100,7 @@ export default function AplicativosLog({
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<"pending" | "todos">("pending");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [openRequest, setOpenRequest] = useState<{ id: string; clientAppId: string | null; action: "setup" | "removal" } | null>(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -216,51 +219,9 @@ export default function AplicativosLog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantId]);
 
-  async function handleConcluir(row: AppRequestRow) {
-    const isRemoval = row.action === "removal";
-    const ok = await confirm({
-      title: isRemoval ? "Concluir exclusão" : "Concluir configuração",
-      subtitle: isRemoval
-        ? `Você já removeu "${row.app_name}" do painel do parceiro? Isso vai apagar o app da conta de ${row.client_name} agora.`
-        : `Você já configurou "${row.app_name}" pra ${row.client_name}?`,
-      tone: "emerald",
-      icon: "✅",
-      confirmText: "Sim, Concluir",
-      cancelText: "Voltar",
-    });
-    if (!ok) return;
-
-    setBusyId(row.id);
-    try {
-      const { data: userData } = await supabaseBrowser.auth.getUser();
-
-      // ✅ Pedido de remoção: apaga a linha client_apps DE VERDADE agora
-      // (até aqui o app ainda existia, só marcado como "exclusão
-      // solicitada" pro cliente). Pedido de configuração nunca apaga nada.
-      if (isRemoval && row.client_app_id) {
-        const { error: delErr } = await supabaseBrowser.from("client_apps").delete().eq("id", row.client_app_id);
-        if (delErr) throw delErr;
-      }
-
-      const { error } = await supabaseBrowser
-        .from("client_app_requests")
-        .update({ status: "done", completed_at: new Date().toISOString(), completed_by: userData?.user?.id || null })
-        .eq("id", row.id);
-      if (error) throw error;
-
-      await supabaseBrowser.rpc("resolve_notification", {
-        p_tenant_id: tenantId,
-        p_type: isRemoval ? "app_removal_pending" : "app_setup_pending",
-        p_source_id: row.id,
-      });
-
-      addToast("success", "Concluído!", isRemoval ? `"${row.app_name}" foi excluído.` : `"${row.app_name}" marcado como configurado.`);
-      loadData();
-    } catch (e: any) {
-      addToast("error", "Erro ao concluir", e?.message);
-    } finally {
-      setBusyId(null);
-    }
+  function handleConcluir(row: AppRequestRow) {
+    // open modal to show details and allow configure/check/delete
+    setOpenRequest({ id: row.id, clientAppId: row.client_app_id, action: row.action });
   }
 
   async function handleCancelar(row: AppRequestRow) {
@@ -298,6 +259,11 @@ export default function AplicativosLog({
     } finally {
       setBusyId(null);
     }
+  }
+
+  function handleModalResolved() {
+    setOpenRequest(null);
+    loadData();
   }
 
   const visible = useMemo(() => {
@@ -641,6 +607,18 @@ export default function AplicativosLog({
         </div>
       )}
         </>
+      )}
+      {openRequest && (
+        <AppRequestModal
+          requestId={openRequest.id}
+          clientAppId={openRequest.clientAppId}
+          tenantId={tenantId}
+          action={openRequest.action}
+          addToast={addToast}
+          confirm={confirm}
+          onClose={() => setOpenRequest(null)}
+          onResolved={handleModalResolved}
+        />
       )}
     </div>
   );

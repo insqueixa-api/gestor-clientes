@@ -67,11 +67,11 @@ export async function POST(req: Request) {
     if (!tokenRes.ok) throw new Error("Falha ao renovar credenciais.");
     const accessToken = tokenData.access_token;
 
-    let finalMemberships: any[] = [{ contactGroupMembership: { contactGroupResourceName: "contactGroups/myContacts" } }];
+    const finalMemberships: any[] = [{ contactGroupMembership: { contactGroupResourceName: "contactGroups/myContacts" } }];
     if (labels && labels.length > 0) {
       const groupsRes = await fetch("https://people.googleapis.com/v1/contactGroups", { headers: { Authorization: `Bearer ${accessToken}` } });
       const groupsData = await groupsRes.json();
-      let existingGroups = groupsData.contactGroups || [];
+      const existingGroups = groupsData.contactGroups || [];
 
       for (const lbl of labels) {
         const cleanLbl = lbl.trim();

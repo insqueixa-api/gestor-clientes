@@ -1252,7 +1252,7 @@ export default function RecargaCliente({
                       clientData.external_user_id = String(extData.id);
                     }
 
-                    let expRaw = extData.exp_date;
+                    const expRaw = extData.exp_date;
                     if (expRaw) {
                       const expStr = String(expRaw);
                       if (
@@ -1422,7 +1422,7 @@ export default function RecargaCliente({
                 throw new Error(errorMsg);
               }
 
-              let expDateISO = apiJson.data?.exp_date_iso;
+              const expDateISO = apiJson.data?.exp_date_iso;
 
               if (expDateISO) {
                 apiVencimento = expDateISO;

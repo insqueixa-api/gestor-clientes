@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
     const { inicio: dtInicio, fim: dtFim } = janelaDatas();
     console.log(`[EPG-CLARO] Buscando programação: ${dtInicio} → ${dtFim}`);
 
-    let programacaoClaro: any[] = [];
+    const programacaoClaro: any[] = [];
     for (const cidade of CIDADES) {
       const url = `https://programacao.claro.com.br/gatekeeper/exibicao/select?q=id_cidade:${cidade}&wt=json&rows=100000&sort=id_canal+asc,dh_inicio+asc&fl=id_exibicao,id_canal,titulo,dh_inicio,dh_fim,genero,eventimagename,elenco,diretor&fq=dh_inicio:[${dtInicio}+TO+${dtFim}]`;
       try {
@@ -258,7 +258,7 @@ export async function POST(req: NextRequest) {
       .neq("categoria", "HD");
 
 // Busca paginada para superar o limite de 1000 do PostgREST
-    let programasDb: any[] = [];
+    const programasDb: any[] = [];
     let offset = 0;
     const PAGE = 1000;
     while (true) {

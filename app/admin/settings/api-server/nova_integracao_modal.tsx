@@ -109,7 +109,7 @@ export default function NovaIntegracaoModal({
     return () => {
       alive = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [isEdit, integration?.id]);
 
   const canSave = useMemo(() => {

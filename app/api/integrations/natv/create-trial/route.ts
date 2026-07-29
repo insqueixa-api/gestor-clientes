@@ -118,7 +118,7 @@ const tenant_id = String(body?.tenant_id ?? "").trim();
     }
 
 // ✅ HIGIENIZAÇÃO: Remove espaços e acentos, mantém maiúsculas/minúsculas
-    let baseUser = username ? String(username).trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, "") : "";
+    const baseUser = username ? String(username).trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, "") : "";
 
     // Retry logic: até 3 tentativas
     let attemptUsername = baseUser || `test${Date.now()}`;

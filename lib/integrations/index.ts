@@ -1,4 +1,5 @@
 // lib/integrations/index.ts
+import type { IntegrationHandler } from "@/lib/apps/types";
 import { GerenciaAppIntegration } from "./gerenciaapp";
 import { DupleCastIntegration } from "./duplecast";
 import { IboProAPI as IboProIntegration } from "@/app/api/integrations/apps/ibopro/ibopro";
@@ -10,7 +11,7 @@ import { IptvDuplexIntegration } from "./iptvduplex";
 import { DuplexTvIntegration } from "./duplextv";
 import { IptvPlayerioIntegration } from "./iptvplayerio";
 
-const INTEGRATION_REGISTRY: Record<string, any> = {
+const INTEGRATION_REGISTRY: Record<string, IntegrationHandler> = {
     "GERENCIAAPP":      GerenciaAppIntegration,
     "IBOREVENDA":       GerenciaAppIntegration,
     "ZONEX":            GerenciaAppIntegration,

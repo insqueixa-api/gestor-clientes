@@ -95,7 +95,7 @@ const getCell = (row: any[], key: string): string => {
       return val.toLocaleString("fullwide", { useGrouping: false });
     }
 
-    let valStr = (val ?? "").toString().trim();
+    const valStr = (val ?? "").toString().trim();
     
     // ✅ Tratamento 2: Se leu como string mas está no formato científico (ex: "5,52199E+12" ou "5.52199e12")
     if (/^\d+(?:[.,]\d+)?e\+?\d+$/i.test(valStr)) {

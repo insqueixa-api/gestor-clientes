@@ -1104,8 +1104,8 @@ function FinanceiroPageContent() {
 
   // Divide a lista em "Normais" do mês e "Antecipadas" (futuras já pagas no mês)
   const { normais, antecipadas } = useMemo(() => {
-    let n: typeof filteredTransacoes = [];
-    let a: typeof filteredTransacoes = [];
+    const n: typeof filteredTransacoes = [];
+    const a: typeof filteredTransacoes = [];
 
     filteredTransacoes.forEach((t) => {
       // Se vence DEPOIS do mês atual exibido, obrigatoriamente é um pagamento antecipado

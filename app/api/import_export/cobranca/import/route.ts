@@ -66,7 +66,7 @@ export async function POST(req: Request) {
   const getCell = (row: any[], key: string): string => {
     const idx = colIndex.get(normalizeStr(key));
     if (idx === undefined) return "";
-    let val = row[idx];
+    const val = row[idx];
     if (val instanceof Date) {
         const hh = String(val.getUTCHours()).padStart(2, "0");
         const mm = String(val.getUTCMinutes()).padStart(2, "0");

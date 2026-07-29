@@ -187,13 +187,13 @@ export async function POST(req: Request) {
     }
 
     let successCount = 0;
-    let errors: string[] = [];
+    const errors: string[] = [];
 
     // 5. Loop de atualização contato por contato
     for (const contact of contacts) {
       try {
         let hasChanges = false;
-        let updatedPhones = contact.phones ? [...contact.phones] : [];
+        const updatedPhones = contact.phones ? [...contact.phones] : [];
 
         // ✅ Confere ANTES de gastar crédito da Telein se o Google está
         // respondendo pra esse contato — sem isso, se o Google falhar depois

@@ -118,20 +118,6 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
   const removeToast = (id: number) =>
     setToasts((prev) => prev.filter((t) => t.id !== id));
 
-  // Carregar dados iniciais
-  useEffect(() => {
-    async function loadData() {
-      if (isEditing && plan) {
-        setName(plan.name);
-        setCurrency(plan.currency);
-        setOriginalCurrency(plan.currency);
-        await loadItemsFromPlan(plan.id);
-      }
-      setLoading(false);
-    }
-    loadData();
-  }, [plan, isEditing]);
-
   // Busca os itens da memória, e se estiver corrompido (vazio), gera na tela
   async function loadItemsFromPlan(planId: string) {
     if (!plan) return;
@@ -176,6 +162,21 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
 
     setItems(ordered);
   }
+
+  // Carregar dados iniciais
+  useEffect(() => {
+    async function loadData() {
+      if (isEditing && plan) {
+        setName(plan.name);
+        setCurrency(plan.currency);
+        setOriginalCurrency(plan.currency);
+        await loadItemsFromPlan(plan.id);
+      }
+      setLoading(false);
+    }
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan, isEditing]);
 
   // Clona da tabela padrão
   async function cloneFromDefault(curr: "BRL" | "USD" | "EUR") {

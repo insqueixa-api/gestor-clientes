@@ -294,7 +294,7 @@ export async function POST(req: Request) {
           return `${dd}/${mm}/${yyyy}`;
         }
         if (typeof val === "number") return val.toLocaleString("fullwide", { useGrouping: false });
-        let s = (val ?? "").toString().trim();
+        const s = (val ?? "").toString().trim();
         if (/^\d+(?:[.,]\d+)?e\+?\d+$/i.test(s)) {
           const n = Number(s.replace(",", "."));
           if (!isNaN(n)) return n.toLocaleString("fullwide", { useGrouping: false });

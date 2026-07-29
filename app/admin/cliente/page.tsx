@@ -342,53 +342,6 @@ function ClientePageContent() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const selectAllRef = useRef<HTMLInputElement | null>(null);
 
-  // --- ADICIONAR ESTE useEffect ---
-  // Captura o clique vindo do Dashboard
-  useEffect(() => {
-    const filterParam = searchParams.get("filter");
-    if (filterParam) {
-      // 1. Filtros de STATUS (Ativos ou Vencidos vindo dos Cards)
-      if (filterParam === "ativos") {
-        setStatusFilter("Ativo");
-        setDueFilter("Todos");
-        return;
-      }
-      if (filterParam === "vencidos") {
-        setStatusFilter("Vencido");
-        setDueFilter("Todos");
-        return;
-      }
-
-      // 2. Filtros de DATA
-      const map: Record<string, string> = {
-        venceu_ontem: "Venceu Ontem",
-        venceu_2_dias: "Venceu há 2 dias",
-        vence_hoje: "Hoje",
-        vence_amanha: "Vence Amanhã",
-        vence_2_dias: "Vence em 2 dias",
-        mes_atual: "Mês Atual",
-      };
-      if (map[filterParam]) {
-        setDueFilter(map[filterParam]);
-      }
-    } else {
-      // ✅ RESET TOTAL (Quando clica no menu Clientes ou limpa a URL)
-      // Isso funciona como um "Refresh" da regra de negócio da tela
-      setSearch("");
-      setStatusFilter("Todos");
-      setServerFilter("Todos");
-      setPlanFilter("Todos");
-      setDueFilter("Todos");
-      setAppFilter("Todos"); // ✅ CORREÇÃO: Faltou aqui
-      setArchivedFilter("Não");
-
-      // Reseta ordenação para o padrão inteligente
-      setSortKey("due");
-      setSortDir("asc");
-      setIsDefaultSort(true);
-    }
-  }, [searchParams]);
-
   // Modais
   const [showFormModal, setShowFormModal] = useState(false);
   type AppsIndex = {
@@ -434,6 +387,54 @@ const [pageSize, setPageSize] = useState(50);
   const [sortKey, setSortKey] = useState<SortKey>("due");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [isDefaultSort, setIsDefaultSort] = useState(true); // <--- ADICIONAR ISSO
+
+  // --- ADICIONAR ESTE useEffect ---
+  // Captura o clique vindo do Dashboard
+  useEffect(() => {
+    const filterParam = searchParams.get("filter");
+    if (filterParam) {
+      // 1. Filtros de STATUS (Ativos ou Vencidos vindo dos Cards)
+      if (filterParam === "ativos") {
+        setStatusFilter("Ativo");
+        setDueFilter("Todos");
+        return;
+      }
+      if (filterParam === "vencidos") {
+        setStatusFilter("Vencido");
+        setDueFilter("Todos");
+        return;
+      }
+
+      // 2. Filtros de DATA
+      const map: Record<string, string> = {
+        venceu_ontem: "Venceu Ontem",
+        venceu_2_dias: "Venceu há 2 dias",
+        vence_hoje: "Hoje",
+        vence_amanha: "Vence Amanhã",
+        vence_2_dias: "Vence em 2 dias",
+        mes_atual: "Mês Atual",
+      };
+      if (map[filterParam]) {
+        setDueFilter(map[filterParam]);
+      }
+    } else {
+      // ✅ RESET TOTAL (Quando clica no menu Clientes ou limpa a URL)
+      // Isso funciona como um "Refresh" da regra de negócio da tela
+      setSearch("");
+      setStatusFilter("Todos");
+      setServerFilter("Todos");
+      setPlanFilter("Todos");
+      setDueFilter("Todos");
+      setAppFilter("Todos"); // ✅ CORREÇÃO: Faltou aqui
+      setArchivedFilter("Não");
+
+      // Reseta ordenação para o padrão inteligente
+      setSortKey("due");
+      setSortDir("asc");
+      setIsDefaultSort(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // Ações
   const [msgMenuForId, setMsgMenuForId] = useState<string | null>(null);
@@ -3260,7 +3261,7 @@ function ScheduledMessagesModal({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider bg-muted px-2 py-0.5 rounded border border-border">
-                        // ✅ PARA — extrai via formatToParts (mesma lógica)
+                        {/* ✅ PARA — extrai via formatToParts (mesma lógica) */}
                         {(() => {
                           const dt = new Date(it.send_at);
                           const parts = new Intl.DateTimeFormat("pt-BR", {

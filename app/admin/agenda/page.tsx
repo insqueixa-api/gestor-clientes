@@ -601,21 +601,6 @@ const { confirm, ConfirmUI } = useConfirm();
   }
 
   // ─── EFEITOS ───────────────────────────────────────────────────────────────
-  useEffect(() => {
-    const syncStatus = searchParams.get("sync");
-    const syncCount = searchParams.get("count");
-    if (syncStatus === "success") {
-      addToast(
-        "success",
-        "Sincronização concluída",
-        `${syncCount} contatos importados do Google.`,
-      );
-      router.replace("/admin/agenda");
-    }
-    loadData();
-    loadWhatsAppSessions();
-  }, [searchParams]);
-
   async function loadData() {
     setLoading(true);
     try {
@@ -653,6 +638,22 @@ const { confirm, ConfirmUI } = useConfirm();
     }
   }
 
+  useEffect(() => {
+    const syncStatus = searchParams.get("sync");
+    const syncCount = searchParams.get("count");
+    if (syncStatus === "success") {
+      addToast(
+        "success",
+        "Sincronização concluída",
+        `${syncCount} contatos importados do Google.`,
+      );
+      router.replace("/admin/agenda");
+    }
+    loadData();
+    loadWhatsAppSessions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   // ─── FILTROS & ORDENAÇÃO ───────────────────────────────────────────────────
   // Reseta a seleção ao trocar de página OU mudar qualquer filtro,
   // pra cada página ser um lote independente (sem seleção "fantasma").
@@ -663,7 +664,7 @@ const { confirm, ConfirmUI } = useConfirm();
   // Volta para a página 1 sempre que um filtro muda (mesmo padrão da página de clientes)
   useEffect(() => {
     setPage(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [search, labelFilter, emailLabelFilter, phoneLabelFilter, photoFilter]);
 
   const filtered = useMemo(() => {

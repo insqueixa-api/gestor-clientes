@@ -289,7 +289,7 @@ export default function ServerFormModal({ server, onClose, onSuccess, onError }:
     return () => {
       alive = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [server?.id]);
 
   const handleDnsChange = (idx: number, val: string) => {

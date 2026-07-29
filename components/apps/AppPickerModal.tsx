@@ -1,15 +1,22 @@
 "use client";
-// app/renew-beta/AddAppModal.tsx
-//
-// Modal de "+ Adicionar aplicativo" do Bloco 3 — pedido do Marcio
-// (25/07/2026): a lista plana de todos os apps era ruim de usar. Agora é em
-// 2 passos, mesmo estilo visual do ConfirmDialog: primeiro escolhe o tipo
-// de equipamento (TV, celular, computador...), depois só os apps
-// compatíveis com esse equipamento aparecem pra escolher.
-import { useEffect, useState } from "react";
+
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Loader2 } from "lucide-react";
 import { ALL_DEVICE_TYPES, DEVICE_TYPE_LABELS, DeviceType } from "@/lib/apps/device-types";
+
+export type AppPickerCatalogItem = {
+  id: string;
+  name: string;
+  icon_url?: string | null;
+  device_types?: string[];
+  cost_type?: "free" | "paid" | "partnership" | null;
+  license_price?: number | null;
+  license_period?: "annual" | "lifetime" | null;
+  is_active?: boolean;
+  discontinued_replacement_name?: string | null;
+  has_integration?: boolean;
+};
 
 const DEVICE_ICONS: Record<DeviceType, string> = {
   SAMSUNG_LG: "📺",
@@ -20,45 +27,36 @@ const DEVICE_ICONS: Record<DeviceType, string> = {
   ROKU: "🟣",
 };
 
-type CatalogApp = {
-  id: string;
-  name: string;
-  icon_url: string | null;
-  device_types?: string[];
-  cost_type?: "free" | "paid" | "partnership" | null;
-  license_price?: number | null;
-  license_period?: "annual" | "lifetime" | null;
-  is_active?: boolean;
-  discontinued_replacement_name?: string | null;
-  has_integration?: boolean;
-};
-
-export default function AddAppModal({
+export default function AppPickerModal({
   open,
   onClose,
   catalog,
   catalogLoading,
   onSelectApp,
   busyAppId,
+  title = "Adicionar aplicativo",
+  subtitle = "Em qual aparelho você vai usar?",
+  variant = "admin",
+  helperText,
 }: {
   open: boolean;
   onClose: () => void;
-  catalog: CatalogApp[];
+  catalog: AppPickerCatalogItem[];
   catalogLoading: boolean;
   onSelectApp: (appId: string) => void;
   busyAppId: string | null;
+  title?: string;
+  subtitle?: string;
+  variant?: "admin" | "portal";
+  helperText?: string;
 }) {
   const [mounted, setMounted] = useState(false);
   const [deviceType, setDeviceType] = useState<DeviceType | null>(null);
   const [search, setSearch] = useState("");
-  // ✅ "Pagos" vs "Parceiros" (pedido do Marcio, 26/07/2026) — sempre volta
-  // pra "Pagos" (recomendado) ao trocar de aparelho, mesmo padrão do resto
-  // do catálogo que prioriza os apps que geram receita de licença.
   const [costTab, setCostTab] = useState<"paid" | "partner">("paid");
 
   useEffect(() => setMounted(true), []);
 
-  // ✅ reseta o passo toda vez que o modal reabre
   useEffect(() => {
     if (open) {
       setDeviceType(null);
@@ -73,51 +71,54 @@ export default function AddAppModal({
 
   useEffect(() => {
     if (!open) return;
-    function onKey(e: KeyboardEvent) {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
-    }
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  if (!mounted || !open) return null;
+  const appsForDevice = useMemo(() => {
+    return catalog.filter((app) => {
+      if (!deviceType) return true;
+      const hasExplicitDeviceTypes = Boolean(app.device_types && app.device_types.length > 0);
+      if (!hasExplicitDeviceTypes) return true;
+      return app.device_types?.includes(deviceType);
+    });
+  }, [catalog, deviceType]);
 
-  // ✅ Voltado atrás em 26/07/2026 (pedido do Márcio): app sem device_types
-  // cadastrado NÃO aparece em categoria nenhuma — cada categoria mostra só
-  // os apps marcados pra ela, simples assim. Antes tinha um fallback pra
-  // apps sem device_types aparecerem em toda categoria (pensado pra apps
-  // "universais" tipo IPTV Smarters); o Márcio prefere manter estrito e
-  // cadastrar device_types em todo app, sem exceção por trás das cortinas.
-  const appsForDevice = catalog.filter((a) => !deviceType || a.device_types?.includes(deviceType));
-
-  // ✅ Seletor "Aplicativos Pagos (Recomendado)" / "Aplicativos Parceiros
-  // (Gratuito)" — pedido do Marcio (26/07/2026). "Parceiros" agrupa
-  // cost_type "partnership" (custo já embutido no plano do servidor) e
-  // "free" (sem custo nenhum), já que pro cliente os dois são igualmente
-  // gratuitos. Só aparece "caso se aplique" — quando o aparelho tem os 2
-  // tipos disponíveis; se só tiver um tipo, mostra a lista direto.
-  const hasPaidApps = appsForDevice.some((a) => a.cost_type === "paid");
-  const hasFreeApps = appsForDevice.some((a) => a.cost_type !== "paid");
+  const hasPaidApps = appsForDevice.some((app) => app.cost_type === "paid");
+  const hasFreeApps = appsForDevice.some((app) => app.cost_type !== "paid");
   const showCostTabs = hasPaidApps && hasFreeApps;
 
-  // ✅ App com integração automática sobe pro topo da lista (pedido do
-  // Márcio, 26/07/2026) — sort estável, então dentro de cada grupo
-  // (integrado / manual) a ordem alfabética que já vem da API é mantida.
-  const filteredApps = appsForDevice
-    .filter((a) => !showCostTabs || (costTab === "paid" ? a.cost_type === "paid" : a.cost_type !== "paid"))
-    .filter((a) => a.name.toLowerCase().includes(search.trim().toLowerCase()))
-    .sort((a, b) => Number(!!b.has_integration) - Number(!!a.has_integration));
+  const filteredApps = useMemo(() => {
+    return appsForDevice
+      .filter((app) => !showCostTabs || (costTab === "paid" ? app.cost_type === "paid" : app.cost_type !== "paid"))
+      .filter((app) => app.name.toLowerCase().includes(search.trim().toLowerCase()))
+      .sort((a, b) => Number(!!b.has_integration) - Number(!!a.has_integration));
+  }, [appsForDevice, costTab, search, showCostTabs]);
+
+  if (!mounted || !open) return null;
+
+  const isPortal = variant === "portal";
+  const accentClass = isPortal
+    ? "text-sky-600 bg-sky-500/10 border-sky-500/20"
+    : "text-emerald-600 bg-emerald-500/10 border-emerald-500/20";
+  const activeButtonClass = isPortal
+    ? "bg-sky-500/10 border-sky-500/40 text-sky-500"
+    : "bg-emerald-500/10 border-emerald-500/40 text-emerald-500";
+  const inputFocusClass = isPortal ? "focus:border-sky-500" : "focus:border-emerald-500";
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
         onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-2xl bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-200 max-h-[85vh]"
+        className="w-full max-w-2xl bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-4 max-h-[85vh]"
       >
         <div className="flex items-center gap-3">
           {deviceType && (
@@ -131,11 +132,16 @@ export default function AddAppModal({
           )}
           <div className="min-w-0 flex-1">
             <h3 className="text-lg font-semibold text-foreground truncate">
-              {deviceType ? DEVICE_TYPE_LABELS[deviceType] : "Adicionar aplicativo"}
+              {deviceType ? DEVICE_TYPE_LABELS[deviceType] : title}
             </h3>
             <p className="text-xs text-foreground/70">
-              {deviceType ? "Escolha o aplicativo" : "Em qual aparelho você vai usar?"}
+              {deviceType ? "Escolha o aplicativo" : subtitle}
             </p>
+            {helperText && (
+              <p className={`mt-1 text-[11px] ${accentClass} rounded-md border px-2 py-1 inline-flex w-fit`}>
+                {helperText}
+              </p>
+            )}
           </div>
           <button
             onClick={onClose}
@@ -152,7 +158,9 @@ export default function AddAppModal({
               <button
                 key={dt}
                 onClick={() => setDeviceType(dt)}
-                className="flex flex-col items-center gap-2 p-4 rounded-xl border border-border bg-muted/30 hover:bg-muted hover:border-sky-500/40 transition-colors"
+                className={`flex flex-col items-center gap-2 p-4 rounded-xl border border-border bg-muted/30 hover:bg-muted transition-colors ${
+                  isPortal ? "hover:border-sky-500/40" : "hover:border-emerald-500/40"
+                }`}
               >
                 <span className="text-3xl">{DEVICE_ICONS[dt]}</span>
                 <span className="text-xs font-bold text-foreground text-center">{DEVICE_TYPE_LABELS[dt]}</span>
@@ -168,7 +176,7 @@ export default function AddAppModal({
                   onClick={() => setCostTab("paid")}
                   className={`flex flex-col items-center gap-0.5 py-2 rounded-lg border transition-colors ${
                     costTab === "paid"
-                      ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-500"
+                      ? activeButtonClass
                       : "bg-transparent border-border text-muted-foreground hover:bg-muted"
                   }`}
                 >
@@ -180,7 +188,7 @@ export default function AddAppModal({
                   onClick={() => setCostTab("partner")}
                   className={`flex flex-col items-center gap-0.5 py-2 rounded-lg border transition-colors ${
                     costTab === "partner"
-                      ? "bg-sky-500/10 border-sky-500/40 text-sky-500"
+                      ? activeButtonClass
                       : "bg-transparent border-border text-muted-foreground hover:bg-muted"
                   }`}
                 >
@@ -195,7 +203,7 @@ export default function AddAppModal({
               placeholder="Buscar aplicativo..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full h-10 px-3 bg-muted border border-border rounded-lg text-sm text-foreground outline-none focus:border-sky-500"
+              className={`w-full h-10 px-3 bg-muted border border-border rounded-lg text-sm text-foreground outline-none ${inputFocusClass}`}
             />
             <div className="space-y-1.5 overflow-y-auto max-h-[50vh]">
               {catalogLoading ? (
@@ -205,40 +213,47 @@ export default function AddAppModal({
                   Nenhum aplicativo disponível pra esse aparelho ainda.
                 </p>
               ) : (
-                filteredApps.map((a) => {
-                  const busy = busyAppId === a.id;
+                filteredApps.map((app) => {
+                  const busy = busyAppId === app.id;
                   return (
                     <button
-                      key={a.id}
+                      key={app.id}
                       disabled={busy}
-                      onClick={() => onSelectApp(a.id)}
+                      onClick={() => onSelectApp(app.id)}
                       className="w-full flex items-center gap-2.5 p-2.5 rounded-lg hover:bg-muted transition-colors text-left disabled:opacity-50"
                     >
                       {busy ? (
                         <Loader2 className="w-8 h-8 p-1.5 animate-spin text-sky-500 shrink-0" />
-                      ) : a.icon_url ? (
-                        <img src={a.icon_url} alt={a.name} className="w-8 h-8 rounded-lg object-cover border border-border shrink-0" />
+                      ) : app.icon_url ? (
+                        <img src={app.icon_url} alt={app.name} className="w-8 h-8 rounded-lg object-cover border border-border shrink-0" />
                       ) : (
                         <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-sm shrink-0">📱</div>
                       )}
                       <span className="flex-1 min-w-0 flex items-center justify-between gap-2">
                         <span className="flex items-center gap-1 min-w-0">
-                          {a.has_integration && (
+                          {app.has_integration && (
                             <span className="shrink-0 text-amber-500" title="Ativação automática">
                               ⚡
                             </span>
                           )}
-                          <span className="text-sm text-foreground font-medium truncate">{busy ? "Adicionando..." : a.name}</span>
+                          <span className="text-sm text-foreground font-medium truncate">{busy ? "Adicionando..." : app.name}</span>
                         </span>
-                        {a.is_active === false ? (
-                          <span className="shrink-0 px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-500 border border-rose-500/20 text-[10px] font-bold">
+                        {app.is_active === false ? (
+                          <span
+                            title={
+                              app.discontinued_replacement_name
+                                ? `Descontinuado — recomendado migrar para ${app.discontinued_replacement_name}`
+                                : "Descontinuado"
+                            }
+                            className="shrink-0 px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-500 border border-rose-500/20 text-[10px] font-bold"
+                          >
                             Descontinuado
                           </span>
                         ) : (
-                          a.license_price != null && (
+                          app.license_price != null && (
                             <span className="shrink-0 px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px] font-bold">
-                              {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(a.license_price)}
-                              {a.license_period === "annual" ? "/ano" : a.license_period === "lifetime" ? " vitalícia" : ""}
+                              {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(app.license_price)}
+                              {app.license_period === "annual" ? "/ano" : app.license_period === "lifetime" ? " vitalícia" : ""}
                             </span>
                           )
                         )}

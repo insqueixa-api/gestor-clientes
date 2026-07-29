@@ -163,7 +163,7 @@ export default function CupomModal({
     return () => {
       alive = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [coupon?.client_id]);
 
   const [impactResult, setImpactResult] = useState<ImpactResult | null>(null);

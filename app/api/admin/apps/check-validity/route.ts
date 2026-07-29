@@ -1,16 +1,23 @@
 // app/api/admin/apps/check-validity/route.ts
 //
 // "Atualizar" do painel "Concluir renovação de licença" da Auditoria
-// (AppRenewalModal.tsx) — mesma lógica de app/api/client-portal/apps/
-// check-validity/route.ts, mas autenticado como admin (Bearer = access_token
-// da sessão do admin, checa tenant_members) em vez de sessão do portal.
-// Usado depois de o Márcio já ter pago a licença de verdade ao
-// desenvolvedor do app, por fora do sistema — só confirma o vencimento
-// real no painel do parceiro, sem criar/alterar nada lá.
+// (AppRenewalModal.tsx) — autenticado como admin (Bearer = access_token da
+// sessão do admin, checa tenant_members) em vez de sessão do portal. Usado
+// depois de o Márcio já ter pago a licença de verdade ao desenvolvedor do
+// app, por fora do sistema — só confirma o vencimento real no painel do
+// parceiro, sem criar/alterar nada lá.
+//
+// A consulta em si (antes reimplementada aqui) agora mora em
+// lib/apps/orchestration.ts (checkClientAppValidity) — a mesma função usada
+// por app/api/client-portal/apps/check-validity/route.ts. Isso também
+// corrige uma lacuna que só esta rota tinha: sem o fallback "parceiro não
+// devolveu vencimento (ex: DUPLEXTV) → mantém o valor já salvo", que o
+// portal já tinha. Auth e contrato de request/response (tenant_id +
+// client_app_id no body, mesmas respostas de erro) continuam idênticos —
+// AppRenewalModal.tsx não precisa mudar nada.
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getIntegrationHandler } from "@/lib/integrations";
-import { CHECK_VALIDITY_HANDLERS, extractFieldByType, internalAppUrl } from "@/lib/apps/panel";
+import { loadClientApp, loadClientAppDraft, checkClientAppValidity } from "@/lib/apps/orchestration";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -40,7 +47,17 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({} as any));
   const tenantId = String(body?.tenant_id || "").trim();
   const clientAppId = String(body?.client_app_id || "").trim();
-  if (!tenantId || !clientAppId) {
+  // ✅ Modo rascunho (só o admin usa): app ainda não salvo em client_apps —
+  // o admin adiciona o app e clica "Verificar" na hora, antes de "Salvar" o
+  // cliente (fluxo real). Ver loadClientAppDraft em lib/apps/orchestration.ts.
+  const appId = String(body?.app_id || "").trim();
+  const draftClientId = String(body?.client_id || "").trim();
+  // undefined (não {}) quando ausente — senão um caller que não manda
+  // field_values (ex: AppRenewalModal.tsx, que nunca manda) apagaria o MAC
+  // real salvo no banco na hora de montar a consulta ao parceiro.
+  const fieldValues: Record<string, string> | undefined =
+    body?.field_values && typeof body.field_values === "object" ? body.field_values : undefined;
+  if (!tenantId || (!clientAppId && !(appId && draftClientId))) {
     return NextResponse.json({ ok: false, error: "Parâmetros incompletos" }, { status: 400 });
   }
 
@@ -53,75 +70,18 @@ export async function POST(req: NextRequest) {
   if (memErr || !mem) return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
 
   try {
-    const { data: row, error: rowErr } = await supabaseAdmin
-      .from("client_apps")
-      .select("id, client_id, field_values, apps(name, integration_type, fields_config)")
-      .eq("id", clientAppId)
-      .eq("tenant_id", tenantId)
-      .single();
-    if (rowErr || !row) return NextResponse.json({ ok: false, error: "Aplicativo não encontrado" }, { status: 404 });
+    const row = clientAppId
+      ? await loadClientApp(supabaseAdmin, { clientAppId, tenantId, fieldValuesOverride: fieldValues })
+      : await loadClientAppDraft(supabaseAdmin, { appId, clientId: draftClientId, fieldValues: fieldValues || {} });
+    if (!row) return NextResponse.json({ ok: false, error: "Aplicativo não encontrado" }, { status: 404 });
 
-    const integrationType = String((row as any).apps?.integration_type || "").trim().toUpperCase();
-    const fieldsConfig: any[] = Array.isArray((row as any).apps?.fields_config) ? (row as any).apps.fields_config : [];
-    const values = row.field_values || {};
-    const appName = (row as any).apps?.name || "Aplicativo";
-
-    const handler = integrationType ? getIntegrationHandler(integrationType) : null;
-    if (!handler || !(handler as any).useApi || !CHECK_VALIDITY_HANDLERS.has((handler as any).actionPrefix)) {
-      return NextResponse.json({ ok: false, error: "Verificação de validade não disponível para este aplicativo." }, { status: 400 });
+    const result = await checkClientAppValidity(supabaseAdmin, row);
+    // ✅ Comparação explícita (=== false) — ver nota em .../configure/route.ts.
+    if (result.ok === false) {
+      return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
     }
 
-    const macValue = extractFieldByType(fieldsConfig, values, "mac");
-    if (!macValue) {
-      return NextResponse.json({ ok: false, error: "Device ID (MAC) não preenchido." }, { status: 400 });
-    }
-    const deviceKey = extractFieldByType(fieldsConfig, values, "device_key");
-
-    // GerenciaApp-family busca por "username_servidor" — precisa dos dados
-    // do servidor do cliente (mesma regra de check-validity/route.ts do
-    // portal).
-    let username = "";
-    if ((handler as any).actionPrefix === "GERENCIAAPP") {
-      const { data: client } = await supabaseAdmin
-        .from("clients")
-        .select("server_username, server_id")
-        .eq("id", row.client_id)
-        .single();
-      const { data: server } = client?.server_id
-        ? await supabaseAdmin.from("servers").select("name").eq("id", client.server_id).maybeSingle()
-        : { data: null };
-      const serverNameClean = String(server?.name || "Servidor").replace(/\s+/g, "");
-      username = client ? `${client.server_username}_${serverNameClean}` : "";
-    }
-
-    const { data: integ } = await supabaseAdmin
-      .from("app_integrations")
-      .select("api_url")
-      .eq("app_name", integrationType)
-      .maybeSingle();
-
-    const internalSecret = String(process.env.INTERNAL_API_SECRET || "");
-    const apiRes = await fetch(internalAppUrl((handler as any).apiEndpoint), {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-internal-secret": internalSecret },
-      body: JSON.stringify({
-        action: "check",
-        macValue,
-        mac: macValue,
-        mac_address: macValue,
-        username,
-        deviceKey,
-        app_name: appName,
-        base_url: integ?.api_url || "",
-      }),
-    });
-    const apiJson = await apiRes.json().catch(() => ({} as any));
-
-    if (!apiJson?.ok) {
-      return NextResponse.json({ ok: false, error: apiJson?.error || "Falha ao consultar o painel do parceiro." }, { status: 400 });
-    }
-
-    return NextResponse.json({ ok: true, expireDate: apiJson.expireDate || null });
+    return NextResponse.json({ ok: true, expireDate: result.expireDate });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "Erro interno" }, { status: 500 });
   }

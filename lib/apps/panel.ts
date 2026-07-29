@@ -24,23 +24,61 @@ export const PIN_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "MESSITV", "BOBPLAYE
 // completa do MAC (ver app/api/integrations/apps/gerenciaapp/route.ts).
 export const CHECK_VALIDITY_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP", "MESSITV", "BOBPLAYER", "IBOPLAYER", "IPTVDUPLEX", "IPTVPLAYERIO", "DUPLEXTV"]);
 
-// Igual ao CHECK_VALIDITY_HANDLERS acima, mas pro botão "Verificar
-// vencimento" do ADMIN (novo_cliente.tsx).
-export const ADMIN_CHECK_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP", "MESSITV", "BOBPLAYER", "IBOPLAYER", "IPTVDUPLEX", "IPTVPLAYERIO", "DUPLEXTV"]);
+// Alias de CHECK_VALIDITY_HANDLERS pro botão "Verificar vencimento" do
+// ADMIN (novo_cliente.tsx) — eram dois Sets com o mesmo conteúdo mantidos
+// separados "de propósito"; unificados aqui pra não arriscar divergir no
+// futuro (mesma referência, não uma cópia).
+export const ADMIN_CHECK_HANDLERS = CHECK_VALIDITY_HANDLERS;
 
-export function extractFieldByType(fieldsConfig: any[], values: Record<string, any>, type: string) {
-  const field = (fieldsConfig || []).find(
-    (f: any) =>
+import { SupabaseClient } from "@supabase/supabase-js";
+import type { AppFieldConfig } from "@/lib/apps/types";
+
+// "Salva-vidas" — deduz o integration_type pelo NOME EXATO do app quando o
+// catálogo (apps.integration_type) está vazio ou desatualizado. Histórico
+// de novo_cliente.tsx (resolveIntegration), promovido pra cá porque agora
+// lib/apps/orchestration.ts (servidor) também precisa resolver pro MESMO
+// handler que o admin decidiu no browser — client e servidor não podem
+// divergir aqui, senão o admin vê o botão "Configurar" mas a chamada real
+// falha com "sem integração automática". IBOSOL foi removido desse fallback
+// de propósito (29/07/2026) — não existe mais essa integração.
+export function resolveIntegrationTypeByName(appName: string): string {
+  const appNameStr = String(appName || "").trim().toUpperCase();
+  if (appNameStr === "ZONE X" || appNameStr === "ZONEX") return "GERENCIAAPP";
+  if (appNameStr === "VU REVENDA") return "GERENCIAAPP";
+  if (appNameStr === "FACILITA" || appNameStr === "FACILITA APP") return "GERENCIAAPP";
+  if (appNameStr === "UNI REVENDA") return "GERENCIAAPP";
+  if (appNameStr === "GPC ANDROID") return "GERENCIAAPP";
+  if (appNameStr === "GPC LG") return "GERENCIAAPP";
+  if (appNameStr === "GPC ROKU") return "GERENCIAAPP";
+  if (appNameStr === "IBO REVENDA" || appNameStr === "GERENCIAAPP" || appNameStr === "GERENCIA APP") return "GERENCIAAPP";
+  if (appNameStr === "DUPLECAST") return "DUPLECAST";
+  if (appNameStr === "IBO PRO" || appNameStr === "IBOPRO" || appNameStr === "IBO PRO PLAYER") return "IBOPRO";
+  return "";
+}
+
+export function extractFieldByType(fieldsConfig: AppFieldConfig[], values: Record<string, string>, type: string) {
+  const field = fieldsConfig.find(
+    (f) =>
       String(f?.type || "").toLowerCase() === type ||
       (type === "device_key" && String(f?.label || "").toLowerCase().includes("device key")),
   );
-  if (!field) return "";
-  const key = String(field.id || field.label || "").trim();
-  return values?.[key] || "";
+  const key = field ? String(field.id || field.label || "").trim() : "";
+  const value = key ? values?.[key] || "" : "";
+  if (value) return value;
+
+  // Salva-vidas do MAC (mesma regra de getMacFromApp em novo_cliente.tsx):
+  // catálogo sem field type "mac" configurado direito, mas o valor real já
+  // está salvo em algum campo — qualquer valor com ":" é MAC candidato.
+  if (type === "mac") {
+    const fallbackKey = Object.keys(values || {}).find((k) => String(values[k]).includes(":"));
+    if (fallbackKey) return values[fallbackKey];
+  }
+
+  return "";
 }
 
-export function findFieldByType(fieldsConfig: any[], type: string) {
-  return (fieldsConfig || []).find((f: any) => String(f?.type || "").toLowerCase() === type) || null;
+export function findFieldByType(fieldsConfig: AppFieldConfig[], type: string) {
+  return fieldsConfig.find((f) => String(f?.type || "").toLowerCase() === type) || null;
 }
 
 // Extrai só a data (YYYY-MM-DD) de uma string vinda do painel de um
@@ -79,14 +117,14 @@ export type AppActivityEvent =
   | "check_validity_failed";
 
 export async function logAppActivity(
-  supabaseAdmin: any,
+  supabaseAdmin: SupabaseClient,
   params: {
     tenantId: string;
     clientId: string;
     clientAppId?: string | null;
     appName: string;
     event: AppActivityEvent;
-    detail?: Record<string, any> | null;
+    detail?: Record<string, unknown> | null;
   },
 ) {
   try {
