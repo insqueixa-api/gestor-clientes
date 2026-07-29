@@ -373,9 +373,6 @@ export default function RenewClient() {
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(
     null,
   );
-  const [tenantBrand, setTenantBrand] = useState<{
-    logo_url?: string | null;
-  } | null>(null);
 
   // ========= LOAD SESSION & ACCOUNTS =========
   useEffect(() => {
@@ -413,13 +410,6 @@ export default function RenewClient() {
           whatsapp_username: sess.whatsapp_username,
           admin_whatsapp: sess.admin_whatsapp,
         });
-
-        const { data: brand } = await supabaseBrowser
-          .from("vw_tenant_branding")
-          .select("logo_url")
-          .eq("id", sess.tenant_id)
-          .maybeSingle();
-        if (brand) setTenantBrand(brand);
 
         // 2. Buscar contas via API
         const accRes = await fetch("/api/client-portal/get-accounts", {
@@ -2486,8 +2476,6 @@ export default function RenewClient() {
 
   // ========= RENDER: LOADING =========
 
-  const showTenantLogo = !!tenantBrand?.logo_url;
-
   if (loading) {
     return (
       <div className="min-h-screen bg-background p-4 py-8">
@@ -2546,34 +2534,24 @@ export default function RenewClient() {
           <div className="mx-auto flex w-full max-w-2xl items-center gap-2 px-4 py-2">
             {/* Logo Responsiva */}
             <div className="flex items-center gap-3 min-w-0 cursor-pointer group">
-              {showTenantLogo ? (
-                <img
-                  src={tenantBrand!.logo_url!}
-                  alt="Logo"
-                  className="h-10 w-auto max-w-[140px] object-contain select-none"
-                />
-              ) : (
-                <>
-                  <Image
-                    src="/brand/logo-gestor-celular.png"
-                    alt="Gestor"
-                    width={44}
-                    height={44}
-                    className="h-10 w-10 select-none object-contain sm:hidden transition-transform group-hover:scale-105"
-                    draggable={false}
-                    priority
-                  />
-                  <Image
-                    src="/brand/logo-gestor.png"
-                    alt="Gestor"
-                    width={160}
-                    height={40}
-                    className="hidden sm:block h-10 w-auto select-none object-contain transition-transform group-hover:scale-105"
-                    draggable={false}
-                    priority
-                  />
-                </>
-              )}
+              <Image
+                src="/brand/logo-gestor-celular.png"
+                alt="Gestor"
+                width={44}
+                height={44}
+                className="h-10 w-10 select-none object-contain sm:hidden transition-transform group-hover:scale-105"
+                draggable={false}
+                priority
+              />
+              <Image
+                src="/brand/logo-gestor.png"
+                alt="Gestor"
+                width={160}
+                height={40}
+                className="hidden sm:block h-10 w-auto select-none object-contain transition-transform group-hover:scale-105"
+                draggable={false}
+                priority
+              />
               {/* Usuário Logado */}
               <div className="min-w-0 flex flex-col justify-center">
                 <div className="text-[10px] uppercase tracking-wider text-white/40 font-bold leading-none mb-0.5 transition-colors">
@@ -2745,34 +2723,24 @@ export default function RenewClient() {
               <span className="text-lg leading-none mt-[-2px]">←</span>
             </button>
 
-            {showTenantLogo ? (
-              <img
-                src={tenantBrand!.logo_url!}
-                alt="Logo"
-                className="h-10 w-auto max-w-[140px] object-contain select-none"
-              />
-            ) : (
-              <>
-                <Image
-                  src="/brand/logo-gestor-celular.png"
-                  alt="Gestor"
-                  width={44}
-                  height={44}
-                  className="h-10 w-10 select-none object-contain sm:hidden"
-                  draggable={false}
-                  priority
-                />
-                <Image
-                  src="/brand/logo-gestor.png"
-                  alt="Gestor"
-                  width={160}
-                  height={40}
-                  className="hidden sm:block h-10 w-auto select-none object-contain"
-                  draggable={false}
-                  priority
-                />
-              </>
-            )}
+            <Image
+              src="/brand/logo-gestor-celular.png"
+              alt="Gestor"
+              width={44}
+              height={44}
+              className="h-10 w-10 select-none object-contain sm:hidden"
+              draggable={false}
+              priority
+            />
+            <Image
+              src="/brand/logo-gestor.png"
+              alt="Gestor"
+              width={160}
+              height={40}
+              className="hidden sm:block h-10 w-auto select-none object-contain"
+              draggable={false}
+              priority
+            />
             <div className="min-w-0 flex flex-col justify-center">
               <div className="text-[10px] uppercase tracking-wider text-white/40 font-bold leading-none mb-0.5">
                 Logado como

@@ -157,6 +157,16 @@ export default function AppRenewalModal({
       });
       if (rpcErr) throw rpcErr;
 
+      try {
+        await supabaseBrowser.rpc("resolve_notification", {
+          p_tenant_id: tenantId,
+          p_type: "manual_pending",
+          p_source_id: paymentLogId,
+        });
+      } catch {
+        // não bloqueia — o sino pode ficar com um item resolvido sem sumir sozinho
+      }
+
       addToast("success", "Renovação concluída!", "Vencimento atualizado e pendência resolvida.");
       onSaved();
     } catch (e: any) {

@@ -522,9 +522,6 @@ export default function RenewClient() {
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(
     null,
   );
-  const [tenantBrand, setTenantBrand] = useState<{
-    logo_url?: string | null;
-  } | null>(null);
 
   // ========= LOAD SESSION & ACCOUNTS =========
   useEffect(() => {
@@ -562,13 +559,6 @@ export default function RenewClient() {
           whatsapp_username: sess.whatsapp_username,
           admin_whatsapp: sess.admin_whatsapp,
         });
-
-        const { data: brand } = await supabaseBrowser
-          .from("vw_tenant_branding")
-          .select("logo_url")
-          .eq("id", sess.tenant_id)
-          .maybeSingle();
-        if (brand) setTenantBrand(brand);
 
         // 2. Buscar contas via API
         const accRes = await fetch("/api/client-portal/get-accounts", {
@@ -2920,8 +2910,6 @@ export default function RenewClient() {
 
   // ========= RENDER: LOADING =========
 
-  const showTenantLogo = !!tenantBrand?.logo_url;
-
   if (loading) {
     return (
       <div className="min-h-screen bg-background p-4 py-8">
@@ -2980,34 +2968,24 @@ export default function RenewClient() {
           <div className="mx-auto flex w-full max-w-2xl items-center gap-2 px-4 py-2">
             {/* Logo Responsiva */}
             <div className="flex items-center gap-3 min-w-0 cursor-pointer group">
-              {showTenantLogo ? (
-                <img
-                  src={tenantBrand!.logo_url!}
-                  alt="Logo"
-                  className="h-10 w-auto max-w-[140px] object-contain select-none"
-                />
-              ) : (
-                <>
-                  <Image
-                    src="/brand/logo-gestor-celular.png"
-                    alt="Gestor"
-                    width={44}
-                    height={44}
-                    className="h-10 w-10 select-none object-contain sm:hidden transition-transform group-hover:scale-105"
-                    draggable={false}
-                    priority
-                  />
-                  <Image
-                    src="/brand/logo-gestor.png"
-                    alt="Gestor"
-                    width={160}
-                    height={40}
-                    className="hidden sm:block h-10 w-auto select-none object-contain transition-transform group-hover:scale-105"
-                    draggable={false}
-                    priority
-                  />
-                </>
-              )}
+              <Image
+                src="/brand/logo-gestor-celular.png"
+                alt="Gestor"
+                width={44}
+                height={44}
+                className="h-10 w-10 select-none object-contain sm:hidden transition-transform group-hover:scale-105"
+                draggable={false}
+                priority
+              />
+              <Image
+                src="/brand/logo-gestor.png"
+                alt="Gestor"
+                width={160}
+                height={40}
+                className="hidden sm:block h-10 w-auto select-none object-contain transition-transform group-hover:scale-105"
+                draggable={false}
+                priority
+              />
               {/* Usuário Logado */}
               <div className="min-w-0 flex flex-col justify-center">
                 <div className="text-[10px] uppercase tracking-wider text-white/40 font-bold leading-none mb-0.5 transition-colors">
@@ -3180,23 +3158,15 @@ export default function RenewClient() {
               </button>
             )}
 
-            {showTenantLogo ? (
-              <img
-                src={tenantBrand!.logo_url!}
-                alt="Logo"
-                className="h-10 w-auto max-w-[120px] object-contain select-none"
-              />
-            ) : (
-              <Image
-                src="/brand/logo-gestor-celular.png"
-                alt="Gestor"
-                width={44}
-                height={44}
-                className="h-10 w-10 select-none object-contain transition-transform group-hover:scale-105"
-                draggable={false}
-                priority
-              />
-            )}
+            <Image
+              src="/brand/logo-gestor-celular.png"
+              alt="Gestor"
+              width={44}
+              height={44}
+              className="h-10 w-10 select-none object-contain transition-transform group-hover:scale-105"
+              draggable={false}
+              priority
+            />
 
             <div className="min-w-0 flex flex-col justify-center">
               <div className="text-[10px] uppercase tracking-wider text-white/40 font-bold leading-none mb-0.5">
@@ -3607,14 +3577,21 @@ export default function RenewClient() {
                                 )}
                               </div>
                               {app.is_gerenciaapp_family ? (
-                                <button
-                                  disabled={busy}
-                                  onClick={() => handleFreeRenewGerenciaApp(app.id)}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition-colors disabled:opacity-50"
-                                >
-                                  {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                                  {busy ? "Renovando..." : "Renovar licença — Grátis"}
-                                </button>
+                                // ✅ Mesmo limiar de 30 dias do botão pago
+                                // (pedido do Márcio, 28/07/2026) — achado em
+                                // produção: ficava visível mesmo logo depois
+                                // de renovar pra 2028, um ano+ antes de
+                                // precisar de novo.
+                                (expirationDiffDays === null || isExpired || isExpiringSoon) && (
+                                  <button
+                                    disabled={busy}
+                                    onClick={() => handleFreeRenewGerenciaApp(app.id)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition-colors disabled:opacity-50"
+                                  >
+                                    {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                    {busy ? "Renovando..." : "Renovar licença — Grátis"}
+                                  </button>
+                                )
                               ) : (
                                 // ✅ Só aparece perto do vencimento (pedido do
                                 // Márcio, 28/07/2026) — um app válido até
@@ -3709,9 +3686,10 @@ export default function RenewClient() {
                           <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center text-3xl">✅</div>
                           <p className="text-base font-bold text-foreground">Pagamento confirmado!</p>
                           <p className="text-xs text-muted-foreground">
-                            {installedApps.find((a) => a.id === renewPayment.clientAppId)?.has_integration
-                              ? 'O pagamento da licença foi registrado. Agora clique em "Configurar aplicativo" pra ativar de verdade.'
-                              : "O pagamento da licença foi registrado. Nosso suporte vai finalizar a ativação em breve."}
+                            Recebemos seu pagamento e nosso suporte já foi avisado.
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            A renovação dessa licença é feita manualmente por aqui — assim que for concluída, a nova validade aparece sozinha na tela do aplicativo, sem você precisar fazer mais nada.
                           </p>
                         </div>
                         <button
@@ -3806,34 +3784,24 @@ export default function RenewClient() {
               <span className="text-lg leading-none mt-[-2px]">←</span>
             </button>
 
-            {showTenantLogo ? (
-              <img
-                src={tenantBrand!.logo_url!}
-                alt="Logo"
-                className="h-10 w-auto max-w-[140px] object-contain select-none"
-              />
-            ) : (
-              <>
-                <Image
-                  src="/brand/logo-gestor-celular.png"
-                  alt="Gestor"
-                  width={44}
-                  height={44}
-                  className="h-10 w-10 select-none object-contain sm:hidden"
-                  draggable={false}
-                  priority
-                />
-                <Image
-                  src="/brand/logo-gestor.png"
-                  alt="Gestor"
-                  width={160}
-                  height={40}
-                  className="hidden sm:block h-10 w-auto select-none object-contain"
-                  draggable={false}
-                  priority
-                />
-              </>
-            )}
+            <Image
+              src="/brand/logo-gestor-celular.png"
+              alt="Gestor"
+              width={44}
+              height={44}
+              className="h-10 w-10 select-none object-contain sm:hidden"
+              draggable={false}
+              priority
+            />
+            <Image
+              src="/brand/logo-gestor.png"
+              alt="Gestor"
+              width={160}
+              height={40}
+              className="hidden sm:block h-10 w-auto select-none object-contain"
+              draggable={false}
+              priority
+            />
             <div className="min-w-0 flex flex-col justify-center">
               <div className="text-[10px] uppercase tracking-wider text-white/40 font-bold leading-none mb-0.5">
                 Logado como

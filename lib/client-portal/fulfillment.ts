@@ -132,6 +132,13 @@ export async function markAppRenewalPaid(
   tenantId: string,
   paymentRowId: string
 ) {
+  const { data: payment } = await supabaseAdmin
+    .from("client_portal_payments")
+    .select("client_id, price_amount, price_currency, app_name_snapshot")
+    .eq("tenant_id", tenantId)
+    .eq("id", paymentRowId)
+    .maybeSingle();
+
   await supabaseAdmin
     .from("client_portal_payments")
     .update({
@@ -140,6 +147,28 @@ export async function markAppRenewalPaid(
     })
     .eq("tenant_id", tenantId)
     .eq("id", paymentRowId);
+
+  // ✅ Sino de notificação — mesmo padrão do manual_pending de assinatura
+  // IPTV (notifyManual acima). Sem isso, o pagamento cai pra ação manual
+  // mas ninguém no admin fica sabendo até abrir a Auditoria por acaso.
+  try {
+    const { data: client } = await supabaseAdmin
+      .from("clients")
+      .select("display_name")
+      .eq("id", payment?.client_id)
+      .maybeSingle();
+
+    await notify({
+      tenantId,
+      type: "manual_pending",
+      title: "🟣 Renovação de licença de app pendente",
+      message: `Pagamento de ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: payment?.price_currency || "BRL" }).format(payment?.price_amount || 0)} confirmado para ${client?.display_name || "um cliente"} — licença de "${payment?.app_name_snapshot || "aplicativo"}". Acesse a Auditoria pra concluir.`,
+      link: "/admin/auditoria",
+      sourceId: paymentRowId,
+    });
+  } catch {
+    // não bloqueia o fulfillment por falha na notificação
+  }
 }
 
 // ============================================================
