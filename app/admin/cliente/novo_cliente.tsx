@@ -2463,7 +2463,8 @@ const canSyncAgenda = canSyncAuto;
         handler.actionPrefix === "MESSITV" ||
         handler.actionPrefix === "BOBPLAYER" ||
         handler.actionPrefix === "IBOPLAYER" ||
-        handler.actionPrefix === "IPTVDUPLEX"
+        handler.actionPrefix === "IPTVDUPLEX" ||
+        handler.actionPrefix === "IPTVPLAYERIO"
           ? appPin
           : password,
       macValue,
@@ -2510,7 +2511,8 @@ const canSyncAgenda = canSyncAuto;
               handler.actionPrefix === "MESSITV" ||
               handler.actionPrefix === "BOBPLAYER" ||
               handler.actionPrefix === "IBOPLAYER" ||
-              handler.actionPrefix === "IPTVDUPLEX"
+              handler.actionPrefix === "IPTVDUPLEX" ||
+              handler.actionPrefix === "IPTVPLAYERIO"
                 ? appPin
                 : password,
           });
@@ -2834,7 +2836,8 @@ const canSyncAgenda = canSyncAuto;
           handler.actionPrefix === "MESSITV" ||
           handler.actionPrefix === "BOBPLAYER" ||
           handler.actionPrefix === "IBOPLAYER" ||
-          handler.actionPrefix === "IPTVDUPLEX"
+          handler.actionPrefix === "IPTVDUPLEX" ||
+          handler.actionPrefix === "IPTVPLAYERIO"
             ? appPinDelete
             : password,
       }),
@@ -4212,7 +4215,8 @@ if (syncOperadora) {
                       handler.actionPrefix === "MESSITV" ||
                       handler.actionPrefix === "BOBPLAYER" ||
                       handler.actionPrefix === "IBOPLAYER" ||
-                      handler.actionPrefix === "IPTVDUPLEX"
+                      handler.actionPrefix === "IPTVDUPLEX" ||
+                      handler.actionPrefix === "IPTVPLAYERIO"
                         ? appPinAuto
                         : apiPassword,
                     macValue: macValueAuto,
@@ -6944,9 +6948,11 @@ className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify
                                               ? "IBO Player"
                                               : intType === "IPTVDUPLEX"
                                                 ? "IPTV Duplex Play"
-                                                : intType === "DUPLEXTV"
-                                                  ? "Duplex TV"
-                                                  : intType;
+                                                : intType === "IPTVPLAYERIO"
+                                                  ? "IPTV Playerio"
+                                                  : intType === "DUPLEXTV"
+                                                    ? "Duplex TV"
+                                                    : intType;
 
                             return (
                               <button

@@ -683,8 +683,10 @@ setApps(formattedApps);
                       ? "IBO Player"
                       : app.integration_type === "IPTVDUPLEX"
                         ? "IPTV Duplex Play"
-                        : app.integration_type === "DUPLEXTV"
-                          ? "Duplex TV"
+                        : app.integration_type === "IPTVPLAYERIO"
+                          ? "IPTV Playerio"
+                          : app.integration_type === "DUPLEXTV"
+                            ? "Duplex TV"
                           : app.integration_type === "LAZERPLAY"
                     ? "Lazer Play"
                     : app.integration_type === "FUNPLAY"
@@ -1307,6 +1309,7 @@ setApps(formattedApps);
                       <option value="BOBPLAYER">BOB Player</option>
                       <option value="IBOPLAYER">IBO Player</option>
                       <option value="IPTVDUPLEX">IPTV Duplex Play</option>
+                      <option value="IPTVPLAYERIO">IPTV Playerio</option>
                       <option value="DUPLEXTV">Duplex TV</option>
                     </select>
                     <p className="text-[11px] text-muted-foreground mt-1">

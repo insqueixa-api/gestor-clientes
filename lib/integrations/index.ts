@@ -8,6 +8,7 @@ import { BobPlayerIntegration } from "./bobplayer";
 import { IboPlayerIntegration } from "./iboplayer";
 import { IptvDuplexIntegration } from "./iptvduplex";
 import { DuplexTvIntegration } from "./duplextv";
+import { IptvPlayerioIntegration } from "./iptvplayerio";
 
 const INTEGRATION_REGISTRY: Record<string, any> = {
     "GERENCIAAPP":      GerenciaAppIntegration,
@@ -28,6 +29,7 @@ const INTEGRATION_REGISTRY: Record<string, any> = {
     "IBOPLAYER":        IboPlayerIntegration,
     "IPTVDUPLEX":       IptvDuplexIntegration,
     "DUPLEXTV":         DuplexTvIntegration,
+    "IPTVPLAYERIO":     IptvPlayerioIntegration,
 };
 
 export function getIntegrationHandler(integrationType: string) {

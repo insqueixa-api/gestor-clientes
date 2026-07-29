@@ -69,6 +69,7 @@ export default function AppIntegracaoModal({
   const isBobPlayer = appName === "BOBPLAYER";
   const isIboPlayer = appName === "IBOPLAYER";
   const isIptvDuplex = appName === "IPTVDUPLEX";
+  const isIptvPlayerio = appName === "IPTVPLAYERIO";
   const isDuplexTv = appName === "DUPLEXTV";
   const needsPin =
     isDuplecast ||
@@ -78,7 +79,8 @@ export default function AppIntegracaoModal({
     isMessiTv ||
     isBobPlayer ||
     isIboPlayer ||
-    isIptvDuplex; // DUPLEXTV fica de fora — não usa PIN, só MAC
+    isIptvDuplex ||
+    isIptvPlayerio; // DUPLEXTV fica de fora — não usa PIN, só MAC
   const noCredentials =
     isIboSol ||
     isIboPro ||
@@ -87,6 +89,7 @@ export default function AppIntegracaoModal({
     isBobPlayer ||
     isIboPlayer ||
     isIptvDuplex ||
+    isIptvPlayerio ||
     isDuplexTv; // Apps que não usam email/senha (login é por MAC, com ou sem Device Key)
 
   useEffect(() => {
@@ -282,6 +285,7 @@ export default function AppIntegracaoModal({
                 <option value="BOBPLAYER">BOB Player</option>
                 <option value="IBOPLAYER">IBO Player</option>
                 <option value="IPTVDUPLEX">IPTV Duplex Play</option>
+                <option value="IPTVPLAYERIO">IPTV Playerio</option>
                 <option value="DUPLEXTV">Duplex TV</option>
               </select>
             </div>

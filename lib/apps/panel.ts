@@ -5,26 +5,28 @@
 
 // Handlers cujo campo "password" do payload é o PIN da integração
 // (app_integrations.pin), não a senha real do cliente — mesma regra do admin.
-export const PIN_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "MESSITV", "BOBPLAYER", "IBOPLAYER", "IPTVDUPLEX"]);
+export const PIN_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "MESSITV", "BOBPLAYER", "IBOPLAYER", "IPTVDUPLEX", "IPTVPLAYERIO"]);
 
 // Handlers cuja rota de integração já implementa action:"check" (consulta
 // só leitura do vencimento real, sem criar/alterar nada). QuickPlayer não
 // rastreia vencimento no painel (o campo "date" é preenchido manualmente).
 // DUPLECAST faz login por dispositivo (mac+device_key,
 // /plugin/duplecast/device_login/), que devolve "Expire on" de verdade.
-// MESSITV/BOBPLAYER/IBOPLAYER/IPTVDUPLEX seguem o mesmo padrão (login
-// mac+device_key, com captcha resolvido via Gemini quando o parceiro
-// exige) e também devolvem o expire_date real do dispositivo. DUPLEXTV
+// MESSITV/BOBPLAYER/IBOPLAYER/IPTVDUPLEX/IPTVPLAYERIO seguem o mesmo padrão
+// (login mac+device_key, com captcha resolvido via Gemini quando o
+// parceiro exige) e também devolvem o expire_date real do dispositivo.
+// IPTVPLAYERIO usa o mesmo backend branco do IPTVDUPLEX (api.iptvplayer.io
+// em vez de api.iptvduplex.com), confirmado ao vivo em 28/07/2026. DUPLEXTV
 // quase nunca devolve data de verdade (o parceiro não tem endpoint de
 // status pra mac já ativado) — fica no Set mesmo assim pra habilitar o
 // botão, que trata o "sem data" como caso normal (mantém o valor do
 // banco). GERENCIAAPP consulta a playlist pelo nome dentro da família
 // completa do MAC (ver app/api/integrations/apps/gerenciaapp/route.ts).
-export const CHECK_VALIDITY_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP", "MESSITV", "BOBPLAYER", "IBOPLAYER", "IPTVDUPLEX", "DUPLEXTV"]);
+export const CHECK_VALIDITY_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP", "MESSITV", "BOBPLAYER", "IBOPLAYER", "IPTVDUPLEX", "IPTVPLAYERIO", "DUPLEXTV"]);
 
 // Igual ao CHECK_VALIDITY_HANDLERS acima, mas pro botão "Verificar
 // vencimento" do ADMIN (novo_cliente.tsx).
-export const ADMIN_CHECK_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP", "MESSITV", "BOBPLAYER", "IBOPLAYER", "IPTVDUPLEX", "DUPLEXTV"]);
+export const ADMIN_CHECK_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP", "MESSITV", "BOBPLAYER", "IBOPLAYER", "IPTVDUPLEX", "IPTVPLAYERIO", "DUPLEXTV"]);
 
 export function extractFieldByType(fieldsConfig: any[], values: Record<string, any>, type: string) {
   const field = (fieldsConfig || []).find(
