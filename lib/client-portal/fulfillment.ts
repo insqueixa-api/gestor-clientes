@@ -114,70 +114,32 @@ export async function markFulfillmentError(
 // ============================================================
 // Pagamento avulso de licença de app (payment_type='app_renewal')
 // ============================================================
-// "Fulfillment" aqui é deliberadamente simples: só marca a cobrança como
-// concluída. NUNCA chama runFulfillment (isso é só pra assinatura IPTV) —
+// O pagamento em si é automático (MP/Stripe aprova sozinho), mas a
+// RENOVAÇÃO de verdade fica pendente de ação manual (pedido do Márcio,
+// 28/07/2026): o dinheiro que o cliente paga aqui é a margem/taxa de
+// gerenciamento, não a licença em si — a licença de verdade é paga pelo
+// Márcio direto ao desenvolvedor do app, por fora do sistema. Por isso
+// "fulfillment" aqui só cai pra "manual_pending" (mesmo estado/badge roxo
+// já usado pra renovação manual de assinatura IPTV) — a Auditoria mostra
+// um botão "Concluir" que abre um painel com os dados do app (device
+// id/key, vencimento antigo) e um "Atualizar" que consulta o vencimento
+// real no painel do parceiro, depois de o Márcio já ter pago a licença
+// por fora. NUNCA chama runFulfillment (isso é só pra assinatura IPTV) —
 // pagar a licença de um app não renova a assinatura do cliente nem mexe em
-// clients.vencimento. O "Renovar aplicativo" de verdade no painel do
-// parceiro continua sendo o botão "Configurar aplicativo", separado.
+// clients.vencimento.
 export async function markAppRenewalPaid(
   supabaseAdmin: any,
   tenantId: string,
   paymentRowId: string
 ) {
-  const { data: payment } = await supabaseAdmin
-    .from("client_portal_payments")
-    .select("client_app_id")
-    .eq("tenant_id", tenantId)
-    .eq("id", paymentRowId)
-    .maybeSingle();
-
   await supabaseAdmin
     .from("client_portal_payments")
     .update({
-      fulfillment_status: "done",
-      fulfilled_at: new Date().toISOString(),
+      fulfillment_status: "manual_pending",
       fulfillment_error: null,
     })
     .eq("tenant_id", tenantId)
     .eq("id", paymentRowId);
-
-  // ✅ Libera o "Configurar aplicativo" pra apps pagos — configure/route.ts
-  // bloqueia a ativação de verdade no painel do parceiro até essa data
-  // existir/estar válida (achado: antes o cliente ativava de graça, sem
-  // nunca ter pago a licença). Sem client_app_id (app já removido nesse
-  // meio-tempo) não tem o que atualizar.
-  if (payment?.client_app_id) {
-    const { data: clientApp } = await supabaseAdmin
-      .from("client_apps")
-      .select("license_paid_until, apps(license_period)")
-      .eq("id", payment.client_app_id)
-      .maybeSingle();
-
-    if (clientApp) {
-      const licensePeriod = (clientApp as any)?.apps?.license_period;
-      const now = new Date();
-      let paidUntil: string;
-      if (licensePeriod === "lifetime") {
-        // Pago uma vez, vale sempre — configure/route.ts trata "lifetime"
-        // checando só se a coluna está preenchida, sem comparar com now().
-        paidUntil = now.toISOString();
-      } else {
-        // annual (ou não definido — default conservador de 1 ano). Soma a
-        // partir de agora, ou da validade atual se ainda não venceu, pra
-        // não "perder" tempo já pago numa renovação antecipada.
-        const currentPaidUntil = clientApp.license_paid_until ? new Date(clientApp.license_paid_until) : null;
-        const base = currentPaidUntil && currentPaidUntil.getTime() > now.getTime() ? currentPaidUntil : now;
-        const next = new Date(base);
-        next.setFullYear(next.getFullYear() + 1);
-        paidUntil = next.toISOString();
-      }
-
-      await supabaseAdmin
-        .from("client_apps")
-        .update({ license_paid_until: paidUntil })
-        .eq("id", payment.client_app_id);
-    }
-  }
 }
 
 // ============================================================

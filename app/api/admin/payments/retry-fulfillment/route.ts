@@ -91,10 +91,11 @@ export async function POST(req: NextRequest) {
 
   // ✅ Pagamento avulso de licença de app — NUNCA pode cair no
   // runFulfillment de assinatura IPTV (renovaria a conta do cliente sem
-  // relação nenhuma com o valor pago). Só marca como concluído.
+  // relação nenhuma com o valor pago). Cai pra ação manual — ver comentário
+  // em markAppRenewalPaid (lib/client-portal/fulfillment.ts).
   if (payment.payment_type === "app_renewal") {
     await markAppRenewalPaid(supabaseAdmin, tenantId, payment.id);
-    return NextResponse.json({ ok: true, outcome: "done" });
+    return NextResponse.json({ ok: true, outcome: "manual_pending" });
   }
 
   const lock = await tryAcquireFulfillmentLock(supabaseAdmin, tenantId, payment.id);

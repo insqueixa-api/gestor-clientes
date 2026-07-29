@@ -15,6 +15,7 @@ import { EyeToggle } from "@/components/ui/eye-toggle";
 
 // ✅ Importa os modais de recarga
 import RecargaCliente from "../cliente/recarga_cliente";
+import AppRenewalModal from "./AppRenewalModal";
 import Pagination from "@/components/ui/Pagination";
 
 // --- TIPOS ---
@@ -47,6 +48,7 @@ type LogRow = {
   // assinatura, precisa ficar bem distinto na tela pra você nunca confundir.
   payment_type: "subscription" | "app_renewal";
   app_name_snapshot: string | null;
+  client_app_id: string | null;
 };
 
 function fmtMoney(amount: number, currency: string = "BRL") {
@@ -275,6 +277,15 @@ function AuditoriaPageContent() {
     wasAwaitingTransfer: boolean; // true = pagamento manual real (transferência); false = só o fulfillment é manual (ex: Elite)
   } | null>(null);
 
+  // ✅ Painel "Concluir renovação de licença" (pagamento avulso de app,
+  // payment_type='app_renewal') — separado do renewState acima, que é só
+  // pra renovação de assinatura IPTV (RecargaCliente, campos totalmente
+  // diferentes).
+  const [appRenewalState, setAppRenewalState] = useState<{
+    logId: string;
+    clientAppId: string;
+  } | null>(null);
+
   function addToast(
     type: "success" | "error" | "warning",
     title: string,
@@ -314,7 +325,7 @@ function AuditoriaPageContent() {
         let query = supabaseBrowser
           .from("client_portal_payments")
           .select(
-            "id, created_at, client_id, payment_method, status, fulfillment_status, fulfillment_error, price_amount, price_currency, period, plan_label, gateway_type, mp_payment_id, whatsapp_status, coupon_code, coupon_discount_amount, settled_alert_ids, payment_type, app_name_snapshot",
+            "id, created_at, client_id, payment_method, status, fulfillment_status, fulfillment_error, price_amount, price_currency, period, plan_label, gateway_type, mp_payment_id, whatsapp_status, coupon_code, coupon_discount_amount, settled_alert_ids, payment_type, app_name_snapshot, client_app_id",
           ) // ✅ Adicionado whatsapp_status, coupon_code/coupon_discount_amount, settled_alert_ids (resumo do valor)
           .eq("tenant_id", tid)
           .order("created_at", { ascending: false })
@@ -434,6 +445,7 @@ function AuditoriaPageContent() {
             pendencies,
             payment_type: r.payment_type === "app_renewal" ? "app_renewal" : "subscription",
             app_name_snapshot: r.app_name_snapshot || null,
+            client_app_id: r.client_app_id || null,
           };
         });
 
@@ -1576,12 +1588,14 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
                               <>
                                 <button
   onClick={() =>
-    setRenewState({
-      logId: r.id,
-      clientId: r.client_id,
-      clientName: r.client_name,
-      wasAwaitingTransfer: false,
-    })
+    r.payment_type === "app_renewal" && r.client_app_id
+      ? setAppRenewalState({ logId: r.id, clientAppId: r.client_app_id })
+      : setRenewState({
+          logId: r.id,
+          clientId: r.client_id,
+          clientName: r.client_name,
+          wasAwaitingTransfer: false,
+        })
   }
                                   className="gap-1 px-3 py-1.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-500 text-[10px] font-medium uppercase rounded-lg transition-colors border border-purple-500/30 shadow-sm flex items-center justify-center gap-1"
                                   title="Abrir painel de renovação"
@@ -1726,6 +1740,25 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
 }}
           />
         </>
+      )}
+
+      {/* ✅ Painel "Concluir renovação de licença" — pagamento avulso de app */}
+      {appRenewalState && tenantId && (
+        <AppRenewalModal
+          clientAppId={appRenewalState.clientAppId}
+          paymentLogId={appRenewalState.logId}
+          tenantId={tenantId}
+          addToast={addToast}
+          onClose={() => setAppRenewalState(null)}
+          onSaved={() => {
+            setAppRenewalState(null);
+            loadData();
+          }}
+          onCancelled={() => {
+            setAppRenewalState(null);
+            loadData();
+          }}
+        />
       )}
 
       {/* CSS PARA OCULTAR VALORES COM O EYE-TOGGLE */}

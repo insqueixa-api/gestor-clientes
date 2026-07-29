@@ -225,14 +225,20 @@ async function getEditData(baseUrl: string, session: any, id: string | number): 
 
 function findPlaylistByName(playlists: any[], name: string) {
   const targetLower = String(name || "").toLowerCase().trim();
+  const exactMatches = playlists.filter((p) => String(p.server_name || "").toLowerCase().trim() === targetLower);
+  if (exactMatches.length > 0) {
+    // Duplicata por nome não deveria existir, mas se existir (resíduo de
+    // uma falha anterior no meio de um delete-então-cria), prefere a mais
+    // recente (maior id) — sem isso, ficava sempre mirando na entrada mais
+    // antiga, nunca resolvendo a duplicata sozinho.
+    return exactMatches.reduce((a, b) => (Number(b.id) > Number(a.id) ? b : a));
+  }
   return (
-    playlists.find((p) => String(p.server_name || "").toLowerCase().trim() === targetLower) ||
     playlists.find(
       (p) =>
         String(p.server_name || "").toLowerCase().includes(targetLower) ||
         targetLower.includes(String(p.server_name || "").toLowerCase()),
-    ) ||
-    null
+    ) || null
   );
 }
 
@@ -391,8 +397,8 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
     const { action, base_url, macValue } = body;
 
-    if (!action || (action !== "create" && action !== "delete" && action !== "check")) {
-      return NextResponse.json({ ok: false, error: "action inválida. Use: create | delete | check" }, { status: 400 });
+    if (!action || (action !== "create" && action !== "delete" && action !== "check" && action !== "renew")) {
+      return NextResponse.json({ ok: false, error: "action inválida. Use: create | delete | check | renew" }, { status: 400 });
     }
     if (!base_url) {
       return NextResponse.json({ ok: false, error: "base_url é obrigatório." }, { status: 400 });
@@ -431,6 +437,50 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: false, error: `Não achei a playlist "${searchName}" nesse MAC.` }, { status: 404 });
       }
       return NextResponse.json({ ok: true, expireDate: match.expire_account || null });
+    }
+
+    // ✅ "renew" (pedido do Márcio, 28/07/2026): pra família GERENCIAAPP,
+    // "renovar" NÃO precisa apagar e recriar playlist nenhuma — o
+    // vencimento (`expire_date`) é um campo COMPARTILHADO por todo o MAC
+    // (mesmo valor em todas as playlists-irmãs, confirmado ao vivo), então
+    // só editar essa data já atualiza o vencimento de verdade, sem tocar em
+    // MAC/playlist/M3U. Muito mais seguro que delete-então-create: elimina
+    // o risco de duplicata/verificação por nome que o create tem (achado
+    // em produção: um resíduo de duplicata de um teste anterior travava a
+    // verificação do create, fazendo ele reportar falha mesmo quando a
+    // playlist nova tinha sido criada com sucesso).
+    if (action === "renew") {
+      const existing = await searchByMac(BASE_URL, session, mac);
+      if (!existing.length) {
+        return NextResponse.json({ ok: false, error: `MAC não encontrado no painel do GerenciaApp (${mac}).` }, { status: 404 });
+      }
+      const { user, playlists } = await getEditData(BASE_URL, session, existing[0].id);
+
+      // Estende a partir do vencimento atual se ainda não venceu (não perde
+      // tempo já "pago"); a partir de hoje se já venceu. Mesmo padrão usado
+      // no fulfillment de renovação paga (lib/client-portal/fulfillment.ts).
+      const currentExpire = user.expire_account ? new Date(`${user.expire_account}T00:00:00`) : null;
+      const now = new Date();
+      const base = currentExpire && currentExpire.getTime() > now.getTime() ? currentExpire : now;
+      const next = new Date(base);
+      next.setFullYear(next.getFullYear() + 1);
+      const newExpireDate = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}`;
+
+      await syncPlaylists(BASE_URL, session, existing[0].id, { ...user, expire_account: newExpireDate }, playlists);
+
+      let confirmed = false;
+      for (let attempt = 1; attempt <= 3 && !confirmed; attempt++) {
+        if (attempt > 1) await new Promise((r) => setTimeout(r, 1500));
+        const after = await getEditData(BASE_URL, session, existing[0].id);
+        if (after.user.expire_account === newExpireDate) confirmed = true;
+      }
+      if (!confirmed) {
+        return NextResponse.json(
+          { ok: false, error: "O painel respondeu, mas o vencimento não foi atualizado — confira manualmente no GerenciaApp." },
+          { status: 502 },
+        );
+      }
+      return NextResponse.json({ ok: true, expireDate: newExpireDate, message: "Licença renovada com sucesso." });
     }
 
     if (action === "create") {

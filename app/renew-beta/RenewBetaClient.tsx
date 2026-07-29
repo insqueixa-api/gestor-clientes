@@ -775,14 +775,35 @@ export default function RenewClient() {
     }
   }
 
-  // ✅ Família GerenciaApp: "renovar licença" não é uma cobrança de
-  // verdade (é grátis) — é literalmente chamar o Reconfigurar direto, sem
-  // o modal de confirmação/escolha Principal-Secundária que o botão
-  // "Reconfigurar" normal mostra (aqui o cliente só quer atualizar o
-  // vencimento, não está resolvendo uma falha). Sempre em modo Principal
-  // — não faz sentido trocar de servidor só pra renovar.
-  function handleFreeRenewGerenciaApp(clientAppId: string) {
-    performConfigureApp(clientAppId, "principal");
+  // ✅ Família GerenciaApp: "renovar licença" é grátis e usa uma rota
+  // dedicada (renew-gerenciaapp) que só ESTENDE o vencimento — não apaga
+  // nem recria a playlist (isso é o Reconfigurar, pra quando o app está
+  // com falha). Achado em produção: delete-então-create tem risco real de
+  // travar numa duplicata residual; editar só a data evita esse problema
+  // por completo. Silencioso de propósito — sem confirmação nem escolha
+  // Principal/Secundária, o cliente só quer atualizar o vencimento.
+  async function handleFreeRenewGerenciaApp(clientAppId: string) {
+    if (!selectedAccountId || !session) return;
+    setAppActionBusy(clientAppId);
+    try {
+      const res = await fetch("/api/client-portal/apps/renew-gerenciaapp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_token: session, client_id: selectedAccountId, client_app_id: clientAppId }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!result?.ok) throw new Error(result?.error || "Falha ao renovar.");
+      addToast(
+        "success",
+        "Licença renovada!",
+        result.expireDate ? `Novo vencimento: ${String(result.expireDate).split("-").reverse().join("/")}` : undefined,
+      );
+      await refreshInstalledApps();
+    } catch (err: any) {
+      addToast("error", "Falha ao renovar", err?.message);
+    } finally {
+      setAppActionBusy(null);
+    }
   }
 
   async function handleRequestSetup(clientAppId: string) {
