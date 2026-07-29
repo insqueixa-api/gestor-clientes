@@ -27,6 +27,7 @@ import { createClient as createAdmin } from "@supabase/supabase-js";
 import { Resvg } from "@resvg/resvg-js";
 import { callGemini } from "@/lib/whatsapp/gemini-client";
 import { isInternalRequest, hasBadInternalHeader } from "@/lib/internal-auth";
+import { extractDateOnly } from "@/lib/apps/panel";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -288,7 +289,7 @@ export async function POST(req: Request) {
     // ===========================================================
     if (action === "check") {
       const { device } = await bobPlayerLogin(siteRoot, macValue, deviceKey, geminiKey);
-      const expireDate = device?.expire_date || null;
+      const expireDate = extractDateOnly(device?.expire_date);
       return NextResponse.json({
         ok: true,
         expireDate,
@@ -311,7 +312,7 @@ export async function POST(req: Request) {
 
       return NextResponse.json({
         ok: true,
-        expireDate: device?.expire_date || null,
+        expireDate: extractDateOnly(device?.expire_date),
         message: "Playlist configurada com sucesso.",
       });
     }

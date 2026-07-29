@@ -31,6 +31,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { isInternalRequest, hasBadInternalHeader } from "@/lib/internal-auth";
+import { extractDateOnly } from "@/lib/apps/panel";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -213,7 +214,7 @@ export async function POST(req: Request) {
 
       const targetLower = searchName.toLowerCase();
       const match = playlists.find((p) => String(p.name || "").toLowerCase().trim() === targetLower);
-      const expireDate = match?.expired_date || accountExpireDate;
+      const expireDate = extractDateOnly(match?.expired_date || accountExpireDate);
 
       return NextResponse.json({
         ok: true,
@@ -243,7 +244,7 @@ export async function POST(req: Request) {
         const created = playlists.find(
           (p) => String(p.name || "").toLowerCase().trim() === String(finalServerName || "").toLowerCase().trim(),
         );
-        expireDate = created?.expired_date || accountExpireDate;
+        expireDate = extractDateOnly(created?.expired_date || accountExpireDate);
       } catch {
         // best-effort — create já foi feito, não bloqueia
       }

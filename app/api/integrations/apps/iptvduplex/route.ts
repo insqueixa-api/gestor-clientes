@@ -28,6 +28,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { isInternalRequest, hasBadInternalHeader } from "@/lib/internal-auth";
+import { extractDateOnly } from "@/lib/apps/panel";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -210,7 +211,7 @@ export async function POST(req: Request) {
 
       const targetLower = searchName.toLowerCase();
       const match = playlists.find((p) => String(p.name || "").toLowerCase().trim() === targetLower);
-      const expireDate = match?.expired_date || activationExpired || null;
+      const expireDate = extractDateOnly(match?.expired_date || activationExpired);
 
       return NextResponse.json({
         ok: true,
@@ -244,7 +245,7 @@ export async function POST(req: Request) {
         // depois que o parceiro valida o m3u de forma assíncrona (sempre
         // null na hora de criar), então sem o fallback pro vencimento da
         // conta o create não tem nada pra mostrar.
-        expireDate = created?.expired_date || activationExpired || null;
+        expireDate = extractDateOnly(created?.expired_date || activationExpired);
       } catch {
         // best-effort — create já foi feito, não bloqueia
       }

@@ -46,6 +46,7 @@ import { fetch as undiciFetch, ProxyAgent } from "undici";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { isInternalRequest, hasBadInternalHeader } from "@/lib/internal-auth";
+import { extractDateOnly } from "@/lib/apps/panel";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -436,7 +437,7 @@ export async function POST(req: Request) {
       if (!match) {
         return NextResponse.json({ ok: false, error: `Não achei a playlist "${searchName}" nesse MAC.` }, { status: 404 });
       }
-      return NextResponse.json({ ok: true, expireDate: match.expire_account || null });
+      return NextResponse.json({ ok: true, expireDate: extractDateOnly(match.expire_account) });
     }
 
     // ✅ "renew" (pedido do Márcio, 28/07/2026): pra família GERENCIAAPP,
@@ -480,7 +481,7 @@ export async function POST(req: Request) {
           { status: 502 },
         );
       }
-      return NextResponse.json({ ok: true, expireDate: newExpireDate, message: "Licença renovada com sucesso." });
+      return NextResponse.json({ ok: true, expireDate: extractDateOnly(newExpireDate), message: "Licença renovada com sucesso." });
     }
 
     if (action === "create") {
@@ -529,7 +530,7 @@ export async function POST(req: Request) {
             { status: 502 },
           );
         }
-        return NextResponse.json({ ok: true, expireDate: verified.expire_account || null, message: "Playlist configurada com sucesso." });
+        return NextResponse.json({ ok: true, expireDate: extractDateOnly(verified.expire_account), message: "Playlist configurada com sucesso." });
       }
 
       // MAC já tem linha(s) — acrescenta sem tocar nas existentes.
@@ -567,7 +568,7 @@ export async function POST(req: Request) {
           { status: 502 },
         );
       }
-      return NextResponse.json({ ok: true, expireDate: created.expire_account || null, message: "Playlist configurada com sucesso." });
+      return NextResponse.json({ ok: true, expireDate: extractDateOnly(created.expire_account), message: "Playlist configurada com sucesso." });
     }
 
     // action === "delete"
