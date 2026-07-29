@@ -3147,96 +3147,115 @@ const canSyncAgenda = canSyncAuto;
   }
 
   // ✅ ClouDDy (console.clouddy.online) — registrado no INTEGRATION_REGISTRY
-  // igual qualquer outro app (lib/integrations/clouddy.ts, useApi:true),
-  // MAS o login exige resolver um Cloudflare Turnstile real — testado
-  // exaustivamente numa VM (Playwright headless/headed via Xvfb,
-  // navigator.webdriver "corrigido", até com proxy residencial) e o
-  // Cloudflare sempre rejeitou (só o CDP em si já é detectado, não é IP nem
-  // conta). Por isso o login continua manual, pela extensão (navegador REAL
-  // do admin, sem CDP) — mas só PRA ISSO: ela captura o cookie PHPSESSID e
-  // salva em client_apps.field_values._clouddy_session. A partir daí,
-  // create/delete/check são chamadas normais em
-  // app/api/integrations/apps/clouddy/route.ts (fetch com esse cookie, sem
-  // captcha nenhum) — exatamente como qualquer outra integração.
-  async function handleClouddyLogin(instanceId: string) {
-    const currentApp = selectedApps.find((a) => a.instanceId === instanceId);
-    if (!currentApp) return;
-
+  // igual qualquer outro app (lib/integrations/clouddy.ts, useApi:true), com
+  // Configurar/Verificar/Remover se comportando IGUAL aos demais (pedido do
+  // Márcio, 28/07/2026: "o admin tem que funcionar idêntico"). A ÚNICA
+  // diferença de verdade: o login exige resolver um Cloudflare Turnstile
+  // real — testado exaustivamente numa VM (Playwright headless/headed via
+  // Xvfb, navigator.webdriver "corrigido", até com proxy residencial) e o
+  // Cloudflare sempre rejeitou (só o CDP em si já é detectado, não IP nem
+  // conta). Por isso quando a rota diz needsLogin:true (sessão nunca criada
+  // ou expirada), os 3 handlers abaixo abrem a extensão sozinhos (sem
+  // precisar de um clique separado), esperam o login, e tentam de novo — do
+  // ponto de vista de quem clica, é só "Configurar"/"Verificar"/"Remover"
+  // igual sempre, só que às vezes abre uma aba real pra resolver o captcha.
+  function getClouddyCreds(currentApp: any) {
     const emailField = currentApp.fields_config?.find(
       (f: any) => String(f?.type || "").toLowerCase() === "email",
     );
     const passField = currentApp.fields_config?.find(
       (f: any) => String(f?.type || "").toLowerCase() === "password",
     );
-    const email = emailField
-      ? currentApp.values[String(emailField.id || emailField.label)] || ""
-      : "";
-    const password = passField
-      ? currentApp.values[String(passField.id || passField.label)] || ""
-      : "";
+    return {
+      email: emailField ? currentApp.values[String(emailField.id || emailField.label)] || "" : "",
+      password: passField ? currentApp.values[String(passField.id || passField.label)] || "" : "",
+    };
+  }
 
-    if (!email || !password) {
-      addToast(
-        "error",
-        "Email/senha obrigatórios",
-        "Preencha o email e a senha do ClouDDy antes de renovar a sessão.",
+  // Loga via extensão e persiste o cookie de sessão — usado tanto pelo botão
+  // manual "Renovar sessão" quanto automaticamente por callClouddyApi.
+  function renewClouddySession(currentApp: any): Promise<{ ok: boolean; error?: string }> {
+    return new Promise((resolve) => {
+      const { email, password } = getClouddyCreds(currentApp);
+      if (!email || !password) {
+        resolve({ ok: false, error: "Preencha o email e a senha do ClouDDy." });
+        return;
+      }
+
+      setLoadingStep("Abrindo ClouDDy na extensão...");
+
+      const responseHandler = async (e: any) => {
+        window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
+
+        if (e.detail?.ok && e.detail.sessionCookie && currentApp.client_app_id) {
+          const { data: currentDbData } = await supabaseBrowser
+            .from("client_apps")
+            .select("field_values")
+            .eq("id", currentApp.client_app_id)
+            .maybeSingle();
+          const dbVals = currentDbData?.field_values || {};
+          await supabaseBrowser
+            .from("client_apps")
+            .update({ field_values: { ...dbVals, _clouddy_session: e.detail.sessionCookie } })
+            .eq("id", currentApp.client_app_id);
+          resolve({ ok: true });
+        } else if (e.detail?.ok) {
+          resolve({ ok: false, error: "Logou mas não consegui capturar a sessão — tente de novo." });
+        } else {
+          resolve({ ok: false, error: e.detail?.error || "Não foi possível logar no ClouDDy." });
+        }
+      };
+      window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
+
+      window.dispatchEvent(
+        new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
+          detail: { action: "CLOUDDY_LOGIN", payload: { email, password } },
+        }),
       );
-      return;
+
+      setTimeout(() => {
+        window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
+        resolve({ ok: false, error: "Sem resposta em 90s — confira a aba do ClouDDy (pode estar esperando você resolver o captcha)." });
+      }, 90000);
+    });
+  }
+
+  // Chama a rota; se ela disser needsLogin (sessão nunca criada ou
+  // expirada), abre a extensão sozinho, loga, e tenta de novo — só 1 retry.
+  async function callClouddyApi(currentApp: any, action: string, extra: Record<string, any> = {}) {
+    const call = () =>
+      fetch("/api/integrations/apps/clouddy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, client_app_id: currentApp.client_app_id, ...extra }),
+      }).then((r) => r.json().catch(() => ({})));
+
+    let json = await call();
+    if (!json?.ok && json?.needsLogin) {
+      const login = await renewClouddySession(currentApp);
+      if (!login.ok) return { ok: false, error: login.error };
+      setLoadingStep("Tentando de novo...");
+      json = await call();
     }
+    return json;
+  }
+
+  // ✅ ClouDDy — botão manual "Renovar sessão" (fallback pra quando quiser
+  // forçar login sem passar por Configurar/Verificar/Remover primeiro).
+  async function handleClouddyLogin(instanceId: string) {
+    const currentApp = selectedApps.find((a) => a.instanceId === instanceId);
+    if (!currentApp) return;
 
     setLoading(true);
-    setLoadingStep("Abrindo ClouDDy na extensão...");
+    const result = await renewClouddySession(currentApp);
+    setLoading(false);
+    setLoadingStep("");
 
-    const responseHandler = async (e: any) => {
-      window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
-      setLoading(false);
-      setLoadingStep("");
-
-      if (e.detail?.ok && e.detail.sessionCookie && currentApp.client_app_id) {
-        const { data: currentDbData } = await supabaseBrowser
-          .from("client_apps")
-          .select("field_values")
-          .eq("id", currentApp.client_app_id)
-          .maybeSingle();
-        const dbVals = currentDbData?.field_values || {};
-        await supabaseBrowser
-          .from("client_apps")
-          .update({ field_values: { ...dbVals, _clouddy_session: e.detail.sessionCookie } })
-          .eq("id", currentApp.client_app_id);
-        addToast("success", "Sessão renovada", "Login OK — já pode usar Configurar/Remover normalmente.");
-      } else if (e.detail?.ok) {
-        addToast("warning", "Login OK, mas sem cookie", "Logou mas não consegui capturar a sessão — tente de novo.");
-      } else {
-        addToast(
-          "error",
-          "Falha no login",
-          e.detail?.error || "Não foi possível logar no ClouDDy.",
-        );
-      }
-    };
-    window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
-
-    window.dispatchEvent(
-      new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
-        detail: { action: "CLOUDDY_LOGIN", payload: { email, password } },
-      }),
-    );
-
-    setTimeout(() => {
-      setLoading((prev) => {
-        if (prev) {
-          window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
-          addToast(
-            "warning",
-            "Aviso",
-            "Sem resposta em 90s — confira a aba do ClouDDy (pode estar esperando você resolver o captcha).",
-          );
-          setLoadingStep("");
-          return false;
-        }
-        return prev;
-      });
-    }, 90000);
+    if (result.ok) {
+      addToast("success", "Sessão renovada", "Login OK.");
+    } else {
+      addToast("error", "Falha no login", result.error || "Não foi possível logar no ClouDDy.");
+    }
   }
 
   // ✅ ClouDDy — persiste o vencimento retornado pela rota no campo "date"
@@ -3262,8 +3281,7 @@ const canSyncAgenda = canSyncAuto;
     }
   }
 
-  // ✅ ClouDDy — configura TV + VOD com o m3uUrl atual, via API normal
-  // (reaproveita a sessão salva por handleClouddyLogin — sem extensão).
+  // ✅ ClouDDy — configura TV + VOD com o m3uUrl atual.
   async function handleClouddyConfigure(instanceId: string) {
     const currentApp = selectedApps.find((a) => a.instanceId === instanceId);
     if (!currentApp) return;
@@ -3281,12 +3299,7 @@ const canSyncAgenda = canSyncAuto;
     setLoading(true);
     setLoadingStep("Configurando ClouDDy...");
     try {
-      const res = await fetch("/api/integrations/apps/clouddy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "create", client_app_id: currentApp.client_app_id, m3uUrl: m3uToSend }),
-      });
-      const json = await res.json().catch(() => ({}));
+      const json = await callClouddyApi(currentApp, "create", { m3uUrl: m3uToSend });
       if (json?.ok) {
         if (json.expireDate) await persistClouddyExpireDate(currentApp, json.expireDate);
         addToast(
@@ -3315,12 +3328,7 @@ const canSyncAgenda = canSyncAuto;
     setLoading(true);
     setLoadingStep("Verificando vencimento no ClouDDy...");
     try {
-      const res = await fetch("/api/integrations/apps/clouddy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "check", client_app_id: currentApp.client_app_id }),
-      });
-      const json = await res.json().catch(() => ({}));
+      const json = await callClouddyApi(currentApp, "check");
       if (json?.ok && json.expireDate) {
         await persistClouddyExpireDate(currentApp, json.expireDate);
         addToast("success", "Vencimento verificado", `ClouDDy: ${String(json.expireDate).split("-").reverse().join("/")}`);
@@ -3337,8 +3345,8 @@ const canSyncAgenda = canSyncAuto;
     }
   }
 
-  // ✅ ClouDDy — remove TV + VOD juntos, via API normal (não existe
-  // "remover só um dos dois" no fluxo deles).
+  // ✅ ClouDDy — remove TV + VOD juntos (não existe "remover só um dos
+  // dois" no fluxo deles).
   async function handleClouddyDelete(instanceId: string) {
     const currentApp = selectedApps.find((a) => a.instanceId === instanceId);
     if (!currentApp || !currentApp.client_app_id) return;
@@ -3346,12 +3354,7 @@ const canSyncAgenda = canSyncAuto;
     setLoading(true);
     setLoadingStep("Removendo ClouDDy...");
     try {
-      const res = await fetch("/api/integrations/apps/clouddy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "delete", client_app_id: currentApp.client_app_id }),
-      });
-      const json = await res.json().catch(() => ({}));
+      const json = await callClouddyApi(currentApp, "delete");
       if (json?.ok) {
         addToast("success", "ClouDDy removido", "TV + VOD removidos.");
       } else {
@@ -6661,30 +6664,57 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                                     </svg>
                                     Configurar
                                   </button>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleClouddyCheck(app.instanceId)
-                                    }
-                                    disabled={loading}
-                                    className="h-10 rounded-lg bg-sky-500 hover:bg-sky-600 disabled:opacity-60 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
-                                    title="Verifica o vencimento sem mexer em TV/VOD"
-                                  >
-                                    <svg
-                                      className="w-4 h-4 shrink-0"
-                                      fill="none"
-                                      viewBox="0 0 24 24"
-                                      stroke="currentColor"
-                                      strokeWidth="2"
+                                  <div className="h-10 rounded-lg border border-border overflow-hidden flex divide-x divide-border">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const intDataClouddy = appIntegrations.find(
+                                          (a) => a.app_name.toUpperCase() === "CLOUDDY",
+                                        );
+                                        const url = intDataClouddy?.api_url || "https://console.clouddy.online";
+                                        window.open(url, "_blank");
+                                      }}
+                                      className="flex-1 bg-transparent text-muted-foreground hover:bg-muted transition-colors flex items-center justify-center"
+                                      title="Abrir painel no navegador"
                                     >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                                      />
-                                    </svg>
-                                    Verificar
-                                  </button>
+                                      <svg
+                                        className="w-4 h-4 shrink-0"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                        strokeWidth="2"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                                        />
+                                      </svg>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleClouddyCheck(app.instanceId)
+                                      }
+                                      disabled={loading}
+                                      className="flex-1 bg-transparent text-emerald-500 hover:bg-emerald-500/10 disabled:opacity-60 transition-colors flex items-center justify-center"
+                                      title="Verificar vencimento (sem mexer em TV/VOD)"
+                                    >
+                                      <svg
+                                        className="w-4 h-4 shrink-0"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                        strokeWidth="2"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                                        />
+                                      </svg>
+                                    </button>
+                                  </div>
                                   <button
                                     type="button"
                                     onClick={() =>
@@ -6717,17 +6747,18 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                                   }
                                   disabled={loading}
                                   className="w-full h-8 mt-2 rounded-lg bg-transparent border border-border hover:bg-muted disabled:opacity-60 text-muted-foreground text-[11px] font-medium transition-colors flex items-center justify-center gap-1.5"
-                                  title="Loga de novo pra renovar a sessão salva (extensão)"
+                                  title="Força o login de novo, mesmo com sessão ainda válida"
                                 >
                                   Renovar sessão (extensão)
                                 </button>
                                 <p className="text-[10px] text-muted-foreground mt-1">
-                                  Configurar/Verificar/Remover usam a sessão
-                                  já salva — sem abrir nada. Se algum deles
-                                  disser "sessão expirada", clica em "Renovar
-                                  sessão": abre uma aba de verdade no seu
-                                  Chrome, e se aparecer o captcha do
-                                  Cloudflare, resolve manualmente nela.
+                                  Configurar/Verificar/Remover fazem login
+                                  sozinhos quando precisam (sessão nunca
+                                  criada ou expirada) — abre uma aba de
+                                  verdade no seu Chrome; se aparecer o captcha
+                                  do Cloudflare, resolve manualmente nela e o
+                                  resto continua automático. O botão abaixo é
+                                  só pra forçar renovar antes da hora.
                                 </p>
                               </div>
                             )}

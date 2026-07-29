@@ -114,8 +114,11 @@ export async function POST(req: Request) {
 
     const sessionCookie = (clientApp.field_values || {})._clouddy_session as string | undefined;
     if (!sessionCookie) {
+      // ✅ needsLogin: o front usa essa flag pra disparar a extensão
+      // automaticamente e tentar de novo, sem precisar de 2 cliques
+      // separados — igual qualquer outra integração, na prática.
       return NextResponse.json(
-        { ok: false, error: 'Sessão do ClouDDy nunca foi criada — use o botão "Renovar sessão" (extensão) primeiro.' },
+        { ok: false, needsLogin: true, error: "Sessão do ClouDDy ainda não existe — logando..." },
         { status: 400 },
       );
     }
@@ -128,7 +131,7 @@ export async function POST(req: Request) {
       const res = await clouddyFetch(base, "/user/dashboard", sessionCookie);
       const html = await res.text();
       if (looksLikeLoginForm(html)) {
-        return NextResponse.json({ ok: false, error: SESSION_EXPIRED_ERROR }, { status: 401 });
+        return NextResponse.json({ ok: false, needsLogin: true, error: SESSION_EXPIRED_ERROR }, { status: 401 });
       }
       const expireDate = extractExpireDate(html);
       return NextResponse.json({
@@ -158,7 +161,7 @@ export async function POST(req: Request) {
       const tvRes = await clouddyFetch(base, "/user/tv-playlist/edit", sessionCookie, { method: "POST", body: buildForm(true) });
       const tvHtml = await tvRes.text();
       if (looksLikeLoginForm(tvHtml)) {
-        return NextResponse.json({ ok: false, error: SESSION_EXPIRED_ERROR }, { status: 401 });
+        return NextResponse.json({ ok: false, needsLogin: true, error: SESSION_EXPIRED_ERROR }, { status: 401 });
       }
 
       const vodRes = await clouddyFetch(base, "/user/vod-playlist/edit", sessionCookie, { method: "POST", body: buildForm(false) });
