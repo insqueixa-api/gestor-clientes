@@ -65,7 +65,14 @@ export async function POST(req: NextRequest) {
     const fieldsConfig: any[] = Array.isArray((row as any).apps?.fields_config) ? (row as any).apps.fields_config : [];
     const values = row.field_values || {};
 
-    const handler = integrationType ? getIntegrationHandler(integrationType) : null;
+    // ✅ CLOUDDY (28/07/2026): tem handler real, mas o login exige resolver
+    // um Cloudflare Turnstile — só possível no navegador de verdade do
+    // admin (via extensão), nunca no portal (cliente não tem como resolver
+    // captcha nem renovar a sessão sozinho). Tratado como "sem integração"
+    // aqui — cai no jsonError abaixo, igual qualquer app manual — e nas
+    // outras rotas do portal (list/detail/catalog/remove/request-setup),
+    // mesmo tendo useApi:true pro admin.
+    const handler = integrationType && integrationType !== "CLOUDDY" ? getIntegrationHandler(integrationType) : null;
     if (!handler || !(handler as any).useApi) {
       return jsonError("Esse aplicativo não tem integração automática disponível.", 400);
     }

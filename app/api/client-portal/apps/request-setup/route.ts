@@ -52,7 +52,12 @@ export async function POST(req: NextRequest) {
 
     const appName = (row as any).apps?.name || "Aplicativo";
     const integrationType = String((row as any).apps?.integration_type || "").trim().toUpperCase();
-    const handler = integrationType ? getIntegrationHandler(integrationType) : null;
+    // ✅ CLOUDDY (28/07/2026): tem handler real, mas o login exige resolver
+    // um Cloudflare Turnstile — só possível no navegador de verdade do
+    // admin (via extensão), nunca no portal. Tratado como "sem integração"
+    // aqui — deixa o pedido de "solicitar configuração" seguir normalmente
+    // — mesmo tendo useApi:true pro admin.
+    const handler = integrationType && integrationType !== "CLOUDDY" ? getIntegrationHandler(integrationType) : null;
     const hasWorkingIntegration = !!handler && (handler as any).useApi;
 
     if (hasWorkingIntegration) {

@@ -3144,6 +3144,225 @@ const canSyncAgenda = canSyncAuto;
         return prev;
       });
     }, 20000);
+  }
+
+  // ✅ ClouDDy (console.clouddy.online) — registrado no INTEGRATION_REGISTRY
+  // igual qualquer outro app (lib/integrations/clouddy.ts, useApi:true),
+  // MAS o login exige resolver um Cloudflare Turnstile real — testado
+  // exaustivamente numa VM (Playwright headless/headed via Xvfb,
+  // navigator.webdriver "corrigido", até com proxy residencial) e o
+  // Cloudflare sempre rejeitou (só o CDP em si já é detectado, não é IP nem
+  // conta). Por isso o login continua manual, pela extensão (navegador REAL
+  // do admin, sem CDP) — mas só PRA ISSO: ela captura o cookie PHPSESSID e
+  // salva em client_apps.field_values._clouddy_session. A partir daí,
+  // create/delete/check são chamadas normais em
+  // app/api/integrations/apps/clouddy/route.ts (fetch com esse cookie, sem
+  // captcha nenhum) — exatamente como qualquer outra integração.
+  async function handleClouddyLogin(instanceId: string) {
+    const currentApp = selectedApps.find((a) => a.instanceId === instanceId);
+    if (!currentApp) return;
+
+    const emailField = currentApp.fields_config?.find(
+      (f: any) => String(f?.type || "").toLowerCase() === "email",
+    );
+    const passField = currentApp.fields_config?.find(
+      (f: any) => String(f?.type || "").toLowerCase() === "password",
+    );
+    const email = emailField
+      ? currentApp.values[String(emailField.id || emailField.label)] || ""
+      : "";
+    const password = passField
+      ? currentApp.values[String(passField.id || passField.label)] || ""
+      : "";
+
+    if (!email || !password) {
+      addToast(
+        "error",
+        "Email/senha obrigatórios",
+        "Preencha o email e a senha do ClouDDy antes de renovar a sessão.",
+      );
+      return;
+    }
+
+    setLoading(true);
+    setLoadingStep("Abrindo ClouDDy na extensão...");
+
+    const responseHandler = async (e: any) => {
+      window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
+      setLoading(false);
+      setLoadingStep("");
+
+      if (e.detail?.ok && e.detail.sessionCookie && currentApp.client_app_id) {
+        const { data: currentDbData } = await supabaseBrowser
+          .from("client_apps")
+          .select("field_values")
+          .eq("id", currentApp.client_app_id)
+          .maybeSingle();
+        const dbVals = currentDbData?.field_values || {};
+        await supabaseBrowser
+          .from("client_apps")
+          .update({ field_values: { ...dbVals, _clouddy_session: e.detail.sessionCookie } })
+          .eq("id", currentApp.client_app_id);
+        addToast("success", "Sessão renovada", "Login OK — já pode usar Configurar/Remover normalmente.");
+      } else if (e.detail?.ok) {
+        addToast("warning", "Login OK, mas sem cookie", "Logou mas não consegui capturar a sessão — tente de novo.");
+      } else {
+        addToast(
+          "error",
+          "Falha no login",
+          e.detail?.error || "Não foi possível logar no ClouDDy.",
+        );
+      }
+    };
+    window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
+
+    window.dispatchEvent(
+      new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
+        detail: { action: "CLOUDDY_LOGIN", payload: { email, password } },
+      }),
+    );
+
+    setTimeout(() => {
+      setLoading((prev) => {
+        if (prev) {
+          window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
+          addToast(
+            "warning",
+            "Aviso",
+            "Sem resposta em 90s — confira a aba do ClouDDy (pode estar esperando você resolver o captcha).",
+          );
+          setLoadingStep("");
+          return false;
+        }
+        return prev;
+      });
+    }, 90000);
+  }
+
+  // ✅ ClouDDy — persiste o vencimento retornado pela rota no campo "date"
+  // do app (mesmo padrão de persistExpireDate usado no resto do arquivo).
+  async function persistClouddyExpireDate(currentApp: any, expireDate: string) {
+    const dateField = currentApp.fields_config?.find(
+      (f: any) => String(f?.type || "").toLowerCase() === "date",
+    );
+    if (!dateField) return;
+    const fieldKey = dateField.id || dateField.label;
+    updateAppFieldValue(currentApp.instanceId, String(fieldKey), expireDate);
+    if (currentApp.client_app_id) {
+      const { data: currentDbData } = await supabaseBrowser
+        .from("client_apps")
+        .select("field_values")
+        .eq("id", currentApp.client_app_id)
+        .maybeSingle();
+      const dbVals = currentDbData?.field_values || {};
+      await supabaseBrowser
+        .from("client_apps")
+        .update({ field_values: { ...dbVals, [String(fieldKey)]: expireDate } })
+        .eq("id", currentApp.client_app_id);
+    }
+  }
+
+  // ✅ ClouDDy — configura TV + VOD com o m3uUrl atual, via API normal
+  // (reaproveita a sessão salva por handleClouddyLogin — sem extensão).
+  async function handleClouddyConfigure(instanceId: string) {
+    const currentApp = selectedApps.find((a) => a.instanceId === instanceId);
+    if (!currentApp) return;
+    if (!currentApp.client_app_id) {
+      addToast("error", "Salve o cliente primeiro", "Precisa salvar o cliente antes de configurar o ClouDDy.");
+      return;
+    }
+
+    const m3uToSend = (m3uUrl || buildM3uUrlSilent() || "").trim();
+    if (!m3uToSend) {
+      addToast("error", "Sem link M3U", "Não foi possível gerar o link M3U. Verifique o DNS do servidor.");
+      return;
+    }
+
+    setLoading(true);
+    setLoadingStep("Configurando ClouDDy...");
+    try {
+      const res = await fetch("/api/integrations/apps/clouddy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create", client_app_id: currentApp.client_app_id, m3uUrl: m3uToSend }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json?.ok) {
+        if (json.expireDate) await persistClouddyExpireDate(currentApp, json.expireDate);
+        addToast(
+          "success",
+          "ClouDDy configurado",
+          json.expireDate
+            ? `TV + VOD atualizados. Vencimento: ${String(json.expireDate).split("-").reverse().join("/")}`
+            : "TV + VOD atualizados.",
+        );
+      } else {
+        addToast("error", "Falha ao configurar", json?.error || "Não foi possível configurar o ClouDDy.");
+      }
+    } catch (err: any) {
+      addToast("error", "Falha ao configurar", err.message || "Falha.");
+    } finally {
+      setLoading(false);
+      setLoadingStep("");
+    }
+  }
+
+  // ✅ ClouDDy — verifica o vencimento sem mexer em TV/VOD.
+  async function handleClouddyCheck(instanceId: string) {
+    const currentApp = selectedApps.find((a) => a.instanceId === instanceId);
+    if (!currentApp || !currentApp.client_app_id) return;
+
+    setLoading(true);
+    setLoadingStep("Verificando vencimento no ClouDDy...");
+    try {
+      const res = await fetch("/api/integrations/apps/clouddy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "check", client_app_id: currentApp.client_app_id }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json?.ok && json.expireDate) {
+        await persistClouddyExpireDate(currentApp, json.expireDate);
+        addToast("success", "Vencimento verificado", `ClouDDy: ${String(json.expireDate).split("-").reverse().join("/")}`);
+      } else if (json?.ok) {
+        addToast("warning", "Sem vencimento", json.message || "Não foi possível localizar o vencimento.");
+      } else {
+        addToast("error", "Não foi possível verificar", json?.error || "Falha desconhecida.");
+      }
+    } catch (err: any) {
+      addToast("error", "Não foi possível verificar", err.message || "Falha.");
+    } finally {
+      setLoading(false);
+      setLoadingStep("");
+    }
+  }
+
+  // ✅ ClouDDy — remove TV + VOD juntos, via API normal (não existe
+  // "remover só um dos dois" no fluxo deles).
+  async function handleClouddyDelete(instanceId: string) {
+    const currentApp = selectedApps.find((a) => a.instanceId === instanceId);
+    if (!currentApp || !currentApp.client_app_id) return;
+
+    setLoading(true);
+    setLoadingStep("Removendo ClouDDy...");
+    try {
+      const res = await fetch("/api/integrations/apps/clouddy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", client_app_id: currentApp.client_app_id }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json?.ok) {
+        addToast("success", "ClouDDy removido", "TV + VOD removidos.");
+      } else {
+        addToast("error", "Falha ao remover", json?.error || "Não foi possível remover no ClouDDy.");
+      }
+    } catch (err: any) {
+      addToast("error", "Falha ao remover", err.message || "Falha.");
+    } finally {
+      setLoading(false);
+      setLoadingStep("");
+    }
   } // ✅ Mobile: scroll automático para o input focado quando o teclado abre
 
   useEffect(() => {
@@ -6248,7 +6467,9 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                         ? "GerenciaApp"
                         : integrationType === "DUPLECAST"
                           ? "Duplecast"
-                          : integrationType;
+                          : integrationType === "CLOUDDY"
+                            ? "ClouDDy"
+                            : integrationType;
                     // ✅ NOVO: Cálculo de Vencimento do App
                     let diffDays = null;
                     const dateField = app.fields_config?.find(
@@ -6406,8 +6627,114 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                         {/* CONTEÚDO EXPANSÍVEL (Minimizar/Maximizar) */}
                         {!app.is_minimized && (
                           <div className="mt-0 animate-in slide-in-from-top-2 duration-200">
-                            {/* Configuração de Integração do App Limpa e Moderna */}
-                            {hasInteg && (
+                            {/* ClouDDy — fluxo à parte via extensão (sem
+                                INTEGRATION_REGISTRY), não depende de hasInteg */}
+                            {catApp?.name === "ClouDDy" && (
+                              <div className="bg-transparent border-0 mb-3 mt-2">
+                                <div className="grid grid-cols-3 gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleClouddyConfigure(app.instanceId)
+                                    }
+                                    disabled={loading}
+                                    className="h-10 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                                    title="Configura TV + VOD com o M3U do cliente e pega o vencimento"
+                                  >
+                                    <svg
+                                      className="w-4 h-4 shrink-0"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                      stroke="currentColor"
+                                      strokeWidth="2"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                                      />
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                      />
+                                    </svg>
+                                    Configurar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleClouddyCheck(app.instanceId)
+                                    }
+                                    disabled={loading}
+                                    className="h-10 rounded-lg bg-sky-500 hover:bg-sky-600 disabled:opacity-60 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                                    title="Verifica o vencimento sem mexer em TV/VOD"
+                                  >
+                                    <svg
+                                      className="w-4 h-4 shrink-0"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                      stroke="currentColor"
+                                      strokeWidth="2"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                                      />
+                                    </svg>
+                                    Verificar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleClouddyDelete(app.instanceId)
+                                    }
+                                    disabled={loading}
+                                    className="h-10 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-60 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                                    title="Remove TV + VOD"
+                                  >
+                                    <svg
+                                      className="w-4 h-4 shrink-0"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                      stroke="currentColor"
+                                      strokeWidth="2"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                      />
+                                    </svg>
+                                    Remover
+                                  </button>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleClouddyLogin(app.instanceId)
+                                  }
+                                  disabled={loading}
+                                  className="w-full h-8 mt-2 rounded-lg bg-transparent border border-border hover:bg-muted disabled:opacity-60 text-muted-foreground text-[11px] font-medium transition-colors flex items-center justify-center gap-1.5"
+                                  title="Loga de novo pra renovar a sessão salva (extensão)"
+                                >
+                                  Renovar sessão (extensão)
+                                </button>
+                                <p className="text-[10px] text-muted-foreground mt-1">
+                                  Configurar/Verificar/Remover usam a sessão
+                                  já salva — sem abrir nada. Se algum deles
+                                  disser "sessão expirada", clica em "Renovar
+                                  sessão": abre uma aba de verdade no seu
+                                  Chrome, e se aparecer o captcha do
+                                  Cloudflare, resolve manualmente nela.
+                                </p>
+                              </div>
+                            )}
+                            {/* Configuração de Integração do App Limpa e Moderna —
+                                ClouDDy fica de fora (é por CONTA, email+senha, sem
+                                MAC — usa o bloco próprio acima) */}
+                            {hasInteg && integrationType !== "CLOUDDY" && (
                               <div className="bg-transparent border-0 mb-3 mt-2">
                                 {isEditing ? (
                                   // EDIÇÃO: botões de ação direta
@@ -6952,7 +7279,9 @@ className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify
                                                   ? "IPTV Playerio"
                                                   : intType === "DUPLEXTV"
                                                     ? "Duplex TV"
-                                                    : intType;
+                                                    : intType === "CLOUDDY"
+                                                      ? "ClouDDy"
+                                                      : intType;
 
                             return (
                               <button
