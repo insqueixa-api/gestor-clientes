@@ -96,11 +96,7 @@ export async function POST(req: NextRequest) {
     // (apps.cost_type), não do snapshot por instância — ver comentário
     // completo em apps/list/route.ts.
     const isPartnership = (row as any).apps?.cost_type === "partnership";
-    // ✅ CLOUDDY (28/07/2026): tem handler real, mas o login exige
-    // resolver Cloudflare Turnstile — só possível no navegador do admin via
-    // extensão. Tratado como "sem integração" (manual) em TODAS as rotas do
-    // portal do cliente, mesmo tendo useApi:true pro admin.
-    const handler = integrationType && integrationType !== "CLOUDDY" ? getIntegrationHandler(integrationType) : null;
+    const handler = integrationType ? getIntegrationHandler(integrationType) : null;
     const canCheckValidity =
       !isPartnership && !!handler && (handler as any).useApi && CHECK_VALIDITY_HANDLERS.has((handler as any).actionPrefix);
 

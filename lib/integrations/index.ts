@@ -9,7 +9,6 @@ import { IboPlayerIntegration } from "./iboplayer";
 import { IptvDuplexIntegration } from "./iptvduplex";
 import { DuplexTvIntegration } from "./duplextv";
 import { IptvPlayerioIntegration } from "./iptvplayerio";
-import { ClouddyIntegration } from "./clouddy";
 
 const INTEGRATION_REGISTRY: Record<string, any> = {
     "GERENCIAAPP":      GerenciaAppIntegration,
@@ -31,7 +30,11 @@ const INTEGRATION_REGISTRY: Record<string, any> = {
     "IPTVDUPLEX":       IptvDuplexIntegration,
     "DUPLEXTV":         DuplexTvIntegration,
     "IPTVPLAYERIO":     IptvPlayerioIntegration,
-    "CLOUDDY":          ClouddyIntegration,
+    // ✅ CLOUDDY não entra aqui de propósito — igual o IBOSOL, é 100% via
+    // extensão (Cloudflare Turnstile real bloqueia qualquer chamada
+    // server-to-server). Ver "COMEÇO INTEGRAÇÃO: CLOUDDY" em
+    // unigestor-extensao/background.js e os handlers handleClouddy* em
+    // app/admin/cliente/novo_cliente.tsx.
 };
 
 export function getIntegrationHandler(integrationType: string) {

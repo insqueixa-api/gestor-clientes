@@ -3146,19 +3146,20 @@ const canSyncAgenda = canSyncAuto;
     }, 20000);
   }
 
-  // ✅ ClouDDy (console.clouddy.online) — registrado no INTEGRATION_REGISTRY
-  // igual qualquer outro app (lib/integrations/clouddy.ts, useApi:true), com
-  // Configurar/Verificar/Remover se comportando IGUAL aos demais (pedido do
-  // Márcio, 28/07/2026: "o admin tem que funcionar idêntico"). A ÚNICA
-  // diferença de verdade: o login exige resolver um Cloudflare Turnstile
-  // real — testado exaustivamente numa VM (Playwright headless/headed via
-  // Xvfb, navigator.webdriver "corrigido", até com proxy residencial) e o
-  // Cloudflare sempre rejeitou (só o CDP em si já é detectado, não IP nem
-  // conta). Por isso quando a rota diz needsLogin:true (sessão nunca criada
-  // ou expirada), os 3 handlers abaixo abrem a extensão sozinhos (sem
-  // precisar de um clique separado), esperam o login, e tentam de novo — do
-  // ponto de vista de quem clica, é só "Configurar"/"Verificar"/"Remover"
-  // igual sempre, só que às vezes abre uma aba real pra resolver o captcha.
+  // ✅ ClouDDy (console.clouddy.online) — igual o IBOSOL: sem
+  // INTEGRATION_REGISTRY/rota de API própria, tudo via extensão. Motivo:
+  // Cloudflare Turnstile real no login — testado exaustivamente numa VM
+  // (Playwright headless/headed via Xvfb, navigator.webdriver "corrigido",
+  // até com proxy residencial) e sempre rejeitou (só o CDP em si já é
+  // detectado). Só passa numa aba REAL (chrome.tabs.create, sem CDP).
+  //
+  // ⚠️ CADA CLIENTE TEM SUA PRÓPRIA CONTA no ClouDDy, e o cookie de sessão
+  // do Chrome é POR DOMÍNIO — não dá pra guardar/reaproveitar sessão entre
+  // clientes diferentes (pedido do Márcio, 28/07/2026: risco real de mexer
+  // na conta errada). Por isso CADA clique é 100% autocontido: a extensão
+  // abre a aba, loga com o email/senha DESSE cliente, faz a ação, e fecha a
+  // sessão (limpa o cookie + fecha a aba) antes de responder — sem guardar
+  // nada no banco entre uma chamada e outra.
   function getClouddyCreds(currentApp: any) {
     const emailField = currentApp.fields_config?.find(
       (f: any) => String(f?.type || "").toLowerCase() === "email",
@@ -3172,46 +3173,18 @@ const canSyncAgenda = canSyncAuto;
     };
   }
 
-  // Loga via extensão e persiste o cookie de sessão — usado tanto pelo botão
-  // manual "Renovar sessão" quanto automaticamente por callClouddyApi.
-  function renewClouddySession(currentApp: any): Promise<{ ok: boolean; error?: string }> {
+  function dispatchClouddyAction(
+    action: "CLOUDDY_CONFIGURE" | "CLOUDDY_CHECK" | "CLOUDDY_DELETE",
+    payload: Record<string, any>,
+  ): Promise<{ ok: boolean; error?: string; expireDate?: string | null }> {
     return new Promise((resolve) => {
-      const { email, password } = getClouddyCreds(currentApp);
-      if (!email || !password) {
-        resolve({ ok: false, error: "Preencha o email e a senha do ClouDDy." });
-        return;
-      }
-
-      setLoadingStep("Abrindo ClouDDy na extensão...");
-
-      const responseHandler = async (e: any) => {
+      const responseHandler = (e: any) => {
         window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
-
-        if (e.detail?.ok && e.detail.sessionCookie && currentApp.client_app_id) {
-          const { data: currentDbData } = await supabaseBrowser
-            .from("client_apps")
-            .select("field_values")
-            .eq("id", currentApp.client_app_id)
-            .maybeSingle();
-          const dbVals = currentDbData?.field_values || {};
-          await supabaseBrowser
-            .from("client_apps")
-            .update({ field_values: { ...dbVals, _clouddy_session: e.detail.sessionCookie } })
-            .eq("id", currentApp.client_app_id);
-          resolve({ ok: true });
-        } else if (e.detail?.ok) {
-          resolve({ ok: false, error: "Logou mas não consegui capturar a sessão — tente de novo." });
-        } else {
-          resolve({ ok: false, error: e.detail?.error || "Não foi possível logar no ClouDDy." });
-        }
+        resolve(e.detail?.ok ? e.detail : { ok: false, error: e.detail?.error || "Falha desconhecida." });
       };
       window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
 
-      window.dispatchEvent(
-        new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
-          detail: { action: "CLOUDDY_LOGIN", payload: { email, password } },
-        }),
-      );
+      window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", { detail: { action, payload } }));
 
       setTimeout(() => {
         window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
@@ -3220,46 +3193,9 @@ const canSyncAgenda = canSyncAuto;
     });
   }
 
-  // Chama a rota; se ela disser needsLogin (sessão nunca criada ou
-  // expirada), abre a extensão sozinho, loga, e tenta de novo — só 1 retry.
-  async function callClouddyApi(currentApp: any, action: string, extra: Record<string, any> = {}) {
-    const call = () =>
-      fetch("/api/integrations/apps/clouddy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, client_app_id: currentApp.client_app_id, ...extra }),
-      }).then((r) => r.json().catch(() => ({})));
-
-    let json = await call();
-    if (!json?.ok && json?.needsLogin) {
-      const login = await renewClouddySession(currentApp);
-      if (!login.ok) return { ok: false, error: login.error };
-      setLoadingStep("Tentando de novo...");
-      json = await call();
-    }
-    return json;
-  }
-
-  // ✅ ClouDDy — botão manual "Renovar sessão" (fallback pra quando quiser
-  // forçar login sem passar por Configurar/Verificar/Remover primeiro).
-  async function handleClouddyLogin(instanceId: string) {
-    const currentApp = selectedApps.find((a) => a.instanceId === instanceId);
-    if (!currentApp) return;
-
-    setLoading(true);
-    const result = await renewClouddySession(currentApp);
-    setLoading(false);
-    setLoadingStep("");
-
-    if (result.ok) {
-      addToast("success", "Sessão renovada", "Login OK.");
-    } else {
-      addToast("error", "Falha no login", result.error || "Não foi possível logar no ClouDDy.");
-    }
-  }
-
-  // ✅ ClouDDy — persiste o vencimento retornado pela rota no campo "date"
-  // do app (mesmo padrão de persistExpireDate usado no resto do arquivo).
+  // ✅ ClouDDy — persiste o vencimento retornado pela extensão no campo
+  // "date" do app (mesmo padrão de persistExpireDate usado no resto do
+  // arquivo).
   async function persistClouddyExpireDate(currentApp: any, expireDate: string) {
     const dateField = currentApp.fields_config?.find(
       (f: any) => String(f?.type || "").toLowerCase() === "date",
@@ -3281,12 +3217,15 @@ const canSyncAgenda = canSyncAuto;
     }
   }
 
-  // ✅ ClouDDy — configura TV + VOD com o m3uUrl atual.
+  // ✅ ClouDDy — abre, loga, pega o vencimento atual (pro toast), configura
+  // TV + VOD com o m3uUrl atual, e fecha a sessão.
   async function handleClouddyConfigure(instanceId: string) {
     const currentApp = selectedApps.find((a) => a.instanceId === instanceId);
     if (!currentApp) return;
-    if (!currentApp.client_app_id) {
-      addToast("error", "Salve o cliente primeiro", "Precisa salvar o cliente antes de configurar o ClouDDy.");
+
+    const { email, password } = getClouddyCreds(currentApp);
+    if (!email || !password) {
+      addToast("error", "Email/senha obrigatórios", "Preencha o email e a senha do ClouDDy antes de configurar.");
       return;
     }
 
@@ -3297,71 +3236,78 @@ const canSyncAgenda = canSyncAuto;
     }
 
     setLoading(true);
-    setLoadingStep("Configurando ClouDDy...");
+    setLoadingStep("Abrindo ClouDDy na extensão...");
     try {
-      const json = await callClouddyApi(currentApp, "create", { m3uUrl: m3uToSend });
-      if (json?.ok) {
-        if (json.expireDate) await persistClouddyExpireDate(currentApp, json.expireDate);
+      const result = await dispatchClouddyAction("CLOUDDY_CONFIGURE", { email, password, m3uUrl: m3uToSend });
+      if (result.ok) {
+        if (result.expireDate) await persistClouddyExpireDate(currentApp, result.expireDate);
         addToast(
           "success",
           "ClouDDy configurado",
-          json.expireDate
-            ? `TV + VOD atualizados. Vencimento: ${String(json.expireDate).split("-").reverse().join("/")}`
+          result.expireDate
+            ? `TV + VOD atualizados. Vencimento: ${String(result.expireDate).split("-").reverse().join("/")}`
             : "TV + VOD atualizados.",
         );
       } else {
-        addToast("error", "Falha ao configurar", json?.error || "Não foi possível configurar o ClouDDy.");
+        addToast("error", "Falha ao configurar", result.error || "Não foi possível configurar o ClouDDy.");
       }
-    } catch (err: any) {
-      addToast("error", "Falha ao configurar", err.message || "Falha.");
     } finally {
       setLoading(false);
       setLoadingStep("");
     }
   }
 
-  // ✅ ClouDDy — verifica o vencimento sem mexer em TV/VOD.
+  // ✅ ClouDDy — abre, loga, pega o vencimento, e fecha a sessão. Não mexe
+  // em TV/VOD.
   async function handleClouddyCheck(instanceId: string) {
     const currentApp = selectedApps.find((a) => a.instanceId === instanceId);
-    if (!currentApp || !currentApp.client_app_id) return;
+    if (!currentApp) return;
+
+    const { email, password } = getClouddyCreds(currentApp);
+    if (!email || !password) {
+      addToast("error", "Email/senha obrigatórios", "Preencha o email e a senha do ClouDDy antes de verificar.");
+      return;
+    }
 
     setLoading(true);
-    setLoadingStep("Verificando vencimento no ClouDDy...");
+    setLoadingStep("Abrindo ClouDDy na extensão...");
     try {
-      const json = await callClouddyApi(currentApp, "check");
-      if (json?.ok && json.expireDate) {
-        await persistClouddyExpireDate(currentApp, json.expireDate);
-        addToast("success", "Vencimento verificado", `ClouDDy: ${String(json.expireDate).split("-").reverse().join("/")}`);
-      } else if (json?.ok) {
-        addToast("warning", "Sem vencimento", json.message || "Não foi possível localizar o vencimento.");
+      const result = await dispatchClouddyAction("CLOUDDY_CHECK", { email, password });
+      if (result.ok && result.expireDate) {
+        await persistClouddyExpireDate(currentApp, result.expireDate);
+        addToast("success", "Vencimento verificado", `ClouDDy: ${String(result.expireDate).split("-").reverse().join("/")}`);
+      } else if (result.ok) {
+        addToast("warning", "Sem vencimento", "Não foi possível localizar o vencimento.");
       } else {
-        addToast("error", "Não foi possível verificar", json?.error || "Falha desconhecida.");
+        addToast("error", "Não foi possível verificar", result.error || "Falha desconhecida.");
       }
-    } catch (err: any) {
-      addToast("error", "Não foi possível verificar", err.message || "Falha.");
     } finally {
       setLoading(false);
       setLoadingStep("");
     }
   }
 
-  // ✅ ClouDDy — remove TV + VOD juntos (não existe "remover só um dos
-  // dois" no fluxo deles).
+  // ✅ ClouDDy — abre, loga, remove TV + VOD juntos (não existe "remover só
+  // um dos dois" no fluxo deles), e fecha a sessão.
   async function handleClouddyDelete(instanceId: string) {
     const currentApp = selectedApps.find((a) => a.instanceId === instanceId);
-    if (!currentApp || !currentApp.client_app_id) return;
+    if (!currentApp) return;
+
+    const { email, password } = getClouddyCreds(currentApp);
+    if (!email || !password) {
+      addToast("error", "Email/senha obrigatórios", "Preencha o email e a senha do ClouDDy antes de remover.");
+      return;
+    }
 
     setLoading(true);
-    setLoadingStep("Removendo ClouDDy...");
+    setLoadingStep("Abrindo ClouDDy na extensão...");
     try {
-      const json = await callClouddyApi(currentApp, "delete");
-      if (json?.ok) {
+      const result = await dispatchClouddyAction("CLOUDDY_DELETE", { email, password });
+      if (result.ok) {
         addToast("success", "ClouDDy removido", "TV + VOD removidos.");
       } else {
-        addToast("error", "Falha ao remover", json?.error || "Não foi possível remover no ClouDDy.");
+        addToast("error", "Falha ao remover", result.error || "Não foi possível remover no ClouDDy.");
       }
-    } catch (err: any) {
-      addToast("error", "Falha ao remover", err.message || "Falha.");
     } finally {
       setLoading(false);
       setLoadingStep("");
@@ -6740,25 +6686,13 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                                     Remover
                                   </button>
                                 </div>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleClouddyLogin(app.instanceId)
-                                  }
-                                  disabled={loading}
-                                  className="w-full h-8 mt-2 rounded-lg bg-transparent border border-border hover:bg-muted disabled:opacity-60 text-muted-foreground text-[11px] font-medium transition-colors flex items-center justify-center gap-1.5"
-                                  title="Força o login de novo, mesmo com sessão ainda válida"
-                                >
-                                  Renovar sessão (extensão)
-                                </button>
                                 <p className="text-[10px] text-muted-foreground mt-1">
-                                  Configurar/Verificar/Remover fazem login
-                                  sozinhos quando precisam (sessão nunca
-                                  criada ou expirada) — abre uma aba de
-                                  verdade no seu Chrome; se aparecer o captcha
-                                  do Cloudflare, resolve manualmente nela e o
-                                  resto continua automático. O botão abaixo é
-                                  só pra forçar renovar antes da hora.
+                                  Cada clique abre uma aba de verdade no seu
+                                  Chrome, loga com o email/senha desse
+                                  cliente, faz a ação e fecha a sessão. Se
+                                  aparecer o captcha do Cloudflare, resolve
+                                  manualmente na aba — o resto continua
+                                  sozinho.
                                 </p>
                               </div>
                             )}

@@ -174,11 +174,7 @@ export async function POST(req: NextRequest) {
       // Pro) ficavam com _config_cost="paid" salvo e mostravam vencimento
       // indevidamente. Import em massa também nunca preenche esse campo.
       const isPartnership = row.apps?.cost_type === "partnership";
-      // ✅ CLOUDDY (28/07/2026): tem handler real, mas o login exige
-      // resolver Cloudflare Turnstile — só possível no navegador do admin
-      // via extensão. Tratado como "sem integração" (manual) em TODAS as
-      // rotas do portal do cliente, mesmo tendo useApi:true pro admin.
-      const handler = integrationType && integrationType !== "CLOUDDY" ? getIntegrationHandler(integrationType) : null;
+      const handler = integrationType ? getIntegrationHandler(integrationType) : null;
       // ✅ "has_integration" decide se o botão "Reconfigurar" aparece — precisa
       // refletir automação REAL (handler.useApi), não só a presença de
       // integration_type. IBOSOL, por ex., tem handler cadastrado mas

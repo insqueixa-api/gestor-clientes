@@ -76,11 +76,7 @@ export async function POST(req: NextRequest) {
         // ✅ Mesmo cálculo do has_integration em list/route.ts — sinaliza no
         // picker (ícone ⚡, pedido do Márcio 26/07/2026) quais apps ativam
         // sozinhos vs. precisam de configuração manual pelo suporte.
-        // ✅ CLOUDDY (28/07/2026): tem handler real, mas o login exige
-        // resolver Cloudflare Turnstile — só possível no navegador do admin
-        // via extensão. Tratado como "sem integração" (manual) em TODAS as
-        // rotas do portal do cliente, mesmo tendo useApi:true pro admin.
-        const handler = integration_type && integration_type !== "CLOUDDY" ? getIntegrationHandler(integration_type) : null;
+        const handler = integration_type ? getIntegrationHandler(integration_type) : null;
         return {
           ...rest,
           cost_type: cost_type || null,
