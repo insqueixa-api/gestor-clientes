@@ -13,8 +13,10 @@ import FormattedTimeInput from "@/components/ui/FormattedTimeInput";
 import { APP_FIELD_LABELS, normalizeMacInput } from "@/lib/apps/field-types";
 import { ADMIN_CHECK_HANDLERS, resolveIntegrationTypeByName } from "@/lib/apps/panel";
 import { dispatchClouddyAction } from "@/lib/apps/clouddy-extension";
-import ReconfigureModeModal, { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
+import type { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
 import AppPickerModal from "@/components/apps/AppPickerModal";
+import AppIntegrationActions from "@/components/apps/AppIntegrationActions";
+import CopyFieldButton from "@/components/apps/CopyFieldButton";
 
 // --- TIPOS ---
 type SelectOption = {
@@ -1197,7 +1199,6 @@ const canSyncAgenda = canSyncAuto;
   // ✅ NOVO: external_user_id (ID do usuário no painel)
   const [externalUserId, setExternalUserId] = useState<string>("");
   const [serverDomains, setServerDomains] = useState<string[]>([]); // ✅ NOVO
-  const [reconfigureModeInstanceId, setReconfigureModeInstanceId] = useState<string | null>(null);
 
   // ✅ Templates WhatsApp
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
@@ -1308,9 +1309,6 @@ const canSyncAgenda = canSyncAuto;
   const [appIntegrations, setAppIntegrations] = useState<any[]>([]); // ✅ NOVO: Guarda as URLs dos Apps
   const [showAppSelector, setShowAppSelector] = useState(false);
   const [notes, setNotes] = useState("");
-  const [visibleAppPasswords, setVisibleAppPasswords] = useState<
-    Record<string, boolean>
-  >({}); // ✅ NOVO: Controle de visibilidade de senha por campo
 
   // ===== NORMALIZAÇÃO TELEFONE =====
   function applyPhoneNormalization(rawInput: string) {
@@ -4410,16 +4408,6 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
         </div>
       </div>
 
-      <ReconfigureModeModal
-        open={!!reconfigureModeInstanceId}
-        onClose={() => setReconfigureModeInstanceId(null)}
-        appName={selectedApps.find((a) => a.instanceId === reconfigureModeInstanceId)?.name || "Aplicativo"}
-        onChoose={(mode) => {
-          const instanceId = reconfigureModeInstanceId;
-          setReconfigureModeInstanceId(null);
-          if (instanceId) handleConfigApp(instanceId, mode);
-        }}
-      />
       <div
         className="fixed inset-0 z-[99990] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200"
         onPointerDown={(e) => {
@@ -5920,332 +5908,81 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                         {/* CONTEÚDO EXPANSÍVEL (Minimizar/Maximizar) */}
                         {!app.is_minimized && (
                           <div className="mt-0 animate-in slide-in-from-top-2 duration-200">
-                            {/* ClouDDy — fluxo à parte via extensão (sem
-                                INTEGRATION_REGISTRY), não depende de hasInteg */}
+                            {/* Bloco de ações — compartilhado com o
+                                AppRequestModal (log de pedidos da
+                                Auditoria), pra não ter dois comportamentos
+                                de Configurar/Verificar/Remover pelo sistema.
+                                ClouDDy é por CONTA (email+senha, sem MAC) —
+                                aparece independente de isEditing. */}
                             {catApp?.name === "ClouDDy" && (
-                              <div className="bg-transparent border-0 mb-3 mt-2">
-                                <div className="grid grid-cols-3 gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleClouddyConfigure(app.instanceId)
-                                    }
-                                    disabled={loading}
-                                    className="h-10 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
-                                    title="Configura TV + VOD com o M3U do cliente e pega o vencimento"
-                                  >
-                                    <svg
-                                      className="w-4 h-4 shrink-0"
-                                      fill="none"
-                                      viewBox="0 0 24 24"
-                                      stroke="currentColor"
-                                      strokeWidth="2"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                                      />
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                                      />
-                                    </svg>
-                                    Configurar
-                                  </button>
-                                  <div className="h-10 rounded-lg border border-border overflow-hidden flex divide-x divide-border">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const intDataClouddy = appIntegrations.find(
-                                          (a) => a.app_name.toUpperCase() === "CLOUDDY",
-                                        );
-                                        const url = intDataClouddy?.api_url || "https://console.clouddy.online";
-                                        window.open(url, "_blank");
-                                      }}
-                                      className="flex-1 bg-transparent text-muted-foreground hover:bg-muted transition-colors flex items-center justify-center"
-                                      title="Abrir painel no navegador"
-                                    >
-                                      <svg
-                                        className="w-4 h-4 shrink-0"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                        strokeWidth="2"
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                                        />
-                                      </svg>
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        handleClouddyCheck(app.instanceId)
-                                      }
-                                      disabled={loading}
-                                      className="flex-1 bg-transparent text-emerald-500 hover:bg-emerald-500/10 disabled:opacity-60 transition-colors flex items-center justify-center"
-                                      title="Verificar vencimento (sem mexer em TV/VOD)"
-                                    >
-                                      <svg
-                                        className="w-4 h-4 shrink-0"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                        strokeWidth="2"
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                                        />
-                                      </svg>
-                                    </button>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleClouddyDelete(app.instanceId)
-                                    }
-                                    disabled={loading}
-                                    className="h-10 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-60 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
-                                    title="Remove TV + VOD"
-                                  >
-                                    <svg
-                                      className="w-4 h-4 shrink-0"
-                                      fill="none"
-                                      viewBox="0 0 24 24"
-                                      stroke="currentColor"
-                                      strokeWidth="2"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                      />
-                                    </svg>
-                                    Remover
-                                  </button>
-                                </div>
-                                <p className="text-[10px] text-muted-foreground mt-1">
-                                  Cada clique abre uma aba de verdade no seu
-                                  Chrome, loga com o email/senha desse
-                                  cliente, faz a ação e fecha a sessão. Se
-                                  aparecer o captcha do Cloudflare, resolve
-                                  manualmente na aba — o resto continua
-                                  sozinho.
-                                </p>
+                              <div className="mb-3 mt-2">
+                                <AppIntegrationActions
+                                  isClouddy
+                                  hasApiIntegration={false}
+                                  appLabel={appLabel}
+                                  panelUrl={
+                                    appIntegrations.find((a) => a.app_name.toUpperCase() === "CLOUDDY")?.api_url ||
+                                    "https://console.clouddy.online"
+                                  }
+                                  canCheckVencimento={false}
+                                  loading={loading}
+                                  onOpenPanel={() => {
+                                    const url =
+                                      appIntegrations.find((a) => a.app_name.toUpperCase() === "CLOUDDY")?.api_url ||
+                                      "https://console.clouddy.online";
+                                    window.open(url, "_blank");
+                                  }}
+                                  onConfigure={() => {}}
+                                  onCheck={() => {}}
+                                  onClouddyConfigure={() => handleClouddyConfigure(app.instanceId)}
+                                  onClouddyCheck={() => handleClouddyCheck(app.instanceId)}
+                                  onClouddyDelete={() => handleClouddyDelete(app.instanceId)}
+                                />
                               </div>
                             )}
-                            {/* Configuração de Integração do App Limpa e Moderna —
-                                ClouDDy fica de fora (é por CONTA, email+senha, sem
-                                MAC — usa o bloco próprio acima) */}
-                            {hasInteg && integrationType !== "CLOUDDY" && (
+
+                            {hasInteg && catApp?.name !== "ClouDDy" && (
                               <div className="bg-transparent border-0 mb-3 mt-2">
                                 {isEditing ? (
-                                  // EDIÇÃO: botões de ação direta
-                                  <div
-                                    className={`grid gap-2 ${canAutoDelete ? "grid-cols-3" : "grid-cols-2"}`}
-                                  >
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        setReconfigureModeInstanceId(app.instanceId)
-                                      }
-                                      className="h-10 rounded-lg bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
-                                      title="Enviar dados para o painel"
-                                    >
-                                      <svg
-                                        className="w-4 h-4 shrink-0"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                        strokeWidth="2"
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                                        />
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                                        />
-                                      </svg>
-                                      <span className="hidden sm:inline">
-                                        Configurar m3u
-                                      </span>
-                                      <span className="sm:hidden">
-                                        Configurar
-                                      </span>
-                                    </button>
-                                    {canCheckVencimento ? (
-                                      // Painel dividido em 2 ícones: abrir
-                                      // site + verificar vencimento
-                                      <div className="h-10 rounded-lg border border-border overflow-hidden flex divide-x divide-border">
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            const catAppLink = catalog.find(
-                                              (c) => c.id === app.app_id,
-                                            ) as any;
-                                            const intKeyLink = String(
-                                              catAppLink?.integration_type ||
-                                                "",
-                                            )
-                                              .trim()
-                                              .toUpperCase();
-                                            const intDataLink =
-                                              appIntegrations.find(
-                                                (a) =>
-                                                  a.app_name.toUpperCase() ===
-                                                  intKeyLink,
-                                              );
-                                            const url =
-                                              intDataLink?.api_url || "";
-                                            if (url)
-                                              window.open(url, "_blank");
-                                            else
-                                              addToast(
-                                                "warning",
-                                                "Sem URL",
-                                                "Nenhum link configurado para esta integração.",
-                                              );
-                                          }}
-                                          className="flex-1 bg-transparent text-muted-foreground hover:bg-muted transition-colors flex items-center justify-center"
-                                          title="Abrir painel no navegador"
-                                        >
-                                          <svg
-                                            className="w-4 h-4 shrink-0"
-                                            fill="none"
-                                            viewBox="0 0 24 24"
-                                            stroke="currentColor"
-                                            strokeWidth="2"
-                                          >
-                                            <path
-                                              strokeLinecap="round"
-                                              strokeLinejoin="round"
-                                              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                                            />
-                                          </svg>
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            handleCheckApp(app.instanceId)
-                                          }
-                                          className="flex-1 bg-transparent text-emerald-500 hover:bg-emerald-500/10 transition-colors flex items-center justify-center"
-                                          title="Verificar vencimento no painel"
-                                        >
-                                          <svg
-                                            className="w-4 h-4 shrink-0"
-                                            fill="none"
-                                            viewBox="0 0 24 24"
-                                            stroke="currentColor"
-                                            strokeWidth="2"
-                                          >
-                                            <path
-                                              strokeLinecap="round"
-                                              strokeLinejoin="round"
-                                              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                                            />
-                                          </svg>
-                                        </button>
-                                      </div>
-                                    ) : (
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const catAppLink = catalog.find(
-                                            (c) => c.id === app.app_id,
-                                          ) as any;
-                                          const intKeyLink = String(
-                                            catAppLink?.integration_type || "",
-                                          )
-                                            .trim()
-                                            .toUpperCase();
-                                          const intDataLink =
-                                            appIntegrations.find(
-                                              (a) =>
-                                                a.app_name.toUpperCase() ===
-                                                intKeyLink,
-                                            );
-                                          const url =
-                                            intDataLink?.api_url || "";
-                                          if (url) window.open(url, "_blank");
-                                          else
-                                            addToast(
-                                              "warning",
-                                              "Sem URL",
-                                              "Nenhum link configurado para esta integração.",
-                                            );
-                                        }}
-                                        className="h-10 rounded-lg bg-transparent border border-border text-muted-foreground hover:bg-muted transition-colors flex items-center justify-center gap-1.5"
-                                        title="Abrir painel no navegador"
-                                      >
-                                        <svg
-                                          className="w-4 h-4 shrink-0"
-                                          fill="none"
-                                          viewBox="0 0 24 24"
-                                          stroke="currentColor"
-                                          strokeWidth="2"
-                                        >
-                                          <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                                          />
-                                        </svg>
-                                        <span className="hidden sm:inline text-xs font-medium">
-                                          Painel
-                                        </span>
-                                      </button>
-                                    )}
-                                    {canAutoDelete && (
-                                      <button
-                                        type="button"
-                                        onClick={async () => {
-                                          const ok = await confirm({
-                                            title: `Remover do ${appLabel}?`,
-                                            subtitle: `Isso apagará o MAC do painel oficial.`,
-                                            tone: "rose",
-                                            confirmText: "Sim, remover",
-                                            cancelText: "Cancelar",
-                                          });
-                                          if (ok)
-                                            await handleDeleteApp(
-                                              app.instanceId,
-                                            );
-                                        }}
-                                        className="h-10 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-1.5"
-                                        title="Remover do painel oficial"
-                                      >
-                                        <svg
-                                          className="w-4 h-4 shrink-0"
-                                          fill="none"
-                                          viewBox="0 0 24 24"
-                                          stroke="currentColor"
-                                          strokeWidth="2"
-                                        >
-                                          <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                          />
-                                        </svg>
-                                        <span className="hidden sm:inline">
-                                          Remover m3u
-                                        </span>
-                                        <span className="sm:hidden">
-                                          Remover
-                                        </span>
-                                      </button>
-                                    )}
-                                  </div>
+                                  <AppIntegrationActions
+                                    isClouddy={false}
+                                    hasApiIntegration
+                                    appLabel={appLabel}
+                                    panelUrl={
+                                      appIntegrations.find((a) => a.app_name.toUpperCase() === integrationType)
+                                        ?.api_url || ""
+                                    }
+                                    canCheckVencimento={canCheckVencimento}
+                                    showRemoveButton={canAutoDelete}
+                                    loading={loading}
+                                    onOpenPanel={() => {
+                                      const url =
+                                        appIntegrations.find((a) => a.app_name.toUpperCase() === integrationType)
+                                          ?.api_url || "";
+                                      if (url) window.open(url, "_blank");
+                                      else
+                                        addToast(
+                                          "warning",
+                                          "Sem URL",
+                                          "Nenhum link configurado para esta integração.",
+                                        );
+                                    }}
+                                    onConfigure={(mode) => handleConfigApp(app.instanceId, mode)}
+                                    onCheck={() => handleCheckApp(app.instanceId)}
+                                    onRemove={async () => {
+                                      const ok = await confirm({
+                                        title: `Remover do ${appLabel}?`,
+                                        subtitle: `Isso apagará o MAC do painel oficial.`,
+                                        tone: "rose",
+                                        confirmText: "Sim, remover",
+                                        cancelText: "Cancelar",
+                                      });
+                                      if (ok) await handleDeleteApp(app.instanceId);
+                                    }}
+                                    onClouddyConfigure={() => {}}
+                                    onClouddyCheck={() => {}}
+                                    onClouddyDelete={() => {}}
+                                  />
                                 ) : (
                                   // CRIAÇÃO (Teste / Teste Rápido): toggle de configuração automática
                                   <div
@@ -6256,7 +5993,7 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                                         !(app.auto_configure !== false),
                                       )
                                     }
-className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify-between gap-3 transition-colors ${
+                                    className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify-between gap-3 transition-colors ${
                                       app.auto_configure !== false
                                         ? "bg-sky-500/10 border-sky-500/30"
                                         : "bg-muted/50 border-border"
@@ -6319,10 +6056,6 @@ className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify
                                       String(
                                         field?.type || "",
                                       ).toUpperCase() === "MAC";
-                                    const isPasswordField =
-                                      String(
-                                        field?.type || "",
-                                      ).toLowerCase() === "password";
                                     const safeKey =
                                       fieldKey ||
                                       rawLabel ||
@@ -6340,22 +6073,12 @@ className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify
                                         : "") ||
                                       "";
 
-                                    const isVisible =
-                                      visibleAppPasswords[safeKey] || false;
-                                    const currentType = isDateField
-                                      ? "date"
-                                      : isPasswordField
-                                        ? isVisible
-                                          ? "text"
-                                          : "password"
-                                        : "text";
-
                                     return (
                                       <div key={safeKey}>
                                         <Label>{label || "Campo"}</Label>
                                         <div className="relative">
                                           <FormattedDateInput
-                                            type={currentType}
+                                            type={isDateField ? "date" : "text"}
                                             value={fieldValue}
                                             onChange={(e: any) => {
                                               const raw = e.target.value;
@@ -6381,107 +6104,23 @@ className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify
                                               isMacField ? "characters" : "none"
                                             }
                                             spellCheck={false}
-                                            // ✅ Ajusta o padding para caber os dois botões (Copiar + Olho) ou apenas o Copiar
-                                            className={`${isPasswordField ? "pr-16" : !isDateField ? "pr-10" : ""}`}
+                                            className={!isDateField ? "pr-10" : ""}
                                           />
 
-                                          {/* ✅ NOVO BOTÃO DE COPIAR RÁPIDO (Apenas se não for data e se tiver valor) */}
                                           {!isDateField && fieldValue && (
-                                            <button
-                                              type="button"
-                                              onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                navigator.clipboard.writeText(
-                                                  fieldValue,
-                                                );
+                                            <CopyFieldButton
+                                              value={fieldValue}
+                                              label={label || "Campo"}
+                                              onCopy={(fieldLabel, value) => {
+                                                navigator.clipboard.writeText(value);
                                                 addToast(
                                                   "success",
                                                   "Copiado!",
-                                                  `${label || "Campo"} copiado com sucesso.`,
+                                                  `${fieldLabel} copiado com sucesso.`,
                                                 );
                                               }}
-                                              // Se for senha, empurra o botão de copiar pro lado para não sobrepor o olho
-                                              className={`absolute top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-sky-500 transition-colors ${isPasswordField ? "right-9" : "right-2"}`}
-                                              title="Copiar conteúdo"
-                                              tabIndex={-1}
-                                            >
-                                              <svg
-                                                width="14"
-                                                height="14"
-                                                viewBox="0 0 24 24"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                strokeWidth="2.5"
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                              >
-                                                <rect
-                                                  x="9"
-                                                  y="9"
-                                                  width="13"
-                                                  height="13"
-                                                  rx="2"
-                                                  ry="2"
-                                                ></rect>
-                                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                                              </svg>
-                                            </button>
-                                          )}
-
-                                          {isPasswordField && (
-                                            <button
-                                              type="button"
-                                              onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                setVisibleAppPasswords(
-                                                  (prev) => ({
-                                                    ...prev,
-                                                    [safeKey]: !prev[safeKey],
-                                                  }),
-                                                );
-                                              }}
-                                              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors"
-                                              tabIndex={-1}
-                                            >
-                                              {isVisible ? (
-                                                <svg
-                                                  xmlns="http://www.w3.org/2000/svg"
-                                                  fill="none"
-                                                  viewBox="0 0 24 24"
-                                                  strokeWidth={1.5}
-                                                  stroke="currentColor"
-                                                  className="w-5 h-5"
-                                                >
-                                                  <path
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88"
-                                                  />
-                                                </svg>
-                                              ) : (
-                                                <svg
-                                                  xmlns="http://www.w3.org/2000/svg"
-                                                  fill="none"
-                                                  viewBox="0 0 24 24"
-                                                  strokeWidth={1.5}
-                                                  stroke="currentColor"
-                                                  className="w-5 h-5"
-                                                >
-                                                  <path
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"
-                                                  />
-                                                  <path
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
-                                                  />
-                                                </svg>
-                                              )}
-                                            </button>
+                                              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-sky-500 transition-colors"
+                                            />
                                           )}
                                         </div>
                                       </div>

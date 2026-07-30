@@ -8,6 +8,9 @@ import { getIntegrationHandler } from "@/lib/integrations";
 import { dispatchClouddyAction } from "@/lib/apps/clouddy-extension";
 import type { AppFieldConfig, IntegrationHandler } from "@/lib/apps/types";
 import type { ConfirmDialogProps } from "@/components/ui/ConfirmDialog";
+import type { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
+import AppIntegrationActions from "@/components/apps/AppIntegrationActions";
+import CopyFieldButton from "@/components/apps/CopyFieldButton";
 
 type ToastFn = (type: "success" | "error" | "warning", title: string, message?: string) => void;
 type ConfirmFn = (options: Omit<ConfirmDialogProps, "open" | "onConfirm" | "onCancel" | "loading">) => Promise<boolean>;
@@ -55,8 +58,6 @@ export default function AppRequestModal({
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<LoadedData | null>(null);
   const [busy, setBusy] = useState(false);
-  const [showPassword, setShowPassword] = useState<Record<string, boolean>>({});
-  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   useEffect(() => {
     async function resolvePanelUrl(integrationType: string) {
@@ -191,10 +192,9 @@ export default function AppRequestModal({
     };
   }
 
-  function copyField(key: string, value: string) {
+  function copyField(label: string, value: string) {
     navigator.clipboard?.writeText(value);
-    setCopiedField(key);
-    setTimeout(() => setCopiedField((k) => (k === key ? null : k)), 2000);
+    addToast("success", "Copiado!", `${label} copiado com sucesso.`);
   }
 
   async function persistFieldValue(fieldKey: string, value: string) {
@@ -206,11 +206,11 @@ export default function AppRequestModal({
   }
 
   // ===== Ações — apps com API própria (a maioria) =====
-  async function handleConfigure() {
+  async function handleConfigure(mode: ReconfigureMode) {
     if (!clientAppId) return;
     setBusy(true);
     try {
-      const result = await apiCall("/api/admin/apps/configure", { tenant_id: tenantId, client_app_id: clientAppId, mode: "principal" });
+      const result = await apiCall("/api/admin/apps/configure", { tenant_id: tenantId, client_app_id: clientAppId, mode });
       addToast("success", "Configurado", result.message || "Tentativa de configuração enviada.");
     } catch (e: any) {
       addToast("error", "Erro ao configurar", e?.message || "Falha");
@@ -395,103 +395,43 @@ export default function AppRequestModal({
                 const key = fieldKeyOf(f);
                 const type = String(f.type || "").toLowerCase();
                 const raw = data.fieldValues[key] || "";
-                const isPassword = type === "password";
                 const display = type === "date" ? (extractDateOnly(raw) ? extractDateOnly(raw)!.split("-").reverse().join("/") : raw || "—") : raw || "—";
-                const revealed = showPassword[key];
                 return (
                   <div key={key} className="flex items-center justify-between gap-2 bg-muted/40 border border-border rounded-lg px-3 py-2">
                     <div className="min-w-0">
                       <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{f.label || type}</p>
-                      <p className="font-medium truncate">
-                        {isPassword && !revealed && raw ? "•".repeat(Math.min(raw.length, 10)) : display}
-                      </p>
+                      <p className="font-medium truncate">{display}</p>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      {isPassword && raw && (
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword((p) => ({ ...p, [key]: !p[key] }))}
-                          className="text-xs text-muted-foreground hover:text-foreground px-1.5 py-1"
-                          title={revealed ? "Ocultar" : "Mostrar"}
-                        >
-                          {revealed ? "🙈" : "👁️"}
-                        </button>
-                      )}
-                      {raw && (
-                        <button
-                          type="button"
-                          onClick={() => copyField(key, raw)}
-                          className="text-xs text-muted-foreground hover:text-foreground px-1.5 py-1"
-                          title="Copiar"
-                        >
-                          {copiedField === key ? "✅" : "📋"}
-                        </button>
-                      )}
-                    </div>
+                    {raw && (
+                      <CopyFieldButton
+                        value={raw}
+                        label={f.label || type}
+                        onCopy={copyField}
+                        className="shrink-0 text-muted-foreground hover:text-sky-500 transition-colors px-1.5 py-1"
+                      />
+                    )}
                   </div>
                 );
               })}
             </div>
 
-            {clientAppId && isClouddy && (
+            {clientAppId && (isClouddy || hasApiIntegration) && (
               <div className="pt-2 border-t border-border">
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={handleClouddyConfigure}
-                    className="h-10 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white text-xs font-bold transition-colors"
-                    title="Configura TV + VOD com o M3U do cliente e pega o vencimento"
-                  >
-                    Configurar
-                  </button>
-                  <div className="h-10 rounded-lg border border-border overflow-hidden flex divide-x divide-border">
-                    <button type="button" onClick={openPanel} className="flex-1 bg-transparent text-muted-foreground hover:bg-muted transition-colors text-xs" title="Abrir painel no navegador">
-                      🔗
-                    </button>
-                    <button type="button" disabled={busy} onClick={handleClouddyCheck} className="flex-1 bg-transparent text-emerald-500 hover:bg-emerald-500/10 disabled:opacity-60 transition-colors text-xs" title="Verificar vencimento (sem mexer em TV/VOD)">
-                      ✓
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={handleClouddyDelete}
-                    className="h-10 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-60 text-white text-xs font-bold transition-colors"
-                    title="Remove TV + VOD"
-                  >
-                    Remover
-                  </button>
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-1.5">
-                  Cada clique abre uma aba de verdade no seu Chrome, loga com o email/senha desse cliente, faz a ação e fecha a sessão. Se aparecer o captcha do Cloudflare, resolve manualmente na aba — o resto continua sozinho.
-                </p>
-              </div>
-            )}
-
-            {clientAppId && !isClouddy && hasApiIntegration && (
-              <div className="pt-2 border-t border-border">
-                <div className={`grid gap-2 ${data.panelUrl || canCheck ? "grid-cols-2" : "grid-cols-1"}`}>
-                  <button disabled={busy} onClick={handleConfigure} className="h-10 px-3 bg-emerald-500/10 text-emerald-500 rounded-lg border border-emerald-500/20 disabled:opacity-50 text-xs font-bold">
-                    Configurar
-                  </button>
-                  {canCheck ? (
-                    <div className="h-10 rounded-lg border border-border overflow-hidden flex divide-x divide-border">
-                      <button type="button" onClick={openPanel} className="flex-1 bg-transparent text-muted-foreground hover:bg-muted transition-colors text-xs" title="Abrir painel no navegador">
-                        🔗
-                      </button>
-                      <button disabled={busy} onClick={handleCheck} className="flex-1 bg-transparent text-sky-500 hover:bg-sky-500/10 disabled:opacity-50 transition-colors text-xs" title="Verificar validade">
-                        Verificar
-                      </button>
-                    </div>
-                  ) : (
-                    data.panelUrl && (
-                      <button type="button" onClick={openPanel} className="h-10 px-3 bg-transparent border border-border text-muted-foreground hover:bg-muted rounded-lg text-xs font-bold">
-                        Abrir painel
-                      </button>
-                    )
-                  )}
-                </div>
+                <AppIntegrationActions
+                  isClouddy={isClouddy}
+                  hasApiIntegration={hasApiIntegration}
+                  appLabel={data.appName}
+                  panelUrl={data.panelUrl}
+                  canCheckVencimento={canCheck}
+                  showRemoveButton={false}
+                  loading={busy}
+                  onOpenPanel={openPanel}
+                  onConfigure={handleConfigure}
+                  onCheck={handleCheck}
+                  onClouddyConfigure={handleClouddyConfigure}
+                  onClouddyCheck={handleClouddyCheck}
+                  onClouddyDelete={handleClouddyDelete}
+                />
               </div>
             )}
 
