@@ -19,6 +19,8 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { APP_FIELD_LABELS } from "@/lib/apps/field-types";
+import CopyFieldButton from "@/components/apps/CopyFieldButton";
 
 type ToastFn = (type: "success" | "error" | "warning", title: string, message?: string) => void;
 
@@ -27,8 +29,11 @@ type LoadedData = {
   serverUsername: string;
   serverName: string;
   appName: string;
-  macValue: string;
-  deviceKey: string;
+  // Campos dinâmicos do app (MAC/Device Key pros comuns, email/senha pro
+  // ClouDDy, etc.) — antes fixo em "Device ID"/"Device Key", quebrava pra
+  // qualquer app que não usasse esses dois campos (mesmo bug corrigido no
+  // AppRequestModal).
+  fields: { key: string; label: string; value: string }[];
   oldExpireDate: string | null;
   hasIntegration: boolean;
 };
@@ -78,11 +83,18 @@ export default function AppRenewalModal({
 
       const vals = (row as any).field_values || {};
       const config: any[] = Array.isArray((row as any).apps?.fields_config) ? (row as any).apps.fields_config : [];
-      const macField = config.find((f: any) => f.type === "mac");
-      const keyField = config.find((f: any) => f.type === "device_key");
       const dateField = config.find((f: any) => f.type === "date");
-      const macValue = macField ? String(vals[macField.id] ?? vals[macField.label] ?? "") : "";
-      const deviceKey = keyField ? String(vals[keyField.id] ?? vals[keyField.label] ?? "") : "";
+      const fields = config
+        .filter((f: any) => f.type !== "date")
+        .map((f: any) => {
+          const key = String(f.id ?? f.label ?? "").trim();
+          const raw = vals[f.id] ?? vals[f.label] ?? "";
+          return {
+            key,
+            label: APP_FIELD_LABELS[String(f.type ?? "")] || String(f.label || "").trim() || "Campo",
+            value: raw != null ? String(raw) : "",
+          };
+        });
       const oldExpireDateRaw = dateField ? (vals[dateField.id] ?? vals[dateField.label] ?? null) : null;
       const oldExpireDate = oldExpireDateRaw ? String(oldExpireDateRaw).split("T")[0] : null;
 
@@ -91,8 +103,7 @@ export default function AppRenewalModal({
         serverUsername: (row as any).clients?.server_username || "",
         serverName: (row as any).clients?.servers?.name || "",
         appName: (row as any).apps?.name || "Aplicativo",
-        macValue,
-        deviceKey,
+        fields,
         oldExpireDate,
         hasIntegration: !!(row as any).apps?.integration_type,
       });
@@ -216,8 +227,29 @@ export default function AppRenewalModal({
             <Row label="Nome do cliente" value={data.clientName} />
             <Row label="Servidor" value={`${data.serverUsername || "—"}${data.serverName ? ` (${data.serverName})` : ""}`} />
             <Row label="Aplicativo renovado" value={data.appName} />
-            <Row label="Device ID" value={data.macValue || "—"} />
-            <Row label="Device Key" value={data.deviceKey || "—"} />
+            {data.fields.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic">Este app não tem campos configurados.</p>
+            ) : (
+              data.fields.map((f) => (
+                <div key={f.key || f.label} className="flex items-center justify-between gap-2">
+                  <span className="text-muted-foreground">{f.label}:</span>
+                  <span className="font-medium text-foreground text-right flex items-center gap-1">
+                    {f.value || "—"}
+                    {f.value && (
+                      <CopyFieldButton
+                        value={f.value}
+                        label={f.label}
+                        onCopy={(label, value) => {
+                          navigator.clipboard.writeText(value);
+                          addToast("success", "Copiado!", `${label} copiado com sucesso.`);
+                        }}
+                        className="text-muted-foreground hover:text-sky-500 transition-colors p-1"
+                      />
+                    )}
+                  </span>
+                </div>
+              ))
+            )}
             <Row
               label="Vencimento (antigo)"
               value={data.oldExpireDate ? data.oldExpireDate.split("-").reverse().join("/") : "—"}
