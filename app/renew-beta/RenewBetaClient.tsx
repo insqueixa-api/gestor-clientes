@@ -300,6 +300,7 @@ export default function RenewClient() {
   const [renewPayment, setRenewPayment] = useState<AppPayment | null>(null);
   const [renewPaymentBusyId, setRenewPaymentBusyId] = useState<string | null>(null);
   const [renewPaymentDone, setRenewPaymentDone] = useState(false);
+  const [copiedAppPixCode, setCopiedAppPixCode] = useState(false);
   const [renewPollInterval, setRenewPollInterval] = useState<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -3675,73 +3676,151 @@ export default function RenewClient() {
                 }}
               />
 
-              {/* Modal de pagamento avulso da licença — nunca mexe na assinatura */}
-              {renewPayment && (
-                <div
-                  className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-                  onMouseDown={(e) => {
-                    if (e.target === e.currentTarget && renewPaymentDone) closeRenewPaymentModal();
-                  }}
-                >
-                  <div className="w-full max-w-sm bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-4">
-                    {renewPaymentDone ? (
-                      <>
-                        <div className="flex flex-col items-center gap-2 text-center py-4">
-                          <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center text-3xl">✅</div>
-                          <p className="text-base font-bold text-foreground">Pagamento confirmado!</p>
-                          <p className="text-xs text-muted-foreground">
-                            Recebemos seu pagamento e nosso suporte já foi avisado.
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            A renovação dessa licença é feita manualmente por aqui — assim que for concluída, a nova validade aparece sozinha na tela do aplicativo, sem você precisar fazer mais nada.
-                          </p>
-                        </div>
-                        <button
-                          onClick={closeRenewPaymentModal}
-                          className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
-                        >
-                          Fechar
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-bold text-foreground">
-                            Renovar licença — {installedApps.find((a) => a.id === renewPayment.clientAppId)?.name}
-                          </p>
-                          <button onClick={closeRenewPaymentModal} className="text-muted-foreground hover:text-foreground text-xs">
-                            ✕
-                          </button>
-                        </div>
-                        <p className="text-xs text-muted-foreground text-center">
-                          {formatMoney(renewPayment.price_amount, "BRL")} — escaneie o QR Code ou copie o código PIX
-                        </p>
-                        {renewPayment.pix_qr_code_base64 && (
-                          <img
-                            src={`data:image/png;base64,${renewPayment.pix_qr_code_base64}`}
-                            alt="QR Code PIX"
-                            className="w-48 h-48 mx-auto rounded-lg border border-border"
-                          />
-                        )}
-                        {renewPayment.pix_qr_code && (
+              {/* Modal de pagamento avulso da licença — nunca mexe na assinatura.
+                  Mesmo padrão visual/informativo do modal de renovação do
+                  plano (PaymentModal): cabeçalho, resumo (app + tipo de
+                  licença + total), QR, "como pagar", código copia-e-cola
+                  visível e nota de SSL — antes esse modal só tinha o QR e um
+                  botão de copiar, sem contexto nenhum. */}
+              {renewPayment && (() => {
+                const payingApp = installedApps.find((a) => a.id === renewPayment.clientAppId);
+                const licenseLabel =
+                  payingApp?.license_period === "annual"
+                    ? "Licença anual"
+                    : payingApp?.license_period === "lifetime"
+                      ? "Licença vitalícia"
+                      : "Licença";
+                return (
+                  <div
+                    className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+                    onMouseDown={(e) => {
+                      if (e.target === e.currentTarget && renewPaymentDone) closeRenewPaymentModal();
+                    }}
+                  >
+                    <div className="w-full max-w-sm bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
+                      {renewPaymentDone ? (
+                        <div className="p-6 flex flex-col gap-4">
+                          <div className="flex flex-col items-center gap-2 text-center py-4">
+                            <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center text-3xl">✅</div>
+                            <p className="text-base font-bold text-foreground">Pagamento confirmado!</p>
+                            <p className="text-xs text-muted-foreground">
+                              Recebemos seu pagamento e nosso suporte já foi avisado.
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              A renovação dessa licença é feita manualmente por aqui — assim que for concluída, a nova validade aparece sozinha na tela do aplicativo, sem você precisar fazer mais nada.
+                            </p>
+                          </div>
                           <button
-                            onClick={() => {
-                              navigator.clipboard?.writeText(renewPayment.pix_qr_code || "");
-                              addToast("success", "Copiado!", "Código PIX copiado.");
-                            }}
-                            className="w-full h-10 rounded-lg bg-muted border border-border text-xs font-bold text-foreground hover:bg-muted/70 transition-colors"
+                            onClick={closeRenewPaymentModal}
+                            className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
                           >
-                            Copiar código PIX
+                            Fechar
                           </button>
-                        )}
-                        <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-1">
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Aguardando pagamento...
                         </div>
-                      </>
-                    )}
+                      ) : (
+                        <>
+                          <div className="bg-gradient-to-r from-emerald-500 to-green-600 py-3 px-6 text-white text-center relative">
+                            <button
+                              onClick={closeRenewPaymentModal}
+                              className="absolute right-3 top-3 text-white/80 hover:text-white text-sm leading-none"
+                            >
+                              ✕
+                            </button>
+                            <h2 className="text-lg font-bold">Pague com PIX</h2>
+                            <p className="text-xs text-white/80">Mercado Pago</p>
+                          </div>
+
+                          <div className="px-5 pt-4 space-y-1.5 text-sm">
+                            <div className="flex justify-between text-foreground/80">
+                              <span>{payingApp?.name || "Aplicativo"}</span>
+                              <span>{licenseLabel}</span>
+                            </div>
+                            <div className="flex justify-between font-bold text-foreground pt-1.5 border-t border-border">
+                              <span>Total a Pagar</span>
+                              <span>{formatMoney(renewPayment.price_amount, "BRL")}</span>
+                            </div>
+                          </div>
+
+                          <div className="px-5 pt-4 pb-3 space-y-3">
+                            {renewPayment.pix_qr_code_base64 && (
+                              <div className="bg-card p-2 sm:p-4 rounded-xl border-2 border-border">
+                                <img
+                                  src={`data:image/png;base64,${renewPayment.pix_qr_code_base64}`}
+                                  alt="QR Code PIX"
+                                  className="w-full max-w-[180px] sm:max-w-[220px] mx-auto"
+                                />
+                              </div>
+                            )}
+
+                            <div className="space-y-2 text-sm">
+                              <p className="font-bold text-foreground/90 flex items-center gap-2">
+                                <span>📱</span> Como pagar:
+                              </p>
+                              <ol className="list-decimal list-inside space-y-1 text-muted-foreground pl-6">
+                                <li>Abra o app do seu banco</li>
+                                <li>Escaneie o QR Code</li>
+                                <li>Confirme o pagamento</li>
+                              </ol>
+                            </div>
+
+                            {renewPayment.pix_qr_code && (
+                              <div className="bg-muted/50 p-3 rounded-xl border border-border space-y-2">
+                                <p className="text-xs font-bold text-foreground/70 uppercase tracking-wider text-center">
+                                  Ou copie o código:
+                                </p>
+                                <div className="relative group">
+                                  <input
+                                    type="text"
+                                    value={renewPayment.pix_qr_code}
+                                    readOnly
+                                    className="w-full pr-28 pl-3 py-2.5 bg-card border-2 border-border rounded-lg text-xs font-mono text-foreground/90 outline-none focus:border-sky-500 transition-colors shadow-sm"
+                                  />
+                                  <button
+                                    onClick={() => {
+                                      navigator.clipboard?.writeText(renewPayment.pix_qr_code || "");
+                                      setCopiedAppPixCode(true);
+                                      setTimeout(() => setCopiedAppPixCode(false), 3000);
+                                    }}
+                                    className={`absolute right-1 top-1 bottom-1 px-4 text-white font-bold text-xs rounded-md transition-all flex items-center justify-center gap-1.5 min-w-[90px] ${
+                                      copiedAppPixCode
+                                        ? "bg-emerald-500 hover:bg-emerald-600"
+                                        : "bg-sky-500 hover:bg-sky-600 shadow-sm"
+                                    }`}
+                                  >
+                                    {copiedAppPixCode ? "✅ Copiado" : "📋 Copiar"}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="p-3 bg-sky-500/10 rounded-xl border border-sky-500/20 flex items-center gap-3">
+                              <div className="w-6 h-6 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
+                              <div className="flex-1">
+                                <p className="text-sm font-bold text-sky-500">Aguardando pagamento...</p>
+                                <p className="text-xs text-sky-500/80">Detectaremos automaticamente quando você pagar</p>
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={closeRenewPaymentModal}
+                              className="w-full pb-1 pt-0 !mt-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+
+                          <div className="px-5 pb-4 pt-2">
+                            <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                              Conexão segura (SSL) — pagamento processado direto pelo Mercado Pago
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Modal de instruções de configuração — substitui a página de
                   detalhe (/renew-beta/apps/[id]), que ficou redundante */}

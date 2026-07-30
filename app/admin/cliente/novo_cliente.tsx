@@ -12,6 +12,7 @@ import { createPortal } from "react-dom";
 import FormattedTimeInput from "@/components/ui/FormattedTimeInput";
 import { APP_FIELD_LABELS, normalizeMacInput } from "@/lib/apps/field-types";
 import { ADMIN_CHECK_HANDLERS, resolveIntegrationTypeByName } from "@/lib/apps/panel";
+import { dispatchClouddyAction } from "@/lib/apps/clouddy-extension";
 import ReconfigureModeModal, { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
 import AppPickerModal from "@/components/apps/AppPickerModal";
 
@@ -2707,26 +2708,6 @@ const canSyncAgenda = canSyncAuto;
       email: emailField ? currentApp.values[String(emailField.id || emailField.label)] || "" : "",
       password: passField ? currentApp.values[String(passField.id || passField.label)] || "" : "",
     };
-  }
-
-  function dispatchClouddyAction(
-    action: "CLOUDDY_CONFIGURE" | "CLOUDDY_CHECK" | "CLOUDDY_DELETE",
-    payload: Record<string, any>,
-  ): Promise<{ ok: boolean; error?: string; expireDate?: string | null }> {
-    return new Promise((resolve) => {
-      const responseHandler = (e: any) => {
-        window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
-        resolve(e.detail?.ok ? e.detail : { ok: false, error: e.detail?.error || "Falha desconhecida." });
-      };
-      window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
-
-      window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", { detail: { action, payload } }));
-
-      setTimeout(() => {
-        window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
-        resolve({ ok: false, error: "Sem resposta em 90s — confira a aba do ClouDDy (pode estar esperando você resolver o captcha)." });
-      }, 90000);
-    });
   }
 
   // ✅ ClouDDy — persiste o vencimento retornado pela extensão no campo
