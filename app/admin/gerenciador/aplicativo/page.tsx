@@ -512,30 +512,25 @@ setApps(formattedApps);
     return result;
   }, [groupedByCost, servers]);
 
-  // ✅ Gratuitos: sub-divide por família de dispositivo — Android (inclui Fire
-  // TV, que também roda apps Android) primeiro, depois iOS, depois "Outros"
-  // (só o que não é de nenhuma das duas famílias, ex: só Computador). Prioridade
-  // Android > iOS > Outros pra nenhum app aparecer duas vezes.
+  // ✅ Gratuitos: sem sub-divisão por Android/iOS — fica uma lista só.
+  // Computador continua separado (apps só de computador não se misturam
+  // com os de TV/celular).
   const freeSubGroups = React.useMemo<SubGroup[]>(() => {
-    const android: AppData[] = [];
-    const ios: AppData[] = [];
-    const outros: AppData[] = [];
+    const gratuitos: AppData[] = [];
+    const computador: AppData[] = [];
 
     groupedByCost.groups.free.forEach((app) => {
       const types = Array.isArray(app.device_types) ? app.device_types : [];
-      if (types.includes("ANDROID_TVBOX") || types.includes("FIRE_TV")) {
-        android.push(app);
-      } else if (types.includes("IOS")) {
-        ios.push(app);
+      if (types.includes("COMPUTADOR")) {
+        computador.push(app);
       } else {
-        outros.push(app);
+        gratuitos.push(app);
       }
     });
 
     const result: SubGroup[] = [];
-    if (android.length > 0) result.push({ key: "ANDROID", label: "Android", apps: android });
-    if (ios.length > 0) result.push({ key: "IOS", label: "iOS", apps: ios });
-    if (outros.length > 0) result.push({ key: "OUTROS", label: "Outros", apps: outros });
+    if (gratuitos.length > 0) result.push({ key: "GRATUITOS", label: "", apps: gratuitos });
+    if (computador.length > 0) result.push({ key: "COMPUTADOR", label: "Computador", apps: computador });
     return result;
   }, [groupedByCost]);
 
@@ -954,12 +949,14 @@ setApps(formattedApps);
           <div className="space-y-5 animate-in slide-in-from-top-2 duration-300">
             {subGroups.map((sg) => (
               <div key={sg.key} className="space-y-2">
-                <h3 className="text-xs font-semibold text-muted-foreground/80 uppercase tracking-wide pl-0.5">
-                  {sg.label}{" "}
-                  <span className="text-muted-foreground/50 normal-case font-normal">
-                    ({sg.apps.length})
-                  </span>
-                </h3>
+                {sg.label && (
+                  <h3 className="text-xs font-semibold text-muted-foreground/80 uppercase tracking-wide pl-0.5">
+                    {sg.label}{" "}
+                    <span className="text-muted-foreground/50 normal-case font-normal">
+                      ({sg.apps.length})
+                    </span>
+                  </h3>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
                   {sg.apps.map((app) => renderAppCard(app))}
                 </div>
