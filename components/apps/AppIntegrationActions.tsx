@@ -74,7 +74,9 @@ export type AppIntegrationActionsProps = {
   onConfigure: (mode: ReconfigureMode) => void | Promise<void>;
   onCheck: () => void | Promise<void>;
   onRemove?: () => void | Promise<void>;
-  onClouddyConfigure: () => void | Promise<void>;
+  /** ClouDDy também é uma automação — segue o mesmo seletor Principal/
+   * Secundária das demais antes de mandar pra extensão. */
+  onClouddyConfigure: (mode: ReconfigureMode) => void | Promise<void>;
   onClouddyCheck: () => void | Promise<void>;
   onClouddyDelete: () => void | Promise<void>;
 };
@@ -103,7 +105,7 @@ export default function AppIntegrationActions({
         <div className="grid grid-cols-3 gap-2">
           <button
             type="button"
-            onClick={() => onClouddyConfigure()}
+            onClick={() => setShowReconfigure(true)}
             disabled={loading}
             className="h-10 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
             title="Configura TV + VOD com o M3U do cliente e pega o vencimento"
@@ -145,6 +147,15 @@ export default function AppIntegrationActions({
           Cada clique abre uma aba de verdade no seu Chrome, loga com o email/senha desse cliente, faz a ação e fecha
           a sessão. Se aparecer o captcha do Cloudflare, resolve manualmente na aba — o resto continua sozinho.
         </p>
+        <ReconfigureModeModal
+          open={showReconfigure}
+          onClose={() => setShowReconfigure(false)}
+          appName={appLabel}
+          onChoose={(mode) => {
+            setShowReconfigure(false);
+            onClouddyConfigure(mode);
+          }}
+        />
       </div>
     );
   }

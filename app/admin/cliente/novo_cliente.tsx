@@ -2734,7 +2734,7 @@ const canSyncAgenda = canSyncAuto;
 
   // ✅ ClouDDy — abre, loga, pega o vencimento atual (pro toast), configura
   // TV + VOD com o m3uUrl atual, e fecha a sessão.
-  async function handleClouddyConfigure(instanceId: string) {
+  async function handleClouddyConfigure(instanceId: string, mode: ReconfigureMode = "principal") {
     const currentApp = selectedApps.find((a) => a.instanceId === instanceId);
     if (!currentApp) return;
 
@@ -2744,10 +2744,17 @@ const canSyncAgenda = canSyncAuto;
       return;
     }
 
-    const m3uToSend = (m3uUrl || buildM3uUrlSilent() || "").trim();
+    // ✅ ClouDDy segue o mesmo fluxo Principal/Secundária das automações via
+    // API (handleConfigApp) — "Secundária" sempre sorteia outra DNS, mesmo
+    // que já tenha um m3u preenchido.
+    let m3uToSend = mode === "secundaria" ? "" : m3uUrl.trim();
     if (!m3uToSend) {
-      addToast("error", "Sem link M3U", "Não foi possível gerar o link M3U. Verifique o DNS do servidor.");
-      return;
+      m3uToSend = mode === "secundaria" ? buildM3uUrlSecondary() : buildM3uUrlSilent();
+      if (!m3uToSend) {
+        addToast("warning", "Sem Domínio", "Não foi possível gerar o link M3U. Verifique se o servidor possui DNS configurado.");
+        return;
+      }
+      setM3uUrl(m3uToSend);
     }
 
     setLoading(true);
@@ -5934,7 +5941,7 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                                   }}
                                   onConfigure={() => {}}
                                   onCheck={() => {}}
-                                  onClouddyConfigure={() => handleClouddyConfigure(app.instanceId)}
+                                  onClouddyConfigure={(mode) => handleClouddyConfigure(app.instanceId, mode)}
                                   onClouddyCheck={() => handleClouddyCheck(app.instanceId)}
                                   onClouddyDelete={() => handleClouddyDelete(app.instanceId)}
                                 />

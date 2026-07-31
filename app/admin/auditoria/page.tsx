@@ -15,7 +15,7 @@ import { EyeToggle } from "@/components/ui/eye-toggle";
 
 // ✅ Importa os modais de recarga
 import RecargaCliente from "../cliente/recarga_cliente";
-import AppRenewalModal from "./AppRenewalModal";
+import AppRequestModal from "@/components/apps/AppRequestModal";
 import Pagination from "@/components/ui/Pagination";
 
 // --- TIPOS ---
@@ -1742,19 +1742,21 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
         </>
       )}
 
-      {/* ✅ Painel "Concluir renovação de licença" — pagamento avulso de app */}
+      {/* ✅ Painel "Concluir renovação de licença" — pagamento avulso de app.
+          Mesmo modal do "Pedido de configuração" (log de aplicativos) e do
+          card de apps do editar cliente — só traz os dados desse app
+          específico, o resto (fluxo de Configurar/Verificar/Remover) é
+          literalmente o mesmo componente. */}
       {appRenewalState && tenantId && (
-        <AppRenewalModal
-          clientAppId={appRenewalState.clientAppId}
+        <AppRequestModal
+          action="renewal"
           paymentLogId={appRenewalState.logId}
+          clientAppId={appRenewalState.clientAppId}
           tenantId={tenantId}
           addToast={addToast}
+          confirm={confirm}
           onClose={() => setAppRenewalState(null)}
-          onSaved={() => {
-            setAppRenewalState(null);
-            loadData();
-          }}
-          onCancelled={() => {
+          onResolved={() => {
             setAppRenewalState(null);
             loadData();
           }}

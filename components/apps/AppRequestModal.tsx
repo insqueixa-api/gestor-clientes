@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import { extractDateOnly, CHECK_VALIDITY_HANDLERS, resolveIntegrationTypeByName } from "@/lib/apps/panel";
+import { extractDateOnly, CHECK_VALIDITY_HANDLERS, resolveIntegrationTypeByName, buildM3uUrlFromDns, buildM3uUrlSecondary } from "@/lib/apps/panel";
+import { APP_FIELD_LABELS } from "@/lib/apps/field-types";
 import { getIntegrationHandler } from "@/lib/integrations";
 import { dispatchClouddyAction } from "@/lib/apps/clouddy-extension";
 import type { AppFieldConfig, IntegrationHandler } from "@/lib/apps/types";
@@ -19,7 +20,9 @@ type LoadedData = {
   clientId: string;
   clientName: string;
   serverUsername: string;
+  serverPassword: string;
   serverName: string;
+  serverDns: string[];
   clientM3uUrl: string;
   appName: string;
   fieldValues: Record<string, string>;
@@ -35,6 +38,7 @@ type LoadedData = {
 // demais) — não um resumo genérico à parte.
 export default function AppRequestModal({
   requestId,
+  paymentLogId,
   clientAppId,
   tenantId,
   action,
@@ -43,10 +47,15 @@ export default function AppRequestModal({
   addToast,
   confirm,
 }: {
-  requestId: string;
+  // "setup"/"removal" vêm de um pedido em client_app_requests (requestId).
+  // "renewal" vem de um pagamento avulso de licença de app pendente de
+  // confirmação manual (paymentLogId) — client_app_id sempre presente
+  // nesse caso (a Auditoria só oferece essa ação quando existe).
+  requestId?: string;
+  paymentLogId?: string;
   clientAppId: string | null;
   tenantId: string;
-  action: "setup" | "removal";
+  action: "setup" | "removal" | "renewal";
   onClose: () => void;
   onResolved: () => void;
   addToast: ToastFn;
@@ -91,7 +100,7 @@ export default function AppRequestModal({
         // app_integrations.app_name em lib/apps/panel.ts).
         const { data: row } = await supabaseBrowser
           .from("client_app_requests")
-          .select("fields_snapshot, app_name, client_id, clients(display_name, server_username, m3u_url, servers(name))")
+          .select("fields_snapshot, app_name, client_id, clients(display_name, server_username, server_password, m3u_url, servers(name, dns))")
           .eq("id", requestId)
           .maybeSingle();
         if (!row) {
@@ -114,7 +123,9 @@ export default function AppRequestModal({
           clientId: row.client_id,
           clientName: client?.display_name || "Cliente",
           serverUsername: client?.server_username || "",
+          serverPassword: client?.server_password || "",
           serverName: server?.name || "",
+          serverDns: Array.isArray(server?.dns) ? server.dns : [],
           clientM3uUrl: client?.m3u_url || "",
           appName,
           fieldValues: row.fields_snapshot || {},
@@ -129,7 +140,7 @@ export default function AppRequestModal({
 
       const { data: row } = await supabaseBrowser
         .from("client_apps")
-        .select("client_id, field_values, clients(display_name, server_username, m3u_url, servers(name)), apps(name, fields_config, integration_type)")
+        .select("client_id, field_values, clients(display_name, server_username, server_password, m3u_url, servers(name, dns)), apps(name, fields_config, integration_type)")
         .eq("id", clientAppId)
         .maybeSingle();
 
@@ -148,7 +159,9 @@ export default function AppRequestModal({
         clientId: row.client_id,
         clientName: client?.display_name || "Cliente",
         serverUsername: client?.server_username || "",
+        serverPassword: client?.server_password || "",
         serverName: server?.name || "",
+        serverDns: Array.isArray(server?.dns) ? server.dns : [],
         clientM3uUrl: client?.m3u_url || "",
         appName,
         fieldValues: row.field_values || {},
@@ -160,7 +173,7 @@ export default function AppRequestModal({
       setLoading(false);
     }
     load();
-  }, [clientAppId, requestId]);
+  }, [clientAppId, requestId, paymentLogId]);
 
   // Fetcher puro — não mexe em `busy`, quem chama controla o próprio estado
   // de carregamento (senão duas chamadas em sequência, ex: remover + marcar
@@ -241,20 +254,34 @@ export default function AppRequestModal({
   }
 
   // ===== Ações — ClouDDy (via extensão do Chrome, igual novo_cliente.tsx) =====
-  async function handleClouddyConfigure() {
+  // Mesmo fluxo Principal/Secundária das automações via API — "Secundária"
+  // sempre sorteia outra DNS (buildM3uUrlSecondary), mesmo que já tenha um
+  // m3u salvo, e persiste no cliente igual o servidor faz pros outros apps.
+  async function handleClouddyConfigure(mode: ReconfigureMode) {
     if (!data) return;
     const { email, password } = getClouddyCreds();
     if (!email || !password) {
       addToast("error", "Email/senha obrigatórios", "Preencha o email e a senha do ClouDDy antes de configurar.");
       return;
     }
-    if (!data.clientM3uUrl) {
-      addToast("error", "Sem link M3U", "Esse cliente ainda não tem um link M3U salvo.");
+    let m3uToSend = mode === "secundaria" ? "" : data.clientM3uUrl.trim();
+    if (!m3uToSend) {
+      m3uToSend =
+        mode === "secundaria"
+          ? buildM3uUrlSecondary(data.serverDns, data.serverUsername, data.serverPassword, data.serverName)
+          : buildM3uUrlFromDns(data.serverDns, data.serverUsername, data.serverPassword);
+    }
+    if (!m3uToSend) {
+      addToast("error", "Sem link M3U", "Não foi possível gerar o link M3U. Verifique o DNS do servidor.");
       return;
+    }
+    if (mode === "secundaria") {
+      await supabaseBrowser.from("clients").update({ m3u_url: m3uToSend }).eq("id", data.clientId);
+      setData((prev) => (prev ? { ...prev, clientM3uUrl: m3uToSend } : prev));
     }
     setBusy(true);
     try {
-      const result = await dispatchClouddyAction("CLOUDDY_CONFIGURE", { email, password, m3uUrl: data.clientM3uUrl });
+      const result = await dispatchClouddyAction("CLOUDDY_CONFIGURE", { email, password, m3uUrl: m3uToSend });
       if (result.ok) {
         if (result.expireDate) {
           const dateField = data.fieldsConfig.find((f) => String(f.type || "").toLowerCase() === "date");
@@ -315,13 +342,19 @@ export default function AppRequestModal({
   //     confirmação: é destrutivo.
   //   - "setup": nunca apaga nada, só marca o pedido como resolvido — apagar
   //     o app que acabou de ser configurado não faz sentido nenhum aqui.
+  //   - "renewal": não mexe em client_app_requests (não existe pra esse
+  //     caso) — marca o payment_log como manual_done. O vencimento em si já
+  //     foi atualizado pelos botões Configurar/Verificar acima.
   async function handleResolve() {
     const isRemoval = action === "removal";
+    const isRenewal = action === "renewal";
     const ok = await confirm({
-      title: isRemoval ? "Concluir exclusão" : "Concluir configuração",
+      title: isRemoval ? "Concluir exclusão" : isRenewal ? "Concluir renovação" : "Concluir configuração",
       subtitle: isRemoval
         ? `Você já removeu (ou vai remover agora) "${data?.appName}" do painel do parceiro? Isso vai apagar o app da conta de ${data?.clientName} agora.`
-        : `Você já configurou "${data?.appName}" pra ${data?.clientName}?`,
+        : isRenewal
+          ? `Você já pagou/renovou a licença de "${data?.appName}" pra ${data?.clientName}? Isso vai marcar o pagamento como concluído.`
+          : `Você já configurou "${data?.appName}" pra ${data?.clientName}?`,
       tone: isRemoval ? "rose" : "emerald",
       icon: isRemoval ? "🗑️" : "✅",
       confirmText: "Sim, Concluir",
@@ -340,27 +373,65 @@ export default function AppRequestModal({
         await apiCall("/api/admin/apps/remove", { tenant_id: tenantId, client_app_id: clientAppId });
       }
 
-      const { data: userData } = await supabaseBrowser.auth.getUser();
-      const { error } = await supabaseBrowser
-        .from("client_app_requests")
-        .update({ status: "done", completed_at: new Date().toISOString(), completed_by: userData?.user?.id || null })
-        .eq("id", requestId);
-      if (error) throw error;
+      if (isRenewal) {
+        const { error } = await supabaseBrowser.rpc("update_fulfillment_status", {
+          p_log_id: paymentLogId,
+          p_tenant_id: tenantId,
+          p_status: "manual_done",
+        });
+        if (error) throw error;
+      } else {
+        const { data: userData } = await supabaseBrowser.auth.getUser();
+        const { error } = await supabaseBrowser
+          .from("client_app_requests")
+          .update({ status: "done", completed_at: new Date().toISOString(), completed_by: userData?.user?.id || null })
+          .eq("id", requestId);
+        if (error) throw error;
+      }
 
       try {
         await supabaseBrowser.rpc("resolve_notification", {
           p_tenant_id: tenantId,
-          p_type: isRemoval ? "app_removal_pending" : "app_setup_pending",
-          p_source_id: requestId,
+          p_type: isRenewal ? "manual_pending" : isRemoval ? "app_removal_pending" : "app_setup_pending",
+          p_source_id: isRenewal ? paymentLogId : requestId,
         });
       } catch {
         // não bloqueia a conclusão por causa da notificação
       }
 
-      addToast("success", "Concluído", isRemoval ? `"${data?.appName}" foi excluído.` : `"${data?.appName}" marcado como configurado.`);
+      addToast(
+        "success",
+        "Concluído",
+        isRemoval
+          ? `"${data?.appName}" foi excluído.`
+          : isRenewal
+            ? `Renovação de "${data?.appName}" concluída.`
+            : `"${data?.appName}" marcado como configurado.`,
+      );
       onResolved();
     } catch (e: any) {
       addToast("error", "Erro ao concluir", e?.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // "Cancelar renovação" — só existe pra action="renewal": encerra a
+  // pendência sem alterar o vencimento (ex: cobrança duplicada). Mesmo
+  // comportamento do AppRenewalModal original: instantâneo, sem confirm().
+  async function handleCancelRenewal() {
+    setBusy(true);
+    try {
+      const { error } = await supabaseBrowser.rpc("update_fulfillment_status", {
+        p_log_id: paymentLogId,
+        p_tenant_id: tenantId,
+        p_status: "manual_cancelled",
+      });
+      if (error) throw error;
+      addToast("success", "Cancelado", "Renovação cancelada — vencimento não foi alterado.");
+      onResolved();
+    } catch (e: any) {
+      addToast("error", "Erro ao cancelar", e?.message);
     } finally {
       setBusy(false);
     }
@@ -375,7 +446,9 @@ export default function AppRequestModal({
   return createPortal(
     <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div onMouseDown={(e) => e.stopPropagation()} className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
-        <h3 className="text-lg font-bold mb-3">{action === "removal" ? "Pedido de exclusão" : "Pedido de configuração"}</h3>
+        <h3 className="text-lg font-bold mb-3">
+          {action === "removal" ? "Pedido de exclusão" : action === "renewal" ? "Concluir renovação de licença" : "Pedido de configuração"}
+        </h3>
         {loading || !data ? (
           <div className="py-8 text-center text-muted-foreground">Carregando...</div>
         ) : (
@@ -394,18 +467,19 @@ export default function AppRequestModal({
               {data.fieldsConfig.map((f) => {
                 const key = fieldKeyOf(f);
                 const type = String(f.type || "").toLowerCase();
+                const label = APP_FIELD_LABELS[type] || String(f.label || "").trim() || "Campo";
                 const raw = data.fieldValues[key] || "";
                 const display = type === "date" ? (extractDateOnly(raw) ? extractDateOnly(raw)!.split("-").reverse().join("/") : raw || "—") : raw || "—";
                 return (
                   <div key={key} className="flex items-center justify-between gap-2 bg-muted/40 border border-border rounded-lg px-3 py-2">
                     <div className="min-w-0">
-                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{f.label || type}</p>
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
                       <p className="font-medium truncate">{display}</p>
                     </div>
                     {raw && (
                       <CopyFieldButton
                         value={raw}
-                        label={f.label || type}
+                        label={label}
                         onCopy={copyField}
                         className="shrink-0 text-muted-foreground hover:text-sky-500 transition-colors px-1.5 py-1"
                       />
@@ -445,8 +519,17 @@ export default function AppRequestModal({
                 onClick={handleResolve}
                 className={`flex-1 px-4 py-2 rounded-lg text-white disabled:opacity-50 ${action === "removal" ? "bg-rose-600" : "bg-emerald-600"}`}
               >
-                {action === "removal" ? "Concluir & Excluir" : "Concluir"}
+                {action === "removal" ? "Concluir & Excluir" : action === "renewal" ? "Salvar" : "Concluir"}
               </button>
+              {action === "renewal" && (
+                <button
+                  disabled={busy}
+                  onClick={handleCancelRenewal}
+                  className="flex-1 px-4 py-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 disabled:opacity-50"
+                >
+                  Cancelar renovação
+                </button>
+              )}
             </div>
             <button onClick={onClose} className="w-full text-xs text-muted-foreground hover:text-foreground">Fechar</button>
           </div>
