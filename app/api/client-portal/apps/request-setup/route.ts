@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { getIntegrationHandler } from "@/lib/integrations";
 import { notify } from "@/lib/notifications/notify";
+import { APP_FIELD_LABELS, AppFieldType } from "@/lib/apps/field-types";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
 
     const { data: row, error: rowErr } = await supabaseAdmin
       .from("client_apps")
-      .select("id, field_values, apps(name, integration_type)")
+      .select("id, field_values, apps(name, integration_type, fields_config)")
       .eq("id", client_app_id)
       .eq("client_id", client_id)
       .single();
@@ -57,6 +58,20 @@ export async function POST(req: NextRequest) {
 
     if (hasWorkingIntegration) {
       return jsonError("Esse aplicativo já configura sozinho — use o botão Reconfigurar.", 400);
+    }
+
+    // ✅ Mesma trava que o portal já faz antes de chamar essa rota (evita
+    // pedir ajuda do suporte com os campos ainda vazios) — replicada aqui
+    // como defesa em profundidade, mesmo padrão do resto do projeto.
+    const fieldsConfig = Array.isArray((row as any).apps?.fields_config) ? (row as any).apps.fields_config : [];
+    const vals = row.field_values || {};
+    const missingLabels = fieldsConfig
+      .filter((f: any) => f && f.id && f.type !== "obs" && f.type !== "date")
+      .filter((f: any) => !String(vals[f.id] ?? vals[f.label] ?? "").trim())
+      .map((f: any) => APP_FIELD_LABELS[f.type as AppFieldType] || f.label || f.id);
+
+    if (missingLabels.length > 0) {
+      return jsonError(`Preencha antes de solicitar: ${missingLabels.join(", ")}.`, 400);
     }
 
     // Idempotente: se já existe um pedido pendente pra esse app, não duplica.

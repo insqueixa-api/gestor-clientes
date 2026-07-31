@@ -617,8 +617,8 @@ export default function RenewClient() {
   }, [selectedAccountId, accounts, session]);
 
   // ========= BLOCO 3 — CARREGAMENTO E AÇÕES =========
-  async function refreshInstalledApps() {
-    if (!selectedAccountId || !session) return;
+  async function refreshInstalledApps(): Promise<InstalledApp[]> {
+    if (!selectedAccountId || !session) return [];
     setInstalledAppsLoading(true);
     setInstalledAppsError(null);
     try {
@@ -630,12 +630,23 @@ export default function RenewClient() {
       });
       const result = await res.json().catch(() => null);
       if (!result?.ok) throw new Error("Não foi possível carregar seus aplicativos");
-      setInstalledApps(result.data || []);
+      const data: InstalledApp[] = result.data || [];
+      setInstalledApps(data);
+      return data;
     } catch (err: any) {
       setInstalledAppsError(safeUserError(err?.message));
+      return [];
     } finally {
       setInstalledAppsLoading(false);
     }
+  }
+
+  // ✅ Campos que o app realmente exige preenchidos antes de configurar ou
+  // pedir ajuda do suporte — "Ambiente" (obs) é só um apelido opcional, o
+  // resto (MAC, Device Key, e-mail, senha, URL) é o que o parceiro/o
+  // suporte precisa de verdade pra ativar o app.
+  function getMissingRequiredFields(app: InstalledApp): InstalledAppField[] {
+    return app.fields.filter((f) => f.type !== "obs" && !f.value.trim());
   }
 
   useEffect(() => {
@@ -697,6 +708,18 @@ export default function RenewClient() {
 
   function handleConfigureApp(clientAppId: string) {
     const targetApp = installedApps.find((a) => a.id === clientAppId);
+    if (targetApp) {
+      const missing = getMissingRequiredFields(targetApp);
+      if (missing.length > 0) {
+        addToast(
+          "warning",
+          "Preencha os campos primeiro",
+          `Faltando: ${missing.map((f) => f.label).join(", ")}.`,
+        );
+        startEditingApp(targetApp);
+        return;
+      }
+    }
     if (targetApp?.expiration) {
       // Reconfigurar (já tinha config antes) — pede pra escolher entre
       // manter a config atual (Principal) ou gerar uma nova (Secundária).
@@ -787,6 +810,19 @@ export default function RenewClient() {
 
   async function handleRequestSetup(clientAppId: string) {
     if (!selectedAccountId || !session) return;
+    const targetApp = installedApps.find((a) => a.id === clientAppId);
+    if (targetApp) {
+      const missing = getMissingRequiredFields(targetApp);
+      if (missing.length > 0) {
+        addToast(
+          "warning",
+          "Preencha os campos primeiro",
+          `Faltando: ${missing.map((f) => f.label).join(", ")}.`,
+        );
+        startEditingApp(targetApp);
+        return;
+      }
+    }
     setAppActionBusy(clientAppId);
     try {
       const res = await fetch("/api/client-portal/apps/request-setup", {
@@ -892,8 +928,19 @@ export default function RenewClient() {
       const result = await res.json().catch(() => null);
       if (!result?.ok) throw new Error(result?.error || "Falha ao adicionar.");
       setShowAddAppPicker(false);
-      addToast("success", "Adicionado!", "Preencha os campos e configure quando estiver pronto.");
-      await refreshInstalledApps();
+      const newAppId = result.data?.id as string | undefined;
+      const refreshed = await refreshInstalledApps();
+      // ✅ Abre direto o formulário de preenchimento — sem isso, o app
+      // ficava na lista com os campos vazios e o cliente só via o "Editar"
+      // se clicasse por conta própria (achado: dava pra "Solicitar
+      // configuração" com tudo vazio, pedido do Márcio, 31/07/2026).
+      const newApp = newAppId ? refreshed.find((a) => a.id === newAppId) : null;
+      if (newApp && newApp.fields.length > 0) {
+        startEditingApp(newApp);
+        addToast("success", "Adicionado!", "Preencha os dados abaixo pra continuar.");
+      } else {
+        addToast("success", "Adicionado!", "Configure quando estiver pronto.");
+      }
     } catch (err: any) {
       addToast("error", "Falha ao adicionar", err?.message);
     } finally {
@@ -3628,9 +3675,8 @@ export default function RenewClient() {
                 busyAppId={appActionBusy?.startsWith("add-") ? appActionBusy.slice(4) : null}
                 onSelectApp={(appId) => handleAddApp(appId)}
                 title="Adicionar aplicativo"
-                subtitle="Escolha o app para este cliente"
                 variant="portal"
-                helperText="Aqui o fluxo é mais guiado; o app segue o mesmo processo de integração e geração de links m3u do portal."
+                
               />
 
               <ConfigureResultModal
