@@ -902,9 +902,10 @@ export default function RenewClient() {
     }
   }
 
-  // ✅ Botão "Atualizar" ao lado do badge de DNS nas instruções (pedido do
-  // Márcio, 31/07/2026) — pickRandomDns (lib/whatsapp/template-vars.ts) já
-  // sorteia uma DNS nova a cada chamada de /apps/list, então só precisa
+  // ✅ Botão "Atualizar" ao lado dos badges de DNS/M3U (incl. Rota 2) nas
+  // instruções (pedido do Márcio, 31/07/2026) — pickRandomDns (lib/whatsapp/
+  // template-vars.ts) já sorteia uma DNS nova a cada chamada de /apps/list
+  // (e a Rota 2/M3U são derivados dessa mesma DNS), então só precisa
   // re-buscar a lista pra sortear outra.
   async function handleRerollDns(clientAppId: string) {
     setAppActionBusy(clientAppId);
@@ -3569,13 +3570,13 @@ export default function RenewClient() {
                                   <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                                 </svg>
                               </button>
-                              {f.id === "dns_servidor" && (
+                              {(f.id === "dns_servidor" || f.id === "dns_servidor_r2" || f.id === "m3u_url" || f.id === "m3u_url_r2") && (
                                 <button
                                   type="button"
                                   disabled={busy}
                                   onClick={() => handleRerollDns(app.id)}
                                   className="text-muted-foreground hover:text-emerald-500 transition-colors disabled:opacity-50"
-                                  title="Sortear outra DNS"
+                                  title="Sortear outro"
                                 >
                                   <RefreshCw className={`w-2.5 h-2.5 ${busy ? "animate-spin" : ""}`} />
                                 </button>
@@ -4002,13 +4003,13 @@ export default function RenewClient() {
                                   <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                                 </svg>
                               </button>
-                              {f.id === "dns_servidor" && (
+                              {(f.id === "dns_servidor" || f.id === "dns_servidor_r2" || f.id === "m3u_url" || f.id === "m3u_url_r2") && (
                                 <button
                                   type="button"
                                   disabled={appActionBusy === instrApp.id}
                                   onClick={() => handleRerollDns(instrApp.id)}
                                   className="text-muted-foreground hover:text-emerald-500 transition-colors disabled:opacity-50"
-                                  title="Sortear outra DNS"
+                                  title="Sortear outro"
                                 >
                                   <RefreshCw className={`w-2.5 h-2.5 ${appActionBusy === instrApp.id ? "animate-spin" : ""}`} />
                                 </button>

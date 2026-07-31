@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { APP_FIELD_LABELS, HIDDEN_CLIENT_FIELD_TYPES, AppFieldType } from "@/lib/apps/field-types";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { getIntegrationHandler } from "@/lib/integrations";
-import { CHECK_VALIDITY_HANDLERS, buildM3uUrlFromDns } from "@/lib/apps/panel";
+import { CHECK_VALIDITY_HANDLERS, buildM3uUrlFromDns, buildM3uUrlSecondary, natvMirrorBaseUrl } from "@/lib/apps/panel";
 import { renderTemplate, pickRandomDns } from "@/lib/whatsapp/template-vars";
 
 export const dynamic = "force-dynamic";
@@ -142,17 +142,33 @@ export async function POST(req: NextRequest) {
         .eq("id", client_id)
         .maybeSingle();
       const { data: server } = client?.server_id
-        ? await supabaseAdmin.from("servers").select("dns").eq("id", client.server_id).maybeSingle()
+        ? await supabaseAdmin.from("servers").select("name, dns").eq("id", client.server_id).maybeSingle()
         : { data: null };
       const dns = pickRandomDns(Array.isArray(server?.dns) ? server.dns : []);
+      const username = client?.server_username || "";
+      const password = client?.server_password || "";
       const m3uUrl =
         String(client?.m3u_url || "").trim() ||
-        (dns ? buildM3uUrlFromDns([dns], client?.server_username || "", client?.server_password || "") : "");
+        (dns ? buildM3uUrlFromDns([dns], username, password) : "");
+
+      // ✅ "Rota 2" (31/07/2026, pedido do Márcio) — mesmo mirror que o
+      // Reconfigurar > Secundária já usa (buildM3uUrlSecondary): só existe
+      // de verdade pro NaTV (sem "s" do https + prefixo "r2."), então pra
+      // qualquer outro servidor isso fica vazio de propósito (o badge some
+      // sozinho — buildVariableFields já filtra campo sem valor). Reaproveita
+      // a MESMA dns já sorteada acima (não sorteia outra), pra "DNS Rota 2" e
+      // "Link M3U Rota 2" sempre baterem com o mesmo host.
+      const isNaTv = String(server?.name || "").trim().toUpperCase() === "NATV";
+      const dnsR2 = isNaTv && dns ? natvMirrorBaseUrl(dns) : "";
+      const m3uUrlR2 = isNaTv && dns ? buildM3uUrlSecondary([dns], username, password, server?.name) : "";
+
       instructionVars = {
-        usuario_app: client?.server_username || "",
-        senha_app: client?.server_password || "",
+        usuario_app: username,
+        senha_app: password,
         dns_servidor: dns,
         m3u_url: m3uUrl,
+        dns_servidor_r2: dnsR2,
+        m3u_url_r2: m3uUrlR2,
       };
     }
 
@@ -169,6 +185,12 @@ export async function POST(req: NextRequest) {
       usuario_app: "Usuário",
       senha_app: "Senha",
       dns_servidor: "DNS",
+      m3u_url: "Link M3U",
+      // ✅ "Rota 2" (31/07/2026) — só tem valor de verdade pro NaTV
+      // (natvMirrorBaseUrl/buildM3uUrlSecondary, lib/apps/panel.ts); pra
+      // qualquer outro servidor o valor fica vazio e o badge some sozinho.
+      dns_servidor_r2: "DNS (Rota 2)",
+      m3u_url_r2: "Link M3U (Rota 2)",
     };
     function buildVariableFields(selectedKeys: string[] | null | undefined, codigo: string) {
       const keys = Array.isArray(selectedKeys) ? selectedKeys : [];

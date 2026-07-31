@@ -168,20 +168,29 @@ export function buildM3uUrlFromDns(dnsList: string[], username: string, password
   return `${scheme}://${host}/get.php?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&type=m3u_plus&output=ts`;
 }
 
+// Mirror "Rota 2" do NaTV (sem "s" do https + prefixo "r2.", ex:
+// https://rj98.eu → http://r2.rj98.eu). Nenhum outro servidor tem esse
+// mirror — quem chama decide se vale a pena (checar isNaTv antes). Extraído
+// de buildM3uUrlSecondary pra também dar pra montar só a base (sem
+// /get.php?...), usado pelo badge "DNS (Rota 2)" do portal.
+export function natvMirrorBaseUrl(domain: string): string {
+  const { host } = splitScheme(domain);
+  const mirrorHost = host.toLowerCase().startsWith("r2.") ? host : `r2.${host}`;
+  return `http://${mirrorHost}`;
+}
+
 // "Secundária" do Reconfigurar (pedido do Márcio, 28/07/2026): sorteia outra
 // DNS do servidor e gera um m3u novo — pro NaTV especificamente, usa a
-// variação de mirror própria dele (sem "s" + prefixo "r2.", ex:
-// https://rj98.eu → http://r2.rj98.eu). Nenhum outro servidor tem esse
-// mirror, então essa transformação NUNCA se aplica fora do NaTV (geraria
-// uma URL que não existe de verdade). Réplica de generateM3uUrlSecondary
-// (novo_cliente.tsx).
+// variação de mirror própria dele (natvMirrorBaseUrl acima). Nenhum outro
+// servidor tem esse mirror, então essa transformação NUNCA se aplica fora do
+// NaTV (geraria uma URL que não existe de verdade). Réplica de
+// generateM3uUrlSecondary (novo_cliente.tsx).
 export function buildM3uUrlSecondary(dnsList: string[], username: string, password: string, serverName?: string): string {
   if (!username || !dnsList || dnsList.length === 0) return "";
   const isNaTv = String(serverName || "").trim().toUpperCase() === "NATV";
   if (!isNaTv) return buildM3uUrlFromDns(dnsList, username, password);
 
   const randomDomain = dnsList[Math.floor(Math.random() * dnsList.length)];
-  const { host } = splitScheme(randomDomain);
-  const mirrorHost = host.toLowerCase().startsWith("r2.") ? host : `r2.${host}`;
-  return `http://${mirrorHost}/get.php?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&type=m3u_plus&output=ts`;
+  const mirrorBase = natvMirrorBaseUrl(randomDomain);
+  return `${mirrorBase}/get.php?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&type=m3u_plus&output=ts`;
 }

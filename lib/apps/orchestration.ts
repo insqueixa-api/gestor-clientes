@@ -246,16 +246,26 @@ export async function configureClientApp(
     // best-effort — segue pro create de qualquer jeito
   }
 
-  const payload = handler.buildCreatePayload({
-    username: client.server_username,
-    password: payloadPassword,
-    macValue,
-    finalServerName,
-    serverName: serverNameClean,
-    m3uUrl,
-    appName: row.appName,
-    serverId: client.server_id,
-  });
+  // ✅ buildCreatePayload pode travar de propósito (ex: GERENCIAAPP sem
+  // ranking_app_id mapeado pro app — ver lib/integrations/gerenciaapp.ts)
+  // em vez de arriscar montar um payload errado. Vira erro de precondição
+  // normal aqui, igual aos outros checks acima — nunca deixa a exceção
+  // subir crua.
+  let payload: ReturnType<typeof handler.buildCreatePayload>;
+  try {
+    payload = handler.buildCreatePayload({
+      username: client.server_username,
+      password: payloadPassword,
+      macValue,
+      finalServerName,
+      serverName: serverNameClean,
+      m3uUrl,
+      appName: row.appName,
+      serverId: client.server_id,
+    });
+  } catch (e: any) {
+    return { ok: false, stage: "precondition", error: e?.message || "Não foi possível montar a configuração para este app.", status: 400 };
+  }
 
   const apiRes = await fetch(apiEndpointUrl, {
     method: "POST",

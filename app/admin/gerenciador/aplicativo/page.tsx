@@ -182,21 +182,25 @@ const [apps, setApps] = useState<AppData[]>([]);
   const [formIsActive, setFormIsActive] = useState(true);
   const [formDiscontinuedReplacement, setFormDiscontinuedReplacement] = useState<string>("");
 
-  // ✅ Único mecanismo pros dados do cliente (usuário/senha/DNS/código)
+  // ✅ Único mecanismo pros dados do cliente (usuário/senha/DNS/código/m3u)
   // aparecerem no portal (31/07/2026, pedido do Márcio — refeito depois de
   // um vai-e-volta: a 1ª versão substituía {tag} dentro do texto livre; a 2ª
   // manteve a tag E adicionou os toggles abaixo, só que aí tinha DOIS
   // lugares fazendo a mesma coisa, o que gerou inconsistência entre apps e
   // "não vejo onde preencher a variável"). Agora é só isto: marque o toggle,
-  // o dado vira um badge copiável no portal (igual Device ID/MAC/Key) — não
-  // tem tag pra inserir no texto livre pra esses 4. "{m3u_url}" continua
-  // sendo tag de texto (não tem "badge" equivalente — é só um link pra
-  // embutir na frase, se for o caso).
+  // o dado vira um badge copiável no portal (igual Device ID/MAC/Key).
+  // "DNS (Rota 2)"/"Link M3U (Rota 2)" (31/07/2026) — mesmo mirror que o
+  // Reconfigurar > Secundária já usa pro NaTV (sem "s" do https + prefixo
+  // "r2."); só tem valor de verdade pra cliente de servidor NaTV — em
+  // qualquer outro o badge simplesmente não aparece (valor vazio).
   const VARIABLE_BADGE_OPTIONS: { key: string; label: string }[] = [
     { key: "codigo", label: "Código" },
     { key: "usuario_app", label: "Usuário" },
     { key: "senha_app", label: "Senha" },
     { key: "dns_servidor", label: "DNS" },
+    { key: "m3u_url", label: "Link M3U" },
+    { key: "dns_servidor_r2", label: "DNS (Rota 2 — só NaTV)" },
+    { key: "m3u_url_r2", label: "Link M3U (Rota 2 — só NaTV)" },
   ];
 
   const PORTAL_INSTRUCTION_TAGS: { tag: string; label: string }[] = [
