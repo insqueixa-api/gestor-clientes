@@ -1,6 +1,6 @@
 ﻿"use client";
 // app/admin/gerenciador/cobranca/page.tsx
-import { MessageCircle, X } from "lucide-react";
+import { MessageCircle, X, Loader2 } from "lucide-react";
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -461,25 +461,25 @@ function GlobalQueueMonitor({
                   <button
                     onClick={handleGlobalPause}
                     disabled={loading}
-                    className="px-4 py-2 bg-amber-500 text-white rounded-lg font-medium text-xs hover:bg-amber-600"
+                    className="px-4 py-2 bg-amber-500 text-white rounded-lg font-medium text-xs hover:bg-amber-600 disabled:opacity-50 flex items-center gap-1.5"
                   >
-                    ⏸️ PAUSAR TUDO
+                    {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "⏸️"} PAUSAR TUDO
                   </button>
                 ) : (
                   <button
                     onClick={handleGlobalResume}
                     disabled={loading || pausedCount === 0}
-                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium text-xs hover:bg-emerald-700 disabled:opacity-50"
+                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium text-xs hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1.5"
                   >
-                    ▶️ RETOMAR
+                    {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "▶️"} RETOMAR
                   </button>
                 )}
                 <button
                   onClick={handleNukeQueue}
                   disabled={loading}
-                  className="px-4 py-2 bg-rose-600 text-white rounded-lg font-medium text-xs hover:bg-rose-700"
+                  className="px-4 py-2 bg-rose-600 text-white rounded-lg font-medium text-xs hover:bg-rose-700 disabled:opacity-50 flex items-center gap-1.5"
                 >
-                  🚨 CANCELAR TUDO
+                  {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "🚨"} CANCELAR TUDO
                 </button>
               </div>
             </div>
@@ -3021,23 +3021,26 @@ function LogsModal({
             <button
               onClick={() => requeueIds(selectedArr)}
               disabled={working || selectedArr.length === 0}
-              className="px-4 py-2 rounded-lg bg-sky-500/10 text-sky-500 border border-sky-500/20 font-medium text-xs uppercase hover:bg-sky-500/20 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+              className="px-4 py-2 rounded-lg bg-sky-500/10 text-sky-500 border border-sky-500/20 font-medium text-xs uppercase hover:bg-sky-500/20 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm flex items-center gap-1.5"
             >
+              {working && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               Reenviar selecionados ({selectedArr.length})
             </button>
             <button
               onClick={() => requeueIds(failedRows.map((r) => r.id))}
               disabled={working || failedRows.length === 0}
-              className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium text-xs uppercase hover:bg-emerald-500 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-emerald-900/20"
+              className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium text-xs uppercase hover:bg-emerald-500 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-emerald-900/20 flex items-center gap-1.5"
             >
+              {working && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               Reenviar todas as falhas ({failedRows.length})
             </button>
             <button
               onClick={() => cancelIds(selectedArr)}
               disabled={working || selectedArr.length === 0}
-              className="px-4 py-2 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 font-medium text-xs uppercase hover:bg-rose-500/20 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+              className="px-4 py-2 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 font-medium text-xs uppercase hover:bg-rose-500/20 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm flex items-center gap-1.5"
               title="Cliente já recebeu — remove da lista de falhas sem reenviar"
             >
+              {working && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               Limpar selecionados
             </button>
           </div>

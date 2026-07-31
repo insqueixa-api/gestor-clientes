@@ -443,7 +443,7 @@ function WhatsAppSessionCard({
               {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCcw className="w-3.5 h-3.5" />} Atualizar
             </button>
             <button onClick={() => void handleReconnect()} disabled={reconnecting} className="py-2 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 font-medium text-xs hover:bg-amber-500/20 flex items-center justify-center gap-1.5 disabled:opacity-50">
-              <RefreshCcw className="w-3.5 h-3.5" /> Reconectar
+              {reconnecting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCcw className="w-3.5 h-3.5" />} Reconectar
             </button>
             <button onClick={() => void handleDisconnect()} disabled={!connected} className="py-2 rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20 font-medium text-xs hover:bg-rose-500/20 flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
               <Plug className="w-3.5 h-3.5" /> Desconectar

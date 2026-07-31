@@ -4,15 +4,14 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Loader2 } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import { extractDateOnly, CHECK_VALIDITY_HANDLERS, resolveIntegrationTypeByName, buildM3uUrlFromDns, buildM3uUrlSecondary } from "@/lib/apps/panel";
-import { APP_FIELD_LABELS } from "@/lib/apps/field-types";
+import { CHECK_VALIDITY_HANDLERS, resolveIntegrationTypeByName, buildM3uUrlFromDns, buildM3uUrlSecondary } from "@/lib/apps/panel";
 import { getIntegrationHandler } from "@/lib/integrations";
 import { dispatchClouddyAction } from "@/lib/apps/clouddy-extension";
 import type { AppFieldConfig, IntegrationHandler } from "@/lib/apps/types";
 import type { ConfirmDialogProps } from "@/components/ui/ConfirmDialog";
 import type { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
 import AppIntegrationActions from "@/components/apps/AppIntegrationActions";
-import CopyFieldButton from "@/components/apps/CopyFieldButton";
+import AppInstanceFields from "@/components/apps/AppInstanceFields";
 
 type ToastFn = (type: "success" | "error" | "warning", title: string, message?: string) => void;
 type ConfirmFn = (options: Omit<ConfirmDialogProps, "open" | "onConfirm" | "onCancel" | "loading">) => Promise<boolean>;
@@ -458,36 +457,16 @@ export default function AppRequestModal({
             <div className="flex justify-between"><span className="text-muted-foreground">Servidor:</span><span className="font-medium">{data.serverUsername}{data.serverName ? ` (${data.serverName})` : ""}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Aplicativo:</span><span className="font-medium">{data.appName}</span></div>
 
-            {/* Campos dinâmicos — o que o app realmente tem (MAC/Device Key
-                pros apps comuns, email/senha pro ClouDDy, etc.), não um
-                resumo fixo. */}
-            <div className="space-y-2 pt-1">
-              {data.fieldsConfig.length === 0 && (
-                <p className="text-xs text-muted-foreground italic">Este app não tem campos configurados.</p>
-              )}
-              {data.fieldsConfig.map((f) => {
-                const key = fieldKeyOf(f);
-                const type = String(f.type || "").toLowerCase();
-                const label = APP_FIELD_LABELS[type] || String(f.label || "").trim() || "Campo";
-                const raw = data.fieldValues[key] || "";
-                const display = type === "date" ? (extractDateOnly(raw) ? extractDateOnly(raw)!.split("-").reverse().join("/") : raw || "—") : raw || "—";
-                return (
-                  <div key={key} className="flex items-center justify-between gap-2 bg-muted/40 border border-border rounded-lg px-3 py-2">
-                    <div className="min-w-0">
-                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
-                      <p className="font-medium truncate">{display}</p>
-                    </div>
-                    {raw && (
-                      <CopyFieldButton
-                        value={raw}
-                        label={label}
-                        onCopy={copyField}
-                        className="shrink-0 text-muted-foreground hover:text-sky-500 transition-colors px-1.5 py-1"
-                      />
-                    )}
-                  </div>
-                );
-              })}
+            {/* Campos do app — mesmo componente do card de aplicativos do
+                editar cliente: editável (dá pra corrigir um MAC errado ou
+                limpar um campo direto daqui) e com botão de copiar. */}
+            <div className="pt-1">
+              <AppInstanceFields
+                fieldsConfig={data.fieldsConfig}
+                values={data.fieldValues}
+                onFieldChange={(key, value) => persistFieldValue(key, value)}
+                onCopy={copyField}
+              />
             </div>
 
             {clientAppId && (isClouddy || hasApiIntegration) && (

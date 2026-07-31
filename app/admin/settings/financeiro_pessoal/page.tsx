@@ -2299,7 +2299,7 @@ function ModalAjusteSaldo({
             disabled={salvando}
             className="px-6 py-2 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-500 disabled:opacity-50"
           >
-            Salvar Ajuste
+            {salvando ? "Salvando..." : "Salvar Ajuste"}
           </button>
         </div>
       </div>
@@ -2385,7 +2385,7 @@ function ModalNovaConta({
             disabled={salvando}
             className="w-full h-10 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-500 shadow-lg transition-colors disabled:opacity-50"
           >
-            Salvar Conta
+            {salvando ? "Salvando..." : "Salvar Conta"}
           </button>
         </div>
       </div>
@@ -2780,7 +2780,7 @@ function ModalNovaCategoria({
             disabled={salvando}
             className="w-full h-10 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-500 shadow-lg transition-colors disabled:opacity-50"
           >
-            Salvar Categoria
+            {salvando ? "Salvando..." : "Salvar Categoria"}
           </button>
         </div>
       </div>

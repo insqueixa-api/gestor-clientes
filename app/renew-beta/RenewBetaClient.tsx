@@ -3495,9 +3495,10 @@ export default function RenewClient() {
                               <button
                                 disabled={busy}
                                 onClick={() => handleRemoveApp(app.id, app.name)}
-                                className="shrink-0 px-2.5 py-1.5 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 text-[10px] font-bold uppercase hover:bg-rose-500/20 transition-colors disabled:opacity-50"
+                                className="shrink-0 px-2.5 py-1.5 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 text-[10px] font-bold uppercase hover:bg-rose-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
                               >
-                                {busy ? "..." : "Excluir Aplicativo"}
+                                {busy && <Loader2 className="w-3 h-3 animate-spin" />}
+                                {busy ? "Excluindo..." : "Excluir Aplicativo"}
                               </button>
                             )}
                           </div>
