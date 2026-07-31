@@ -168,6 +168,10 @@ export async function POST(req: Request) {
       label: contact.is_secondary ? "Envio simulado Secundário" : "Envio simulado",
       expiresAt: null,
       onLog: () => {},
+      // ✅ /renew-beta é o destino oficial pra qualquer link gerado via
+      // WhatsApp (31/07/2026, pedido do Márcio) — mesmo padrão que o bot já
+      // usa (lib/whatsapp/bot-engine.ts, toolGerarLinkPortal).
+      dest: "renew-beta",
     });
 
     if (recipientType !== "reseller") {

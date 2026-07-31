@@ -47,6 +47,7 @@ import {
   buildInvalidMenuRetry,
   pickInvalidIntro,
   withResolutionQuestionIfNeeded,
+  ACCOUNT_DEPENDENT_VARS,
   type ServerProvider,
 } from "@/lib/whatsapp/bot-menu";
 import {
@@ -740,6 +741,42 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
     return enterNode(node, null, 2);
   }
 
+  // ── Estado: aguardando resolução de conta pra resposta livre do RAG ──────
+  // ✅ Achado em auditoria (31/07/2026): o caminho do RAG (resposta livre por
+  // similaridade, fora da árvore) sempre usava clients[0]/clientMatchesRaw[0]
+  // pra montar as variáveis do artigo batido — mesmo bug que a árvore já
+  // corrigiu em 24/07 (nodeNeedsAccount/ACCOUNT_DEPENDENT_VARS), só que nunca
+  // chegou até aqui. Espelha o MESMO padrão "pergunta → guarda estado →
+  // resolve na resposta" que `conta:`/`contaMatch` já usa pra nó de árvore,
+  // adaptado pra carregar o id do artigo de conhecimento em vez do nó.
+  const ragContaMatch = /^rag_conta:([a-f0-9-]+)$/.exec(botState || "");
+  if (ragContaMatch) {
+    const topId = ragContaMatch[1];
+    const { data: kb } = await sb.from("bot_knowledge").select("id, content").eq("id", topId).maybeSingle();
+    if (!kb) return { action: "erro_no_estado", markRead: true, nextState: "__clear__" };
+
+    const resolved = resolveAccount(trimmed);
+    if (!resolved) {
+      // Mesma política da árvore (`conta:` → attempt 2): só uma pergunta de
+      // retentativa — se a segunda resposta também não identificar a conta,
+      // escala em vez de arriscar responder com a conta errada de novo.
+      await sendFlow(flow.escalate_message);
+      return { action: "rag_conta_desistiu", escalate: true, markRead: false, nextState: "__clear__" };
+    }
+
+    const { client: ragClient, rawClient: ragRawClient } = resolved;
+    const vars = buildBotClientVars(ragClient, ragRawClient, ragClient?.is_secondary);
+    if (kb.content.includes("{link_pagamento}")) {
+      vars.link_pagamento = await toolGerarLinkPortal(sb, tenantId, ragRawClient, ragClient?.is_secondary);
+    }
+    if (kb.content.includes("{tabela_precos}")) {
+      vars.tabela_precos = await toolConsultarPrecosTexto(sb, tenantId, ragClient);
+    }
+    Object.assign(vars, await resolveCouponPendencyVars(sb, tenantId, ragClient, kb.content));
+    await sendWithLogos(renderTemplate(kb.content, vars));
+    return { action: "rag_direct_pos_conta", markRead: true, nextState: "geral" };
+  }
+
   // ── Estado: aguardando "resolveu ou não" ─────────────────────────────────
   const resolutionMatch = /^awaiting_resolution:([a-f0-9-]+)$/.exec(botState || "");
   const resolutionRetryMatch = /^awaiting_resolution_retry:([a-f0-9-]+)$/.exec(botState || "");
@@ -836,19 +873,38 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
       const candidates = embedding ? await searchBotKnowledgeCandidates(sb, tenantId, embedding) : [];
       const top = await pickCompatibleKnowledgeMatch(sb, candidates, clientProvider);
       if (top) {
-        const vars = buildBotClientVars(clients[0], clientMatchesRaw[0], clients[0]?.is_secondary);
+        // ✅ Achado em auditoria (31/07/2026): com mais de uma conta, um artigo
+        // que usa dado por-conta (usuário/senha/DNS/link de pagamento/etc —
+        // ACCOUNT_DEPENDENT_VARS, mesma lista da árvore) NUNCA deve resolver
+        // direto pra clients[0] sem perguntar — mesmo bug que nodeNeedsAccount
+        // já corrigiu do lado da árvore em 24/07, só que o RAG livre nunca
+        // passava por essa checagem. `resolveAccount(trimmed)` tenta achar a
+        // conta na PRÓPRIA pergunta primeiro (ex: "qual a senha da conta 2") —
+        // só pergunta de verdade se não conseguir.
+        const ragNeedsAccount = clients.length > 1 && ACCOUNT_DEPENDENT_VARS.some((v) => top.content.includes(v));
+        let ragResolved: { client: any; rawClient: any } | null = { client: clients[0], rawClient: clientMatchesRaw[0] };
+        if (ragNeedsAccount) {
+          ragResolved = resolveAccount(trimmed);
+          if (!ragResolved) {
+            await send(askAccountMessage());
+            return { action: "rag_pede_conta", markRead: true, nextState: `rag_conta:${top.id}` };
+          }
+        }
+        const { client: ragClient, rawClient: ragRawClient } = ragResolved;
+
+        const vars = buildBotClientVars(ragClient, ragRawClient, ragClient?.is_secondary);
         // ✅ Achado em auditoria: {link_pagamento}/{tabela_precos} só resolviam
         // em mensagem de nó (buildVarsForNode) — um artigo da Base de
         // Conhecimento usando essas tags mandava o texto literal "{link_pagamento}"
         // pro cliente quando ganhava a busca livre. Mesmo padrão condicional
         // (só resolve se a tag aparece no texto).
         if (top.content.includes("{link_pagamento}")) {
-          vars.link_pagamento = await toolGerarLinkPortal(sb, tenantId, clientMatchesRaw[0], clients[0]?.is_secondary);
+          vars.link_pagamento = await toolGerarLinkPortal(sb, tenantId, ragRawClient, ragClient?.is_secondary);
         }
         if (top.content.includes("{tabela_precos}")) {
-          vars.tabela_precos = await toolConsultarPrecosTexto(sb, tenantId, clients[0]);
+          vars.tabela_precos = await toolConsultarPrecosTexto(sb, tenantId, ragClient);
         }
-        Object.assign(vars, await resolveCouponPendencyVars(sb, tenantId, clients[0], top.content));
+        Object.assign(vars, await resolveCouponPendencyVars(sb, tenantId, ragClient, top.content));
         await sendWithLogos(renderTemplate(top.content, vars));
         return { action: "rag_direct", markRead: true, nextState: "geral" };
       }
