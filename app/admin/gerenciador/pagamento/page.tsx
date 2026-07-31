@@ -423,15 +423,15 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
-      onClick={onClose}
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="w-full max-w-lg bg-card border border-border rounded-xl shadow-2xl flex flex-col max-h-[90vh]"
-        onClick={(e) => e.stopPropagation()}
+        className="w-full h-full sm:h-auto sm:max-w-lg bg-card border-0 sm:border border-border sm:rounded-xl shadow-2xl flex flex-col max-h-full sm:max-h-[90vh]"
+        onMouseDown={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 py-4 border-b border-border bg-transparent rounded-t-xl flex items-center justify-between">
+        <div className="px-5 py-4 border-b border-border bg-transparent sm:rounded-t-xl flex items-center justify-between">
           <div>
             <h2 className="text-base font-medium text-foreground">
               📖 {help.title}
@@ -454,7 +454,7 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
         </div>
 
         {/* Steps */}
-        <div className="p-5 overflow-y-auto space-y-4">
+        <div className="flex-1 min-h-0 p-5 overflow-y-auto space-y-4">
 <ol className="space-y-3">
             {help.steps.map((step, i) => (
               <li key={i} className="flex items-start gap-3">
@@ -482,7 +482,7 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
           )}
         </div>
 
-        <div className="px-5 py-3 border-t border-border bg-transparent rounded-b-xl">
+        <div className="px-5 py-3 border-t border-border bg-transparent sm:rounded-b-xl">
           <button
             onClick={onClose}
             className="w-full h-9 rounded-lg bg-transparent text-foreground/90 font-medium text-sm hover:bg-muted transition-colors"
@@ -649,15 +649,15 @@ function GatewayModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
-      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="w-full max-w-2xl bg-card border border-border rounded-xl shadow-2xl flex flex-col max-h-[90vh]"
-        onClick={(e) => e.stopPropagation()}
+        className="w-full h-full sm:h-auto sm:max-w-2xl bg-card border-0 sm:border border-border sm:rounded-xl shadow-2xl flex flex-col max-h-full sm:max-h-[90vh]"
+        onMouseDown={(e) => e.stopPropagation()}
       >
         {/* HEADER MODAL */}
-        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent rounded-t-xl">
+        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent sm:rounded-t-xl">
           <div>
             <h2 className="text-lg font-medium text-foreground">
               {isEdit ? "Editar Integração" : "Nova Integração de Pagamento"}
@@ -677,7 +677,7 @@ function GatewayModal({
         </div>
 
         {/* BODY */}
-        <div className="p-6 overflow-y-auto space-y-6">
+        <div className="flex-1 min-h-0 p-6 overflow-y-auto space-y-6">
           {/* Seletor de tipo (só na criação) */}
           {!isEdit && (
             <div className="space-y-3">
@@ -953,7 +953,7 @@ function GatewayModal({
         </div>
 
         {/* FOOTER MODAL */}
-        <div className="px-6 py-4 border-t border-border bg-transparent flex justify-end gap-2 rounded-b-xl">
+        <div className="px-6 py-4 border-t border-border bg-transparent flex justify-end gap-2 sm:rounded-b-xl">
           <button
             onClick={onClose}
             className="px-4 py-2 text-muted-foreground hover:bg-muted rounded-lg text-sm font-medium transition-colors"

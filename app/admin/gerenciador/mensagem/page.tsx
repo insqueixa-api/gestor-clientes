@@ -704,7 +704,7 @@ function PreviewModal({
 
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
-      <div className="w-full h-full sm:h-auto max-w-lg bg-card border-0 sm:border border-border rounded-none sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[100dvh] sm:max-h-[80vh]">
+      <div className="w-full h-full sm:h-auto sm:max-w-xl bg-card border-0 sm:border border-border rounded-none sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[100dvh] sm:max-h-[80vh]">
         {/* Cabeçalho */}
         <div className="px-4 py-3 sm:px-5 sm:py-4 border-b border-border flex justify-between items-center bg-transparent shrink-0">
           <h3 className="font-medium text-foreground truncate pr-4 text-base sm:text-lg">

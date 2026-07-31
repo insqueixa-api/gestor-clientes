@@ -604,10 +604,10 @@ export default function ResellerFormModal({
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200">
-      <div className="w-full max-w-2xl max-h-[90vh] bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden min-h-0 transition-colors max-h-[90dvh]">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200">
+      <div className="w-full h-full sm:h-auto sm:max-w-2xl max-h-full sm:max-h-[90vh] bg-card border-0 sm:border border-border sm:rounded-xl shadow-2xl flex flex-col overflow-hidden min-h-0 transition-colors sm:max-h-[90dvh]">
         {/* HEADER */}
-        <div className="px-6 py-4 border-b bg-transparent shrink-0 rounded-t-xl">
+        <div className="px-6 py-4 border-b bg-transparent shrink-0 sm:rounded-t-xl">
           <h2 className="text-lg font-semibold text-foreground">
             {isEditing ? "Editar Revenda" : "Nova Revenda"}
           </h2>
@@ -765,7 +765,7 @@ export default function ResellerFormModal({
         </div>
 
         {/* FOOTER FIXO */}
-        <div className="px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t bg-transparent shrink-0 rounded-b-xl flex justify-end gap-3">
+        <div className="px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t bg-transparent shrink-0 sm:rounded-b-xl flex justify-end gap-3">
           <button
             onClick={onClose}
             className="px-4 h-10 rounded-lg border border-border text-foreground/90 text-sm font-semibold hover:bg-muted transition"

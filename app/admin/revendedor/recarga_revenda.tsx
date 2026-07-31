@@ -681,8 +681,8 @@ export default function QuickRechargeModal({
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-2xl max-h-[90vh] bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
+      <div className="w-full h-full sm:h-auto sm:max-w-2xl max-h-full sm:max-h-[90vh] bg-card border-0 sm:border border-border sm:rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
         {/* HEADER */}
         <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent">
           <div>
@@ -705,7 +705,7 @@ export default function QuickRechargeModal({
         </div>
 
         {/* BODY */}
-        <div className="p-6 space-y-6 overflow-y-auto bg-card">
+        <div className="flex-1 min-h-0 p-6 space-y-6 overflow-y-auto bg-card">
           {loadErr && (
             <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-500 text-sm font-medium animate-in slide-in-from-top-2">
               <span className="font-medium">Erro:</span> {loadErr}

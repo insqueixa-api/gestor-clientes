@@ -210,9 +210,9 @@ function ProgressBar({start, stop}:{start:string; stop:string}) {
 // ✅ Refatorado: Tooltip programa (Visual Limpo com Tailwind)
 function ProgramaTooltip({prog,onClose}:{prog:Programa;onClose:()=>void}) {
   return (
-    <div className="fixed inset-0 z-[9998] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
-      <div 
-        onClick={e=>e.stopPropagation()} 
+    <div className="fixed inset-0 z-[9998] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div
+        onMouseDown={e=>e.stopPropagation()}
         className="bg-card border border-border rounded-2xl overflow-hidden shadow-2xl max-w-md w-full animate-in fade-in-0 zoom-in-95"
       >
         {prog.prog_icon&&<div className="relative h-56 bg-muted/30"><img src={prog.prog_icon} alt={prog.title} className="w-full h-full object-cover"/><div className="absolute inset-0 bg-gradient-to-t from-card via-card/20 to-transparent"/><button onClick={onClose} className="absolute top-3 right-3 bg-black/60 text-white rounded-full p-1.5 hover:bg-black/80"><X size={16}/></button></div>}
@@ -397,9 +397,9 @@ function ModalDetalheCanal({canal, progsPorCanal, agoraMs, onProgSelect, onClose
     }, [canal, progsPorCanal, agoraMs]);
 
     return (
-        <div className="fixed inset-0 z-[9990] bg-black/60 flex justify-end backdrop-blur-sm animate-in fade-in-0" onClick={onClose}>
-            <div 
-                onClick={e=>e.stopPropagation()} 
+        <div className="fixed inset-0 z-[9990] bg-black/60 flex justify-end backdrop-blur-sm animate-in fade-in-0" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+            <div
+                onMouseDown={e=>e.stopPropagation()}
                 className="w-full max-w-xl h-full bg-background border-l border-border shadow-xl flex flex-col animate-in slide-in-from-right-2 duration-300"
             >
                 {/* Cabeçalho do Modal */}
@@ -679,9 +679,9 @@ useEffect(() => { carregarInfo(); }, []);
   }
   
   return (
-    <div className="fixed inset-0 z-[9990] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[9990] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div 
-        onClick={e=>e.stopPropagation()} 
+        onMouseDown={e=>e.stopPropagation()}
         className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-in fade-in-0 zoom-in-95 duration-300"
       >
         <div className="flex items-center justify-between p-5 border-b border-border shrink-0 bg-card">
@@ -916,9 +916,9 @@ const backdrop=detalhe?.poster_tmdb_url||detalhe?.cover_url||"";
     : (detalhe?.disponibilidade || []);
   
   return (
-    <div className="fixed inset-0 z-[9990] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[9990] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div 
-        onClick={e=>e.stopPropagation()} 
+        onMouseDown={e=>e.stopPropagation()}
         className="bg-card border border-border w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col animate-in fade-in-0 zoom-in-95 duration-300"
       >
         <div className="relative min-h-[200px] flex-shrink-0 bg-muted/30">
@@ -1784,9 +1784,9 @@ function ModalUsageStats({onClose}:{onClose:()=>void}) {
   const LABEL_FAIXA: Record<string,string> = { ELITE:"EliteTV", NATV:"NaTV", FAST:"FastTV", TODOS:"Todos" };
 
   return (
-    <div className="fixed inset-0 z-[9990] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[9990] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div
-        onClick={e=>e.stopPropagation()}
+        onMouseDown={e=>e.stopPropagation()}
         className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[85vh] flex flex-col animate-in fade-in-0 zoom-in-95 duration-300"
       >
         <div className="flex items-center justify-between p-5 border-b border-border shrink-0 bg-card">
@@ -2084,9 +2084,9 @@ function ModalSugestaoConteudo({
   const jaExisteNoCatalogo = encontrados.length > 0;
 
   return (
-    <div className="fixed inset-0 z-[9995] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[9995] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div
-        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
         className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-in fade-in-0 zoom-in-95 duration-300"
       >
         <div className="flex items-center justify-between p-5 border-b border-border shrink-0 bg-card">
@@ -2423,9 +2423,9 @@ function ModalGerenciarSugestoes({ onClose }: { onClose: () => void }) {
   const FILTROS = ["PENDENTE", "ENVIADO_SUPORTE", "ADICIONADO", "REJEITADO", "TODOS"];
 
   return (
-    <div className="fixed inset-0 z-[9990] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[9990] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div
-        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
         className="bg-card border border-border rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-in fade-in-0 zoom-in-95 duration-300"
       >
         <div className="flex items-center justify-between p-5 border-b border-border shrink-0 bg-card">

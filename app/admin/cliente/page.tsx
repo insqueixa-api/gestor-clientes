@@ -3429,13 +3429,13 @@ function Modal({
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm grid place-items-center p-4 z-[99999]"
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm grid place-items-center sm:p-4 z-[99999]"
     >
       <div
         onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-lg bg-card border border-border rounded-xl shadow-2xl overflow-hidden"
+        className="w-full h-full sm:h-auto sm:max-w-xl max-h-full sm:max-h-[90vh] bg-card border-0 sm:border border-border sm:rounded-xl shadow-2xl overflow-hidden flex flex-col"
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent shrink-0">
           <div className="font-medium text-foreground">
             {title}
           </div>
@@ -3445,9 +3445,9 @@ function Modal({
           >
             <IconX />
           </button>
-        
+
         </div>
-        <div className="p-4">{children}</div>
+        <div className="flex-1 min-h-0 overflow-y-auto p-4">{children}</div>
       </div>
     </div>,
     document.body,

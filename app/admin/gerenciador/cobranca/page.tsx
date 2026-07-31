@@ -354,8 +354,8 @@ function GlobalQueueMonitor({
       {/* 🔴 MODAL RAIO-X */}
       {showModal &&
         createPortal(
-          <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="w-full max-w-6xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+          <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 animate-in fade-in">
+            <div className="w-full h-full sm:h-auto sm:max-w-6xl bg-card border-0 sm:border border-border sm:rounded-2xl shadow-2xl flex flex-col max-h-full sm:max-h-[90vh] overflow-hidden">
               <div className="px-4 py-3 border-b border-border flex justify-between items-center bg-muted/40">
                 <h3 className="font-medium text-lg text-foreground">
                   Gerenciador de Fila
@@ -1779,8 +1779,8 @@ function ImpactListModal({
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-4xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
+      <div className="w-full h-full sm:h-auto sm:max-w-4xl bg-card border-0 sm:border border-border sm:rounded-2xl shadow-2xl flex flex-col max-h-full sm:max-h-[90vh]">
         <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent">
           <div>
             <h3 className="text-lg font-medium text-foreground">
@@ -2088,8 +2088,8 @@ function AutomationWizard({
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-2xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
+      <div className="w-full h-full sm:h-auto sm:max-w-2xl bg-card border-0 sm:border border-border sm:rounded-2xl shadow-2xl flex flex-col max-h-full sm:max-h-[90vh]">
         <div className="px-6 py-5 border-b border-border bg-transparent">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-medium text-foreground">
@@ -2825,8 +2825,8 @@ function LogsModal({
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-3xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[80vh]">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
+      <div className="w-full h-full sm:h-auto sm:max-w-3xl bg-card border-0 sm:border border-border sm:rounded-2xl shadow-2xl flex flex-col max-h-full sm:max-h-[80vh]">
         <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent">
           <div>
             <h3 className="text-lg font-medium text-foreground">Logs de Envio</h3>

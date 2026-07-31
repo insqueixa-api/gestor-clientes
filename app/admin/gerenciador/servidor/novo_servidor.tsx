@@ -726,8 +726,8 @@ export default function ServerFormModal({ server, onClose, onSuccess, onError }:
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-5xl max-h-[90vh] bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
+      <div className="w-full h-full sm:h-auto sm:max-w-5xl max-h-full sm:max-h-[90vh] bg-card border-0 sm:border border-border sm:rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
         {/* HEADER */}
         <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent">
           <div>
@@ -747,7 +747,7 @@ export default function ServerFormModal({ server, onClose, onSuccess, onError }:
         </div>
 
         {/* CORPO */}
-        <div className="p-6 space-y-6 overflow-y-auto bg-card">
+        <div className="flex-1 min-h-0 p-6 space-y-6 overflow-y-auto bg-card">
           <div className="grid grid-cols-12 gap-4">
             <div
               className={`${

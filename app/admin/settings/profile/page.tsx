@@ -885,7 +885,7 @@ async function handleSave() {
               <>
                 <div
                   className="fixed inset-0 z-40"
-                  onClick={() => setShowSettingsDropdown(false)}
+                  onMouseDown={() => setShowSettingsDropdown(false)}
                 />
                 <div className="absolute right-0 top-full mt-2 w-56 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-200">
                   {/* Tema */}

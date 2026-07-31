@@ -193,7 +193,7 @@ export default function NovaIntegracaoModal({
     <div className="fixed inset-0 z-[999999] flex items-center justify-center px-3">
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
+        onMouseDown={onClose}
       />
       <div className="relative w-full max-w-lg rounded-2xl border border-border bg-card shadow-xl overflow-hidden">
         <div className="p-5 border-b border-border bg-transparent">

@@ -1861,7 +1861,7 @@ const clientMessageAuto = `Renovação automática via painel Admin · ${monthsT
       {/* --- MODAL PRINCIPAL --- */}
       <div
         // ✅ LAYOUT: Items-end no mobile (sheet), center no desktop. Sem padding no mobile.
-        className="fixed inset-0 z-[99990] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200 overflow-hidden overscroll-contain"
+        className="fixed inset-0 z-[99990] flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200 overflow-hidden overscroll-contain"
         onPointerDown={(e) => {
           // Só fecha se começar o clique exatamente no fundo escuro
           if (e.target === e.currentTarget) onClose();
@@ -1869,11 +1869,11 @@ const clientMessageAuto = `Renovação automática via painel Admin · ${monthsT
       >
         <div
           // ✅ Ajuste Max Width e Altura
-          className="w-full max-w-lg sm:max-w-2xl bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden min-h-0 max-h-[90vh] transition-all animate-in fade-in zoom-in-95 duration-200 max-h-[90dvh]"
+          className="w-full h-full sm:h-auto sm:max-w-3xl bg-card border-0 sm:border border-border sm:rounded-xl shadow-2xl flex flex-col overflow-hidden min-h-0 max-h-full sm:max-h-[90vh] transition-all animate-in fade-in zoom-in-95 duration-200 sm:max-h-[90dvh]"
           onPointerDown={(e) => e.stopPropagation()}
         >
           {/* HEADER (MANTÉM IGUAL) */}
-          <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent rounded-t-xl shrink-0">
+          <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent sm:rounded-t-xl shrink-0">
             {/* ... conteúdo do header ... */}
             <div className="flex items-center gap-3">
               <div
@@ -2299,7 +2299,7 @@ className={`p-3 rounded-xl border transition-all cursor-pointer ${
           </div>
 
           {/* FOOTER */}
-          <div className="px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-border bg-transparent flex justify-end gap-3 rounded-b-xl shrink-0">
+          <div className="px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-border bg-transparent flex justify-end gap-3 sm:rounded-b-xl shrink-0">
             <button
               onClick={onClose}
               className="px-5 py-2.5 rounded-xl border border-border text-muted-foreground font-medium text-sm hover:bg-muted transition-all"

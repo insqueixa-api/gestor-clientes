@@ -182,38 +182,25 @@ const [apps, setApps] = useState<AppData[]>([]);
   const [formIsActive, setFormIsActive] = useState(true);
   const [formDiscontinuedReplacement, setFormDiscontinuedReplacement] = useState<string>("");
 
-  // ✅ Variáveis disponíveis nas instruções de configuração (25/07/2026) —
-  // mesmo motor {variavel} do restante do sistema (lib/whatsapp/template-vars.ts,
-  // renderTemplate), resolvidas de verdade em app/api/client-portal/apps/list/route.ts
-  // com os dados reais do cliente antes de mostrar no portal. "usuario_app"/
-  // "senha_app"/"dns_servidor" usam o MESMO nome já usado nos templates de
-  // mensagem do WhatsApp de propósito (mesma variável, sem duplicar
-  // convenção); "m3u_url" é nova, não existia em lugar nenhum ainda.
-  // "codigo" (31/07/2026) é diferente dos outros — não vem do cliente/
-  // servidor, vem do campo "Código de acesso" logo abaixo (apps.access_code,
-  // fixo por app, ex: Brasil IPTV usa "4100"). As 4 primeiras (codigo,
-  // usuario_app, senha_app, dns_servidor) também viram badge copiável no
-  // portal automaticamente — só aparecem se o texto realmente usar a tag.
-  const PORTAL_INSTRUCTION_TAGS: { tag: string; label: string }[] = [
-    { tag: "{codigo}", label: "Código" },
-    { tag: "{usuario_app}", label: "Usuário" },
-    { tag: "{senha_app}", label: "Senha" },
-    { tag: "{dns_servidor}", label: "DNS" },
-    { tag: "{m3u_url}", label: "Link M3U" },
-  ];
-
-  // ✅ Separado das tags acima de propósito (31/07/2026, pedido do Márcio) —
-  // antes o badge no portal aparecia automaticamente quando o texto usava
-  // {token}, o que duplicava a mesma informação (escrita por extenso no
-  // parágrafo E repetida de novo como badge logo abaixo). Agora é uma
-  // escolha independente: o texto livre pode (ou não) mencionar o dado, e
-  // aqui você marca só o que deve virar campo copiável no portal — sem
-  // precisar repetir no texto.
+  // ✅ Único mecanismo pros dados do cliente (usuário/senha/DNS/código)
+  // aparecerem no portal (31/07/2026, pedido do Márcio — refeito depois de
+  // um vai-e-volta: a 1ª versão substituía {tag} dentro do texto livre; a 2ª
+  // manteve a tag E adicionou os toggles abaixo, só que aí tinha DOIS
+  // lugares fazendo a mesma coisa, o que gerou inconsistência entre apps e
+  // "não vejo onde preencher a variável"). Agora é só isto: marque o toggle,
+  // o dado vira um badge copiável no portal (igual Device ID/MAC/Key) — não
+  // tem tag pra inserir no texto livre pra esses 4. "{m3u_url}" continua
+  // sendo tag de texto (não tem "badge" equivalente — é só um link pra
+  // embutir na frase, se for o caso).
   const VARIABLE_BADGE_OPTIONS: { key: string; label: string }[] = [
     { key: "codigo", label: "Código" },
     { key: "usuario_app", label: "Usuário" },
     { key: "senha_app", label: "Senha" },
     { key: "dns_servidor", label: "DNS" },
+  ];
+
+  const PORTAL_INSTRUCTION_TAGS: { tag: string; label: string }[] = [
+    { tag: "{m3u_url}", label: "Link M3U" },
   ];
 
   function toggleVariableBadge(key: string) {
@@ -1275,14 +1262,20 @@ setApps(formattedApps);
       {/* MODAL DE CRIAÇÃO / EDIÇÃO */}
       {isModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200 overflow-hidden overscroll-contain"
-          onClick={() => setIsModalOpen(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200 overflow-hidden overscroll-contain"
+          onMouseDown={(e) => {
+            // ✅ onMouseDown (não onClick) + checagem do alvo exatamente no
+            // fundo — só fecha se o clique COMEÇAR no backdrop. Com onClick
+            // puro, selecionar texto dentro do modal e soltar o mouse fora
+            // fechava o modal sem querer (pedido do Márcio, 31/07/2026).
+            if (e.target === e.currentTarget) setIsModalOpen(false);
+          }}
         >
           <div
-            className="w-full max-w-lg sm:max-w-2xl bg-card border border-border rounded-xl shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200"
-            onClick={(e) => e.stopPropagation()}
+            className="w-full h-full sm:h-auto sm:max-w-3xl bg-card border-0 sm:border border-border sm:rounded-xl shadow-2xl flex flex-col max-h-full sm:max-h-[90vh] animate-in zoom-in-95 duration-200"
+            onMouseDown={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent rounded-t-xl">
+            <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent sm:rounded-t-xl">
               <h2 className="text-lg font-medium text-foreground">
                 {editingId ? "Editar Aplicativo" : "Novo Aplicativo"}
               </h2>
@@ -1294,7 +1287,7 @@ setApps(formattedApps);
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto space-y-6 overscroll-contain">
+            <div className="flex-1 p-6 overflow-y-auto space-y-6 overscroll-contain">
               {/* DADOS BÁSICOS */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -1558,17 +1551,46 @@ setApps(formattedApps);
                 </div>
 
                 <div>
-                  <Label>Código de acesso (opcional)</Label>
-                  <input
-                    type="text"
-                    value={formAccessCode}
-                    onChange={(e) => setFormAccessCode(e.target.value)}
-                    placeholder="Ex: 4100, pfast — código fixo que o app pede pra logar, além de usuário/senha"
-                    className="w-full px-3 py-2 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
-                  />
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    Só apps que exigem um código fixo pra logar (ex: Brasil IPTV) precisam disso — marque "Código" em "Campos visíveis no portal" abaixo pra virar badge.
+                  <Label>Dados do cliente exibidos no portal</Label>
+                  <p className="text-[11px] text-muted-foreground mb-2">
+                    Marque o que esse app precisa — cada um vira um campo com
+                    botão de copiar no card do app, igual Device ID/MAC/Key.
+                    Não repita esses dados por extenso no texto livre abaixo,
+                    pra não duplicar a informação na tela do cliente.
                   </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {VARIABLE_BADGE_OPTIONS.map((opt) => {
+                      const active = formVariableBadges.includes(opt.key);
+                      return (
+                        <button
+                          key={opt.key}
+                          type="button"
+                          onClick={() => toggleVariableBadge(opt.key)}
+                          className={`px-2.5 py-1 rounded-md border text-[11px] font-medium transition-colors ${
+                            active
+                              ? "bg-sky-500/10 border-sky-500/40 text-sky-500"
+                              : "bg-transparent border-border text-muted-foreground hover:bg-muted"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {formVariableBadges.includes("codigo") && (
+                    <div className="mt-2">
+                      <input
+                        type="text"
+                        value={formAccessCode}
+                        onChange={(e) => setFormAccessCode(e.target.value)}
+                        placeholder="Ex: 4100, pfast — código fixo que o app pede pra logar"
+                        className="w-full px-3 py-2 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
+                      />
+                      <p className="text-[11px] text-muted-foreground mt-1">
+                        Valor fixo, igual pra todos os clientes desse app (ex: Brasil IPTV usa "4100").
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -1595,40 +1617,11 @@ setApps(formattedApps);
                     ))}
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    Clique numa tag pra inserir no texto — é substituída pelo
-                    dado real do cliente na hora de mostrar. Aparece no botão
-                    de instruções (ⓘ) ao lado de "Editar", no card do app no
-                    portal (Meus Aplicativos).
-                  </p>
-                </div>
-
-                <div>
-                  <Label>Campos visíveis no portal (badge copiável)</Label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {VARIABLE_BADGE_OPTIONS.map((opt) => {
-                      const active = formVariableBadges.includes(opt.key);
-                      return (
-                        <button
-                          key={opt.key}
-                          type="button"
-                          onClick={() => toggleVariableBadge(opt.key)}
-                          className={`px-2.5 py-1 rounded-md border text-[11px] font-medium transition-colors ${
-                            active
-                              ? "bg-sky-500/10 border-sky-500/40 text-sky-500"
-                              : "bg-transparent border-border text-muted-foreground hover:bg-muted"
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    Independente do texto acima — marque só o que deve
-                    aparecer como campo com botão de copiar no portal (igual
-                    Device ID/MAC/Key). Evite mencionar o mesmo dado por
-                    extenso no texto livre também, pra não duplicar a
-                    informação na tela do cliente.
+                    Texto livre — explique o passo a passo. Usuário/senha/DNS/
+                    código NÃO precisam ser escritos aqui: marque acima e eles
+                    aparecem prontos pra copiar, separados do texto. "Link
+                    M3U" é a única tag pra inserir aqui (não tem campo
+                    equivalente).
                   </p>
                 </div>
 
@@ -1753,7 +1746,7 @@ setApps(formattedApps);
               </div>
             </div>
 
-            <div className="px-6 py-4 border-t border-border bg-transparent flex justify-end gap-2 rounded-b-xl">
+            <div className="px-6 py-4 border-t border-border bg-transparent flex justify-end gap-2 sm:rounded-b-xl">
               <button
                 onClick={() => setIsModalOpen(false)}
                 className="px-4 py-2 text-muted-foreground hover:bg-muted rounded-lg text-sm font-medium transition-colors"
