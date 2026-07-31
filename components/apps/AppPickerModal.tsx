@@ -140,7 +140,7 @@ export default function AppPickerModal({
         onMouseDown={(e) => e.stopPropagation()}
         className="w-full max-w-2xl bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-4 max-h-[85vh]"
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-start gap-3">
           {deviceType && (
             <button
               onClick={() => setDeviceType(null)}

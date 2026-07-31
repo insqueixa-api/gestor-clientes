@@ -680,7 +680,14 @@ export default function RenewClient() {
     setEditingValues(vals);
   }
 
-  async function handleSaveAppFields(clientAppId: string) {
+  // ✅ Salvar + Configurar num clique só (pedido do Márcio, 31/07/2026) —
+  // antes o cliente salvava os campos e ainda precisava achar e clicar em
+  // "Reconfigurar/Solicitar configuração" separado. Agora o botão do
+  // formulário de edição já faz tudo: salva, e SEMPRE tenta a rota
+  // Principal (o seletor Principal/Secundária continua existindo, mas só
+  // pro botão avulso "Reconfigurar aplicativo" — esse fluxo aqui é o de
+  // primeiro preenchimento, não faz sentido perguntar o modo).
+  async function handleSaveAndConfigure(clientAppId: string) {
     if (!selectedAccountId || !session) return;
     setAppActionBusy(clientAppId);
     try {
@@ -696,13 +703,36 @@ export default function RenewClient() {
       });
       const result = await res.json().catch(() => null);
       if (!result?.ok) throw new Error(result?.error || "Não foi possível salvar.");
-      setEditingAppId(null);
-      addToast("success", "Salvo!", "Campos atualizados.");
-      await refreshInstalledApps();
     } catch (err: any) {
       addToast("error", "Não foi possível salvar", err?.message);
-    } finally {
       setAppActionBusy(null);
+      return;
+    }
+
+    const refreshed = await refreshInstalledApps();
+    const targetApp = refreshed.find((a) => a.id === clientAppId);
+    setAppActionBusy(null);
+    if (!targetApp) {
+      setEditingAppId(null);
+      return;
+    }
+
+    const missing = getMissingRequiredFields(targetApp);
+    if (missing.length > 0) {
+      addToast(
+        "warning",
+        "Salvo — falta preencher",
+        `Ainda falta: ${missing.map((f) => f.label).join(", ")}.`,
+      );
+      startEditingApp(targetApp);
+      return;
+    }
+
+    setEditingAppId(null);
+    if (targetApp.has_integration) {
+      performConfigureApp(clientAppId, "principal");
+    } else {
+      handleRequestSetup(clientAppId);
     }
   }
 
@@ -865,11 +895,16 @@ export default function RenewClient() {
     }
   }
 
-  async function handleRemoveApp(clientAppId: string, appName: string) {
+  async function handleRemoveApp(clientAppId: string, appName: string, hasIntegration: boolean) {
     if (!selectedAccountId || !session) return;
+    // ✅ Mensagem direta e diferente por tipo de app (pedido do Márcio,
+    // 31/07/2026) — antes era um texto único e condicional ("se tiver...
+    // se não tiver..."), confuso pra saber qual dos dois casos era o seu.
     const ok = await confirm({
       title: "Excluir aplicativo?",
-      subtitle: `"${appName}" será removido dessa conta. Se tiver configuração automática, também some do painel do parceiro; se não tiver, seu pedido vai pro nosso suporte concluir.`,
+      subtitle: hasIntegration
+        ? `"${appName}" vai ser desconfigurado e removido do painel do parceiro, e sai do seu cadastro também. Essa ação não pode ser desfeita.`
+        : `"${appName}" sai do seu cadastro. Esse app não configura sozinho — nosso suporte vai concluir a remoção no painel do parceiro em seguida.`,
       tone: "rose",
       confirmText: "Excluir",
       cancelText: "Cancelar",
@@ -2985,7 +3020,7 @@ export default function RenewClient() {
       <div className="min-h-screen bg-background">
         {/* --- TOPO FIXO IDÊNTICO AO SEU ADMIN --- */}
         <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
-          <div className="mx-auto flex w-full max-w-2xl items-center gap-2 px-4 py-2">
+          <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-4 py-2">
             {/* Logo Responsiva */}
             <div className="flex items-center gap-3 min-w-0 cursor-pointer group">
               <Image
@@ -3057,8 +3092,8 @@ export default function RenewClient() {
         </div>
 
         {/* --- CORPO DA PÁGINA --- */}
-        <div className="max-w-2xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
-          <div className="mb-4 sm:mb-6">
+        <div className="max-w-6xl mx-auto px-0 sm:px-4 py-4 sm:py-6">
+          <div className="mb-4 sm:mb-6 px-3 sm:px-0">
             <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
               {getGreeting()}! 👋
             </h1>
@@ -3163,7 +3198,7 @@ export default function RenewClient() {
   if (!selectedAccount) return null;
 
   // ========= TOPO FIXO REUTILIZÁVEL (menu / apps) =========
-  function renderTopBar(onBack: (() => void) | null, widthClass: string = "max-w-2xl") {
+  function renderTopBar(onBack: (() => void) | null, widthClass: string = "max-w-6xl") {
     return (
       <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
         <div className={`mx-auto flex w-full ${widthClass} items-center gap-2 px-4 py-2`}>
@@ -3245,8 +3280,8 @@ export default function RenewClient() {
       <div className="min-h-screen bg-background">
         {renderTopBar(accounts.length > 1 ? () => setSelectedAccountId(null) : null)}
 
-        <div className="max-w-2xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4">
-          <div className="mb-2">
+        <div className="max-w-6xl mx-auto px-0 sm:px-4 py-4 sm:py-6 space-y-4">
+          <div className="mb-2 px-3 sm:px-0">
             <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
               {getGreeting()}! 👋
             </h1>
@@ -3337,12 +3372,12 @@ export default function RenewClient() {
         <ToastNotifications toasts={toasts} removeToast={removeToast} />
         {renderTopBar(() => setActiveSection("menu"), "max-w-6xl")}
 
-        {/* ✅ Mais larga (pedido do Márcio, 26/07/2026): max-w-6xl em vez de
-            max-w-2xl — mesma largura da página de perfil do admin
-            (settings/profile). No celular o cap não muda nada na prática
-            (tela já é bem menor que 672px), então continua ocupando 100%. */}
-        <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4">
-          <div className="mb-2 flex items-center justify-between gap-3 flex-wrap">
+        {/* ✅ Mesma largura (max-w-6xl) de todas as outras telas do
+            renew-beta agora — antes só essa tinha (pedido do Márcio,
+            26/07/2026, "mesma largura da página de perfil do admin"). No
+            celular vai até a borda (px-0), igual as demais. */}
+        <div className="max-w-6xl mx-auto px-0 sm:px-4 py-4 sm:py-6 space-y-4">
+          <div className="mb-2 flex items-center justify-between gap-3 flex-wrap px-3 sm:px-0">
             <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
               Configuração de Aplicativo
             </h1>
@@ -3353,7 +3388,7 @@ export default function RenewClient() {
               }}
               className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all shrink-0"
             >
-              <span>+</span> Adicionar aplicativo
+              <span>+</span> Configurar aplicativo
             </button>
           </div>
 
@@ -3490,11 +3525,11 @@ export default function RenewClient() {
                           <div className="flex gap-2 pt-1">
                             <button
                               disabled={busy}
-                              onClick={() => handleSaveAppFields(app.id)}
+                              onClick={() => handleSaveAndConfigure(app.id)}
                               className="flex-1 h-9 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold disabled:opacity-50 flex items-center justify-center gap-1.5"
                             >
                               {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                              {busy ? "Salvando..." : "Salvar"}
+                              {busy ? "Configurando..." : "Configurar"}
                             </button>
                             <button
                               disabled={busy}
@@ -3509,31 +3544,45 @@ export default function RenewClient() {
                         <>
                           {/* Linha 2: campos (Device ID, Device Key, Ambiente...) à
                               esquerda, Excluir à direita (Editar subiu pro
-                              cabeçalho, Ambiente saiu daqui — vai junto do nome) */}
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
-                              {otherFields.map((f) => (
-                                <span key={f.id} className="flex items-center gap-1 px-2 py-0.5 bg-muted text-muted-foreground border border-border text-[10px] font-mono rounded">
-                                  <span className={f.type === "mac" || f.type === "device_key" ? "font-bold text-foreground/80" : ""}>{f.label}</span>: {f.value || "—"}
-                                  {f.value && (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        navigator.clipboard?.writeText(f.value);
-                                        addToast("success", "Copiado!", `${f.label} copiado.`);
-                                      }}
-                                      className="text-muted-foreground hover:text-sky-500 transition-colors"
-                                      title="Copiar"
-                                    >
-                                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                                      </svg>
-                                    </button>
-                                  )}
-                                </span>
-                              ))}
-                            </div>
+                              cabeçalho, Ambiente saiu daqui — vai junto do nome).
+                              ✅ App sem integração automática mostra as
+                              instruções aqui em vez dos campos crus (pedido do
+                              Márcio, 31/07/2026) — sem isso o cliente via
+                              "Device ID: —" sem saber que existe um botão (i)
+                              com o passo a passo; fica sem graça mostrar dado
+                              vazio quando o que ele precisa é ler o "como
+                              fazer" primeiro. Os campos continuam editáveis
+                              via "Editar", só saem dessa visão resumida. */}
+                          <div className="flex items-start justify-between gap-2">
+                            {!app.has_integration && app.portal_setup_instructions ? (
+                              <p className="flex-1 min-w-0 text-[11px] text-muted-foreground bg-muted/40 border border-border rounded-lg px-2.5 py-1.5 whitespace-pre-line">
+                                {app.portal_setup_instructions}
+                              </p>
+                            ) : (
+                              <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
+                                {otherFields.map((f) => (
+                                  <span key={f.id} className="flex items-center gap-1 px-2 py-0.5 bg-muted text-muted-foreground border border-border text-[10px] font-mono rounded">
+                                    <span className="font-bold text-foreground/80">{f.label}</span>: {f.value || "—"}
+                                    {f.value && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          navigator.clipboard?.writeText(f.value);
+                                          addToast("success", "Copiado!", `${f.label} copiado.`);
+                                        }}
+                                        className="text-muted-foreground hover:text-sky-500 transition-colors"
+                                        title="Copiar"
+                                      >
+                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                        </svg>
+                                      </button>
+                                    )}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                             {app.has_pending_removal_request ? (
                               <span className="shrink-0 px-2 py-1 rounded-lg bg-muted text-muted-foreground border border-border text-[10px] font-bold">
                                 Exclusão solicitada
@@ -3541,7 +3590,7 @@ export default function RenewClient() {
                             ) : (
                               <button
                                 disabled={busy}
-                                onClick={() => handleRemoveApp(app.id, app.name)}
+                                onClick={() => handleRemoveApp(app.id, app.name, app.has_integration)}
                                 className="shrink-0 px-2.5 py-1.5 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 text-[10px] font-bold uppercase hover:bg-rose-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
                               >
                                 {busy && <Loader2 className="w-3 h-3 animate-spin" />}
@@ -3634,7 +3683,7 @@ export default function RenewClient() {
                                     {renewPaymentBusyId === app.id && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                                     {renewPaymentBusyId === app.id
                                       ? "Gerando pagamento..."
-                                      : `Renovar aplicativo — ${formatMoney(app.license_price, "BRL")}${app.license_period === "annual" ? "/ano" : app.license_period === "lifetime" ? " (vitalícia)" : ""}`}
+                                      : `Pagar licença ${app.license_period === "annual" ? "Anual" : app.license_period === "lifetime" ? "Vitalícia" : ""}: ${formatMoney(app.license_price, "BRL")}`}
                                   </button>
                                 )
                               )}
@@ -3674,9 +3723,8 @@ export default function RenewClient() {
                 catalogLoading={appCatalogLoading}
                 busyAppId={appActionBusy?.startsWith("add-") ? appActionBusy.slice(4) : null}
                 onSelectApp={(appId) => handleAddApp(appId)}
-                title="Adicionar aplicativo"
+                title="Configurar aplicativo"
                 variant="portal"
-                
               />
 
               <ConfigureResultModal
@@ -3845,28 +3893,47 @@ export default function RenewClient() {
 
               {/* Modal de instruções de configuração — substitui a página de
                   detalhe (/renew-beta/apps/[id]), que ficou redundante */}
-              {instructionsAppId && (
-                <div
-                  className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-                  onMouseDown={(e) => {
-                    if (e.target === e.currentTarget) setInstructionsAppId(null);
-                  }}
-                >
-                  <div className="w-full max-w-sm bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-3 max-h-[80vh]">
-                    <div className="flex items-center justify-between shrink-0">
-                      <p className="text-sm font-bold text-foreground">
-                        Como configurar — {installedApps.find((a) => a.id === instructionsAppId)?.name}
+              {instructionsAppId && (() => {
+                const instrApp = installedApps.find((a) => a.id === instructionsAppId);
+                return (
+                  <div
+                    className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+                    onMouseDown={(e) => {
+                      if (e.target === e.currentTarget) setInstructionsAppId(null);
+                    }}
+                  >
+                    <div className="w-full max-w-sm bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-3 max-h-[80vh]">
+                      <p className="text-sm font-bold text-foreground shrink-0">
+                        Como configurar — {instrApp?.name}
                       </p>
-                      <button onClick={() => setInstructionsAppId(null)} className="text-muted-foreground hover:text-foreground text-xs">
-                        ✕
-                      </button>
+                      <p className="text-xs text-muted-foreground whitespace-pre-line overflow-y-auto">
+                        {instrApp?.portal_setup_instructions}
+                      </p>
+                      {/* ✅ 2 botões em vez de só um X (pedido do Márcio,
+                          31/07/2026) — "Configurar" já leva direto pro
+                          formulário de preenchimento, sem deixar o cliente
+                          se perguntando "preencho aqui onde?". */}
+                      <div className="flex gap-2 pt-1 shrink-0">
+                        <button
+                          onClick={() => {
+                            setInstructionsAppId(null);
+                            if (instrApp) startEditingApp(instrApp);
+                          }}
+                          className="flex-1 h-9 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold"
+                        >
+                          Configurar
+                        </button>
+                        <button
+                          onClick={() => setInstructionsAppId(null)}
+                          className="flex-1 h-9 rounded-lg bg-muted text-foreground border border-border text-xs font-bold"
+                        >
+                          Fechar
+                        </button>
+                      </div>
                     </div>
-                    <p className="text-xs text-muted-foreground whitespace-pre-line overflow-y-auto">
-                      {installedApps.find((a) => a.id === instructionsAppId)?.portal_setup_instructions}
-                    </p>
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </div>
         </div>
       </div>
@@ -3877,7 +3944,7 @@ export default function RenewClient() {
     <div className="min-h-screen bg-background">
       {/* --- TOPO FIXO IDÊNTICO AO SEU ADMIN --- */}
       <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
-        <div className="mx-auto flex w-full max-w-2xl items-center gap-2 px-4 py-2">
+        <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-4 py-2">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             {/* Botão de Voltar para o Menu */}
             <button
@@ -3956,7 +4023,7 @@ export default function RenewClient() {
       </div>
 
       {/* --- CORPO DA PÁGINA --- */}
-      <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4 px-3 sm:px-4 py-4 sm:py-6">
+      <div className="max-w-6xl mx-auto space-y-3 sm:space-y-4 px-0 sm:px-4 py-4 sm:py-6">
         {/* ✅ Banner de novidades removido daqui — virou o Bloco 2 do menu */}
 
 {/* Vencimento Centralizado (Substitui Card Azul) */}
