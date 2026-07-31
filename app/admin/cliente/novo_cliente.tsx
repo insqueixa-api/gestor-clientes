@@ -1024,7 +1024,6 @@ const canSyncAgenda = canSyncAuto;
 
   // --- AUX ---
   const [servers, setServers] = useState<SelectOption[]>([]);
-  const [allApps, setAllApps] = useState<SelectOption[]>([]);
 
   const [syncAgenda, setSyncAgenda] = useState(canSyncAgenda); // Só nasce ligado quando é permitido
   const [syncOperadora, setSyncOperadora] = useState(canSyncAuto); // Mesma regra do Agenda
@@ -1303,7 +1302,6 @@ const canSyncAgenda = canSyncAuto;
   };
 
   // --- ESTADOS ---
-  // --- ESTADOS ---
   const [catalog, setCatalog] = useState<AppCatalog[]>([]);
   const [selectedApps, setSelectedApps] = useState<SelectedAppInstance[]>([]);
   const [appIntegrations, setAppIntegrations] = useState<any[]>([]); // ✅ NOVO: Guarda as URLs dos Apps
@@ -1376,8 +1374,6 @@ const canSyncAgenda = canSyncAuto;
   // ✅ NOVO: Detectar provider + integração (FAST=4h fixo, NATV=6h padrão editável, ELITE=2h fixo)
   const [hasIntegration, setHasIntegration] = useState(false);
   const [syncWithServer, setSyncWithServer] = useState(false); // ✅ NOVO: Controla se chama a API ou não
-  // ✅ NOVO: Guardar a URL base para enviar para a Extensão do Chrome
-  const [integrationBaseUrl, setIntegrationBaseUrl] = useState("");
 
   useEffect(() => {
     if (!serverId) {
@@ -1428,16 +1424,13 @@ const canSyncAgenda = canSyncAuto;
 
         const { data: integ, error: integErr } = await supabaseBrowser
           .from("server_integrations")
-          // ✅ NOVO: Busca também a api_base_url
-          .select("provider, api_base_url")
+          .select("provider")
           .eq("id", integrationId)
           .single();
 
         if (!mounted) return;
         if (integErr) throw integErr;
         const provider = String(integ?.provider || "").toUpperCase();
-        // ✅ NOVO: Salva a URL no estado para usar nos disparos
-        setIntegrationBaseUrl(String(integ?.api_base_url || ""));
 
         if (provider === "FAST") {
           setTrialProvider("FAST");
@@ -1554,6 +1547,7 @@ const canSyncAgenda = canSyncAuto;
           .select("*");
 
         if (appsErr) {
+          addToast("error", "Erro ao carregar catálogo de apps", appsErr.message);
         }
 
         // ✅ NOVO: Busca as integrações configuradas dos Apps (onde mora a URL do painel deles)
@@ -1650,13 +1644,6 @@ const canSyncAgenda = canSyncAuto;
         if (appsData) {
           // Guardamos o catálogo completo para usar no seletor
           setCatalog(appsData);
-          // Opcional: Se ainda usa allApps para algo legado, pode manter, senão pode ignorar
-          setAllApps(
-            appsData.map((a: { id: string; name: string }) => ({
-              id: a.id,
-              name: a.name,
-            })),
-          );
         }
 
         const allTables = (tRes.data || []) as unknown as PlanTable[];
@@ -3214,14 +3201,15 @@ const vRes = await fetch("/api/whatsapp/validate", {
         if (Object.keys(patchEdit).length > 0) {
           // ✅ Delay de segurança
           await new Promise((resolve) => setTimeout(resolve, 50));
-          const { data: patchResult, error: patchErr } = await supabaseBrowser
+          const { error: patchErr } = await supabaseBrowser
             .from("clients")
             .update(patchEdit)
             .eq("id", clientId)
             .eq("tenant_id", tid)
             .select();
           if (patchErr) {
-          } else {
+            addToast("error", "Erro ao atualizar M3U/data de cadastro", patchErr.message);
+            throw patchErr;
           }
         }
 
