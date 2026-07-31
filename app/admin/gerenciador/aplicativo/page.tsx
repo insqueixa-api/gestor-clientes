@@ -22,17 +22,6 @@ import {
   DEVICE_TYPE_LABELS,
 } from "@/lib/apps/device-types";
 
-// Mesmos ícones do AppPickerModal (components/apps/AppPickerModal.tsx) — só
-// pra bater visualmente com o seletor de dispositivo que o admin já conhece.
-const DEVICE_ICONS: Record<DeviceType, string> = {
-  SAMSUNG_LG: "📺",
-  ANDROID_TVBOX: "📦",
-  IOS: "📱",
-  COMPUTADOR: "💻",
-  FIRE_TV: "🔥",
-  ROKU: "🟣",
-};
-
 // --- TIPOS ---
 type AppField = {
   id: string;
@@ -446,53 +435,43 @@ setApps(formattedApps);
     setCollapsedGroups((prev) => ({ ...prev, [groupName]: !prev[groupName] }));
   };
 
-  // ✅ Refatoração (pedido do Márcio): agrupa por dispositivo compatível em
-  // vez de família de integração — um app com vários device_types aparece em
-  // cada seção onde ele funciona. Dentro de cada dispositivo, ordena: apps
-  // com integração automática sempre no topo, depois por custo (Pago →
-  // Parceria → Gratuito), depois por nome.
-  const COST_TYPE_RANK: Record<string, number> = {
-    paid: 0,
-    partnership: 1,
-    free: 2,
-  };
-
+  // ✅ Agrupa por custo — Pago → Parceria → Gratuito (cada app aparece uma
+  // única vez, sem duplicar por dispositivo). Dentro de cada lista, apps com
+  // integração automática sempre no topo, depois por nome.
   function compareApps(a: AppData, b: AppData) {
     const intA = a.integration_type ? 0 : 1;
     const intB = b.integration_type ? 0 : 1;
     if (intA !== intB) return intA - intB;
 
-    const costA = COST_TYPE_RANK[a.cost_type || ""] ?? 3;
-    const costB = COST_TYPE_RANK[b.cost_type || ""] ?? 3;
-    if (costA !== costB) return costA - costB;
-
     return a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
   }
 
-  const groupedByDevice = React.useMemo(() => {
-    const groups: Partial<Record<DeviceType, AppData[]>> = {};
-    const noDevice: AppData[] = [];
+  const COST_GROUPS: { key: CostType; label: string }[] = [
+    { key: "paid", label: "💰 Pagos" },
+    { key: "partnership", label: "🤝 Parceria" },
+    { key: "free", label: "🆓 Gratuitos" },
+  ];
+
+  const groupedByCost = React.useMemo(() => {
+    const groups: Record<CostType, AppData[]> = {
+      paid: [],
+      partnership: [],
+      free: [],
+    };
+    const noCost: AppData[] = [];
 
     filteredApps.forEach((app) => {
-      const types = Array.isArray(app.device_types) ? app.device_types : [];
-      if (types.length === 0) {
-        noDevice.push(app);
-        return;
+      if (app.cost_type === "paid" || app.cost_type === "partnership" || app.cost_type === "free") {
+        groups[app.cost_type].push(app);
+      } else {
+        noCost.push(app);
       }
-      types.forEach((dt) => {
-        if (!groups[dt]) groups[dt] = [];
-        groups[dt]!.push(app);
-      });
     });
 
-    Object.values(groups).forEach((list) => list!.sort(compareApps));
-    noDevice.sort(compareApps);
+    (Object.keys(groups) as CostType[]).forEach((key) => groups[key].sort(compareApps));
+    noCost.sort(compareApps);
 
-    const orderedDeviceKeys = ALL_DEVICE_TYPES.filter(
-      (dt) => (groups[dt]?.length ?? 0) > 0,
-    );
-
-    return { groups, orderedDeviceKeys, noDevice };
+    return { groups, noCost };
   }, [filteredApps]);
 
   const isRootTenant = true;
@@ -865,7 +844,7 @@ setApps(formattedApps);
     );
   }
 
-  function renderDeviceGroup(key: string, label: string, appsInGroup: AppData[]) {
+  function renderAppGroup(key: string, label: string, appsInGroup: AppData[]) {
     const isCollapsed = collapsedGroups[key];
     return (
       <div key={key} className="space-y-3">
@@ -1157,19 +1136,11 @@ setApps(formattedApps);
         </div>
       ) : (
         <div className="px-3 sm:px-0 space-y-6">
-          {groupedByDevice.orderedDeviceKeys.map((dt) =>
-            renderDeviceGroup(
-              dt,
-              `${DEVICE_ICONS[dt]} ${DEVICE_TYPE_LABELS[dt]}`,
-              groupedByDevice.groups[dt]!,
-            ),
+          {COST_GROUPS.filter((g) => groupedByCost.groups[g.key].length > 0).map((g) =>
+            renderAppGroup(g.key, g.label, groupedByCost.groups[g.key]),
           )}
-          {groupedByDevice.noDevice.length > 0 &&
-            renderDeviceGroup(
-              "SEM_DISPOSITIVO",
-              "📁 Sem dispositivo definido",
-              groupedByDevice.noDevice,
-            )}
+          {groupedByCost.noCost.length > 0 &&
+            renderAppGroup("SEM_CUSTO", "📁 Custo não definido", groupedByCost.noCost)}
           <div className="h-24 md:h-20" />
         </div>
       )}
