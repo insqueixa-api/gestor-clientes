@@ -11,6 +11,7 @@ export type AppPickerCatalogItem = {
   icon_url?: string | null;
   device_types?: string[];
   cost_type?: "free" | "paid" | "partnership" | null;
+  partner_server_id?: string | null;
   license_price?: number | null;
   license_period?: "annual" | "lifetime" | null;
   is_active?: boolean;
@@ -38,6 +39,7 @@ export default function AppPickerModal({
   subtitle = "Em qual aparelho você vai usar?",
   variant = "admin",
   helperText,
+  clientServerId,
 }: {
   open: boolean;
   onClose: () => void;
@@ -49,6 +51,11 @@ export default function AppPickerModal({
   subtitle?: string;
   variant?: "admin" | "portal";
   helperText?: string;
+  /** Servidor do cliente sendo editado (admin) — só usado pra travar apps de
+   * parceria a servidor errado DEPOIS que um aparelho é escolhido. A busca
+   * livre (sem aparelho selecionado) nunca é travada por isso — pesquisa o
+   * catálogo inteiro, pra achar qualquer app rápido. */
+  clientServerId?: string | null;
 }) {
   const [mounted, setMounted] = useState(false);
   const [deviceType, setDeviceType] = useState<DeviceType | null>(null);
@@ -81,11 +88,20 @@ export default function AppPickerModal({
   const appsForDevice = useMemo(() => {
     return catalog.filter((app) => {
       if (!deviceType) return true;
-      const hasExplicitDeviceTypes = Boolean(app.device_types && app.device_types.length > 0);
-      if (!hasExplicitDeviceTypes) return true;
-      return app.device_types?.includes(deviceType);
+      // ✅ Trava de parceria (só app do servidor certo do cliente) — entra
+      // em vigor só depois que um aparelho é escolhido. Busca livre (sem
+      // aparelho) nunca aplica essa trava, pra sempre achar qualquer app.
+      if (app.cost_type === "partnership" && clientServerId !== undefined) {
+        if (!clientServerId || app.partner_server_id !== clientServerId) return false;
+      }
+      // ✅ Sem device_types cadastrado não é "compatível com tudo" — é dado
+      // faltando no catálogo (ex: Meta Player). Precisa ficar de fora do
+      // filtro por aparelho até alguém cadastrar os dispositivos certos em
+      // /admin/gerenciador/aplicativo, senão aparece em todo aparelho sem
+      // ter sido testado lá de verdade.
+      return Boolean(app.device_types?.includes(deviceType));
     });
-  }, [catalog, deviceType]);
+  }, [catalog, deviceType, clientServerId]);
 
   const hasPaidApps = appsForDevice.some((app) => app.cost_type === "paid");
   const hasFreeApps = appsForDevice.some((app) => app.cost_type !== "paid");
@@ -108,6 +124,10 @@ export default function AppPickerModal({
     ? "bg-sky-500/10 border-sky-500/40 text-sky-500"
     : "bg-emerald-500/10 border-emerald-500/40 text-emerald-500";
   const inputFocusClass = isPortal ? "focus:border-sky-500" : "focus:border-emerald-500";
+  // ✅ No admin, a busca fica sempre visível no cabeçalho (pedido do
+  // Márcio) — dá pra achar o app pelo nome sem escolher aparelho antes. No
+  // portal mantém o fluxo original (busca só depois de escolher aparelho).
+  const showTiles = !deviceType && (isPortal || !search.trim());
 
   return createPortal(
     <div
@@ -143,6 +163,15 @@ export default function AppPickerModal({
               </p>
             )}
           </div>
+          {!isPortal && (
+            <input
+              type="text"
+              placeholder="Buscar aplicativo..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className={`hidden sm:block w-48 shrink-0 h-9 px-3 bg-muted border border-border rounded-lg text-sm text-foreground outline-none ${inputFocusClass}`}
+            />
+          )}
           <button
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shrink-0"
@@ -152,7 +181,17 @@ export default function AppPickerModal({
           </button>
         </div>
 
-        {!deviceType ? (
+        {!isPortal && (
+          <input
+            type="text"
+            placeholder="Buscar aplicativo..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className={`sm:hidden w-full h-10 px-3 bg-muted border border-border rounded-lg text-sm text-foreground outline-none ${inputFocusClass}`}
+          />
+        )}
+
+        {showTiles ? (
           <div className="grid grid-cols-2 gap-2.5">
             {ALL_DEVICE_TYPES.map((dt) => (
               <button
@@ -197,20 +236,24 @@ export default function AppPickerModal({
                 </button>
               </div>
             )}
-            <input
-              type="text"
-              autoFocus
-              placeholder="Buscar aplicativo..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className={`w-full h-10 px-3 bg-muted border border-border rounded-lg text-sm text-foreground outline-none ${inputFocusClass}`}
-            />
+            {isPortal && (
+              <input
+                type="text"
+                autoFocus
+                placeholder="Buscar aplicativo..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className={`w-full h-10 px-3 bg-muted border border-border rounded-lg text-sm text-foreground outline-none ${inputFocusClass}`}
+              />
+            )}
             <div className="space-y-1.5 overflow-y-auto max-h-[50vh]">
               {catalogLoading ? (
                 <p className="text-xs text-muted-foreground text-center py-6">Carregando...</p>
               ) : filteredApps.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-6">
-                  Nenhum aplicativo disponível pra esse aparelho ainda.
+                  {deviceType
+                    ? "Nenhum aplicativo disponível pra esse aparelho ainda."
+                    : "Nenhum aplicativo encontrado pra essa busca."}
                 </p>
               ) : (
                 filteredApps.map((app) => {

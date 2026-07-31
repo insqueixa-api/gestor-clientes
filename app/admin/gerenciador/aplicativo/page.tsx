@@ -458,21 +458,86 @@ setApps(formattedApps);
       partnership: [],
       free: [],
     };
-    const noCost: AppData[] = [];
+    // ✅ Descontinuados saem da seção de custo deles (Pago/Parceria/Gratuito)
+    // e ganham seção própria — junto com qualquer app sem custo definido
+    // (hoje não existe nenhum, mas evita um app sumir da tela se acontecer).
+    const discontinued: AppData[] = [];
 
     filteredApps.forEach((app) => {
-      if (app.cost_type === "paid" || app.cost_type === "partnership" || app.cost_type === "free") {
+      if (app.is_active === false) {
+        discontinued.push(app);
+      } else if (app.cost_type === "paid" || app.cost_type === "partnership" || app.cost_type === "free") {
         groups[app.cost_type].push(app);
       } else {
-        noCost.push(app);
+        discontinued.push(app);
       }
     });
 
     (Object.keys(groups) as CostType[]).forEach((key) => groups[key].sort(compareApps));
-    noCost.sort(compareApps);
+    discontinued.sort(compareApps);
 
-    return { groups, noCost };
+    return { groups, discontinued };
   }, [filteredApps]);
+
+  type SubGroup = { key: string; label: string; apps: AppData[] };
+
+  // ✅ Parceria: sub-divide por servidor parceiro (mesma fonte do filtro
+  // "Parceria por servidor"). Cada app pertence a um único servidor, então
+  // não duplica.
+  const partnershipSubGroups = React.useMemo<SubGroup[]>(() => {
+    const byServer: Record<string, AppData[]> = {};
+    const noServer: AppData[] = [];
+
+    groupedByCost.groups.partnership.forEach((app) => {
+      if (app.partner_server_id) {
+        if (!byServer[app.partner_server_id]) byServer[app.partner_server_id] = [];
+        byServer[app.partner_server_id].push(app);
+      } else {
+        noServer.push(app);
+      }
+    });
+
+    const result = Object.keys(byServer)
+      .map((serverId) => ({
+        key: serverId,
+        label: servers.find((s) => s.id === serverId)?.name || "Servidor",
+        apps: byServer[serverId],
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label, "pt-BR", { sensitivity: "base" }));
+
+    if (noServer.length > 0) {
+      result.push({ key: "SEM_SERVIDOR", label: "Sem servidor definido", apps: noServer });
+    }
+
+    return result;
+  }, [groupedByCost, servers]);
+
+  // ✅ Gratuitos: sub-divide por família de dispositivo — Android (inclui Fire
+  // TV, que também roda apps Android) primeiro, depois iOS, depois "Outros"
+  // (só o que não é de nenhuma das duas famílias, ex: só Computador). Prioridade
+  // Android > iOS > Outros pra nenhum app aparecer duas vezes.
+  const freeSubGroups = React.useMemo<SubGroup[]>(() => {
+    const android: AppData[] = [];
+    const ios: AppData[] = [];
+    const outros: AppData[] = [];
+
+    groupedByCost.groups.free.forEach((app) => {
+      const types = Array.isArray(app.device_types) ? app.device_types : [];
+      if (types.includes("ANDROID_TVBOX") || types.includes("FIRE_TV")) {
+        android.push(app);
+      } else if (types.includes("IOS")) {
+        ios.push(app);
+      } else {
+        outros.push(app);
+      }
+    });
+
+    const result: SubGroup[] = [];
+    if (android.length > 0) result.push({ key: "ANDROID", label: "Android", apps: android });
+    if (ios.length > 0) result.push({ key: "IOS", label: "iOS", apps: ios });
+    if (outros.length > 0) result.push({ key: "OUTROS", label: "Outros", apps: outros });
+    return result;
+  }, [groupedByCost]);
 
   const isRootTenant = true;
 
@@ -844,8 +909,16 @@ setApps(formattedApps);
     );
   }
 
-  function renderAppGroup(key: string, label: string, appsInGroup: AppData[]) {
+  function renderAppGroup(
+    key: string,
+    label: string,
+    appsInGroup: AppData[],
+    subGroups?: SubGroup[],
+  ) {
     const isCollapsed = collapsedGroups[key];
+    const total = subGroups
+      ? subGroups.reduce((n, sg) => n + sg.apps.length, 0)
+      : appsInGroup.length;
     return (
       <div key={key} className="space-y-3">
         <div
@@ -857,7 +930,7 @@ setApps(formattedApps);
               {label}
             </h2>
             <span className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm">
-              {appsInGroup.length} {appsInGroup.length > 1 ? "Apps" : "App"}
+              {total} {total > 1 ? "Apps" : "App"}
             </span>
           </div>
 
@@ -877,11 +950,27 @@ setApps(formattedApps);
           </button>
         </div>
 
-        {!isCollapsed && (
+        {!isCollapsed && (subGroups ? (
+          <div className="space-y-5 animate-in slide-in-from-top-2 duration-300">
+            {subGroups.map((sg) => (
+              <div key={sg.key} className="space-y-2">
+                <h3 className="text-xs font-semibold text-muted-foreground/80 uppercase tracking-wide pl-0.5">
+                  {sg.label}{" "}
+                  <span className="text-muted-foreground/50 normal-case font-normal">
+                    ({sg.apps.length})
+                  </span>
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+                  {sg.apps.map((app) => renderAppCard(app))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 animate-in slide-in-from-top-2 duration-300">
             {appsInGroup.map((app) => renderAppCard(app))}
           </div>
-        )}
+        ))}
       </div>
     );
   }
@@ -1137,10 +1226,15 @@ setApps(formattedApps);
       ) : (
         <div className="px-3 sm:px-0 space-y-6">
           {COST_GROUPS.filter((g) => groupedByCost.groups[g.key].length > 0).map((g) =>
-            renderAppGroup(g.key, g.label, groupedByCost.groups[g.key]),
+            renderAppGroup(
+              g.key,
+              g.label,
+              groupedByCost.groups[g.key],
+              g.key === "partnership" ? partnershipSubGroups : g.key === "free" ? freeSubGroups : undefined,
+            ),
           )}
-          {groupedByCost.noCost.length > 0 &&
-            renderAppGroup("SEM_CUSTO", "📁 Custo não definido", groupedByCost.noCost)}
+          {groupedByCost.discontinued.length > 0 &&
+            renderAppGroup("DESCONTINUADO", "🚫 Descontinuado", groupedByCost.discontinued)}
           <div className="h-24 md:h-20" />
         </div>
       )}
