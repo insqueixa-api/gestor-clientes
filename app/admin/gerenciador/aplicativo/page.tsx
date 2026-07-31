@@ -950,10 +950,10 @@ setApps(formattedApps);
             {subGroups.map((sg) => (
               <div key={sg.key} className="space-y-2">
                 {sg.label && (
-                  <h3 className="text-xs font-semibold text-muted-foreground/80 uppercase tracking-wide pl-0.5">
-                    {sg.label}{" "}
-                    <span className="text-muted-foreground/50 normal-case font-normal">
-                      ({sg.apps.length})
+                  <h3 className="flex items-center gap-2 text-xs font-semibold text-muted-foreground/80 uppercase tracking-wide pl-0.5">
+                    {sg.label}
+                    <span className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm normal-case">
+                      {sg.apps.length} {sg.apps.length > 1 ? "Apps" : "App"}
                     </span>
                   </h3>
                 )}

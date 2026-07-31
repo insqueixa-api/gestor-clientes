@@ -5708,7 +5708,6 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                   }}
                   busyAppId={null}
                   title="Adicionar aplicativo"
-                  subtitle="Selecione o app e continue"
                   variant="admin"
                   helperText="Os apps são adicionados diretamente ao cliente e podem usar a integração ativa do admin."
                 />
