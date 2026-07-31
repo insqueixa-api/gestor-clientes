@@ -362,28 +362,6 @@ function splitE164(raw: string) {
   return { ddi, national };
 }
 
-function clientTableLabelFromRow(
-  client: ClientData | null | undefined,
-  tables: PlanTable[],
-) {
-  if (!client) return "—";
-
-  // 1) se já veio o nome da tabela do banco, usa ele e pronto
-  const name = (client.plan_table_name || "").trim();
-  if (name) return name;
-
-  // 2) senão, tenta pelo ID
-
-  const id = client.plan_table_id || "";
-  if (id) {
-    const t = tables.find((x) => x.id === id);
-    if (t) return formatTableLabel(t);
-  }
-
-  // 3) fallback neutro (NUNCA “Tabela Geral”)
-  return "—";
-}
-
 function formatTableLabel(t: PlanTable) {
   const currency = t.currency || "BRL";
   const raw = (t.name || "").trim();
@@ -2193,8 +2171,6 @@ const canSyncAgenda = canSyncAuto;
 
   const showFx = currency !== "BRL";
 
-  const tableLabel = clientTableLabelFromRow(clientToEdit, tables);
-
   // Adiciona uma nova instância de app ao cliente
 
   function addAppToClient(app: AppCatalog) {
@@ -2850,7 +2826,6 @@ const canSyncAgenda = canSyncAuto;
 
   // ✅ NOVO: Função OUSADA para salvar contato na Agenda Google
   async function syncToGoogleAgenda(
-    clientId: string,
     finalE164: string,
     displayName: string,
     serverUsername: string,
@@ -2973,9 +2948,6 @@ const phoneDigits = rawDigits.startsWith("55") && rawDigits.length >= 12
         });
         return;
       }
-
-// Pega o id do contato recém-criado direto da resposta
-const resData = await res.json().catch(() => ({}));
 
 queueListToast(isTrialMode ? "trial" : "client", {
   type: "success",
@@ -3126,10 +3098,6 @@ const vRes = await fetch("/api/whatsapp/validate", {
       const { data: userRes } = await supabaseBrowser.auth.getUser();
       const createdBy = userRes?.user?.id;
 
-      const rpcTable = selectedTable; // ✅ TRIAL agora usa a tabela selecionada no UI
-
-      const rpcPeriod = (isTrialMode ? "MONTHLY" : selectedPlanPeriod) as any;
-
       const rpcScreens = isTrialMode ? 1 : Number(screens || 1);
 
       // ✅ valor vem da tabela automaticamente via useEffect quando priceTouched=false
@@ -3240,7 +3208,6 @@ const vRes = await fetch("/api/whatsapp/validate", {
 if (syncAgenda && finalPrimaryE164) {
   setLoadingStep("Agenda Google...");
   await syncToGoogleAgenda(
-    clientId,
     finalPrimaryE164,
     displayName,
     username,
@@ -3250,7 +3217,6 @@ if (syncAgenda && finalPrimaryE164) {
 // Secundário: sincroniza agenda também se tiver número
 if (syncAgenda && finalSecondaryE164) {
   await syncToGoogleAgenda(
-    clientId,
     finalSecondaryE164,
     secName || displayName,
     username,
@@ -3662,7 +3628,10 @@ if (syncOperadora) {
                   });
 
                   if (!syncRes.ok) {
-                    const t = await syncRes.text().catch(() => "");
+                    // ✅ Best-effort (mantém apiUsername/apiPassword/apiVencimento
+                    // como estavam) — só loga pra debug, não bloqueia o fluxo.
+                    const syncErrText = await syncRes.text().catch(() => "");
+                    console.warn("Falha no sync de saldo do servidor:", syncErrText);
                   } else {
                     const syncData = await syncRes.json().catch(() => ({}));
                     if (syncData?.username) apiUsername = syncData.username;
@@ -4041,7 +4010,6 @@ if (clientId && !isEditing && !isQuickTrial) {
 if (syncAgenda && finalPrimaryE164 && clientId) {
   setLoadingStep("Agenda Google...");
   await syncToGoogleAgenda(
-    clientId,
     finalPrimaryE164,
     displayName,
     apiUsername,
@@ -4051,7 +4019,6 @@ if (syncAgenda && finalPrimaryE164 && clientId) {
 // Secundário: sincroniza agenda também se tiver número
 if (syncAgenda && finalSecondaryE164 && clientId) {
   await syncToGoogleAgenda(
-    clientId,
     finalSecondaryE164,
     secName || displayName,
     apiUsername,

@@ -3,10 +3,9 @@
 
 import { useSearchParams, useRouter } from "next/navigation"; // ✅ useRouter adicionado
 import { useState, useEffect, useMemo, useRef } from "react";
-import { supabaseBrowser } from "@/lib/supabase/browser";
 import Image from "next/image";
 import { useConfirm } from "@/hooks/useConfirm";
-import { Pencil, CheckCircle2, ShieldCheck, Loader2 } from "lucide-react";
+import { CheckCircle2, ShieldCheck, Loader2 } from "lucide-react";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import ConfigureResultModal, { ConfigureResultData } from "./ConfigureResultModal";
 import ReconfigureModeModal, { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
@@ -202,16 +201,6 @@ function formatDateTime(dateStr: string) {
 
   const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
   return `${get("day")}/${get("month")}/${get("year")}, ${get("hour")}:${get("minute")}`;
-}
-
-function calculateDiscount(
-  monthlyPrice: number,
-  totalPrice: number,
-  months: number,
-) {
-  const monthlyEquivalent = totalPrice / months;
-  const discount = ((monthlyPrice - monthlyEquivalent) / monthlyPrice) * 100;
-  return Math.round(discount * 10) / 10; // 1 casa decimal
 }
 
 // ========= MAIN COMPONENT =========
@@ -486,9 +475,6 @@ export default function RenewClient() {
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  
-  // ✅ NOVO: Controle de abas para a transferência EUR
-  const [eurTab, setEurTab] = useState<"local" | "intl">("local");
 
   const [stripeReady, setStripeReady] = useState(false);
   const [stripeLoading, setStripeLoading] = useState(false);
@@ -622,7 +608,9 @@ export default function RenewClient() {
           (k) => PERIOD_LABELS[k] === account.plan_label,
         );
         if (currentPeriod) setSelectedPeriod(currentPeriod);
-      } catch {}
+      } catch (err: any) {
+        addToast("error", "Erro ao carregar planos", safeUserError(err?.message));
+      }
     }
 
     loadPrices();
@@ -946,22 +934,6 @@ export default function RenewClient() {
     setAppliedCoupon(null);
     setCouponError(null);
   }, [selectedPeriod, selectedAccountId]);
-
-  const monthlyPrice = useMemo(
-    () => availablePrices.find((p) => p.period === "MONTHLY"),
-    [availablePrices],
-  );
-
-  const discount = useMemo(() => {
-    if (!monthlyPrice || !selectedPrice || selectedPeriod === "MONTHLY")
-      return 0;
-    const months = PERIOD_MONTHS[selectedPeriod];
-    return calculateDiscount(
-      monthlyPrice.price_amount,
-      selectedPrice.price_amount,
-      months,
-    );
-  }, [monthlyPrice, selectedPrice, selectedPeriod]);
 
   const timeRemaining = useMemo(() => {
     if (!selectedAccount) return null;

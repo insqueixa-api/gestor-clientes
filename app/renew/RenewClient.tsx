@@ -199,16 +199,6 @@ function formatDateTime(dateStr: string) {
   return `${get("day")}/${get("month")}/${get("year")}, ${get("hour")}:${get("minute")}`;
 }
 
-function calculateDiscount(
-  monthlyPrice: number,
-  totalPrice: number,
-  months: number,
-) {
-  const monthlyEquivalent = totalPrice / months;
-  const discount = ((monthlyPrice - monthlyEquivalent) / monthlyPrice) * 100;
-  return Math.round(discount * 10) / 10; // 1 casa decimal
-}
-
 // ========= MAIN COMPONENT =========
 export default function RenewClient() {
   const sp = useSearchParams();
@@ -511,22 +501,6 @@ export default function RenewClient() {
     setAppliedCoupon(null);
     setCouponError(null);
   }, [selectedPeriod, selectedAccountId]);
-
-  const monthlyPrice = useMemo(
-    () => availablePrices.find((p) => p.period === "MONTHLY"),
-    [availablePrices],
-  );
-
-  const discount = useMemo(() => {
-    if (!monthlyPrice || !selectedPrice || selectedPeriod === "MONTHLY")
-      return 0;
-    const months = PERIOD_MONTHS[selectedPeriod];
-    return calculateDiscount(
-      monthlyPrice.price_amount,
-      selectedPrice.price_amount,
-      months,
-    );
-  }, [monthlyPrice, selectedPrice, selectedPeriod]);
 
   const timeRemaining = useMemo(() => {
     if (!selectedAccount) return null;
