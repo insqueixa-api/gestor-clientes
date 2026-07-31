@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
     const [{ data: rows, error: rowsErr }, { data: pendingRequests }] = await Promise.all([
       supabaseAdmin
         .from("client_apps")
-        .select("id, app_id, field_values, apps(name, icon_url, fields_config, integration_type, cost_type, license_price, license_period, portal_setup_instructions, access_code, is_active, discontinued_replacement_name)")
+        .select("id, app_id, field_values, apps(name, icon_url, fields_config, integration_type, cost_type, license_price, license_period, portal_setup_instructions, access_code, portal_variable_fields, is_active, discontinued_replacement_name)")
         .eq("client_id", client_id),
       // ✅ Pra apps sem integração automática, o portal mostra "Solicitar
       // configuração"/"Exclusão solicitada" quando já existe um pedido
@@ -131,7 +131,9 @@ export async function POST(req: NextRequest) {
     // convenção); "m3u_url" é nova. Só busca client/server (2 queries a
     // mais) quando pelo menos 1 app tem instrução cadastrada — não vale a
     // pena pra maioria das contas, que não usa esse campo.
-    const hasAnyInstructions = (rows || []).some((r: any) => r.apps?.portal_setup_instructions);
+    const hasAnyInstructions = (rows || []).some(
+      (r: any) => r.apps?.portal_setup_instructions || (Array.isArray(r.apps?.portal_variable_fields) && r.apps.portal_variable_fields.length > 0),
+    );
     let instructionVars: Record<string, string> | null = null;
     if (hasAnyInstructions) {
       const { data: client } = await supabaseAdmin
@@ -154,27 +156,27 @@ export async function POST(req: NextRequest) {
       };
     }
 
-    // ✅ Badges copiáveis pras variáveis usadas nas instruções (31/07/2026,
-    // pedido do Márcio) — "{codigo}"/"{usuario_app}"/"{senha_app}"/
-    // "{dns_servidor}" já substituem inline no texto acima, mas o cliente
-    // não consegue COPIAR um valor de dentro de um parágrafo. Aqui, além da
-    // substituição, cada variável realmente referenciada no texto CRU vira
-    // também um campo com botão de copiar, igual Device ID/MAC/Key — só as
-    // que o texto de fato usa (evita mostrar "Código: —" pra apps que nunca
-    // pediram código).
+    // ✅ Badges copiáveis (31/07/2026, pedido do Márcio) — DESACOPLADO do
+    // texto de portal_setup_instructions de propósito: antes o badge
+    // aparecia sempre que o texto usava {token}, o que duplicava a mesma
+    // informação (escrita por extenso no parágrafo E repetida como badge
+    // logo abaixo — "ficou horroroso", palavras do Márcio). Agora
+    // apps.portal_variable_fields é uma lista explícita, escolhida pelo
+    // admin (Gerenciador > Aplicativo), independente do que o texto livre
+    // menciona ou não.
     const VARIABLE_FIELD_LABELS: Record<string, string> = {
       codigo: "Código",
       usuario_app: "Usuário",
       senha_app: "Senha",
       dns_servidor: "DNS",
     };
-    function buildVariableFields(rawInstructions: string | null | undefined, codigo: string) {
-      const raw = String(rawInstructions || "");
-      if (!raw) return [];
+    function buildVariableFields(selectedKeys: string[] | null | undefined, codigo: string) {
+      const keys = Array.isArray(selectedKeys) ? selectedKeys : [];
+      if (!keys.length) return [];
       const vals: Record<string, string> = { codigo, ...(instructionVars || {}) };
-      return Object.entries(VARIABLE_FIELD_LABELS)
-        .filter(([key]) => raw.includes(`{${key}}`))
-        .map(([key, label]) => ({ id: key, label, value: vals[key] || "" }))
+      return keys
+        .filter((key) => VARIABLE_FIELD_LABELS[key])
+        .map((key) => ({ id: key, label: VARIABLE_FIELD_LABELS[key], value: vals[key] || "" }))
         .filter((f) => f.value);
     }
 
@@ -206,14 +208,24 @@ export async function POST(req: NextRequest) {
       // o botão aparecia e sempre falhava ao clicar.
       const canCheckValidity =
         !isPartnership && !!handler && (handler as any).useApi && CHECK_VALIDITY_HANDLERS.has((handler as any).actionPrefix);
+      const hasIntegration = !!handler && (handler as any).useApi;
+      // ✅ "Solicitar configuração" (pedido ao suporte via client_app_requests)
+      // só existe pra app PAGO sem integração — pedido do Márcio, 31/07/2026:
+      // parceria/gratuito sem integração é 100% self-service (o cliente só
+      // olha os dados/instruções e configura sozinho no app dele), nunca gera
+      // pendência no log do admin. Só sobrou "pago sem integração" pra apps
+      // que ainda não têm automação (ex: extensão do Chrome) — aí sim precisa
+      // do suporte pra ativar a licença manualmente.
+      const requiresAdminSetup = !hasIntegration && row.apps?.cost_type === "paid";
 
       return {
         id: row.id,
         app_id: row.app_id,
         name: row.apps?.name || "Aplicativo",
         icon_url: row.apps?.icon_url || null,
-        has_integration: !!handler && (handler as any).useApi,
+        has_integration: hasIntegration,
         can_check_validity: canCheckValidity,
+        requires_admin_setup: requiresAdminSetup,
         has_pending_setup_request: pendingSetupByAppId.has(row.id),
         has_pending_removal_request: pendingRemovalByAppId.has(row.id),
         expiration: isPartnership ? null : extractExpiration(vals, config),
@@ -223,7 +235,7 @@ export async function POST(req: NextRequest) {
           row.apps?.portal_setup_instructions && instructionVars
             ? renderTemplate(row.apps.portal_setup_instructions, { ...instructionVars, codigo: row.apps?.access_code || "" })
             : row.apps?.portal_setup_instructions || null,
-        variable_fields: buildVariableFields(row.apps?.portal_setup_instructions, row.apps?.access_code || ""),
+        variable_fields: buildVariableFields(row.apps?.portal_variable_fields, row.apps?.access_code || ""),
         license_price:
           row.apps?.cost_type === "paid" && Number(row.apps?.license_price) > 0
             ? Number(row.apps.license_price)

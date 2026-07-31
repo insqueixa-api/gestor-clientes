@@ -72,11 +72,15 @@ export async function POST(req: NextRequest) {
 
     const partnerResult = await removeClientAppFromPartner(supabaseAdmin, row);
 
-    // ✅ Sem integração de verdade E ainda ativo no catálogo — vira pedido
-    // pro admin, não apaga nada agora. Idempotente: se já existe pedido
-    // pendente pra esse app, só confirma (não duplica notificação).
+    // ✅ Sem integração de verdade, ainda ativo no catálogo E pago — vira
+    // pedido pro admin, não apaga nada agora. Idempotente: se já existe
+    // pedido pendente pra esse app, só confirma (não duplica notificação).
     // Comparação explícita (=== false) — ver nota em .../configure/route.ts.
-    if (partnerResult.attempted === false && row.isActive) {
+    // Parceria/gratuito sem integração (pedido do Márcio, 31/07/2026): não
+    // existe painel de parceiro nenhum pro admin desconfigurar (o cliente
+    // configura tudo sozinho no app dele) — então não faz sentido virar
+    // pendência; cai direto no delete abaixo, igual app descontinuado.
+    if (partnerResult.attempted === false && row.isActive && row.costType === "paid") {
       const { data: existing } = await supabaseAdmin
         .from("client_app_requests")
         .select("id")

@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
 
     const { data: row, error: rowErr } = await supabaseAdmin
       .from("client_apps")
-      .select("id, field_values, apps(name, integration_type, fields_config)")
+      .select("id, field_values, apps(name, integration_type, fields_config, cost_type)")
       .eq("id", client_app_id)
       .eq("client_id", client_id)
       .single();
@@ -58,6 +58,16 @@ export async function POST(req: NextRequest) {
 
     if (hasWorkingIntegration) {
       return jsonError("Esse aplicativo já configura sozinho — use o botão Reconfigurar.", 400);
+    }
+
+    // ✅ Defesa em profundidade (31/07/2026, pedido do Márcio): pedido de
+    // configuração ao suporte só existe pra app PAGO — parceria/gratuito sem
+    // integração é 100% self-service, o cliente configura sozinho olhando os
+    // dados/instruções na tela, nunca deveria virar pendência no log do
+    // admin. O botão já não aparece pra esses no portal (RenewBetaClient),
+    // isso aqui é só a trava do lado do servidor pra não confiar só na UI.
+    if ((row as any).apps?.cost_type !== "paid") {
+      return jsonError("Esse aplicativo é self-service — configure direto no app, sem precisar do suporte.", 400);
     }
 
     // ✅ Mesma trava que o portal já faz antes de chamar essa rota (evita

@@ -254,6 +254,7 @@ export default function RenewClient() {
     icon_url: string | null;
     has_integration: boolean;
     can_check_validity: boolean;
+    requires_admin_setup: boolean;
     has_pending_setup_request: boolean;
     has_pending_removal_request: boolean;
     expiration: string | null;
@@ -732,8 +733,13 @@ export default function RenewClient() {
     setEditingAppId(null);
     if (targetApp.has_integration) {
       performConfigureApp(clientAppId, "principal");
-    } else {
+    } else if (targetApp.requires_admin_setup) {
       handleRequestSetup(clientAppId);
+    } else {
+      // ✅ Parceria/gratuito sem integração — self-service, não tem o que
+      // "solicitar". Os dados já ficam visíveis (badges/instruções); o
+      // cliente configura sozinho no app dele, sem envolver o suporte.
+      addToast("success", "Salvo!", "Dados atualizados — configure direto no app com as informações acima.");
     }
   }
 
@@ -909,16 +915,21 @@ export default function RenewClient() {
     }
   }
 
-  async function handleRemoveApp(clientAppId: string, appName: string, hasIntegration: boolean) {
+  async function handleRemoveApp(clientAppId: string, appName: string, hasIntegration: boolean, requiresAdminSetup: boolean) {
     if (!selectedAccountId || !session) return;
     // ✅ Mensagem direta e diferente por tipo de app (pedido do Márcio,
     // 31/07/2026) — antes era um texto único e condicional ("se tiver...
     // se não tiver..."), confuso pra saber qual dos dois casos era o seu.
+    // 3º estado (31/07/2026): parceria/gratuito sem integração é
+    // self-service — sem painel de parceiro pro admin desconfigurar, então
+    // a exclusão é imediata, igual apps com integração automática.
     const ok = await confirm({
       title: "Excluir aplicativo?",
       subtitle: hasIntegration
         ? `"${appName}" vai ser desconfigurado e removido do painel do parceiro, e sai do seu cadastro também. Essa ação não pode ser desfeita.`
-        : `"${appName}" sai do seu cadastro. Esse app não configura sozinho — nosso suporte vai concluir a remoção no painel do parceiro em seguida.`,
+        : requiresAdminSetup
+          ? `"${appName}" sai do seu cadastro. Esse app não configura sozinho — nosso suporte vai concluir a remoção no painel do parceiro em seguida.`
+          : `"${appName}" sai do seu cadastro imediatamente. Essa ação não pode ser desfeita.`,
       tone: "rose",
       confirmText: "Excluir",
       cancelText: "Cancelar",
@@ -3534,8 +3545,12 @@ export default function RenewClient() {
                           (pedido do Márcio, 31/07/2026: "são informações
                           reais que os clientes vão usar"). DNS ganha
                           "Atualizar" do lado pra sortear outra a qualquer
-                          momento. */}
-                      {app.variable_fields.length > 0 && (
+                          momento. Mesma trava "!has_integration" do parágrafo
+                          acima — sem isso, um app com integração automática
+                          (ex: GPC Computador) mostraria os badges soltos, sem
+                          o texto que explica pra que servem (esse só aparece
+                          no popup (i) quando has_integration é true). */}
+                      {!app.has_integration && app.variable_fields.length > 0 && (
                         <div className="flex flex-wrap gap-1.5">
                           {app.variable_fields.map((f) => (
                             <span key={f.id} className="flex items-center gap-1 px-2 py-0.5 bg-muted text-muted-foreground border border-border text-[10px] font-mono rounded">
@@ -3646,7 +3661,7 @@ export default function RenewClient() {
                             ) : (
                               <button
                                 disabled={busy}
-                                onClick={() => handleRemoveApp(app.id, app.name, app.has_integration)}
+                                onClick={() => handleRemoveApp(app.id, app.name, app.has_integration, app.requires_admin_setup)}
                                 className="shrink-0 px-2.5 py-1.5 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 text-[10px] font-bold uppercase hover:bg-rose-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
                               >
                                 {busy && <Loader2 className="w-3 h-3 animate-spin" />}
@@ -3684,10 +3699,13 @@ export default function RenewClient() {
                                     {busy ? "Configurando..." : app.expiration ? "Reconfigurar aplicativo" : "Configurar aplicativo"}
                                   </button>
                                 )}
-                                {/* ✅ Apps sem integração automática (ex: IboSol hoje, ou
-                                    qualquer app sempre manual) — cliente pede pro suporte
-                                    configurar em vez de tentar sozinho. */}
-                                {!app.has_integration && (
+                                {/* ✅ "Solicitar configuração" só existe pra app PAGO sem
+                                    integração automática (ex: extensão do Chrome ainda não
+                                    pronta) — pedido do Márcio, 31/07/2026: parceria/gratuito
+                                    sem integração é self-service (o cliente configura
+                                    sozinho olhando os dados acima), nunca vira pendência
+                                    pro suporte. */}
+                                {app.requires_admin_setup && (
                                   app.has_pending_setup_request ? (
                                     <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-muted-foreground border border-border text-xs font-bold">
                                       ✓ Configuração solicitada

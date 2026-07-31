@@ -49,6 +49,7 @@ type AppData = {
   technology?: Technology | null;
   portal_setup_instructions?: string | null;
   access_code?: string | null;
+  portal_variable_fields?: string[] | null;
   discontinued_replacement_name?: string | null;
 };
 
@@ -172,6 +173,7 @@ const [apps, setApps] = useState<AppData[]>([]);
   const [formTechnology, setFormTechnology] = useState<Technology>("IPTV");
   const [formPortalInstructions, setFormPortalInstructions] = useState<string>("");
   const [formAccessCode, setFormAccessCode] = useState<string>("");
+  const [formVariableBadges, setFormVariableBadges] = useState<string[]>([]);
   const portalInstructionsRef = useRef<HTMLTextAreaElement>(null);
   // ✅ "Descontinuado" — reaproveita apps.is_active (existia, mas nunca era
   // exposto em lugar nenhum). Pedido do Márcio (25/07/2026): DuplexPlay saiu
@@ -187,6 +189,11 @@ const [apps, setApps] = useState<AppData[]>([]);
   // "senha_app"/"dns_servidor" usam o MESMO nome já usado nos templates de
   // mensagem do WhatsApp de propósito (mesma variável, sem duplicar
   // convenção); "m3u_url" é nova, não existia em lugar nenhum ainda.
+  // "codigo" (31/07/2026) é diferente dos outros — não vem do cliente/
+  // servidor, vem do campo "Código de acesso" logo abaixo (apps.access_code,
+  // fixo por app, ex: Brasil IPTV usa "4100"). As 4 primeiras (codigo,
+  // usuario_app, senha_app, dns_servidor) também viram badge copiável no
+  // portal automaticamente — só aparecem se o texto realmente usar a tag.
   const PORTAL_INSTRUCTION_TAGS: { tag: string; label: string }[] = [
     { tag: "{codigo}", label: "Código" },
     { tag: "{usuario_app}", label: "Usuário" },
@@ -194,6 +201,24 @@ const [apps, setApps] = useState<AppData[]>([]);
     { tag: "{dns_servidor}", label: "DNS" },
     { tag: "{m3u_url}", label: "Link M3U" },
   ];
+
+  // ✅ Separado das tags acima de propósito (31/07/2026, pedido do Márcio) —
+  // antes o badge no portal aparecia automaticamente quando o texto usava
+  // {token}, o que duplicava a mesma informação (escrita por extenso no
+  // parágrafo E repetida de novo como badge logo abaixo). Agora é uma
+  // escolha independente: o texto livre pode (ou não) mencionar o dado, e
+  // aqui você marca só o que deve virar campo copiável no portal — sem
+  // precisar repetir no texto.
+  const VARIABLE_BADGE_OPTIONS: { key: string; label: string }[] = [
+    { key: "codigo", label: "Código" },
+    { key: "usuario_app", label: "Usuário" },
+    { key: "senha_app", label: "Senha" },
+    { key: "dns_servidor", label: "DNS" },
+  ];
+
+  function toggleVariableBadge(key: string) {
+    setFormVariableBadges((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  }
 
   function insertInstructionTag(tag: string) {
     const el = portalInstructionsRef.current;
@@ -554,6 +579,7 @@ setApps(formattedApps);
     setFormTechnology("IPTV");
     setFormPortalInstructions("");
     setFormAccessCode("");
+    setFormVariableBadges([]);
     setFormIsActive(true);
     setFormDiscontinuedReplacement("");
     setIsModalOpen(true);
@@ -574,6 +600,7 @@ setApps(formattedApps);
     setFormTechnology((app.technology as Technology) || "IPTV");
     setFormPortalInstructions(app.portal_setup_instructions || "");
     setFormAccessCode(app.access_code || "");
+    setFormVariableBadges(Array.isArray(app.portal_variable_fields) ? app.portal_variable_fields : []);
     setFormIsActive(app.is_active !== false);
     setFormDiscontinuedReplacement(app.discontinued_replacement_name || "");
     setIsModalOpen(true);
@@ -642,6 +669,7 @@ setApps(formattedApps);
         technology: formTechnology,
         portal_setup_instructions: formPortalInstructions.trim() || null,
         access_code: formAccessCode.trim() || null,
+        portal_variable_fields: formVariableBadges,
         is_active: formIsActive,
         discontinued_replacement_name: !formIsActive && formDiscontinuedReplacement.trim() ? formDiscontinuedReplacement.trim() : null,
       };
@@ -661,6 +689,7 @@ setApps(formattedApps);
           technology: formTechnology,
           portal_setup_instructions: formPortalInstructions.trim() || null,
           access_code: formAccessCode.trim() || null,
+          portal_variable_fields: formVariableBadges,
           is_active: formIsActive,
           discontinued_replacement_name: !formIsActive && formDiscontinuedReplacement.trim() ? formDiscontinuedReplacement.trim() : null,
         };
@@ -1538,7 +1567,7 @@ setApps(formattedApps);
                     className="w-full px-3 py-2 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
                   />
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    Só apps que exigem um código fixo pra logar (ex: Brasil IPTV) precisam disso — use a tag {"{codigo}"} abaixo pra inserir nas instruções.
+                    Só apps que exigem um código fixo pra logar (ex: Brasil IPTV) precisam disso — marque "Código" em "Campos visíveis no portal" abaixo pra virar badge.
                   </p>
                 </div>
 
@@ -1570,6 +1599,36 @@ setApps(formattedApps);
                     dado real do cliente na hora de mostrar. Aparece no botão
                     de instruções (ⓘ) ao lado de "Editar", no card do app no
                     portal (Meus Aplicativos).
+                  </p>
+                </div>
+
+                <div>
+                  <Label>Campos visíveis no portal (badge copiável)</Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {VARIABLE_BADGE_OPTIONS.map((opt) => {
+                      const active = formVariableBadges.includes(opt.key);
+                      return (
+                        <button
+                          key={opt.key}
+                          type="button"
+                          onClick={() => toggleVariableBadge(opt.key)}
+                          className={`px-2.5 py-1 rounded-md border text-[11px] font-medium transition-colors ${
+                            active
+                              ? "bg-sky-500/10 border-sky-500/40 text-sky-500"
+                              : "bg-transparent border-border text-muted-foreground hover:bg-muted"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Independente do texto acima — marque só o que deve
+                    aparecer como campo com botão de copiar no portal (igual
+                    Device ID/MAC/Key). Evite mencionar o mesmo dado por
+                    extenso no texto livre também, pra não duplicar a
+                    informação na tela do cliente.
                   </p>
                 </div>
 
