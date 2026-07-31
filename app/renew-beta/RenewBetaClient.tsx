@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation"; // ✅ useRouter a
 import { useState, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
 import { useConfirm } from "@/hooks/useConfirm";
-import { CheckCircle2, ShieldCheck, Loader2 } from "lucide-react";
+import { CheckCircle2, ShieldCheck, Loader2, RefreshCw } from "lucide-react";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import ConfigureResultModal, { ConfigureResultData } from "./ConfigureResultModal";
 import ReconfigureModeModal, { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
@@ -260,6 +260,7 @@ export default function RenewClient() {
     is_partnership: boolean;
     fields: InstalledAppField[];
     portal_setup_instructions: string | null;
+    variable_fields: { id: string; label: string; value: string }[];
     license_price: number | null;
     license_period: "annual" | "lifetime" | null;
     is_active: boolean;
@@ -890,6 +891,19 @@ export default function RenewClient() {
       await refreshInstalledApps();
     } catch (err: any) {
       addToast("error", "Falha ao verificar", err?.message);
+    } finally {
+      setAppActionBusy(null);
+    }
+  }
+
+  // ✅ Botão "Atualizar" ao lado do badge de DNS nas instruções (pedido do
+  // Márcio, 31/07/2026) — pickRandomDns (lib/whatsapp/template-vars.ts) já
+  // sorteia uma DNS nova a cada chamada de /apps/list, então só precisa
+  // re-buscar a lista pra sortear outra.
+  async function handleRerollDns(clientAppId: string) {
+    setAppActionBusy(clientAppId);
+    try {
+      await refreshInstalledApps();
     } finally {
       setAppActionBusy(null);
     }
@@ -3502,6 +3516,60 @@ export default function RenewClient() {
                         </div>
                       </div>
 
+                      {/* Instruções — fora do isEditing de propósito (pedido do
+                          Márcio, 31/07/2026): antes sumiam assim que o
+                          formulário de edição abria, mas é justamente aí que
+                          o cliente mais precisa delas (preenchendo os campos
+                          pela primeira vez). Ficam visíveis nos dois estados. */}
+                      {!app.has_integration && app.portal_setup_instructions && (
+                        <p className="text-[11px] text-muted-foreground bg-muted/40 border border-border rounded-lg px-2.5 py-1.5 whitespace-pre-line">
+                          {app.portal_setup_instructions}
+                        </p>
+                      )}
+
+                      {/* Campos-variável citados nas instruções (Código,
+                          Usuário, Senha, DNS) — mesmo texto acima já
+                          substitui o valor inline, mas isso aqui dá um botão
+                          de copiar de verdade, igual Device ID/MAC/Key
+                          (pedido do Márcio, 31/07/2026: "são informações
+                          reais que os clientes vão usar"). DNS ganha
+                          "Atualizar" do lado pra sortear outra a qualquer
+                          momento. */}
+                      {app.variable_fields.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {app.variable_fields.map((f) => (
+                            <span key={f.id} className="flex items-center gap-1 px-2 py-0.5 bg-muted text-muted-foreground border border-border text-[10px] font-mono rounded">
+                              <span className="font-bold text-foreground/80">{f.label}</span>: {f.value}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard?.writeText(f.value);
+                                  addToast("success", "Copiado!", `${f.label} copiado.`);
+                                }}
+                                className="text-muted-foreground hover:text-sky-500 transition-colors"
+                                title="Copiar"
+                              >
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                              </button>
+                              {f.id === "dns_servidor" && (
+                                <button
+                                  type="button"
+                                  disabled={busy}
+                                  onClick={() => handleRerollDns(app.id)}
+                                  className="text-muted-foreground hover:text-emerald-500 transition-colors disabled:opacity-50"
+                                  title="Sortear outra DNS"
+                                >
+                                  <RefreshCw className={`w-2.5 h-2.5 ${busy ? "animate-spin" : ""}`} />
+                                </button>
+                              )}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
                       {isEditing ? (
                         <div className="space-y-2">
                           {app.fields.map((f) => (
@@ -3545,20 +3613,9 @@ export default function RenewClient() {
                           {/* Linha 2: campos (Device ID, Device Key, Ambiente...) à
                               esquerda, Excluir à direita (Editar subiu pro
                               cabeçalho, Ambiente saiu daqui — vai junto do nome).
-                              ✅ App sem integração automática mostra as
-                              instruções aqui em vez dos campos crus (pedido do
-                              Márcio, 31/07/2026) — sem isso o cliente via
-                              "Device ID: —" sem saber que existe um botão (i)
-                              com o passo a passo; fica sem graça mostrar dado
-                              vazio quando o que ele precisa é ler o "como
-                              fazer" primeiro. Os campos continuam editáveis
-                              via "Editar", só saem dessa visão resumida. */}
+                              Instruções (quando existem) já apareceram acima,
+                              fora deste bloco. */}
                           <div className="flex items-start justify-between gap-2">
-                            {!app.has_integration && app.portal_setup_instructions ? (
-                              <p className="flex-1 min-w-0 text-[11px] text-muted-foreground bg-muted/40 border border-border rounded-lg px-2.5 py-1.5 whitespace-pre-line">
-                                {app.portal_setup_instructions}
-                              </p>
-                            ) : (
                               <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
                                 {otherFields.map((f) => (
                                   <span key={f.id} className="flex items-center gap-1 px-2 py-0.5 bg-muted text-muted-foreground border border-border text-[10px] font-mono rounded">
@@ -3582,7 +3639,6 @@ export default function RenewClient() {
                                   </span>
                                 ))}
                               </div>
-                            )}
                             {app.has_pending_removal_request ? (
                               <span className="shrink-0 px-2 py-1 rounded-lg bg-muted text-muted-foreground border border-border text-[10px] font-bold">
                                 Exclusão solicitada
@@ -3909,6 +3965,40 @@ export default function RenewClient() {
                       <p className="text-xs text-muted-foreground whitespace-pre-line overflow-y-auto">
                         {instrApp?.portal_setup_instructions}
                       </p>
+                      {instrApp && instrApp.variable_fields.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 shrink-0">
+                          {instrApp.variable_fields.map((f) => (
+                            <span key={f.id} className="flex items-center gap-1 px-2 py-0.5 bg-muted text-muted-foreground border border-border text-[10px] font-mono rounded">
+                              <span className="font-bold text-foreground/80">{f.label}</span>: {f.value}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard?.writeText(f.value);
+                                  addToast("success", "Copiado!", `${f.label} copiado.`);
+                                }}
+                                className="text-muted-foreground hover:text-sky-500 transition-colors"
+                                title="Copiar"
+                              >
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                              </button>
+                              {f.id === "dns_servidor" && (
+                                <button
+                                  type="button"
+                                  disabled={appActionBusy === instrApp.id}
+                                  onClick={() => handleRerollDns(instrApp.id)}
+                                  className="text-muted-foreground hover:text-emerald-500 transition-colors disabled:opacity-50"
+                                  title="Sortear outra DNS"
+                                >
+                                  <RefreshCw className={`w-2.5 h-2.5 ${appActionBusy === instrApp.id ? "animate-spin" : ""}`} />
+                                </button>
+                              )}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       {/* ✅ 2 botões em vez de só um X (pedido do Márcio,
                           31/07/2026) — "Configurar" já leva direto pro
                           formulário de preenchimento, sem deixar o cliente

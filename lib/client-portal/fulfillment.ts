@@ -1,6 +1,6 @@
 // lib/client-portal/fulfillment.ts
 import { createClient } from "@supabase/supabase-js";
-import { notify } from "@/lib/notifications/notify";
+import { notify, formatClientLabel } from "@/lib/notifications/notify";
 
 // ============================================================
 // Tipos
@@ -154,7 +154,7 @@ export async function markAppRenewalPaid(
   try {
     const { data: client } = await supabaseAdmin
       .from("clients")
-      .select("display_name")
+      .select("display_name, server_username, servers(name)")
       .eq("id", payment?.client_id)
       .maybeSingle();
 
@@ -162,7 +162,7 @@ export async function markAppRenewalPaid(
       tenantId,
       type: "manual_pending",
       title: "🟣 Renovação de licença de app pendente",
-      message: `Pagamento de ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: payment?.price_currency || "BRL" }).format(payment?.price_amount || 0)} confirmado para ${client?.display_name || "um cliente"} — licença de "${payment?.app_name_snapshot || "aplicativo"}". Acesse a Auditoria pra concluir.`,
+      message: `Pagamento de ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: payment?.price_currency || "BRL" }).format(payment?.price_amount || 0)} confirmado para ${formatClientLabel(client?.display_name, client?.server_username, (client?.servers as any)?.name)} — licença de "${payment?.app_name_snapshot || "aplicativo"}". Acesse a Auditoria pra concluir.`,
       link: "/admin/auditoria",
       sourceId: paymentRowId,
     });
@@ -342,7 +342,7 @@ export async function runFulfillment(params: FulfillmentParams) {
       tenantId,
       type: "manual_pending",
       title: "🟣 Renovação Manual Pendente",
-      message: `Pagamento de ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: payment.price_currency || "BRL" }).format(payment.price_amount)} confirmado para ${client.display_name}. Acesse a Auditoria para liberar o cliente no servidor.`,
+      message: `Pagamento de ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: payment.price_currency || "BRL" }).format(payment.price_amount)} confirmado para ${formatClientLabel(client.display_name, login, srv.name)}. Acesse a Auditoria para liberar o cliente no servidor.`,
       link: "/admin/auditoria",
       sourceId: payment.id,
     });
@@ -756,7 +756,7 @@ credits_used: months * qtyScreens,
       tenantId,
       type: "whatsapp_falha",
       title: "💬 Falha no WhatsApp",
-      message: `Uma recarga foi efetuada para ${client.display_name}, mas o envio do comprovante pelo WhatsApp falhou. Reenvie pela Auditoria.`,
+      message: `Uma recarga foi efetuada para ${formatClientLabel(client.display_name, login, srv.name)}, mas o envio do comprovante pelo WhatsApp falhou. Reenvie pela Auditoria.`,
       link: "/admin/auditoria",
       sourceId: payment.id,
     });

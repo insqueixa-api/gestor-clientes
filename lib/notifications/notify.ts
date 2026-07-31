@@ -22,6 +22,22 @@ type NotifyParams = {
 };
 
 /**
+ * Formata a identidade do cliente pra notificação: "Nome - Username (Servidor)".
+ * Marcio tem várias contas, então o nome sozinho não identifica qual é qual.
+ */
+export function formatClientLabel(
+  name?: string | null,
+  username?: string | null,
+  serverName?: string | null,
+): string {
+  const label = (name || "Cliente").trim() || "Cliente";
+  const user = (username || "").trim();
+  if (!user) return label;
+  const server = (serverName || "").trim();
+  return server ? `${label} - ${user} (${server})` : `${label} - ${user}`;
+}
+
+/**
  * Cria ou atualiza uma notificação.
  * Se já existir uma notificação do mesmo (tenant, type, source_id),
  * atualiza o conteúdo em vez de duplicar.

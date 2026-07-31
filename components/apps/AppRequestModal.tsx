@@ -232,6 +232,32 @@ export default function AppRequestModal({
     }
   }
 
+  // "Remover m3u" — mesmo botão do card em novo_cliente.tsx: só desconfigura
+  // no painel do parceiro (keep_row: true), NÃO apaga a linha client_apps.
+  // Dá pro admin controle manual total (configurar OU remover, sem depender
+  // de "Configurar" sempre deletar-e-criar) — diferente do portal, que só
+  // oferece "Reconfigurar".
+  async function handleRemove() {
+    if (!clientAppId || !data) return;
+    const ok = await confirm({
+      title: `Remover do ${data.appName}?`,
+      subtitle: "Isso apagará o MAC/m3u do painel oficial. O app continua no cadastro do cliente pra reconfigurar depois.",
+      tone: "rose",
+      confirmText: "Sim, remover",
+      cancelText: "Cancelar",
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      await apiCall("/api/admin/apps/remove", { tenant_id: tenantId, client_app_id: clientAppId, keep_row: true });
+      addToast("success", "Removido!", "Configuração apagada do painel.");
+    } catch (e: any) {
+      addToast("error", "Não removido", e?.message || "Falha ao remover.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleCheck() {
     if (!clientAppId) return;
     setBusy(true);
@@ -477,11 +503,11 @@ export default function AppRequestModal({
                   appLabel={data.appName}
                   panelUrl={data.panelUrl}
                   canCheckVencimento={canCheck}
-                  showRemoveButton={false}
                   loading={busy}
                   onOpenPanel={openPanel}
                   onConfigure={handleConfigure}
                   onCheck={handleCheck}
+                  onRemove={handleRemove}
                   onClouddyConfigure={handleClouddyConfigure}
                   onClouddyCheck={handleClouddyCheck}
                   onClouddyDelete={handleClouddyDelete}

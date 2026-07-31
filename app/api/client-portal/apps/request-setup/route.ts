@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { getIntegrationHandler } from "@/lib/integrations";
-import { notify } from "@/lib/notifications/notify";
+import { notify, formatClientLabel } from "@/lib/notifications/notify";
 import { APP_FIELD_LABELS, AppFieldType } from "@/lib/apps/field-types";
 
 export const dynamic = "force-dynamic";
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
 
     const { data: client } = await supabaseAdmin
       .from("clients")
-      .select("display_name")
+      .select("display_name, server_username, servers(name)")
       .eq("id", client_id)
       .maybeSingle();
 
@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
       tenantId: ctx.tenant_id,
       type: "app_setup_pending",
       title: "📱 Configuração de app solicitada",
-      message: `${client?.display_name || "Cliente"} pediu ajuda pra configurar "${appName}" pelo portal.`,
+      message: `${formatClientLabel(client?.display_name, client?.server_username, (client?.servers as any)?.name)} pediu ajuda pra configurar "${appName}" pelo portal.`,
       link: "/admin/auditoria?view=aplicativos",
       sourceId: inserted.id,
     });

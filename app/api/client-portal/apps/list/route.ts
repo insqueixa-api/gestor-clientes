@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
     const [{ data: rows, error: rowsErr }, { data: pendingRequests }] = await Promise.all([
       supabaseAdmin
         .from("client_apps")
-        .select("id, app_id, field_values, apps(name, icon_url, fields_config, integration_type, cost_type, license_price, license_period, portal_setup_instructions, is_active, discontinued_replacement_name)")
+        .select("id, app_id, field_values, apps(name, icon_url, fields_config, integration_type, cost_type, license_price, license_period, portal_setup_instructions, access_code, is_active, discontinued_replacement_name)")
         .eq("client_id", client_id),
       // ✅ Pra apps sem integração automática, o portal mostra "Solicitar
       // configuração"/"Exclusão solicitada" quando já existe um pedido
@@ -154,6 +154,30 @@ export async function POST(req: NextRequest) {
       };
     }
 
+    // ✅ Badges copiáveis pras variáveis usadas nas instruções (31/07/2026,
+    // pedido do Márcio) — "{codigo}"/"{usuario_app}"/"{senha_app}"/
+    // "{dns_servidor}" já substituem inline no texto acima, mas o cliente
+    // não consegue COPIAR um valor de dentro de um parágrafo. Aqui, além da
+    // substituição, cada variável realmente referenciada no texto CRU vira
+    // também um campo com botão de copiar, igual Device ID/MAC/Key — só as
+    // que o texto de fato usa (evita mostrar "Código: —" pra apps que nunca
+    // pediram código).
+    const VARIABLE_FIELD_LABELS: Record<string, string> = {
+      codigo: "Código",
+      usuario_app: "Usuário",
+      senha_app: "Senha",
+      dns_servidor: "DNS",
+    };
+    function buildVariableFields(rawInstructions: string | null | undefined, codigo: string) {
+      const raw = String(rawInstructions || "");
+      if (!raw) return [];
+      const vals: Record<string, string> = { codigo, ...(instructionVars || {}) };
+      return Object.entries(VARIABLE_FIELD_LABELS)
+        .filter(([key]) => raw.includes(`{${key}}`))
+        .map(([key, label]) => ({ id: key, label, value: vals[key] || "" }))
+        .filter((f) => f.value);
+    }
+
     const apps = (rows || []).map((row: any) => {
       const vals = row.field_values || {};
       const config = Array.isArray(row.apps?.fields_config) ? row.apps.fields_config : [];
@@ -197,8 +221,9 @@ export async function POST(req: NextRequest) {
         fields: extractEditableFields(vals, config),
         portal_setup_instructions:
           row.apps?.portal_setup_instructions && instructionVars
-            ? renderTemplate(row.apps.portal_setup_instructions, instructionVars)
+            ? renderTemplate(row.apps.portal_setup_instructions, { ...instructionVars, codigo: row.apps?.access_code || "" })
             : row.apps?.portal_setup_instructions || null,
+        variable_fields: buildVariableFields(row.apps?.portal_setup_instructions, row.apps?.access_code || ""),
         license_price:
           row.apps?.cost_type === "paid" && Number(row.apps?.license_price) > 0
             ? Number(row.apps.license_price)

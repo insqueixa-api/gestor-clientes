@@ -11,7 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { resolveNotification } from "@/lib/notifications/notify";
-import { notify } from "@/lib/notifications/notify";
+import { notify, formatClientLabel } from "@/lib/notifications/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -298,11 +298,17 @@ export async function POST(req: NextRequest) {
     }
 
     // ✅ Notifica o admin no sino — só em pedido genuinamente novo
+    const { data: clienteSug } = await supabaseAdmin
+      .from("clients")
+      .select("display_name, server_username, servers(name)")
+      .eq("id", conta)
+      .maybeSingle();
+
     await notify({
       tenantId,
       type: "sugestao_conteudo",
       title: "Nova sugestão de conteúdo",
-      message: `"${nova.titulo}" (${tipo === "FILME" ? "Filme" : "Série"}, ${servidor}) foi sugerido por um cliente.`,
+      message: `"${nova.titulo}" (${tipo === "FILME" ? "Filme" : "Série"}, ${servidor}) foi sugerido por ${formatClientLabel(clienteSug?.display_name, clienteSug?.server_username, (clienteSug?.servers as any)?.name)}.`,
       link: "/admin/gerenciador/guia-tv",
       sourceId: nova.id,
     });

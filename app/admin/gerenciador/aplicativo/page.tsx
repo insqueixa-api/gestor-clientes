@@ -48,6 +48,7 @@ type AppData = {
   device_types?: DeviceType[] | null;
   technology?: Technology | null;
   portal_setup_instructions?: string | null;
+  access_code?: string | null;
   discontinued_replacement_name?: string | null;
 };
 
@@ -170,6 +171,7 @@ const [apps, setApps] = useState<AppData[]>([]);
   const [formDeviceTypes, setFormDeviceTypes] = useState<DeviceType[]>([]);
   const [formTechnology, setFormTechnology] = useState<Technology>("IPTV");
   const [formPortalInstructions, setFormPortalInstructions] = useState<string>("");
+  const [formAccessCode, setFormAccessCode] = useState<string>("");
   const portalInstructionsRef = useRef<HTMLTextAreaElement>(null);
   // ✅ "Descontinuado" — reaproveita apps.is_active (existia, mas nunca era
   // exposto em lugar nenhum). Pedido do Márcio (25/07/2026): DuplexPlay saiu
@@ -186,6 +188,7 @@ const [apps, setApps] = useState<AppData[]>([]);
   // mensagem do WhatsApp de propósito (mesma variável, sem duplicar
   // convenção); "m3u_url" é nova, não existia em lugar nenhum ainda.
   const PORTAL_INSTRUCTION_TAGS: { tag: string; label: string }[] = [
+    { tag: "{codigo}", label: "Código" },
     { tag: "{usuario_app}", label: "Usuário" },
     { tag: "{senha_app}", label: "Senha" },
     { tag: "{dns_servidor}", label: "DNS" },
@@ -550,6 +553,7 @@ setApps(formattedApps);
     setFormDeviceTypes([]);
     setFormTechnology("IPTV");
     setFormPortalInstructions("");
+    setFormAccessCode("");
     setFormIsActive(true);
     setFormDiscontinuedReplacement("");
     setIsModalOpen(true);
@@ -569,6 +573,7 @@ setApps(formattedApps);
     setFormDeviceTypes((app.device_types as DeviceType[]) || []);
     setFormTechnology((app.technology as Technology) || "IPTV");
     setFormPortalInstructions(app.portal_setup_instructions || "");
+    setFormAccessCode(app.access_code || "");
     setFormIsActive(app.is_active !== false);
     setFormDiscontinuedReplacement(app.discontinued_replacement_name || "");
     setIsModalOpen(true);
@@ -636,6 +641,7 @@ setApps(formattedApps);
         device_types: formDeviceTypes,
         technology: formTechnology,
         portal_setup_instructions: formPortalInstructions.trim() || null,
+        access_code: formAccessCode.trim() || null,
         is_active: formIsActive,
         discontinued_replacement_name: !formIsActive && formDiscontinuedReplacement.trim() ? formDiscontinuedReplacement.trim() : null,
       };
@@ -654,6 +660,7 @@ setApps(formattedApps);
           device_types: formDeviceTypes,
           technology: formTechnology,
           portal_setup_instructions: formPortalInstructions.trim() || null,
+          access_code: formAccessCode.trim() || null,
           is_active: formIsActive,
           discontinued_replacement_name: !formIsActive && formDiscontinuedReplacement.trim() ? formDiscontinuedReplacement.trim() : null,
         };
@@ -1518,6 +1525,20 @@ setApps(formattedApps);
                     Marque todos os aparelhos onde esse app funciona. Usado
                     pra filtrar aqui e (no futuro) na tela de manutenção do
                     portal do cliente.
+                  </p>
+                </div>
+
+                <div>
+                  <Label>Código de acesso (opcional)</Label>
+                  <input
+                    type="text"
+                    value={formAccessCode}
+                    onChange={(e) => setFormAccessCode(e.target.value)}
+                    placeholder="Ex: 4100, pfast — código fixo que o app pede pra logar, além de usuário/senha"
+                    className="w-full px-3 py-2 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Só apps que exigem um código fixo pra logar (ex: Brasil IPTV) precisam disso — use a tag {"{codigo}"} abaixo pra inserir nas instruções.
                   </p>
                 </div>
 

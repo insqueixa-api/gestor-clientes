@@ -1,7 +1,7 @@
 // app/api/client-portal/create-payment/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { notify } from "@/lib/notifications/notify";
+import { notify, formatClientLabel } from "@/lib/notifications/notify";
 import { randomUUID } from "crypto";
 import { getPendingCharges } from "@/lib/client-portal/pending-charges";
 import {
@@ -441,7 +441,7 @@ const settledAlertIds = pendingCharges.alertIds.length ? pendingCharges.alertIds
         tenantId: sess.tenant_id,
         type: "transfer_aguardando",
         title: "🏦 Transferência Aguardando",
-        message: `${displayName} informou que vai transferir ${new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(computedPrice)}. Confirme o recebimento na Auditoria.`,
+        message: `${formatClientLabel(displayName, (client as any).server_username, serverName)} informou que vai transferir ${new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(computedPrice)}. Confirme o recebimento na Auditoria.`,
         link: "/admin/auditoria",
         sourceId: inserted.id,
       });

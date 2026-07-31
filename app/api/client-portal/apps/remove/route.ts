@@ -25,7 +25,7 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { logAppActivity } from "@/lib/apps/panel";
 import { loadClientApp, removeClientAppFromPartner } from "@/lib/apps/orchestration";
-import { notify } from "@/lib/notifications/notify";
+import { notify, formatClientLabel } from "@/lib/notifications/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
 
       const { data: client } = await supabaseAdmin
         .from("clients")
-        .select("display_name")
+        .select("display_name, server_username, servers(name)")
         .eq("id", client_id)
         .maybeSingle();
 
@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
         tenantId,
         type: "app_removal_pending",
         title: "🗑️ Exclusão de app solicitada",
-        message: `${client?.display_name || "Cliente"} pediu pra remover "${appName}" do portal.`,
+        message: `${formatClientLabel(client?.display_name, client?.server_username, (client?.servers as any)?.name)} pediu pra remover "${appName}" do portal.`,
         link: "/admin/auditoria?view=aplicativos",
         sourceId: inserted.id,
       });
