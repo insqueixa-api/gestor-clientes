@@ -273,13 +273,13 @@ export default function AppPickerModal({
                         <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-sm shrink-0">📱</div>
                       )}
                       <span className="flex-1 min-w-0 flex items-center justify-between gap-2">
-                        <span className="flex items-center gap-1 min-w-0">
+                        <span className="flex flex-col min-w-0">
+                          <span className="text-sm text-foreground font-medium truncate">{busy ? "Adicionando..." : app.name}</span>
                           {app.has_integration && (
-                            <span className="shrink-0 text-amber-500" title="Ativação automática">
-                              ⚡
+                            <span className="inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px] font-bold w-fit">
+                              ⚡ Configuração automática
                             </span>
                           )}
-                          <span className="text-sm text-foreground font-medium truncate">{busy ? "Adicionando..." : app.name}</span>
                         </span>
                         {app.is_active === false ? (
                           <span

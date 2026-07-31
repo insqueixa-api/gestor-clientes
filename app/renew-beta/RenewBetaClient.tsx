@@ -137,6 +137,30 @@ function formatMoney(amount: number, currency: string = "BRL") {
   return formatted.replace(/^US(\$)/, "$1");
 }
 
+// ✅ Deixa link (http/https) clicável dentro das instruções de configuração
+// (pedido do Márcio, 31/07/2026) — antes o texto todo era só string crua,
+// então um link de download (ex: GPC Computador) ficava sem clicar, o
+// cliente tinha que copiar e colar na mão. Tira pontuação colada no final
+// do link (".", ",", ")" etc.) antes de montar o href, senão o clique ia
+// pra uma URL com lixo no final.
+function linkifyText(text: string) {
+  const parts = text.split(/(https?:\/\/[^\s]+)/g);
+  return parts.map((part, i) => {
+    if (!/^https?:\/\//.test(part)) return <span key={i}>{part}</span>;
+    const trailingMatch = part.match(/[.,;:!?)\]}'"]+$/);
+    const trailing = trailingMatch ? trailingMatch[0] : "";
+    const url = trailing ? part.slice(0, -trailing.length) : part;
+    return (
+      <span key={i}>
+        <a href={url} target="_blank" rel="noopener noreferrer" className="text-sky-500 underline hover:text-sky-400 break-all">
+          {url}
+        </a>
+        {trailing}
+      </span>
+    );
+  });
+}
+
 // ✅ PARA — usa a mesma lógica do admin (meio-dia SP + ceil)
 // ✅ PARA — sem dependência externa, lógica idêntica ao admin
 function getTimeRemaining(vencimento: string) {
@@ -3535,7 +3559,7 @@ export default function RenewClient() {
                           pela primeira vez). Ficam visíveis nos dois estados. */}
                       {!app.has_integration && app.portal_setup_instructions && (
                         <p className="text-[11px] text-muted-foreground bg-muted/40 border border-border rounded-lg px-2.5 py-1.5 whitespace-pre-line">
-                          {app.portal_setup_instructions}
+                          {linkifyText(app.portal_setup_instructions)}
                         </p>
                       )}
 
@@ -3982,7 +4006,7 @@ export default function RenewClient() {
                         Como configurar — {instrApp?.name}
                       </p>
                       <p className="text-xs text-muted-foreground whitespace-pre-line overflow-y-auto">
-                        {instrApp?.portal_setup_instructions}
+                        {instrApp?.portal_setup_instructions && linkifyText(instrApp.portal_setup_instructions)}
                       </p>
                       {instrApp && instrApp.variable_fields.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 shrink-0">
