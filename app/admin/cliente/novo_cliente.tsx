@@ -900,6 +900,9 @@ const canSyncAgenda = canSyncAuto;
     cost_type?: "free" | "paid" | "partnership" | null;
     is_active?: boolean | null;
     discontinued_replacement_name?: string | null;
+    device_types?: string[] | null;
+    license_price?: number | null;
+    license_period?: "annual" | "lifetime" | null;
   };
   type SelectedAppInstance = {
     instanceId: string;
@@ -5681,10 +5684,10 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                     id: app.id,
                     name: app.name,
                     icon_url: app.icon_url ?? null,
-                    device_types: undefined,
+                    device_types: Array.isArray(app.device_types) ? app.device_types : [],
                     cost_type: app.cost_type as any,
-                    license_price: undefined,
-                    license_period: undefined,
+                    license_price: app.license_price ?? null,
+                    license_period: app.license_period ?? null,
                     is_active: app.is_active ?? true,
                     discontinued_replacement_name: app.discontinued_replacement_name ?? null,
                     has_integration: Boolean(app.integration_type && app.integration_type !== "SEM_INTEGRACAO"),

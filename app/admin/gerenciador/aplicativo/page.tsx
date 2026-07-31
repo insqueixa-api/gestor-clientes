@@ -22,6 +22,17 @@ import {
   DEVICE_TYPE_LABELS,
 } from "@/lib/apps/device-types";
 
+// Mesmos ícones do AppPickerModal (components/apps/AppPickerModal.tsx) — só
+// pra bater visualmente com o seletor de dispositivo que o admin já conhece.
+const DEVICE_ICONS: Record<DeviceType, string> = {
+  SAMSUNG_LG: "📺",
+  ANDROID_TVBOX: "📦",
+  IOS: "📱",
+  COMPUTADOR: "💻",
+  FIRE_TV: "🔥",
+  ROKU: "🟣",
+};
+
 // --- TIPOS ---
 type AppField = {
   id: string;
@@ -435,40 +446,53 @@ setApps(formattedApps);
     setCollapsedGroups((prev) => ({ ...prev, [groupName]: !prev[groupName] }));
   };
 
-  const groupedApps = React.useMemo(() => {
-    const groups: Record<string, AppData[]> = {};
+  // ✅ Refatoração (pedido do Márcio): agrupa por dispositivo compatível em
+  // vez de família de integração — um app com vários device_types aparece em
+  // cada seção onde ele funciona. Dentro de cada dispositivo, ordena: apps
+  // com integração automática sempre no topo, depois por custo (Pago →
+  // Parceria → Gratuito), depois por nome.
+  const COST_TYPE_RANK: Record<string, number> = {
+    paid: 0,
+    partnership: 1,
+    free: 2,
+  };
+
+  function compareApps(a: AppData, b: AppData) {
+    const intA = a.integration_type ? 0 : 1;
+    const intB = b.integration_type ? 0 : 1;
+    if (intA !== intB) return intA - intB;
+
+    const costA = COST_TYPE_RANK[a.cost_type || ""] ?? 3;
+    const costB = COST_TYPE_RANK[b.cost_type || ""] ?? 3;
+    if (costA !== costB) return costA - costB;
+
+    return a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
+  }
+
+  const groupedByDevice = React.useMemo(() => {
+    const groups: Partial<Record<DeviceType, AppData[]>> = {};
+    const noDevice: AppData[] = [];
 
     filteredApps.forEach((app) => {
-      let family = app.integration_type || "SEM_INTEGRACAO";
-
-      if (
-        family !== "SEM_INTEGRACAO" &&
-        family !== "GERENCIAAPP" &&
-        family !== "IBOSOL"
-      ) {
-        family = "OUTRAS_INTEGRACOES";
+      const types = Array.isArray(app.device_types) ? app.device_types : [];
+      if (types.length === 0) {
+        noDevice.push(app);
+        return;
       }
-
-      if (!groups[family]) groups[family] = [];
-      groups[family].push(app);
+      types.forEach((dt) => {
+        if (!groups[dt]) groups[dt] = [];
+        groups[dt]!.push(app);
+      });
     });
 
-    const sortedFamilies = Object.keys(groups).sort((a, b) => {
-      const orderWeight: Record<string, number> = {
-        GERENCIAAPP: 1,
-        IBOSOL: 2,
-        OUTRAS_INTEGRACOES: 3,
-        SEM_INTEGRACAO: 4,
-      };
+    Object.values(groups).forEach((list) => list!.sort(compareApps));
+    noDevice.sort(compareApps);
 
-      const valA = orderWeight[a] || 10;
-      const valB = orderWeight[b] || 10;
+    const orderedDeviceKeys = ALL_DEVICE_TYPES.filter(
+      (dt) => (groups[dt]?.length ?? 0) > 0,
+    );
 
-      if (valA !== valB) return valA - valB;
-      return a.localeCompare(b);
-    });
-
-    return { groups, sortedFamilies };
+    return { groups, orderedDeviceKeys, noDevice };
   }, [filteredApps]);
 
   const isRootTenant = true;
@@ -841,6 +865,48 @@ setApps(formattedApps);
     );
   }
 
+  function renderDeviceGroup(key: string, label: string, appsInGroup: AppData[]) {
+    const isCollapsed = collapsedGroups[key];
+    return (
+      <div key={key} className="space-y-3">
+        <div
+          className="flex items-center justify-between cursor-pointer border-b border-border pb-2 group select-none transition-colors hover:border-emerald-500/50"
+          onClick={() => toggleGroup(key)}
+        >
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-bold text-foreground/90 uppercase tracking-wider">
+              {label}
+            </h2>
+            <span className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm">
+              {appsInGroup.length} {appsInGroup.length > 1 ? "Apps" : "App"}
+            </span>
+          </div>
+
+          <button
+            className="text-muted-foreground group-hover:text-emerald-500 transition-colors p-1"
+            title={isCollapsed ? "Expandir" : "Minimizar"}
+          >
+            <svg
+              className={`w-4 h-4 transition-transform duration-300 ${isCollapsed ? "" : "rotate-180"}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </div>
+
+        {!isCollapsed && (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 animate-in slide-in-from-top-2 duration-300">
+            {appsInGroup.map((app) => renderAppCard(app))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-background transition-colors">
       {/* ✅ Toasts em overlay */}
@@ -1091,71 +1157,19 @@ setApps(formattedApps);
         </div>
       ) : (
         <div className="px-3 sm:px-0 space-y-6">
-          {groupedApps.sortedFamilies.map((family) => {
-            const appsInFamily = groupedApps.groups[family];
-            const isCollapsed = collapsedGroups[family];
-
-            let familyName = "";
-            let familyIcon = "⚡";
-
-            if (family === "GERENCIAAPP") {
-              familyName = "GerenciaApp";
-            } else if (family === "IBOSOL") {
-              familyName = "IBO Sol";
-            } else if (family === "OUTRAS_INTEGRACOES") {
-              familyName = "Outras Integrações";
-            } else if (family === "SEM_INTEGRACAO") {
-              familyName = "Sem Integração";
-              familyIcon = "📁";
-            } else {
-              familyName = family;
-            }
-
-            return (
-              <div key={family} className="space-y-3">
-                <div
-                  className="flex items-center justify-between cursor-pointer border-b border-border pb-2 group select-none transition-colors hover:border-emerald-500/50"
-                  onClick={() => toggleGroup(family)}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">{familyIcon}</span>
-                    <h2 className="text-sm font-bold text-foreground/90 uppercase tracking-wider">
-                      Família: {familyName}
-                    </h2>
-<span className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm">
-                      {appsInFamily.length}{" "}
-                      {appsInFamily.length > 1 ? "Apps" : "App"}
-                    </span>
-                  </div>
-
-                  <button
-                    className="text-muted-foreground group-hover:text-emerald-500 transition-colors p-1"
-                    title={isCollapsed ? "Expandir" : "Minimizar"}
-                  >
-                    <svg
-                      className={`w-4 h-4 transition-transform duration-300 ${isCollapsed ? "" : "rotate-180"}`}
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
-                  </button>
-                </div>
-
-                {!isCollapsed && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 animate-in slide-in-from-top-2 duration-300">
-                    {appsInFamily.map((app) => renderAppCard(app))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {groupedByDevice.orderedDeviceKeys.map((dt) =>
+            renderDeviceGroup(
+              dt,
+              `${DEVICE_ICONS[dt]} ${DEVICE_TYPE_LABELS[dt]}`,
+              groupedByDevice.groups[dt]!,
+            ),
+          )}
+          {groupedByDevice.noDevice.length > 0 &&
+            renderDeviceGroup(
+              "SEM_DISPOSITIVO",
+              "📁 Sem dispositivo definido",
+              groupedByDevice.noDevice,
+            )}
           <div className="h-24 md:h-20" />
         </div>
       )}
