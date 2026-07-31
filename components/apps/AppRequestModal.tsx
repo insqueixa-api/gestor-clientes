@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { Loader2 } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { extractDateOnly, CHECK_VALIDITY_HANDLERS, resolveIntegrationTypeByName, buildM3uUrlFromDns, buildM3uUrlSecondary } from "@/lib/apps/panel";
 import { APP_FIELD_LABELS } from "@/lib/apps/field-types";
@@ -517,16 +518,18 @@ export default function AppRequestModal({
               <button
                 disabled={busy}
                 onClick={handleResolve}
-                className={`flex-1 px-4 py-2 rounded-lg text-white disabled:opacity-50 ${action === "removal" ? "bg-rose-600" : "bg-emerald-600"}`}
+                className={`flex-1 px-4 py-2 rounded-lg text-white disabled:opacity-50 flex items-center justify-center gap-1.5 ${action === "removal" ? "bg-rose-600" : "bg-emerald-600"}`}
               >
+                {busy && <Loader2 className="w-4 h-4 shrink-0 animate-spin" />}
                 {action === "removal" ? "Concluir & Excluir" : action === "renewal" ? "Salvar" : "Concluir"}
               </button>
               {action === "renewal" && (
                 <button
                   disabled={busy}
                   onClick={handleCancelRenewal}
-                  className="flex-1 px-4 py-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 disabled:opacity-50"
+                  className="flex-1 px-4 py-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 disabled:opacity-50 flex items-center justify-center gap-1.5"
                 >
+                  {busy && <Loader2 className="w-4 h-4 shrink-0 animate-spin" />}
                   Cancelar renovação
                 </button>
               )}

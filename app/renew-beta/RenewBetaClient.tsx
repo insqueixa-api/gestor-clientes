@@ -3369,9 +3369,10 @@ export default function RenewClient() {
                                   <button
                                     disabled={busy}
                                     onClick={() => handleCheckValidity(app.id)}
-                                    className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+                                    className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
                                   >
-                                    {busy ? "..." : "Atualizar"}
+                                    {busy && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
+                                    Atualizar
                                   </button>
                                 )}
                               </div>
@@ -3386,9 +3387,10 @@ export default function RenewClient() {
                                   <button
                                     disabled={busy}
                                     onClick={() => handleCheckValidity(app.id)}
-                                    className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+                                    className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
                                   >
-                                    {busy ? "..." : "Atualizar"}
+                                    {busy && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
+                                    Atualizar
                                   </button>
                                 )}
                               </div>
@@ -4307,9 +4309,10 @@ export default function RenewClient() {
                     <button
                       onClick={handleApplyCoupon}
                       disabled={!couponInput.trim() || couponChecking}
-                      className="h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-50 transition-colors shrink-0"
+                      className="h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-50 transition-colors shrink-0 flex items-center justify-center gap-1.5"
                     >
-                      {couponChecking ? "..." : "Aplicar"}
+                      {couponChecking && <Loader2 className="w-4 h-4 animate-spin" />}
+                      Aplicar
                     </button>
                   </div>
                   {couponError && <p className="text-xs text-rose-500">{couponError}</p>}

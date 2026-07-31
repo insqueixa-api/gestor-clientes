@@ -1643,7 +1643,9 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
                                 className="gap-1 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 text-[10px] font-medium uppercase rounded-lg transition-colors border border-amber-500/30 shadow-sm flex items-center justify-center gap-1 disabled:opacity-50"
                                 title="Tentar concluir a renovação automática de novo"
                               >
-                                <IconRefresh />{" "}
+                                <span className={reprocessingId === r.id ? "animate-spin" : ""}>
+                                  <IconRefresh />
+                                </span>{" "}
                                 {reprocessingId === r.id ? "Reprocessando..." : "Reprocessar"}
                               </button>
                             )}

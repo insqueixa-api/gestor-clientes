@@ -9,6 +9,7 @@
 // nem tinha o seletor Principal/Secundária no Configurar) — daqui pra frente
 // mudar o comportamento de configurar/verificar/remover é mudar um lugar só.
 import { useState } from "react";
+import { Loader2 } from "lucide-react";
 import ReconfigureModeModal, { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
 
 function IconSparkle({ className = "w-4 h-4 shrink-0" }: { className?: string }) {
@@ -110,14 +111,15 @@ export default function AppIntegrationActions({
             className="h-10 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
             title="Configura TV + VOD com o M3U do cliente e pega o vencimento"
           >
-            <IconSparkle />
+            {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconSparkle />}
             Configurar
           </button>
           <div className="h-10 rounded-lg border border-border overflow-hidden flex divide-x divide-border">
             <button
               type="button"
               onClick={onOpenPanel}
-              className="flex-1 bg-transparent text-muted-foreground hover:bg-muted transition-colors flex items-center justify-center"
+              disabled={loading}
+              className="flex-1 bg-transparent text-muted-foreground hover:bg-muted disabled:opacity-60 transition-colors flex items-center justify-center"
               title="Abrir painel no navegador"
             >
               <IconExternalLink />
@@ -129,7 +131,7 @@ export default function AppIntegrationActions({
               className="flex-1 bg-transparent text-emerald-500 hover:bg-emerald-500/10 disabled:opacity-60 transition-colors flex items-center justify-center"
               title="Verificar vencimento (sem mexer em TV/VOD)"
             >
-              <IconCheckCircle />
+              {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconCheckCircle />}
             </button>
           </div>
           <button
@@ -139,7 +141,7 @@ export default function AppIntegrationActions({
             className="h-10 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-60 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
             title="Remove TV + VOD"
           >
-            <IconTrash />
+            {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconTrash />}
             Remover
           </button>
         </div>
@@ -175,7 +177,7 @@ export default function AppIntegrationActions({
           className="h-10 rounded-lg bg-sky-500 hover:bg-sky-600 disabled:opacity-60 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
           title="Enviar dados para o painel"
         >
-          <IconSparkle />
+          {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconSparkle />}
           <span className="hidden sm:inline">Configurar m3u</span>
           <span className="sm:hidden">Configurar</span>
         </button>
@@ -185,7 +187,8 @@ export default function AppIntegrationActions({
             <button
               type="button"
               onClick={onOpenPanel}
-              className="flex-1 bg-transparent text-muted-foreground hover:bg-muted transition-colors flex items-center justify-center"
+              disabled={loading}
+              className="flex-1 bg-transparent text-muted-foreground hover:bg-muted disabled:opacity-60 transition-colors flex items-center justify-center"
               title="Abrir painel no navegador"
             >
               <IconExternalLink />
@@ -197,14 +200,15 @@ export default function AppIntegrationActions({
               className="flex-1 bg-transparent text-emerald-500 hover:bg-emerald-500/10 disabled:opacity-60 transition-colors flex items-center justify-center"
               title="Verificar vencimento no painel"
             >
-              <IconCheckCircle />
+              {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconCheckCircle />}
             </button>
           </div>
         ) : (
           <button
             type="button"
             onClick={onOpenPanel}
-            className="h-10 rounded-lg bg-transparent border border-border text-muted-foreground hover:bg-muted transition-colors flex items-center justify-center gap-1.5"
+            disabled={loading}
+            className="h-10 rounded-lg bg-transparent border border-border text-muted-foreground hover:bg-muted disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5"
             title="Abrir painel no navegador"
           >
             <IconExternalLink />
@@ -217,10 +221,10 @@ export default function AppIntegrationActions({
             type="button"
             onClick={() => onRemove!()}
             disabled={loading}
-            className="h-10 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-1.5"
+            className="h-10 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5"
             title="Remover do painel oficial"
           >
-            <IconTrash />
+            {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconTrash />}
             <span className="hidden sm:inline">Remover m3u</span>
             <span className="sm:hidden">Remover</span>
           </button>

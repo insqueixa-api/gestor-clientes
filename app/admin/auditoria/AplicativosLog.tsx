@@ -581,7 +581,7 @@ export default function AplicativosLog({
                             onClick={() => handleCancelar(r)}
                             className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 text-[10px] font-medium uppercase rounded-lg transition-colors border border-rose-500/20 disabled:opacity-50"
                           >
-                            Cancelar
+                            {busyId === r.id ? "Cancelando..." : "Cancelar"}
                           </button>
                         </div>
                       ) : (
