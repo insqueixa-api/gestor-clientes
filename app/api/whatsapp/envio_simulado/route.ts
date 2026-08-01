@@ -7,7 +7,7 @@
 // devolve o texto já pronto pro admin copiar e colar manualmente no
 // WhatsApp Web. Sem sessão nenhuma envolvida de propósito.
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { requireAdminTenant } from "@/lib/api/auth";
 import {
   buildClientTemplateVars,
   buildResellerTemplateVars,
@@ -24,25 +24,10 @@ import { toolConsultarPrecosTexto } from "@/lib/whatsapp/bot-engine";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function getBearerToken(req: Request): string | null {
-  const h = req.headers.get("authorization") || "";
-  const m = h.match(/^Bearer\s+(.+)$/i);
-  return m?.[1]?.trim() || null;
-}
-
 export async function POST(req: Request) {
-  const supabaseUrl = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
-  const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-  if (!supabaseUrl || !serviceKey) {
-    return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
-  }
-  const sb = createClient(supabaseUrl, serviceKey);
-
-  const token = getBearerToken(req);
-  if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { data: authData, error: authErr } = await sb.auth.getUser(token);
-  if (authErr || !authData?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const authedUserId = authData.user.id;
+  const auth = await requireAdminTenant(req);
+  if (!auth.ok) return auth.res;
+  const { supabase: sb, tenant_id: authTenantId, user_id: authedUserId } = auth;
 
   let body: any;
   try {
@@ -76,13 +61,9 @@ export async function POST(req: Request) {
     }
   }
 
-  const { data: mem, error: memErr } = await sb
-    .from("tenant_members")
-    .select("tenant_id")
-    .eq("tenant_id", tenantId)
-    .eq("user_id", authedUserId)
-    .maybeSingle();
-  if (memErr || !mem) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (tenantId !== authTenantId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const rawClientId = String(body?.client_id || "").trim();
   const rawResellerId = String(body?.reseller_id || "").trim();

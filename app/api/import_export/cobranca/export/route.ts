@@ -1,6 +1,7 @@
 // app/api/import_export/cobranca/export/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { resolveAdminTenant } from "@/lib/api/auth-server";
 import * as XLSX from "xlsx";
 
 export const dynamic = "force-dynamic";
@@ -9,18 +10,12 @@ const STATUS_MAP: Record<string, string> = { "ACTIVE": "Ativo", "OVERDUE": "Venc
 const DAYS_MAP: Record<number, string> = { 1: "Seg", 2: "Ter", 3: "Qua", 4: "Qui", 5: "Sex", 6: "Sab", 0: "Dom" };
 
 async function resolveTenantIdForUser(supabase: any, userId: string, tenantFromQuery: string | null) {
-  const { data, error } = await supabase
-    .from("tenant_members")
-    .select("tenant_id")
-    .eq("user_id", userId)
-    .limit(1)
-    .maybeSingle();
-
-  if (error || !data) {
-    return { tenant_id: null as string | null, status: 500, error: "tenant_lookup_failed", details: error?.message || "Sem tenant" };
+  const resolved = await resolveAdminTenant(supabase, userId);
+  if (!resolved) {
+    return { tenant_id: null as string | null, status: 500, error: "tenant_lookup_failed", details: "Sem tenant ou sem permissão de admin" };
   }
 
-  return { tenant_id: data.tenant_id, status: 200 };
+  return { tenant_id: resolved.tenantId, status: 200 };
 }
 
 export async function GET(req: Request) {

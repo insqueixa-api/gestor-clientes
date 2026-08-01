@@ -1,6 +1,6 @@
 // app/api/integrations/natv/renew-client/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
+import { isInternalRequest } from "@/lib/internal-auth";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 import { createClient as createSupabaseServer } from "@/lib/supabase/server";
 
@@ -19,16 +19,7 @@ function jsonError(status: number, msg: string) {
 }
 
 function isInternal(req: NextRequest) {
-  const expected = String(process.env.INTERNAL_API_SECRET || "").trim();
-  const received = String(req.headers.get("x-internal-secret") || "").trim();
-
-  if (!expected || !received) return false;
-
-  const a = Buffer.from(received);
-  const b = Buffer.from(expected);
-
-  if (a.length !== b.length) return false;
-  return crypto.timingSafeEqual(a, b);
+  return isInternalRequest(req);
 }
 
 

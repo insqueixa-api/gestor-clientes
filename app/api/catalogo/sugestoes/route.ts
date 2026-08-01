@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
+import { resolveAdminTenant } from "@/lib/api/auth-server";
 import { resolveNotification } from "@/lib/notifications/notify";
 
 export const dynamic = "force-dynamic";
@@ -23,13 +24,8 @@ const supabaseAdmin = createAdmin(
 const STATUS_VALIDOS = ["PENDENTE", "ENVIADO_SUPORTE", "ADICIONADO", "REJEITADO"];
 
 async function getTenantId(userId: string): Promise<string | null> {
-  const { data } = await supabaseAdmin
-    .from("tenant_members")
-    .select("tenant_id")
-    .eq("user_id", userId)
-    .limit(1)
-    .maybeSingle();
-  return data?.tenant_id ?? null;
+  const resolved = await resolveAdminTenant(supabaseAdmin, userId);
+  return resolved?.tenantId ?? null;
 }
 
 export async function GET(req: NextRequest) {

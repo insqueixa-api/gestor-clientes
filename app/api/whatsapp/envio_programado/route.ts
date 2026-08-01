@@ -3,7 +3,8 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import crypto from "crypto";
+import { requireAdminTenant } from "@/lib/api/auth";
+import { isCronRequest } from "@/lib/internal-auth";
 import { makeSessionKey } from "@/lib/whatsapp/wa-context";
 import {
   buildClientTemplateVars,
@@ -29,12 +30,6 @@ function safeServerLog(...args: any[]) {
 export const dynamic = "force-dynamic";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-function getBearerToken(req: Request): string | null {
-  const h = req.headers.get("authorization") || "";
-  const m = h.match(/^Bearer\s+(.+)$/i);
-  return m?.[1]?.trim() || null;
-}
 
 type ScheduleBody = {
   tenant_id: string;
@@ -153,24 +148,18 @@ export async function POST(req: Request) {
   // =========================
   // 1) Autorização BLINDADA: CRON ou USER
   // =========================
-  const cronSecret = process.env.CRON_SECRET || null;
-  const bearer = getBearerToken(req);
-  const isCron = !!cronSecret && !!bearer && bearer === cronSecret;
+  const isCron = isCronRequest(req, "CRON_SECRET");
 
   let authedUserId: string | null = null;
+  let authTenantId: string | null = null;
 
+  // ✅ USER: exige Bearer + role de admin em tenant_members — mesma fonte
+  // de verdade usada no resto do painel (lib/api/auth.ts).
   if (!isCron) {
-    const token = getBearerToken(req);
-    if (!token) {
-      return NextResponse.json({ error: "Unauthorized: No Token" }, { status: 401 });
-    }
-
-    const { data, error } = await sb.auth.getUser(token);
-    if (error || !data?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized: Invalid User" }, { status: 401 });
-    }
-
-    authedUserId = data.user.id;
+    const auth = await requireAdminTenant(req);
+    if (!auth.ok) return auth.res;
+    authedUserId = auth.user_id;
+    authTenantId = auth.tenant_id;
   }
 
   // =========================
@@ -657,19 +646,10 @@ export async function POST(req: Request) {
   }
 
   // =========================
-  // Validação de membro do tenant (apenas USER, não-cron)
+  // Validação de que o tenant do body é o mesmo do usuário autenticado (apenas USER, não-cron)
   // =========================
-  {
-    const { data: mem, error: memErr } = await sb
-      .from("tenant_members")
-      .select("tenant_id")
-      .eq("tenant_id", tenantId)
-      .eq("user_id", authedUserId)
-      .maybeSingle();
-
-    if (memErr || !mem) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+  if (!isCron && tenantId !== authTenantId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   let sendAtUtc: string;
@@ -725,18 +705,7 @@ export async function POST(req: Request) {
 // Redirecionamos o GET para a sua função POST, onde a segurança já está pronta.
 // ============================================================================
 export async function GET(req: Request) {
-  const cronSecret = process.env.CRON_SECRET || null;
-  const bearer = getBearerToken(req);
-
-  function isCronAuth(bearer: string | null, secret: string | null): boolean {
-    if (!bearer || !secret) return false;
-    const a = Buffer.from(bearer);
-    const b = Buffer.from(secret);
-    if (a.length !== b.length) return false;
-    return crypto.timingSafeEqual(a, b);
-  }
-
-  const isCron = isCronAuth(bearer, cronSecret);
+  const isCron = isCronRequest(req, "CRON_SECRET");
 
   if (!isCron) {
     return NextResponse.json({ error: "Method Not Allowed" }, { status: 405 });

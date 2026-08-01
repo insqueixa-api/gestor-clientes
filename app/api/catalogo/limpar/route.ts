@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
+import { isCronRequest } from "@/lib/internal-auth";
 
 const supabaseAdmin = createAdmin(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -56,8 +57,7 @@ const corte = calcularCorte(maxRow.sincronizado_em);
 }
 
 export async function POST(req: NextRequest) {
-  const authHeader = req.headers.get('authorization')
-  const isCron = authHeader === `Bearer ${process.env.EPG_SYNC_CRON_SECRET}`
+  const isCron = isCronRequest(req, "EPG_SYNC_CRON_SECRET");
 
   if (!isCron) {
     const supabase = await createClient();

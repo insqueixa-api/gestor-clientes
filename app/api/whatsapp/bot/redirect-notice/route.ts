@@ -9,18 +9,12 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import crypto from "crypto";
+import { isInternalRequest } from "@/lib/internal-auth";
 
 export const dynamic = "force-dynamic";
 
 function isInternalAuth(req: Request): boolean {
-  const secret = String(process.env.UNIGESTOR_BOT_INTERNAL_SECRET || "").trim();
-  const provided = String(req.headers.get("x-internal-secret") || "").trim();
-  if (!secret || !provided) return false;
-  const a = Buffer.from(provided);
-  const b = Buffer.from(secret);
-  if (a.length !== b.length) return false;
-  return crypto.timingSafeEqual(a, b);
+  return isInternalRequest(req, "UNIGESTOR_BOT_INTERNAL_SECRET");
 }
 
 function makeSupabaseAdmin() {

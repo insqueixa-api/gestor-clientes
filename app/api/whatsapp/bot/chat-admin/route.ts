@@ -4,20 +4,13 @@
 // as mensagens ficam empilhadas em `sentMessages` e voltam no JSON.
 
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { requireAdminTenant } from "@/lib/api/auth";
 import { resolveClientProvider, getNodeById, type ServerProvider } from "@/lib/whatsapp/bot-menu";
 import { getFlowSettings } from "@/lib/whatsapp/bot-flow-settings";
 import { runBotEngine } from "@/lib/whatsapp/bot-engine";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
-
-function makeSupabaseAdmin() {
-  const url = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
-  const key = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-  if (!url || !key) return null;
-  return createClient(url, key, { auth: { persistSession: false } });
-}
 
 // ✅ Traduz o next_state técnico (ex: "menunode:6d0aea8b-...") pra algo que
 // você reconhece na hora (o nome do nó), em vez do UUID cru — só pra
@@ -56,17 +49,10 @@ async function resolveStateLabel(sb: any, nextState: string | undefined | null):
 
 export async function POST(req: Request) {
   const geminiKey = String(process.env.GEMINI_API_KEY || "").trim();
-  const sb = makeSupabaseAdmin();
-  if (!sb) return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
 
-  const authHeader = req.headers.get("authorization") || "";
-  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-  if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { data: authData } = await sb.auth.getUser(token);
-  if (!authData?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { data: member } = await sb.from("tenant_members").select("tenant_id").eq("user_id", authData.user.id).limit(1).maybeSingle();
-  if (!member?.tenant_id) return NextResponse.json({ error: "Tenant não encontrado" }, { status: 403 });
-  const tenantId = member.tenant_id;
+  const auth = await requireAdminTenant(req);
+  if (!auth.ok) return auth.res;
+  const { supabase: sb, tenant_id: tenantId } = auth;
 
   let body: any;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "JSON inválido" }, { status: 400 }); }

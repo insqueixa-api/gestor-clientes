@@ -1,7 +1,7 @@
 // app/api/client-portal/guia-tv/access-stats/route.ts
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
+import { getAdminTenantContext } from "@/lib/api/auth-server";
 
 const supabaseAdmin = createAdmin(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,17 +9,9 @@ const supabaseAdmin = createAdmin(
 );
 
 export async function GET() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-
-  const { data: member } = await supabase
-    .from("tenant_members")
-    .select("tenant_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  const tenantId = member?.tenant_id;
-  if (!tenantId) return NextResponse.json({ error: "Tenant não encontrado" }, { status: 401 });
+  const ctx = await getAdminTenantContext();
+  if (!ctx.ok) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  const tenantId = ctx.tenantId;
 
   try {
     const agora = new Date();

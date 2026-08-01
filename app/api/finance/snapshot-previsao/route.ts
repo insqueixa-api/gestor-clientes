@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
+import { isCronRequest } from "@/lib/internal-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -130,8 +131,7 @@ async function snapshotTenant(tenantId: string, anoMes: string, force: boolean) 
 }
 
 export async function POST(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  const isCron = !!process.env.FIN_SNAPSHOT_CRON_SECRET && authHeader === `Bearer ${process.env.FIN_SNAPSHOT_CRON_SECRET}`;
+  const isCron = isCronRequest(req, "FIN_SNAPSHOT_CRON_SECRET");
 
   const body = await req.json().catch(() => ({}));
   const anoMes = String(body?.ano_mes || "").trim() || currentAnoMesSP();

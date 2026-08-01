@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+import { isCronRequest } from '@/lib/internal-auth'
 
 
 const supabaseAdmin = createAdmin(
@@ -278,8 +279,7 @@ async function uploadToR2(key: string, body: string): Promise<void> {
 
 export async function GET(request: Request) {
   // Aceita cron via Bearer token OU admin logado via sessão (igual ao sync-claro)
-  const authHeader = request.headers.get('authorization')
-  const isCron = authHeader === `Bearer ${process.env.EPG_SYNC_CRON_SECRET}`
+  const isCron = isCronRequest(request, "EPG_SYNC_CRON_SECRET")
 
   if (!isCron) {
     const supabase = await createClient()

@@ -1,12 +1,12 @@
 // app/api/notifications/manual-renewal/route.ts
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { isInternalRequest } from "@/lib/internal-auth";
 
 export async function POST(req: Request) {
   try {
     // 1. Proteção da Rota Interna
-    const secret = req.headers.get("x-internal-secret");
-    if (secret !== process.env.INTERNAL_API_SECRET) {
+    if (!isInternalRequest(req)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

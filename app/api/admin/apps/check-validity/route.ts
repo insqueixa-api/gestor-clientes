@@ -16,33 +16,18 @@
 // portal já tinha. Auth e contrato de request/response (tenant_id +
 // client_app_id no body, mesmas respostas de erro) continuam idênticos.
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { requireAdminTenant } from "@/lib/api/auth";
 import { loadClientApp, loadClientAppDraft, checkClientAppValidity } from "@/lib/apps/orchestration";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-function getBearerToken(req: Request): string | null {
-  const h = req.headers.get("authorization") || "";
-  const m = h.match(/^Bearer\s+(.+)$/i);
-  return m?.[1]?.trim() || null;
-}
-
 export async function POST(req: NextRequest) {
-  const supabaseUrl = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
-  const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-  if (!supabaseUrl || !serviceKey) {
-    return NextResponse.json({ ok: false, error: "Server misconfigured" }, { status: 500 });
+  const auth = await requireAdminTenant(req);
+  if (!auth.ok) {
+    return NextResponse.json({ ok: false, error: auth.res.status === 403 ? "Forbidden" : "Unauthorized" }, { status: auth.res.status });
   }
-  const supabaseAdmin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
-
-  const token = getBearerToken(req);
-  if (!token) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-
-  const { data: userData, error: userErr } = await supabaseAdmin.auth.getUser(token);
-  if (userErr || !userData?.user?.id) {
-    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-  }
+  const { supabase: supabaseAdmin, tenant_id: authTenantId } = auth;
 
   const body = await req.json().catch(() => ({} as any));
   const tenantId = String(body?.tenant_id || "").trim();
@@ -61,13 +46,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Parâmetros incompletos" }, { status: 400 });
   }
 
-  const { data: mem, error: memErr } = await supabaseAdmin
-    .from("tenant_members")
-    .select("tenant_id")
-    .eq("tenant_id", tenantId)
-    .eq("user_id", userData.user.id)
-    .maybeSingle();
-  if (memErr || !mem) return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+  if (tenantId !== authTenantId) {
+    return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+  }
 
   try {
     const row = clientAppId

@@ -3,7 +3,8 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import crypto from "crypto";
+import { requireAdminTenant } from "@/lib/api/auth";
+import { isInternalRequest } from "@/lib/internal-auth";
 import { makeSessionKey } from "@/lib/whatsapp/wa-context";
 import {
   buildClientTemplateVars,
@@ -27,16 +28,7 @@ function safeServerLog(...args: any[]) {
 export const runtime = "nodejs";
 
 function isInternal(req: Request) {
-  const expected = String(process.env.INTERNAL_API_SECRET || "").trim();
-  const received = String(req.headers.get("x-internal-secret") || "").trim();
-
-  if (!expected || !received) return false;
-
-  const a = Buffer.from(received);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length) return false;
-
-  return crypto.timingSafeEqual(a, b);
+  return isInternalRequest(req);
 }
 
 async function resolveTenantSenderUserId(sb: any, tenantId: string): Promise<string | null> {
@@ -84,12 +76,6 @@ export const dynamic = "force-dynamic";
 
 const TZ_SP = "America/Sao_Paulo";
 
-function getBearerToken(req: Request): string | null {
-  const h = req.headers.get("authorization") || "";
-  const m = h.match(/^Bearer\s+(.+)$/i);
-  return m?.[1]?.trim() || null;
-}
-
 type SendNowBody = {
   tenant_id: string;
   client_id?: string;
@@ -134,20 +120,15 @@ export async function POST(req: Request) {
   }
 
   let authedUserId = "";
+  let authTenantId: string | null = null;
 
-  // ✅ USER: exige Bearer
+  // ✅ USER: exige Bearer + role de admin em tenant_members — mesma fonte
+  // de verdade usada no resto do painel (lib/api/auth.ts).
   if (!internal) {
-    const token = getBearerToken(req);
-    if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { data, error } = await sb.auth.getUser(token);
-    if (error || !data?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    authedUserId = data.user.id;
+    const auth = await requireAdminTenant(req);
+    if (!auth.ok) return auth.res;
+    authedUserId = auth.user_id;
+    authTenantId = auth.tenant_id;
   }
 
   // =========================
@@ -194,19 +175,10 @@ export async function POST(req: Request) {
   }
 
   // =========================
-  // 3) Validação de membro do tenant (apenas USER)
+  // 3) Validação de que o tenant do body é o mesmo do usuário autenticado (apenas USER)
   // =========================
-  if (!internal) {
-    const { data: mem, error: memErr } = await sb
-      .from("tenant_members")
-      .select("tenant_id")
-      .eq("tenant_id", tenantId)
-      .eq("user_id", authedUserId)
-      .maybeSingle();
-
-    if (memErr || !mem) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+  if (!internal && tenantId !== authTenantId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   // =========================

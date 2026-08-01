@@ -3,7 +3,7 @@
 // POST → salva (upsert por tenant)
 
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { requireAdminTenant } from "@/lib/api/auth";
 import {
   DEFAULT_FLOW_SETTINGS,
   getFlowSettings,
@@ -13,34 +13,10 @@ import {
 
 export const dynamic = "force-dynamic";
 
-function makeSupabaseAdmin() {
-  const url = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
-  const key = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-  if (!url || !key) return null;
-  return createClient(url, key, { auth: { persistSession: false } });
-}
-
-async function getTenantId(sb: any, req: Request): Promise<string | null> {
-  const authHeader = req.headers.get("authorization") || "";
-  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-  if (!token) return null;
-  const { data: authData } = await sb.auth.getUser(token);
-  if (!authData?.user?.id) return null;
-  const { data: member } = await sb
-    .from("tenant_members")
-    .select("tenant_id")
-    .eq("user_id", authData.user.id)
-    .limit(1)
-    .maybeSingle();
-  return member?.tenant_id || null;
-}
-
 export async function GET(req: Request) {
-  const sb = makeSupabaseAdmin();
-  if (!sb) return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
-
-  const tenantId = await getTenantId(sb, req);
-  if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAdminTenant(req);
+  if (!auth.ok) return auth.res;
+  const { supabase: sb, tenant_id: tenantId } = auth;
 
   const settings = await getFlowSettings(sb, tenantId);
   return NextResponse.json({
@@ -51,11 +27,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const sb = makeSupabaseAdmin();
-  if (!sb) return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
-
-  const tenantId = await getTenantId(sb, req);
-  if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAdminTenant(req);
+  if (!auth.ok) return auth.res;
+  const { supabase: sb, tenant_id: tenantId } = auth;
 
   const body = await req.json().catch(() => ({}));
   const keys: (keyof FlowSettings)[] = [

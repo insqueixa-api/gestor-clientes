@@ -8,11 +8,23 @@ export function badRequest(message: string) {
 export function unauthorized(message: string) {
   return NextResponse.json({ error: message }, { status: 401 });
 }
+export function forbidden(message: string) {
+  return NextResponse.json({ error: message }, { status: 403 });
+}
 export function notFound(message: string) {
   return NextResponse.json({ error: message }, { status: 404 });
 }
 export function serverError(message: string) {
   return NextResponse.json({ error: message }, { status: 500 });
+}
+
+// Valores de role já usados no projeto ao longo do tempo (histórico
+// inconsistente: 'owner', 'ADMIN', 'admin' aparecem em lugares diferentes).
+// Mantemos os três aceitos aqui pra não quebrar nada existente.
+export const ADMIN_ROLES = ["owner", "admin", "ADMIN"] as const;
+
+export function isAdminRole(role: unknown): boolean {
+  return typeof role === "string" && (ADMIN_ROLES as readonly string[]).includes(role);
 }
 
 export function adminSupabase() {
@@ -40,22 +52,24 @@ export async function requireAdminTenant(req: Request) {
 
   const user_id = authUser.user.id;
 
-  // 1. Tenta via Metadata
-  let tenant_id = authUser.user.app_metadata?.tenant_id;
+  // Busca sempre na tabela tenant_members — é dali que vem o role, e o
+  // metadata do usuário (app_metadata.tenant_id) nunca chegou a ser
+  // preenchido em produção, então essa é a única fonte real hoje.
+  const { data: member, error: memberErr } = await supabase
+    .from("tenant_members")
+    .select("tenant_id, role")
+    .eq("user_id", user_id)
+    .maybeSingle();
 
-  // 2. Se não tiver, busca na tabela tenant_members
-  if (!tenant_id) {
-    const { data: member, error: memberErr } = await supabase
-      .from("tenant_members")
-      .select("tenant_id")
-      .eq("user_id", user_id)
-      .maybeSingle();
+  const tenant_id = authUser.user.app_metadata?.tenant_id || member?.tenant_id;
 
-    if (memberErr || !member?.tenant_id) {
-      return { ok: false as const, res: unauthorized("vínculo com tenant não encontrado") };
-    }
-    tenant_id = member.tenant_id;
+  if (memberErr || !tenant_id) {
+    return { ok: false as const, res: unauthorized("vínculo com tenant não encontrado") };
   }
 
-  return { ok: true as const, supabase, tenant_id: String(tenant_id), user_id };
+  if (!isAdminRole(member?.role)) {
+    return { ok: false as const, res: forbidden("usuário sem permissão de admin neste tenant") };
+  }
+
+  return { ok: true as const, supabase, tenant_id: String(tenant_id), user_id, role: member!.role as string };
 }

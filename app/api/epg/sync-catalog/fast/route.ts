@@ -24,6 +24,7 @@ import { NextRequest, NextResponse }   from "next/server";
 import { createClient }                from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { S3Client, PutObjectCommand }  from "@aws-sdk/client-s3";
+import { isCronRequest } from "@/lib/internal-auth";
 
 export const dynamic     = "force-dynamic";
 export const maxDuration = 300;
@@ -176,8 +177,7 @@ function parseM3UFast(m3uText: string) {
 
 // ─── GET — Status do último sync ──────────────────────────────────────────────
 export async function GET(req: Request) {
-  const authHeader = req.headers.get("authorization");
-  const isCron = authHeader === `Bearer ${process.env.EPG_SYNC_CRON_SECRET}`;
+  const isCron = isCronRequest(req, "EPG_SYNC_CRON_SECRET");
 
   if (!isCron) {
     const supabase = await createClient();
@@ -221,8 +221,7 @@ export async function POST(req: NextRequest) {
   const inicio = Date.now();
   const execTimestamp = new Date().toISOString();
 
-  const authHeader = req.headers.get("authorization");
-  const isCron = authHeader === `Bearer ${process.env.EPG_SYNC_CRON_SECRET}`;
+  const isCron = isCronRequest(req, "EPG_SYNC_CRON_SECRET");
 
   if (!isCron) {
     const supabase = await createClient();

@@ -1,39 +1,21 @@
 // app/api/whatsapp/envio_avulso/route.ts
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { requireAdminTenant } from "@/lib/api/auth";
 import { makeSessionKey } from "@/lib/whatsapp/wa-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function getBearerToken(req: Request): string | null {
-  const h = req.headers.get("authorization") || "";
-  const m = h.match(/^Bearer\s+(.+)$/i);
-  return m?.[1]?.trim() || null;
-}
-
 export async function POST(req: Request) {
   const baseUrl = String(process.env.UNIGESTOR_WA_BASE_URL || "").trim();
   const waToken = String(process.env.UNIGESTOR_WA_TOKEN || "").trim();
-  const supabaseUrl = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
-  const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-
-  if (!baseUrl || !waToken || !supabaseUrl || !serviceKey) {
+  if (!baseUrl || !waToken) {
     return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
   }
 
-  // Auth
-  const token = getBearerToken(req);
-  if (!token) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const sb = createClient(supabaseUrl, serviceKey);
-  const { data: authData, error: authErr } = await sb.auth.getUser(token);
-  if (authErr || !authData?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const authedUserId = authData.user.id;
+  const auth = await requireAdminTenant(req);
+  if (!auth.ok) return auth.res;
+  const { tenant_id: authTenantId, user_id: authedUserId } = auth;
 
   // Body
   let body: any;
@@ -55,15 +37,8 @@ export async function POST(req: Request) {
     );
   }
 
-  // Valida membro do tenant
-  const { data: mem } = await sb
-    .from("tenant_members")
-    .select("tenant_id")
-    .eq("tenant_id", tenantId)
-    .eq("user_id", authedUserId)
-    .maybeSingle();
-
-  if (!mem) {
+  // Valida que o tenant do body é o mesmo do usuário autenticado
+  if (tenantId !== authTenantId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

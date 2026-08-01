@@ -9,17 +9,11 @@
 // salva como variante é o front (message_template_variants), igual ao botão
 // "+ Adicionar variação" manual.
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { requireAdminTenant } from "@/lib/api/auth";
 import { callGemini } from "@/lib/whatsapp/gemini-client";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function getBearerToken(req: Request): string | null {
-  const h = req.headers.get("authorization") || "";
-  const m = h.match(/^Bearer\s+(.+)$/i);
-  return m?.[1]?.trim() || null;
-}
 
 function extractVariables(text: string): Set<string> {
   const matches = text.match(/\{[a-zA-Z0-9_]+\}/g) || [];
@@ -79,19 +73,14 @@ ${original}
 }
 
 export async function POST(req: Request) {
-  const supabaseUrl = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
-  const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
   const geminiKey = String(process.env.GEMINI_API_KEY || "").trim();
-  if (!supabaseUrl || !serviceKey || !geminiKey) {
+  if (!geminiKey) {
     return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
   }
-  const sb = createClient(supabaseUrl, serviceKey);
 
-  const token = getBearerToken(req);
-  if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { data: authData, error: authErr } = await sb.auth.getUser(token);
-  if (authErr || !authData?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const authedUserId = authData.user.id;
+  const auth = await requireAdminTenant(req);
+  if (!auth.ok) return auth.res;
+  const { tenant_id: authTenantId } = auth;
 
   let body: any;
   try {
@@ -106,13 +95,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "tenant_id e content são obrigatórios" }, { status: 400 });
   }
 
-  const { data: mem, error: memErr } = await sb
-    .from("tenant_members")
-    .select("tenant_id")
-    .eq("tenant_id", tenantId)
-    .eq("user_id", authedUserId)
-    .maybeSingle();
-  if (memErr || !mem) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (tenantId !== authTenantId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const requiredVars = [...extractVariables(content)];
 

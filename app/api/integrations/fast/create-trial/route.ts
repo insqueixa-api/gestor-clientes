@@ -1,6 +1,6 @@
 // app/api/integrations/fast/create-trial/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
+import { isInternalRequest } from "@/lib/internal-auth";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 import { createClient as createSupabaseServer } from "@/lib/supabase/server";
 
@@ -16,15 +16,7 @@ function jsonError(status: number, message: string) {
 }
 
 function isInternal(req: NextRequest) {
-  const expected = process.env.INTERNAL_API_SECRET || "";
-  const received = req.headers.get("x-internal-secret") || "";
-  if (!expected || !received) return false;
-
-  const a = Buffer.from(received);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length) return false;
-
-  return crypto.timingSafeEqual(a, b);
+  return isInternalRequest(req);
 }
 
 function looksLikeDuplicateUsername(msg: string) {

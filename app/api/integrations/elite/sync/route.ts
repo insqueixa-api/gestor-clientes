@@ -1,7 +1,7 @@
 // app/api/integrations/elite/sync/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import crypto from "crypto";
+import { isInternalRequest } from "@/lib/internal-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,13 +33,7 @@ function parseLooseNumber(input: string): number | null {
 export async function POST(req: Request) {
   try {
     // Autenticação de Segurança
-    const internalSecret = String(req.headers.get("x-internal-secret") || "").trim();
-    const expectedSecret = String(process.env.INTERNAL_API_SECRET || "").trim();
-    const a = Buffer.from(internalSecret);
-    const b = Buffer.from(expectedSecret);
-    const isInternal = !!expectedSecret && a.length === b.length && crypto.timingSafeEqual(a, b);
-
-    if (!isInternal) {
+    if (!isInternalRequest(req)) {
       const { createClient } = await import("@/lib/supabase/server");
       const supabaseAuth = await createClient();
       const { data: auth, error: authErr } = await supabaseAuth.auth.getUser();

@@ -6,29 +6,8 @@
 // DELETE → remove item
 
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { requireAdminTenant } from "@/lib/api/auth";
 import { normalizeAppliesToServers } from "@/lib/whatsapp/bot-menu";
-
-function makeSupabaseAdmin() {
-  const url = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
-  const key = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-  if (!url || !key) return null;
-  return createClient(url, key, { auth: { persistSession: false } });
-}
-
-async function getTenantId(sb: any, authHeader: string): Promise<string | null> {
-  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-  if (!token) return null;
-  const { data: authData } = await sb.auth.getUser(token);
-  if (!authData?.user?.id) return null;
-  const { data: member } = await sb
-    .from("tenant_members")
-    .select("tenant_id")
-    .eq("user_id", authData.user.id)
-    .limit(1)
-    .maybeSingle();
-  return member?.tenant_id ?? null;
-}
 
 async function generateEmbedding(apiKey: string, text: string): Promise<number[] | null> {
   try {
@@ -56,11 +35,9 @@ async function generateEmbedding(apiKey: string, text: string): Promise<number[]
 
 // ── GET — listar todos + busca por texto ──────────────────────────────────────
 export async function GET(req: Request) {
-  const sb = makeSupabaseAdmin();
-  if (!sb) return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
-
-  const tenantId = await getTenantId(sb, req.headers.get("authorization") || "");
-  if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAdminTenant(req);
+  if (!auth.ok) return auth.res;
+  const { supabase: sb, tenant_id: tenantId } = auth;
 
   const url = new URL(req.url);
   // ✅ Remove vírgula/parênteses antes de interpolar no filtro .or() do
@@ -92,11 +69,9 @@ export async function GET(req: Request) {
 
 // ── POST — criar novo item ────────────────────────────────────────────────────
 export async function POST(req: Request) {
-  const sb = makeSupabaseAdmin();
-  if (!sb) return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
-
-  const tenantId = await getTenantId(sb, req.headers.get("authorization") || "");
-  if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAdminTenant(req);
+  if (!auth.ok) return auth.res;
+  const { supabase: sb, tenant_id: tenantId } = auth;
 
   const geminiKey = String(process.env.GEMINI_API_KEY || "").trim();
   if (!geminiKey) return NextResponse.json({ error: "GEMINI_API_KEY ausente" }, { status: 500 });
@@ -141,11 +116,9 @@ export async function POST(req: Request) {
 
 // ── PUT — editar item existente ───────────────────────────────────────────────
 export async function PUT(req: Request) {
-  const sb = makeSupabaseAdmin();
-  if (!sb) return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
-
-  const tenantId = await getTenantId(sb, req.headers.get("authorization") || "");
-  if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAdminTenant(req);
+  if (!auth.ok) return auth.res;
+  const { supabase: sb, tenant_id: tenantId } = auth;
 
   const geminiKey = String(process.env.GEMINI_API_KEY || "").trim();
 
@@ -201,11 +174,9 @@ export async function PUT(req: Request) {
 
 // ── DELETE — remover item ─────────────────────────────────────────────────────
 export async function DELETE(req: Request) {
-  const sb = makeSupabaseAdmin();
-  if (!sb) return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
-
-  const tenantId = await getTenantId(sb, req.headers.get("authorization") || "");
-  if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAdminTenant(req);
+  if (!auth.ok) return auth.res;
+  const { supabase: sb, tenant_id: tenantId } = auth;
 
   const url = new URL(req.url);
   const id = url.searchParams.get("id");

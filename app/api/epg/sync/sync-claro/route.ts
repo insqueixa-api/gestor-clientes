@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient }              from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { S3Client, PutObjectCommand }  from "@aws-sdk/client-s3";
+import { isCronRequest } from "@/lib/internal-auth";
 
 export const dynamic     = "force-dynamic";
 export const maxDuration = 60;
@@ -82,8 +83,7 @@ export async function POST(req: NextRequest) {
   const inicio = Date.now();
 
   // Permite cron sem sessão via secret no header
-  const cronAuth = req.headers.get("authorization");
-  const isCron   = cronAuth === `Bearer ${process.env.EPG_SYNC_CRON_SECRET}`;
+  const isCron = isCronRequest(req, "EPG_SYNC_CRON_SECRET");
 
   if (!isCron) {
     const supabase = await createClient();

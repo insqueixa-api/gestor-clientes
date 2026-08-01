@@ -1,15 +1,8 @@
 // app/api/whatsapp/bot/menu-tree/route.ts
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { requireAdminTenant } from "@/lib/api/auth";
 import { generateDocumentEmbedding } from "@/lib/whatsapp/gemini-client";
 import { normalizeAppliesToServers } from "@/lib/whatsapp/bot-menu";
-
-function makeSupabaseAdmin() {
-  const url = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
-  const key = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-  if (!url || !key) return null;
-  return createClient(url, key, { auth: { persistSession: false } });
-}
 
 // ── Embedding de intenção do nó (rótulo + palavras-chave) ────────────────────
 // Alimenta o fallback semântico (searchMenuIntentCandidates) usado quando o cliente
@@ -47,25 +40,11 @@ function reservedOptionNumberError(n: unknown): string | null {
   return null;
 }
 
-async function getTenantId(sb: any, req: Request): Promise<string | null> {
-  const authHeader = req.headers.get("authorization") || "";
-  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-  if (!token) return null;
-  const { data: authData } = await sb.auth.getUser(token);
-  if (!authData?.user?.id) return null;
-  const { data: member } = await sb
-    .from("tenant_members").select("tenant_id")
-    .eq("user_id", authData.user.id).limit(1).maybeSingle();
-  return member?.tenant_id || null;
-}
-
 // ── GET: retorna a árvore inteira (flat) + todos os passos, pro front montar ──
 export async function GET(req: Request) {
-  const sb = makeSupabaseAdmin();
-  if (!sb) return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
-
-  const tenantId = await getTenantId(sb, req);
-  if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAdminTenant(req);
+  if (!auth.ok) return auth.res;
+  const { supabase: sb, tenant_id: tenantId } = auth;
 
   const { data: nodes, error: nodesErr } = await sb
     .from("bot_menu_nodes")
@@ -86,11 +65,9 @@ export async function GET(req: Request) {
 
 // ── POST: cria nó, cria/atualiza passos, ou executa uma ação (o "action" no body decide) ──
 export async function POST(req: Request) {
-  const sb = makeSupabaseAdmin();
-  if (!sb) return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
-
-  const tenantId = await getTenantId(sb, req);
-  if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAdminTenant(req);
+  if (!auth.ok) return auth.res;
+  const { supabase: sb, tenant_id: tenantId } = auth;
 
   const body = await req.json().catch(() => ({}));
   const { action } = body;
