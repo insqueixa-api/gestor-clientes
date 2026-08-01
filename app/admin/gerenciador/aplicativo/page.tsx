@@ -779,6 +779,8 @@ setApps(formattedApps);
                             ? "Duplex TV"
                           : app.integration_type === "CLOUDDY"
                             ? "ClouDDy"
+                          : app.integration_type === "NINJAPLAYER"
+                            ? "Ninja Player"
                           : app.integration_type === "LAZERPLAY"
                     ? "Lazer Play"
                     : app.integration_type === "FUNPLAY"
@@ -1423,6 +1425,7 @@ setApps(formattedApps);
                       <option value="IPTVPLAYERIO">IPTV Playerio</option>
                       <option value="DUPLEXTV">Duplex TV</option>
                       <option value="CLOUDDY">ClouDDy</option>
+                      <option value="NINJAPLAYER">Ninja Player</option>
                     </select>
                     <p className="text-[11px] text-muted-foreground mt-1">
                       Quando configurado, habilita automação ao criar clientes.
