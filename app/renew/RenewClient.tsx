@@ -3275,7 +3275,16 @@ export default function RenewClient() {
               alt="Gestor"
               width={44}
               height={44}
-              className="h-10 w-10 select-none object-contain transition-transform group-hover:scale-105"
+              className="h-10 w-10 select-none object-contain sm:hidden"
+              draggable={false}
+              priority
+            />
+            <Image
+              src="/brand/logo-gestor.png"
+              alt="Gestor"
+              width={160}
+              height={40}
+              className="hidden sm:block h-10 w-auto select-none object-contain"
               draggable={false}
               priority
             />
