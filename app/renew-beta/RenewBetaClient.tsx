@@ -3437,7 +3437,7 @@ export default function RenewClient() {
                   setShowAddAppPicker(true);
                   loadAppCatalog();
                 }}
-                className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all shrink-0"
+                className="h-8 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow-sm transition-all shrink-0"
               >
                 <span>+</span> Adicionar aplicativo
               </button>
@@ -3458,9 +3458,8 @@ export default function RenewClient() {
               )}
               {!installedAppsLoading && !installedAppsError && installedApps.length === 0 && (
                 <div className="text-center py-8 px-4 text-muted-foreground bg-muted/40 rounded-xl border border-dashed border-border">
-                  Ainda não identificamos nenhum aplicativo nesta conta.
-                  <br />
-                  Clique em <strong className="text-foreground">"+ Adicionar aplicativo"</strong> acima pra informar o que você usa, ou pra configurar um novo.
+                  Ainda não identificamos nenhum aplicativo nesta conta — clique em{" "}
+                  <strong className="text-foreground">"+ Adicionar aplicativo"</strong> acima pra informar o que você usa, ou pra configurar um novo.
                 </div>
               )}
 
