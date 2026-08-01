@@ -34,46 +34,60 @@ import {
   Tag,
 } from "lucide-react";
 
+const PAGE_NAMES: Record<string, string> = {
+  "/admin": "Dashboard",
+  "/admin/cliente": "Clientes",
+  "/admin/revendedor": "Revendas",
+  "/admin/teste": "Testes",
+  "/admin/auditoria": "Log Portal",
+  "/admin/agenda": "Agenda Telefônica",
+  "/admin/gerenciador/guia-tv": "Guia TV",
+  "/admin/gerenciador/servidor": "Servidores",
+  "/admin/gerenciador/plano": "Planos",
+  "/admin/gerenciador/mensagem": "Mensagens",
+  "/admin/gerenciador/cobranca": "Automação de Cobrança",
+  "/admin/gerenciador/pagamento": "Formas de Pagamento",
+  "/admin/gerenciador/aplicativo": "Aplicativos",
+  "/admin/settings/profile": "Perfil",
+  "/admin/settings/whatsapp": "WhatsApp",
+  "/admin/settings/financeiro_pessoal": "Controle Financeiro",
+  "/admin/settings/cupons": "Cupons",
+  "/admin/settings/api-server": "API de Integrações",
+};
+
+function getPageName(path: string): string {
+  if (PAGE_NAMES[path]) return PAGE_NAMES[path];
+  const match = Object.keys(PAGE_NAMES)
+    .sort((a, b) => b.length - a.length)
+    .find((key) => path.startsWith(key));
+  return match ? PAGE_NAMES[match] : "Painel";
+}
+
 function BrandUser({
   userLabel,
-  tenantName,
-  logoUrl,
 }: {
   userLabel: string;
-  tenantName: string;
-  logoUrl?: string | null;
 }) {
   return (
     <div className="flex items-center gap-3 min-w-0 text-white cursor-pointer group">
-      {logoUrl ? (
-        <img
-          src={logoUrl}
-          alt={tenantName}
-          className="h-10 w-auto max-w-[140px] select-none object-contain transition-transform group-hover:scale-105 drop-shadow-md"
-          draggable={false}
-        />
-      ) : (
-        <>
-          <Image
-            src="/brand/logo-gestor-celular.png"
-            alt="Gestor"
-            width={44}
-            height={44}
-            className="h-10 w-10 select-none object-contain sm:hidden transition-transform group-hover:scale-105"
-            draggable={false}
-            priority
-          />
-          <Image
-            src="/brand/logo-gestor.png"
-            alt="Gestor"
-            width={160}
-            height={40}
-            className="hidden sm:block h-10 w-auto select-none object-contain transition-transform group-hover:scale-105"
-            draggable={false}
-            priority
-          />
-        </>
-      )}
+      <Image
+        src="/brand/logo-gestor-celular.png"
+        alt="Gestor"
+        width={44}
+        height={44}
+        className="h-10 w-10 select-none object-contain sm:hidden transition-transform group-hover:scale-105"
+        draggable={false}
+        priority
+      />
+      <Image
+        src="/brand/logo-gestor.png"
+        alt="Gestor"
+        width={160}
+        height={40}
+        className="hidden sm:block h-10 w-auto select-none object-contain transition-transform group-hover:scale-105"
+        draggable={false}
+        priority
+      />
       <div className="min-w-0 flex flex-col justify-center">
         <div className="text-[10px] uppercase tracking-wider text-white/40 font-medium leading-none mb-0.5 group-hover:text-white/60 transition-colors">
           Logado como
@@ -132,15 +146,11 @@ function renderBold(text: any): React.ReactNode {
 export default function AdminShell({
   children,
   userLabel,
-  tenantName,
   tenantId,
-  logoUrl,
 }: {
   children: React.ReactNode;
   userLabel: string;
-  tenantName: string;
   tenantId?: string;
-  logoUrl?: string | null;
 }) {
   const [openMenu, setOpenMenu] = useState<
     null | "manager" | "settings" | "mobile"
@@ -197,6 +207,26 @@ const [notifications, setNotifications] = useState<Notification[]>([]); // ✅ v
   } | null>(null);
 
   const pathname = usePathname();
+
+  // ✅ Título da aba dinâmico por página (substitui o antigo TenantHead,
+  // removido na limpeza do SaaS multi-tenant — aqui não depende mais de slug/tenant).
+  useEffect(() => {
+    const pageName = getPageName(pathname);
+    const desiredTitle = `UniGestor - ${pageName}`;
+
+    document.title = desiredTitle;
+
+    // Observa o <head> inteiro — captura quando o Next.js
+    // remove e recria o <title> durante navegação RSC
+    const observer = new MutationObserver(() => {
+      if (document.title !== desiredTitle) {
+        document.title = desiredTitle;
+      }
+    });
+    observer.observe(document.head, { childList: true, subtree: true });
+
+    return () => observer.disconnect();
+  }, [pathname]);
 
   const managerActive = useMemo(() => {
     return (
@@ -327,11 +357,7 @@ const handleSync = () => {
               href="/admin"
               className="flex items-center gap-3 font-semibold min-w-0 hover:opacity-90 transition-opacity no-underline text-white"
             >
-              <BrandUser
-                userLabel={userLabel}
-                tenantName={tenantName}
-                logoUrl={logoUrl}
-              />
+              <BrandUser userLabel={userLabel} />
             </Link>
 
             <div className="relative">

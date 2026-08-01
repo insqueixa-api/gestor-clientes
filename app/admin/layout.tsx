@@ -29,12 +29,12 @@ export default async function AdminLayout({
 
   const supabase = await createClient();
 
-  // 2) Nome e logo do tenant
+  // 2) Nome do tenant (fallback do userLabel)
   const { data: tenantRow } = await supabase
     .from("tenants")
-    .select("name, logo_url")
+    .select("name")
     .eq("id", ctx.tenantId)
-    .maybeSingle<{ name: string | null; logo_url: string | null }>();
+    .maybeSingle<{ name: string | null }>();
 
   // 3) Nome do perfil (display_name)
   const { data: profile } = await supabase
@@ -44,18 +44,12 @@ export default async function AdminLayout({
     .maybeSingle<{ display_name: string | null }>();
 
   const tenantName = tenantRow?.name ?? "Painel";
-  const tenantLogo = tenantRow?.logo_url ?? null;
   const userLabel = profile?.display_name || tenantName || "Usuário";
 
   return (
     <ConfirmProvider>
       <PromptProvider>
-        <AdminShell
-          userLabel={userLabel}
-          tenantName={tenantName}
-          tenantId={ctx.tenantId}
-          logoUrl={tenantLogo}
-        >
+        <AdminShell userLabel={userLabel} tenantId={ctx.tenantId}>
           {children}
         </AdminShell>
       </PromptProvider>
