@@ -542,22 +542,12 @@ export async function POST(req: Request) {
 
         processed++;
 
-        // ✅ delay entre envios: usa exatamente o valor configurado na automação
-        // (delay_min), sem faixa aleatória — intervalo fixo, simples e previsível
+        // ✅ delay entre envios: sorteado entre 1 e 3 min, nunca fixo — evita
+        // um intervalo idêntico e detectável entre mensagens (pedido do
+        // Márcio, 01/08/2026, na mitigação de risco de ban)
         if (processed < jobs.length) {
-          const automationConfig = Array.isArray((job as any).billing_automations)
-            ? (job as any).billing_automations[0]
-            : (job as any).billing_automations;
-
-          const configuredDelay = automationConfig?.delay_min
-            ? Number(automationConfig.delay_min)
-            : 15;
-
-          // ✅ Piso de segurança de 15s — evita risco de bloqueio/rate-limit no
-          // WhatsApp mesmo se alguém configurar um valor baixo demais por engano
-          const finalDelay = Math.max(configuredDelay, 15);
-
-          await sleep(finalDelay * 1000);
+          const randomDelaySecs = 60 + Math.random() * 120;
+          await sleep(randomDelaySecs * 1000);
         }
       } catch (e: any) {
         const errorMsg = e?.message || "Falha ao processar job";

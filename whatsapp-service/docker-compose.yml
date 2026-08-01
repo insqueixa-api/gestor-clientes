@@ -4,6 +4,7 @@ services:
     build: .
     container_name: unigestor-whatsapp
     restart: unless-stopped
+    init: true
     ports:
       - "3000:3000"
     volumes:
@@ -19,8 +20,8 @@ services:
     # Health check
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
+      interval: 20s
+      timeout: 15s
       retries: 3
       start_period: 15s
     logging:

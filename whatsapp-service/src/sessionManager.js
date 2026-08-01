@@ -4,7 +4,6 @@ import {
   DisconnectReason,
   fetchLatestBaileysVersion,
   downloadMediaMessage,
-  Browsers,
 } from "@whiskeysockets/baileys";
 import { Boom } from "@hapi/boom";
 import path from "path";
@@ -746,14 +745,14 @@ const sock = makeWASocket({
     auth: state,
     logger: baileysLogger,
     printQRInTerminal: false,
-    // ✅ Fingerprint do "aparelho vinculado" (pedido do Márcio, 26/07/2026) —
-    // antes era ["UniGestor", "Chrome", "120.0.0"], um nome de app entregue
-    // direto pro WhatsApp na tela de Dispositivos Conectados (denuncia
-    // ferramenta de automação de cara) + uma versão de Chrome inventada, não
-    // atrelada a nenhum SO real. Browsers.windows("Chrome") é um preset da
-    // própria lib do Baileys — usa "Windows" + build real (10.0.22631),
-    // mesmo formato que uma sessão de WhatsApp Web genuína mostra.
-    browser: Browsers.windows("Chrome"),
+    // ✅ Fingerprint do "aparelho vinculado" (pedido do Márcio, 01/08/2026) —
+    // NÃO usa Browsers.windows()/.macOS() daqui da lib: esses presets são
+    // strings fixas, idênticas pra todo mundo que usa Baileys sem
+    // customizar, e por isso reconhecíveis em massa por antifraude. Esse
+    // array customizado (Mac OS + Chrome + versão real, mas não é preset de
+    // ninguém) tem o mesmo formato de uma sessão genuína, sem ser cópia do
+    // valor padrão da biblioteca.
+    browser: ["Mac OS", "Chrome", "124.0.6367.91"],
 
     // ✅ Proxy residencial (ver comentário no topo do arquivo) — sai por IP
     // brasileiro em vez do IP de datacenter da VM. `agent` é o socket
