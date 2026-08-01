@@ -266,6 +266,11 @@ export async function runFulfillment(params: FulfillmentParams) {
           code: (redeemErr as any)?.code,
           message: redeemErr.message,
         });
+        Sentry.captureMessage("fulfillment: coupon_redemption insert failed", {
+          level: "warning",
+          tags: { kind: "client_portal_error", where: "coupon_redemption_insert" },
+          extra: { payment_id: payment.id, coupon_id: couponId, message: redeemErr.message, code: (redeemErr as any)?.code },
+        });
       } else {
         // Cupom pessoal se autodesativa ao ser usado - o Marcio reativa
         // manualmente na proxima indicacao (documentado desde a Fase 1.5).

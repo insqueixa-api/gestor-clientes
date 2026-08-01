@@ -1,6 +1,7 @@
 // app/api/client-portal/get-accounts/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import * as Sentry from "@sentry/nextjs";
 import { touchPortalSession } from "@/lib/client-portal/session";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +43,7 @@ export async function POST(req: NextRequest) {
     const supabaseAdmin = makeSupabaseAdmin();
     if (!supabaseAdmin) {
       safeServerLog("get-accounts: Server misconfigured");
+      Sentry.captureMessage("get-accounts: Server misconfigured", { level: "error", tags: { kind: "client_portal_error", route: "get-accounts" } });
       return NextResponse.json(
         { ok: false, error: "Erro interno" },
         { status: 500, headers: NO_STORE_HEADERS }
@@ -114,6 +116,7 @@ if (!session_token) {
 
     if (accErr) {
       safeServerLog("get-accounts: query error", accErr?.message);
+      Sentry.captureMessage("get-accounts: query error", { level: "error", tags: { kind: "client_portal_error", route: "get-accounts" }, extra: { message: accErr?.message } });
       // ✅ não vaza schema/colunas
       return NextResponse.json(
         { ok: false, error: "Erro interno" },
@@ -150,6 +153,7 @@ if (!session_token) {
     );
   } catch (err: any) {
     safeServerLog("get-accounts: unexpected error", err?.message);
+    Sentry.captureException(err, { tags: { kind: "client_portal_error", route: "get-accounts" } });
 
     // ✅ não vaza detalhe nenhum
     return NextResponse.json(

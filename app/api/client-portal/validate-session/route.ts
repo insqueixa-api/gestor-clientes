@@ -1,6 +1,7 @@
 // app/api/client-portal/validate-session/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import * as Sentry from "@sentry/nextjs";
 import { touchPortalSession } from "@/lib/client-portal/session";
 
 export const dynamic = "force-dynamic";
@@ -44,6 +45,7 @@ export async function POST(req: NextRequest) {
     const supabaseAdmin = makeSupabaseAdmin();
     if (!supabaseAdmin) {
       safeServerLog("validate-session: Server misconfigured");
+      Sentry.captureMessage("validate-session: Server misconfigured", { level: "error", tags: { kind: "client_portal_error", route: "validate-session" } });
       return NextResponse.json(
         { ok: false, error: "Erro interno" },
         { status: 500, headers: NO_STORE_HEADERS }
@@ -101,8 +103,9 @@ export async function POST(req: NextRequest) {
           admin_whatsapp = profileData[0].whatsapp_username;
         }
       }
-    } catch {
+    } catch (adminLookupErr) {
       safeServerLog("validate-session: falha ao buscar whatsapp do admin");
+      Sentry.captureException(adminLookupErr, { tags: { kind: "client_portal_error", route: "validate-session", where: "admin_whatsapp_lookup" } });
     }
 
     return NextResponse.json(
@@ -118,6 +121,7 @@ export async function POST(req: NextRequest) {
     );
   } catch (err: any) {
     safeServerLog("validate-session: unexpected error", err?.message);
+    Sentry.captureException(err, { tags: { kind: "client_portal_error", route: "validate-session" } });
 
     // ✅ NUNCA devolve err.message pro cliente (zero leak)
     return NextResponse.json(

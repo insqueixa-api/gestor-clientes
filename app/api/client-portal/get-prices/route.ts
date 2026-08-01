@@ -1,6 +1,7 @@
 // app/api/client-portal/get-prices/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import * as Sentry from "@sentry/nextjs";
 import { touchPortalSession } from "@/lib/client-portal/session";
 
 export const dynamic = "force-dynamic";
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest) {
     const supabaseAdmin = makeSupabaseAdmin();
     if (!supabaseAdmin) {
       safeServerLog("get-prices: Server misconfigured");
+      Sentry.captureMessage("get-prices: Server misconfigured", { level: "error", tags: { kind: "client_portal_error", route: "get-prices" } });
       return NextResponse.json(
         { ok: false, error: "Erro interno" },
         { status: 500, headers: NO_STORE_HEADERS }
@@ -143,6 +145,8 @@ if (!planTableId) {
     .single();
 
   if (defErr || !defaultTable) {
+    safeServerLog("get-prices: default price table not found", defErr?.message);
+    Sentry.captureMessage("get-prices: default price table not found", { level: "error", tags: { kind: "client_portal_error", route: "get-prices" }, extra: { tenant_id: sess.tenant_id } });
     return jsonError("Tabela de preços não encontrada", 404);
   }
 
@@ -164,6 +168,7 @@ if (!planTableId) {
 
     if (pricesErr || !priceData) {
       safeServerLog("get-prices: prices query error", pricesErr?.message);
+      Sentry.captureMessage("get-prices: prices query error", { level: "error", tags: { kind: "client_portal_error", route: "get-prices" }, extra: { message: pricesErr?.message } });
       return jsonError("Erro interno", 500);
     }
 
@@ -224,6 +229,7 @@ if (!planTableId) {
     );
   } catch (err: any) {
     safeServerLog("get-prices: unexpected error", err?.message);
+    Sentry.captureException(err, { tags: { kind: "client_portal_error", route: "get-prices" } });
     return NextResponse.json(
       { ok: false, error: "Erro interno" },
       { status: 500, headers: NO_STORE_HEADERS }

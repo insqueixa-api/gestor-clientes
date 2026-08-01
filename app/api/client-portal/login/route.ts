@@ -1,6 +1,7 @@
 // app/api/client-portal/login/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import * as Sentry from "@sentry/nextjs";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,7 @@ async function validateTurnstile(cfToken: string, ip: string): Promise<boolean> 
   const secret = String(process.env.TURNSTILE_SECRET_KEY || "").trim();
   if (!secret) {
     safeServerLog("[PORTAL][login] TURNSTILE_SECRET_KEY not configured");
+    Sentry.captureMessage("login: TURNSTILE_SECRET_KEY not configured", { level: "error", tags: { kind: "client_portal_error", route: "login" } });
     return false;
   }
 
@@ -43,8 +45,9 @@ async function validateTurnstile(cfToken: string, ip: string): Promise<boolean> 
     });
     const json = await res.json();
     return json?.success === true;
-  } catch {
+  } catch (err) {
     safeServerLog("[PORTAL][login] turnstile fetch failed");
+    Sentry.captureException(err, { tags: { kind: "client_portal_error", route: "login", where: "turnstile_fetch" } });
     return false;
   }
 }
@@ -54,6 +57,7 @@ export async function POST(req: NextRequest) {
     const supabaseAdmin = makeSupabaseAdmin();
     if (!supabaseAdmin) {
       safeServerLog("[PORTAL][login] Server misconfigured");
+      Sentry.captureMessage("login: Server misconfigured", { level: "error", tags: { kind: "client_portal_error", route: "login" } });
       return NextResponse.json({ error: "server_error" }, { status: 500, headers: NO_STORE_HEADERS });
     }
 
@@ -80,6 +84,7 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       safeServerLog("[PORTAL][login] rpc error");
+      Sentry.captureMessage("login: rpc error (portal_start_session)", { level: "error", tags: { kind: "client_portal_error", route: "login" }, extra: { message: error?.message } });
       return NextResponse.json({ error: "invalid_credentials" }, { status: 401, headers: NO_STORE_HEADERS });
     }
 
@@ -94,6 +99,7 @@ export async function POST(req: NextRequest) {
     );
   } catch (err: any) {
     safeServerLog("[PORTAL][login] unexpected", err?.message);
+    Sentry.captureException(err, { tags: { kind: "client_portal_error", route: "login" } });
     return NextResponse.json({ error: "server_error" }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }
