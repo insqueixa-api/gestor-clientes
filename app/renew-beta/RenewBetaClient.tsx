@@ -3399,10 +3399,10 @@ export default function RenewClient() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-base font-bold text-foreground">
-                  Configuração de Aplicativo
+                  Meus Aplicativos
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                  Reconfigure, atualize seus dados ou instale novos aplicativos
+                  Diga quais aplicativos você usa, atualize ou instale novos
                 </p>
               </div>
               <span className="text-amber-500 text-xl group-hover:translate-x-0.5 transition-transform shrink-0">
@@ -3427,19 +3427,24 @@ export default function RenewClient() {
             26/07/2026, "mesma largura da página de perfil do admin"). No
             celular vai até a borda (px-0), igual as demais. */}
         <div className="max-w-6xl mx-auto px-0 sm:px-4 py-4 sm:py-6 space-y-4">
-          <div className="mb-2 flex items-center justify-between gap-3 flex-wrap px-3 sm:px-0">
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
-              Configuração de Aplicativo
-            </h1>
-            <button
-              onClick={() => {
-                setShowAddAppPicker(true);
-                loadAppCatalog();
-              }}
-              className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all shrink-0"
-            >
-              <span>+</span> Configurar aplicativo
-            </button>
+          <div className="mb-2 px-3 sm:px-0">
+            <div className="flex items-center justify-between gap-3">
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight min-w-0 truncate">
+                Meus Aplicativos
+              </h1>
+              <button
+                onClick={() => {
+                  setShowAddAppPicker(true);
+                  loadAppCatalog();
+                }}
+                className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all shrink-0"
+              >
+                <span>+</span> Adicionar aplicativo
+              </button>
+            </div>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 max-w-xl">
+              Use esta página pra reconfigurar um aplicativo que parou de funcionar, atualizar os dados de um já instalado, ou informar quais aplicativos você usa.
+            </p>
           </div>
 
           <div className="space-y-4">
@@ -3452,8 +3457,10 @@ export default function RenewClient() {
                 </div>
               )}
               {!installedAppsLoading && !installedAppsError && installedApps.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground bg-muted/40 rounded-xl border border-dashed border-border">
-                  Nenhum aplicativo instalado nessa conta.
+                <div className="text-center py-8 px-4 text-muted-foreground bg-muted/40 rounded-xl border border-dashed border-border">
+                  Ainda não identificamos nenhum aplicativo nesta conta.
+                  <br />
+                  Clique em <strong className="text-foreground">"+ Adicionar aplicativo"</strong> acima pra informar o que você usa, ou pra configurar um novo.
                 </div>
               )}
 
@@ -3822,7 +3829,7 @@ export default function RenewClient() {
                 catalogLoading={appCatalogLoading}
                 busyAppId={appActionBusy?.startsWith("add-") ? appActionBusy.slice(4) : null}
                 onSelectApp={(appId) => handleAddApp(appId)}
-                title="Configurar aplicativo"
+                title="Adicionar aplicativo"
                 variant="portal"
               />
 
