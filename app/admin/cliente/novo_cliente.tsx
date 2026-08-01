@@ -1150,59 +1150,61 @@ const canSyncAgenda = canSyncAuto;
       try {
         const tid = await getCurrentTenantId();
 
-        if (tid) {
-          await loadWhatsAppSessions(); // ✅ Carrega as sessões para o Select
-        }
+        // ✅ OTIMIZAÇÃO (02/08/2026): sessões de WhatsApp deixam de ser
+        // esperadas aqui (só usadas lá embaixo, no Select de sessão) — antes,
+        // se a VM estivesse fora do ar, travava a abertura do modal inteiro.
+        if (tid) loadWhatsAppSessions(); // fire-and-forget
 
-        // 1. Servidores
-        const srvRes = await supabaseBrowser
-          .from("servers")
-          .select("id, name")
-          .eq("tenant_id", tid)
-          .eq("is_archived", false);
+        // ✅ OTIMIZAÇÃO (02/08/2026): as 5 consultas abaixo (servidores,
+        // apps, integrações de apps, tabelas de preço, templates) não
+        // dependem uma da outra — só de tid. Buscadas em paralelo em vez de
+        // uma atrás da outra.
+        const [srvRes, { data: appsData, error: appsErr }, { data: appInts }, tRes, { data: tmplData, error: tmplErr }] =
+          await Promise.all([
+            // 1. Servidores
+            supabaseBrowser
+              .from("servers")
+              .select("id, name")
+              .eq("tenant_id", tid)
+              .eq("is_archived", false),
+            // 2. Apps (Catálogo Completo com Configuração)
+            // ✅ Acesso direto e sem restrições à tabela de aplicativos
+            // ✅ Inclui os descontinuados (is_active=false) de propósito — o
+            // buscador de apps precisa achá-los pra mostrar o card "Descontinuado"
+            // (em vez de simplesmente sumir da lista, o que deixava o admin sem
+            // saber que o app existe/já foi usado por algum cliente).
+            supabaseBrowser.from("apps").select("*"),
+            // ✅ Busca as integrações configuradas dos Apps (onde mora a URL do painel deles)
+            supabaseBrowser
+              .from("app_integrations")
+              .select("app_name, api_url, pin")
+              .eq("tenant_id", tid)
+              .eq("is_active", true),
+            // 3. Tabelas de Preço
+            supabaseBrowser
+              .from("plan_tables")
+              .select(
+                `id, name, currency, is_system_default, table_type,
+                 items:plan_table_items (id, period, credits_base, prices:plan_table_item_prices (screens_count, price_amount))`,
+              )
+              .eq("tenant_id", tid)
+              .eq("is_active", true)
+              .eq("table_type", "iptv")
+              .order("name", { ascending: true }),
+            // 4. Templates (para mensagem automática / teste)
+            supabaseBrowser
+              .from("message_templates")
+              .select("id, name, content, image_url, category")
+              .eq("tenant_id", tid)
+              .order("name", { ascending: true }),
+          ]);
 
-        // 2. Apps (Catálogo Completo com Configuração)
-        // ✅ Acesso direto e sem restrições à tabela de aplicativos
-        // ✅ Inclui os descontinuados (is_active=false) de propósito — o
-        // buscador de apps precisa achá-los pra mostrar o card "Descontinuado"
-        // (em vez de simplesmente sumir da lista, o que deixava o admin sem
-        // saber que o app existe/já foi usado por algum cliente).
-        const { data: appsData, error: appsErr } = await supabaseBrowser
-          .from("apps")
-          .select("*");
+        if (!alive) return;
 
         if (appsErr) {
           addToast("error", "Erro ao carregar catálogo de apps", appsErr.message);
         }
-
-        // ✅ NOVO: Busca as integrações configuradas dos Apps (onde mora a URL do painel deles)
-        const { data: appInts } = await supabaseBrowser
-          .from("app_integrations")
-          .select("app_name, api_url, pin") // ✅ Atualizado para a sua nova coluna
-          .eq("tenant_id", tid)
-          .eq("is_active", true);
         if (appInts) setAppIntegrations(appInts);
-
-        // 3. Tabelas de Preço
-        const tRes = await supabaseBrowser
-          .from("plan_tables")
-          .select(
-            `id, name, currency, is_system_default, table_type,
-             items:plan_table_items (id, period, credits_base, prices:plan_table_item_prices (screens_count, price_amount))`,
-          )
-          .eq("tenant_id", tid)
-          .eq("is_active", true)
-          .eq("table_type", "iptv")
-          .order("name", { ascending: true });
-        if (!alive) return;
-
-        // ✅ 4) Templates (para mensagem automática / teste)
-        const { data: tmplData, error: tmplErr } = await supabaseBrowser
-          .from("message_templates")
-          .select("id, name, content, image_url, category") // ✅ AGORA TRAZ A CATEGORIA
-          .eq("tenant_id", tid)
-          .order("name", { ascending: true });
-        if (!alive) return;
 
         if (tmplErr) {
         } else {
