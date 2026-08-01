@@ -1522,10 +1522,16 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
                               <span
                                 className="text-[10px] text-muted-foreground leading-tight max-w-[200px] truncate font-medium"
                                 title={
-                                  r.fulfillment_error || "Renovação Manual"
+                                  r.fulfillment_error ||
+                                  (r.payment_type === "app_renewal"
+                                    ? "Renovação de Aplicativo"
+                                    : "Renovação de Assinatura")
                                 }
                               >
-                                {r.fulfillment_error || "Renovação Manual"}
+                                {r.fulfillment_error ||
+                                  (r.payment_type === "app_renewal"
+                                    ? "Renovação de Aplicativo"
+                                    : "Renovação de Assinatura")}
                               </span>
                             ) : (
                               /* Erros reais de API continuam vermelhos */
