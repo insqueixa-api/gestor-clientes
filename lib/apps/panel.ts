@@ -22,7 +22,11 @@ export const PIN_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "MESSITV", "BOBPLAYE
 // botão, que trata o "sem data" como caso normal (mantém o valor do
 // banco). GERENCIAAPP consulta a playlist pelo nome dentro da família
 // completa do MAC (ver app/api/integrations/apps/gerenciaapp/route.ts).
-export const CHECK_VALIDITY_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP", "MESSITV", "BOBPLAYER", "IBOPLAYER", "IPTVDUPLEX", "IPTVPLAYERIO", "DUPLEXTV"]);
+// NINJAPLAYER (metaplayer.app) — login por mac+device_key devolve a página
+// autenticada com o vencimento real da assinatura (ver
+// app/api/integrations/apps/ninjaplayer/route.ts). Sem PIN — não entra em
+// PIN_HANDLERS.
+export const CHECK_VALIDITY_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP", "MESSITV", "BOBPLAYER", "IBOPLAYER", "IPTVDUPLEX", "IPTVPLAYERIO", "DUPLEXTV", "NINJAPLAYER"]);
 
 // Alias de CHECK_VALIDITY_HANDLERS pro botão "Verificar vencimento" do
 // ADMIN (novo_cliente.tsx) — eram dois Sets com o mesmo conteúdo mantidos
@@ -52,6 +56,7 @@ export function resolveIntegrationTypeByName(appName: string): string {
   if (appNameStr === "GPC ROKU") return "GERENCIAAPP";
   if (appNameStr === "IBO REVENDA" || appNameStr === "GERENCIAAPP" || appNameStr === "GERENCIA APP") return "GERENCIAAPP";
   if (appNameStr === "DUPLECAST") return "DUPLECAST";
+  if (appNameStr === "NINJA PLAYER" || appNameStr === "NINJAPLAYER") return "NINJAPLAYER";
   if (appNameStr === "IBO PRO" || appNameStr === "IBOPRO" || appNameStr === "IBO PRO PLAYER") return "IBOPRO";
   return "";
 }
