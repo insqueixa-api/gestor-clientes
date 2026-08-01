@@ -72,6 +72,7 @@ export default function AppIntegracaoModal({
   const isIptvPlayerio = appName === "IPTVPLAYERIO";
   const isDuplexTv = appName === "DUPLEXTV";
   const isClouddy = appName === "CLOUDDY";
+  const isNinjaPlayer = appName === "NINJAPLAYER";
   const needsPin =
     isDuplecast ||
     isIboSol ||
@@ -81,7 +82,7 @@ export default function AppIntegracaoModal({
     isBobPlayer ||
     isIboPlayer ||
     isIptvDuplex ||
-    isIptvPlayerio; // DUPLEXTV/CLOUDDY ficam de fora — não usam PIN
+    isIptvPlayerio; // DUPLEXTV/CLOUDDY/NINJAPLAYER ficam de fora — não usam PIN
   const noCredentials =
     isIboSol ||
     isIboPro ||
@@ -92,7 +93,10 @@ export default function AppIntegracaoModal({
     isIptvDuplex ||
     isIptvPlayerio ||
     isDuplexTv ||
-    isClouddy; // ✅ CLOUDDY: email/senha são POR CLIENTE
+    isClouddy ||
+    isNinjaPlayer; // ✅ NINJAPLAYER: login é por mac+device_key POR CLIENTE
+    // (client_apps.field_values), não um login/senha compartilhado pelo
+    // tenant — mesma razão do CLOUDDY logo acima.
     // (client_apps.field_values), não um só compartilhado pelo tenant —
     // mostrar os campos aqui confundiria (pareceria que fazem algo, mas a
     // rota nunca lê daqui). O que a rota REALMENTE usa daqui é api_url +
@@ -294,6 +298,7 @@ export default function AppIntegracaoModal({
                 <option value="IPTVPLAYERIO">IPTV Playerio</option>
                 <option value="DUPLEXTV">Duplex TV</option>
                 <option value="CLOUDDY">ClouDDy</option>
+                <option value="NINJAPLAYER">Ninja Player</option>
               </select>
             </div>
 
@@ -328,7 +333,9 @@ export default function AppIntegracaoModal({
                                       ? 'Ex: "Duplex TV"'
                                       : isClouddy
                                         ? 'Ex: "ClouDDy"'
-                                        : 'Ex: "Nome do aplicativo"'
+                                        : isNinjaPlayer
+                                          ? 'Ex: "Ninja Player"'
+                                          : 'Ex: "Nome do aplicativo"'
                 }
                 className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors"
               />
@@ -365,7 +372,9 @@ export default function AppIntegracaoModal({
                                       ? "Ex: https://duplex24.com"
                                       : isClouddy
                                         ? "Ex: https://console.clouddy.online"
-                                        : "Ex: https://gerenciaapp.top"
+                                        : isNinjaPlayer
+                                          ? "Ex: https://meta-player.app"
+                                          : "Ex: https://gerenciaapp.top"
                 }
                 type="url"
                 className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors font-mono text-xs"
