@@ -422,7 +422,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
   // texto/estado. Usado quando o turno não veio de uma mensagem de texto
   // (ex: foto classificada como "tela de app expirado" pelo Gemini).
   if (p.forceNodeId) {
-    const forced = await getNodeById(sb, p.forceNodeId);
+    const forced = await getNodeById(sb, tenantId, p.forceNodeId);
     if (forced) return enterNode(forced, null, 1, 0, true);
   }
 
@@ -658,7 +658,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
       for (const m of result.messages) await sendWithLogos(m);
       let target: MenuNode | null = null;
       if (redirectMatch) {
-        target = await getNodeById(sb, redirectMatch[1]);
+        target = await getNodeById(sb, tenantId, redirectMatch[1]);
       } else {
         const { data: instalacaoRoot } = await sb.from("bot_menu_nodes").select("*").eq("tenant_id", tenantId).eq("slug", "instalacao").maybeSingle();
         target = (instalacaoRoot as MenuNode) || null;
@@ -695,7 +695,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
     const kind = target.kind === "default" ? fallback : target.kind;
 
     if (kind === "node" && target.kind === "node") {
-      const dest = await getNodeById(sb, target.nodeId);
+      const dest = await getNodeById(sb, tenantId, target.nodeId);
       if (dest) return enterNode(dest, null, 1, 0, true);
       await sendFlow(flow.escalate_message);
       return { action: "target_node_missing", escalate: true, markRead: false, nextState: "__clear__", transferReason: node?.transfer_situation_label || null };
@@ -723,10 +723,10 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
   if (confirmSwitchMatch) {
     const [, targetId, originId] = confirmSwitchMatch;
     if (isConfirmSwitchYes(trimmed)) {
-      const target = await getNodeById(sb, targetId);
+      const target = await getNodeById(sb, tenantId, targetId);
       if (target) return enterNode(target, null, 1, 0, true);
     }
-    const origin = await getNodeById(sb, originId);
+    const origin = await getNodeById(sb, tenantId, originId);
     if (!origin) return { action: "erro_no_estado", markRead: true, nextState: "__clear__" };
     const originChildren = await getChildren(sb, origin.id, clientProvider);
     await send(renderChildrenMenu(originChildren, "Combinado, seguimos por aqui! Escolha uma das opções:", true));
@@ -736,7 +736,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
   // ── Estado: aguardando resolução de conta ────────────────────────────────
   const contaMatch = /^conta:([a-f0-9-]+)$/.exec(botState || "");
   if (contaMatch) {
-    const node = await getNodeById(sb, contaMatch[1]);
+    const node = await getNodeById(sb, tenantId, contaMatch[1]);
     if (!node) return { action: "erro_no_estado", markRead: true, nextState: "__clear__" };
     return enterNode(node, null, 2);
   }
@@ -752,7 +752,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
   const ragContaMatch = /^rag_conta:([a-f0-9-]+)$/.exec(botState || "");
   if (ragContaMatch) {
     const topId = ragContaMatch[1];
-    const { data: kb } = await sb.from("bot_knowledge").select("id, content").eq("id", topId).maybeSingle();
+    const { data: kb } = await sb.from("bot_knowledge").select("id, content").eq("id", topId).eq("tenant_id", tenantId).maybeSingle();
     if (!kb) return { action: "erro_no_estado", markRead: true, nextState: "__clear__" };
 
     const resolved = resolveAccount(trimmed);
@@ -783,7 +783,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
   if (resolutionMatch || resolutionRetryMatch) {
     const nodeId = (resolutionMatch || resolutionRetryMatch)![1];
     const alreadyObjected = !!resolutionRetryMatch;
-    const node = await getNodeById(sb, nodeId);
+    const node = await getNodeById(sb, tenantId, nodeId);
     if (isResolutionResolved(trimmed)) {
       return applyFlowTarget(node?.on_resolved_target, "success", node, node?.closing_message || undefined);
     }
@@ -809,7 +809,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
   if (menuNodeMatch || menuNodeRetryMatch) {
     const [, nodeId, carriedAccountId] = (menuNodeMatch || menuNodeRetryMatch)!;
     const isSecondMiss = !!menuNodeRetryMatch;
-    const currentNode = await getNodeById(sb, nodeId);
+    const currentNode = await getNodeById(sb, tenantId, nodeId);
     if (!currentNode) return { action: "erro_no_estado", markRead: true, nextState: "__clear__" };
 
     const carriedIdx = carriedAccountId ? clients.findIndex((c: any) => c.id === carriedAccountId) : -1;
@@ -843,7 +843,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
       try {
         const embedding = await generateEmbedding(geminiKey, trimmed);
         const candidates = embedding ? await searchMenuIntentCandidates(sb, tenantId, embedding) : [];
-        const node = await pickCompatibleSemanticMatch(sb, candidates, clientProvider);
+        const node = await pickCompatibleSemanticMatch(sb, tenantId, candidates, clientProvider);
         if (node && node.id !== currentNode.id) {
           return askConfirmSwitch(node, currentNode);
         }
@@ -871,7 +871,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
       // vindo da busca.
       const embedding = hasSemanticSignal(trimmed) ? await generateEmbedding(geminiKey, trimmed) : null;
       const candidates = embedding ? await searchBotKnowledgeCandidates(sb, tenantId, embedding) : [];
-      const top = await pickCompatibleKnowledgeMatch(sb, candidates, clientProvider);
+      const top = await pickCompatibleKnowledgeMatch(sb, tenantId, candidates, clientProvider);
       if (top) {
         // ✅ Achado em auditoria (31/07/2026): com mais de uma conta, um artigo
         // que usa dado por-conta (usuário/senha/DNS/link de pagamento/etc —
@@ -935,7 +935,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
   try {
     const embedding = hasEnoughSignal ? await generateEmbedding(geminiKey, trimmed) : null;
     const candidates = embedding ? await searchMenuIntentCandidates(sb, tenantId, embedding) : [];
-    const node = await pickCompatibleSemanticMatch(sb, candidates, clientProvider);
+    const node = await pickCompatibleSemanticMatch(sb, tenantId, candidates, clientProvider);
     if (node) return enterNode(node, null, 1);
   } catch (e: any) {
     safeLog(`${logPrefix} Erro na detecção semântica de categoria:`, e?.message);

@@ -19,7 +19,6 @@ type MenuNode = {
   option_number: number;
   label: string;
   keywords: string[];
-  requires_account_check: boolean;
   special_actions: string[];
   closing_message: string | null;
   transfer_situation_label: string | null;
@@ -67,7 +66,14 @@ const SPECIAL_ACTIONS = [
   { value: "escalar_imediatamente", label: "Passar pro Márcio na hora", desc: "Encerra o bot e te chama." },
   { value: "coletar_relato_e_escalar", label: "Pedir relato e passar pro Márcio", desc: "Manda o texto dos passos e transfere." },
   { value: "escalar_se_elite", label: "Passar pro Márcio só se for Elite", desc: "Mostra os passos e transfere só quando o cliente é do servidor Elite — NaTV/Fast seguem normal, sem transferir." },
+  { value: "check_servidor_vencimento", label: "Checar se está vencido ou servidor fora do ar", desc: "Se o acesso do cliente está vencido, manda o link de renovação; se está em dia, sugere o reset padrão. Também avisa de instabilidade se o servidor estiver marcado como fora do ar." },
+  { value: "free_text_rag", label: "Deixar o cliente explicar em texto livre", desc: "Manda as mensagens do nó e depois abre pra resposta livre (RAG), em vez de esperar uma opção de menu." },
 ];
+// ✅ "gerar_link_portal" e "consultar_precos" existem no banco (nós antigos)
+// mas NÃO entram aqui de propósito — hoje {link_pagamento}/{tabela_precos}
+// resolvem sozinhos quando aparecem no texto do nó (ver ACCOUNT_DEPENDENT_VARS
+// em bot-menu.ts), sem precisar de checkbox. Readicionar aqui incentivaria
+// marcar algo que já não faz mais nada sozinho.
 
 // Subconjunto curado do mesmo TAG_GROUPS de app/admin/gerenciador/mensagem
 // (filtrado pro que faz sentido num atendimento de bot) — 25/07/2026:
@@ -462,7 +468,6 @@ export default function BotMenuTreeEditor() {
       option_number: nextOptionNumber(parentId, isFlowTarget),
       label: name.trim(),
       keywords: [],
-      requires_account_check: false,
       special_actions: isFlowTarget ? ["link_target_only"] : [],
     };
     // slug só em menu principal (sem pai)
@@ -1416,8 +1421,12 @@ const otherNodes = allNodes.filter((n) => n.id !== node.id);
       applies_to_servers: appliesToServers,
       is_active: isActive,
       redirect_to_node_id: redirectTo || null,
-      on_resolved_target: null,
-      on_not_resolved_target: null,
+      // ✅ Esses 2 campos só são editados pelo canvas (arrastar fio
+      // "Resolveu"/"Não resolveu"), nunca por este modal — antes o modal
+      // sobrescrevia sempre com null a cada salvamento, apagando o
+      // roteamento configurado no canvas mesmo sem o admin ter mexido nele.
+      on_resolved_target: effectiveAsk ? (node.on_resolved_target ?? null) : null,
+      on_not_resolved_target: effectiveAsk ? (node.on_not_resolved_target ?? null) : null,
       ask_resolution: effectiveAsk,
     });
 

@@ -152,11 +152,12 @@ export async function searchBotKnowledgeCandidates(
 // como o limite é pequeno (5), o custo é desprezível.
 export async function pickCompatibleKnowledgeMatch(
   sb: any,
+  tenantId: string,
   candidates: { id: string; title: string; category: string; content: string; similarity: number }[],
   provider: ServerProvider | null
 ): Promise<{ id: string; title: string; category: string; content: string; similarity: number } | null> {
   for (const c of candidates) {
-    const { data } = await sb.from("bot_knowledge").select("applies_to_servers").eq("id", c.id).maybeSingle();
+    const { data } = await sb.from("bot_knowledge").select("applies_to_servers").eq("id", c.id).eq("tenant_id", tenantId).maybeSingle();
     if (appliesToProvider(data?.applies_to_servers, provider)) return c;
   }
   return null;

@@ -73,7 +73,7 @@ export async function POST(req: Request) {
   const { action } = body;
 
   if (action === "create_node") {
-    const { parent_id, slug, option_number, label, keywords, requires_account_check, special_actions, applies_to_servers } = body;
+    const { parent_id, slug, option_number, label, keywords, special_actions, applies_to_servers } = body;
     const reservedErr = reservedOptionNumberError(option_number);
     if (reservedErr) return NextResponse.json({ error: reservedErr }, { status: 400 });
     const embedding = await tryGenerateIntentEmbedding(label, keywords || []);
@@ -86,7 +86,6 @@ export async function POST(req: Request) {
         option_number,
         label,
         keywords: keywords || [],
-        requires_account_check: !!requires_account_check,
         special_actions: special_actions || [],
         // ✅ null/vazio = aplica a todos os servidores; array com valores
         // (NATV/FAST/ELITE) restringe a exibição só a esses.
@@ -104,7 +103,7 @@ export async function POST(req: Request) {
     // Whitelist — evita o front gravar colunas inventadas / quebrar o row
     const ALLOWED = new Set([
       "label", "keywords", "option_number", "slug", "parent_id",
-      "requires_account_check", "special_actions", "closing_message",
+      "special_actions", "closing_message",
       "transfer_situation_label", "applies_to_servers", "is_active",
       "redirect_to_node_id", "on_resolved_target", "on_not_resolved_target",
       "ask_resolution", "invalid_retry_message_1", "invalid_retry_message_2",

@@ -237,7 +237,6 @@ export type MenuNode = {
   option_number: number;
   label: string;
   keywords: string[];
-  requires_account_check: boolean;
   special_actions: string[];
   closing_message: string | null;
   transfer_situation_label: string | null;
@@ -260,8 +259,8 @@ export type MenuNode = {
   invalid_retry_message_2?: string | null;
 };
 
-export async function getNodeById(sb: any, nodeId: string): Promise<MenuNode | null> {
-  const { data } = await sb.from("bot_menu_nodes").select("*").eq("id", nodeId).maybeSingle();
+export async function getNodeById(sb: any, tenantId: string, nodeId: string): Promise<MenuNode | null> {
+  const { data } = await sb.from("bot_menu_nodes").select("*").eq("id", nodeId).eq("tenant_id", tenantId).maybeSingle();
   return data || null;
 }
 
@@ -518,11 +517,12 @@ export async function getAllRootsAsMenuText(sb: any, tenantId: string, provider?
 // mais similaridade que um candidato mais abaixo na lista.
 export async function pickCompatibleSemanticMatch(
   sb: any,
+  tenantId: string,
   candidates: { id: string; label: string; similarity: number }[],
   provider: ServerProvider | null
 ): Promise<MenuNode | null> {
   for (const c of candidates) {
-    const node = await getNodeById(sb, c.id);
+    const node = await getNodeById(sb, tenantId, c.id);
     if (node && appliesToProvider(node.applies_to_servers, provider)) return node;
   }
   return null;

@@ -16,7 +16,7 @@ export const maxDuration = 60;
 // você reconhece na hora (o nome do nó), em vez do UUID cru — só pra
 // exibição no rodapé de debug do simulador, o valor técnico continua
 // indo normalmente em next_state pro front controlar o fluxo.
-async function resolveStateLabel(sb: any, nextState: string | undefined | null): Promise<string | null> {
+async function resolveStateLabel(sb: any, tenantId: string, nextState: string | undefined | null): Promise<string | null> {
   if (!nextState || nextState === "__clear__") return null;
   if (nextState === "geral") return "Conversa livre";
   if (nextState === "geral_retry") return "Conversa livre (2ª tentativa)";
@@ -25,8 +25,8 @@ async function resolveStateLabel(sb: any, nextState: string | undefined | null):
   const confirmSwitchM = /^confirm_switch:([a-f0-9-]+):([a-f0-9-]+)$/.exec(nextState);
   if (confirmSwitchM) {
     const [, targetId, originId] = confirmSwitchM;
-    const target = await getNodeById(sb, targetId);
-    const origin = await getNodeById(sb, originId);
+    const target = await getNodeById(sb, tenantId, targetId);
+    const origin = await getNodeById(sb, tenantId, originId);
     return `Confirmando troca para: ${target?.label || "nó removido"} (estava em: ${origin?.label || "nó removido"})`;
   }
   // ✅ "menunode"/"menunode_retry" carregam "|<accountId>" opcional no fim
@@ -34,7 +34,7 @@ async function resolveStateLabel(sb: any, nextState: string | undefined | null):
   // rótulo de debug ficar legível mesmo com o sufixo novo.
   const m = /^(menunode_retry|menunode|conta|awaiting_resolution_retry|awaiting_resolution):([a-f0-9-]+)(?:\|[a-f0-9-]*)?$/.exec(nextState);
   if (m) {
-    const node = await getNodeById(sb, m[2]);
+    const node = await getNodeById(sb, tenantId, m[2]);
     const label = node?.label || "nó removido";
     const prefix =
       m[1] === "menunode" ? "Dentro de"
@@ -135,7 +135,7 @@ export async function POST(req: Request) {
     escalate: result.escalate ?? false,
     mark_read: result.markRead,
     next_state: result.nextState,
-    next_state_label: await resolveStateLabel(sb, result.nextState),
+    next_state_label: await resolveStateLabel(sb, tenantId, result.nextState),
     transfer_reason: result.transferReason ?? null,
   });
 }
