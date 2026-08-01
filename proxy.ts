@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { isAdminRole } from "@/lib/api/auth";
+import { flagSuspiciousAccess } from "@/lib/observability";
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({
@@ -36,16 +38,26 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/admin', request.url));
   }
 
-  // 3. REGRA DE SEGURANÇA NO ADMIN: 
-  // Se o usuário logou, mas não tem tenant, ele não pode ficar no /admin.
+  // 3. REGRA DE SEGURANÇA NO ADMIN:
+  // Se o usuário logou, mas não tem tenant OU não tem role de admin, ele não
+  // pode ficar no /admin. Mesma regra de lib/api/auth.ts (isAdminRole) — é a
+  // fonte única de verdade pra "o que conta como admin", só o jeito de pegar
+  // o client Supabase que continua separado (proxy usa cookie de request,
+  // Server Component usa next/headers).
   if (user && pathname.startsWith('/admin')) {
     const { data: member } = await supabase
       .from('tenant_members')
-      .select('tenant_id')
+      .select('tenant_id, role')
       .eq('user_id', user.id)
       .maybeSingle();
 
     if (!member) {
+      await supabase.auth.signOut();
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+
+    if (!isAdminRole(member.role)) {
+      flagSuspiciousAccess("role_nao_admin", { user_id: user.id, tenant_id: member.tenant_id, role: member.role, where: "proxy" });
       await supabase.auth.signOut();
       return NextResponse.redirect(new URL('/login', request.url));
     }
