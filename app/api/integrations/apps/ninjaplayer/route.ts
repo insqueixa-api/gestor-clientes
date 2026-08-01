@@ -107,6 +107,17 @@ function extractPlaylistFormId(html: string): string | null {
   return html.match(/id="updatefull"[^>]*action="\/upplaylist\/(\d+)"/)?.[1] || null;
 }
 
+// O painel do Ninja/Meta Player TRUNCA a URL salva — devolve só até
+// username+password, cortando qualquer parâmetro depois disso (ex:
+// "&type=m3u_plus&output=ts" some). Confirmado ao vivo (02/08/2026): mandei
+// a URL completa, o painel guardou sem os parâmetros extras. Por isso a
+// verificação usa o "username" da query string, não o texto inteiro — é o
+// único jeito de comparar sem falso-negativo nesse painel específico.
+function extractUsernameParam(url: string): string | null {
+  const m = url.match(/[?&]username=([^&]*)/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
 function extractCurrentPlaylistUrl(html: string): string | null {
   const idx = html.indexOf("Your Playlist");
   if (idx === -1) return null;
@@ -260,13 +271,14 @@ export async function POST(req: Request) {
     }
     const targetUrl = action === "create" ? String(m3uUrl) : DUMMY_DELETE_URL;
 
+    const targetUsername = extractUsernameParam(targetUrl);
     let verified: string | null = null;
     let lastSession = session;
     for (let attempt = 1; attempt <= 3 && verified === null; attempt++) {
       if (attempt > 1) await new Promise((r) => setTimeout(r, 1200));
       lastSession = await updatePlaylist(baseUrl, lastSession, rowId, targetUrl);
       const current = extractCurrentPlaylistUrl(lastSession.html);
-      if (current === targetUrl) verified = current;
+      if (current && targetUsername && extractUsernameParam(current) === targetUsername) verified = current;
     }
 
     if (verified === null) {
