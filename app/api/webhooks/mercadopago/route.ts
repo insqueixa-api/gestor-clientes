@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import * as Sentry from "@sentry/nextjs";
-import crypto from "crypto";
+import { verifyMercadoPagoSignature } from "@/lib/webhook-signatures";
 
 // ── IMPORTS IPTV ──────────────────────────────────────────────
 import {
@@ -14,39 +14,13 @@ import {
   prodLog
 } from "@/lib/client-portal/fulfillment";
 
-function parseMpSignature(sig: string) {
-  const parts = sig.split(",").map(s => s.trim());
-  const out: Record<string, string> = {};
-  for (const p of parts) {
-    const [k, v] = p.split("=");
-    if (k && v) out[k.trim()] = v.trim();
-  }
-  return { ts: out.ts || "", v1: out.v1 || "" };
-}
-
-function safeEqualHex(a: string, b: string) {
-  if (!a || !b) return false;
-  if (a.length !== b.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(a, "utf8"), Buffer.from(b, "utf8"));
-}
-
 function verifyMpWebhook(req: NextRequest, paymentId: string, secret: string) {
-  const sig = req.headers.get("x-signature") || "";
-  const reqId = req.headers.get("x-request-id") || "";
-  if (!sig || !reqId) return false;
-
-  const { ts, v1 } = parseMpSignature(sig);
-  if (!ts || !v1) return false;
-
-  const tsNum = Number(ts);
-  if (!Number.isFinite(tsNum)) return false;
-
-  const now = Math.floor(Date.now() / 1000);
-  if (Math.abs(now - tsNum) > 300) return false;
-
-  const manifest = `id:${paymentId};request-id:${reqId};ts:${ts};`;
-  const hmac = crypto.createHmac("sha256", secret).update(manifest).digest("hex");
-  return safeEqualHex(hmac, v1);
+  return verifyMercadoPagoSignature({
+    signatureHeader: req.headers.get("x-signature") || "",
+    requestIdHeader: req.headers.get("x-request-id") || "",
+    paymentId,
+    secret,
+  });
 }
 
 export const dynamic = "force-dynamic";

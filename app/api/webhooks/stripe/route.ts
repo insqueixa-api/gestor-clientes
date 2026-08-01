@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import * as Sentry from "@sentry/nextjs";
-import crypto from "crypto";
+import { verifyStripeWebhookSignature } from "@/lib/webhook-signatures";
 
 // ── IMPORTS IPTV ──────────────────────────────────────────────
 import {
@@ -28,31 +28,8 @@ function safeMsg(err: unknown) {
 }
 
 // ─── VERIFICAÇÃO DE ASSINATURA STRIPE ─────────────────────────────────────────
-function parseStripeSig(sig: string) {
-  const out: Record<string, string> = {};
-  for (const part of sig.split(",")) {
-    const idx = part.indexOf("=");
-    if (idx > 0) out[part.slice(0, idx).trim()] = part.slice(idx + 1).trim();
-  }
-  return { t: out.t || "", v1: out.v1 || "" };
-}
-
 function verifyStripeSignature(rawBody: string, sig: string, secret: string): boolean {
-  const { t, v1 } = parseStripeSig(sig);
-  if (!t || !v1) return false;
-
-  const tsNum = Number(t);
-  if (!Number.isFinite(tsNum)) return false;
-
-  if (Math.abs(Math.floor(Date.now() / 1000) - tsNum) > 300) return false;
-
-  const expected = crypto
-    .createHmac("sha256", secret)
-    .update(`${t}.${rawBody}`, "utf8")
-    .digest("hex");
-
-  if (expected.length !== v1.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(expected, "utf8"), Buffer.from(v1, "utf8"));
+  return verifyStripeWebhookSignature({ rawBody, signatureHeader: sig, secret });
 }
 
 // ─── HANDLER ─────────────────────────────────────────────────────────────────
