@@ -129,6 +129,12 @@ function getGreeting() {
   return "Boa noite";
 }
 
+function getFirstName(fullName?: string | null) {
+  const first = (fullName || "").trim().split(/\s+/)[0];
+  if (!first) return "";
+  return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase();
+}
+
 function formatMoney(amount: number, currency: string = "BRL") {
   const formatted = new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -262,6 +268,7 @@ export default function RenewClient() {
 
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [accounts, setAccounts] = useState<ClientAccount[]>([]);
+  const clientFirstName = getFirstName(accounts[0]?.display_name);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
     null,
   );
@@ -3145,7 +3152,7 @@ export default function RenewClient() {
         <div className="max-w-6xl mx-auto px-0 sm:px-4 py-4 sm:py-6">
           <div className="mb-4 sm:mb-6 px-3 sm:px-0">
             <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
-              {getGreeting()}! 👋
+              {getGreeting()}{clientFirstName ? `, ${clientFirstName}` : ""}! 👋
             </h1>
             <p className="text-foreground/70 text-sm mt-1">
               Qual conta você deseja gerenciar hoje?
@@ -3333,7 +3340,7 @@ export default function RenewClient() {
         <div className="max-w-6xl mx-auto px-0 sm:px-4 py-4 sm:py-6 space-y-4">
           <div className="mb-2 px-3 sm:px-0">
             <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
-              {getGreeting()}! 👋
+              {getGreeting()}{clientFirstName ? `, ${clientFirstName}` : ""}! 👋
             </h1>
             <p className="text-foreground/70 text-sm mt-1">
               O que você deseja fazer?
