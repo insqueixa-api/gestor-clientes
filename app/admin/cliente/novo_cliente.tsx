@@ -13,6 +13,7 @@ import FormattedDateInput from "@/components/ui/FormattedDateInput";
 import { normalizeMacInput } from "@/lib/apps/field-types";
 import { ADMIN_CHECK_HANDLERS, resolveIntegrationTypeByName } from "@/lib/apps/panel";
 import { dispatchClouddyAction } from "@/lib/apps/clouddy-extension";
+import { dispatchIbosolAction } from "@/lib/apps/ibosol-extension";
 import type { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
 import AppPickerModal from "@/components/apps/AppPickerModal";
 import AppIntegrationActions from "@/components/apps/AppIntegrationActions";
@@ -1175,9 +1176,14 @@ const canSyncAgenda = canSyncAuto;
             // saber que o app existe/já foi usado por algum cliente).
             supabaseBrowser.from("apps").select("*"),
             // ✅ Busca as integrações configuradas dos Apps (onde mora a URL do painel deles)
+            // ✅ login_email/login_password incluídos (02/08/2026) — só o
+            // IBOSOL usa isso no browser (extensão precisa logar de verdade
+            // numa aba real, ver lib/apps/ibosol-extension.ts); os outros
+            // apps continuam com login/senha 100% server-side, nunca lidos
+            // daqui.
             supabaseBrowser
               .from("app_integrations")
-              .select("app_name, api_url, pin")
+              .select("app_name, api_url, pin, login_email, login_password")
               .eq("tenant_id", tid)
               .eq("is_active", true),
             // 3. Tabelas de Preço
@@ -2069,14 +2075,30 @@ const canSyncAgenda = canSyncAuto;
               "Integrado!",
               `App configurado! Vencimento: ${expireDate.split("T")[0].split("-").reverse().join("/")}`,
             );
+          } else if (handler.actionPrefix === "DUPLEXTV") {
+            // ✅ DUPLEXTV não tem vencimento automático na rota própria (ver
+            // duplextv/route.ts) — em vez de só avisar "confira
+            // manualmente", já dispara a checagem real via IBOSOL na
+            // sequência (pedido do Márcio, 02/08/2026, ver
+            // checkDuplexTvViaIbosol acima).
+            addToast("success", "Integrado!", "Playlist configurada! Verificando vencimento real via IBOSOL...");
+            setLoadingStep("Verificando vencimento via IBOSOL...");
+            const ibosolResult = await checkDuplexTvViaIbosol(currentApp);
+            setLoadingStep("");
+            if (ibosolResult.ok && ibosolResult.expireDate) {
+              addToast(
+                "success",
+                "Vencimento verificado",
+                `Duplex TV: ${String(ibosolResult.expireDate).split("-").reverse().join("/")}`,
+              );
+            } else {
+              addToast(
+                "warning",
+                "Vencimento não confirmado",
+                ibosolResult.error || "Não foi possível checar via IBOSOL — confira manualmente no painel do parceiro.",
+              );
+            }
           } else {
-            // ✅ DUPLEXTV não tem vencimento automático (ver
-            // duplextv/route.ts) — avisa pra conferir manualmente no painel
-            // do parceiro aqui no "Configurar" também, igual já fazia no
-            // "Verificar". Só no admin — a mensagem que a rota devolve pro
-            // portal do cliente (client-portal/apps/configure/route.ts)
-            // fica genérica de propósito.
-            //
             // ✅ Pra qualquer OUTRO handler (achado 27/07/2026): sem isso o
             // toast dizia só "Configurado com sucesso." tanto quando a
             // validade veio quanto quando o "check" pós-create falhou
@@ -2086,10 +2108,8 @@ const canSyncAgenda = canSyncAuto;
             addToast(
               "success",
               "Integrado!",
-              handler.actionPrefix === "DUPLEXTV"
-                ? "Playlist configurada! Vencimento não encontrado automaticamente — confira manualmente no painel do parceiro."
-                : apiJson.message ||
-                    "App configurado, mas não foi possível confirmar o vencimento agora — clique em \"Verificar vencimento\" pra conferir.",
+              apiJson.message ||
+                "App configurado, mas não foi possível confirmar o vencimento agora — clique em \"Verificar vencimento\" pra conferir.",
             );
           }
         } else {
@@ -2223,6 +2243,28 @@ const canSyncAgenda = canSyncAuto;
       (f: any) => String(f?.type || "").toLowerCase() === "date",
     );
 
+    // ✅ DUPLEXTV (02/08/2026): a rota própria (duplextv/route.ts) nunca tem
+    // vencimento real pra devolver — passar por /api/admin/apps/check-validity
+    // só ecoaria o valor antigo do banco como se fosse "verificado agora"
+    // (fallback proposital da orquestração, ver lib/apps/orchestration.ts).
+    // Pra esse app específico, o vencimento real só existe via IBOSOL —
+    // desvia pra lá direto, sem passar pelo fluxo genérico abaixo.
+    if (handler.actionPrefix === "DUPLEXTV") {
+      setLoading(true);
+      setLoadingStep("Verificando vencimento via IBOSOL...");
+      const ibosolResult = await checkDuplexTvViaIbosol(currentApp);
+      setLoading(false);
+      setLoadingStep("");
+      if (ibosolResult.ok && ibosolResult.expireDate) {
+        addToast("success", "Vencimento verificado", `${appName}: ${String(ibosolResult.expireDate).split("-").reverse().join("/")}`);
+      } else if (ibosolResult.ok) {
+        addToast("warning", "Sem vencimento", "IBOSOL não encontrou vencimento pra esse MAC.");
+      } else {
+        addToast("error", "Não foi possível verificar", ibosolResult.error || "Falha desconhecida.");
+      }
+      return;
+    }
+
     setLoading(true);
     setLoadingStep("Verificando vencimento...");
 
@@ -2260,16 +2302,12 @@ const canSyncAgenda = canSyncAuto;
             `${appName}: ${apiJson.expireDate.split("T")[0].split("-").reverse().join("/")}`,
           );
         } else if (apiJson?.ok) {
-          // ✅ DUPLEXTV não tem endpoint de status real (só "já ativado",
-          // sem data). Mantém o vencimento já salvo no banco (não mexe em
-          // nada) e avisa o admin pra conferir manualmente no painel do
-          // parceiro — aviso só aqui no admin, nunca no portal do cliente.
+          // DUPLEXTV nunca chega aqui — desvia pro checkDuplexTvViaIbosol
+          // logo no início desta função (return antecipado).
           addToast(
             "warning",
             "Sem vencimento",
-            handler.actionPrefix === "DUPLEXTV"
-              ? "Não encontrado automaticamente — confira manualmente no painel do parceiro. O vencimento salvo no banco foi mantido."
-              : "Não foi possível localizar o vencimento no painel.",
+            "Não foi possível localizar o vencimento no painel.",
           );
         } else {
           addToast(
@@ -2342,6 +2380,30 @@ const canSyncAgenda = canSyncAuto;
         .update({ field_values: { ...dbVals, [String(fieldKey)]: expireDate } })
         .eq("id", currentApp.client_app_id);
     }
+  }
+
+  // ✅ IBOSOL (02/08/2026) — único jeito de saber o vencimento REAL do
+  // Duplex TV (a rota duplextv/route.ts não tem endpoint de status pra MAC
+  // já ativado, ver comentário lá). Credencial é UMA só, compartilhada pelo
+  // tenant (não por cliente, ao contrário do ClouDDy) — vem de
+  // app_integrations. Reaproveita persistClouddyExpireDate (função
+  // genérica, apesar do nome) pra gravar o campo de data.
+  async function checkDuplexTvViaIbosol(currentApp: any): Promise<{ ok: boolean; expireDate?: string | null; error?: string }> {
+    const ibosolInteg = appIntegrations.find((a) => String(a.app_name || "").toUpperCase() === "IBOSOL");
+    const email = ibosolInteg?.login_email || "";
+    const password = ibosolInteg?.login_password || "";
+    if (!email || !password) {
+      return { ok: false, error: "Credenciais do IBOSOL não configuradas (Configurações → Integrações)." };
+    }
+    const macValue = getMacFromApp(currentApp);
+    if (!macValue) {
+      return { ok: false, error: "Preencha o Device ID (MAC) do Duplex TV antes de checar." };
+    }
+
+    const result = await dispatchIbosolAction("IBOSOL_CHECK_DUPLEXTV", { email, password, macValue });
+    if (!result.ok) return { ok: false, error: result.error || "Falha desconhecida." };
+    if (result.expireDate) await persistClouddyExpireDate(currentApp, result.expireDate);
+    return { ok: true, expireDate: result.expireDate ?? null };
   }
 
   // ✅ ClouDDy — abre, loga, pega o vencimento atual (pro toast), configura

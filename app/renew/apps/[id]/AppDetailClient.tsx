@@ -1,5 +1,5 @@
 "use client";
-// app/renew-beta/apps/[id]/AppDetailClient.tsx
+// app/renew/apps/[id]/AppDetailClient.tsx
 //
 // Página de detalhe de um aplicativo instalado — pedido do Marcio
 // (25/07/2026): lugar único pra reunir tudo sobre um app específico
@@ -12,7 +12,7 @@ import { Loader2 } from "lucide-react";
 import { useConfirm } from "@/hooks/useConfirm";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { normalizeMacInput } from "@/lib/apps/field-types";
-import ConfigureResultModal, { ConfigureResultData } from "@/app/renew-beta/ConfigureResultModal";
+import ConfigureResultModal, { ConfigureResultData } from "@/app/renew/ConfigureResultModal";
 import ReconfigureModeModal, { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
 
 type AppField = { id: string; type: string; label: string; value: string };
@@ -256,7 +256,7 @@ export default function AppDetailClient() {
         await loadDetail();
       } else {
         addToast("success", "Excluído!", `"${app.name}" foi removido dessa conta.`);
-        setTimeout(() => router.push(`/renew-beta?conta=${clientId}`), 900);
+        setTimeout(() => router.push(`/renew?conta=${clientId}`), 900);
       }
     } catch (err: any) {
       addToast("error", "Falha ao excluir", err?.message);
@@ -287,7 +287,7 @@ export default function AppDetailClient() {
       <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
         <div className="mx-auto flex w-full max-w-2xl items-center gap-2 px-4 py-2">
           <button
-            onClick={() => router.push(`/renew-beta?conta=${clientId}`)}
+            onClick={() => router.push(`/renew?conta=${clientId}`)}
             className="w-8 h-8 flex items-center justify-center bg-card/10 hover:bg-card/20 rounded-lg text-white transition-colors shrink-0"
             title="Voltar"
           >

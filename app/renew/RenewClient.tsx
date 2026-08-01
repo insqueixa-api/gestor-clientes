@@ -3,10 +3,14 @@
 
 import { useSearchParams, useRouter } from "next/navigation"; // ✅ useRouter adicionado
 import { useState, useEffect, useMemo, useRef } from "react";
-import { supabaseBrowser } from "@/lib/supabase/browser";
 import Image from "next/image";
 import { useConfirm } from "@/hooks/useConfirm";
-import { Pencil, CheckCircle2, ShieldCheck } from "lucide-react";
+import { CheckCircle2, ShieldCheck, Loader2, RefreshCw } from "lucide-react";
+import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
+import ConfigureResultModal, { ConfigureResultData } from "./ConfigureResultModal";
+import ReconfigureModeModal, { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
+import AppPickerModal from "@/components/apps/AppPickerModal";
+import { normalizeMacInput } from "@/lib/apps/field-types";
 
 // ========= TYPES =========
 interface ClientAccount {
@@ -133,6 +137,30 @@ function formatMoney(amount: number, currency: string = "BRL") {
   return formatted.replace(/^US(\$)/, "$1");
 }
 
+// ✅ Deixa link (http/https) clicável dentro das instruções de configuração
+// (pedido do Márcio, 31/07/2026) — antes o texto todo era só string crua,
+// então um link de download (ex: GPC Computador) ficava sem clicar, o
+// cliente tinha que copiar e colar na mão. Tira pontuação colada no final
+// do link (".", ",", ")" etc.) antes de montar o href, senão o clique ia
+// pra uma URL com lixo no final.
+function linkifyText(text: string) {
+  const parts = text.split(/(https?:\/\/[^\s]+)/g);
+  return parts.map((part, i) => {
+    if (!/^https?:\/\//.test(part)) return <span key={i}>{part}</span>;
+    const trailingMatch = part.match(/[.,;:!?)\]}'"]+$/);
+    const trailing = trailingMatch ? trailingMatch[0] : "";
+    const url = trailing ? part.slice(0, -trailing.length) : part;
+    return (
+      <span key={i}>
+        <a href={url} target="_blank" rel="noopener noreferrer" className="text-sky-500 underline hover:text-sky-400 break-all">
+          {url}
+        </a>
+        {trailing}
+      </span>
+    );
+  });
+}
+
 // ✅ PARA — usa a mesma lógica do admin (meio-dia SP + ceil)
 // ✅ PARA — sem dependência externa, lógica idêntica ao admin
 function getTimeRemaining(vencimento: string) {
@@ -237,6 +265,153 @@ export default function RenewClient() {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
     null,
   );
+  // ✅ Menu de 3 blocos: "menu" é a tela inicial
+  // depois de escolher a conta; "payment" e "apps" são os blocos 1 e 3.
+  const [activeSection, setActiveSection] = useState<
+    "menu" | "payment" | "apps"
+  >("menu");
+  type InstalledAppField = { id: string; type: string; label: string; value: string };
+  type InstalledApp = {
+    id: string;
+    app_id: string;
+    name: string;
+    icon_url: string | null;
+    has_integration: boolean;
+    can_check_validity: boolean;
+    requires_admin_setup: boolean;
+    has_pending_setup_request: boolean;
+    has_pending_removal_request: boolean;
+    expiration: string | null;
+    is_partnership: boolean;
+    fields: InstalledAppField[];
+    portal_setup_instructions: string | null;
+    variable_fields: { id: string; label: string; value: string }[];
+    license_price: number | null;
+    license_period: "annual" | "lifetime" | null;
+    is_active: boolean;
+    discontinued_replacement_name: string | null;
+    is_gerenciaapp_family: boolean;
+  };
+  const [installedApps, setInstalledApps] = useState<InstalledApp[]>([]);
+  // ✅ Instruções de configuração — pedido do Márcio (25/07/2026): substitui
+  // a página de detalhe (/renew/apps/[id]), que ficou redundante depois
+  // que o card da lista passou a mostrar tudo. Só o texto curado pelo admin
+  // (apps.portal_setup_instructions) ainda não estava na lista.
+  const [instructionsAppId, setInstructionsAppId] = useState<string | null>(null);
+  const [installedAppsLoading, setInstalledAppsLoading] = useState(false);
+  const [installedAppsError, setInstalledAppsError] = useState<string | null>(
+    null,
+  );
+
+  // Edição inline de um card de app instalado
+  const [editingAppId, setEditingAppId] = useState<string | null>(null);
+  const [editingValues, setEditingValues] = useState<Record<string, string>>({});
+  const [appActionBusy, setAppActionBusy] = useState<string | null>(null);
+
+  // ✅ Pagamento avulso de licença — pedido do Márcio (25/07/2026): movido da
+  // página de detalhe pra cá (tela principal), embaixo do "Excluir
+  // Aplicativo" no mesmo card. Não mexe na assinatura IPTV.
+  type AppPayment = { clientAppId: string; payment_id: string; pix_qr_code?: string; pix_qr_code_base64?: string; price_amount: number };
+  const [renewPayment, setRenewPayment] = useState<AppPayment | null>(null);
+  const [renewPaymentBusyId, setRenewPaymentBusyId] = useState<string | null>(null);
+  const [renewPaymentDone, setRenewPaymentDone] = useState(false);
+  const [copiedAppPixCode, setCopiedAppPixCode] = useState(false);
+  const [renewPollInterval, setRenewPollInterval] = useState<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (renewPollInterval) clearInterval(renewPollInterval);
+    };
+  }, [renewPollInterval]);
+
+  function startPollingAppPayment(paymentId: string) {
+    if (!session) return;
+    if (renewPollInterval) clearInterval(renewPollInterval);
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch("/api/client-portal/payment-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_token: session, payment_id: paymentId }),
+          cache: "no-store",
+        });
+        const result = await res.json().catch(() => null);
+        if (!result?.ok) return;
+        if (String(result.phase || "").toLowerCase() === "done") {
+          clearInterval(interval);
+          setRenewPollInterval(null);
+          setRenewPaymentDone(true);
+        }
+      } catch {
+        // continua tentando
+      }
+    }, 3000);
+    setRenewPollInterval(interval);
+  }
+
+  async function handleRenewPayment(clientAppId: string) {
+    if (!selectedAccountId || !session) return;
+    setRenewPaymentBusyId(clientAppId);
+    try {
+      const res = await fetch("/api/client-portal/apps/renew-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_token: session, client_id: selectedAccountId, client_app_id: clientAppId }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!result?.ok) throw new Error(result?.error || "Falha ao gerar pagamento.");
+      setRenewPaymentDone(false);
+      setRenewPayment({
+        clientAppId,
+        payment_id: result.payment_id,
+        pix_qr_code: result.pix_qr_code,
+        pix_qr_code_base64: result.pix_qr_code_base64,
+        price_amount: result.price_amount,
+      });
+      startPollingAppPayment(result.payment_id);
+    } catch (err: any) {
+      addToast("error", "Falha ao gerar pagamento", err?.message);
+    } finally {
+      setRenewPaymentBusyId(null);
+    }
+  }
+
+  function closeRenewPaymentModal() {
+    if (renewPollInterval) clearInterval(renewPollInterval);
+    setRenewPollInterval(null);
+    setRenewPayment(null);
+    setRenewPaymentDone(false);
+  }
+
+  // Toasts (feedback de sucesso/erro nas ações do Bloco 3)
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  function addToast(type: ToastMessage["type"], title: string, message?: string) {
+    setToasts((prev) => [...prev, { id: Date.now() + Math.random(), type, title, message }]);
+  }
+  function removeToast(id: number) {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }
+
+  // Picker "+ Adicionar aplicativo" (modal por tipo de equipamento)
+  const [showAddAppPicker, setShowAddAppPicker] = useState(false);
+  const [configureResult, setConfigureResult] = useState<ConfigureResultData | null>(null);
+  const [reconfigureModeTarget, setReconfigureModeTarget] = useState<string | null>(null);
+  const [appCatalog, setAppCatalog] = useState<
+    {
+      id: string;
+      name: string;
+      icon_url: string | null;
+      device_types?: string[];
+      cost_type?: "free" | "paid" | "partnership" | null;
+      has_integration?: boolean;
+      license_price?: number | null;
+      license_period?: "annual" | "lifetime" | null;
+      is_active?: boolean;
+      discontinued_replacement_name?: string | null;
+    }[]
+  >([]);
+  const [appCatalogLoading, setAppCatalogLoading] = useState(false);
+
   const [prices, setPrices] = useState<PlanPrice[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<string>("MONTHLY");
   const [showOtherPlans, setShowOtherPlans] = useState(false);
@@ -326,9 +501,6 @@ export default function RenewClient() {
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  
-  // ✅ NOVO: Controle de abas para a transferência EUR
-  const [eurTab, setEurTab] = useState<"local" | "intl">("local");
 
   const [stripeReady, setStripeReady] = useState(false);
   const [stripeLoading, setStripeLoading] = useState(false);
@@ -462,11 +634,404 @@ export default function RenewClient() {
           (k) => PERIOD_LABELS[k] === account.plan_label,
         );
         if (currentPeriod) setSelectedPeriod(currentPeriod);
-      } catch {}
+      } catch (err: any) {
+        addToast("error", "Erro ao carregar planos", safeUserError(err?.message));
+      }
     }
 
     loadPrices();
   }, [selectedAccountId, accounts, session]);
+
+  // ========= BLOCO 3 — CARREGAMENTO E AÇÕES =========
+  async function refreshInstalledApps(): Promise<InstalledApp[]> {
+    if (!selectedAccountId || !session) return [];
+    setInstalledAppsLoading(true);
+    setInstalledAppsError(null);
+    try {
+      const res = await fetch("/api/client-portal/apps/list", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_token: session, client_id: selectedAccountId }),
+        cache: "no-store",
+      });
+      const result = await res.json().catch(() => null);
+      if (!result?.ok) throw new Error("Não foi possível carregar seus aplicativos");
+      const data: InstalledApp[] = result.data || [];
+      setInstalledApps(data);
+      return data;
+    } catch (err: any) {
+      setInstalledAppsError(safeUserError(err?.message));
+      return [];
+    } finally {
+      setInstalledAppsLoading(false);
+    }
+  }
+
+  // ✅ Campos que o app realmente exige preenchidos antes de configurar ou
+  // pedir ajuda do suporte — "Ambiente" (obs) é só um apelido opcional, o
+  // resto (MAC, Device Key, e-mail, senha, URL) é o que o parceiro/o
+  // suporte precisa de verdade pra ativar o app.
+  function getMissingRequiredFields(app: InstalledApp): InstalledAppField[] {
+    return app.fields.filter((f) => f.type !== "obs" && !f.value.trim());
+  }
+
+  useEffect(() => {
+    if (activeSection !== "apps") return;
+    refreshInstalledApps();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSection, selectedAccountId, session]);
+
+  async function loadAppCatalog() {
+    if (!selectedAccountId || !session) return;
+    setAppCatalogLoading(true);
+    try {
+      const res = await fetch("/api/client-portal/apps/catalog", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_token: session, client_id: selectedAccountId }),
+        cache: "no-store",
+      });
+      const result = await res.json().catch(() => null);
+      if (result?.ok) setAppCatalog(result.data || []);
+    } catch {
+    } finally {
+      setAppCatalogLoading(false);
+    }
+  }
+
+  function startEditingApp(app: InstalledApp) {
+    setEditingAppId(app.id);
+    const vals: Record<string, string> = {};
+    for (const f of app.fields) vals[f.id] = f.value;
+    setEditingValues(vals);
+  }
+
+  // ✅ Salvar + Configurar num clique só (pedido do Márcio, 31/07/2026) —
+  // antes o cliente salvava os campos e ainda precisava achar e clicar em
+  // "Reconfigurar/Solicitar configuração" separado. Agora o botão do
+  // formulário de edição já faz tudo: salva, e SEMPRE tenta a rota
+  // Principal (o seletor Principal/Secundária continua existindo, mas só
+  // pro botão avulso "Reconfigurar aplicativo" — esse fluxo aqui é o de
+  // primeiro preenchimento, não faz sentido perguntar o modo).
+  async function handleSaveAndConfigure(clientAppId: string) {
+    if (!selectedAccountId || !session) return;
+    setAppActionBusy(clientAppId);
+    try {
+      const res = await fetch("/api/client-portal/apps/update-fields", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_token: session,
+          client_id: selectedAccountId,
+          client_app_id: clientAppId,
+          fields: editingValues,
+        }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!result?.ok) throw new Error(result?.error || "Não foi possível salvar.");
+    } catch (err: any) {
+      addToast("error", "Não foi possível salvar", err?.message);
+      setAppActionBusy(null);
+      return;
+    }
+
+    const refreshed = await refreshInstalledApps();
+    const targetApp = refreshed.find((a) => a.id === clientAppId);
+    setAppActionBusy(null);
+    if (!targetApp) {
+      setEditingAppId(null);
+      return;
+    }
+
+    const missing = getMissingRequiredFields(targetApp);
+    if (missing.length > 0) {
+      addToast(
+        "warning",
+        "Salvo — falta preencher",
+        `Ainda falta: ${missing.map((f) => f.label).join(", ")}.`,
+      );
+      startEditingApp(targetApp);
+      return;
+    }
+
+    setEditingAppId(null);
+    if (targetApp.has_integration) {
+      performConfigureApp(clientAppId, "principal");
+    } else if (targetApp.requires_admin_setup) {
+      handleRequestSetup(clientAppId);
+    } else {
+      // ✅ Parceria/gratuito sem integração — self-service, não tem o que
+      // "solicitar". Os dados já ficam visíveis (badges/instruções); o
+      // cliente configura sozinho no app dele, sem envolver o suporte.
+      addToast("success", "Salvo!", "Dados atualizados — configure direto no app com as informações acima.");
+    }
+  }
+
+  function handleConfigureApp(clientAppId: string) {
+    const targetApp = installedApps.find((a) => a.id === clientAppId);
+    if (targetApp) {
+      const missing = getMissingRequiredFields(targetApp);
+      if (missing.length > 0) {
+        addToast(
+          "warning",
+          "Preencha os campos primeiro",
+          `Faltando: ${missing.map((f) => f.label).join(", ")}.`,
+        );
+        startEditingApp(targetApp);
+        return;
+      }
+    }
+    if (targetApp?.expiration) {
+      // Reconfigurar (já tinha config antes) — pede pra escolher entre
+      // manter a config atual (Principal) ou gerar uma nova (Secundária).
+      setReconfigureModeTarget(clientAppId);
+      return;
+    }
+    performConfigureApp(clientAppId, "principal");
+  }
+
+  async function performConfigureApp(clientAppId: string, mode: ReconfigureMode) {
+    if (!selectedAccountId || !session) return;
+
+    const targetApp = installedApps.find((a) => a.id === clientAppId);
+    const isReconfigure = !!targetApp?.expiration;
+    const appName = targetApp?.name || "Aplicativo";
+
+    setAppActionBusy(clientAppId);
+    try {
+      const res = await fetch("/api/client-portal/apps/configure", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_token: session, client_id: selectedAccountId, client_app_id: clientAppId, mode }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!result?.ok) {
+        setConfigureResult({
+          kind: result?.blocked ? "blocked" : "error",
+          isReconfigure,
+          appName,
+          errorMessage: result?.error || "Falha ao configurar.",
+          escalate: !!result?.escalate,
+          suggestSecondary: !!result?.suggest_secondary,
+        });
+        return;
+      }
+      setConfigureResult({
+        kind: "success",
+        isReconfigure,
+        appName,
+        expireDate: result.expireDate || null,
+        repeatWarning: !!result.repeat_warning,
+        suggestSecondary: !!result.suggest_secondary,
+      });
+      await refreshInstalledApps();
+    } catch (err: any) {
+      setConfigureResult({
+        kind: "error",
+        isReconfigure,
+        appName,
+        errorMessage: "Houve uma falha ao configurar esse aplicativo. Tente mais uma vez — se continuar falhando, fale com o suporte.",
+        escalate: false,
+      });
+    } finally {
+      setAppActionBusy(null);
+    }
+  }
+
+  // ✅ Família GerenciaApp: "renovar licença" é grátis e usa uma rota
+  // dedicada (renew-gerenciaapp) que só ESTENDE o vencimento — não apaga
+  // nem recria a playlist (isso é o Reconfigurar, pra quando o app está
+  // com falha). Achado em produção: delete-então-create tem risco real de
+  // travar numa duplicata residual; editar só a data evita esse problema
+  // por completo. Silencioso de propósito — sem confirmação nem escolha
+  // Principal/Secundária, o cliente só quer atualizar o vencimento.
+  async function handleFreeRenewGerenciaApp(clientAppId: string) {
+    if (!selectedAccountId || !session) return;
+    setAppActionBusy(clientAppId);
+    try {
+      const res = await fetch("/api/client-portal/apps/renew-gerenciaapp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_token: session, client_id: selectedAccountId, client_app_id: clientAppId }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!result?.ok) throw new Error(result?.error || "Falha ao renovar.");
+      addToast(
+        "success",
+        "Licença renovada!",
+        result.expireDate ? `Novo vencimento: ${String(result.expireDate).split("-").reverse().join("/")}` : undefined,
+      );
+      await refreshInstalledApps();
+    } catch (err: any) {
+      addToast("error", "Falha ao renovar", err?.message);
+    } finally {
+      setAppActionBusy(null);
+    }
+  }
+
+  async function handleRequestSetup(clientAppId: string) {
+    if (!selectedAccountId || !session) return;
+    const targetApp = installedApps.find((a) => a.id === clientAppId);
+    if (targetApp) {
+      const missing = getMissingRequiredFields(targetApp);
+      if (missing.length > 0) {
+        addToast(
+          "warning",
+          "Preencha os campos primeiro",
+          `Faltando: ${missing.map((f) => f.label).join(", ")}.`,
+        );
+        startEditingApp(targetApp);
+        return;
+      }
+    }
+    setAppActionBusy(clientAppId);
+    try {
+      const res = await fetch("/api/client-portal/apps/request-setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_token: session, client_id: selectedAccountId, client_app_id: clientAppId }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!result?.ok) throw new Error(result?.error || "Falha ao solicitar configuração.");
+      addToast(
+        "success",
+        result.data?.already_pending ? "Já solicitado" : "Solicitado!",
+        "Nosso suporte vai configurar esse aplicativo pra você em breve.",
+      );
+      await refreshInstalledApps();
+    } catch (err: any) {
+      addToast("error", "Falha ao solicitar", err?.message);
+    } finally {
+      setAppActionBusy(null);
+    }
+  }
+
+  async function handleCheckValidity(clientAppId: string) {
+    if (!selectedAccountId || !session) return;
+    setAppActionBusy(clientAppId);
+    try {
+      const res = await fetch("/api/client-portal/apps/check-validity", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_token: session, client_id: selectedAccountId, client_app_id: clientAppId }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!result?.ok) throw new Error(result?.error || "Falha ao verificar.");
+      addToast("success", "Validade verificada!", result.expireDate ? `Vencimento: ${String(result.expireDate).split("-").reverse().join("/")}` : "Não encontrado no painel.");
+      await refreshInstalledApps();
+    } catch (err: any) {
+      addToast("error", "Falha ao verificar", err?.message);
+    } finally {
+      setAppActionBusy(null);
+    }
+  }
+
+  // ✅ Botão "Atualizar" ao lado dos badges de DNS/M3U (incl. Rota 2) nas
+  // instruções (pedido do Márcio, 31/07/2026) — pickRandomDns (lib/whatsapp/
+  // template-vars.ts) já sorteia uma DNS nova a cada chamada de /apps/list
+  // (e a Rota 2/M3U são derivados dessa mesma DNS), então só precisa
+  // re-buscar a lista pra sortear outra.
+  async function handleRerollDns(clientAppId: string) {
+    setAppActionBusy(clientAppId);
+    try {
+      await refreshInstalledApps();
+    } finally {
+      setAppActionBusy(null);
+    }
+  }
+
+  async function handleRemoveApp(clientAppId: string, appName: string, hasIntegration: boolean, requiresAdminSetup: boolean) {
+    if (!selectedAccountId || !session) return;
+    // ✅ Mensagem direta e diferente por tipo de app (pedido do Márcio,
+    // 31/07/2026) — antes era um texto único e condicional ("se tiver...
+    // se não tiver..."), confuso pra saber qual dos dois casos era o seu.
+    // 3º estado (31/07/2026): parceria/gratuito sem integração é
+    // self-service — sem painel de parceiro pro admin desconfigurar, então
+    // a exclusão é imediata, igual apps com integração automática.
+    const ok = await confirm({
+      title: "Excluir aplicativo?",
+      subtitle: hasIntegration
+        ? `"${appName}" vai ser desconfigurado e removido do painel do parceiro, e sai do seu cadastro também. Essa ação não pode ser desfeita.`
+        : requiresAdminSetup
+          ? `"${appName}" sai do seu cadastro. Esse app não configura sozinho — nosso suporte vai concluir a remoção no painel do parceiro em seguida.`
+          : `"${appName}" sai do seu cadastro imediatamente. Essa ação não pode ser desfeita.`,
+      tone: "rose",
+      confirmText: "Excluir",
+      cancelText: "Cancelar",
+    });
+    if (!ok) return;
+
+    setAppActionBusy(clientAppId);
+    try {
+      const res = await fetch("/api/client-portal/apps/remove", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_token: session, client_id: selectedAccountId, client_app_id: clientAppId }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!result?.ok) throw new Error(result?.error || "Falha ao excluir.");
+      if (result.data?.pending_admin) {
+        addToast(
+          "success",
+          result.data?.already_requested ? "Já solicitado" : "Exclusão solicitada",
+          "Nosso suporte vai remover esse aplicativo em breve.",
+        );
+      } else {
+        addToast("success", "Excluído!", `"${appName}" foi removido dessa conta.`);
+      }
+      await refreshInstalledApps();
+    } catch (err: any) {
+      addToast("error", "Falha ao excluir", err?.message);
+    } finally {
+      setAppActionBusy(null);
+    }
+  }
+
+  async function handleAddApp(appId: string) {
+    if (!selectedAccountId || !session) return;
+    // ✅ App descontinuado continua na lista (senão quem já usa não acha
+    // pra saber que precisa trocar) — mas ao tentar adicionar, mostra o
+    // aviso em vez de adicionar (pedido do Marcio, 25/07/2026).
+    const catalogEntry = appCatalog.find((a) => a.id === appId);
+    if (catalogEntry?.is_active === false) {
+      addToast(
+        "warning",
+        "Aplicativo descontinuado",
+        catalogEntry.discontinued_replacement_name
+          ? `Esse aplicativo não é mais suportado. Recomendamos o ${catalogEntry.discontinued_replacement_name}.`
+          : "Esse aplicativo não é mais suportado.",
+      );
+      return;
+    }
+    setAppActionBusy(`add-${appId}`);
+    try {
+      const res = await fetch("/api/client-portal/apps/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_token: session, client_id: selectedAccountId, app_id: appId }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!result?.ok) throw new Error(result?.error || "Falha ao adicionar.");
+      setShowAddAppPicker(false);
+      const newAppId = result.data?.id as string | undefined;
+      const refreshed = await refreshInstalledApps();
+      // ✅ Abre direto o formulário de preenchimento — sem isso, o app
+      // ficava na lista com os campos vazios e o cliente só via o "Editar"
+      // se clicasse por conta própria (achado: dava pra "Solicitar
+      // configuração" com tudo vazio, pedido do Márcio, 31/07/2026).
+      const newApp = newAppId ? refreshed.find((a) => a.id === newAppId) : null;
+      if (newApp && newApp.fields.length > 0) {
+        startEditingApp(newApp);
+        addToast("success", "Adicionado!", "Preencha os dados abaixo pra continuar.");
+      } else {
+        addToast("success", "Adicionado!", "Configure quando estiver pronto.");
+      }
+    } catch (err: any) {
+      addToast("error", "Falha ao adicionar", err?.message);
+    } finally {
+      setAppActionBusy(null);
+    }
+  }
 
   // ========= COMPUTED =========
   const selectedAccount = useMemo(
@@ -2505,7 +3070,7 @@ export default function RenewClient() {
       <div className="min-h-screen bg-background">
         {/* --- TOPO FIXO IDÊNTICO AO SEU ADMIN --- */}
         <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
-          <div className="mx-auto flex w-full max-w-2xl items-center gap-2 px-4 py-2">
+          <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-4 py-2">
             {/* Logo Responsiva */}
             <div className="flex items-center gap-3 min-w-0 cursor-pointer group">
               <Image
@@ -2577,8 +3142,8 @@ export default function RenewClient() {
         </div>
 
         {/* --- CORPO DA PÁGINA --- */}
-        <div className="max-w-2xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
-          <div className="mb-4 sm:mb-6">
+        <div className="max-w-6xl mx-auto px-0 sm:px-4 py-4 sm:py-6">
+          <div className="mb-4 sm:mb-6 px-3 sm:px-0">
             <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
               {getGreeting()}! 👋
             </h1>
@@ -2682,15 +3247,847 @@ export default function RenewClient() {
   // ========= RENDER: MAIN PAGE =========
   if (!selectedAccount) return null;
 
+  // ========= TOPO FIXO REUTILIZÁVEL (menu / apps) =========
+  function renderTopBar(onBack: (() => void) | null, widthClass: string = "max-w-6xl") {
+    return (
+      <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
+        <div className={`mx-auto flex w-full ${widthClass} items-center gap-2 px-4 py-2`}>
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="w-8 h-8 flex items-center justify-center bg-card/10 hover:bg-card/20 rounded-lg text-white transition-colors shrink-0"
+                title="Voltar"
+              >
+                <span className="text-lg leading-none mt-[-2px]">←</span>
+              </button>
+            )}
+
+            <Image
+              src="/brand/logo-gestor-celular.png"
+              alt="Gestor"
+              width={44}
+              height={44}
+              className="h-10 w-10 select-none object-contain transition-transform group-hover:scale-105"
+              draggable={false}
+              priority
+            />
+
+            <div className="min-w-0 flex flex-col justify-center">
+              <div className="text-[10px] uppercase tracking-wider text-white/40 font-bold leading-none mb-0.5">
+                Logado como
+              </div>
+              <div className="text-xs font-bold text-white truncate max-w-[140px] sm:max-w-66 tracking-tight uppercase">
+                {selectedAccount!.display_name}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex-1" />
+
+          <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+            {supportPhone && (
+              <a
+                href={`https://wa.me/${supportPhone.replace(/\D/g, "")}?text=Olá,%20preciso%20de%20ajuda%20com%20minha%20assinatura!`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 text-[#25D366] hover:opacity-80 transition-opacity"
+                title="Fale com o Suporte"
+              >
+                <IconWhatsapp />
+                <div className="hidden sm:flex flex-col text-left">
+                  <span className="text-[9px] uppercase tracking-wider text-white/50 leading-none">
+                    Suporte
+                  </span>
+                  <span className="text-xs font-bold tracking-wide leading-none mt-0.5">
+                    {supportPhone}
+                  </span>
+                </div>
+              </a>
+            )}
+
+            <button
+              onClick={() => {
+                clearStoredSession();
+                router.push("/");
+              }}
+              className="text-white/50 hover:text-rose-500 transition-colors"
+              title="Sair"
+            >
+              <IconLogout />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ========= RENDER: MENU (3 BLOCOS) =========
+  if (activeSection === "menu") {
+    const srvKey = SERVER_GUIA_MAP[selectedAccount.server_name];
+
+    return (
+      <div className="min-h-screen bg-background">
+        {renderTopBar(accounts.length > 1 ? () => setSelectedAccountId(null) : null)}
+
+        <div className="max-w-6xl mx-auto px-0 sm:px-4 py-4 sm:py-6 space-y-4">
+          <div className="mb-2 px-3 sm:px-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
+              {getGreeting()}! 👋
+            </h1>
+            <p className="text-foreground/70 text-sm mt-1">
+              O que você deseja fazer?
+            </p>
+          </div>
+
+          {/* Bloco 1 — Pagamentos e Renovação */}
+          <button
+            onClick={() => setActiveSection("payment")}
+            className="w-full text-left rounded-2xl p-5 border-2 border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent hover:border-emerald-500/60 transition-all shadow-sm hover:shadow-md group"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-emerald-500/15 flex items-center justify-center shrink-0 border border-emerald-500/20 text-2xl">
+                💳
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-base font-bold text-foreground">
+                  Pagamentos e Renovação
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                  Confira seu plano, renove sua assinatura ou quite pendências
+                </p>
+              </div>
+              <span className="text-emerald-500 text-xl group-hover:translate-x-0.5 transition-transform shrink-0">
+                →
+              </span>
+            </div>
+          </button>
+
+          {/* Bloco 2 — Novidades / Conteúdo */}
+          {srvKey && (
+            <a
+              href={`/renew/guia-tv?servidor=${srvKey}&conta=${selectedAccount.id}`}
+              className="block rounded-2xl p-5 border-2 border-sky-500/30 bg-gradient-to-r from-sky-500/10 via-indigo-500/5 to-transparent hover:border-sky-500/60 transition-all shadow-sm hover:shadow-md group"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-sky-500/15 flex items-center justify-center shrink-0 border border-sky-500/20 text-2xl">
+                  🔥
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-base font-bold text-foreground">
+                    Novidades e Conteúdo
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                    Grade de canais e jogos do dia, confira lançamentos de filmes e séries
+                  </p>
+                </div>
+                <span className="text-sky-500 text-xl group-hover:translate-x-0.5 transition-transform shrink-0">
+                  →
+                </span>
+              </div>
+            </a>
+          )}
+
+          {/* Bloco 3 — Configuração de aplicativo */}
+          <button
+            onClick={() => setActiveSection("apps")}
+            className="w-full text-left rounded-2xl p-5 border-2 border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent hover:border-amber-500/60 transition-all shadow-sm hover:shadow-md group"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0 border border-amber-500/20 text-2xl">
+                📱
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-base font-bold text-foreground">
+                  Meus Aplicativos
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                  Diga quais aplicativos você usa, atualize ou instale novos
+                </p>
+              </div>
+              <span className="text-amber-500 text-xl group-hover:translate-x-0.5 transition-transform shrink-0">
+                →
+              </span>
+            </div>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ========= RENDER: APPS (BLOCO 3) =========
+  if (activeSection === "apps") {
+    return (
+      <div className="min-h-screen bg-background">
+        <ToastNotifications toasts={toasts} removeToast={removeToast} />
+        {renderTopBar(() => setActiveSection("menu"), "max-w-6xl")}
+
+        {/* ✅ Mesma largura (max-w-6xl) de todas as outras telas do
+            renew agora — antes só essa tinha (pedido do Márcio,
+            26/07/2026, "mesma largura da página de perfil do admin"). No
+            celular vai até a borda (px-0), igual as demais. */}
+        <div className="max-w-6xl mx-auto px-0 sm:px-4 py-4 sm:py-6 space-y-4">
+          <div className="mb-2 px-3 sm:px-0">
+            <div className="flex items-center justify-between gap-3">
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight min-w-0 truncate">
+                Meus Aplicativos
+              </h1>
+              <button
+                onClick={() => {
+                  setShowAddAppPicker(true);
+                  loadAppCatalog();
+                }}
+                className="h-8 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow-sm transition-all shrink-0"
+              >
+                <span>+</span> Adicionar aplicativo
+              </button>
+            </div>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 max-w-xl">
+              Use esta página pra reconfigurar um aplicativo que parou de funcionar, atualizar os dados de um já instalado, ou informar quais aplicativos você usa.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+              {installedAppsLoading && (
+                <div className="text-center py-8 text-muted-foreground">Carregando...</div>
+              )}
+              {!installedAppsLoading && installedAppsError && (
+                <div className="text-center py-8 text-rose-500 bg-rose-500/10 rounded-xl border border-dashed border-rose-500/30">
+                  {installedAppsError}
+                </div>
+              )}
+              {!installedAppsLoading && !installedAppsError && installedApps.length === 0 && (
+                <div className="text-center py-8 px-4 text-muted-foreground bg-muted/40 rounded-xl border border-dashed border-border">
+                  Ainda não identificamos nenhum aplicativo nesta conta — clique em{" "}
+                  <strong className="text-foreground">"+ Adicionar aplicativo"</strong> acima pra informar o que você usa, ou pra configurar um novo.
+                </div>
+              )}
+
+              {!installedAppsLoading &&
+                !installedAppsError &&
+                installedApps.map((app) => {
+                  const isEditing = editingAppId === app.id;
+                  const busy = appActionBusy === app.id;
+                  const ambienteField = app.fields.find((f) => f.type === "obs");
+                  const otherFields = app.fields.filter((f) => f.type !== "obs");
+                  const expirationDatePart = app.expiration ? String(app.expiration).split("T")[0] : "";
+                  // ✅ 3 estados (pedido do Marcio, 25/07/2026): já vencido
+                  // fica vermelho ("Vencido"), vencendo em menos de 30 dias
+                  // (mesmo limiar do admin em cliente/[id]/page.tsx) fica
+                  // âmbar ("Vencendo"), resto fica neutro ("Validade").
+                  const expirationDiffDays = expirationDatePart
+                    ? (new Date(`${expirationDatePart}T12:00:00`).getTime() - Date.now()) / 86400000
+                    : null;
+                  const isExpired = expirationDiffDays !== null && expirationDiffDays < 0;
+                  const isExpiringSoon = expirationDiffDays !== null && expirationDiffDays >= 0 && expirationDiffDays < 30;
+                  return (
+                    <div key={app.id} className="bg-card rounded-xl p-4 border border-border shadow-sm space-y-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          {app.icon_url ? (
+                            <img src={app.icon_url} alt={app.name} className="w-12 h-12 rounded-lg object-cover border border-border shrink-0" />
+                          ) : (
+                            <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center text-xl shrink-0">📱</div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-foreground truncate">
+                              {app.name}
+                              {ambienteField?.value ? (
+                                <span className="font-normal text-muted-foreground"> ({ambienteField.value})</span>
+                              ) : null}
+                            </p>
+                            {app.is_partnership ? (
+                              <p className="text-xs text-muted-foreground mt-0.5">Vencimento: Parceria (gratuito)</p>
+                            ) : app.expiration ? (
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <p className={`text-xs ${isExpired ? "text-rose-500 font-bold" : isExpiringSoon ? "text-amber-500 font-bold" : "text-muted-foreground"}`}>
+                                  {isExpired ? "Vencido" : isExpiringSoon ? "Vencendo" : "Validade"}: {expirationDatePart.split("-").reverse().join("/")}
+                                </p>
+                                {app.can_check_validity && (
+                                  <button
+                                    disabled={busy}
+                                    onClick={() => handleCheckValidity(app.id)}
+                                    className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
+                                  >
+                                    {busy && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
+                                    Atualizar
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              // ✅ Sem data configurada ainda (pedido do Márcio, 26/07/2026) — antes
+                              // não mostrava nada, e sem o botão Atualizar aqui, só reconfigurando
+                              // o app inteiro dava pra popular a validade. Agora mostra "vazio" +
+                              // Atualizar (quando disponível) pra checar sem precisar reconfigurar.
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <p className="text-xs text-muted-foreground">Vencimento: —</p>
+                                {app.can_check_validity && (
+                                  <button
+                                    disabled={busy}
+                                    onClick={() => handleCheckValidity(app.id)}
+                                    className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
+                                  >
+                                    {busy && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
+                                    Atualizar
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {app.portal_setup_instructions && (
+                            <button
+                              onClick={() => setInstructionsAppId(app.id)}
+                              className="w-8 h-8 flex items-center justify-center rounded-lg bg-muted text-foreground border border-border hover:bg-muted/70 transition-colors"
+                              title="Como configurar"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="16" x2="12" y2="12"></line>
+                                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                              </svg>
+                            </button>
+                          )}
+                          <button
+                            onClick={() => startEditingApp(app)}
+                            className="shrink-0 px-3 py-1.5 rounded-lg bg-muted text-foreground border border-border text-xs font-bold hover:bg-muted/70 transition-colors"
+                          >
+                            Editar
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Instruções — fora do isEditing de propósito (pedido do
+                          Márcio, 31/07/2026): antes sumiam assim que o
+                          formulário de edição abria, mas é justamente aí que
+                          o cliente mais precisa delas (preenchendo os campos
+                          pela primeira vez). Ficam visíveis nos dois estados. */}
+                      {!app.has_integration && app.portal_setup_instructions && (
+                        <p className="text-[11px] text-muted-foreground bg-muted/40 border border-border rounded-lg px-2.5 py-1.5 whitespace-pre-line">
+                          {linkifyText(app.portal_setup_instructions)}
+                        </p>
+                      )}
+
+                      {/* Campos-variável citados nas instruções (Código,
+                          Usuário, Senha, DNS) — mesmo texto acima já
+                          substitui o valor inline, mas isso aqui dá um botão
+                          de copiar de verdade, igual Device ID/MAC/Key
+                          (pedido do Márcio, 31/07/2026: "são informações
+                          reais que os clientes vão usar"). DNS ganha
+                          "Atualizar" do lado pra sortear outra a qualquer
+                          momento. Mesma trava "!has_integration" do parágrafo
+                          acima — sem isso, um app com integração automática
+                          (ex: GPC Computador) mostraria os badges soltos, sem
+                          o texto que explica pra que servem (esse só aparece
+                          no popup (i) quando has_integration é true). */}
+                      {!app.has_integration && app.variable_fields.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {app.variable_fields.map((f) => (
+                            <span key={f.id} className="flex items-center gap-1 px-2 py-0.5 bg-muted text-muted-foreground border border-border text-[10px] font-mono rounded">
+                              <span className="font-bold text-foreground/80">{f.label}</span>: {f.value}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard?.writeText(f.value);
+                                  addToast("success", "Copiado!", `${f.label} copiado.`);
+                                }}
+                                className="text-muted-foreground hover:text-sky-500 transition-colors"
+                                title="Copiar"
+                              >
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                              </button>
+                              {(f.id === "dns_servidor" || f.id === "dns_servidor_r2" || f.id === "m3u_url" || f.id === "m3u_url_r2") && (
+                                <button
+                                  type="button"
+                                  disabled={busy}
+                                  onClick={() => handleRerollDns(app.id)}
+                                  className="text-muted-foreground hover:text-emerald-500 transition-colors disabled:opacity-50"
+                                  title="Sortear outro"
+                                >
+                                  <RefreshCw className={`w-2.5 h-2.5 ${busy ? "animate-spin" : ""}`} />
+                                </button>
+                              )}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {isEditing ? (
+                        <div className="space-y-2">
+                          {app.fields.map((f) => (
+                            <div key={f.id}>
+                              <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">{f.label}</label>
+                              <input
+                                type="text"
+                                value={editingValues[f.id] ?? ""}
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  const next = f.type === "mac" ? normalizeMacInput(raw) : raw;
+                                  setEditingValues((prev) => ({ ...prev, [f.id]: next }));
+                                }}
+                                placeholder={f.type === "obs" ? "Ex: Sala, Quarto, Escritório, Celular..." : undefined}
+                                autoCapitalize={f.type === "mac" ? "characters" : "none"}
+                                spellCheck={false}
+                                className="w-full h-9 px-3 bg-muted border border-border rounded-lg text-sm text-foreground outline-none focus:border-sky-500"
+                              />
+                            </div>
+                          ))}
+                          <div className="flex gap-2 pt-1">
+                            <button
+                              disabled={busy}
+                              onClick={() => handleSaveAndConfigure(app.id)}
+                              className="flex-1 h-9 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold disabled:opacity-50 flex items-center justify-center gap-1.5"
+                            >
+                              {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                              {busy ? "Configurando..." : "Configurar"}
+                            </button>
+                            <button
+                              disabled={busy}
+                              onClick={() => setEditingAppId(null)}
+                              className="flex-1 h-9 rounded-lg bg-muted text-foreground border border-border text-xs font-bold"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          {/* Linha 2: campos (Device ID, Device Key, Ambiente...) à
+                              esquerda, Excluir à direita (Editar subiu pro
+                              cabeçalho, Ambiente saiu daqui — vai junto do nome).
+                              Instruções (quando existem) já apareceram acima,
+                              fora deste bloco. */}
+                          <div className="flex items-start justify-between gap-2">
+                              <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
+                                {otherFields.map((f) => (
+                                  <span key={f.id} className="flex items-center gap-1 px-2 py-0.5 bg-muted text-muted-foreground border border-border text-[10px] font-mono rounded">
+                                    <span className="font-bold text-foreground/80">{f.label}</span>: {f.value || "—"}
+                                    {f.value && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          navigator.clipboard?.writeText(f.value);
+                                          addToast("success", "Copiado!", `${f.label} copiado.`);
+                                        }}
+                                        className="text-muted-foreground hover:text-sky-500 transition-colors"
+                                        title="Copiar"
+                                      >
+                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                        </svg>
+                                      </button>
+                                    )}
+                                  </span>
+                                ))}
+                              </div>
+                            {app.has_pending_removal_request ? (
+                              <span className="shrink-0 px-2 py-1 rounded-lg bg-muted text-muted-foreground border border-border text-[10px] font-bold">
+                                Exclusão solicitada
+                              </span>
+                            ) : (
+                              <button
+                                disabled={busy}
+                                onClick={() => handleRemoveApp(app.id, app.name, app.has_integration, app.requires_admin_setup)}
+                                className="shrink-0 px-2.5 py-1.5 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 text-[10px] font-bold uppercase hover:bg-rose-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
+                              >
+                                {busy && <Loader2 className="w-3 h-3 animate-spin" />}
+                                {busy ? "Excluindo..." : "Excluir Aplicativo"}
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Linha 3: Configurar/Reconfigurar à esquerda,
+                              Renovar aplicativo à direita (Verificar virou o
+                              "Atualizar" ao lado da validade, lá em cima).
+                              Se o app foi descontinuado (apps.is_active=false,
+                              ex: DuplexPlay), não faz mais sentido oferecer
+                              configurar/renovar — vira um aviso pra trocar. */}
+                          {!app.is_active ? (
+                            <div className="text-xs font-medium text-rose-500/70 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">
+                              Aplicativo descontinuado — exclua e configure um novo.
+                              {app.discontinued_replacement_name && (
+                                <>
+                                  {" "}Recomendamos o{" "}
+                                  <span className="font-bold text-rose-500">{app.discontinued_replacement_name}</span>.
+                                </>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <div className="flex flex-wrap gap-2">
+                                {app.has_integration && (
+                                  <button
+                                    disabled={busy}
+                                    onClick={() => handleConfigureApp(app.id)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500/10 text-sky-500 border border-sky-500/20 text-xs font-bold hover:bg-sky-500/20 transition-colors disabled:opacity-50"
+                                  >
+                                    {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                    {busy ? "Configurando..." : app.expiration ? "Reconfigurar aplicativo" : "Configurar aplicativo"}
+                                  </button>
+                                )}
+                                {/* ✅ "Solicitar configuração" só existe pra app PAGO sem
+                                    integração automática (ex: extensão do Chrome ainda não
+                                    pronta) — pedido do Márcio, 31/07/2026: parceria/gratuito
+                                    sem integração é self-service (o cliente configura
+                                    sozinho olhando os dados acima), nunca vira pendência
+                                    pro suporte. */}
+                                {app.requires_admin_setup && (
+                                  app.has_pending_setup_request ? (
+                                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-muted-foreground border border-border text-xs font-bold">
+                                      ✓ Configuração solicitada
+                                    </span>
+                                  ) : (
+                                    <button
+                                      disabled={busy}
+                                      onClick={() => handleRequestSetup(app.id)}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20 text-xs font-bold hover:bg-amber-500/20 transition-colors disabled:opacity-50"
+                                    >
+                                      {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                      {busy ? "Solicitando..." : "Solicitar configuração"}
+                                    </button>
+                                  )
+                                )}
+                              </div>
+                              {app.is_gerenciaapp_family ? (
+                                // ✅ Mesmo limiar de 30 dias do botão pago
+                                // (pedido do Márcio, 28/07/2026) — achado em
+                                // produção: ficava visível mesmo logo depois
+                                // de renovar pra 2028, um ano+ antes de
+                                // precisar de novo.
+                                (expirationDiffDays === null || isExpired || isExpiringSoon) && (
+                                  <button
+                                    disabled={busy}
+                                    onClick={() => handleFreeRenewGerenciaApp(app.id)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition-colors disabled:opacity-50"
+                                  >
+                                    {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                    {busy ? "Renovando..." : "Renovar licença — Grátis"}
+                                  </button>
+                                )
+                              ) : (
+                                // ✅ Só aparece perto do vencimento (pedido do
+                                // Márcio, 28/07/2026) — um app válido até
+                                // 2054 não precisa desse botão visível o
+                                // tempo todo. Sem vencimento conhecido
+                                // (nunca configurado/verificado) mostra por
+                                // segurança — mesmo limiar de "Vencendo"
+                                // (isExpiringSoon) usado acima nessa mesma
+                                // linha do tempo.
+                                app.license_price != null &&
+                                (expirationDiffDays === null || isExpired || isExpiringSoon) && (
+                                  <button
+                                    disabled={renewPaymentBusyId === app.id}
+                                    onClick={() => handleRenewPayment(app.id)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition-colors disabled:opacity-50"
+                                  >
+                                    {renewPaymentBusyId === app.id && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                    {renewPaymentBusyId === app.id
+                                      ? "Gerando pagamento..."
+                                      : `Pagar licença ${app.license_period === "annual" ? "Anual" : app.license_period === "lifetime" ? "Vitalícia" : ""}: ${formatMoney(app.license_price, "BRL")}`}
+                                  </button>
+                                )
+                              )}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+
+              {/* ✅ Volta a linha pontilhada de antes (pedido do Márcio, 26/07/2026)
+                  — não é mais o botão de adicionar (isso subiu pro cabeçalho), agora
+                  é um convite pro suporte via WhatsApp pra quem não achou o app que
+                  usa ou ficou com dúvida. A mensagem padrão tem um marcador
+                  ("Vim do Portal do Cliente") que o bot reconhece pra já avisar o
+                  cliente que foi transferido, sem tentar rodar o fluxo normal e
+                  mandar ele de volta pro portal que ele acabou de sair. */}
+              {supportPhone && (
+                <a
+                  href={`https://wa.me/${supportPhone.replace(/\D/g, "")}?text=${encodeURIComponent(
+                    "Olá! Vim do Portal do Cliente e não encontrei o aplicativo que uso, ou tive dúvidas. Pode me ajudar?",
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-border text-xs sm:text-sm font-bold text-muted-foreground hover:border-[#25D366] hover:text-[#25D366] transition-colors"
+                >
+                  <IconWhatsapp />
+                  Não achou o aplicativo ou teve dúvidas? Fale com o suporte
+                </a>
+              )}
+
+              <AppPickerModal
+                open={showAddAppPicker}
+                onClose={() => setShowAddAppPicker(false)}
+                catalog={appCatalog}
+                catalogLoading={appCatalogLoading}
+                busyAppId={appActionBusy?.startsWith("add-") ? appActionBusy.slice(4) : null}
+                onSelectApp={(appId) => handleAddApp(appId)}
+                title="Adicionar aplicativo"
+                variant="portal"
+              />
+
+              <ConfigureResultModal
+                open={!!configureResult}
+                onClose={() => setConfigureResult(null)}
+                data={configureResult}
+                supportPhone={supportPhone}
+              />
+
+              <ReconfigureModeModal
+                open={!!reconfigureModeTarget}
+                onClose={() => setReconfigureModeTarget(null)}
+                appName={installedApps.find((a) => a.id === reconfigureModeTarget)?.name || "Aplicativo"}
+                onChoose={(mode) => {
+                  const targetId = reconfigureModeTarget;
+                  setReconfigureModeTarget(null);
+                  if (targetId) performConfigureApp(targetId, mode);
+                }}
+              />
+
+              {/* Modal de pagamento avulso da licença — nunca mexe na assinatura.
+                  Mesmo padrão visual/informativo do modal de renovação do
+                  plano (PaymentModal): cabeçalho, resumo (app + tipo de
+                  licença + total), QR, "como pagar", código copia-e-cola
+                  visível e nota de SSL — antes esse modal só tinha o QR e um
+                  botão de copiar, sem contexto nenhum. */}
+              {renewPayment && (() => {
+                const payingApp = installedApps.find((a) => a.id === renewPayment.clientAppId);
+                const licenseLabel =
+                  payingApp?.license_period === "annual"
+                    ? "Licença anual"
+                    : payingApp?.license_period === "lifetime"
+                      ? "Licença vitalícia"
+                      : "Licença";
+                return (
+                  <div
+                    className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+                    onMouseDown={(e) => {
+                      if (e.target === e.currentTarget && renewPaymentDone) closeRenewPaymentModal();
+                    }}
+                  >
+                    <div className="w-full max-w-sm bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
+                      {renewPaymentDone ? (
+                        <div className="p-6 flex flex-col gap-4">
+                          <div className="flex flex-col items-center gap-2 text-center py-4">
+                            <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center text-3xl">✅</div>
+                            <p className="text-base font-bold text-foreground">Pagamento confirmado!</p>
+                            <p className="text-xs text-muted-foreground">
+                              Recebemos seu pagamento e nosso suporte já foi avisado.
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              A renovação dessa licença é feita manualmente por aqui — assim que for concluída, a nova validade aparece sozinha na tela do aplicativo, sem você precisar fazer mais nada.
+                            </p>
+                          </div>
+                          <button
+                            onClick={closeRenewPaymentModal}
+                            className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
+                          >
+                            Fechar
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="bg-gradient-to-r from-emerald-500 to-green-600 py-3 px-6 text-white text-center relative">
+                            <button
+                              onClick={closeRenewPaymentModal}
+                              className="absolute right-3 top-3 text-white/80 hover:text-white text-sm leading-none"
+                            >
+                              ✕
+                            </button>
+                            <h2 className="text-lg font-bold">Pague com PIX</h2>
+                            <p className="text-xs text-white/80">Mercado Pago</p>
+                          </div>
+
+                          <div className="px-5 pt-4 space-y-1.5 text-sm">
+                            <div className="flex justify-between text-foreground/80">
+                              <span>{payingApp?.name || "Aplicativo"}</span>
+                              <span>{licenseLabel}</span>
+                            </div>
+                            <div className="flex justify-between font-bold text-foreground pt-1.5 border-t border-border">
+                              <span>Total a Pagar</span>
+                              <span>{formatMoney(renewPayment.price_amount, "BRL")}</span>
+                            </div>
+                          </div>
+
+                          <div className="px-5 pt-4 pb-3 space-y-3">
+                            {renewPayment.pix_qr_code_base64 && (
+                              <div className="bg-card p-2 sm:p-4 rounded-xl border-2 border-border">
+                                <img
+                                  src={`data:image/png;base64,${renewPayment.pix_qr_code_base64}`}
+                                  alt="QR Code PIX"
+                                  className="w-full max-w-[180px] sm:max-w-[220px] mx-auto"
+                                />
+                              </div>
+                            )}
+
+                            <div className="space-y-2 text-sm">
+                              <p className="font-bold text-foreground/90 flex items-center gap-2">
+                                <span>📱</span> Como pagar:
+                              </p>
+                              <ol className="list-decimal list-inside space-y-1 text-muted-foreground pl-6">
+                                <li>Abra o app do seu banco</li>
+                                <li>Escaneie o QR Code</li>
+                                <li>Confirme o pagamento</li>
+                              </ol>
+                            </div>
+
+                            {renewPayment.pix_qr_code && (
+                              <div className="bg-muted/50 p-3 rounded-xl border border-border space-y-2">
+                                <p className="text-xs font-bold text-foreground/70 uppercase tracking-wider text-center">
+                                  Ou copie o código:
+                                </p>
+                                <div className="relative group">
+                                  <input
+                                    type="text"
+                                    value={renewPayment.pix_qr_code}
+                                    readOnly
+                                    className="w-full pr-28 pl-3 py-2.5 bg-card border-2 border-border rounded-lg text-xs font-mono text-foreground/90 outline-none focus:border-sky-500 transition-colors shadow-sm"
+                                  />
+                                  <button
+                                    onClick={() => {
+                                      navigator.clipboard?.writeText(renewPayment.pix_qr_code || "");
+                                      setCopiedAppPixCode(true);
+                                      setTimeout(() => setCopiedAppPixCode(false), 3000);
+                                    }}
+                                    className={`absolute right-1 top-1 bottom-1 px-4 text-white font-bold text-xs rounded-md transition-all flex items-center justify-center gap-1.5 min-w-[90px] ${
+                                      copiedAppPixCode
+                                        ? "bg-emerald-500 hover:bg-emerald-600"
+                                        : "bg-sky-500 hover:bg-sky-600 shadow-sm"
+                                    }`}
+                                  >
+                                    {copiedAppPixCode ? "✅ Copiado" : "📋 Copiar"}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="p-3 bg-sky-500/10 rounded-xl border border-sky-500/20 flex items-center gap-3">
+                              <div className="w-6 h-6 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
+                              <div className="flex-1">
+                                <p className="text-sm font-bold text-sky-500">Aguardando pagamento...</p>
+                                <p className="text-xs text-sky-500/80">Detectaremos automaticamente quando você pagar</p>
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={closeRenewPaymentModal}
+                              className="w-full pb-1 pt-0 !mt-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+
+                          <div className="px-5 pb-4 pt-2">
+                            <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                              Conexão segura (SSL) — pagamento processado direto pelo Mercado Pago
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Modal de instruções de configuração — substitui a página de
+                  detalhe (/renew-beta/apps/[id]), que ficou redundante */}
+              {instructionsAppId && (() => {
+                const instrApp = installedApps.find((a) => a.id === instructionsAppId);
+                return (
+                  <div
+                    className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+                    onMouseDown={(e) => {
+                      if (e.target === e.currentTarget) setInstructionsAppId(null);
+                    }}
+                  >
+                    <div className="w-full max-w-sm bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-3 max-h-[80vh]">
+                      <p className="text-sm font-bold text-foreground shrink-0">
+                        Como configurar — {instrApp?.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground whitespace-pre-line overflow-y-auto">
+                        {instrApp?.portal_setup_instructions && linkifyText(instrApp.portal_setup_instructions)}
+                      </p>
+                      {instrApp && instrApp.variable_fields.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 shrink-0">
+                          {instrApp.variable_fields.map((f) => (
+                            <span key={f.id} className="flex items-center gap-1 px-2 py-0.5 bg-muted text-muted-foreground border border-border text-[10px] font-mono rounded">
+                              <span className="font-bold text-foreground/80">{f.label}</span>: {f.value}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard?.writeText(f.value);
+                                  addToast("success", "Copiado!", `${f.label} copiado.`);
+                                }}
+                                className="text-muted-foreground hover:text-sky-500 transition-colors"
+                                title="Copiar"
+                              >
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                              </button>
+                              {(f.id === "dns_servidor" || f.id === "dns_servidor_r2" || f.id === "m3u_url" || f.id === "m3u_url_r2") && (
+                                <button
+                                  type="button"
+                                  disabled={appActionBusy === instrApp.id}
+                                  onClick={() => handleRerollDns(instrApp.id)}
+                                  className="text-muted-foreground hover:text-emerald-500 transition-colors disabled:opacity-50"
+                                  title="Sortear outro"
+                                >
+                                  <RefreshCw className={`w-2.5 h-2.5 ${appActionBusy === instrApp.id ? "animate-spin" : ""}`} />
+                                </button>
+                              )}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {/* ✅ 2 botões em vez de só um X (pedido do Márcio,
+                          31/07/2026) — "Configurar" já leva direto pro
+                          formulário de preenchimento, sem deixar o cliente
+                          se perguntando "preencho aqui onde?". */}
+                      <div className="flex gap-2 pt-1 shrink-0">
+                        <button
+                          onClick={() => {
+                            setInstructionsAppId(null);
+                            if (instrApp) startEditingApp(instrApp);
+                          }}
+                          className="flex-1 h-9 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold"
+                        >
+                          Configurar
+                        </button>
+                        <button
+                          onClick={() => setInstructionsAppId(null)}
+                          className="flex-1 h-9 rounded-lg bg-muted text-foreground border border-border text-xs font-bold"
+                        >
+                          Fechar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* --- TOPO FIXO IDÊNTICO AO SEU ADMIN --- */}
       <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
-        <div className="mx-auto flex w-full max-w-2xl items-center gap-2 px-4 py-2">
+        <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-4 py-2">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            {/* Botão de Voltar para a Tela 1 */}
+            {/* Botão de Voltar para o Menu */}
             <button
-              onClick={() => setSelectedAccountId(null)}
+              onClick={() => setActiveSection("menu")}
               className="w-8 h-8 flex items-center justify-center bg-card/10 hover:bg-card/20 rounded-lg text-white transition-colors shrink-0"
               title="Voltar"
             >
@@ -2765,35 +4162,8 @@ export default function RenewClient() {
       </div>
 
       {/* --- CORPO DA PÁGINA --- */}
-      <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4 px-3 sm:px-4 py-4 sm:py-6">
-        {/* Banner Guia TV */}
-{(() => {
-  const srvKey = SERVER_GUIA_MAP[selectedAccount.server_name];
-  if (!srvKey) return null;
-  return (
-    <div className="relative overflow-hidden rounded-xl border border-sky-500/20 bg-gradient-to-r from-sky-500/10 via-indigo-500/5 to-sky-500/10 p-2.5 sm:p-4 shadow-sm">
-      <div className="flex items-center gap-2.5 sm:gap-4">
-        <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-sky-500/15 flex items-center justify-center shrink-0 border border-sky-500/20">
-          <span className="text-lg sm:text-2xl">🔥</span>
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-foreground">Novidades no servidor!</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Confira os últimos lançamentos de canais, filmes e séries.
-          </p>
-        </div>
-        <a
-          href={`/renew/guia-tv?servidor=${srvKey}&conta=${selectedAccount.id}`}
-
-          className="shrink-0 flex items-center gap-1 h-8 sm:h-9 px-3 rounded-full bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold transition-colors shadow-sm"
-        >
-          Novidades →
-        </a>
-      </div>
-    </div>
-
-  );
-})()}
+      <div className="max-w-6xl mx-auto space-y-3 sm:space-y-4 px-0 sm:px-4 py-4 sm:py-6">
+        {/* ✅ Banner de novidades removido daqui — virou o Bloco 2 do menu */}
 
 {/* Vencimento Centralizado (Substitui Card Azul) */}
 <div
@@ -3194,12 +4564,7 @@ export default function RenewClient() {
                       disabled={!couponInput.trim() || couponChecking}
                       className="h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-50 transition-colors shrink-0 flex items-center justify-center gap-1.5"
                     >
-                      {couponChecking && (
-                        <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                        </svg>
-                      )}
+                      {couponChecking && <Loader2 className="w-4 h-4 animate-spin" />}
                       Aplicar
                     </button>
                   </div>

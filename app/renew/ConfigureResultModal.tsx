@@ -1,5 +1,5 @@
 "use client";
-// app/renew-beta/ConfigureResultModal.tsx
+// app/renew/ConfigureResultModal.tsx
 //
 // Tela de resultado (não Toast) do Configurar/Reconfigurar — mesmo estilo
 // visual da tela de "Renovação com sucesso" do Bloco 1. Pedido do Márcio

@@ -75,16 +75,14 @@ export default function AppIntegracaoModal({
   const isNinjaPlayer = appName === "NINJAPLAYER";
   const needsPin =
     isDuplecast ||
-    isIboSol ||
     isIboPro ||
     isQuickPlayer ||
     isMessiTv ||
     isBobPlayer ||
     isIboPlayer ||
     isIptvDuplex ||
-    isIptvPlayerio; // DUPLEXTV/CLOUDDY/NINJAPLAYER ficam de fora — não usam PIN
+    isIptvPlayerio; // DUPLEXTV/CLOUDDY/NINJAPLAYER/IBOSOL ficam de fora — não usam PIN
   const noCredentials =
-    isIboSol ||
     isIboPro ||
     isQuickPlayer ||
     isMessiTv ||
@@ -281,14 +279,13 @@ export default function AppIntegracaoModal({
                   GerenciaApp (IBO Revenda, etc)
                 </option>
                 <option value="DUPLECAST">DupleCast</option>
-                {/* IBOSOL removido de propósito (27/07/2026, pedido do Márcio) —
-                    consolidava vários apps da família (BOB Player, Duplex TV
-                    Player etc.) via activation.iboplayer.com, que não funciona
-                    mais (bloqueio Cloudflare sem solução). Só o app "IBO Player"
-                    ainda depende dela (delete via iboplayer.com), fica pendente
-                    de ajuste numa rodada futura — não remover as linhas de
-                    isIboSol/noCredentials acima nem a rota ibosol/route.ts
-                    enquanto isso não for migrado. */}
+                {/* ✅ IBOSOL voltou (02/08/2026, pedido do Márcio) — dessa vez
+                    com escopo bem menor que antes: só pra checar o vencimento
+                    real do Duplex TV (que não tem status próprio, ver
+                    app/api/integrations/apps/duplextv/route.ts), via extensão
+                    do Chrome (lib/apps/ibosol-extension.ts) — não cria/apaga
+                    nada, não é mais a família de apps de antes. */}
+                <option value="IBOSOL">IBO Sol (só checagem Duplex TV)</option>
                 <option value="IBOPRO">IBO Pro Player</option>
                 <option value="QUICKPLAYER">Quick Player / Quick Player Pro</option>
                 <option value="MESSITV">MessiTV</option>
@@ -353,7 +350,7 @@ export default function AppIntegracaoModal({
                   isDuplecast
                     ? "Ex: https://duplecast.com/client"
                     : isIboSol
-                      ? "Ex: https://activation.iboplayer.com"
+                      ? "Ex: https://ibosol.com"
                       : isIboPro
                         ? "Ex: https://iboproapp.com"
                         : isQuickPlayer

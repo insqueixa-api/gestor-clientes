@@ -117,11 +117,6 @@ async function toolGerarLinkPortal(sb: any, tenantId: string, rawClient: any, is
     label: "Bot de atendimento",
     expiresAt: null,
     onLog: safeLog,
-    // ✅ Bot ainda não está no ar (25/07/2026) — vai pro ar junto com o
-    // /renew-beta virando a rota principal, então os links do bot já
-    // apontam direto pra lá (sem afetar nenhum outro gerador de link, que
-    // continua mandando pro /renew de sempre até a virada oficial).
-    dest: "renew-beta",
   });
 }
 

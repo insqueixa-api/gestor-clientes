@@ -378,10 +378,6 @@ export async function generatePortalLink(
     label: string;
     expiresAt?: string | null; // ISO string, ou null para sem expiração
     onLog?: (...args: any[]) => void; // a rota injeta o safeServerLog dela aqui
-    // ✅ Opcional (25/07/2026): pra onde o LoginClient manda o cliente após
-    // logar — "renew-beta" ou "renew" (padrão, quando omitido — nunca muda
-    // o comportamento de quem já chama essa função sem esse parâmetro).
-    dest?: "renew" | "renew-beta";
   }
 ): Promise<string> {
   const log = params.onLog || (() => {});
@@ -404,8 +400,7 @@ export async function generatePortalLink(
 
       if (portalToken) {
         const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://unigestor.net.br").replace(/\/+$/, "");
-        const destSuffix = params.dest ? `&dest=${params.dest}` : "";
-        return `${appUrl}/#t=${encodeURIComponent(portalToken)}${destSuffix}`;
+        return `${appUrl}/#t=${encodeURIComponent(portalToken)}`;
       }
       return "";
     } else {
