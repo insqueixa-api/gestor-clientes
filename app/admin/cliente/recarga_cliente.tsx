@@ -443,18 +443,21 @@ export default function RecargaCliente({
 
     async function load() {
       try {
-        const tid = await getCurrentTenantId();
+        // ✅ OTIMIZAÇÃO (02/08/2026): tenant e cliente não dependem um do
+        // outro — buscados em paralelo em vez de um atrás do outro. Sessões
+        // de WhatsApp (só usadas lá embaixo, no Select de sessão) deixam de
+        // ser esperadas aqui — antes, se a VM estivesse fora do ar, essa
+        // chamada sozinha travava a abertura do modal inteiro até 12s.
+        const [tid, { data: rawClient, error: cErr }] = await Promise.all([
+          getCurrentTenantId(),
+          supabaseBrowser
+            .from("clients")
+            .select("*, servers(name)")
+            .eq("id", clientId)
+            .single(),
+        ]);
 
-        if (tid) {
-          await loadWhatsAppSessions(); // ✅ Carrega as opções de sessão para o Select
-        }
-
-        // 1) Cliente (Busca direta na tabela para contornar a view excluída)
-        const { data: rawClient, error: cErr } = await supabaseBrowser
-          .from("clients")
-          .select("*, servers(name)")
-          .eq("id", clientId)
-          .single();
+        if (tid) loadWhatsAppSessions(); // fire-and-forget — não bloqueia o resto
 
         if (!alive) return;
 
@@ -486,37 +489,15 @@ export default function RecargaCliente({
 
         const c = client as unknown as ClientFromView;
 
-        // ✅ Fonte da verdade: clients (notes + tabela + moeda)
-        let dbNotes: string | null = null;
-        let dbPlanTableId: string | null = null;
-        let dbPriceCurrency: string | null = null;
-
-        try {
-          const { data: cDb, error: cDbErr } = await supabaseBrowser
-            .from("clients")
-            .select("notes, plan_table_id, price_currency")
-            .eq("tenant_id", tid)
-            .eq("id", clientId)
-            .maybeSingle();
-
-          if (!cDbErr && cDb) {
-            const n = (cDb as any).notes;
-            dbNotes = typeof n === "string" ? n : null;
-
-            const pt = (cDb as any).plan_table_id;
-            dbPlanTableId = typeof pt === "string" ? pt : null;
-
-            const pc = (cDb as any).price_currency;
-            dbPriceCurrency = typeof pc === "string" ? pc : null;
-          }
-        } catch {}
-
-        // ✅ Ajusta o clientData do modal com a verdade do banco
+        // ✅ OTIMIZAÇÃO (02/08/2026): removida uma 2ª consulta em "clients"
+        // que buscava de novo notes/plan_table_id/price_currency — a MESMA
+        // linha da MESMA tabela que o select("*") acima já trouxe. Puro
+        // round-trip repetido, sem motivo (RLS já escopa pro tenant certo).
         const cFixed: ClientFromView = {
           ...c,
-          notes: dbNotes ?? c.notes ?? null,
-          plan_table_id: dbPlanTableId ?? c.plan_table_id ?? null,
-          price_currency: dbPriceCurrency ?? c.price_currency ?? null,
+          notes: c.notes ?? null,
+          plan_table_id: c.plan_table_id ?? null,
+          price_currency: c.price_currency ?? null,
         };
 
         setClientData(cFixed);
@@ -525,10 +506,10 @@ export default function RecargaCliente({
         // ✅ Prefill Observações (agora certo)
         setObs(cFixed.notes || "");
 
-        // ✅ NOVO: Se aberto via Auditoria com paymentLogId, busca o log do
-        // pagamento para pré-preencher EXATAMENTE o que o cliente pagou
-        // (período, valor, moeda). Evita divergência ao concluir manualmente.
-        let paymentLog: {
+        // ✅ OTIMIZAÇÃO (02/08/2026): as duas buscas abaixo (log de
+        // pagamento da Auditoria x servidor/integração) não dependem uma da
+        // outra — rodam em paralelo em vez de sequenciais.
+        type PaymentLog = {
           period: string | null;
           plan_label: string | null;
           price_amount: number | null;
@@ -537,9 +518,10 @@ export default function RecargaCliente({
           coupon_id: string | null;
           coupon_code: string | null;
           coupon_discount_amount: number | null;
-        } | null = null;
+        };
 
-        if (paymentLogId) {
+        async function fetchPaymentLog(): Promise<PaymentLog | null> {
+          if (!paymentLogId) return null;
           try {
             const { data: logData, error: logErr } = await supabaseBrowser
               .from("client_portal_payments")
@@ -549,21 +531,14 @@ export default function RecargaCliente({
               .eq("id", paymentLogId)
               .eq("tenant_id", tid)
               .maybeSingle();
-
-            if (!logErr && logData) {
-              paymentLog = logData as any;
-              paymentLogCouponRef.current = {
-                coupon_id: (logData as any).coupon_id ?? null,
-                coupon_discount_amount: (logData as any).coupon_discount_amount ?? null,
-                price_currency: (logData as any).price_currency ?? null,
-              };
-            } else if (logErr) {
-            }
+            if (!logErr && logData) return logData as any;
           } catch {}
+          return null;
         }
 
         // ✅ NOVO: Detectar se servidor tem integração e QUAL O SERVIDOR
-        if (c.server_id) {
+        async function fetchIntegration(): Promise<{ hasInteg: boolean; provider: string } | null> {
+          if (!c.server_id) return { hasInteg: false, provider: "NONE" };
           try {
             const { data: srv } = await supabaseBrowser
               .from("servers")
@@ -571,31 +546,38 @@ export default function RecargaCliente({
               .eq("id", c.server_id)
               .single();
 
-            const hasInteg = Boolean(srv?.panel_integration);
-            setHasIntegration(hasInteg);
-            setRenewAutomatic(hasInteg);
+            if (!srv?.panel_integration) return { hasInteg: false, provider: "NONE" };
 
-            if (hasInteg) {
-              const { data: integ } = await supabaseBrowser
-                .from("server_integrations")
-                .select("provider")
-                .eq("id", srv.panel_integration)
-                .single();
+            const { data: integ } = await supabaseBrowser
+              .from("server_integrations")
+              .select("provider")
+              .eq("id", srv.panel_integration)
+              .single();
 
-              const prov = String(integ?.provider || "").toUpperCase();
-              setIntegrationProvider(prov);
-              setIsEliteProvider(prov === "ELITE");
-            } else {
-              setIntegrationProvider("NONE");
-              setIsEliteProvider(false);
-            }
+            return { hasInteg: true, provider: String(integ?.provider || "").toUpperCase() };
           } catch {
-            setHasIntegration(false);
-            setRenewAutomatic(false);
-            setIntegrationProvider("NONE");
-            setIsEliteProvider(false);
+            return null; // erro real — trata como "sem integração" abaixo
           }
         }
+
+        const [paymentLog, integrationResult] = await Promise.all([
+          fetchPaymentLog(),
+          fetchIntegration(),
+        ]);
+
+        if (paymentLog) {
+          paymentLogCouponRef.current = {
+            coupon_id: paymentLog.coupon_id ?? null,
+            coupon_discount_amount: paymentLog.coupon_discount_amount ?? null,
+            price_currency: paymentLog.price_currency ?? null,
+          };
+        }
+
+        const hasInteg = integrationResult?.hasInteg ?? false;
+        setHasIntegration(hasInteg);
+        setRenewAutomatic(hasInteg);
+        setIntegrationProvider(integrationResult?.provider ?? "NONE");
+        setIsEliteProvider((integrationResult?.provider ?? "NONE") === "ELITE");
 
         // 2) Plano (detectar período)
         let foundPeriod = "MONTHLY";
@@ -649,17 +631,27 @@ export default function RecargaCliente({
           setDueTime(newTimeStr);
         }
 
-        // 4) Tabelas
-        const { data: tData, error: tErr } = await supabaseBrowser
-          .from("plan_tables")
-          .select(
-            `id, name, currency, is_system_default, table_type,
-              items:plan_table_items (id, period, credits_base, prices:plan_table_item_prices (screens_count, price_amount))`,
-          )
-          .eq("tenant_id", tid)
-          .eq("is_active", true)
-          .eq("table_type", "iptv")
-          .order("name", { ascending: true });
+        // 4) Tabelas + templates de mensagem (✅ OTIMIZAÇÃO 02/08/2026: as
+        // duas não dependem uma da outra nem do que veio acima — buscadas
+        // juntas. O uso do resultado de templates continua lá embaixo, só o
+        // fetch em si que subiu pra cá.)
+        const [{ data: tData, error: tErr }, { data: tmplData }] = await Promise.all([
+          supabaseBrowser
+            .from("plan_tables")
+            .select(
+              `id, name, currency, is_system_default, table_type,
+                items:plan_table_items (id, period, credits_base, prices:plan_table_item_prices (screens_count, price_amount))`,
+            )
+            .eq("tenant_id", tid)
+            .eq("is_active", true)
+            .eq("table_type", "iptv")
+            .order("name", { ascending: true }),
+          supabaseBrowser
+            .from("message_templates")
+            .select("id, name, content, image_url, category")
+            .eq("tenant_id", tid)
+            .order("name", { ascending: true }),
+        ]);
 
         if (tErr) {
           addToast("error", "Falha ao carregar tabelas", tErr.message);
@@ -805,13 +797,7 @@ export default function RecargaCliente({
           setCustomTechnology(tecRaw);
         }
 
-        // ✅ CORREÇÃO: Carregar templates, categoria e pré-selecionar
-        const { data: tmplData } = await supabaseBrowser
-          .from("message_templates")
-          .select("id, name, content, image_url, category") // ✅ AGORA TRAZ A CATEGORIA
-          .eq("tenant_id", tid)
-          .order("name", { ascending: true });
-
+        // ✅ Templates (categoria + pré-seleção) — dado já veio no Promise.all lá em cima
         if (tmplData) {
           // ✅ Mantém apenas a categoria real, sem forçar nomes antigos Revenda
           const mappedTpls = tmplData.map((r: any) => ({
