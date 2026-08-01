@@ -4,6 +4,7 @@
 // em vez de um Bearer token. Mesma fonte de verdade de role (tenant_members).
 import { createClient } from "@/lib/supabase/server";
 import { isAdminRole } from "./auth";
+import { flagSuspiciousAccess } from "@/lib/observability";
 
 export type AdminTenantContext = {
   ok: true;
@@ -33,7 +34,10 @@ export async function getAdminTenantContext(): Promise<AdminTenantContext | Admi
     .maybeSingle<{ tenant_id: string; role: string | null }>();
 
   if (!member?.tenant_id) return { ok: false, reason: "no_tenant" };
-  if (!isAdminRole(member.role)) return { ok: false, reason: "forbidden" };
+  if (!isAdminRole(member.role)) {
+    flagSuspiciousAccess("role_nao_admin", { user_id: user.id, tenant_id: member.tenant_id, role: member.role });
+    return { ok: false, reason: "forbidden" };
+  }
 
   return { ok: true, tenantId: member.tenant_id, userId: user.id, role: member.role as string };
 }
@@ -52,6 +56,10 @@ export async function resolveAdminTenant(
     .eq("user_id", userId)
     .maybeSingle() as { data: { tenant_id: string; role: string | null } | null };
 
-  if (!data?.tenant_id || !isAdminRole(data.role)) return null;
+  if (!data?.tenant_id) return null;
+  if (!isAdminRole(data.role)) {
+    flagSuspiciousAccess("role_nao_admin", { user_id: userId, tenant_id: data.tenant_id, role: data.role });
+    return null;
+  }
   return { tenantId: data.tenant_id, role: data.role as string };
 }

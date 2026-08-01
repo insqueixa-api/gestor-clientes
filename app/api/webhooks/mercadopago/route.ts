@@ -1,6 +1,7 @@
 // app/api/webhooks/mercadopago/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import * as Sentry from "@sentry/nextjs";
 import crypto from "crypto";
 
 // ── IMPORTS IPTV ──────────────────────────────────────────────
@@ -106,6 +107,11 @@ export async function POST(req: NextRequest) {
 
       if (!webhookSecret || !verifyMpWebhook(req, paymentId, webhookSecret)) {
         prodLog("webhook.sig_failed", { payment_id_suffix: paymentId.slice(-6) });
+        Sentry.captureMessage("mp_webhook_sig_failed", {
+          level: "warning",
+          tags: { kind: "suspicious_access", reason: "mp_webhook_sig_failed" },
+          extra: { payment_id_suffix: paymentId.slice(-6) },
+        });
         return NextResponse.json({ ok: false }, { status: 401 });
       }
 
@@ -163,6 +169,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
 
   } catch (err) {
+    Sentry.captureException(err, { tags: { kind: "webhook_handler_error", provider: "mercadopago" } });
     return NextResponse.json({ ok: false, error: safeMsg(err) }, { status: 200 });
   }
 }

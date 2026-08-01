@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
 import { isCronRequest } from '@/lib/internal-auth'
+import * as Sentry from '@sentry/nextjs'
 
 
 const supabaseAdmin = createAdmin(
@@ -403,6 +404,7 @@ export async function GET(request: Request) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error('[sync-jogos] Erro:', msg)
+    Sentry.captureException(err, { tags: { kind: "cron_error", where: "sync-jogos" } })
     return NextResponse.json({ ok: false, error: msg }, { status: 500 })
   }
 }

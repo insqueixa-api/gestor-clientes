@@ -1,6 +1,7 @@
 // lib/api/auth.ts
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { flagSuspiciousAccess } from "@/lib/observability";
 
 export function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
@@ -68,6 +69,7 @@ export async function requireAdminTenant(req: Request) {
   }
 
   if (!isAdminRole(member?.role)) {
+    flagSuspiciousAccess("role_nao_admin", { user_id, tenant_id: String(tenant_id), role: member?.role ?? null });
     return { ok: false as const, res: forbidden("usuário sem permissão de admin neste tenant") };
   }
 

@@ -1,6 +1,7 @@
 // app/api/integrations/elite/sync/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import * as Sentry from "@sentry/nextjs";
 import { isInternalRequest } from "@/lib/internal-auth";
 
 export const runtime = "nodejs";
@@ -103,6 +104,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Ação não especificada (use get_credentials ou save_sync)." }, { status: 400 });
 
   } catch (e: any) {
+    Sentry.captureException(e, { tags: { kind: "integration_error", provider: "elite", action: "sync" } });
     return NextResponse.json({ ok: false, error: e.message || "Falha no sync ELITE." }, { status: 500 });
   }
 }

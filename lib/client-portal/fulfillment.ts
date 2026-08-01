@@ -1,5 +1,6 @@
 // lib/client-portal/fulfillment.ts
 import { createClient } from "@supabase/supabase-js";
+import * as Sentry from "@sentry/nextjs";
 import { notify, formatClientLabel } from "@/lib/notifications/notify";
 
 // ============================================================
@@ -16,9 +17,7 @@ export interface FulfillmentParams {
 // Helpers internos
 // ============================================================
 function safeServerLog(...args: any[]) {
-  if (process.env.NODE_ENV !== "production") {
-    console.error(...args);
-  }
+  console.error(...args);
 }
 
 // ✅ Log estruturado para Vercel (sempre ativo, nunca vaza dados sensíveis)
@@ -109,6 +108,16 @@ export async function markFulfillmentError(
     })
     .eq("tenant_id", tenantId)
     .eq("id", paymentRowId);
+
+  // ✅ Pagamento aprovado que não conseguiu renovar sozinho — antes disso só
+  // ficava visível pra quem abrisse a Auditoria por acaso (foi assim que 12
+  // pagamentos ficaram presos meses sem ninguém notar). Agora dispara alerta
+  // real via Sentry no momento em que acontece.
+  Sentry.captureMessage(`fulfillment_error: ${message}`, {
+    level: "error",
+    tags: { kind: "fulfillment_error", tenant_id: tenantId },
+    extra: { paymentRowId, message },
+  });
 }
 
 // ============================================================

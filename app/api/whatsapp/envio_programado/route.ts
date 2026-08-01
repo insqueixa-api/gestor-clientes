@@ -3,6 +3,7 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import * as Sentry from "@sentry/nextjs";
 import { requireAdminTenant } from "@/lib/api/auth";
 import { isCronRequest } from "@/lib/internal-auth";
 import { makeSessionKey } from "@/lib/whatsapp/wa-context";
@@ -21,10 +22,8 @@ import { notify } from "@/lib/notifications/notify";
 import { getCouponPhraseForClient, getPendencyPhraseForClient, fetchActiveCoupons, type CouponRow } from "@/lib/client-portal/coupons";
 import { toolConsultarPrecosTexto } from "@/lib/whatsapp/bot-engine";
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function safeServerLog(...args: any[]) {
-  if (process.env.NODE_ENV !== "production") {
-  }
+  console.error(...args);
 }
 
 export const dynamic = "force-dynamic";
@@ -210,6 +209,7 @@ export async function POST(req: Request) {
       safeServerLog("[BILLING][enqueue] ✅ CONCLUÍDO:", totalJobsCreated, "jobs criados no total");
     } catch (e: any) {
       safeServerLog("[BILLING][enqueue_scheduled] exception", e?.message ?? e);
+      Sentry.captureException(e, { tags: { kind: "cron_error", where: "billing_enqueue_scheduled" } });
     }
 
     // ✅ SELF-HEALING: revive jobs travados em SENDING (crash/restart)

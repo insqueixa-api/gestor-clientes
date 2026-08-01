@@ -3,15 +3,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { isInternalRequest } from "@/lib/internal-auth";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 import { createClient as createSupabaseServer } from "@/lib/supabase/server";
+import * as Sentry from "@sentry/nextjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Adiciona no topo do arquivo
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function safeServerLog(...args: any[]) {
-  if (process.env.NODE_ENV !== "production") {
-  }
+  console.error(...args);
+  Sentry.captureMessage(String(args[0] ?? "safeServerLog"), {
+    level: "warning",
+    tags: { kind: "integration_error", provider: "natv" },
+    extra: { args },
+  });
 }
 
 function jsonError(status: number, msg: string) {
@@ -146,9 +149,8 @@ const { data: integ, error: integErr } = await integQuery.single();
         credits: apiJson?.owner?.credits ?? null,
       },
     });
-  } catch {
-    // log “cego”
-    safeServerLog("NATV renew: crash");
+  } catch (e) {
+    Sentry.captureException(e, { tags: { kind: "integration_error", provider: "natv", action: "renew-client" } });
     return jsonError(500, "Erro interno");
   }
 }

@@ -3,14 +3,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { isInternalRequest } from "@/lib/internal-auth";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 import { createClient as createSupabaseServer } from "@/lib/supabase/server";
+import * as Sentry from "@sentry/nextjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function safeServerLog(...args: any[]) {
-  if (process.env.NODE_ENV !== "production") {
-  }
+  console.error(...args);
+  Sentry.captureMessage(String(args[0] ?? "safeServerLog"), {
+    level: "warning",
+    tags: { kind: "integration_error", provider: "natv" },
+    extra: { args },
+  });
 }
 
 const NATV_BASE = "https://revenda.pixbot.link";
@@ -187,8 +191,8 @@ const tenant_id = String(body?.tenant_id ?? "").trim();
         ? "Token validado e saldo sincronizado."
         : "Token validado. Não encontrei usuários para inferir owner/saldo ainda.",
     });
-  } catch {
-    safeServerLog("NATV sync: crash");
+  } catch (e) {
+    Sentry.captureException(e, { tags: { kind: "integration_error", provider: "natv", action: "sync" } });
     return jsonError(500, "Erro interno");
   }
 }

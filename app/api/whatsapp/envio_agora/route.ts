@@ -3,6 +3,7 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import * as Sentry from "@sentry/nextjs";
 import { requireAdminTenant } from "@/lib/api/auth";
 import { isInternalRequest } from "@/lib/internal-auth";
 import { makeSessionKey } from "@/lib/whatsapp/wa-context";
@@ -19,10 +20,8 @@ import {
 import { getCouponPhraseForClient, getPendencyPhraseForClient } from "@/lib/client-portal/coupons";
 import { toolConsultarPrecosTexto } from "@/lib/whatsapp/bot-engine";
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function safeServerLog(...args: any[]) {
-  if (process.env.NODE_ENV !== "production") {
-  }
+  console.error(...args);
 }
 
 export const runtime = "nodejs";
@@ -446,6 +445,7 @@ export async function POST(req: Request) {
     await sb.from("client_message_jobs").insert(insertPayload);
   } catch (err) {
     safeServerLog("[WA][send_now] falha ao gravar log em client_message_jobs", err);
+    Sentry.captureException(err, { tags: { kind: "data_loss_risk", where: "client_message_jobs_insert" } });
   }
 
   if (allFailed) {

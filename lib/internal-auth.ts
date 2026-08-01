@@ -4,6 +4,7 @@
 // constante (crypto.timingSafeEqual), falha fechada se qualquer lado estiver
 // vazio ou com tamanho diferente.
 import crypto from "crypto";
+import { flagSuspiciousAccess } from "@/lib/observability";
 
 function timingSafeCompare(received: string, expected: string): boolean {
   if (!expected || !received) return false;
@@ -33,7 +34,9 @@ export function hasBadInternalHeader(
   secretEnvVar: string = "INTERNAL_API_SECRET"
 ): boolean {
   const hasHeader = !!req.headers.get("x-internal-secret");
-  return hasHeader && !isInternalRequest(req, secretEnvVar);
+  const bad = hasHeader && !isInternalRequest(req, secretEnvVar);
+  if (bad) flagSuspiciousAccess("x_internal_secret_invalido", { secretEnvVar });
+  return bad;
 }
 
 // Header Authorization: Bearer <secret> — usado pelo Vercel Cron. Mesmo

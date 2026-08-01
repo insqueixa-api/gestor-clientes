@@ -12,6 +12,7 @@ import { createClient }                from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { S3Client, PutObjectCommand }  from "@aws-sdk/client-s3";
 import { isCronRequest } from "@/lib/internal-auth";
+import * as Sentry from "@sentry/nextjs";
 import {
   parseM3U,
   statsDoparse,
@@ -370,6 +371,7 @@ await supabaseAdmin.rpc("catalog_atualizar_contadores", { p_servidor: SERVIDOR }
     log.erro = e.message;
     await salvarLog(log);
     console.error(`[CATALOG-NATV] Erro fatal:`, e.message);
+    Sentry.captureException(e, { tags: { kind: "cron_error", where: "sync-catalog-natv" } });
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }

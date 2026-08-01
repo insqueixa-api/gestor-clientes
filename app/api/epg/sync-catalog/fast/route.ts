@@ -25,6 +25,7 @@ import { createClient }                from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { S3Client, PutObjectCommand }  from "@aws-sdk/client-s3";
 import { isCronRequest } from "@/lib/internal-auth";
+import * as Sentry from "@sentry/nextjs";
 
 export const dynamic     = "force-dynamic";
 export const maxDuration = 300;
@@ -481,6 +482,7 @@ export async function POST(req: NextRequest) {
     log.erro = e.message;
     await salvarLog(log);
     console.error(`[CATALOG-FAST] Erro fatal:`, e.message);
+    Sentry.captureException(e, { tags: { kind: "cron_error", where: "sync-catalog-fast" } });
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }

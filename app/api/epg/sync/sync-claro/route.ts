@@ -13,6 +13,7 @@ import { createClient }              from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { S3Client, PutObjectCommand }  from "@aws-sdk/client-s3";
 import { isCronRequest } from "@/lib/internal-auth";
+import * as Sentry from "@sentry/nextjs";
 
 export const dynamic     = "force-dynamic";
 export const maxDuration = 60;
@@ -323,6 +324,7 @@ programas: (programasDb || []).map(p => ({
 
   } catch (e: any) {
     console.error(`[EPG-CLARO] Erro fatal:`, e.message);
+    Sentry.captureException(e, { tags: { kind: "cron_error", where: "sync-claro" } });
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }

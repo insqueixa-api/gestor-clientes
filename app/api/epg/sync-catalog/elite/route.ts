@@ -18,6 +18,7 @@ import { createClient }                from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { S3Client, PutObjectCommand }  from "@aws-sdk/client-s3";
 import { isCronRequest } from "@/lib/internal-auth";
+import * as Sentry from "@sentry/nextjs";
 import {
   parseM3U,
   statsDoparse,
@@ -407,6 +408,7 @@ if (rpcErr) console.error(`[CATALOG-ELITE] Erro RPC contadores:`, rpcErr.message
     log.erro = e.message;
     await salvarLog(log);
     console.error(`[CATALOG-ELITE] Erro fatal:`, e.message);
+    Sentry.captureException(e, { tags: { kind: "cron_error", where: "sync-catalog-elite" } });
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }

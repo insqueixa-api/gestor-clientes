@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import withPWAInit from "@ducanh2912/next-pwa";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const withPWA = withPWAInit({
   dest: "public",
@@ -24,7 +25,11 @@ const withPWA = withPWAInit({
 
 const nextConfig: NextConfig = {
   compiler: {
-    removeConsole: process.env.NODE_ENV === "production",
+    // ✅ Antes removia TODO console.* em produção (client E servidor —
+    // inclui rotas de API), deixando logs de erro mudos mesmo quando o
+    // código chamava console.error de propósito. Mantém só console.error.
+    removeConsole:
+      process.env.NODE_ENV === "production" ? { exclude: ["error"] } : false,
   },
   experimental: {
     serverActions: {
@@ -39,4 +44,15 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["@resvg/resvg-js"],
 };
 
-export default withPWA(nextConfig);
+export default withSentryConfig(withPWA(nextConfig), {
+  org: "unigestor",
+  project: "javascript-nextjs",
+
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+
+  widenClientFileUpload: true,
+
+  tunnelRoute: "/monitoring",
+
+  silent: !process.env.CI,
+});
