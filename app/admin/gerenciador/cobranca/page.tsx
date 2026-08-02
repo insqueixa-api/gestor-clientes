@@ -1,6 +1,6 @@
 ﻿"use client";
 // app/admin/gerenciador/cobranca/page.tsx
-import { MessageCircle, X, Loader2 } from "lucide-react";
+import { MessageCircle, X, Loader2, Sparkles, Clock3, CalendarDays } from "lucide-react";
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -548,11 +548,11 @@ function CampaignWindowCard({
         .upsert(
           {
             tenant_id: tid,
-            window_start: settings.window_start,
-            delay_min_secs: settings.delay_min_secs,
-            delay_max_secs: settings.delay_max_secs,
-            schedule_days: settings.schedule_days,
-            is_active: settings.is_active,
+            window_start: nextSettings.window_start,
+            delay_min_secs: nextSettings.delay_min_secs,
+            delay_max_secs: nextSettings.delay_max_secs,
+            schedule_days: nextSettings.schedule_days,
+            is_active: nextSettings.is_active,
           },
           { onConflict: "tenant_id" },
         );
@@ -568,109 +568,131 @@ function CampaignWindowCard({
 
   if (loading) return null;
 
+  const activeDays = settings.schedule_days.length;
+  const windowLabel = `${settings.window_start} · ${Math.round(settings.delay_min_secs / 60)}–${Math.round(settings.delay_max_secs / 60)} min`;
+
   return (
     <div className="px-3 sm:px-0 md:px-4">
-      <div className="p-4 bg-card border border-border rounded-xl shadow-sm space-y-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
-              ⏱️ Início do disparo (compartilhado entre as regras)
-            </h3>
-            <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed max-w-2xl">
-              Todas as regras automáticas abaixo passam a disparar a partir
-              desse horário, embaralhadas entre si (não uma de cada vez por
-              regra), com um intervalo aleatório entre cada mensagem. O sistema
-              respeita um intervalo mínimo/máximo entre envios de 2 e 5 minutos.
-            </p>
-          </div>
-          <button
-            onClick={() => setSettings((s) => ({ ...s, is_active: !s.is_active }))}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 ${settings.is_active ? "bg-emerald-500" : "bg-muted"}`}
-            title={settings.is_active ? "Ativo" : "Desativado — nenhuma automação dispara"}
-          >
-            <span
-              className={`inline-block h-3.5 w-3.5 transform rounded-full bg-card transition ${settings.is_active ? "translate-x-4.5" : "translate-x-1"}`}
-            />
-          </button>
-        </div>
+      <div className="relative overflow-hidden rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-card via-card to-emerald-500/5 p-4 shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_20px_50px_-28px_rgba(16,185,129,0.4)] sm:p-5">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.16),_transparent_48%)]" />
+        <div className="relative space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-2 shadow-sm">
+                <Sparkles className="h-4 w-4 text-emerald-500" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Janela de disparo compartilhada</h3>
+                <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground max-w-2xl">
+                  Todas as regras automáticas usam essa janela para disparar de forma embaralhada, com intervalo aleatório e respeitando a faixa de 2 a 5 minutos entre envios.
+                </p>
+              </div>
+            </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div>
-            <Label>Início</Label>
-            <FormattedTimeInput
-              value={settings.window_start}
-              onChange={(e) =>
-                setSettings((s) => ({ ...s, window_start: e.target.value }))
-              }
-              className="w-full h-10 text-sm"
-            />
+            <button
+              onClick={() => setSettings((s) => ({ ...s, is_active: !s.is_active }))}
+              className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] transition-all ${settings.is_active ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-600" : "border-border bg-muted text-muted-foreground"}`}
+              title={settings.is_active ? "Ativo" : "Desativado — nenhuma automação dispara"}
+            >
+              <span className={`relative h-2.5 w-2.5 rounded-full ${settings.is_active ? "bg-emerald-500" : "bg-muted-foreground"}`} />
+              {settings.is_active ? "Ativo" : "Inativo"}
+            </button>
           </div>
-          <div>
-            <Label>Intervalo mín. (min)</Label>
-            <Input
-              type="number"
-              min={2}
-              max={5}
-              step={1}
-              value={Math.round(settings.delay_min_secs / 60)}
-              onChange={(e) =>
-                setSettings((s) => ({
-                  ...s,
-                  delay_min_secs: Math.min(MAX_DELAY_SECS, Math.max(MIN_DELAY_SECS, Math.round(Number(e.target.value) * 60))),
-                }))
-              }
-            />
-          </div>
-          <div>
-            <Label>Intervalo máx. (min)</Label>
-            <Input
-              type="number"
-              min={2}
-              max={5}
-              step={1}
-              value={Math.round(settings.delay_max_secs / 60)}
-              onChange={(e) =>
-                setSettings((s) => ({
-                  ...s,
-                  delay_max_secs: Math.min(MAX_DELAY_SECS, Math.max(MIN_DELAY_SECS, Math.round(Number(e.target.value) * 60))),
-                }))
-              }
-            />
-          </div>
-          <div>
-            <Label>Dias da semana</Label>
-            <div className="flex flex-wrap gap-1 pt-1">
-              {DAYS_OF_WEEK.map((d) => {
-                const selected = settings.schedule_days.includes(d.id);
-                return (
-                  <button
-                    key={d.id}
-                    onClick={() =>
-                      setSettings((s) => ({
-                        ...s,
-                        schedule_days: selected
-                          ? s.schedule_days.filter((x) => x !== d.id)
-                          : [...s.schedule_days, d.id],
-                      }))
-                    }
-                    className={`w-8 h-8 rounded-full font-medium text-[10px] transition-all border ${selected ? "bg-emerald-500 border-emerald-500 text-white" : "bg-muted border-border text-muted-foreground"}`}
-                  >
-                    {d.label}
-                  </button>
-                );
-              })}
+
+          <div className="flex flex-wrap gap-2">
+            <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/70 px-3 py-1.5 text-[11px] text-muted-foreground">
+              <Clock3 className="h-3.5 w-3.5 text-emerald-500" />
+              {windowLabel}
+            </div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/70 px-3 py-1.5 text-[11px] text-muted-foreground">
+              <CalendarDays className="h-3.5 w-3.5 text-sky-500" />
+              {activeDays} dias ativos
             </div>
           </div>
-        </div>
 
-        <div className="flex justify-end">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-5 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 text-xs font-medium disabled:opacity-50 transition-colors uppercase tracking-wider"
-          >
-            {saving ? "Salvando..." : "Salvar"}
-          </button>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-2xl border border-border/70 bg-background/70 p-3">
+              <Label>Início</Label>
+              <FormattedTimeInput
+                value={settings.window_start}
+                onChange={(e) =>
+                  setSettings((s) => ({ ...s, window_start: e.target.value }))
+                }
+                className="w-full h-11 rounded-xl border border-border/70 bg-background/80 px-3 text-sm shadow-sm"
+              />
+            </div>
+            <div className="rounded-2xl border border-border/70 bg-background/70 p-3">
+              <Label>Intervalo mín. (min)</Label>
+              <Input
+                type="number"
+                min={2}
+                max={5}
+                step={1}
+                value={Math.round(settings.delay_min_secs / 60)}
+                onChange={(e) =>
+                  setSettings((s) => ({
+                    ...s,
+                    delay_min_secs: Math.min(MAX_DELAY_SECS, Math.max(MIN_DELAY_SECS, Math.round(Number(e.target.value) * 60))),
+                  }))
+                }
+                className="h-11 rounded-xl border border-border/70 bg-background/80 px-3 text-sm shadow-sm"
+              />
+            </div>
+            <div className="rounded-2xl border border-border/70 bg-background/70 p-3">
+              <Label>Intervalo máx. (min)</Label>
+              <Input
+                type="number"
+                min={2}
+                max={5}
+                step={1}
+                value={Math.round(settings.delay_max_secs / 60)}
+                onChange={(e) =>
+                  setSettings((s) => ({
+                    ...s,
+                    delay_max_secs: Math.min(MAX_DELAY_SECS, Math.max(MIN_DELAY_SECS, Math.round(Number(e.target.value) * 60))),
+                  }))
+                }
+                className="h-11 rounded-xl border border-border/70 bg-background/80 px-3 text-sm shadow-sm"
+              />
+            </div>
+            <div className="rounded-2xl border border-border/70 bg-background/70 p-3">
+              <Label>Dias da semana</Label>
+              <div className="flex flex-wrap gap-1 pt-1">
+                {DAYS_OF_WEEK.map((d) => {
+                  const selected = settings.schedule_days.includes(d.id);
+                  return (
+                    <button
+                      key={d.id}
+                      onClick={() =>
+                        setSettings((s) => ({
+                          ...s,
+                          schedule_days: selected
+                            ? s.schedule_days.filter((x) => x !== d.id)
+                            : [...s.schedule_days, d.id],
+                        }))
+                      }
+                      className={`h-8 w-8 rounded-full border text-[10px] font-semibold transition-all ${selected ? "border-emerald-500 bg-emerald-500 text-white shadow-sm" : "border-border bg-muted text-muted-foreground"}`}
+                    >
+                      {d.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 bg-background/70 px-3 py-3 sm:px-4">
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              O disparo fica mais natural quando a fila é distribuída ao longo do horário, sem parecer um envio em lote.
+            </p>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-white transition-colors hover:bg-emerald-500 disabled:opacity-50"
+            >
+              {saving ? "Salvando..." : "Salvar"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
