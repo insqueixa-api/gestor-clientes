@@ -1,6 +1,17 @@
 ﻿"use client";
 // app/admin/gerenciador/cobranca/page.tsx
-import { MessageCircle, X, Loader2, Sparkles, Clock3, CalendarDays } from "lucide-react";
+import {
+  MessageCircle,
+  X,
+  Loader2,
+  Clock3,
+  CalendarDays,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle2,
+  SlidersHorizontal,
+  Send,
+} from "lucide-react";
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -692,7 +703,7 @@ export default function BillingPage() {
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [clients, setClients] = useState<ClientLight[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const { confirm } = useConfirm();
 
   // ✅ MODAIS (Atualizado para suportar Edição e Logs)
@@ -1133,6 +1144,49 @@ export default function BillingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [automations, clients]);
 
+  const sections = useMemo(() => {
+    const grouped = new Map<string, Automation[]>();
+    for (const automation of automations) {
+      const key = automation.type || "Outros";
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key)!.push(automation);
+    }
+
+    return [
+      ...TYPES.filter((type) => grouped.has(type)).map((type) => ({
+        key: type,
+        label: type,
+        items: grouped.get(type) || [],
+      })),
+      ...Array.from(grouped.entries())
+        .filter(([type]) => !TYPES.includes(type))
+        .map(([type, items]) => ({ key: type, label: type, items })),
+    ].filter((section) => section.items.length > 0);
+  }, [automations]);
+
+  useEffect(() => {
+    setCollapsedSections((prev) => {
+      const next = { ...prev };
+      let changed = false;
+
+      for (const section of sections) {
+        if (!(section.key in next)) {
+          next[section.key] = false;
+          changed = true;
+        }
+      }
+
+      for (const key of Object.keys(next)) {
+        if (!sections.some((section) => section.key === key)) {
+          delete next[key];
+          changed = true;
+        }
+      }
+
+      return changed ? next : prev;
+    });
+  }, [sections]);
+
   const handleManualRun = async (rule: Automation) => {
     if (!rule.message_template_id && !(rule.message_template as any)?.id) {
       addToast(
@@ -1262,10 +1316,6 @@ export default function BillingPage() {
     }
   };
 
-  const filtered = automations.filter((a) =>
-    a.name.toLowerCase().includes(search.toLowerCase()),
-  );
-
   return (
     <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-background transition-colors">
       {/* Monitor da fila (com padding padrão e SEM z alto) */}
@@ -1294,45 +1344,13 @@ export default function BillingPage() {
       </div>
       {/* Início do disparo compartilhado (janela única entre as regras) */}
       <CampaignWindowCard addToast={addToast} />
-      {/* Barra de busca (padrão admin: sticky no desktop) */}
-      <div className="p-0 px-3 sm:px-0 md:px-4">
-<div className="p-0 md:p-4 bg-transparent md:bg-card border-0 md:border md:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm md:sticky md:top-4 z-20">
-          <div className="hidden md:block text-xs font-medium uppercase text-foreground/80 tracking-wider mb-3">
-            Busca
-          </div>
-
-          <div className="flex items-center gap-2">
-            <div className="flex-1 relative">
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar regra..."
-                className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors"
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">
-                🔍
-              </span>
-            </div>
-
-{search.trim() && (
-              <button
-                onClick={() => setSearch("")}
-                className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 text-sm font-medium hover:bg-rose-500/20 transition-colors"
-              >
-                Limpar
-              </button>
-            
-            )}
-          </div>
-        </div>
-      </div>
-      {/* LISTA (GRID 3 COLUNAS) */}
+      {/* LISTA AGRUPADA POR TIPO */}
       {loading ? (
         <div className="text-center py-10 text-muted-foreground animate-pulse">
           Carregando automações...
         </div>
-      ) : filtered.length === 0 ? (
-<div className="flex flex-col items-center justify-center py-20 bg-card border border-dashed border-border rounded-2xl">
+      ) : automations.length === 0 ? (
+        <div className="mx-3 sm:mx-0 md:mx-4 flex flex-col items-center justify-center py-20 bg-card border border-dashed border-border rounded-2xl">
           <div className="w-16 h-16 bg-transparent border border-border rounded-full flex items-center justify-center mb-4 text-3xl">
             🤖
           </div>
@@ -1344,37 +1362,79 @@ export default function BillingPage() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-          {filtered.map((auto) => {
-            const impacted = impactedByRule.get(auto.id) ?? [];
-            // ✅ BUSCA O LABEL COMPLETO QUE A API JÁ GEROU (NOME | NÚMERO)
-            const sessionInfo = auxData.sessions.find(
-              (s) => s.id === (auto.whatsapp_session || "default"),
-            );
+        <div className="space-y-4 px-3 sm:px-0 md:px-4">
+          {sections.map((section) => {
+            const isCollapsed = collapsedSections[section.key];
+            const activeCount = section.items.filter((item) => item.is_active).length;
 
             return (
-              <AutomationCard
-                key={auto.id}
-                data={auto}
-                impactCount={impacted.length}
-                sessionLabel={sessionInfo?.label} // ✅ ENVIA O TEXTO COMPLETO PRO FILHO
-                onToggle={() => toggleActive(auto)}
-                onDelete={() => handleDelete(auto.id)}
-                onEdit={() => setWizardState({ show: true, editingRule: auto })}
-                onShowImpact={() =>
-                  setImpactModalData({
-                    ruleId: auto.id,
-                    ruleName: auto.name,
-                    clients: impacted,
-                    ruleDateField: auto.rule_date_field,
-                  })
-                }
-                onControl={(action) => handleControl(auto, action)}
-                onShowLogs={() =>
-                  setLogsModalData({ ruleId: auto.id, ruleName: auto.name })
-                }
-                onRun={() => handleManualRun(auto)}
-              />
+              <section key={section.key} className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+                <button
+                  onClick={() =>
+                    setCollapsedSections((prev) => ({
+                      ...prev,
+                      [section.key]: !prev[section.key],
+                    }))
+                  }
+                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/30"
+                >
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-base font-semibold text-foreground">{section.label}</h2>
+                      <span className="rounded-full border border-border bg-muted/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                        {section.items.length} regras
+                      </span>
+                      <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.18em] text-emerald-600">
+                        {activeCount} ativas
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {isCollapsed ? "Seção compactada" : "Exibindo regras deste grupo"}
+                    </p>
+                  </div>
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground">
+                    {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                  </span>
+                </button>
+
+                {!isCollapsed && (
+                  <div className="border-t border-border px-3 py-3 sm:px-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                      {section.items.map((auto) => {
+                        const impacted = impactedByRule.get(auto.id) ?? [];
+                        const sessionInfo = auxData.sessions.find(
+                          (s) => s.id === (auto.whatsapp_session || "default"),
+                        );
+
+                        return (
+                          <AutomationCard
+                            key={auto.id}
+                            data={auto}
+                            impactCount={impacted.length}
+                            sessionLabel={sessionInfo?.label}
+                            onToggle={() => toggleActive(auto)}
+                            onDelete={() => handleDelete(auto.id)}
+                            onEdit={() => setWizardState({ show: true, editingRule: auto })}
+                            onShowImpact={() =>
+                              setImpactModalData({
+                                ruleId: auto.id,
+                                ruleName: auto.name,
+                                clients: impacted,
+                                ruleDateField: auto.rule_date_field,
+                              })
+                            }
+                            onControl={(action) => handleControl(auto, action)}
+                            onShowLogs={() =>
+                              setLogsModalData({ ruleId: auto.id, ruleName: auto.name })
+                            }
+                            onRun={() => handleManualRun(auto)}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </section>
             );
           })}
         </div>
@@ -1961,6 +2021,11 @@ function AutomationWizard({
   onSuccess: () => void;
   onError: (m: string) => void;
 }) {
+  const steps = [
+    { id: 1, title: "Base da regra", caption: "Tipo, mensagem e sessão.", icon: CheckCircle2 },
+    { id: 2, title: "Público", caption: "Quem entra no filtro.", icon: SlidersHorizontal },
+    { id: 3, title: "Modo de envio", caption: "Manual ou automático.", icon: Send },
+  ] as const;
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
 
@@ -1969,27 +2034,21 @@ function AutomationWizard({
     type: "Vencimento",
     message_template_id: "",
     whatsapp_session: "default",
-
     is_active: true,
-
     status: ["ACTIVE"],
     servers: [] as string[],
     plans: [] as string[],
     apps: [] as string[],
-
     rule_date_field: "vencimento",
     rule_days_diff: -3,
-
     is_automatic: true,
   });
 
-  // ✅ EFEITO PARA PREENCHER DADOS NA EDIÇÃO
   useEffect(() => {
     if (editingRule) {
       setForm({
         name: editingRule.name,
         type: editingRule.type,
-        // Tenta pegar o ID direto ou do objeto aninhado se vier do join
         message_template_id:
           editingRule.message_template_id ||
           editingRule.message_template?.id ||
@@ -2005,7 +2064,6 @@ function AutomationWizard({
           (editingRule.rule_date_field === "cadastro"
             ? "created_at"
             : editingRule.rule_date_field) || "vencimento",
-
         rule_days_diff: editingRule.rule_days_diff,
       });
     }
@@ -2023,7 +2081,6 @@ function AutomationWizard({
       const tid = await getCurrentTenantId();
       if (!tid) throw new Error("Sessão inválida.");
 
-      // ✅ BLINDAGEM: garante membership antes de salvar regra
       {
         const { data: u } = await supabaseBrowser.auth.getUser();
         const userId = u?.user?.id;
@@ -2043,28 +2100,19 @@ function AutomationWizard({
         tenant_id: tid,
         name: form.name,
         type: form.type,
-        // ✅ Força a desativar se não tiver mensagem vinculada
         is_active: form.message_template_id ? form.is_active : false,
         is_automatic: form.is_automatic,
-
         message_template_id: form.message_template_id,
         whatsapp_session: form.whatsapp_session,
-        // ✅ Piso de segurança usado só pelo "Enfileirar Agora" manual e
-        // pelo espaçamento entre jobs que caem no mesmo tick do cron — o
-        // horário/intervalo da campanha automática agora é definido em
-        // billing_campaign_settings (card "Início do disparo").
         delay_min: 20,
-
         target_status: form.status,
         target_servers: form.servers,
         target_plans: form.plans,
         target_apps: form.apps,
-
         rule_date_field:
           form.rule_date_field === "cadastro"
             ? "created_at"
             : form.rule_date_field,
-
         rule_days_diff: form.rule_days_diff,
       };
 
@@ -2084,8 +2132,6 @@ function AutomationWizard({
       }
 
       if (error) throw error;
-
-      if (error) throw error;
       onSuccess();
     } catch (e: any) {
       onError(e.message || "Erro ao salvar no banco.");
@@ -2098,18 +2144,17 @@ function AutomationWizard({
 
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
-      <div className="w-full h-full sm:h-auto sm:max-w-2xl bg-card border-0 sm:border border-border sm:rounded-2xl shadow-2xl flex flex-col max-h-full sm:max-h-[90vh]">
-        <div className="px-6 py-5 border-b border-border bg-transparent">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-medium text-foreground">
-              {editingRule
-                ? `Editar: ${editingRule.name}`
-                : step === 1
-                  ? "1. Configuração Básica"
-                  : step === 2
-                    ? "2. Quem vai receber?"
-                    : "3. Quando enviar?"}
-            </h2>
+      <div className="w-full h-full sm:h-auto sm:max-w-4xl bg-card border-0 sm:border border-border sm:rounded-3xl shadow-2xl flex flex-col max-h-full sm:max-h-[90vh] overflow-hidden">
+        <div className="px-6 py-5 border-b border-border bg-card/95 backdrop-blur">
+          <div className="flex justify-between items-start gap-4 mb-5">
+            <div>
+              <h2 className="text-xl font-semibold text-foreground">
+                {editingRule ? `Editar: ${editingRule.name}` : "Nova automação de cobrança"}
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Configure a regra em 3 etapas, com foco no que dispara, para quem e em qual modo.
+              </p>
+            </div>
             <button
               onClick={onClose}
               className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors flex items-center justify-center"
@@ -2117,86 +2162,114 @@ function AutomationWizard({
               <X className="w-4 h-4" />
             </button>
           </div>
-<div className="h-1.5 w-full bg-muted rounded-full overflow-hidden flex">
-            <div
-              className={`h-full bg-emerald-500 transition-all duration-300 ${step === 1 ? "w-1/3" : step === 2 ? "w-2/3" : "w-full"}`}
-            />
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+            {steps.map((item) => {
+              const Icon = item.icon;
+              const active = item.id === step;
+              const done = item.id < step;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setStep(item.id)}
+                  className={`rounded-2xl border px-4 py-3 text-left transition-all ${active ? "border-emerald-500/30 bg-emerald-500/10 shadow-sm" : done ? "border-border bg-muted/40" : "border-border bg-background"}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={`inline-flex h-8 w-8 items-center justify-center rounded-xl border ${active ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-600" : "border-border bg-background text-muted-foreground"}`}>
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Etapa {item.id}</div>
+                      <div className="text-sm font-semibold text-foreground">{item.title}</div>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">{item.caption}</p>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6 custom-scrollbar bg-muted/10">
           {step === 1 && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2 md:col-span-1">
-                                                      <Label>Tipo</Label>
-                  <Select
-                    value={form.type}
-                    onChange={(e) => setForm({ ...form, type: e.target.value })}
-                  >
-                                                           {" "}
-                    {TYPES.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                                                       {" "}
-                  </Select>
-                                                 {" "}
+            <div className="space-y-4">
+              <div className="rounded-3xl border border-border bg-card p-4 sm:p-5 space-y-4 shadow-sm">
+                <div>
+                  <h3 className="text-base font-semibold text-foreground">Definição principal</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">Escolha o tipo da régua e qual template/sessão será usada no envio.</p>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2 md:col-span-1">
-                  <Label>Mensagem</Label>
-                  <Select
-                    value={form.message_template_id}
-                    onChange={(e) =>
-                      setForm({ ...form, message_template_id: e.target.value })
-                    }
-                  >
-                    <option value="">Selecione...</option>
-                    {auxData.templates
-                      .filter((t: any) => {
-                        // ✅ Removemos restrições. Oculta apenas as de Teste.
-                        if (String(t.label).toLowerCase().startsWith("teste"))
-                          return false;
-                        return true;
-                      })
-                      .map((t: any) => (
-                        <option key={t.id} value={t.id}>
-                          {t.label}
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <div>
+                    <Label>Tipo</Label>
+                    <Select
+                      value={form.type}
+                      onChange={(e) => setForm({ ...form, type: e.target.value })}
+                    >
+                      {TYPES.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
                         </option>
                       ))}
-                  </Select>
+                    </Select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label>Nome da automação</Label>
+                    <Input
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      placeholder="Ex.: Vencido há 3 dias"
+                    />
+                  </div>
                 </div>
-                <div className="col-span-2 md:col-span-1">
-                  <Label>Sessão WhatsApp</Label>
-                  <Select
-                    value={form.whatsapp_session}
-                    onChange={(e) =>
-                      setForm({ ...form, whatsapp_session: e.target.value })
-                    }
-                  >
-                    {(auxData.sessions?.length
-                      ? auxData.sessions
-                      : [{ id: "default", label: "Principal" }]
-                    ).map((s: any) => (
-                      <option key={s.id} value={s.id}>
-                        {s.label}
-                      </option>
-                    ))}
-                  </Select>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div>
+                    <Label>Mensagem</Label>
+                    <Select
+                      value={form.message_template_id}
+                      onChange={(e) =>
+                        setForm({ ...form, message_template_id: e.target.value })
+                      }
+                    >
+                      <option value="">Selecione...</option>
+                      {auxData.templates
+                        .filter((t: any) => {
+                          if (String(t.label).toLowerCase().startsWith("teste")) return false;
+                          return true;
+                        })
+                        .map((t: any) => (
+                          <option key={t.id} value={t.id}>
+                            {t.label}
+                          </option>
+                        ))}
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Sessão WhatsApp</Label>
+                    <Select
+                      value={form.whatsapp_session}
+                      onChange={(e) =>
+                        setForm({ ...form, whatsapp_session: e.target.value })
+                      }
+                    >
+                      {(auxData.sessions?.length
+                        ? auxData.sessions
+                        : [{ id: "default", label: "Principal" }]
+                      ).map((s: any) => (
+                        <option key={s.id} value={s.id}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
                 </div>
               </div>
 
-              <div className="pt-2 border-t border-border">
+              <div className="rounded-3xl border border-border bg-card p-4 sm:p-5 shadow-sm">
                 <Label>Regra de Disparo</Label>
-                <div className="flex flex-wrap items-center gap-3 mt-2 bg-transparent p-3 rounded-xl border border-border">
-                  <span className="text-sm font-medium text-foreground/80">
-                    Enviar
-                  </span>
-                  <div className="flex items-center shadow-sm rounded-lg overflow-hidden">
+                <div className="mt-2 flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-muted/20 p-3">
+                  <span className="text-sm font-medium text-foreground/80">Enviar</span>
+                  <div className="flex items-center overflow-hidden rounded-lg shadow-sm">
                     <button
                       onClick={() =>
                         setForm({
@@ -2229,7 +2302,7 @@ function AutomationWizard({
                   {form.rule_days_diff !== 0 && (
                     <input
                       type="number"
-                      className="w-16 h-8 text-center rounded-lg border border-border bg-transparent text-sm font-medium focus:border-emerald-500/50 outline-none transition-colors"
+                      className="h-9 w-16 rounded-lg border border-border bg-transparent text-center text-sm font-medium outline-none transition-colors focus:border-emerald-500/50"
                       value={Math.abs(form.rule_days_diff)}
                       onChange={(e) =>
                         setForm({
@@ -2245,7 +2318,7 @@ function AutomationWizard({
                     {form.rule_days_diff !== 0 ? "dias do" : "do"}
                   </span>
                   <select
-                    className="h-8 px-2 rounded-lg border border-border bg-transparent text-sm font-medium focus:border-emerald-500/50 outline-none transition-colors"
+                    className="h-9 rounded-lg border border-border bg-transparent px-2 text-sm font-medium outline-none transition-colors focus:border-emerald-500/50"
                     value={form.rule_date_field}
                     onChange={(e) =>
                       setForm({ ...form, rule_date_field: e.target.value })
@@ -2255,77 +2328,92 @@ function AutomationWizard({
                     <option value="created_at">Cadastro</option>
                   </select>
                 </div>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Exemplo: "3 dias após vencimento" ou "no dia do cadastro".
+                </p>
               </div>
             </div>
           )}
 
           {step === 2 && (
-            <div className="space-y-6">
-                                         {" "}
-              <p className="text-sm text-foreground/70 mb-4">
-                Selecione quem receberá esta mensagem. Deixe vazio para "Todos".
-              </p>
-                                         {" "}
-              <MultiSelectDropdown
-                label="Status do Cliente"
-                options={CLIENT_STATUS}
-                selected={form.status}
-                onChange={(v: any) => setForm({ ...form, status: v })}
-              />
-                                         {" "}
-              <MultiSelectDropdown
-                label="Servidores"
-                options={auxData.servers}
-                selected={form.servers}
-                onChange={(v: any) => setForm({ ...form, servers: v })}
-              />
-                                         {" "}
-              <MultiSelectDropdown
-                label="Planos"
-                options={auxData.plans}
-                selected={form.plans}
-                onChange={(v: any) => setForm({ ...form, plans: v })}
-              />
-                                         {" "}
-              <MultiSelectDropdown
-                label="Aplicativos"
-                options={auxData.apps}
-                selected={form.apps}
-                onChange={(v: any) => setForm({ ...form, apps: v })}
-              />
-                                     {" "}
+            <div className="rounded-3xl border border-border bg-card p-4 sm:p-5 shadow-sm space-y-5">
+              <div>
+                <h3 className="text-base font-semibold text-foreground">Quem recebe?</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Deixe sem filtro quando a regra precisar atingir toda a base daquele tipo.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                <MultiSelectDropdown
+                  label="Status do Cliente"
+                  options={CLIENT_STATUS}
+                  selected={form.status}
+                  onChange={(v: any) => setForm({ ...form, status: v })}
+                />
+                <MultiSelectDropdown
+                  label="Servidores"
+                  options={auxData.servers}
+                  selected={form.servers}
+                  onChange={(v: any) => setForm({ ...form, servers: v })}
+                />
+                <MultiSelectDropdown
+                  label="Planos"
+                  options={auxData.plans}
+                  selected={form.plans}
+                  onChange={(v: any) => setForm({ ...form, plans: v })}
+                />
+                <MultiSelectDropdown
+                  label="Aplicativos"
+                  options={auxData.apps}
+                  selected={form.apps}
+                  onChange={(v: any) => setForm({ ...form, apps: v })}
+                />
+              </div>
             </div>
           )}
 
           {step === 3 && (
-            <div className="space-y-8 py-4">
-              <div className="flex flex-col items-center gap-4">
-                <span className="text-sm font-medium text-muted-foreground/70 uppercase tracking-widest">
-                  Modo de Operação
-                </span>
-                <div className="flex items-center gap-4 bg-transparent border border-border p-1 rounded-xl">
-                  <button
-                    onClick={() => setForm({ ...form, is_automatic: false })}
-                    className={`px-6 py-3 rounded-lg text-sm font-medium transition-all ${!form.is_automatic ? "bg-muted shadow-md text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                  >
-                    Manual
-                  </button>
-                  <button
-                    onClick={() => setForm({ ...form, is_automatic: true })}
-                    className={`px-6 py-3 rounded-lg text-sm font-medium transition-all ${form.is_automatic ? "bg-muted shadow-md text-emerald-500" : "text-muted-foreground hover:text-foreground"}`}
-                  >
-                    Automático
-                  </button>
+            <div className="space-y-5 py-1">
+              <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+                <div className="flex flex-col items-center gap-4">
+                  <span className="text-sm font-medium uppercase tracking-widest text-muted-foreground/70">
+                    Modo de Operação
+                  </span>
+                  <div className="inline-flex items-center gap-2 rounded-2xl border border-border bg-muted/30 p-1">
+                    <button
+                      onClick={() => setForm({ ...form, is_automatic: false })}
+                      className={`rounded-xl px-6 py-3 text-sm font-medium transition-all ${!form.is_automatic ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      Manual
+                    </button>
+                    <button
+                      onClick={() => setForm({ ...form, is_automatic: true })}
+                      className={`rounded-xl px-6 py-3 text-sm font-medium transition-all ${form.is_automatic ? "bg-card shadow-sm text-emerald-600" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      Automático
+                    </button>
+                  </div>
                 </div>
               </div>
+
               {form.is_automatic && (
-                <div className="bg-transparent p-6 rounded-2xl border border-border space-y-3 animate-in fade-in slide-in-from-bottom-4 text-center">
-                  <span className="text-3xl">⏱️</span>
-                  <p className="text-sm text-foreground/80 max-w-sm mx-auto">
-                    O horário de disparo agora é compartilhado entre todas as
-                    regras automáticas — configure o início e o intervalo
-                    entre mensagens no card{" "}
-                    <strong>"Início do disparo"</strong>, no topo desta tela.
+                <div className="rounded-3xl border border-border bg-card p-6 text-center shadow-sm animate-in fade-in slide-in-from-bottom-4">
+                  <div className="mx-auto mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-600">
+                    <Clock3 className="h-5 w-5" />
+                  </div>
+                  <p className="mx-auto max-w-md text-sm leading-relaxed text-foreground/80">
+                    O horário de disparo é compartilhado entre as regras automáticas. Ajuste início e intervalo no card do topo desta tela.
+                  </p>
+                </div>
+              )}
+
+              {!form.is_automatic && (
+                <div className="rounded-3xl border border-border bg-card p-6 text-center shadow-sm">
+                  <div className="mx-auto mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-sky-500/20 bg-sky-500/10 text-sky-600">
+                    <Send className="h-5 w-5" />
+                  </div>
+                  <p className="mx-auto max-w-md text-sm leading-relaxed text-foreground/80">
+                    No modo manual, a regra fica pronta para enfileirar envios sob demanda direto do card da automação.
                   </p>
                 </div>
               )}
@@ -2346,7 +2434,7 @@ function AutomationWizard({
                 onClick={() => setStep(2)}
                 className="px-6 py-2.5 bg-emerald-600 text-white hover:bg-emerald-500 font-medium rounded-xl shadow-lg shadow-emerald-900/20 transition-all text-xs uppercase"
               >
-                Próximo: Filtros →
+                Próximo: Público →
               </button>
             </>
           )}
@@ -2362,7 +2450,7 @@ function AutomationWizard({
                 onClick={() => setStep(3)}
                 className="px-6 py-2.5 bg-emerald-600 text-white hover:bg-emerald-500 font-medium rounded-xl shadow-lg shadow-emerald-900/20 transition-all text-xs uppercase"
               >
-                Próximo: Automação →
+                Próximo: Modo →
               </button>
             </>
           )}
@@ -2379,7 +2467,7 @@ function AutomationWizard({
                 disabled={saving}
                 className="px-8 py-2.5 bg-emerald-600 text-white font-medium rounded-xl shadow-lg shadow-emerald-900/20 hover:bg-emerald-500 transition-all text-xs uppercase disabled:opacity-50"
               >
-                {saving ? "Salvando..." : "Confirmar e Criar"}
+                {saving ? "Salvando..." : editingRule ? "Salvar alterações" : "Confirmar e Criar"}
               </button>
             </>
           )}
@@ -2463,7 +2551,7 @@ function MultiSelectDropdown({ label, options, selected, onChange }: any) {
       <Label>{label}</Label>
       <button
         onClick={() => setOpen(!open)}
-        className={`w-full h-10 px-3 text-left rounded-lg border text-sm flex justify-between items-center transition-all ${open ? "border-emerald-500 ring-1 ring-emerald-500/20" : "border-border bg-card text-foreground/90"}`}
+        className={`w-full h-11 px-3 text-left rounded-xl border text-sm flex justify-between items-center transition-all ${open ? "border-emerald-500 ring-1 ring-emerald-500/20 bg-card" : "border-border bg-card text-foreground/90"}`}
       >
         <span
           className={
@@ -2476,7 +2564,7 @@ function MultiSelectDropdown({ label, options, selected, onChange }: any) {
       </button>
 
       {open && (
-        <div className="absolute z-50 bottom-full mb-1 w-full bg-card border border-border rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 flex flex-col">
+        <div className="absolute z-50 bottom-full mb-2 w-full bg-card border border-border rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 flex flex-col">
           <div className="max-h-48 overflow-y-auto custom-scrollbar p-1">
             {options.map((opt: any) => (
               <div
