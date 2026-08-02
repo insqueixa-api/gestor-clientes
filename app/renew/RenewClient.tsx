@@ -2431,6 +2431,21 @@ export default function RenewClient() {
                             <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">
                               Validade
                             </p>
+                            <div
+                              ref={setCardExpiryMountEl}
+                              className="w-full px-4 py-3 bg-muted/50 border-2 border-border rounded-xl focus-within:border-indigo-500 transition-colors min-h-[46px]"
+                            />
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">
+                              CVC
+                            </p>
+                            <div
+                              ref={setCardCvcMountEl}
+                              className="w-full px-4 py-3 bg-muted/50 border-2 border-border rounded-xl focus-within:border-indigo-500 transition-colors min-h-[46px]"
+                            />
+                          </div>
+                        </div>
                         <button
                           onClick={handleStripeConfirm}
                           disabled={stripeLoading || !stripeReady}
