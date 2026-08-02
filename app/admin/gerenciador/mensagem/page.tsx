@@ -345,9 +345,9 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-background transition-colors">
+    <div className="space-y-4 pt-0 pb-4 px-0 sm:px-6 min-h-screen bg-background transition-colors">
       {/* Topo (padrão admin) */}
-      <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
+      <div className="flex items-center justify-between gap-2 mb-1.5 px-3 sm:px-0">
         <div className="min-w-0 text-left">
           <div className="flex items-center gap-3">
             <h1 className="text-xl sm:text-2xl font-medium text-foreground tracking-tight truncate">
@@ -362,9 +362,9 @@ export default function MessagesPage() {
               setSelectedTemplate(null);
               setShowEditor(true);
             }}
-            className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 font-medium text-xs md:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2 whitespace-nowrap"
+            className="h-8 md:h-9 px-3 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 font-medium text-xs shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-1.5 whitespace-nowrap"
           >
-            <span className="text-base md:text-lg leading-none mb-0.5">+</span>{" "}
+            <span className="text-sm md:text-base leading-none mb-0.5">+</span>{" "}
             Nova Mensagem
           </button>
         </div>
@@ -372,7 +372,7 @@ export default function MessagesPage() {
 
       {/* Barra de Busca (padrão admin) */}
       <div
-        className="p-0 px-3 sm:px-0 md:p-4 bg-transparent md:bg-card border-0 md:border md:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-4 md:mb-6 md:sticky md:top-4 z-20"
+        className="p-0 px-3 sm:px-0 md:p-3 bg-transparent md:bg-card border-0 md:border md:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-2 md:space-y-3 mb-3 md:mb-4 md:sticky md:top-3 z-20"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground tracking-wider">
@@ -386,7 +386,7 @@ export default function MessagesPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar modelo (nome ou conteúdo)..."
-              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors"
+              className="w-full h-9 px-2.5 bg-transparent border border-border rounded-lg text-xs text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors"
             />
             {search && (
               <button
@@ -402,7 +402,7 @@ export default function MessagesPage() {
 
           <button
             onClick={() => setMobileFiltersOpen((v) => !v)}
-            className={`h-10 px-3 rounded-lg border font-medium text-sm transition-colors ${
+            className={`h-9 px-2.5 rounded-lg border font-medium text-xs transition-colors ${
               hasActiveFilters
                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
                 : "border-border bg-muted text-muted-foreground hover:bg-muted/80"
@@ -420,7 +420,7 @@ export default function MessagesPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar modelo (nome ou conteúdo)..."
-              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors"
+              className="w-full h-9 px-2.5 bg-transparent border border-border rounded-lg text-xs text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors"
             />
 
             {search && (
@@ -435,11 +435,11 @@ export default function MessagesPage() {
             )}
           </div>
 
-          <div className="w-[190px]">
+          <div className="w-[180px]">
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors"
+              className="w-full h-9 px-2.5 bg-transparent border border-border rounded-lg text-xs text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors"
             >
               <option value="Todos">Categoria (Todas)</option>
               {availableCategories.map((cat) => {
@@ -455,7 +455,7 @@ export default function MessagesPage() {
 
           <button
             onClick={clearFilters}
-            className="h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 text-sm font-medium hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+            className="h-9 px-2.5 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 text-xs font-medium hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-1.5"
           >
             <IconX /> Limpar
           </button>
@@ -463,11 +463,11 @@ export default function MessagesPage() {
 
         {/* Painel de filtros no mobile */}
         {mobileFiltersOpen && (
-          <div className="md:hidden mt-1 p-3 rounded-xl border border-border bg-transparent space-y-2">
+          <div className="md:hidden mt-1 p-2.5 rounded-xl border border-border bg-transparent space-y-2">
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors"
+              className="w-full h-9 px-2.5 bg-transparent border border-border rounded-lg text-xs text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors"
             >
               <option value="Todos">Categoria (Todas)</option>
               {availableCategories.map((cat) => {
@@ -485,7 +485,7 @@ export default function MessagesPage() {
                 clearFilters();
                 setMobileFiltersOpen(false);
               }}
-              className="w-full h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 text-sm font-medium hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+              className="w-full h-9 px-2.5 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 text-xs font-medium hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-1.5"
             >
               <IconX /> Limpar
             </button>
@@ -495,23 +495,23 @@ export default function MessagesPage() {
 
       {/* LISTA DE MENSAGENS (LISTA COM SELEÇÃO + AÇÕES À DIREITA) */}
       {loading ? (
-        <div className="p-12 text-center text-muted-foreground animate-pulse bg-card rounded-none sm:rounded-xl border border-border font-medium">
+        <div className="p-8 text-center text-muted-foreground animate-pulse bg-card rounded-none sm:rounded-xl border border-border font-medium text-sm">
           Carregando modelos...
         </div>
       ) : filteredMessages.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 bg-card border border-dashed border-border rounded-none sm:rounded-2xl">
-          <div className="w-16 h-16 bg-transparent border border-border rounded-full flex items-center justify-center mb-4 text-3xl">
+        <div className="flex flex-col items-center justify-center py-14 bg-card border border-dashed border-border rounded-none sm:rounded-2xl">
+          <div className="w-12 h-12 bg-transparent border border-border rounded-full flex items-center justify-center mb-3 text-2xl">
             <MessageCircle className="w-4 h-4" />
           </div>
-          <h3 className="text-lg font-medium text-foreground/90">
+          <h3 className="text-base font-medium text-foreground/90">
             Nenhum modelo encontrado
           </h3>
-          <p className="text-sm text-foreground/70 mt-1">
+          <p className="text-xs text-foreground/70 mt-1">
             Crie um novo modelo ou ajuste sua busca.
           </p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {(() => {
             // Função auxiliadora para renderizar os blocos separados
             const renderGroup = (
@@ -522,13 +522,13 @@ export default function MessagesPage() {
               if (items.length === 0) return null;
               return (
                 <div className="bg-card border-y sm:border border-border rounded-none sm:rounded-xl shadow-sm overflow-hidden">
-                  <div className="px-3 sm:px-5 py-3 border-b border-border flex items-center justify-between bg-transparent">
+                  <div className="px-3 sm:px-4 py-2.5 border-b border-border flex items-center justify-between bg-transparent">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-lg">{icon}</span>
+                      <span className="text-base">{icon}</span>
                       <h2 className="text-sm font-medium text-foreground/90 truncate">
                         {title}
                       </h2>
-<span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 text-xs font-medium">
+<span className="ml-1.5 px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 text-[11px] font-medium">
                         {items.length}
                       </span>
                     </div>
@@ -553,7 +553,7 @@ export default function MessagesPage() {
                             if (e.key === "Enter") setSelectedTemplate(msg);
                           }}
                           className={[
-                            "w-full flex items-center justify-between gap-2 px-3 sm:px-5 py-3 transition-colors cursor-pointer bg-card",
+                            "w-full flex items-center justify-between gap-2 px-3 sm:px-4 py-2.5 transition-colors cursor-pointer bg-card",
                             isSelected
                               ? "bg-emerald-500/10"
                               : "hover:bg-muted/30",
@@ -570,27 +570,27 @@ export default function MessagesPage() {
                                 ].join(" ")}
                               />
                               <h3
-                                className="font-medium text-foreground text-sm sm:text-base truncate"
+                                className="font-medium text-foreground text-sm truncate"
                                 title={msg.name}
                               >
                                 {msg.name}
                               </h3>
                             </div>
-                            <div className="mt-1 text-[10px] sm:text-xs text-muted-foreground ml-4">
+                            <div className="mt-0.5 text-[10px] text-muted-foreground ml-4">
                               Atualizado:{" "}
                               {new Date(msg.updated_at).toLocaleDateString(
                                 "pt-BR",
                               )}
                             </div>
                           </div>
-                          <div className="flex items-center justify-end gap-1.5 shrink-0">
+                          <div className="flex items-center justify-end gap-1 shrink-0">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setSelectedTemplate(msg);
                                 setShowPreview(true);
                               }}
-                              className="flex items-center justify-center w-8 h-8 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-500 hover:bg-sky-500/20 transition-all"
+                              className="flex items-center justify-center w-7 h-7 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-500 hover:bg-sky-500/20 transition-all"
                               title="Ver"
                             >
                               <IconEye />
@@ -601,7 +601,7 @@ export default function MessagesPage() {
                                 setSelectedTemplate(msg);
                                 setShowEditor(true);
                               }}
-                              className="flex items-center justify-center w-8 h-8 rounded-lg border border-amber-500/20 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 transition-all"
+                              className="flex items-center justify-center w-7 h-7 rounded-lg border border-amber-500/20 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 transition-all"
                               title="Editar"
                             >
                               <IconEdit />
@@ -612,7 +612,7 @@ export default function MessagesPage() {
                                   e.stopPropagation();
                                   handleDelete(msg.id);
                                 }}
-                                className="flex items-center justify-center w-8 h-8 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 transition-all"
+                                className="flex items-center justify-center w-7 h-7 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 transition-all"
                                 title="Excluir"
                               >
                                 <IconTrash />
@@ -650,7 +650,7 @@ export default function MessagesPage() {
       )}
 
       {/* Espaço fixo pós-lista */}
-      <div className="h-24 md:h-20" />
+      <div className="h-14 md:h-12" />
 
       {/* MODAL EDITOR (CRIAR/EDITAR) */}
       {showEditor && (
@@ -703,24 +703,24 @@ function PreviewModal({
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
-      <div className="w-full h-full sm:h-auto sm:max-w-xl bg-card border-0 sm:border border-border rounded-none sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[100dvh] sm:max-h-[80vh]">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-3 animate-in fade-in duration-200">
+      <div className="w-full h-full sm:h-auto sm:max-w-lg bg-card border-0 sm:border border-border rounded-none sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[100dvh] sm:max-h-[78vh]">
         {/* Cabeçalho */}
-        <div className="px-4 py-3 sm:px-5 sm:py-4 border-b border-border flex justify-between items-center bg-transparent shrink-0">
-          <h3 className="font-medium text-foreground truncate pr-4 text-base sm:text-lg">
+        <div className="px-3 py-2.5 sm:px-4 sm:py-3 border-b border-border flex justify-between items-center bg-transparent shrink-0">
+          <h3 className="font-medium text-foreground truncate pr-3 text-sm sm:text-base">
             {template.name}
           </h3>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           >
             ✕
           </button>
         </div>
 
 {/* Conteúdo da Mensagem */}
-        <div className="flex-1 p-4 sm:p-6 overflow-y-auto custom-scrollbar bg-muted/20 border border-border">
-          <div className="flex flex-col gap-4 whitespace-pre-wrap text-sm text-muted-foreground font-mono leading-relaxed bg-card p-3 sm:p-4 rounded-xl border border-border shadow-sm min-h-full">
+        <div className="flex-1 p-3 sm:p-4 overflow-y-auto custom-scrollbar bg-muted/20 border border-border">
+          <div className="flex flex-col gap-3 whitespace-pre-wrap text-xs text-muted-foreground font-mono leading-relaxed bg-card p-2.5 sm:p-3 rounded-xl border border-border shadow-sm min-h-full">
             {/* ✅ PREVIEW DA IMAGEM SE HOUVER */}
             {template.image_url && (
               <div className="relative w-full max-w-sm mx-auto bg-transparent border border-border rounded-lg overflow-hidden">
@@ -737,7 +737,7 @@ function PreviewModal({
         </div>
 
         {/* Rodapé e Botões (AGORA COM O BOTÃO DE COPIAR) */}
-        <div className="px-4 py-3 sm:px-5 sm:py-4 border-t border-border flex justify-end gap-2 bg-card shrink-0">
+        <div className="px-3 py-2.5 sm:px-4 sm:py-3 border-t border-border flex justify-end gap-1.5 bg-card shrink-0">
           {/* ✅ NOVO: BOTÃO DE COPIAR */}
           <button
             onClick={() => {
@@ -745,7 +745,7 @@ function PreviewModal({
               setCopied(true);
               setTimeout(() => setCopied(false), 2000); // Volta ao normal após 2 segundos
             }}
-className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-lg border font-medium text-xs transition-colors uppercase flex items-center justify-center gap-1.5 ${
+className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg border font-medium text-[11px] transition-colors uppercase flex items-center justify-center gap-1.5 ${
               copied
                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
                 : "border-border text-foreground/90 hover:bg-muted"
@@ -789,14 +789,14 @@ className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-lg border font-mediu
 
           <button
             onClick={onClose}
-            className="flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-lg border border-border text-muted-foreground font-medium text-xs hover:bg-muted transition-colors uppercase"
+            className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg border border-border text-muted-foreground font-medium text-[11px] hover:bg-muted transition-colors uppercase"
           >
             Fechar
           </button>
 
           <button
             onClick={onEdit}
-            className="flex-1 sm:flex-none px-6 py-2.5 sm:py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-medium text-xs shadow-lg shadow-amber-900/20 transition-transform active:scale-95 uppercase flex items-center justify-center gap-2"
+            className="flex-1 sm:flex-none px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-medium text-[11px] shadow-lg shadow-amber-900/20 transition-transform active:scale-95 uppercase flex items-center justify-center gap-1.5"
           >
             ✏️ Editar Modelo
           </button>
@@ -1148,25 +1148,25 @@ function EditorModal({
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-stretch sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[99999] flex items-stretch sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-3 animate-in fade-in duration-200">
       <div
-        className="w-full h-full sm:h-auto max-w-6xl bg-card border-0 sm:border border-border rounded-none sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[100dvh] sm:max-h-[90vh]"
+        className="w-full h-full sm:h-auto max-w-5xl bg-card border-0 sm:border border-border rounded-none sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[100dvh] sm:max-h-[86vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-border flex justify-between items-center bg-transparent">
+        <div className="px-3 py-2.5 sm:px-4 sm:py-3 border-b border-border flex justify-between items-center bg-transparent">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-xl">
+            <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-lg">
               <Pencil className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-lg font-medium text-foreground">
+              <h2 className="text-base font-medium text-foreground">
                 {templateToEdit ? "Editar Mensagem" : "Criar Nova Mensagem"}
               </h2>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           >
             ✕
           </button>
@@ -1175,11 +1175,11 @@ function EditorModal({
         <div className="flex-1 overflow-hidden flex flex-col lg:flex-row">
           {/* MOBILE: Variáveis como filtro acima do conteúdo */}
           <div className="lg:hidden border-b border-border bg-card">
-            <div className="p-3">
+            <div className="p-2.5">
               <button
                 type="button"
                 onClick={() => setMobileTagsOpen((v) => !v)}
-                className="w-full h-11 px-4 rounded-xl border border-border bg-transparent text-foreground/90 font-medium text-xs flex items-center justify-between"
+                className="w-full h-9 px-3 rounded-lg border border-border bg-transparent text-foreground/90 font-medium text-xs flex items-center justify-between"
               >
 <span className="flex items-center gap-2">
                   🏷️ Variáveis
@@ -1193,8 +1193,8 @@ function EditorModal({
               </button>
 
               {mobileTagsOpen && (
-                <div className="mt-3 rounded-xl border border-border bg-card overflow-hidden">
-                  <div className="p-3 border-b border-border bg-transparent">
+                <div className="mt-2 rounded-xl border border-border bg-card overflow-hidden">
+                  <div className="p-2.5 border-b border-border bg-transparent">
                     <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-widest flex items-center gap-2">
                       🏷️ Variáveis Disponíveis
                     </h3>
@@ -1206,11 +1206,11 @@ function EditorModal({
                       value={mobileTagsQuery}
                       onChange={(e) => setMobileTagsQuery(e.target.value)}
                       placeholder="Filtrar (ex: vencimento, pix, primeiro_nome...)"
-                      className="mt-3 w-full h-10 px-3 rounded-lg border border-border bg-card text-sm text-foreground/90 outline-none focus:border-emerald-500 transition-colors"
+                      className="mt-2 w-full h-9 px-2.5 rounded-lg border border-border bg-card text-xs text-foreground/90 outline-none focus:border-emerald-500 transition-colors"
                     />
                   </div>
 
-                  <div className="max-h-[38vh] overflow-y-auto p-3 space-y-2 custom-scrollbar bg-transparent">
+                  <div className="max-h-[32vh] overflow-y-auto p-2.5 space-y-1.5 custom-scrollbar bg-transparent">
                     {filteredMobileTags.length === 0 ? (
                       <div className="text-xs text-muted-foreground py-6 text-center">
                         Nenhuma variável encontrada.
@@ -1223,7 +1223,7 @@ function EditorModal({
                             insertTag(tag.label);
                             setMobileTagsOpen(false);
                           }}
-                          className={`text-left px-3 py-2.5 rounded-lg border border-border hover:brightness-95 hover:shadow-sm active:scale-95 transition-all flex flex-col group ${tag.color} bg-card`}
+                          className={`text-left px-2.5 py-2 rounded-lg border border-border hover:brightness-95 hover:shadow-sm active:scale-95 transition-all flex flex-col group ${tag.color} bg-card`}
                         >
                           <div className="flex items-center justify-between gap-3">
                             <span className="text-xs font-medium tracking-tight">
@@ -1246,9 +1246,9 @@ function EditorModal({
           </div>
 
           {/* Editor */}
-          <div className="flex-1 p-3 sm:p-6 flex flex-col gap-5 overflow-y-auto custom-scrollbar lg:border-r border-border">
+          <div className="flex-1 p-2.5 sm:p-4 flex flex-col gap-3.5 overflow-y-auto custom-scrollbar lg:border-r border-border">
             <div>
-              <label className="block text-xs font-medium text-muted-foreground uppercase mb-1.5 tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground uppercase mb-1 tracking-wider">
                 Nome do Modelo (Identificação interna)
               </label>
               <input
@@ -1256,7 +1256,7 @@ function EditorModal({
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ex: Cobrança 3 dias antes..."
                 readOnly={isProtected} // 🔒 Trava a edição do nome
-className={`w-full h-12 px-4 border rounded-xl text-foreground outline-none focus:border-emerald-500 transition-colors font-medium ${
+className={`w-full h-9 px-3 border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500 transition-colors font-medium ${
                   isProtected
                     ? "bg-transparent border-border border-dashed text-muted-foreground cursor-not-allowed"
                     : "bg-transparent border-border"
@@ -1273,13 +1273,13 @@ className={`w-full h-12 px-4 border rounded-xl text-foreground outline-none focu
 
             {/* ✅ NOVO: Seletor de Categoria */}
             <div>
-              <label className="block text-xs font-medium text-muted-foreground uppercase mb-1.5 tracking-wider">
+              <label className="block text-[10px] font-medium text-muted-foreground uppercase mb-1 tracking-wider">
                 Categoria da Mensagem
               </label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full h-12 px-4 border rounded-xl text-foreground outline-none focus:border-emerald-500 transition-colors font-medium bg-transparent border-border"
+                className="w-full h-9 px-3 border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500 transition-colors font-medium bg-transparent border-border"
               >
                 {MESSAGE_CATEGORIES.map((cat) => (
                   <option key={cat} value={cat}>
@@ -1353,14 +1353,14 @@ className={`w-full h-12 px-4 border rounded-xl text-foreground outline-none focu
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   placeholder="Olá {primeiro_nome}, sua fatura..."
-                  className="w-full h-full min-h-[220px] sm:min-h-[300px] p-4 sm:p-5 bg-transparent border border-border rounded-xl text-foreground/90 outline-none focus:border-emerald-500 transition-colors resize-none leading-relaxed text-sm font-mono shadow-inner"
+                  className="w-full h-full min-h-[180px] sm:min-h-[240px] p-3 sm:p-4 bg-transparent border border-border rounded-lg text-foreground/90 outline-none focus:border-emerald-500 transition-colors resize-none leading-relaxed text-xs font-mono shadow-inner"
                 />
               </div>
             </div>
 
             {/* ✅ Variações da mensagem — sorteadas aleatoriamente junto com o texto acima nos envios automáticos */}
             {templateToEdit?.id ? (
-              <div className="border-t border-border pt-5">
+              <div className="border-t border-border pt-3.5">
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     Variações desta mensagem
@@ -1370,7 +1370,7 @@ className={`w-full h-12 px-4 border rounded-xl text-foreground outline-none focu
                     {variants.length === 1 ? "" : "ões"}
                   </span>
                 </div>
-                <p className="text-[10px] text-muted-foreground mb-3 leading-relaxed">
+                <p className="text-[10px] text-muted-foreground mb-2.5 leading-relaxed">
                   No envio automático, o sistema sorteia aleatoriamente entre
                   o texto acima e as variações abaixo — reduz o padrão
                   repetitivo que o WhatsApp pode identificar como disparo em
@@ -1382,11 +1382,11 @@ className={`w-full h-12 px-4 border rounded-xl text-foreground outline-none focu
                     Carregando variações...
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {variants.map((v, idx) => (
                       <div
                         key={v.id}
-                        className="rounded-xl border border-border p-3 bg-transparent"
+                        className="rounded-lg border border-border p-2.5 bg-transparent"
                       >
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
@@ -1410,7 +1410,7 @@ className={`w-full h-12 px-4 border rounded-xl text-foreground outline-none focu
                               ),
                             );
                           }}
-                          className="w-full min-h-[120px] p-3 bg-transparent border border-border rounded-lg text-foreground/90 outline-none focus:border-emerald-500 transition-colors resize-none text-xs font-mono"
+                          className="w-full min-h-[96px] p-2.5 bg-transparent border border-border rounded-lg text-foreground/90 outline-none focus:border-emerald-500 transition-colors resize-none text-xs font-mono"
                         />
                         <div className="flex justify-end mt-2">
                           <button
@@ -1418,7 +1418,7 @@ className={`w-full h-12 px-4 border rounded-xl text-foreground outline-none focu
                               handleSaveVariant(v.id, v.content)
                             }
                             disabled={savingVariantId === v.id}
-                            className="px-4 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 text-[11px] font-medium disabled:opacity-50 transition-colors"
+                            className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 text-[11px] font-medium disabled:opacity-50 transition-colors"
                           >
                             {savingVariantId === v.id
                               ? "Salvando..."
@@ -1430,11 +1430,11 @@ className={`w-full h-12 px-4 border rounded-xl text-foreground outline-none focu
                   </div>
                 )}
 
-                <div className="mt-3 flex flex-col sm:flex-row gap-2">
+                <div className="mt-2.5 flex flex-col sm:flex-row gap-1.5">
                   <button
                     onClick={handleGenerateVariantWithAI}
                     disabled={generatingVariant}
-                    className="flex-1 h-10 rounded-xl border border-dashed border-violet-500/40 text-violet-500 text-xs font-medium hover:bg-violet-500/10 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+                    className="flex-1 h-9 rounded-lg border border-dashed border-violet-500/40 text-violet-500 text-xs font-medium hover:bg-violet-500/10 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
                     title="A IA reescreve a mensagem principal mantendo as variáveis usadas"
                   >
                     {generatingVariant
@@ -1443,7 +1443,7 @@ className={`w-full h-12 px-4 border rounded-xl text-foreground outline-none focu
                   </button>
                   <button
                     onClick={handleAddVariant}
-                    className="flex-1 h-10 rounded-xl border border-dashed border-emerald-500/40 text-emerald-500 text-xs font-medium hover:bg-emerald-500/10 transition-colors"
+                    className="flex-1 h-9 rounded-lg border border-dashed border-emerald-500/40 text-emerald-500 text-xs font-medium hover:bg-emerald-500/10 transition-colors"
                   >
                     + Adicionar variação em branco
                   </button>
@@ -1458,8 +1458,8 @@ className={`w-full h-12 px-4 border rounded-xl text-foreground outline-none focu
           </div>
 
           {/* DESKTOP: Variáveis na lateral (sem mudar lógica) */}
-          <div className="hidden lg:flex w-96 bg-card flex-col">
-            <div className="p-4 border-b border-border bg-transparent">
+          <div className="hidden lg:flex w-[340px] bg-card flex-col">
+            <div className="p-3 border-b border-border bg-transparent">
               <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-widest flex items-center gap-2">
                 🏷️ Variáveis Disponíveis
               </h3>
@@ -1468,18 +1468,18 @@ className={`w-full h-12 px-4 border rounded-xl text-foreground outline-none focu
               </p>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-transparent">
+            <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar bg-transparent">
               {TAG_GROUPS.map((group, idx) => {
                 const isOpen = openDesktopGroups.includes(idx);
                 return (
                   <div
                     key={idx}
-                    className="bg-card rounded-xl border border-border overflow-hidden transition-all shadow-sm"
+                    className="bg-card rounded-lg border border-border overflow-hidden transition-all shadow-sm"
                   >
                     <button
                       type="button"
                       onClick={() => toggleDesktopGroup(idx)}
-                      className={`w-full flex items-center justify-between p-3 text-left transition-colors ${isOpen ? "bg-transparent border-b border-border" : "hover:bg-muted/30"}`}
+                      className={`w-full flex items-center justify-between p-2.5 text-left transition-colors ${isOpen ? "bg-transparent border-b border-border" : "hover:bg-muted/30"}`}
                     >
                       <h4 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
                         {group.title}
@@ -1490,12 +1490,12 @@ className={`w-full h-12 px-4 border rounded-xl text-foreground outline-none focu
                     </button>
 
                     {isOpen && (
-                      <div className="p-3 grid grid-cols-1 gap-2 bg-transparent">
+                      <div className="p-2.5 grid grid-cols-1 gap-1.5 bg-transparent">
 {group.tags.map((tag) => (
                           <button
                             key={tag.label}
                             onClick={() => insertTag(tag.label)}
-                            className={`text-left px-3 py-2.5 rounded-lg border border-border hover:brightness-95 hover:shadow-sm active:scale-95 transition-all flex flex-col group ${group.color} bg-card`}
+                            className={`text-left px-2.5 py-2 rounded-lg border border-border hover:brightness-95 hover:shadow-sm active:scale-95 transition-all flex flex-col group ${group.color} bg-card`}
                           >
                             <span className="text-xs font-medium tracking-tight">
                               {tag.label}
@@ -1514,22 +1514,22 @@ className={`w-full h-12 px-4 border rounded-xl text-foreground outline-none focu
           </div>
         </div>
 
-        <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-border bg-transparent flex justify-between items-center">
-          <div className="text-xs text-muted-foreground hidden sm:block">
-            💡 Dica: Use <strong>{`{saudacao_tempo}`}</strong> para enviar "Bom
+        <div className="px-3 py-2.5 sm:px-4 sm:py-3 border-t border-border bg-transparent flex justify-between items-center gap-2">
+          <div className="text-[11px] text-muted-foreground hidden sm:block">
+            Dica: Use <strong>{`{saudacao_tempo}`}</strong> para enviar "Bom
             dia" automático.
           </div>
-          <div className="flex gap-3 w-full sm:w-auto justify-end">
+          <div className="flex gap-1.5 w-full sm:w-auto justify-end">
             <button
               onClick={onClose}
-              className="flex-1 sm:flex-none px-6 py-3 rounded-xl border border-border text-muted-foreground font-medium text-xs hover:bg-muted transition-colors uppercase tracking-wider"
+              className="flex-1 sm:flex-none px-4 py-1.5 rounded-lg border border-border text-muted-foreground font-medium text-[11px] hover:bg-muted transition-colors uppercase tracking-wider"
             >
               Cancelar
             </button>
             <button
               onClick={handleSave}
               disabled={loading}
-              className="flex-1 sm:flex-none px-8 py-3 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 font-medium text-xs shadow-lg shadow-emerald-900/20 transition-transform active:scale-95 flex items-center justify-center gap-2 uppercase tracking-wider disabled:opacity-50"
+              className="flex-1 sm:flex-none px-5 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 font-medium text-[11px] shadow-lg shadow-emerald-900/20 transition-transform active:scale-95 flex items-center justify-center gap-1.5 uppercase tracking-wider disabled:opacity-50"
             >
               {loading
                 ? "Salvando..."
