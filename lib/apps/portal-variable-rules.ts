@@ -1,5 +1,6 @@
 export const PORTAL_VARIABLE_OPTIONS: { key: string; label: string }[] = [
   { key: "codigo", label: "Código" },
+  { key: "name", label: "Name" },
   { key: "usuario_app", label: "Usuário" },
   { key: "senha_app", label: "Senha" },
   { key: "dns_servidor", label: "DNS" },

@@ -189,6 +189,18 @@ const [apps, setApps] = useState<AppData[]>([]);
     setFormVariableBadges((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
   }
 
+  function moveVariableBadge(key: string, direction: "left" | "right") {
+    setFormVariableBadges((prev) => {
+      const idx = prev.indexOf(key);
+      if (idx === -1) return prev;
+      const target = direction === "left" ? idx - 1 : idx + 1;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[idx], next[target]] = [next[target], next[idx]];
+      return next;
+    });
+  }
+
   async function handleIconUpload(file: File) {
     if (!file.type.startsWith("image/")) {
       addToast("error", "Arquivo inválido", "Selecione uma imagem.");
@@ -1543,6 +1555,46 @@ setApps(formattedApps);
                       );
                     })}
                   </div>
+
+                  {formVariableBadges.length > 0 && (
+                    <div className="mt-3 rounded-lg border border-border/70 bg-muted/30 p-2.5">
+                      <p className="text-[11px] font-medium text-muted-foreground mb-2">
+                        Ordem de exibição no portal (esquerda para direita)
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {formVariableBadges.map((key, index) => {
+                          const label = PORTAL_VARIABLE_OPTIONS.find((opt) => opt.key === key)?.label || key;
+                          return (
+                            <div
+                              key={key}
+                              className="inline-flex items-center gap-1 rounded-md border border-sky-500/30 bg-sky-500/10 px-2 py-1 text-[11px] font-semibold text-sky-600"
+                            >
+                              <span>{label}</span>
+                              <button
+                                type="button"
+                                onClick={() => moveVariableBadge(key, "left")}
+                                disabled={index === 0}
+                                className="px-1 text-[10px] rounded border border-sky-500/20 disabled:opacity-30"
+                                title="Mover para a esquerda"
+                              >
+                                ←
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveVariableBadge(key, "right")}
+                                disabled={index === formVariableBadges.length - 1}
+                                className="px-1 text-[10px] rounded border border-sky-500/20 disabled:opacity-30"
+                                title="Mover para a direita"
+                              >
+                                →
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {formVariableBadges.includes("codigo") && (
                     <div className="mt-2">
                       <input

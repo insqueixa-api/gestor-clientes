@@ -183,6 +183,7 @@ export async function POST(req: NextRequest) {
       const dnsForPortal = dnsR2 && Math.random() < 0.5 ? dnsR2 : dns;
 
       instructionVars = {
+        name: String(server?.name || "").trim(),
         usuario_app: username,
         senha_app: password,
         dns_servidor: dnsForPortal,
