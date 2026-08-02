@@ -2268,7 +2268,7 @@ function AutomationWizard({
                 <Label>Regra de Disparo</Label>
                 <div className="mt-2 flex flex-wrap items-center gap-2.5 rounded-2xl border border-border bg-muted/20 p-3">
                   <span className="text-sm font-medium text-foreground/80">Enviar</span>
-                  <div className="flex items-center overflow-hidden rounded-lg shadow-sm">
+                  <div className="inline-flex items-center overflow-hidden rounded-lg border border-border bg-card shadow-sm">
                     <button
                       onClick={() =>
                         setForm({
@@ -2276,13 +2276,13 @@ function AutomationWizard({
                           rule_days_diff: -Math.abs(form.rule_days_diff || 1),
                         })
                       }
-                      className={`px-3 py-1.5 border text-xs font-medium transition-colors ${form.rule_days_diff < 0 ? "bg-rose-500/10 text-rose-500 border-rose-500/30" : "bg-muted border-border text-muted-foreground hover:bg-muted/80"}`}
+                      className={`h-8 px-3 text-xs font-medium transition-colors ${form.rule_days_diff < 0 ? "bg-rose-500/10 text-rose-500" : "text-muted-foreground hover:bg-muted/80"}`}
                     >
                       Antes
                     </button>
                     <button
                       onClick={() => setForm({ ...form, rule_days_diff: 0 })}
-                      className={`px-3 py-1.5 border-y text-xs font-medium transition-colors ${form.rule_days_diff === 0 ? "bg-sky-500/10 text-sky-500 border-sky-500/30" : "bg-muted border-transparent text-muted-foreground hover:bg-muted/80"}`}
+                      className={`h-8 px-3 border-x border-border text-xs font-medium transition-colors ${form.rule_days_diff === 0 ? "bg-sky-500/10 text-sky-500" : "text-muted-foreground hover:bg-muted/80"}`}
                     >
                       No Dia
                     </button>
@@ -2293,7 +2293,7 @@ function AutomationWizard({
                           rule_days_diff: Math.abs(form.rule_days_diff || 1),
                         })
                       }
-                      className={`px-3 py-1.5 border text-xs font-medium transition-colors ${form.rule_days_diff > 0 ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30" : "bg-muted border-border text-muted-foreground hover:bg-muted/80"}`}
+                      className={`h-8 px-3 text-xs font-medium transition-colors ${form.rule_days_diff > 0 ? "bg-emerald-500/10 text-emerald-500" : "text-muted-foreground hover:bg-muted/80"}`}
                     >
                       Depois
                     </button>
