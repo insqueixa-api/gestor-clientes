@@ -3558,7 +3558,7 @@ export default function RenewClient() {
                     </span>
                   </div>
                   <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                    Explicação sobre configuração, renovação de licença e diferenças por servidor.
+                    Explicação simples sobre configuração e renovação de licença.
                   </p>
                 </div>
 
@@ -3572,33 +3572,33 @@ export default function RenewClient() {
               </div>
 
               {showAppsGuide && (
-                <div className="mt-3 space-y-2 text-xs sm:text-sm text-muted-foreground">
-                  <p>
-                    Atualize seu cadastro, clique em <span className="inline-flex items-center rounded-md bg-emerald-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">+ Adicionar aplicativo</span> e selecione o <strong className="text-foreground">aplicativo</strong> que você usa na Smart TV, celular ou outro dispositivo. Se quiser dividir o ponto e configurar mais um acesso, adicione o aplicativo, escolha o dispositivo e siga as instruções da tela.
-                  </p>
+                <ol className="mt-3 list-decimal space-y-2 pl-5 text-xs sm:text-sm text-muted-foreground marker:font-bold marker:text-foreground/70">
+                  <li>
+                    Atualize seu cadastro, clique em <span className="inline-flex items-center rounded-md bg-emerald-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">+ Adicionar aplicativo</span> e selecione o <strong className="text-foreground">aplicativo</strong> que você usa na Smart TV, celular ou outro dispositivo. Se quiser dividir o ponto e configurar mais de um acesso, saiba que é possível, basta adicionar o aplicativo seguindo as instruções da tela.
+                  </li>
 
                   {selectedAccount.server_name === "EliteTV" ? (
-                    <p>
+                    <li>
                       No <strong className="text-foreground">Elite TV</strong>, dependendo do dispositivo, algumas configurações podem ser feitas automaticamente pelo portal.
-                    </p>
+                    </li>
                   ) : selectedAccount.server_name === "NaTV" || selectedAccount.server_name === "FastTV" ? (
-                    <p>
+                    <li>
                       No <strong className="text-foreground">{selectedAccount.server_name}</strong>, a configuração costuma ser feita pelo cliente: os dados ficam visíveis na tela e você preenche no aplicativo.
-                    </p>
+                    </li>
                   ) : null}
 
-                  <p>
+                  <li>
                     Aplicativos com a tag <span className="inline-flex items-center rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-bold text-amber-600">⚡ Configuração automática</span> são configurados direto aqui no Portal: basta preencher os dados e concluir.
-                  </p>
+                  </li>
 
-                  <p>
+                  <li>
                     Aplicativos <span className="inline-flex items-center rounded-md bg-sky-500/10 px-1.5 py-0.5 text-[11px] font-bold text-sky-600">Pagos</span> costumam ter melhor desempenho e normalmente usam licença anual. Depois de inserir os dados, você pode usar o botão <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-bold text-emerald-600">Ver validade</span> para conferir a validade. Se estiver próximo do vencimento, você pode pagar a licença aqui no portal ou direto no site do desenvolvedor.
-                  </p>
+                  </li>
 
-                  <p>
-                    Quando uma licença já foi paga e ainda depende de conclusão manual do suporte, o app aparece com a indicação <span className="inline-flex items-center rounded-md bg-rose-500/10 px-1.5 py-0.5 text-[11px] font-bold text-rose-600">Licença paga • renovação em andamento</span>.
-                  </p>
-                </div>
+                  <li>
+                    Quando uma licença já foi paga e ainda depende de conclusão manual do suporte, o aplicativo aparece com a indicação <span className="inline-flex items-center rounded-md bg-rose-500/10 px-1.5 py-0.5 text-[11px] font-bold text-rose-600">Licença paga • renovação em andamento</span>. Apenas aguarde a conclusão da renovação e a validade será atualizada automaticamente.
+                  </li>
+                </ol>
               )}
             </div>
           </div>
