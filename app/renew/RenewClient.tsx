@@ -2198,7 +2198,6 @@ export default function RenewClient() {
                     <ul className="list-disc list-inside space-y-1 pl-1">
                       <li>o valor mostrado na tela</li>
                       <li>o nome do recebedor no app do seu banco</li>
-                      <li>se o QR Code ou o código copiado está completo</li>
                     </ul>
                     <p>Se o QR Code não abrir, use o campo de copiar e colar. Não compartilhe esse código com outras pessoas.</p>
                   </div>
@@ -2271,6 +2270,21 @@ export default function RenewClient() {
                         {copiedCode ? "✅ Copiado" : "📋 Copiar"}
                       </button>
                     </div>
+                  </div>
+                )}
+
+                {/* Instruções */}
+                {paymentPhase !== "renewing" && (
+                  <div className="space-y-2 text-sm">
+                    <p className="font-bold text-foreground/90 flex items-center gap-2">
+                      <span>📱</span> Como pagar:
+                    </p>
+                    <ol className="list-decimal list-inside space-y-1 text-muted-foreground pl-6">
+                      <li>Abra o app do seu banco ou carteira digital</li>
+                      <li>Escaneie o QR Code ou copie o código acima</li>
+                      <li>Confira valor e recebedor antes de confirmar</li>
+                      <li>Finalize o pagamento e aguarde a confirmação automática</li>
+                    </ol>
                   </div>
                 )}
 
@@ -2417,21 +2431,6 @@ export default function RenewClient() {
                             <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">
                               Validade
                             </p>
-                            <div
-                              ref={setCardExpiryMountEl}
-                              className="w-full px-4 py-3 bg-muted/50 border-2 border-border rounded-xl focus-within:border-indigo-500 transition-colors min-h-[46px]"
-                            />
-                          </div>
-                          <div>
-                            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">
-                              CVC
-                            </p>
-                            <div
-                              ref={setCardCvcMountEl}
-                              className="w-full px-4 py-3 bg-muted/50 border-2 border-border rounded-xl focus-within:border-indigo-500 transition-colors min-h-[46px]"
-                            />
-                          </div>
-                        </div>
                         <button
                           onClick={handleStripeConfirm}
                           disabled={stripeLoading || !stripeReady}
@@ -3434,7 +3433,7 @@ export default function RenewClient() {
                     Novidades e Conteúdo
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                    Consulte a grade, veja jogos do dia e explore novidades do catálogo.
+                    Consulte a grade, veja jogos do dia e explore o catálogo de filmes e séries.
                   </p>
                 </div>
                 <span className="text-sky-500 text-xl group-hover:translate-x-0.5 transition-transform shrink-0">
@@ -3458,7 +3457,7 @@ export default function RenewClient() {
                   Meus Aplicativos
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                  Abra o passo a passo, atualize os dados do app ou peça ajuda para configurar um novo.
+                  Diga quais aplicativos você usa, atualize ou instale novos.
                 </p>
               </div>
               <span className="text-amber-500 text-xl group-hover:translate-x-0.5 transition-transform shrink-0">

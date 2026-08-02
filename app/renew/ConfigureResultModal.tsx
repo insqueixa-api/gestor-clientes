@@ -73,7 +73,7 @@ export default function ConfigureResultModal({
     >
       <div
         onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 text-center animate-in zoom-in-95 duration-200"
+        className="w-full max-w-[calc(100vw-1rem)] sm:max-w-xl md:max-w-2xl lg:max-w-3xl bg-card border border-border rounded-2xl shadow-2xl p-6 sm:p-7 text-center animate-in zoom-in-95 duration-200"
       >
         <div
           className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
