@@ -573,55 +573,57 @@ function CampaignWindowCard({
 
   return (
     <div className="px-3 sm:px-0 md:px-4">
-      <div className="relative overflow-hidden rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-card via-card to-emerald-500/5 p-4 shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_20px_50px_-28px_rgba(16,185,129,0.4)] sm:p-5">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.16),_transparent_48%)]" />
-        <div className="relative space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex items-start gap-3">
-              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-2 shadow-sm">
-                <Sparkles className="h-4 w-4 text-emerald-500" />
-              </div>
-              <div>
+      <div className="rounded-2xl border border-border bg-card/95 p-3 shadow-sm sm:p-4">
+        <div className="space-y-3">
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
                 <h3 className="text-sm font-semibold text-foreground">Janela de disparo compartilhada</h3>
-                <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground max-w-2xl">
-                  Todas as regras automáticas usam essa janela para disparar de forma embaralhada, com intervalo aleatório e respeitando a faixa de 2 a 5 minutos entre envios.
-                </p>
+                <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/70 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  <Clock3 className="h-3 w-3 text-foreground/70" />
+                  {windowLabel}
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/70 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  <CalendarDays className="h-3 w-3 text-foreground/70" />
+                  {activeDays} dias
+                </span>
               </div>
+              <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground max-w-3xl">
+                Disparo embaralhado entre as regras, respeitando a faixa de 2 a 5 minutos entre envios.
+              </p>
             </div>
 
-            <button
-              onClick={() => setSettings((s) => ({ ...s, is_active: !s.is_active }))}
-              className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] transition-all ${settings.is_active ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-600" : "border-border bg-muted text-muted-foreground"}`}
-              title={settings.is_active ? "Ativo" : "Desativado — nenhuma automação dispara"}
-            >
-              <span className={`relative h-2.5 w-2.5 rounded-full ${settings.is_active ? "bg-emerald-500" : "bg-muted-foreground"}`} />
-              {settings.is_active ? "Ativo" : "Inativo"}
-            </button>
+            <div className="flex items-center gap-2 self-start lg:shrink-0">
+              <button
+                onClick={() => setSettings((s) => ({ ...s, is_active: !s.is_active }))}
+                className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] transition-all ${settings.is_active ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-600" : "border-border bg-muted text-muted-foreground"}`}
+                title={settings.is_active ? "Ativo" : "Desativado — nenhuma automação dispara"}
+              >
+                <span className={`relative h-2.5 w-2.5 rounded-full ${settings.is_active ? "bg-emerald-500" : "bg-muted-foreground"}`} />
+                {settings.is_active ? "Ativo" : "Inativo"}
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-white transition-colors hover:bg-emerald-500 disabled:opacity-50"
+              >
+                {saving ? "Salvando..." : "Salvar"}
+              </button>
+            </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/70 px-3 py-1.5 text-[11px] text-muted-foreground">
-              <Clock3 className="h-3.5 w-3.5 text-emerald-500" />
-              {windowLabel}
-            </div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/70 px-3 py-1.5 text-[11px] text-muted-foreground">
-              <CalendarDays className="h-3.5 w-3.5 text-sky-500" />
-              {activeDays} dias ativos
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-2xl border border-border/70 bg-background/70 p-3">
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-12">
+            <div className="rounded-xl border border-border/70 bg-background/60 p-2.5 xl:col-span-3">
               <Label>Início</Label>
               <FormattedTimeInput
                 value={settings.window_start}
                 onChange={(e) =>
                   setSettings((s) => ({ ...s, window_start: e.target.value }))
                 }
-                className="w-full h-11 rounded-xl border border-border/70 bg-background/80 px-3 text-sm shadow-sm"
+                className="h-10 w-full rounded-lg border border-border/70 bg-background px-3 text-sm"
               />
             </div>
-            <div className="rounded-2xl border border-border/70 bg-background/70 p-3">
+            <div className="rounded-xl border border-border/70 bg-background/60 p-2.5 xl:col-span-2">
               <Label>Intervalo mín. (min)</Label>
               <Input
                 type="number"
@@ -635,10 +637,10 @@ function CampaignWindowCard({
                     delay_min_secs: Math.min(MAX_DELAY_SECS, Math.max(MIN_DELAY_SECS, Math.round(Number(e.target.value) * 60))),
                   }))
                 }
-                className="h-11 rounded-xl border border-border/70 bg-background/80 px-3 text-sm shadow-sm"
+                  className="h-10 rounded-lg border border-border/70 bg-background px-3 text-sm"
               />
             </div>
-            <div className="rounded-2xl border border-border/70 bg-background/70 p-3">
+              <div className="rounded-xl border border-border/70 bg-background/60 p-2.5 xl:col-span-2">
               <Label>Intervalo máx. (min)</Label>
               <Input
                 type="number"
@@ -652,12 +654,12 @@ function CampaignWindowCard({
                     delay_max_secs: Math.min(MAX_DELAY_SECS, Math.max(MIN_DELAY_SECS, Math.round(Number(e.target.value) * 60))),
                   }))
                 }
-                className="h-11 rounded-xl border border-border/70 bg-background/80 px-3 text-sm shadow-sm"
+                  className="h-10 rounded-lg border border-border/70 bg-background px-3 text-sm"
               />
             </div>
-            <div className="rounded-2xl border border-border/70 bg-background/70 p-3">
+              <div className="rounded-xl border border-border/70 bg-background/60 p-2.5 xl:col-span-5">
               <Label>Dias da semana</Label>
-              <div className="flex flex-wrap gap-1 pt-1">
+                <div className="flex flex-wrap gap-1 pt-0.5">
                 {DAYS_OF_WEEK.map((d) => {
                   const selected = settings.schedule_days.includes(d.id);
                   return (
@@ -671,7 +673,7 @@ function CampaignWindowCard({
                             : [...s.schedule_days, d.id],
                         }))
                       }
-                      className={`h-8 w-8 rounded-full border text-[10px] font-semibold transition-all ${selected ? "border-emerald-500 bg-emerald-500 text-white shadow-sm" : "border-border bg-muted text-muted-foreground"}`}
+                        className={`h-7 min-w-7 rounded-full border px-1.5 text-[10px] font-semibold transition-all ${selected ? "border-emerald-500 bg-emerald-500 text-white shadow-sm" : "border-border bg-muted text-muted-foreground"}`}
                     >
                       {d.label}
                     </button>
@@ -679,19 +681,6 @@ function CampaignWindowCard({
                 })}
               </div>
             </div>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 bg-background/70 px-3 py-3 sm:px-4">
-            <p className="text-[11px] leading-relaxed text-muted-foreground">
-              O disparo fica mais natural quando a fila é distribuída ao longo do horário, sem parecer um envio em lote.
-            </p>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-white transition-colors hover:bg-emerald-500 disabled:opacity-50"
-            >
-              {saving ? "Salvando..." : "Salvar"}
-            </button>
           </div>
         </div>
       </div>
