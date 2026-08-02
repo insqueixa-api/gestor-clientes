@@ -21,6 +21,13 @@ import {
   ALL_DEVICE_TYPES,
   DEVICE_TYPE_LABELS,
 } from "@/lib/apps/device-types";
+import {
+  type M3UBadgeRule,
+  PORTAL_INSTRUCTION_TAGS,
+  NON_M3U_VARIABLE_OPTIONS,
+  badgesToM3URule,
+  applyM3URule,
+} from "@/lib/apps/portal-variable-rules";
 
 // --- TIPOS ---
 type AppField = {
@@ -174,6 +181,7 @@ const [apps, setApps] = useState<AppData[]>([]);
   const [formPortalInstructions, setFormPortalInstructions] = useState<string>("");
   const [formAccessCode, setFormAccessCode] = useState<string>("");
   const [formVariableBadges, setFormVariableBadges] = useState<string[]>([]);
+  const [formM3UBadgeRule, setFormM3UBadgeRule] = useState<M3UBadgeRule>("none");
   const portalInstructionsRef = useRef<HTMLTextAreaElement>(null);
   // ✅ "Descontinuado" — reaproveita apps.is_active (existia, mas nunca era
   // exposto em lugar nenhum). Pedido do Márcio (25/07/2026): DuplexPlay saiu
@@ -193,20 +201,6 @@ const [apps, setApps] = useState<AppData[]>([]);
   // Reconfigurar > Secundária já usa pro NaTV (sem "s" do https + prefixo
   // "r2."); só tem valor de verdade pra cliente de servidor NaTV — em
   // qualquer outro o badge simplesmente não aparece (valor vazio).
-  const VARIABLE_BADGE_OPTIONS: { key: string; label: string }[] = [
-    { key: "codigo", label: "Código" },
-    { key: "usuario_app", label: "Usuário" },
-    { key: "senha_app", label: "Senha" },
-    { key: "dns_servidor", label: "DNS" },
-    { key: "m3u_url", label: "Link M3U" },
-    { key: "dns_servidor_r2", label: "DNS (Rota 2 — só NaTV)" },
-    { key: "m3u_url_r2", label: "Link M3U (Rota 2 — só NaTV)" },
-  ];
-
-  const PORTAL_INSTRUCTION_TAGS: { tag: string; label: string }[] = [
-    { tag: "{m3u_url}", label: "Link M3U" },
-  ];
-
   function toggleVariableBadge(key: string) {
     setFormVariableBadges((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
   }
@@ -571,6 +565,7 @@ setApps(formattedApps);
     setFormPortalInstructions("");
     setFormAccessCode("");
     setFormVariableBadges([]);
+    setFormM3UBadgeRule("none");
     setFormIsActive(true);
     setFormDiscontinuedReplacement("");
     setIsModalOpen(true);
@@ -591,7 +586,11 @@ setApps(formattedApps);
     setFormTechnology((app.technology as Technology) || "IPTV");
     setFormPortalInstructions(app.portal_setup_instructions || "");
     setFormAccessCode(app.access_code || "");
-    setFormVariableBadges(Array.isArray(app.portal_variable_fields) ? app.portal_variable_fields : []);
+    const selectedBadges = Array.isArray(app.portal_variable_fields)
+      ? app.portal_variable_fields
+      : [];
+    setFormVariableBadges(selectedBadges);
+    setFormM3UBadgeRule(badgesToM3URule(selectedBadges));
     setFormIsActive(app.is_active !== false);
     setFormDiscontinuedReplacement(app.discontinued_replacement_name || "");
     setIsModalOpen(true);
@@ -644,6 +643,10 @@ setApps(formattedApps);
       const safeUrl = normalizeApiUrl(formUrl);
       const isPaid = formCostType === "paid";
       const isPartnership = formCostType === "partnership";
+      const variableBadgesToSave = applyM3URule(
+        formVariableBadges,
+        formM3UBadgeRule,
+      );
 
       const insertPayload = {
         tenant_id: tid,
@@ -660,7 +663,7 @@ setApps(formattedApps);
         technology: formTechnology,
         portal_setup_instructions: formPortalInstructions.trim() || null,
         access_code: formAccessCode.trim() || null,
-        portal_variable_fields: formVariableBadges,
+        portal_variable_fields: variableBadgesToSave,
         is_active: formIsActive,
         discontinued_replacement_name: !formIsActive && formDiscontinuedReplacement.trim() ? formDiscontinuedReplacement.trim() : null,
       };
@@ -680,7 +683,7 @@ setApps(formattedApps);
           technology: formTechnology,
           portal_setup_instructions: formPortalInstructions.trim() || null,
           access_code: formAccessCode.trim() || null,
-          portal_variable_fields: formVariableBadges,
+          portal_variable_fields: variableBadgesToSave,
           is_active: formIsActive,
           discontinued_replacement_name: !formIsActive && formDiscontinuedReplacement.trim() ? formDiscontinuedReplacement.trim() : null,
         };
@@ -1565,8 +1568,28 @@ setApps(formattedApps);
                     Não repita esses dados por extenso no texto livre abaixo,
                     pra não duplicar a informação na tela do cliente.
                   </p>
+                  <div className="mb-2">
+                    <Label>Regra do Link M3U</Label>
+                    <Select
+                      value={formM3UBadgeRule}
+                      onChange={(e) => {
+                        const rule = e.target.value as M3UBadgeRule;
+                        setFormM3UBadgeRule(rule);
+                        setFormVariableBadges((prev) => applyM3URule(prev, rule));
+                      }}
+                    >
+                      <option value="none">Não exibir M3U</option>
+                      <option value="primary">Exibir Link M3U (padrão)</option>
+                      <option value="secondary">Exibir Link M3U (Rota 2 - NaTV)</option>
+                      <option value="both">Exibir ambos (padrão + Rota 2)</option>
+                    </Select>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Escolha aqui a regra do M3U sem precisar marcar vários
+                      botões separados.
+                    </p>
+                  </div>
                   <div className="flex flex-wrap gap-1.5">
-                    {VARIABLE_BADGE_OPTIONS.map((opt) => {
+                    {NON_M3U_VARIABLE_OPTIONS.map((opt) => {
                       const active = formVariableBadges.includes(opt.key);
                       return (
                         <button
@@ -1626,9 +1649,9 @@ setApps(formattedApps);
                   <p className="text-[11px] text-muted-foreground mt-1">
                     Texto livre — explique o passo a passo. Usuário/senha/DNS/
                     código NÃO precisam ser escritos aqui: marque acima e eles
-                    aparecem prontos pra copiar, separados do texto. "Link
-                    M3U" é a única tag pra inserir aqui (não tem campo
-                    equivalente).
+                    aparecem prontos pra copiar, separados do texto. Se
+                    quiser, você pode inserir M3U no texto usando as tags
+                    abaixo.
                   </p>
                 </div>
 

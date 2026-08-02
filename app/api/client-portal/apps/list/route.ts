@@ -4,6 +4,7 @@ import { APP_FIELD_LABELS, HIDDEN_CLIENT_FIELD_TYPES, AppFieldType } from "@/lib
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { getIntegrationHandler } from "@/lib/integrations";
 import { CHECK_VALIDITY_HANDLERS, buildM3uUrlFromDns, buildM3uUrlSecondary, natvMirrorBaseUrl } from "@/lib/apps/panel";
+import { buildPortalVariableFields } from "@/lib/apps/portal-variable-rules";
 import { renderTemplate, pickRandomDns } from "@/lib/whatsapp/template-vars";
 
 export const dynamic = "force-dynamic";
@@ -180,28 +181,6 @@ export async function POST(req: NextRequest) {
     // apps.portal_variable_fields é uma lista explícita, escolhida pelo
     // admin (Gerenciador > Aplicativo), independente do que o texto livre
     // menciona ou não.
-    const VARIABLE_FIELD_LABELS: Record<string, string> = {
-      codigo: "Código",
-      usuario_app: "Usuário",
-      senha_app: "Senha",
-      dns_servidor: "DNS",
-      m3u_url: "Link M3U",
-      // ✅ "Rota 2" (31/07/2026) — só tem valor de verdade pro NaTV
-      // (natvMirrorBaseUrl/buildM3uUrlSecondary, lib/apps/panel.ts); pra
-      // qualquer outro servidor o valor fica vazio e o badge some sozinho.
-      dns_servidor_r2: "DNS (Rota 2)",
-      m3u_url_r2: "Link M3U (Rota 2)",
-    };
-    function buildVariableFields(selectedKeys: string[] | null | undefined, codigo: string) {
-      const keys = Array.isArray(selectedKeys) ? selectedKeys : [];
-      if (!keys.length) return [];
-      const vals: Record<string, string> = { codigo, ...(instructionVars || {}) };
-      return keys
-        .filter((key) => VARIABLE_FIELD_LABELS[key])
-        .map((key) => ({ id: key, label: VARIABLE_FIELD_LABELS[key], value: vals[key] || "" }))
-        .filter((f) => f.value);
-    }
-
     const apps = (rows || []).map((row: any) => {
       const vals = row.field_values || {};
       const config = Array.isArray(row.apps?.fields_config) ? row.apps.fields_config : [];
@@ -257,7 +236,10 @@ export async function POST(req: NextRequest) {
           row.apps?.portal_setup_instructions && instructionVars
             ? renderTemplate(row.apps.portal_setup_instructions, { ...instructionVars, codigo: row.apps?.access_code || "" })
             : row.apps?.portal_setup_instructions || null,
-        variable_fields: buildVariableFields(row.apps?.portal_variable_fields, row.apps?.access_code || ""),
+        variable_fields: buildPortalVariableFields(
+          row.apps?.portal_variable_fields,
+          { codigo: row.apps?.access_code || "", ...(instructionVars || {}) },
+        ),
         license_price:
           row.apps?.cost_type === "paid" && Number(row.apps?.license_price) > 0
             ? Number(row.apps.license_price)
