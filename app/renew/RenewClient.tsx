@@ -3546,7 +3546,7 @@ export default function RenewClient() {
                 Aplicativos com a tag <span className="inline-flex items-center rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-bold text-amber-600">⚡ Configuração automática</span> são configurados direto aqui no Portal: basta preencher os dados e concluir.
               </p>
               <p>
-                Aplicativos <span className="inline-flex items-center rounded-md bg-sky-500/10 px-1.5 py-0.5 text-[11px] font-bold text-sky-600">Pagos</span> costumam ter melhor desempenho e normalmente usam licença anual. Depois de inserir os dados, você pode usar o botão <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-bold text-emerald-600">Atualizar</span> para conferir a validade. Se estiver perto do vencimento, você pode renovar por aqui no portal ou direto no site do desenvolvedor.
+                Aplicativos <span className="inline-flex items-center rounded-md bg-sky-500/10 px-1.5 py-0.5 text-[11px] font-bold text-sky-600">Pagos</span> costumam ter melhor desempenho e normalmente usam licença anual. Depois de inserir os dados, você pode usar o botão <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-bold text-emerald-600">Ver validade</span> para conferir a validade. Se estiver perto do vencimento, você pode renovar por aqui no portal ou direto no site do desenvolvedor.
               </p>
             </div>
           </div>
@@ -3619,7 +3619,7 @@ export default function RenewClient() {
                                     className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
                                   >
                                     {busy && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
-                                    Atualizar
+                                    Ver validade
                                   </button>
                                 )}
                               </div>
@@ -3642,7 +3642,7 @@ export default function RenewClient() {
                                     className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
                                   >
                                     {busy && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
-                                    Atualizar
+                                    Ver validade
                                   </button>
                                 )}
                               </div>

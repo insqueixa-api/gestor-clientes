@@ -345,7 +345,7 @@ export default function AppDetailClient() {
                       onClick={handleCheckValidity}
                       className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
                     >
-                      {busy ? "..." : "Atualizar"}
+                      {busy ? "..." : "Ver validade"}
                     </button>
                   )}
                 </div>
