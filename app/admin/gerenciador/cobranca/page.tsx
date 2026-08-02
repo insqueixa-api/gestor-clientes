@@ -2142,26 +2142,23 @@ function AutomationWizard({
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
-      <div className="w-full h-full sm:h-auto sm:max-w-3xl bg-card border-0 sm:border border-border sm:rounded-3xl shadow-2xl flex flex-col max-h-full sm:max-h-[82vh] overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-card/95 backdrop-blur">
-          <div className="flex justify-between items-start gap-3 mb-3">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-2.5 animate-in fade-in duration-200">
+      <div className="w-full h-full sm:h-auto sm:max-w-[900px] bg-card border-0 sm:border border-border sm:rounded-2xl shadow-2xl flex flex-col max-h-full sm:max-h-[78vh] overflow-hidden">
+        <div className="px-2.5 py-2 border-b border-border bg-card/95 backdrop-blur">
+          <div className="flex justify-between items-start gap-2 mb-1.5">
             <div>
-              <h2 className="text-lg font-semibold text-foreground">
+              <h2 className="text-base font-semibold text-foreground">
                 {editingRule ? `Editar: ${editingRule.name}` : "Nova automação de cobrança"}
               </h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Configure a regra em 2 etapas, com foco no que dispara, para quem e em qual modo.
-              </p>
             </div>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors flex items-center justify-center"
+              className="p-1 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors flex items-center justify-center"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-1 md:grid-cols-2">
             {steps.map((item) => {
               const Icon = item.icon;
               const active = item.id === step;
@@ -2170,34 +2167,33 @@ function AutomationWizard({
                 <button
                   key={item.id}
                   onClick={() => setStep(item.id)}
-                  className={`rounded-xl border px-3 py-2 text-left transition-all ${active ? "border-emerald-500/30 bg-emerald-500/10 shadow-sm" : done ? "border-border bg-muted/40" : "border-border bg-background"}`}
+                  className={`rounded-lg border px-2 py-1 text-left transition-all ${active ? "border-emerald-500/30 bg-emerald-500/10 shadow-sm" : done ? "border-border bg-muted/40" : "border-border bg-background"}`}
                 >
-                  <div className="flex items-center gap-2.5">
-                    <span className={`inline-flex h-7 w-7 items-center justify-center rounded-lg border ${active ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-600" : "border-border bg-background text-muted-foreground"}`}>
-                      <Icon className="h-3.5 w-3.5" />
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-flex h-6 w-6 items-center justify-center rounded-md border ${active ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-600" : "border-border bg-background text-muted-foreground"}`}>
+                      <Icon className="h-3 w-3" />
                     </span>
                     <div>
-                      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Etapa {item.id}</div>
-                      <div className="text-xs font-semibold text-foreground">{item.title}</div>
+                      <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Etapa {item.id}</div>
+                      <div className="text-xs font-medium text-foreground">{item.title}</div>
                     </div>
                   </div>
-                  <p className="mt-1 text-[11px] text-muted-foreground">{item.caption}</p>
                 </button>
               );
             })}
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-3 sm:p-4 custom-scrollbar bg-muted/10">
+        <div className="flex-1 overflow-y-auto p-2 sm:p-2.5 custom-scrollbar bg-muted/10">
           {step === 1 && (
-            <div className="space-y-2.5">
-              <div className="rounded-2xl border border-border bg-card p-3.5 space-y-3 shadow-sm">
+            <div className="space-y-1.5">
+              <div className="rounded-xl border border-border bg-card p-2 space-y-2 shadow-sm">
                 <div>
-                  <h3 className="text-sm font-semibold text-foreground">Definição principal</h3>
-                  <p className="mt-0.5 text-xs text-muted-foreground">Tipo da régua, template e sessão de envio.</p>
+                  <h3 className="text-[13px] font-medium text-foreground">Definição principal</h3>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">Tipo da régua, template e sessão.</p>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
                   <div>
                     <Label>Tipo</Label>
                     <Select
@@ -2221,7 +2217,7 @@ function AutomationWizard({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                   <div>
                     <Label>Mensagem</Label>
                     <Select
@@ -2264,9 +2260,9 @@ function AutomationWizard({
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-border bg-card p-3.5 shadow-sm">
+              <div className="rounded-xl border border-border bg-card p-2 shadow-sm">
                 <Label>Regra de Disparo</Label>
-                <div className="mt-2 flex flex-wrap items-center gap-2.5 rounded-2xl border border-border bg-muted/20 p-3">
+                <div className="mt-1 flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-muted/20 p-2">
                   <span className="text-sm font-medium text-foreground/80">Enviar</span>
                   <div className="inline-flex items-center overflow-hidden rounded-lg border border-border bg-card shadow-sm">
                     <button
@@ -2276,13 +2272,13 @@ function AutomationWizard({
                           rule_days_diff: -Math.abs(form.rule_days_diff || 1),
                         })
                       }
-                      className={`h-8 px-3 text-xs font-medium transition-colors ${form.rule_days_diff < 0 ? "bg-rose-500/10 text-rose-500" : "text-muted-foreground hover:bg-muted/80"}`}
+                      className={`h-7.5 px-2.5 text-xs font-medium transition-colors ${form.rule_days_diff < 0 ? "bg-rose-500/10 text-rose-500" : "text-muted-foreground hover:bg-muted/80"}`}
                     >
                       Antes
                     </button>
                     <button
                       onClick={() => setForm({ ...form, rule_days_diff: 0 })}
-                      className={`h-8 px-3 border-x border-border text-xs font-medium transition-colors ${form.rule_days_diff === 0 ? "bg-sky-500/10 text-sky-500" : "text-muted-foreground hover:bg-muted/80"}`}
+                      className={`h-7.5 px-2.5 border-x border-border text-xs font-medium transition-colors ${form.rule_days_diff === 0 ? "bg-sky-500/10 text-sky-500" : "text-muted-foreground hover:bg-muted/80"}`}
                     >
                       No Dia
                     </button>
@@ -2293,7 +2289,7 @@ function AutomationWizard({
                           rule_days_diff: Math.abs(form.rule_days_diff || 1),
                         })
                       }
-                      className={`h-8 px-3 text-xs font-medium transition-colors ${form.rule_days_diff > 0 ? "bg-emerald-500/10 text-emerald-500" : "text-muted-foreground hover:bg-muted/80"}`}
+                      className={`h-7.5 px-2.5 text-xs font-medium transition-colors ${form.rule_days_diff > 0 ? "bg-emerald-500/10 text-emerald-500" : "text-muted-foreground hover:bg-muted/80"}`}
                     >
                       Depois
                     </button>
@@ -2301,7 +2297,7 @@ function AutomationWizard({
                   {form.rule_days_diff !== 0 && (
                     <input
                       type="number"
-                      className="h-9 w-16 rounded-lg border border-border bg-transparent text-center text-sm font-medium outline-none transition-colors focus:border-emerald-500/50"
+                      className="h-8 w-14 rounded-lg border border-border bg-transparent text-center text-sm font-medium outline-none transition-colors focus:border-emerald-500/50"
                       value={Math.abs(form.rule_days_diff)}
                       onChange={(e) =>
                         setForm({
@@ -2317,7 +2313,7 @@ function AutomationWizard({
                     {form.rule_days_diff !== 0 ? "dias do" : "do"}
                   </span>
                   <select
-                    className="h-9 rounded-lg border border-border bg-transparent px-2 text-sm font-medium outline-none transition-colors focus:border-emerald-500/50"
+                    className="h-8 rounded-lg border border-border bg-transparent px-2 text-sm font-medium outline-none transition-colors focus:border-emerald-500/50"
                     value={form.rule_date_field}
                     onChange={(e) =>
                       setForm({ ...form, rule_date_field: e.target.value })
@@ -2327,7 +2323,7 @@ function AutomationWizard({
                     <option value="created_at">Cadastro</option>
                   </select>
                 </div>
-                <p className="mt-2 text-[11px] text-muted-foreground">
+                <p className="mt-1 text-[10px] text-muted-foreground">
                   Exemplo: "3 dias após vencimento" ou "no dia do cadastro".
                 </p>
               </div>
@@ -2335,15 +2331,15 @@ function AutomationWizard({
           )}
 
           {step === 2 && (
-            <div className="space-y-2.5">
-              <div className="rounded-2xl border border-border bg-card p-3.5 shadow-sm space-y-3">
+            <div className="space-y-1.5">
+              <div className="rounded-xl border border-border bg-card p-2 shadow-sm space-y-2">
               <div>
-                <h3 className="text-sm font-semibold text-foreground">Quem recebe?</h3>
-                <p className="mt-0.5 text-xs text-muted-foreground">
+                <h3 className="text-[13px] font-medium text-foreground">Quem recebe?</h3>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
                   Deixe sem filtro quando a regra precisar atingir toda a base daquele tipo.
                 </p>
               </div>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                 <MultiSelectDropdown
                   label="Status do Cliente"
                   options={CLIENT_STATUS}
@@ -2371,70 +2367,48 @@ function AutomationWizard({
               </div>
               </div>
 
-              <div className="rounded-2xl border border-border bg-card p-3.5 shadow-sm space-y-3">
+              <div className="rounded-xl border border-border bg-card p-2 shadow-sm space-y-2">
                 <div>
-                  <h3 className="text-sm font-semibold text-foreground">Modo de envio</h3>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    Defina se a regra fica pronta para envio manual ou entra na janela automática compartilhada.
-                  </p>
+                  <h3 className="text-[13px] font-medium text-foreground">Modo de envio</h3>
                 </div>
-                <div className="flex flex-col items-center gap-2.5">
-                  <span className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground/70">
-                    Modo de Operação
-                  </span>
-                  <div className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-muted/30 p-1">
+                <div className="flex items-center justify-between gap-1.5 rounded-lg border border-border/70 bg-muted/10 p-1">
+                  <span className="px-1 text-[10px] font-medium text-muted-foreground">Operação</span>
+                  <div className="inline-flex items-center gap-0.5 rounded-md border border-border/80 bg-transparent p-0.5">
                     <button
                       onClick={() => setForm({ ...form, is_automatic: false })}
-                      className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${!form.is_automatic ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                      className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${!form.is_automatic ? "bg-card text-foreground border border-border" : "text-muted-foreground hover:text-foreground"}`}
                     >
                       Manual
                     </button>
                     <button
                       onClick={() => setForm({ ...form, is_automatic: true })}
-                      className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${form.is_automatic ? "bg-card shadow-sm text-emerald-600" : "text-muted-foreground hover:text-foreground"}`}
+                      className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${form.is_automatic ? "bg-card text-emerald-600 border border-emerald-500/30" : "text-muted-foreground hover:text-foreground"}`}
                     >
                       Automático
                     </button>
                   </div>
+                  <span className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-transparent px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                    {form.is_automatic ? <Clock3 className="h-3 w-3" /> : <Send className="h-3 w-3" />}
+                    {form.is_automatic ? "Auto" : "Manual"}
+                  </span>
                 </div>
-                {form.is_automatic && (
-                  <div className="rounded-xl border border-border bg-muted/20 p-3 text-center animate-in fade-in slide-in-from-bottom-4">
-                    <div className="mx-auto mb-1.5 inline-flex h-8 w-8 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-600">
-                      <Clock3 className="h-4 w-4" />
-                    </div>
-                    <p className="mx-auto max-w-md text-xs leading-relaxed text-foreground/80">
-                      O horário de disparo é compartilhado entre as regras automáticas. Ajuste início e intervalo no card do topo desta tela.
-                    </p>
-                  </div>
-                )}
-
-                {!form.is_automatic && (
-                  <div className="rounded-xl border border-border bg-muted/20 p-3 text-center shadow-sm">
-                    <div className="mx-auto mb-1.5 inline-flex h-8 w-8 items-center justify-center rounded-xl border border-sky-500/20 bg-sky-500/10 text-sky-600">
-                    <Send className="h-5 w-5" />
-                    </div>
-                    <p className="mx-auto max-w-md text-xs leading-relaxed text-foreground/80">
-                      No modo manual, a regra fica pronta para enfileirar envios sob demanda direto do card da automação.
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
           )}
         </div>
 
-        <div className="px-4 py-3 border-t border-border flex justify-between items-center">
+        <div className="px-2.5 py-1.5 border-t border-border flex justify-between items-center">
           {step === 1 && (
             <>
               <button
                 onClick={onClose}
-                className="px-4 py-2.5 rounded-lg border border-border text-muted-foreground hover:bg-muted text-xs font-medium uppercase transition-colors"
+                className="px-2.5 py-1 rounded-lg border border-border text-[11px] font-medium text-muted-foreground hover:bg-muted uppercase transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={() => setStep(2)}
-                className="px-6 py-2.5 bg-emerald-600 text-white hover:bg-emerald-500 font-medium rounded-xl shadow-lg shadow-emerald-900/20 transition-all text-xs uppercase"
+                className="px-3.5 py-1 bg-emerald-600 text-white hover:bg-emerald-500 font-medium rounded-lg shadow-lg shadow-emerald-900/20 transition-all text-[11px] uppercase"
               >
                 Próximo: Público →
               </button>
@@ -2444,14 +2418,14 @@ function AutomationWizard({
             <>
               <button
                 onClick={() => setStep(1)}
-                className="px-4 py-2.5 rounded-lg border border-border text-muted-foreground hover:bg-muted text-xs font-medium uppercase transition-colors"
+                className="px-2.5 py-1 rounded-lg border border-border text-[11px] font-medium text-muted-foreground hover:bg-muted uppercase transition-colors"
               >
                 ← Voltar
               </button>
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="px-6 py-2.5 bg-emerald-600 text-white hover:bg-emerald-500 font-medium rounded-xl shadow-lg shadow-emerald-900/20 transition-all text-xs uppercase"
+                className="px-3.5 py-1 bg-emerald-600 text-white hover:bg-emerald-500 font-medium rounded-lg shadow-lg shadow-emerald-900/20 transition-all text-[11px] uppercase"
               >
                 {saving ? "Salvando..." : editingRule ? "Salvar alterações" : "Confirmar e Criar"}
               </button>
@@ -2466,7 +2440,7 @@ function AutomationWizard({
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
+    <label className="block text-[9px] font-medium text-muted-foreground mb-1 uppercase tracking-[0.12em]">
       {children}
     </label>
   );
@@ -2478,7 +2452,7 @@ function Input({
   return (
     <input
       {...props}
-      className={`h-10 px-3 bg-card border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500 transition-colors ${className}`}
+      className={`h-8 px-2.5 bg-card border border-border rounded-lg text-xs text-foreground outline-none focus:border-emerald-500 transition-colors ${className}`}
     />
   );
 }
@@ -2490,7 +2464,7 @@ function Select({
   return (
     <select
       {...props}
-      className={`h-10 px-3 bg-card border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500 transition-colors ${className}`}
+      className={`h-8 px-2.5 bg-card border border-border rounded-lg text-xs text-foreground outline-none focus:border-emerald-500 transition-colors ${className}`}
     >
       {children}
     </select>
@@ -2537,7 +2511,7 @@ function MultiSelectDropdown({ label, options, selected, onChange }: any) {
       <Label>{label}</Label>
       <button
         onClick={() => setOpen(!open)}
-        className={`w-full h-11 px-3 text-left rounded-xl border text-sm flex justify-between items-center transition-all ${open ? "border-emerald-500 ring-1 ring-emerald-500/20 bg-card" : "border-border bg-card text-foreground/90"}`}
+        className={`w-full h-8 px-2 text-left rounded-lg border text-[11px] flex justify-between items-center transition-all ${open ? "border-emerald-500 ring-1 ring-emerald-500/20 bg-card" : "border-border bg-card text-foreground/90"}`}
       >
         <span
           className={
@@ -2550,13 +2524,13 @@ function MultiSelectDropdown({ label, options, selected, onChange }: any) {
       </button>
 
       {open && (
-        <div className="absolute z-50 bottom-full mb-2 w-full bg-card border border-border rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 flex flex-col">
-          <div className="max-h-48 overflow-y-auto custom-scrollbar p-1">
+        <div className="absolute z-50 bottom-full mb-1.5 w-full bg-card border border-border rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 flex flex-col">
+          <div className="max-h-40 overflow-y-auto custom-scrollbar p-1">
             {options.map((opt: any) => (
               <div
                 key={opt.id}
                 onClick={() => toggleOption(opt.id)}
-                className="px-3 py-2 hover:bg-muted cursor-pointer flex items-center gap-3 transition-colors rounded-lg"
+                className="px-2 py-1 hover:bg-muted cursor-pointer flex items-center gap-2 transition-colors rounded-lg"
               >
                 <div
                   className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${selected.includes(opt.id) ? "bg-emerald-500 border-emerald-500" : "border-border"}`}
@@ -2565,7 +2539,7 @@ function MultiSelectDropdown({ label, options, selected, onChange }: any) {
                     <span className="text-[10px] text-white">✓</span>
                   )}
                 </div>
-                <span className="text-sm text-foreground/90">
+                <span className="text-[11px] text-foreground/90">
                   {opt.label}
                 </span>
               </div>
@@ -2584,18 +2558,18 @@ function MultiSelectDropdown({ label, options, selected, onChange }: any) {
       )}
 
       {selected.length > 0 && (
-        <div className="flex flex-wrap gap-2 mt-2">
+        <div className="flex flex-wrap gap-1 mt-1">
           {selected.map((id: string) => {
             const label = options.find((o: any) => o.id === id)?.label || id;
             return (
               <span
                 key={id}
-                className="inline-flex items-center px-2 py-1 rounded bg-transparent border border-border text-xs font-medium text-muted-foreground"
+                className="inline-flex items-center px-1.5 py-0.5 rounded bg-transparent border border-border text-[10px] font-medium text-muted-foreground"
               >
                 {label}
                 <button
                   onClick={() => toggleOption(id)}
-                  className="ml-1.5 text-muted-foreground hover:text-rose-500 text-[10px]"
+                  className="ml-1 text-muted-foreground hover:text-rose-500 text-[9px]"
                 >
                   ✕
                 </button>
@@ -2604,7 +2578,7 @@ function MultiSelectDropdown({ label, options, selected, onChange }: any) {
           })}
           <button
             onClick={() => onChange([])}
-            className="text-[10px] text-rose-500 hover:underline underline-offset-2 ml-1"
+            className="text-[9px] text-rose-500 hover:underline underline-offset-2 ml-1"
           >
             Limpar
           </button>
