@@ -5,7 +5,14 @@ import { useSearchParams, useRouter } from "next/navigation"; // ✅ useRouter a
 import { useState, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
 import { useConfirm } from "@/hooks/useConfirm";
-import { CheckCircle2, ShieldCheck, Loader2, RefreshCw } from "lucide-react";
+import {
+  CheckCircle2,
+  ShieldCheck,
+  Loader2,
+  RefreshCw,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import ConfigureResultModal, { ConfigureResultData } from "./ConfigureResultModal";
 import ReconfigureModeModal, { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
@@ -307,6 +314,7 @@ export default function RenewClient() {
   // que o card da lista passou a mostrar tudo. Só o texto curado pelo admin
   // (apps.portal_setup_instructions) ainda não estava na lista.
   const [instructionsAppId, setInstructionsAppId] = useState<string | null>(null);
+  const [showAppsGuide, setShowAppsGuide] = useState(true);
   const [installedAppsLoading, setInstalledAppsLoading] = useState(false);
   const [installedAppsError, setInstalledAppsError] = useState<string | null>(
     null,
@@ -3538,16 +3546,60 @@ export default function RenewClient() {
                 <span>+</span> Adicionar aplicativo
               </button>
             </div>
-            <div className="mt-1.5 space-y-2 text-xs sm:text-sm text-muted-foreground">
-              <p>
-                Atualize seu cadastro, clique em <strong className="text-foreground">+ Adicionar aplicativo</strong> e selecione o app que você usa na Smart TV, celular ou outro dispositivo. Se quiser dividir o ponto e configurar mais um acesso, adicione o aplicativo, escolha o dispositivo e siga as instruções da tela.
-              </p>
-              <p>
-                Aplicativos com a tag <span className="inline-flex items-center rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-bold text-amber-600">⚡ Configuração automática</span> são configurados direto aqui no Portal: basta preencher os dados e concluir.
-              </p>
-              <p>
-                Aplicativos <span className="inline-flex items-center rounded-md bg-sky-500/10 px-1.5 py-0.5 text-[11px] font-bold text-sky-600">Pagos</span> costumam ter melhor desempenho e normalmente usam licença anual. Depois de inserir os dados, você pode usar o botão <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-bold text-emerald-600">Ver validade</span> para conferir a validade. Se estiver perto do vencimento, você pode renovar por aqui no portal ou direto no site do desenvolvedor.
-              </p>
+            <div className="mt-3 rounded-2xl border border-border bg-card/95 p-3 shadow-sm sm:p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-sm font-semibold text-foreground">
+                      Como usar Meus Aplicativos
+                    </h3>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/70 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      Guia rápido
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                    Explicação sobre configuração, renovação de licença e diferenças por servidor.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setShowAppsGuide((v) => !v)}
+                  className="inline-flex items-center gap-1 rounded-lg border border-border bg-muted/50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground transition-colors hover:bg-muted"
+                >
+                  {showAppsGuide ? "Compactar" : "Expandir"}
+                  {showAppsGuide ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+
+              {showAppsGuide && (
+                <div className="mt-3 space-y-2 text-xs sm:text-sm text-muted-foreground">
+                  <p>
+                    Atualize seu cadastro, clique em <span className="inline-flex items-center rounded-md bg-emerald-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">+ Adicionar aplicativo</span> e selecione o <strong className="text-foreground">aplicativo</strong> que você usa na Smart TV, celular ou outro dispositivo. Se quiser dividir o ponto e configurar mais um acesso, adicione o aplicativo, escolha o dispositivo e siga as instruções da tela.
+                  </p>
+
+                  {selectedAccount.server_name === "EliteTV" ? (
+                    <p>
+                      No <strong className="text-foreground">Elite TV</strong>, dependendo do dispositivo, algumas configurações podem ser feitas automaticamente pelo portal.
+                    </p>
+                  ) : selectedAccount.server_name === "NaTV" || selectedAccount.server_name === "FastTV" ? (
+                    <p>
+                      No <strong className="text-foreground">{selectedAccount.server_name}</strong>, a configuração costuma ser feita pelo cliente: os dados ficam visíveis na tela e você preenche no aplicativo.
+                    </p>
+                  ) : null}
+
+                  <p>
+                    Aplicativos com a tag <span className="inline-flex items-center rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-bold text-amber-600">⚡ Configuração automática</span> são configurados direto aqui no Portal: basta preencher os dados e concluir.
+                  </p>
+
+                  <p>
+                    Aplicativos <span className="inline-flex items-center rounded-md bg-sky-500/10 px-1.5 py-0.5 text-[11px] font-bold text-sky-600">Pagos</span> costumam ter melhor desempenho e normalmente usam licença anual. Depois de inserir os dados, você pode usar o botão <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-bold text-emerald-600">Ver validade</span> para conferir a validade. Se estiver próximo do vencimento, você pode pagar a licença aqui no portal ou direto no site do desenvolvedor.
+                  </p>
+
+                  <p>
+                    Quando uma licença já foi paga e ainda depende de conclusão manual do suporte, o app aparece com a indicação <span className="inline-flex items-center rounded-md bg-rose-500/10 px-1.5 py-0.5 text-[11px] font-bold text-rose-600">Licença paga • renovação em andamento</span>.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -3608,8 +3660,8 @@ export default function RenewClient() {
                                   {isExpired ? "Vencido" : isExpiringSoon ? "Vencendo" : "Validade"}: {expirationDatePart.split("-").reverse().join("/")}
                                 </p>
                                 {app.has_pending_manual_renewal && (
-                                  <span className="text-[10px] font-bold text-rose-500">
-                                    Aguardando renovação manual pelo suporte
+                                  <span className="inline-flex items-center rounded-md bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-bold text-rose-600">
+                                    Licença paga • renovação em andamento
                                   </span>
                                 )}
                                 {app.can_check_validity && (
@@ -3631,8 +3683,8 @@ export default function RenewClient() {
                               <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                                 <p className="text-xs text-muted-foreground">Vencimento: —</p>
                                 {app.has_pending_manual_renewal && (
-                                  <span className="text-[10px] font-bold text-rose-500">
-                                    Aguardando renovação manual pelo suporte
+                                  <span className="inline-flex items-center rounded-md bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-bold text-rose-600">
+                                    Licença paga • renovação em andamento
                                   </span>
                                 )}
                                 {app.can_check_validity && (
