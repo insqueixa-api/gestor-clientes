@@ -124,6 +124,24 @@ export async function POST(req: NextRequest) {
       (pendingRequests || []).filter((r: any) => r.action === "removal").map((r: any) => r.client_app_id),
     );
 
+    const clientAppIds = (rows || []).map((r: any) => r.id).filter(Boolean);
+    let pendingManualRenewalByAppId = new Set<string>();
+    if (clientAppIds.length > 0) {
+      const { data: pendingManualPayments } = await supabaseAdmin
+        .from("client_portal_payments")
+        .select("client_app_id")
+        .eq("tenant_id", ctx.tenant_id)
+        .eq("client_id", client_id)
+        .eq("payment_type", "app_renewal")
+        .eq("status", "approved")
+        .eq("fulfillment_status", "manual_pending")
+        .in("client_app_id", clientAppIds);
+
+      pendingManualRenewalByAppId = new Set(
+        (pendingManualPayments || []).map((p: any) => String(p.client_app_id || "")).filter(Boolean),
+      );
+    }
+
     // ✅ Variáveis nas instruções de configuração (25/07/2026, pedido do
     // Márcio) — mesmo motor {variavel} dos templates de mensagem do
     // WhatsApp (renderTemplate, lib/whatsapp/template-vars.ts), pra não
@@ -229,6 +247,7 @@ export async function POST(req: NextRequest) {
         requires_admin_setup: requiresAdminSetup,
         has_pending_setup_request: pendingSetupByAppId.has(row.id),
         has_pending_removal_request: pendingRemovalByAppId.has(row.id),
+        has_pending_manual_renewal: pendingManualRenewalByAppId.has(String(row.id)),
         expiration: isPartnership ? null : extractExpiration(vals, config),
         is_partnership: isPartnership,
         fields: extractEditableFields(vals, config),

@@ -26,6 +26,7 @@ type AppDetail = {
   can_check_validity: boolean;
   has_pending_setup_request: boolean;
   has_pending_removal_request: boolean;
+  has_pending_manual_renewal: boolean;
   expiration: string | null;
   fields: AppField[];
   portal_setup_instructions: string | null;
@@ -333,6 +334,11 @@ export default function AppDetailClient() {
                   <p className="text-xs text-muted-foreground">
                     Validade do aplicativo: {String(app.expiration).split("T")[0].split("-").reverse().join("/")}
                   </p>
+                  {app.has_pending_manual_renewal && (
+                    <span className="text-[10px] font-bold text-rose-500">
+                      Aguardando renovação manual pelo suporte
+                    </span>
+                  )}
                   {app.can_check_validity && (
                     <button
                       disabled={busy}
@@ -342,6 +348,13 @@ export default function AppDetailClient() {
                       {busy ? "..." : "Atualizar"}
                     </button>
                   )}
+                </div>
+              )}
+              {!app.expiration && app.has_pending_manual_renewal && (
+                <div className="-mt-2">
+                  <span className="text-[10px] font-bold text-rose-500">
+                    Aguardando renovação manual pelo suporte
+                  </span>
                 </div>
               )}
 

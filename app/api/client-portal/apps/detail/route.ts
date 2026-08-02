@@ -88,6 +88,18 @@ export async function POST(req: NextRequest) {
     const hasPendingSetup = (pendingRequests || []).some((r: any) => r.action === "setup");
     const hasPendingRemoval = (pendingRequests || []).some((r: any) => r.action === "removal");
 
+    const { data: pendingManualRenewal } = await supabaseAdmin
+      .from("client_portal_payments")
+      .select("id")
+      .eq("tenant_id", ctx.tenant_id)
+      .eq("client_id", client_id)
+      .eq("client_app_id", client_app_id)
+      .eq("payment_type", "app_renewal")
+      .eq("status", "approved")
+      .eq("fulfillment_status", "manual_pending")
+      .limit(1)
+      .maybeSingle();
+
     const vals = row.field_values || {};
     const config = Array.isArray((row as any).apps?.fields_config) ? (row as any).apps.fields_config : [];
     const integrationType = (row as any).apps?.integration_type || null;
@@ -138,6 +150,7 @@ export async function POST(req: NextRequest) {
           can_check_validity: canCheckValidity,
           has_pending_setup_request: hasPendingSetup,
           has_pending_removal_request: hasPendingRemoval,
+          has_pending_manual_renewal: !!pendingManualRenewal,
           expiration: isPartnership ? null : extractExpiration(vals, config),
           fields: extractEditableFields(vals, config),
           portal_setup_instructions: (row as any).apps?.portal_setup_instructions || null,

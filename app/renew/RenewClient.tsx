@@ -288,6 +288,7 @@ export default function RenewClient() {
     requires_admin_setup: boolean;
     has_pending_setup_request: boolean;
     has_pending_removal_request: boolean;
+    has_pending_manual_renewal: boolean;
     expiration: string | null;
     is_partnership: boolean;
     fields: InstalledAppField[];
@@ -388,6 +389,26 @@ export default function RenewClient() {
     setRenewPollInterval(null);
     setRenewPayment(null);
     setRenewPaymentDone(false);
+  }
+
+  function tryClosePortalWindow(fallbackAction: () => void) {
+    if (typeof window === "undefined") {
+      fallbackAction();
+      return;
+    }
+
+    window.close();
+
+    // Em muitas abas comuns o browser bloqueia window.close(); nesse caso,
+    // executamos o fallback para não deixar o usuário preso no modal.
+    setTimeout(() => {
+      if (window.closed) return;
+      try {
+        window.open("", "_self");
+        window.close();
+      } catch {}
+      if (!window.closed) fallbackAction();
+    }, 350);
   }
 
   // Toasts (feedback de sucesso/erro nas ações do Bloco 3)
@@ -1671,7 +1692,7 @@ export default function RenewClient() {
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-        <div className="w-full max-w-sm bg-card rounded-3xl shadow-2xl overflow-hidden">
+        <div className="w-full max-w-[calc(100vw-1rem)] sm:max-w-xl md:max-w-2xl lg:max-w-3xl bg-card rounded-3xl shadow-2xl overflow-hidden">
           <div className="bg-gradient-to-r from-slate-800 to-slate-900 py-4 px-6 text-white text-center">
             <h2 className="text-lg font-bold">Como deseja pagar?</h2>
             <p className="text-sm text-white/70 mt-0.5">
@@ -1773,7 +1794,7 @@ export default function RenewClient() {
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-        <div className="w-full max-w-md bg-card rounded-3xl shadow-2xl overflow-hidden">
+        <div className="w-full max-w-[calc(100vw-1rem)] sm:max-w-xl md:max-w-2xl lg:max-w-3xl bg-card rounded-3xl shadow-2xl overflow-hidden">
           <div className="bg-gradient-to-r from-amber-600 to-amber-700 py-4 px-6 text-white text-center">
             <h2 className="text-lg font-bold">📋 Pendência identificada</h2>
           </div>
@@ -1958,7 +1979,10 @@ export default function RenewClient() {
                 Pagamento protegido pelo {isStripe ? "Stripe" : "Mercado Pago"}
               </p>
               <p>
-                Este portal não guarda o número completo do cartão nem o código PIX. Os dados seguem direto para o processador de pagamento para concluir a cobrança.
+                Este portal não armazena dados de pagamento. O processamento é feito por {isStripe ? "Stripe" : "Mercado Pago"}.
+              </p>
+              <p>
+                Conexão segura com SSL (cadeado de segurança).
               </p>
             </div>
           </div>
@@ -1968,7 +1992,7 @@ export default function RenewClient() {
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-        <div className="w-full max-w-md bg-card rounded-3xl shadow-2xl overflow-y-auto max-h-[95vh]">
+        <div className="w-full max-w-[calc(100vw-1rem)] sm:max-w-xl md:max-w-2xl lg:max-w-3xl bg-card rounded-3xl shadow-2xl overflow-y-auto max-h-[95vh]">
           {/* Success */}
           {isApproved && (
             <div className="p-6 sm:p-8 text-center">
@@ -2067,16 +2091,12 @@ export default function RenewClient() {
                   {/* Botão de Fechar */}
                   <button
                     onClick={() => {
-                      // Tenta fechar a aba
-                      window.close();
-
-                      // Fallback: se o navegador bloquear o fechamento da aba, fechamos o modal após um instante
-                      setTimeout(() => {
+                      tryClosePortalWindow(() => {
                         setPaymentModal(false);
                         setPaymentData(null);
                         setPaymentStatus("pending");
                         setPaymentPhase("awaiting_payment");
-                      }, 300);
+                      });
                     }}
                     className="w-full py-3 sm:py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-md transition-colors flex items-center justify-center gap-2"
                   >
@@ -2199,7 +2219,6 @@ export default function RenewClient() {
                       <li>o valor mostrado na tela</li>
                       <li>o nome do recebedor no app do seu banco</li>
                     </ul>
-                    <p>Se o QR Code não abrir, use o campo de copiar e colar. Não compartilhe esse código com outras pessoas.</p>
                   </div>
                 )}
 
@@ -2219,21 +2238,6 @@ export default function RenewClient() {
                         </p>
                       </div>
                     )}
-                  </div>
-                )}
-
-                {/* Instruções */}
-                {paymentPhase !== "renewing" && (
-                  <div className="space-y-2 text-sm">
-                    <p className="font-bold text-foreground/90 flex items-center gap-2">
-                      <span>📱</span> Como pagar:
-                    </p>
-                    <ol className="list-decimal list-inside space-y-1 text-muted-foreground pl-6">
-                      <li>Abra o app do seu banco ou carteira digital</li>
-                      <li>Escaneie o QR Code ou copie o código acima</li>
-                      <li>Confira valor e recebedor antes de confirmar</li>
-                      <li>Finalize o pagamento e aguarde a confirmação automática</li>
-                    </ol>
                   </div>
                 )}
 
@@ -3569,10 +3573,15 @@ export default function RenewClient() {
                             {app.is_partnership ? (
                               <p className="text-xs text-muted-foreground mt-0.5">Vencimento: Parceria (gratuito)</p>
                             ) : app.expiration ? (
-                              <div className="flex items-center gap-1.5 mt-0.5">
+                              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                                 <p className={`text-xs ${isExpired ? "text-rose-500 font-bold" : isExpiringSoon ? "text-amber-500 font-bold" : "text-muted-foreground"}`}>
                                   {isExpired ? "Vencido" : isExpiringSoon ? "Vencendo" : "Validade"}: {expirationDatePart.split("-").reverse().join("/")}
                                 </p>
+                                {app.has_pending_manual_renewal && (
+                                  <span className="text-[10px] font-bold text-rose-500">
+                                    Aguardando renovação manual pelo suporte
+                                  </span>
+                                )}
                                 {app.can_check_validity && (
                                   <button
                                     disabled={busy}
@@ -3589,8 +3598,13 @@ export default function RenewClient() {
                               // não mostrava nada, e sem o botão Atualizar aqui, só reconfigurando
                               // o app inteiro dava pra popular a validade. Agora mostra "vazio" +
                               // Atualizar (quando disponível) pra checar sem precisar reconfigurar.
-                              <div className="flex items-center gap-1.5 mt-0.5">
+                              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                                 <p className="text-xs text-muted-foreground">Vencimento: —</p>
+                                {app.has_pending_manual_renewal && (
+                                  <span className="text-[10px] font-bold text-rose-500">
+                                    Aguardando renovação manual pelo suporte
+                                  </span>
+                                )}
                                 {app.can_check_validity && (
                                   <button
                                     disabled={busy}
@@ -3941,7 +3955,7 @@ export default function RenewClient() {
                       if (e.target === e.currentTarget && renewPaymentDone) closeRenewPaymentModal();
                     }}
                   >
-                    <div className="w-full max-w-sm bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
+                    <div className="w-full max-w-[calc(100vw-1rem)] sm:max-w-xl md:max-w-2xl lg:max-w-3xl bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
                       {renewPaymentDone ? (
                         <div className="p-6 flex flex-col gap-4">
                           <div className="flex flex-col items-center gap-2 text-center py-4">
@@ -3955,7 +3969,7 @@ export default function RenewClient() {
                             </p>
                           </div>
                           <button
-                            onClick={closeRenewPaymentModal}
+                            onClick={() => tryClosePortalWindow(closeRenewPaymentModal)}
                             className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
                           >
                             Fechar
