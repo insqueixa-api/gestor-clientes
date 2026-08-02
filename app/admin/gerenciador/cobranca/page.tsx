@@ -12,6 +12,8 @@ import ToastNotifications, {
 import { useConfirm } from "@/hooks/useConfirm";
 import FormattedTimeInput from "@/components/ui/FormattedTimeInput";
 import { isoDateInSaoPaulo } from "@/lib/date-br";
+import { buildWhatsAppSessionLabel } from "@/lib/admin/whatsapp-modal-data";
+import { MAX_DELAY_SECS, MIN_DELAY_SECS, normalizeBillingDelayWindow } from "@/lib/admin/billing-campaign-window";
 
 // --- TIPOS ---
 type Automation = {
@@ -147,16 +149,6 @@ function getExpectedRunDateSP(baseDateStr: string, daysDiff: number) {
 // ============================================================================
 // PÁGINA PRINCIPAL
 // ============================================================================
-
-// =====================
-// HELPERS WHATSAPP (UI)
-// =====================
-
-// ✅ Só o nome do contato (Principal/Secundário) — sem o número, que não
-// cabia nos campos pequenos dos seletores de sessão.
-function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
-  return profile?.connected ? sessionName : `${sessionName} (Desconectado)`;
-}
 
 // ============================================================================
 // ✅ MONITOR GLOBAL DE FILA (CORRIGIDO: SEM JOIN QUEBRADO)
@@ -504,8 +496,8 @@ function CampaignWindowCard({
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState({
     window_start: "09:30",
-    delay_min_secs: 120,
-    delay_max_secs: 300,
+    delay_min_secs: MIN_DELAY_SECS,
+    delay_max_secs: MAX_DELAY_SECS,
     schedule_days: [0, 1, 2, 3, 4, 5, 6] as number[],
     is_active: true,
   });
@@ -523,10 +515,11 @@ function CampaignWindowCard({
         .eq("tenant_id", tid)
         .maybeSingle();
       if (data) {
+        const normalized = normalizeBillingDelayWindow(data.delay_min_secs ?? MIN_DELAY_SECS, data.delay_max_secs ?? MAX_DELAY_SECS);
         setSettings({
           window_start: String(data.window_start || "09:30").slice(0, 5),
-          delay_min_secs: data.delay_min_secs ?? 120,
-          delay_max_secs: data.delay_max_secs ?? 300,
+          delay_min_secs: normalized.minSecs,
+          delay_max_secs: normalized.maxSecs,
           schedule_days: Array.isArray(data.schedule_days)
             ? data.schedule_days
             : [0, 1, 2, 3, 4, 5, 6],
@@ -538,7 +531,10 @@ function CampaignWindowCard({
   }, []);
 
   const handleSave = async () => {
-    if (settings.delay_max_secs < settings.delay_min_secs) {
+    const normalized = normalizeBillingDelayWindow(settings.delay_min_secs, settings.delay_max_secs);
+    const nextSettings = { ...settings, delay_min_secs: normalized.minSecs, delay_max_secs: normalized.maxSecs };
+    setSettings(nextSettings);
+    if (nextSettings.delay_max_secs < nextSettings.delay_min_secs) {
       addToast("error", "Intervalo inválido", "O máximo não pode ser menor que o mínimo.");
       return;
     }
@@ -583,9 +579,8 @@ function CampaignWindowCard({
             <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed max-w-2xl">
               Todas as regras automáticas abaixo passam a disparar a partir
               desse horário, embaralhadas entre si (não uma de cada vez por
-              regra), com um intervalo aleatório entre cada mensagem. Sem
-              horário final — se o volume do dia for grande, a fila
-              simplesmente continua sendo drenada nos ticks seguintes.
+              regra), com um intervalo aleatório entre cada mensagem. O sistema
+              respeita um intervalo mínimo/máximo entre envios de 2 e 5 minutos.
             </p>
           </div>
           <button
@@ -614,13 +609,14 @@ function CampaignWindowCard({
             <Label>Intervalo mín. (min)</Label>
             <Input
               type="number"
-              min={0}
-              step={0.5}
-              value={settings.delay_min_secs / 60}
+              min={2}
+              max={5}
+              step={1}
+              value={Math.round(settings.delay_min_secs / 60)}
               onChange={(e) =>
                 setSettings((s) => ({
                   ...s,
-                  delay_min_secs: Math.max(0, Math.round(Number(e.target.value) * 60)),
+                  delay_min_secs: Math.min(MAX_DELAY_SECS, Math.max(MIN_DELAY_SECS, Math.round(Number(e.target.value) * 60))),
                 }))
               }
             />
@@ -629,13 +625,14 @@ function CampaignWindowCard({
             <Label>Intervalo máx. (min)</Label>
             <Input
               type="number"
-              min={0}
-              step={0.5}
-              value={settings.delay_max_secs / 60}
+              min={2}
+              max={5}
+              step={1}
+              value={Math.round(settings.delay_max_secs / 60)}
               onChange={(e) =>
                 setSettings((s) => ({
                   ...s,
-                  delay_max_secs: Math.max(0, Math.round(Number(e.target.value) * 60)),
+                  delay_max_secs: Math.min(MAX_DELAY_SECS, Math.max(MIN_DELAY_SECS, Math.round(Number(e.target.value) * 60))),
                 }))
               }
             />
@@ -1200,8 +1197,9 @@ export default function BillingPage() {
       const textPool = [tpl.content, ...(variantRows || []).map((v: any) => v.content)].filter(
         (c): c is string => !!c && String(c).trim().length > 0,
       );
-      const delayMinSecs = Math.max(campaignSettings?.delay_min_secs || 20, 15);
-      const delayMaxSecs = Math.max(campaignSettings?.delay_max_secs || delayMinSecs, delayMinSecs);
+      const normalized = normalizeBillingDelayWindow(campaignSettings?.delay_min_secs ?? MIN_DELAY_SECS, campaignSettings?.delay_max_secs ?? MAX_DELAY_SECS);
+      const delayMinSecs = normalized.minSecs;
+      const delayMaxSecs = normalized.maxSecs;
 
       let currentSendAt = new Date(); // Começa "Agora"
 

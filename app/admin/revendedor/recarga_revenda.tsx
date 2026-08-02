@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { getCurrentTenantId } from "@/lib/tenant";
+import { buildWhatsAppSessionLabel } from "@/lib/admin/whatsapp-modal-data";
 
 type Currency = "BRL" | "USD" | "EUR";
 
@@ -58,13 +59,6 @@ interface Props {
   resellerServerId?: string | null;
   lockServer?: boolean;
   onError?: (msg: string) => void;
-}
-
-// --- HELPERS WHATSAPP ---
-// ✅ Só o nome do contato (Principal/Secundário) — sem o número, que não
-// cabia nos campos pequenos dos seletores de sessão.
-function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
-  return profile?.connected ? sessionName : `${sessionName} (não conectado)`;
 }
 
 // --- HELPERS (integrais) ---

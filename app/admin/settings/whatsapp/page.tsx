@@ -198,7 +198,7 @@ function WhatsAppSessionCard({
       const { connected: isConn, status } = await fetchStatus();
       if (isConn) {
         setIsDormant(false); setQrDataUrl(null);
-        await fetchProfile(); await fetchConfig();
+        await Promise.all([fetchProfile(), fetchConfig()]);
         setShowAllowedSection(false); setShowMessageSection(false);
         if (showLoading) addToast("success", "Sincronizado");
         return;
@@ -508,17 +508,41 @@ function VmMaintenanceModal({ onClose, addToast }: { onClose: () => void; addToa
           <button onClick={onClose} className="shrink-0 w-8 h-8 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
         </div>
         <div className="space-y-3">
-          <button onClick={() => void handleRestartService()} disabled={restartingService} className="w-full py-3 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 font-medium text-xs hover:bg-amber-500/20 flex items-center justify-center gap-2">
-            {restartingService ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCw className="w-4 h-4" />} Reiniciar Serviço (~10s)
-          </button>
-          <button onClick={() => void handleRebootVm()} disabled={rebootingVm} className="w-full py-3 rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20 font-medium text-xs hover:bg-rose-500/20 flex items-center justify-center gap-2">
-            {rebootingVm ? <Loader2 className="w-4 h-4 animate-spin" /> : <Power className="w-4 h-4" />} Reiniciar VM Completa (~60s)
-          </button>
-          <div className="pt-2 border-t border-border space-y-1.5">
-            <p className="text-[10px] text-muted-foreground">
-              Último recurso — só se reconectar com QR novo não resolveu a entrega das mensagens.
-            </p>
-            <button onClick={() => void handleHardReset()} disabled={hardResetting} className="w-full py-3 rounded-xl bg-rose-600 text-white font-bold text-xs hover:bg-rose-500 flex items-center justify-center gap-2">
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3">
+            <div className="flex items-start gap-2">
+              <RotateCw className="w-4 h-4 mt-0.5 text-amber-500" />
+              <div className="space-y-1">
+                <p className="text-[11px] font-medium text-amber-600">Reiniciar serviço</p>
+                <p className="text-[10px] text-muted-foreground">Útil para um restart leve do processo do WhatsApp sem impactar a VM inteira.</p>
+              </div>
+            </div>
+            <button onClick={() => void handleRestartService()} disabled={restartingService} className="mt-3 w-full py-2.5 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20 font-medium text-xs hover:bg-amber-500/20 flex items-center justify-center gap-2">
+              {restartingService ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCw className="w-4 h-4" />} Reiniciar Serviço (~10s)
+            </button>
+          </div>
+
+          <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3">
+            <div className="flex items-start gap-2">
+              <Power className="w-4 h-4 mt-0.5 text-rose-500" />
+              <div className="space-y-1">
+                <p className="text-[11px] font-medium text-rose-600">Reiniciar VM</p>
+                <p className="text-[10px] text-muted-foreground">Use quando o container/host estiver travado e o restart leve não resolver.</p>
+              </div>
+            </div>
+            <button onClick={() => void handleRebootVm()} disabled={rebootingVm} className="mt-3 w-full py-2.5 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 font-medium text-xs hover:bg-rose-500/20 flex items-center justify-center gap-2">
+              {rebootingVm ? <Loader2 className="w-4 h-4 animate-spin" /> : <Power className="w-4 h-4" />} Reiniciar VM Completa (~60s)
+            </button>
+          </div>
+
+          <div className="rounded-xl border border-rose-600/20 bg-rose-600/10 p-3">
+            <div className="flex items-start gap-2">
+              <Trash2 className="w-4 h-4 mt-0.5 text-rose-600" />
+              <div className="space-y-1">
+                <p className="text-[11px] font-medium text-rose-700">Hard reset</p>
+                <p className="text-[10px] text-muted-foreground">Último recurso. Apaga as sessões e força novo QR para as 2 contas.</p>
+              </div>
+            </div>
+            <button onClick={() => void handleHardReset()} disabled={hardResetting} className="mt-3 w-full py-2.5 rounded-lg bg-rose-600 text-white font-bold text-xs hover:bg-rose-500 flex items-center justify-center gap-2">
               {hardResetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Hard Reset — Apagar as 2 sessões
             </button>
           </div>

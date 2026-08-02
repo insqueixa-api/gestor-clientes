@@ -35,13 +35,11 @@ import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm"; // ✅ Hook adicionado
 import { isoDateInSaoPaulo } from "@/lib/date-br";
 import ClientAlertBell from "@/components/alerts/ClientAlertBell";
-
-// --- HELPERS WHATSAPP ---
-// ✅ Só o nome do contato (Principal/Secundário) — sem o número, que não
-// cabia nos campos pequenos dos seletores de sessão.
-function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
-  return profile?.connected ? sessionName : `${sessionName} (não conectado)`;
-}
+import {
+  loadTenantMessageTemplates,
+  loadWhatsAppSessionOptions,
+  type MessageTemplate,
+} from "@/lib/admin/whatsapp-modal-data";
 
 const APP_FIELD_LABELS: Record<string, string> = {
   date: "Vencimento",
@@ -367,13 +365,6 @@ export default function TrialsPage() {
     message: string;
     status?: string | null;
   };
-  type MessageTemplate = {
-    id: string;
-    name: string;
-    content: string;
-    image_url?: string | null;
-    category?: string | null;
-  };
 
   const [scheduledMap, setScheduledMap] = useState<
     Record<string, ScheduledMsg[]>
@@ -442,34 +433,7 @@ export default function TrialsPage() {
 
   async function loadWhatsAppSessions() {
     try {
-      const [res1, res2] = await Promise.all([
-        fetch("/api/whatsapp/profile", { cache: "no-store" }).catch(() => null),
-        fetch("/api/whatsapp/profile2", { cache: "no-store" }).catch(
-          () => null,
-        ),
-      ]);
-      const prof1 = res1 && res1.ok ? await res1.json().catch(() => ({})) : {};
-      const prof2 = res2 && res2.ok ? await res2.json().catch(() => ({})) : {};
-      const name1 =
-        typeof window !== "undefined"
-          ? localStorage.getItem("wa_label_1") || "Contato Principal"
-          : "Contato Principal";
-      const name2 =
-        typeof window !== "undefined"
-          ? localStorage.getItem("wa_label_2") || "Contato Secundário"
-          : "Contato Secundário";
-
-      const options = [
-        { id: "default", label: buildWhatsAppSessionLabel(prof1, name1) },
-      ]; // ✅ TRAVA: Só exibe a opção de envio pela sessão 2 se ela estiver conectada
-
-      if (prof2 && prof2.connected) {
-        options.push({
-          id: "session2",
-          label: buildWhatsAppSessionLabel(prof2, name2),
-        });
-      }
-
+      const options = await loadWhatsAppSessionOptions();
       setSessionOptions(options);
     } catch {}
   }

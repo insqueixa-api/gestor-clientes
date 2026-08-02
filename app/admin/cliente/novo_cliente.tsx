@@ -15,6 +15,7 @@ import { ADMIN_CHECK_HANDLERS, resolveIntegrationTypeByName } from "@/lib/apps/p
 import { dispatchClouddyAction } from "@/lib/apps/clouddy-extension";
 import { dispatchIbosolAction } from "@/lib/apps/ibosol-extension";
 import type { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
+import { buildWhatsAppSessionLabel } from "@/lib/admin/whatsapp-modal-data";
 import AppPickerModal from "@/components/apps/AppPickerModal";
 import AppIntegrationActions from "@/components/apps/AppIntegrationActions";
 import AppInstanceFields from "@/components/apps/AppInstanceFields";
@@ -116,13 +117,6 @@ const PLAN_MONTHS: Record<string, number> = {
   SEMIANNUAL: 6,
   ANNUAL: 12,
 };
-
-// --- HELPERS WHATSAPP ---
-// ✅ Só o nome do contato (Principal/Secundário) — sem o número, que não
-// cabia nos campos pequenos dos seletores de sessão.
-function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
-  return profile?.connected ? sessionName : `${sessionName} (Não conectado)`;
-}
 
 // --- HELPERS ---
 function onlyDigits(raw: string) {

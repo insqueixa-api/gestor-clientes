@@ -12,6 +12,7 @@ import FormattedDateInput from "@/components/ui/FormattedDateInput";
 import FormattedTimeInput from "@/components/ui/FormattedTimeInput";
 import { Suspense } from "react";
 import { convertAmount } from "@/lib/fx";
+import { buildWhatsAppSessionLabel } from "@/lib/admin/whatsapp-modal-data";
 
 // --- INTERFACES ---
 interface ClientFromView {
@@ -100,13 +101,6 @@ const PLAN_MONTHS: Record<string, number> = {
   SEMIANNUAL: 6,
   ANNUAL: 12,
 };
-
-// --- HELPERS WHATSAPP ---
-// ✅ Só o nome do contato (Principal/Secundário) — sem o número, que não
-// cabia nos campos pequenos dos seletores de sessão.
-function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
-  return profile?.connected ? sessionName : `${sessionName} (Não conectado)`;
-}
 
 // Helpers
 function getLocalISOString() {

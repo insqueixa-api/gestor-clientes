@@ -24,18 +24,16 @@ import FormattedDateInput from "@/components/ui/FormattedDateInput";
 
 // --- HOOKS CUSTOMIZADOS ---
 import { useConfirm } from "@/hooks/useConfirm"; // ✅ ADICIONADO: Importação obrigatória
+import {
+  loadTenantMessageTemplates,
+  loadWhatsAppSessionOptions,
+  type MessageTemplate,
+} from "@/lib/admin/whatsapp-modal-data";
 
 // --- COMPONENTES MODAIS ---
 import ResellerFormModal from "./novo_revenda";
 import QuickRechargeModal from "./recarga_revenda";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
-
-// --- HELPERS WHATSAPP ---
-// ✅ Só o nome do contato (Principal/Secundário) — sem o número, que não
-// cabia nos campos pequenos dos seletores de sessão.
-function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
-  return profile?.connected ? sessionName : `${sessionName} (não conectado)`;
-}
 
 // --- TIPOS ---
 type ResellerStatus = "Ativo" | "Inativo" | "Arquivado";
@@ -51,14 +49,6 @@ type ScheduledMsg = {
   message: string;
   status?: string | null;
 };
-
-type MessageTemplate = {
-  id: string;
-  name: string;
-  content: string;
-  image_url?: string | null;
-  category?: string | null;
-}; // ✅ Busca a Categoria
 
 /**
  * Linha REAL da view vw_resellers_list_*
@@ -241,36 +231,7 @@ export default function RevendaPage() {
 
   async function loadWhatsAppSessions() {
     try {
-      const [res1, res2] = await Promise.all([
-        fetch("/api/whatsapp/profile", { cache: "no-store" }).catch(() => null),
-        fetch("/api/whatsapp/profile2", { cache: "no-store" }).catch(
-          () => null,
-        ),
-      ]);
-
-      const prof1 = res1 && res1.ok ? await res1.json().catch(() => ({})) : {};
-      const prof2 = res2 && res2.ok ? await res2.json().catch(() => ({})) : {};
-
-      const name1 =
-        typeof window !== "undefined"
-          ? localStorage.getItem("wa_label_1") || "Contato Principal"
-          : "Contato Principal";
-      const name2 =
-        typeof window !== "undefined"
-          ? localStorage.getItem("wa_label_2") || "Contato Secundário"
-          : "Contato Secundário";
-
-      const options = [
-        { id: "default", label: buildWhatsAppSessionLabel(prof1, name1) },
-      ]; // ✅ TRAVA: Só exibe a opção de envio pela sessão 2 se ela estiver conectada
-
-      if (prof2 && prof2.connected) {
-        options.push({
-          id: "session2",
-          label: buildWhatsAppSessionLabel(prof2, name2),
-        });
-      }
-
+      const options = await loadWhatsAppSessionOptions();
       setSessionOptions(options);
     } catch {}
   }
@@ -339,26 +300,8 @@ export default function RevendaPage() {
   }
 
   async function loadMessageTemplates(tid: string) {
-    const { data, error } = await supabaseBrowser
-      .from("message_templates")
-      .select("id,name,content,image_url,category") // ✅ NOVO: Busca category
-      .eq("tenant_id", tid)
-      .order("name", { ascending: true });
-
-    if (error) {
-      setMessageTemplates([]);
-      return;
-    }
-
-    const list: MessageTemplate[] = ((data as any[]) || []).map((r) => ({
-      id: String(r.id),
-      name: String(r.name ?? ""),
-      content: String(r.content ?? ""),
-      image_url: r.image_url || null,
-      category: r.category || "Geral", // ✅ Salvando no front
-    }));
-
-    setMessageTemplates(list);
+    const templates = await loadTenantMessageTemplates(tid);
+    setMessageTemplates(templates);
   }
 
   async function loadScheduledForResellers(tid: string, resellerIds: string[]) {

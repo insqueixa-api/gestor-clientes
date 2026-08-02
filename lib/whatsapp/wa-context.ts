@@ -1,7 +1,9 @@
 // lib/whatsapp/wa-context.ts
 import { createClient } from "@/lib/supabase/server";
+import { getAdminTenantContext } from "@/lib/api/auth-server";
 import { NextResponse } from "next/server";
 import crypto from "crypto";
+import { flagSuspiciousAccess } from "@/lib/observability";
 
 export type SessionNumber = 1 | 2;
 
@@ -19,25 +21,38 @@ export interface WAContext {
   headers: Record<string, string>;
 }
 
-export async function getWAContext(session: SessionNumber = 1): Promise<WAContext | null> {
-  const baseUrl = process.env.UNIGESTOR_WA_BASE_URL;
-  const token   = process.env.UNIGESTOR_WA_TOKEN;
-  if (!baseUrl || !token) return null;
+type CronTenantSelection = {
+  tenantId: string;
+  userId: string;
+};
 
-  const supabase = await createClient();
-  const { data: { user }, error: userErr } = await supabase.auth.getUser();
-  if (userErr || !user) return null;
+export function resolveCronTenantSelection(
+  rows: Array<{ tenant_id?: string | null; user_id?: string | null } | null | undefined>,
+  explicitTenantId?: string,
+): CronTenantSelection | null {
+  const normalized = (rows || [])
+    .filter(Boolean)
+    .map((row) => ({
+      tenantId: String(row?.tenant_id || "").trim(),
+      userId: String(row?.user_id || "").trim(),
+    }))
+    .filter(({ tenantId, userId }) => !!tenantId && !!userId);
 
-  const { data: member } = await supabase
-    .from("tenant_members")
-    .select("tenant_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  if (!normalized.length) return null;
 
-  if (!member?.tenant_id) return null;
+  if (explicitTenantId) {
+    const match = normalized.find((row) => row.tenantId === explicitTenantId);
+    if (match) return match;
+  }
 
-  const sessionKey = makeSessionKey(member.tenant_id, user.id, session);
+  const uniqueTenants = [...new Set(normalized.map((row) => row.tenantId))];
+  if (uniqueTenants.length !== 1) return null;
 
+  return normalized.find((row) => row.tenantId === uniqueTenants[0]) ?? null;
+}
+
+function buildWAContext(baseUrl: string, token: string, tenantId: string, userId: string, session: SessionNumber): WAContext {
+  const sessionKey = makeSessionKey(tenantId, userId, session);
   return {
     baseUrl,
     token,
@@ -51,18 +66,59 @@ export async function getWAContext(session: SessionNumber = 1): Promise<WAContex
   };
 }
 
-// ✅ NOVO: verifica se a chamada veio do cron (header com o segredo), não do navegador
+export async function getWAContext(session: SessionNumber = 1): Promise<WAContext | null> {
+  const baseUrl = process.env.UNIGESTOR_WA_BASE_URL;
+  const token = process.env.UNIGESTOR_WA_TOKEN;
+  if (!baseUrl || !token) return null;
+
+  const ctx = await getAdminTenantContext();
+  if (!ctx.ok) return null;
+
+  return buildWAContext(baseUrl, token, ctx.tenantId, ctx.userId, session);
+}
+
+// ✅ verifica se a chamada veio do cron (header com o segredo), não do navegador
 function isCronRequest(req: Request): boolean {
   const secret = process.env.CRON_CONTROL_SECRET;
   if (!secret) return false;
-  const header = req.headers.get("x-cron-secret");
-  return !!header && header === secret;
+  const header = req.headers.get("x-cron-secret") || "";
+  if (!header) return false;
+  if (header.length !== secret.length) return false;
+  const a = Buffer.from(header);
+  const b = Buffer.from(secret);
+  return crypto.timingSafeEqual(a, b);
 }
 
-// ✅ NOVO: mesma lógica do getWAContext, mas aceita também chamadas do cron.
-// Se vier do cron, usa o service role pra achar o tenant/usuário (sistema
-// single-user, então pega o único registro existente). Se vier do navegador,
-// comportamento idêntico ao getWAContext original.
+async function getCronTenantContext(req: Request): Promise<CronTenantSelection | null> {
+  if (!isCronRequest(req)) return null;
+
+  const explicitTenantId = String(process.env.WHATSAPP_CRON_TENANT_ID || "").trim() || undefined;
+  const { createClient: createAdminClient } = await import("@supabase/supabase-js");
+  const supabaseAdmin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+  const { data, error } = await supabaseAdmin
+    .from("tenant_members")
+    .select("tenant_id, user_id")
+    .limit(200);
+
+  if (error || !data) {
+    flagSuspiciousAccess("cron_whatsapp_tenant_lookup_failed", { error: error?.message || "unknown" });
+    return null;
+  }
+
+  const selected = resolveCronTenantSelection(data, explicitTenantId);
+  if (!selected) {
+    flagSuspiciousAccess("cron_whatsapp_tenant_ambiguous", { explicitTenantId: explicitTenantId || null });
+  }
+  return selected;
+}
+
+// ✅ mesma lógica do getWAContext, mas aceita também chamadas do cron. Para
+// evitar seleção arbitrária quando o sistema tiver mais de um tenant, o cron
+// só funciona quando há um tenant explícito configurado ou um único tenant
+// válido na tabela.
 export async function getWAContextOrCron(
   req: Request,
   session: SessionNumber = 1,
@@ -71,66 +127,30 @@ export async function getWAContextOrCron(
   const token = process.env.UNIGESTOR_WA_TOKEN;
   if (!baseUrl || !token) return null;
 
-  let tenantId: string | undefined;
-  let userId: string | undefined;
+  const tenantContext = isCronRequest(req)
+    ? await getCronTenantContext(req)
+    : null;
 
-  if (isCronRequest(req)) {
-    const { createClient: createAdminClient } = await import("@supabase/supabase-js");
-    const supabaseAdmin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    );
-    const { data: member } = await supabaseAdmin
-      .from("tenant_members")
-      .select("tenant_id, user_id")
-      .limit(1)
-      .maybeSingle();
-    if (!member) return null;
-    tenantId = member.tenant_id;
-    userId = member.user_id;
-  } else {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: userErr,
-    } = await supabase.auth.getUser();
-    if (userErr || !user) return null;
-
-    const { data: member } = await supabase
-      .from("tenant_members")
-      .select("tenant_id")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (!member?.tenant_id) return null;
-    tenantId = member.tenant_id;
-    userId = user.id;
+  if (!tenantContext) {
+    const ctx = await getAdminTenantContext();
+    if (!ctx.ok) return null;
+    return buildWAContext(baseUrl, token, ctx.tenantId, ctx.userId, session);
   }
 
-  const sessionKey = makeSessionKey(tenantId!, userId!, session);
-
-  return {
-    baseUrl,
-    token,
-    sessionKey,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "x-session-key": sessionKey,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-  };
+  return buildWAContext(baseUrl, token, tenantContext.tenantId, tenantContext.userId, session);
 }
 
-// ✅ NOVO: checagem simples pra rotas que não usam WAContext (reboot, restart-service)
-// — aceita sessão de navegador OU o segredo do cron
+// ✅ checagem segura pra rotas que não usam WAContext (reboot, restart-service)
+// — aceita sessão de navegador admin OU o segredo do cron com tenant explícito
+// ou tenant único na tabela.
 export async function requireUserOrCron(req: Request): Promise<boolean> {
-  if (isCronRequest(req)) return true;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return !!user;
+  if (isCronRequest(req)) {
+    const cronCtx = await getCronTenantContext(req);
+    return !!cronCtx;
+  }
+
+  const ctx = await getAdminTenantContext();
+  return ctx.ok;
 }
 
 interface ProxyResult {

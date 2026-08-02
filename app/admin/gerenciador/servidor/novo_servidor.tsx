@@ -8,6 +8,7 @@ import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import type { ServerRow } from "./page";
 import { useConfirm } from "@/hooks/useConfirm";
+import { buildWhatsAppSessionLabel } from "@/lib/admin/whatsapp-modal-data";
 
 // Helper de Slug
 function slugify(text: string) {
@@ -42,13 +43,6 @@ type Props = {
   onSuccess: () => void;
   onError?: (msg: string) => void;
 };
-
-// --- HELPERS WHATSAPP ---
-// ✅ Só o nome do contato (Principal/Secundário) — sem o número, que não
-// cabia nos campos pequenos dos seletores de sessão.
-function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
-  return profile?.connected ? sessionName : `${sessionName} (não conectado)`;
-}
 
 // --- COMPONENTES VISUAIS INTERNOS ---
 function Label({ children }: { children: React.ReactNode }) {
