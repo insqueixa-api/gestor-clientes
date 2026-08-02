@@ -26,6 +26,7 @@ interface ClientAccount {
   plan_table_id: string;
   is_trial: boolean;
   is_archived: boolean;
+  has_pending_manual_renewal?: boolean;
   has_integration?: boolean;
   technology?: string;
   modalidade?: string | null;
@@ -1100,6 +1101,16 @@ export default function RenewClient() {
     return getTimeRemaining(selectedAccount.vencimento);
   }, [selectedAccount]);
 
+  function markAccountManualRenewalPending(accountId: string) {
+    setAccounts((prev) =>
+      prev.map((account) =>
+        account.id === accountId
+          ? { ...account, has_pending_manual_renewal: true }
+          : account,
+      ),
+    );
+  }
+
   // ========= HANDLERS =========
   const handleSelectAccount = (accountId: string) => {
     setSelectedAccountId(accountId);
@@ -1301,6 +1312,7 @@ export default function RenewClient() {
             (window as any).__cp_done_scheduled = true;
 
             const isManual = phaseRaw === "manual_pending";
+            if (isManual && selectedAccountId) markAccountManualRenewalPending(selectedAccountId);
 
             setPaymentPhase("done");
             setPaymentStatus("approved");
@@ -1351,6 +1363,7 @@ export default function RenewClient() {
             (window as any).__cp_done_scheduled = true;
 
             const isManual = fulfillment === "manual_pending";
+            if (isManual && selectedAccountId) markAccountManualRenewalPending(selectedAccountId);
 
             setPaymentPhase("done");
             setPaymentStatus("approved");
@@ -3277,14 +3290,23 @@ export default function RenewClient() {
                     {/* Linha 3: Vencimento (Centralizado) */}
                     <div
                       className={`w-full text-center py-2 rounded-lg border ${
-                        time?.expired
+                        account.has_pending_manual_renewal
+                          ? "bg-amber-500/10 border-amber-500/20 text-amber-700"
+                          : time?.expired
                           ? "bg-rose-500/10 border-rose-500/20 text-rose-500"
                           : "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
                       }`}
                     >
-                      <span className="text-sm font-bold block tracking-tight">
-                        {time?.text}
-                      </span>
+                      <div className="flex flex-wrap items-center justify-center gap-2 px-2">
+                        <span className="text-sm font-bold block tracking-tight">
+                          {time?.text}
+                        </span>
+                        {account.has_pending_manual_renewal && (
+                          <span className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-700">
+                            Em processamento
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </button>
                 );
@@ -4252,7 +4274,9 @@ export default function RenewClient() {
 {/* Vencimento Centralizado (Substitui Card Azul) */}
 <div
   className={`w-full text-center py-2.5 sm:py-4 rounded-xl shadow-sm border-2 animate-in fade-in zoom-in duration-500 ${
-            timeRemaining?.expired
+            selectedAccount.has_pending_manual_renewal
+              ? "bg-amber-500/10 border-amber-500/30"
+              : timeRemaining?.expired
               ? "bg-rose-500/10 border-rose-500/20"
               : selectedAccount.is_trial
                 ? "bg-sky-500/10 border-sky-500/20"
@@ -4265,7 +4289,9 @@ export default function RenewClient() {
           <div className="flex items-center justify-center gap-2">
             <span
               className={`w-3 h-3 rounded-full animate-pulse ${
-                timeRemaining?.expired
+                selectedAccount.has_pending_manual_renewal
+                  ? "bg-amber-500"
+                  : timeRemaining?.expired
                   ? "bg-rose-500"
                   : selectedAccount.is_trial
                     ? "bg-sky-500"
@@ -4274,17 +4300,39 @@ export default function RenewClient() {
             />
             <span
               className={`text-lg sm:text-xl font-black tracking-tight ${
-                timeRemaining?.expired
+                selectedAccount.has_pending_manual_renewal
+                  ? "text-amber-600"
+                  : timeRemaining?.expired
                   ? "text-rose-500"
                   : selectedAccount.is_trial
                     ? "text-sky-500"
                     : "text-emerald-500"
               }`}
             >
-              {selectedAccount.is_trial && "Teste • "}
-              {timeRemaining?.text}
+              {selectedAccount.has_pending_manual_renewal
+                ? "Em processo de renovação"
+                : <>
+                    {selectedAccount.is_trial && "Teste • "}
+                    {timeRemaining?.text}
+                  </>}
             </span>
           </div>
+          {selectedAccount.has_pending_manual_renewal && (
+            <div className="mt-2 flex flex-col items-center gap-2 px-3">
+              <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/15 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-700">
+                Renovação em andamento
+              </span>
+              <div className="flex flex-wrap items-center justify-center gap-2 text-center">
+                <span className="inline-flex items-center rounded-full border border-amber-500/20 bg-white/60 px-3 py-1 text-xs font-bold text-amber-700">
+                  {selectedAccount.is_trial && "Teste • "}
+                  {timeRemaining?.text}
+                </span>
+                <span className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-700">
+                  Renovação em andamento pelo suporte, por favor aguarde!
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Card de Dados de Acesso */}
@@ -4319,7 +4367,14 @@ export default function RenewClient() {
                   Vencimento em
                 </label>
                 <div className="text-sm font-medium text-foreground bg-muted px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg border border-border">
-                  {formatDateTime(selectedAccount.vencimento)}
+                  <div>{formatDateTime(selectedAccount.vencimento)}</div>
+                  {selectedAccount.has_pending_manual_renewal && (
+                    <div className="mt-2">
+                      <span className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-700">
+                        Em processamento
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
               <div>

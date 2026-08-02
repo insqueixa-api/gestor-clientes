@@ -124,6 +124,25 @@ if (!session_token) {
       );
     }
 
+    const clientIds = (accounts || []).map((acc: any) => String(acc.id || "")).filter(Boolean);
+    let pendingManualRenewalByClientId = new Set<string>();
+
+    if (clientIds.length > 0) {
+      const { data: pendingManualRenewals } = await supabaseAdmin
+        .from("client_portal_payments")
+        .select("client_id")
+        .eq("tenant_id", sess.tenant_id)
+        .eq("payment_method", "online")
+        .eq("status", "approved")
+        .eq("fulfillment_status", "manual_pending")
+        .in("client_id", clientIds)
+        .or("payment_type.is.null,payment_type.neq.app_renewal");
+
+      pendingManualRenewalByClientId = new Set(
+        (pendingManualRenewals || []).map((row: any) => String(row.client_id || "")).filter(Boolean)
+      );
+    }
+
     const mapped = (accounts || []).map((acc: any) => {
       // ✅ Descobre se quem está logado agora é o contato secundário
       const isSecondary = acc.secondary_whatsapp_username === sess.whatsapp_username;
@@ -144,6 +163,7 @@ if (!session_token) {
         is_archived: acc.is_archived || false,
         technology: acc.technology || "IPTV",
         modalidade: acc.dados_extras?.modalidade || null,
+        has_pending_manual_renewal: pendingManualRenewalByClientId.has(String(acc.id)),
       };
     });
 
