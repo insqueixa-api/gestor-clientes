@@ -2143,14 +2143,14 @@ function AutomationWizard({
 
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
-      <div className="w-full h-full sm:h-auto sm:max-w-4xl bg-card border-0 sm:border border-border sm:rounded-3xl shadow-2xl flex flex-col max-h-full sm:max-h-[88vh] overflow-hidden">
-        <div className="px-5 py-4 border-b border-border bg-card/95 backdrop-blur">
-          <div className="flex justify-between items-start gap-4 mb-4">
+      <div className="w-full h-full sm:h-auto sm:max-w-3xl bg-card border-0 sm:border border-border sm:rounded-3xl shadow-2xl flex flex-col max-h-full sm:max-h-[82vh] overflow-hidden">
+        <div className="px-4 py-3 border-b border-border bg-card/95 backdrop-blur">
+          <div className="flex justify-between items-start gap-3 mb-3">
             <div>
-              <h2 className="text-xl font-semibold text-foreground">
+              <h2 className="text-lg font-semibold text-foreground">
                 {editingRule ? `Editar: ${editingRule.name}` : "Nova automação de cobrança"}
               </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 Configure a regra em 2 etapas, com foco no que dispara, para quem e em qual modo.
               </p>
             </div>
@@ -2170,31 +2170,31 @@ function AutomationWizard({
                 <button
                   key={item.id}
                   onClick={() => setStep(item.id)}
-                  className={`rounded-2xl border px-4 py-2.5 text-left transition-all ${active ? "border-emerald-500/30 bg-emerald-500/10 shadow-sm" : done ? "border-border bg-muted/40" : "border-border bg-background"}`}
+                  className={`rounded-xl border px-3 py-2 text-left transition-all ${active ? "border-emerald-500/30 bg-emerald-500/10 shadow-sm" : done ? "border-border bg-muted/40" : "border-border bg-background"}`}
                 >
-                  <div className="flex items-center gap-3">
-                    <span className={`inline-flex h-8 w-8 items-center justify-center rounded-xl border ${active ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-600" : "border-border bg-background text-muted-foreground"}`}>
-                      <Icon className="h-4 w-4" />
+                  <div className="flex items-center gap-2.5">
+                    <span className={`inline-flex h-7 w-7 items-center justify-center rounded-lg border ${active ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-600" : "border-border bg-background text-muted-foreground"}`}>
+                      <Icon className="h-3.5 w-3.5" />
                     </span>
                     <div>
-                      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Etapa {item.id}</div>
-                      <div className="text-sm font-semibold text-foreground">{item.title}</div>
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Etapa {item.id}</div>
+                      <div className="text-xs font-semibold text-foreground">{item.title}</div>
                     </div>
                   </div>
-                  <p className="mt-2 text-xs text-muted-foreground">{item.caption}</p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">{item.caption}</p>
                 </button>
               );
             })}
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 custom-scrollbar bg-muted/10">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 custom-scrollbar bg-muted/10">
           {step === 1 && (
-            <div className="space-y-3">
-              <div className="rounded-3xl border border-border bg-card p-4 space-y-4 shadow-sm">
+            <div className="space-y-2.5">
+              <div className="rounded-2xl border border-border bg-card p-3.5 space-y-3 shadow-sm">
                 <div>
-                  <h3 className="text-base font-semibold text-foreground">Definição principal</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">Escolha o tipo da régua e qual template/sessão será usada no envio.</p>
+                  <h3 className="text-sm font-semibold text-foreground">Definição principal</h3>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Tipo da régua, template e sessão de envio.</p>
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -2264,7 +2264,7 @@ function AutomationWizard({
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-border bg-card p-4 shadow-sm">
+              <div className="rounded-2xl border border-border bg-card p-3.5 shadow-sm">
                 <Label>Regra de Disparo</Label>
                 <div className="mt-2 flex flex-wrap items-center gap-2.5 rounded-2xl border border-border bg-muted/20 p-3">
                   <span className="text-sm font-medium text-foreground/80">Enviar</span>
@@ -2327,7 +2327,7 @@ function AutomationWizard({
                     <option value="created_at">Cadastro</option>
                   </select>
                 </div>
-                <p className="mt-3 text-xs text-muted-foreground">
+                <p className="mt-2 text-[11px] text-muted-foreground">
                   Exemplo: "3 dias após vencimento" ou "no dia do cadastro".
                 </p>
               </div>
@@ -2335,11 +2335,11 @@ function AutomationWizard({
           )}
 
           {step === 2 && (
-            <div className="space-y-3">
-              <div className="rounded-3xl border border-border bg-card p-4 shadow-sm space-y-4">
+            <div className="space-y-2.5">
+              <div className="rounded-2xl border border-border bg-card p-3.5 shadow-sm space-y-3">
               <div>
-                <h3 className="text-base font-semibold text-foreground">Quem recebe?</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <h3 className="text-sm font-semibold text-foreground">Quem recebe?</h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">
                   Deixe sem filtro quando a regra precisar atingir toda a base daquele tipo.
                 </p>
               </div>
@@ -2371,49 +2371,49 @@ function AutomationWizard({
               </div>
               </div>
 
-              <div className="rounded-3xl border border-border bg-card p-4 shadow-sm space-y-4">
+              <div className="rounded-2xl border border-border bg-card p-3.5 shadow-sm space-y-3">
                 <div>
-                  <h3 className="text-base font-semibold text-foreground">Modo de envio</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
+                  <h3 className="text-sm font-semibold text-foreground">Modo de envio</h3>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
                     Defina se a regra fica pronta para envio manual ou entra na janela automática compartilhada.
                   </p>
                 </div>
-                <div className="flex flex-col items-center gap-4">
-                  <span className="text-sm font-medium uppercase tracking-widest text-muted-foreground/70">
+                <div className="flex flex-col items-center gap-2.5">
+                  <span className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground/70">
                     Modo de Operação
                   </span>
-                  <div className="inline-flex items-center gap-2 rounded-2xl border border-border bg-muted/30 p-1">
+                  <div className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-muted/30 p-1">
                     <button
                       onClick={() => setForm({ ...form, is_automatic: false })}
-                      className={`rounded-xl px-6 py-3 text-sm font-medium transition-all ${!form.is_automatic ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                      className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${!form.is_automatic ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
                     >
                       Manual
                     </button>
                     <button
                       onClick={() => setForm({ ...form, is_automatic: true })}
-                      className={`rounded-xl px-6 py-3 text-sm font-medium transition-all ${form.is_automatic ? "bg-card shadow-sm text-emerald-600" : "text-muted-foreground hover:text-foreground"}`}
+                      className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${form.is_automatic ? "bg-card shadow-sm text-emerald-600" : "text-muted-foreground hover:text-foreground"}`}
                     >
                       Automático
                     </button>
                   </div>
                 </div>
                 {form.is_automatic && (
-                  <div className="rounded-2xl border border-border bg-muted/20 p-4 text-center animate-in fade-in slide-in-from-bottom-4">
-                    <div className="mx-auto mb-2 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-600">
+                  <div className="rounded-xl border border-border bg-muted/20 p-3 text-center animate-in fade-in slide-in-from-bottom-4">
+                    <div className="mx-auto mb-1.5 inline-flex h-8 w-8 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-600">
                       <Clock3 className="h-4 w-4" />
                     </div>
-                    <p className="mx-auto max-w-md text-sm leading-relaxed text-foreground/80">
+                    <p className="mx-auto max-w-md text-xs leading-relaxed text-foreground/80">
                       O horário de disparo é compartilhado entre as regras automáticas. Ajuste início e intervalo no card do topo desta tela.
                     </p>
                   </div>
                 )}
 
                 {!form.is_automatic && (
-                  <div className="rounded-2xl border border-border bg-muted/20 p-4 text-center shadow-sm">
-                    <div className="mx-auto mb-2 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-sky-500/20 bg-sky-500/10 text-sky-600">
+                  <div className="rounded-xl border border-border bg-muted/20 p-3 text-center shadow-sm">
+                    <div className="mx-auto mb-1.5 inline-flex h-8 w-8 items-center justify-center rounded-xl border border-sky-500/20 bg-sky-500/10 text-sky-600">
                     <Send className="h-5 w-5" />
                     </div>
-                    <p className="mx-auto max-w-md text-sm leading-relaxed text-foreground/80">
+                    <p className="mx-auto max-w-md text-xs leading-relaxed text-foreground/80">
                       No modo manual, a regra fica pronta para enfileirar envios sob demanda direto do card da automação.
                     </p>
                   </div>
@@ -2423,7 +2423,7 @@ function AutomationWizard({
           )}
         </div>
 
-        <div className="px-5 py-3.5 border-t border-border flex justify-between items-center">
+        <div className="px-4 py-3 border-t border-border flex justify-between items-center">
           {step === 1 && (
             <>
               <button
