@@ -180,11 +180,12 @@ export async function POST(req: NextRequest) {
       const isNaTv = String(server?.name || "").trim().toUpperCase() === "NATV";
       const dnsR2 = isNaTv && dns ? natvMirrorBaseUrl(dns) : "";
       const m3uUrlR2 = isNaTv && dns ? buildM3uUrlSecondary([dns], username, password, server?.name) : "";
+      const dnsForPortal = dnsR2 && Math.random() < 0.5 ? dnsR2 : dns;
 
       instructionVars = {
         usuario_app: username,
         senha_app: password,
-        dns_servidor: dns,
+        dns_servidor: dnsForPortal,
         m3u_url: m3uUrl,
         dns_servidor_r2: dnsR2,
         m3u_url_r2: m3uUrlR2,

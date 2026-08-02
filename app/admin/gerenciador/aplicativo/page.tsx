@@ -22,11 +22,7 @@ import {
   DEVICE_TYPE_LABELS,
 } from "@/lib/apps/device-types";
 import {
-  type M3UBadgeRule,
-  PORTAL_INSTRUCTION_TAGS,
-  NON_M3U_VARIABLE_OPTIONS,
-  badgesToM3URule,
-  applyM3URule,
+  PORTAL_VARIABLE_OPTIONS,
 } from "@/lib/apps/portal-variable-rules";
 
 // --- TIPOS ---
@@ -181,8 +177,6 @@ const [apps, setApps] = useState<AppData[]>([]);
   const [formPortalInstructions, setFormPortalInstructions] = useState<string>("");
   const [formAccessCode, setFormAccessCode] = useState<string>("");
   const [formVariableBadges, setFormVariableBadges] = useState<string[]>([]);
-  const [formM3UBadgeRule, setFormM3UBadgeRule] = useState<M3UBadgeRule>("none");
-  const portalInstructionsRef = useRef<HTMLTextAreaElement>(null);
   // ✅ "Descontinuado" — reaproveita apps.is_active (existia, mas nunca era
   // exposto em lugar nenhum). Pedido do Márcio (25/07/2026): DuplexPlay saiu
   // de linha, clientes que já têm precisam ver aviso pra trocar; app some do
@@ -190,36 +184,9 @@ const [apps, setApps] = useState<AppData[]>([]);
   const [formIsActive, setFormIsActive] = useState(true);
   const [formDiscontinuedReplacement, setFormDiscontinuedReplacement] = useState<string>("");
 
-  // ✅ Único mecanismo pros dados do cliente (usuário/senha/DNS/código/m3u)
-  // aparecerem no portal (31/07/2026, pedido do Márcio — refeito depois de
-  // um vai-e-volta: a 1ª versão substituía {tag} dentro do texto livre; a 2ª
-  // manteve a tag E adicionou os toggles abaixo, só que aí tinha DOIS
-  // lugares fazendo a mesma coisa, o que gerou inconsistência entre apps e
-  // "não vejo onde preencher a variável"). Agora é só isto: marque o toggle,
-  // o dado vira um badge copiável no portal (igual Device ID/MAC/Key).
-  // "DNS (Rota 2)"/"Link M3U (Rota 2)" (31/07/2026) — mesmo mirror que o
-  // Reconfigurar > Secundária já usa pro NaTV (sem "s" do https + prefixo
-  // "r2."); só tem valor de verdade pra cliente de servidor NaTV — em
-  // qualquer outro o badge simplesmente não aparece (valor vazio).
+  // Dados exibidos no portal: marca o que o cliente precisa copiar no app.
   function toggleVariableBadge(key: string) {
     setFormVariableBadges((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
-  }
-
-  function insertInstructionTag(tag: string) {
-    const el = portalInstructionsRef.current;
-    if (!el) {
-      setFormPortalInstructions((prev) => `${prev}${tag}`);
-      return;
-    }
-    const start = el.selectionStart ?? formPortalInstructions.length;
-    const end = el.selectionEnd ?? formPortalInstructions.length;
-    const next = formPortalInstructions.slice(0, start) + tag + formPortalInstructions.slice(end);
-    setFormPortalInstructions(next);
-    requestAnimationFrame(() => {
-      el.focus();
-      const pos = start + tag.length;
-      el.setSelectionRange(pos, pos);
-    });
   }
 
   async function handleIconUpload(file: File) {
@@ -565,7 +532,6 @@ setApps(formattedApps);
     setFormPortalInstructions("");
     setFormAccessCode("");
     setFormVariableBadges([]);
-    setFormM3UBadgeRule("none");
     setFormIsActive(true);
     setFormDiscontinuedReplacement("");
     setIsModalOpen(true);
@@ -590,7 +556,6 @@ setApps(formattedApps);
       ? app.portal_variable_fields
       : [];
     setFormVariableBadges(selectedBadges);
-    setFormM3UBadgeRule(badgesToM3URule(selectedBadges));
     setFormIsActive(app.is_active !== false);
     setFormDiscontinuedReplacement(app.discontinued_replacement_name || "");
     setIsModalOpen(true);
@@ -643,10 +608,7 @@ setApps(formattedApps);
       const safeUrl = normalizeApiUrl(formUrl);
       const isPaid = formCostType === "paid";
       const isPartnership = formCostType === "partnership";
-      const variableBadgesToSave = applyM3URule(
-        formVariableBadges,
-        formM3UBadgeRule,
-      );
+      const variableBadgesToSave = formVariableBadges;
 
       const insertPayload = {
         tenant_id: tid,
@@ -1527,8 +1489,7 @@ setApps(formattedApps);
                     ))}
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    Só aparece pro cliente se bater com a tecnologia do
-                    servidor dele (IPTV ou P2P).
+                    Só aparece para cliente com a mesma tecnologia (IPTV ou P2P).
                   </p>
                 </div>
 
@@ -1554,42 +1515,17 @@ setApps(formattedApps);
                     })}
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    Marque todos os aparelhos onde esse app funciona. Usado
-                    pra filtrar aqui e (no futuro) na tela de manutenção do
-                    portal do cliente.
+                    Marque os aparelhos onde esse app funciona.
                   </p>
                 </div>
 
                 <div>
                   <Label>Dados do cliente exibidos no portal</Label>
                   <p className="text-[11px] text-muted-foreground mb-2">
-                    Marque o que esse app precisa — cada um vira um campo com
-                    botão de copiar no card do app, igual Device ID/MAC/Key.
-                    Não repita esses dados por extenso no texto livre abaixo,
-                    pra não duplicar a informação na tela do cliente.
+                    Marque o que esse app precisa para configurar.
                   </p>
-                  <div className="mb-2">
-                    <Label>Regra do Link M3U</Label>
-                    <Select
-                      value={formM3UBadgeRule}
-                      onChange={(e) => {
-                        const rule = e.target.value as M3UBadgeRule;
-                        setFormM3UBadgeRule(rule);
-                        setFormVariableBadges((prev) => applyM3URule(prev, rule));
-                      }}
-                    >
-                      <option value="none">Não exibir M3U</option>
-                      <option value="primary">Exibir Link M3U (padrão)</option>
-                      <option value="secondary">Exibir Link M3U (Rota 2 - NaTV)</option>
-                      <option value="both">Exibir ambos (padrão + Rota 2)</option>
-                    </Select>
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                      Escolha aqui a regra do M3U sem precisar marcar vários
-                      botões separados.
-                    </p>
-                  </div>
                   <div className="flex flex-wrap gap-1.5">
-                    {NON_M3U_VARIABLE_OPTIONS.map((opt) => {
+                    {PORTAL_VARIABLE_OPTIONS.map((opt) => {
                       const active = formVariableBadges.includes(opt.key);
                       return (
                         <button
@@ -1626,32 +1562,14 @@ setApps(formattedApps);
                 <div>
                   <Label>Instruções de configuração (portal do cliente)</Label>
                   <textarea
-                    ref={portalInstructionsRef}
                     value={formPortalInstructions}
                     onChange={(e) => setFormPortalInstructions(e.target.value)}
                     rows={5}
                     placeholder="Passo a passo pro cliente configurar esse app sozinho (ex: onde baixar, como inserir o Device ID, etc). Fica vazio até você preencher — o botão de instruções some do portal se não tiver nada aqui."
                     className="w-full px-3 py-2 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 resize-y"
                   />
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {PORTAL_INSTRUCTION_TAGS.map((t) => (
-                      <button
-                        key={t.tag}
-                        type="button"
-                        onClick={() => insertInstructionTag(t.tag)}
-                        className="px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[11px] font-mono hover:bg-emerald-500/20 transition-colors"
-                        title={`Inserir ${t.tag}`}
-                      >
-                        {t.label} <span className="opacity-70">{t.tag}</span>
-                      </button>
-                    ))}
-                  </div>
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    Texto livre — explique o passo a passo. Usuário/senha/DNS/
-                    código NÃO precisam ser escritos aqui: marque acima e eles
-                    aparecem prontos pra copiar, separados do texto. Se
-                    quiser, você pode inserir M3U no texto usando as tags
-                    abaixo.
+                    Texto livre com o passo a passo básico de configuração.
                   </p>
                 </div>
 
