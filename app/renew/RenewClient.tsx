@@ -4318,16 +4318,13 @@ export default function RenewClient() {
             </span>
           </div>
           {selectedAccount.has_pending_manual_renewal && (
-            <div className="mt-2 flex flex-col items-center gap-2 px-3">
-              <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/15 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-700">
-                Renovação em andamento
-              </span>
-              <div className="flex flex-wrap items-center justify-center gap-2 text-center">
-                <span className="inline-flex items-center rounded-full border border-amber-500/20 bg-white/60 px-3 py-1 text-xs font-bold text-amber-700">
+            <div className="mt-2 px-3 text-center text-amber-700">
+              <div className="flex flex-col items-center gap-1 sm:flex-row sm:flex-wrap sm:justify-center sm:gap-2">
+                <span className="text-xs font-bold">
                   {selectedAccount.is_trial && "Teste • "}
                   {timeRemaining?.text}
                 </span>
-                <span className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-700">
+                <span className="text-xs font-medium">
                   Renovação em andamento pelo suporte, por favor aguarde!
                 </span>
               </div>
@@ -4367,14 +4364,14 @@ export default function RenewClient() {
                   Vencimento em
                 </label>
                 <div className="text-sm font-medium text-foreground bg-muted px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg border border-border">
-                  <div>{formatDateTime(selectedAccount.vencimento)}</div>
-                  {selectedAccount.has_pending_manual_renewal && (
-                    <div className="mt-2">
-                      <span className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-700">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
+                    <span>{formatDateTime(selectedAccount.vencimento)}</span>
+                    {selectedAccount.has_pending_manual_renewal && (
+                      <span className="text-xs font-bold text-amber-600">
                         Em processamento
                       </span>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
               <div>
