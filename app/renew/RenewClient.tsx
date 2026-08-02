@@ -2,7 +2,7 @@
 // app/renew/RenewClient.tsx
 
 import { useSearchParams, useRouter } from "next/navigation"; // ✅ useRouter adicionado
-import { useState, useEffect, useMemo, useRef } from "react";
+import { Fragment, useState, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
 import { useConfirm } from "@/hooks/useConfirm";
 import {
@@ -158,9 +158,30 @@ function formatMoney(amount: number, currency: string = "BRL") {
 // do link (".", ",", ")" etc.) antes de montar o href, senão o clique ia
 // pra uma URL com lixo no final.
 function linkifyText(text: string) {
+  const renderBold = (input: string) => {
+    const out: React.ReactNode[] = [];
+    const re = /\*\*(.+?)\*\*/g;
+    let last = 0;
+    let m: RegExpExecArray | null;
+    let idx = 0;
+
+    while ((m = re.exec(input)) !== null) {
+      if (m.index > last) out.push(<span key={`t-${idx++}`}>{input.slice(last, m.index)}</span>);
+      out.push(
+        <strong key={`b-${idx++}`} className="text-foreground font-bold">
+          {m[1]}
+        </strong>,
+      );
+      last = re.lastIndex;
+    }
+
+    if (last < input.length) out.push(<span key={`t-${idx++}`}>{input.slice(last)}</span>);
+    return out;
+  };
+
   const parts = text.split(/(https?:\/\/[^\s]+)/g);
   return parts.map((part, i) => {
-    if (!/^https?:\/\//.test(part)) return <span key={i}>{part}</span>;
+    if (!/^https?:\/\//.test(part)) return <Fragment key={i}>{renderBold(part)}</Fragment>;
     const trailingMatch = part.match(/[.,;:!?)\]}'"]+$/);
     const trailing = trailingMatch ? trailingMatch[0] : "";
     const url = trailing ? part.slice(0, -trailing.length) : part;

@@ -44,6 +44,36 @@ function getStoredSession() {
   }
 }
 
+function renderInstructionText(text: string) {
+  const lines = text.split("\n");
+  return lines.map((line, lineIdx) => {
+    const chunks: React.ReactNode[] = [];
+    const re = /\*\*(.+?)\*\*/g;
+    let last = 0;
+    let m: RegExpExecArray | null;
+    let idx = 0;
+
+    while ((m = re.exec(line)) !== null) {
+      if (m.index > last) chunks.push(<span key={`t-${lineIdx}-${idx++}`}>{line.slice(last, m.index)}</span>);
+      chunks.push(
+        <strong key={`b-${lineIdx}-${idx++}`} className="text-foreground font-bold">
+          {m[1]}
+        </strong>,
+      );
+      last = re.lastIndex;
+    }
+
+    if (last < line.length) chunks.push(<span key={`t-${lineIdx}-${idx++}`}>{line.slice(last)}</span>);
+
+    return (
+      <span key={`l-${lineIdx}`}>
+        {chunks}
+        {lineIdx < lines.length - 1 ? <br /> : null}
+      </span>
+    );
+  });
+}
+
 export default function AppDetailClient() {
   const params = useParams();
   const sp = useSearchParams();
@@ -470,7 +500,7 @@ export default function AppDetailClient() {
             {app.portal_setup_instructions && (
               <div className="bg-card rounded-xl p-4 border border-border shadow-sm space-y-2">
                 <p className="text-sm font-bold text-foreground">Como configurar</p>
-                <p className="text-xs text-muted-foreground whitespace-pre-line">{app.portal_setup_instructions}</p>
+                <p className="text-xs text-muted-foreground">{renderInstructionText(app.portal_setup_instructions)}</p>
               </div>
             )}
 
