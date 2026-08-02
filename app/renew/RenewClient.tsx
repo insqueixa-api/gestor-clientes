@@ -3577,18 +3577,8 @@ export default function RenewClient() {
                     Atualize seu cadastro, clique em <span className="inline-flex items-center rounded-md bg-emerald-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">+ Adicionar aplicativo</span> e selecione o <strong className="text-foreground">aplicativo</strong> que você usa na Smart TV, celular ou outro dispositivo. Se quiser dividir o ponto e configurar mais de um acesso, saiba que é possível, basta adicionar o aplicativo seguindo as instruções da tela.
                   </li>
 
-                  {selectedAccount.server_name === "EliteTV" ? (
-                    <li>
-                      No <strong className="text-foreground">Elite TV</strong>, dependendo do dispositivo, algumas configurações podem ser feitas automaticamente pelo portal.
-                    </li>
-                  ) : selectedAccount.server_name === "NaTV" || selectedAccount.server_name === "FastTV" ? (
-                    <li>
-                      No <strong className="text-foreground">{selectedAccount.server_name}</strong>, a configuração costuma ser feita pelo cliente: os dados ficam visíveis na tela e você preenche no aplicativo.
-                    </li>
-                  ) : null}
-
                   <li>
-                    Aplicativos com a tag <span className="inline-flex items-center rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-bold text-amber-600">⚡ Configuração automática</span> são configurados direto aqui no Portal: basta preencher os dados e concluir.
+                    Aplicativos com a tag <span className="inline-flex items-center rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-bold text-amber-600">⚡ Configuração automática</span> são configurados no Portal; os demais são configurados no dispositivo com os dados exibidos após a escolha do app.
                   </li>
 
                   <li>
