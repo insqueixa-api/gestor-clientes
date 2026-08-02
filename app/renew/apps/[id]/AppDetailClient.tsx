@@ -89,7 +89,7 @@ export default function AppDetailClient() {
       if (!result?.ok) throw new Error(result?.error || "Não foi possível carregar esse aplicativo.");
       setApp(result.data);
     } catch (err: any) {
-      setError(err?.message || "Erro ao carregar.");
+      setError("Não foi possível carregar esse aplicativo. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -98,7 +98,7 @@ export default function AppDetailClient() {
   useEffect(() => {
     if (session === null) return;
     if (!session) {
-      setError("Sessão inválida. Abra o link novamente.");
+      setError("Link inválido. Abra novamente.");
       setLoading(false);
       return;
     }
@@ -129,7 +129,7 @@ export default function AppDetailClient() {
       setIsEditing(false);
       await loadDetail();
     } catch (err: any) {
-      addToast("error", "Não foi possível salvar", err?.message);
+      addToast("error", "Não foi possível salvar", "Tente novamente.");
     } finally {
       setBusy(false);
     }
@@ -163,7 +163,7 @@ export default function AppDetailClient() {
           kind: result?.blocked ? "blocked" : "error",
           isReconfigure,
           appName: app.name,
-          errorMessage: result?.error || "Falha ao configurar.",
+          errorMessage: "Não foi possível concluir a configuração. Tente novamente.",
           escalate: !!result?.escalate,
           suggestSecondary: !!result?.suggest_secondary,
         });
@@ -183,7 +183,7 @@ export default function AppDetailClient() {
         kind: "error",
         isReconfigure,
         appName: app.name,
-        errorMessage: "Houve uma falha ao configurar esse aplicativo. Tente mais uma vez — se continuar falhando, fale com o suporte.",
+        errorMessage: "Não foi possível concluir a configuração. Tente novamente ou fale com o suporte.",
         escalate: false,
       });
     } finally {
@@ -201,11 +201,11 @@ export default function AppDetailClient() {
         body: JSON.stringify({ session_token: session, client_id: clientId, client_app_id: clientAppId }),
       });
       const result = await res.json().catch(() => null);
-      if (!result?.ok) throw new Error(result?.error || "Falha ao solicitar.");
-      addToast("success", result.data?.already_pending ? "Já solicitado" : "Solicitado!", "Nosso suporte vai configurar esse aplicativo pra você em breve.");
+      if (!result?.ok) throw new Error(result?.error || "Não foi possível enviar o pedido.");
+      addToast("success", result.data?.already_pending ? "Já solicitado" : "Pedido enviado", "Nossa equipe vai cuidar disso em breve.");
       await loadDetail();
     } catch (err: any) {
-      addToast("error", "Falha ao solicitar", err?.message);
+      addToast("error", "Não foi possível enviar o pedido", "Tente novamente.");
     } finally {
       setBusy(false);
     }
@@ -221,11 +221,11 @@ export default function AppDetailClient() {
         body: JSON.stringify({ session_token: session, client_id: clientId, client_app_id: clientAppId }),
       });
       const result = await res.json().catch(() => null);
-      if (!result?.ok) throw new Error(result?.error || "Falha ao verificar.");
-      addToast("success", "Validade verificada!", result.expireDate ? `Vencimento: ${String(result.expireDate).split("-").reverse().join("/")}` : "Não encontrado no painel.");
+      if (!result?.ok) throw new Error(result?.error || "Não foi possível atualizar a validade.");
+      addToast("success", "Validade atualizada", result.expireDate ? `Vencimento: ${String(result.expireDate).split("-").reverse().join("/")}` : "Ainda não encontramos essa informação.");
       await loadDetail();
     } catch (err: any) {
-      addToast("error", "Falha ao verificar", err?.message);
+      addToast("error", "Não foi possível atualizar a validade", "Tente novamente.");
     } finally {
       setBusy(false);
     }
@@ -235,7 +235,7 @@ export default function AppDetailClient() {
     if (!session || !clientId || !app) return;
     const ok = await confirm({
       title: "Excluir aplicativo?",
-      subtitle: `"${app.name}" será removido dessa conta. Se tiver configuração automática, também some do painel do parceiro; se não tiver, seu pedido vai pro nosso suporte concluir.`,
+      subtitle: `"${app.name}" será removido dessa conta. Se a retirada for automática, ela acontece agora; caso contrário, nossa equipe finaliza depois.`,
       tone: "rose",
       confirmText: "Excluir",
       cancelText: "Cancelar",
@@ -250,16 +250,16 @@ export default function AppDetailClient() {
         body: JSON.stringify({ session_token: session, client_id: clientId, client_app_id: clientAppId }),
       });
       const result = await res.json().catch(() => null);
-      if (!result?.ok) throw new Error(result?.error || "Falha ao excluir.");
+      if (!result?.ok) throw new Error(result?.error || "Não foi possível excluir.");
       if (result.data?.pending_admin) {
-        addToast("success", result.data?.already_requested ? "Já solicitado" : "Exclusão solicitada", "Nosso suporte vai remover esse aplicativo em breve.");
+        addToast("success", result.data?.already_requested ? "Já solicitado" : "Pedido enviado", "Nossa equipe vai remover esse aplicativo em breve.");
         await loadDetail();
       } else {
         addToast("success", "Excluído!", `"${app.name}" foi removido dessa conta.`);
         setTimeout(() => router.push(`/renew?conta=${clientId}`), 900);
       }
     } catch (err: any) {
-      addToast("error", "Falha ao excluir", err?.message);
+      addToast("error", "Não foi possível excluir", "Tente novamente.");
     } finally {
       setBusy(false);
     }
@@ -270,7 +270,7 @@ export default function AppDetailClient() {
       <ToastNotifications toasts={toasts} removeToast={removeToast} />
       <ConfigureResultModal
         open={!!resultModal}
-        onClose={() => setResultModal(null)}
+        onCloseAction={() => setResultModal(null)}
         data={resultModal}
         supportPhone={app?.admin_whatsapp || ""}
       />

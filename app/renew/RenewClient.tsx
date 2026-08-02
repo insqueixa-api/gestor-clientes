@@ -101,13 +101,13 @@ function safeUserError(msg: unknown) {
 
   // ✅ mensagens "permitidas" (genéricas) pro cliente final
   if (low.includes("sess") || low.includes("session"))
-    return "Sessão expirada ou inválida";
+    return "Sua sessão terminou. Abra o link novamente para continuar.";
   if (low.includes("conta") || low.includes("accounts"))
-    return "Não foi possível carregar suas contas";
+    return "Não foi possível carregar suas contas. Tente novamente em instantes.";
   if (low.includes("preço") || low.includes("prices") || low.includes("plano"))
-    return "Não foi possível carregar os planos";
+    return "Não foi possível carregar os planos. Tente novamente em instantes.";
 
-  return "Não foi possível carregar seus dados";
+  return "Não foi possível carregar seus dados. Tente novamente.";
 }
 
 // ========= HELPERS =========
@@ -240,10 +240,10 @@ export default function RenewClient() {
   const { confirm } = useConfirm();
   const alertError = (msg: string) =>
     confirm({
-      title: "Aviso",
+      title: "Não foi possível continuar",
       subtitle: msg,
       tone: "rose",
-      confirmText: "OK",
+      confirmText: "Entendi",
       cancelText: "",
     });
 
@@ -377,7 +377,7 @@ export default function RenewClient() {
       });
       startPollingAppPayment(result.payment_id);
     } catch (err: any) {
-      addToast("error", "Falha ao gerar pagamento", err?.message);
+      await alertError("Não foi possível gerar o pagamento agora. Tente novamente em instantes.");
     } finally {
       setRenewPaymentBusyId(null);
     }
@@ -551,7 +551,7 @@ export default function RenewClient() {
 
       if (!session) {
         clearStoredSession();
-        setError("Sessão inválida");
+        setError("Link inválido. Abra novamente.");
         setLoading(false);
         return;
       }
@@ -642,7 +642,7 @@ export default function RenewClient() {
         );
         if (currentPeriod) setSelectedPeriod(currentPeriod);
       } catch (err: any) {
-        addToast("error", "Erro ao carregar planos", safeUserError(err?.message));
+        addToast("error", "Não foi possível carregar os planos", "Tente novamente.");
       }
     }
 
@@ -667,7 +667,7 @@ export default function RenewClient() {
       setInstalledApps(data);
       return data;
     } catch (err: any) {
-      setInstalledAppsError(safeUserError(err?.message));
+      setInstalledAppsError("Não foi possível carregar os aplicativos. Tente novamente.");
       return [];
     } finally {
       setInstalledAppsLoading(false);
@@ -817,7 +817,7 @@ export default function RenewClient() {
           kind: result?.blocked ? "blocked" : "error",
           isReconfigure,
           appName,
-          errorMessage: result?.error || "Falha ao configurar.",
+          errorMessage: "Não foi possível concluir a configuração. Tente novamente.",
           escalate: !!result?.escalate,
           suggestSecondary: !!result?.suggest_secondary,
         });
@@ -837,7 +837,7 @@ export default function RenewClient() {
         kind: "error",
         isReconfigure,
         appName,
-        errorMessage: "Houve uma falha ao configurar esse aplicativo. Tente mais uma vez — se continuar falhando, fale com o suporte.",
+        errorMessage: "Não foi possível concluir a configuração. Tente novamente ou fale com o suporte.",
         escalate: false,
       });
     } finally {
@@ -862,7 +862,7 @@ export default function RenewClient() {
         body: JSON.stringify({ session_token: session, client_id: selectedAccountId, client_app_id: clientAppId }),
       });
       const result = await res.json().catch(() => null);
-      if (!result?.ok) throw new Error(result?.error || "Falha ao renovar.");
+      if (!result?.ok) throw new Error(result?.error || "Não foi possível renovar agora.");
       addToast(
         "success",
         "Licença renovada!",
@@ -870,7 +870,7 @@ export default function RenewClient() {
       );
       await refreshInstalledApps();
     } catch (err: any) {
-      addToast("error", "Falha ao renovar", err?.message);
+      addToast("error", "Não foi possível renovar", "Tente novamente.");
     } finally {
       setAppActionBusy(null);
     }
@@ -899,15 +899,15 @@ export default function RenewClient() {
         body: JSON.stringify({ session_token: session, client_id: selectedAccountId, client_app_id: clientAppId }),
       });
       const result = await res.json().catch(() => null);
-      if (!result?.ok) throw new Error(result?.error || "Falha ao solicitar configuração.");
+      if (!result?.ok) throw new Error(result?.error || "Não foi possível enviar o pedido.");
       addToast(
         "success",
-        result.data?.already_pending ? "Já solicitado" : "Solicitado!",
-        "Nosso suporte vai configurar esse aplicativo pra você em breve.",
+        result.data?.already_pending ? "Já solicitado" : "Pedido enviado",
+        "Nossa equipe vai cuidar disso em breve.",
       );
       await refreshInstalledApps();
     } catch (err: any) {
-      addToast("error", "Falha ao solicitar", err?.message);
+      addToast("error", "Não foi possível enviar o pedido", "Tente novamente.");
     } finally {
       setAppActionBusy(null);
     }
@@ -923,11 +923,11 @@ export default function RenewClient() {
         body: JSON.stringify({ session_token: session, client_id: selectedAccountId, client_app_id: clientAppId }),
       });
       const result = await res.json().catch(() => null);
-      if (!result?.ok) throw new Error(result?.error || "Falha ao verificar.");
-      addToast("success", "Validade verificada!", result.expireDate ? `Vencimento: ${String(result.expireDate).split("-").reverse().join("/")}` : "Não encontrado no painel.");
+      if (!result?.ok) throw new Error(result?.error || "Não foi possível atualizar a validade.");
+      addToast("success", "Validade atualizada", result.expireDate ? `Vencimento: ${String(result.expireDate).split("-").reverse().join("/")}` : "Ainda não encontramos essa informação.");
       await refreshInstalledApps();
     } catch (err: any) {
-      addToast("error", "Falha ao verificar", err?.message);
+      addToast("error", "Não foi possível atualizar a validade", "Tente novamente.");
     } finally {
       setAppActionBusy(null);
     }
@@ -958,9 +958,9 @@ export default function RenewClient() {
     const ok = await confirm({
       title: "Excluir aplicativo?",
       subtitle: hasIntegration
-        ? `"${appName}" vai ser desconfigurado e removido do painel do parceiro, e sai do seu cadastro também. Essa ação não pode ser desfeita.`
+        ? `"${appName}" vai sair do seu cadastro. Essa ação não pode ser desfeita.`
         : requiresAdminSetup
-          ? `"${appName}" sai do seu cadastro. Esse app não configura sozinho — nosso suporte vai concluir a remoção no painel do parceiro em seguida.`
+          ? `"${appName}" sai do seu cadastro. Nossa equipe vai concluir a remoção em seguida.`
           : `"${appName}" sai do seu cadastro imediatamente. Essa ação não pode ser desfeita.`,
       tone: "rose",
       confirmText: "Excluir",
@@ -976,19 +976,19 @@ export default function RenewClient() {
         body: JSON.stringify({ session_token: session, client_id: selectedAccountId, client_app_id: clientAppId }),
       });
       const result = await res.json().catch(() => null);
-      if (!result?.ok) throw new Error(result?.error || "Falha ao excluir.");
+      if (!result?.ok) throw new Error(result?.error || "Não foi possível excluir.");
       if (result.data?.pending_admin) {
         addToast(
           "success",
-          result.data?.already_requested ? "Já solicitado" : "Exclusão solicitada",
-          "Nosso suporte vai remover esse aplicativo em breve.",
+          result.data?.already_requested ? "Já solicitado" : "Pedido enviado",
+          "Nossa equipe vai remover esse aplicativo em breve.",
         );
       } else {
         addToast("success", "Excluído!", `"${appName}" foi removido dessa conta.`);
       }
       await refreshInstalledApps();
     } catch (err: any) {
-      addToast("error", "Falha ao excluir", err?.message);
+      addToast("error", "Não foi possível excluir", "Tente novamente.");
     } finally {
       setAppActionBusy(null);
     }
@@ -1134,7 +1134,7 @@ export default function RenewClient() {
         setCouponError(result?.reason || result?.error || "Cupom inválido.");
       }
     } catch {
-      setCouponError("Erro ao validar cupom. Tente novamente.");
+      setCouponError("Não foi possível validar o cupom agora. Confira o código e tente novamente.");
     } finally {
       setCouponChecking(false);
     }
@@ -1151,7 +1151,7 @@ export default function RenewClient() {
 
     if (!selectedAccount) return;
     if (!session) {
-      await alertError("Sessão expirada. Abra o link novamente.");
+      await alertError("Link expirado. Abra novamente.");
       clearStoredSession();
       return;
     }
@@ -1165,7 +1165,7 @@ export default function RenewClient() {
           );
 
     if (!renewPrice || !renewPrice.price_amount) {
-      await alertError("Erro: valor do plano não encontrado");
+      await alertError("Não foi possível encontrar o valor do plano.");
       return;
     }
 
@@ -1304,9 +1304,7 @@ export default function RenewClient() {
             setPaymentPhase("error");
             setPaymentStatus("rejected");
 
-            alertError(
-              "Pagamento aprovado, mas houve falha ao concluir a renovação.\nProcure o suporte.",
-            );
+            alertError("Pagamento aprovado, mas não foi possível concluir a renovação.\nProcure o suporte.");
 
             clearInterval(interval);
             setPollingInterval(null);
@@ -1356,9 +1354,7 @@ export default function RenewClient() {
             setPaymentPhase("error");
             setPaymentStatus("rejected");
 
-            alertError(
-              "Pagamento aprovado, mas houve falha ao concluir a renovação.\nProcure o suporte.",
-            );
+            alertError("Pagamento aprovado, mas não foi possível concluir a renovação.\nProcure o suporte.");
 
             clearInterval(interval);
             setPollingInterval(null);
@@ -1538,7 +1534,7 @@ export default function RenewClient() {
 
         if (error) {
           ev.complete("fail");
-          await alertError(error.message || "Erro ao processar pagamento.");
+          await alertError("Não foi possível processar o pagamento.");
           return;
         }
 
@@ -1552,7 +1548,7 @@ export default function RenewClient() {
             paymentData.client_secret,
           );
           if (actionError) {
-            await alertError(actionError.message || "Autenticação necessária falhou.");
+            await alertError("Não foi possível concluir a autenticação do pagamento.");
             return;
           }
           setPaymentPhase("renewing");
@@ -1635,7 +1631,7 @@ export default function RenewClient() {
         startPolling(String(payment.payment_id));
       }
     } catch {
-      await alertError("Erro ao processar renovação. Tente novamente.");
+      await alertError("Não foi possível processar a renovação. Tente novamente.");
     } finally {
       setIsProcessingPayment(false);
       setPendingRenew(null);
@@ -1654,7 +1650,7 @@ export default function RenewClient() {
       );
 
       if (result.error) {
-        await alertError(result.error.message || "Erro ao processar cartão.");
+        await alertError("Não foi possível processar o cartão. Tente novamente.");
         return;
       }
 
@@ -1664,7 +1660,7 @@ export default function RenewClient() {
         startPolling(String(paymentData.payment_id));
       }
     } catch (e: any) {
-      await alertError(e?.message || "Erro ao processar pagamento. Tente novamente.");
+      await alertError("Não foi possível processar o pagamento. Tente novamente.");
     } finally {
       setStripeLoading(false);
     }
@@ -1954,10 +1950,18 @@ export default function RenewClient() {
 
     const securityNote = !isApproved && !isRejected && paymentPhase !== "renewing" && (
       <div className="px-5 pb-4 pt-2">
-        <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-          Conexão segura (SSL) — pagamento processado direto pelo{" "}
-          {isStripe ? "Stripe" : "Mercado Pago"}
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-left">
+          <div className="flex items-start gap-2.5 text-[11px] text-muted-foreground">
+            <ShieldCheck className="mt-0.5 w-3.5 h-3.5 text-emerald-500 shrink-0" />
+            <div className="space-y-1">
+              <p className="font-semibold text-foreground">
+                Pagamento protegido pelo {isStripe ? "Stripe" : "Mercado Pago"}
+              </p>
+              <p>
+                Este portal não guarda o número completo do cartão nem o código PIX. Os dados seguem direto para o processador de pagamento para concluir a cobrança.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -2168,13 +2172,13 @@ export default function RenewClient() {
                 <h2 className="text-xl font-bold mb-1">
                   {paymentPhase === "renewing"
                     ? "Pagamento confirmado ✅"
-                    : "Pague com PIX"}
+                    : "Pagamento via PIX seguro"}
                 </h2>
 
                 <p className="text-sm text-white/80">
                   {paymentPhase === "renewing"
                     ? "Renovação em andamento…"
-                    : paymentData.gateway_name || "Mercado Pago"}
+                    : "Confira os dados antes de confirmar no app do banco"}
                 </p>
 
                 {/* ✅ extra: ainda mostra o gateway, mas sem poluir */}
@@ -2188,6 +2192,18 @@ export default function RenewClient() {
               {summaryBlock}
 
               <div className="px-5 pt-4 pb-3 space-y-3">
+                {paymentPhase !== "renewing" && (
+                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-sm text-muted-foreground space-y-1.5">
+                    <p className="font-semibold text-foreground">Antes de pagar, confira:</p>
+                    <ul className="list-disc list-inside space-y-1 pl-1">
+                      <li>o valor mostrado na tela</li>
+                      <li>o nome do recebedor no app do seu banco</li>
+                      <li>se o QR Code ou o código copiado está completo</li>
+                    </ul>
+                    <p>Se o QR Code não abrir, use o campo de copiar e colar. Não compartilhe esse código com outras pessoas.</p>
+                  </div>
+                )}
+
                 {/* QR Code */}
                 {paymentPhase !== "renewing" && (
                   <div className="bg-card p-2 sm:p-4 rounded-xl border-2 border-border">
@@ -2214,9 +2230,10 @@ export default function RenewClient() {
                       <span>📱</span> Como pagar:
                     </p>
                     <ol className="list-decimal list-inside space-y-1 text-muted-foreground pl-6">
-                      <li>Abra o app do seu banco</li>
-                      <li>Escaneie o QR Code</li>
-                      <li>Confirme o pagamento</li>
+                      <li>Abra o app do seu banco ou carteira digital</li>
+                      <li>Escaneie o QR Code ou copie o código acima</li>
+                      <li>Confira valor e recebedor antes de confirmar</li>
+                      <li>Finalize o pagamento e aguarde a confirmação automática</li>
                     </ol>
                   </div>
                 )}
@@ -2226,6 +2243,9 @@ export default function RenewClient() {
                   <div className="bg-muted/50 p-3 rounded-xl border border-border space-y-2">
                     <p className="text-xs font-bold text-foreground/70 uppercase tracking-wider text-center">
                       Ou copie o código:
+                    </p>
+                    <p className="text-[11px] text-muted-foreground text-center">
+                      Copie apenas no app oficial do seu banco e confirme se o recebedor e o valor estão corretos antes de concluir.
                     </p>
                     <div className="relative group">
                       <input
@@ -2265,8 +2285,8 @@ export default function RenewClient() {
                     </p>
                     <p className="text-xs text-sky-500/80">
                       {paymentPhase === "renewing"
-                        ? "Estamos atualizando sua assinatura no servidor. Isso pode levar alguns segundos."
-                        : "Detectaremos automaticamente quando você pagar"}
+                        ? "Estamos atualizando sua assinatura agora. Pode levar alguns segundos."
+                        : "Assim que o pagamento for confirmado, esta tela avança sozinha."}
                     </p>
                   </div>
                 </div>
@@ -2305,7 +2325,7 @@ export default function RenewClient() {
                 <p className="text-sm text-white/80">
                   {paymentPhase === "renewing"
                     ? "Renovação em andamento…"
-                    : paymentData.gateway_name || "Stripe"}
+                    : "Preencha os dados com atenção e confirme apenas se reconhecer o valor"}
                 </p>
               </div>
 
@@ -2314,6 +2334,16 @@ export default function RenewClient() {
               <div className="px-5 pt-5 pb-4 space-y-4">
                 {paymentPhase !== "renewing" && (
                   <>
+                    <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-3 text-sm text-muted-foreground space-y-1.5">
+                      <p className="font-semibold text-foreground">Antes de confirmar o cartão:</p>
+                      <ul className="list-disc list-inside space-y-1 pl-1">
+                        <li>revise o valor final mostrado acima</li>
+                        <li>confira o nome do recebedor no cartão ou na carteira</li>
+                        <li>use apenas este formulário para continuar o pagamento</li>
+                      </ul>
+                      <p>Os dados do cartão são enviados direto ao provedor de pagamento e não ficam salvos neste portal.</p>
+                    </div>
+
                     {/* Trust signals */}
                     {(paymentData.beneficiary_name ||
                       paymentData.institution) && (
@@ -2438,7 +2468,7 @@ export default function RenewClient() {
                     </div>
 
                     <p className="text-center text-[10px] text-muted-foreground">
-                      Pagamento processado com segurança via Stripe
+                      Processamento seguro pelo Stripe. Não compartilhe o código do cartão com ninguém.
                     </p>
 
                     <button
@@ -2488,13 +2518,23 @@ export default function RenewClient() {
                   <p className="text-sm text-white/80">
                     {paymentPhase === "renewing"
                       ? "Renovação em andamento…"
-                      : paymentData.gateway_name || "Stripe"}
+                      : "Confirme só depois de revisar o valor e o recebedor na carteira"}
                   </p>
                 </div>
 
                 <div className="px-5 pt-5 pb-4 space-y-4">
                   {paymentPhase !== "renewing" && (
                     <>
+                      <div className="rounded-xl border border-slate-500/20 bg-slate-500/5 p-3 text-sm text-muted-foreground space-y-1.5">
+                        <p className="font-semibold text-foreground">Antes de concluir com a carteira digital:</p>
+                        <ul className="list-disc list-inside space-y-1 pl-1">
+                          <li>confira o valor final</li>
+                          <li>veja se o nome do recebedor está correto</li>
+                          <li>confirme só quando estiver tudo certo</li>
+                        </ul>
+                        <p>O pagamento é processado diretamente pela Apple Pay ou Google Pay, sem salvar seus dados neste portal.</p>
+                      </div>
+
                       <div className="text-center">
                         <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">
                           Total a pagar
@@ -2545,7 +2585,7 @@ export default function RenewClient() {
                       )}
 
                       <p className="text-center text-[10px] text-muted-foreground">
-                        Pagamento processado com segurança via Stripe
+                        Processamento seguro pela Stripe. Seus dados são tratados pelo provedor de pagamento.
                       </p>
 
                       <button
@@ -3352,7 +3392,7 @@ export default function RenewClient() {
               {getGreeting()}{clientFirstName ? `, ${clientFirstName}` : ""}! 👋
             </h1>
             <p className="text-foreground/70 text-sm mt-1">
-              O que você deseja fazer?
+              Escolha abaixo o que você quer resolver agora.
             </p>
           </div>
 
@@ -3370,7 +3410,7 @@ export default function RenewClient() {
                   Pagamentos e Renovação
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                  Confira seu plano, renove sua assinatura ou quite pendências
+                  Veja o vencimento, escolha como pagar e acompanhe a renovação até o fim.
                 </p>
               </div>
               <span className="text-emerald-500 text-xl group-hover:translate-x-0.5 transition-transform shrink-0">
@@ -3394,7 +3434,7 @@ export default function RenewClient() {
                     Novidades e Conteúdo
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                    Grade de canais e jogos do dia, confira lançamentos de filmes e séries
+                    Consulte a grade, veja jogos do dia e explore novidades do catálogo.
                   </p>
                 </div>
                 <span className="text-sky-500 text-xl group-hover:translate-x-0.5 transition-transform shrink-0">
@@ -3418,7 +3458,7 @@ export default function RenewClient() {
                   Meus Aplicativos
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                  Diga quais aplicativos você usa, atualize ou instale novos
+                  Abra o passo a passo, atualize os dados do app ou peça ajuda para configurar um novo.
                 </p>
               </div>
               <span className="text-amber-500 text-xl group-hover:translate-x-0.5 transition-transform shrink-0">
@@ -3459,7 +3499,7 @@ export default function RenewClient() {
               </button>
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 max-w-xl">
-              Use esta página pra reconfigurar um aplicativo que parou de funcionar, atualizar os dados de um já instalado, ou informar quais aplicativos você usa.
+              Aqui você pode corrigir um aplicativo, atualizar dados já salvos, pedir configuração ou abrir as instruções passo a passo. Se aparecer o botão <strong className="text-foreground">Atualizar</strong>, ele serve só para conferir a validade sem refazer a configuração.
             </p>
           </div>
 
@@ -3474,8 +3514,8 @@ export default function RenewClient() {
               )}
               {!installedAppsLoading && !installedAppsError && installedApps.length === 0 && (
                 <div className="text-center py-8 px-4 text-muted-foreground bg-muted/40 rounded-xl border border-dashed border-border">
-                  Ainda não identificamos nenhum aplicativo nesta conta — clique em{" "}
-                  <strong className="text-foreground">"+ Adicionar aplicativo"</strong> acima pra informar o que você usa, ou pra configurar um novo.
+                  Ainda não identificamos nenhum aplicativo nesta conta. Use{" "}
+                  <strong className="text-foreground">"+ Adicionar aplicativo"</strong> para escolher o app que você usa ou para começar uma nova configuração.
                 </div>
               )}
 
@@ -3850,7 +3890,7 @@ export default function RenewClient() {
 
               <ConfigureResultModal
                 open={!!configureResult}
-                onClose={() => setConfigureResult(null)}
+                onCloseAction={() => setConfigureResult(null)}
                 data={configureResult}
                 supportPhone={supportPhone}
               />

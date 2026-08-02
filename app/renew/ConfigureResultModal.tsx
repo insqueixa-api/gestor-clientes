@@ -38,12 +38,12 @@ function SupportLink({ supportPhone }: { supportPhone: string }) {
 
 export default function ConfigureResultModal({
   open,
-  onClose,
+  onCloseAction,
   data,
   supportPhone,
 }: {
   open: boolean;
-  onClose: () => void;
+  onCloseAction: () => void;
   data: ConfigureResultData | null;
   supportPhone: string;
 }) {
@@ -53,11 +53,11 @@ export default function ConfigureResultModal({
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") onCloseAction();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open, onCloseAction]);
 
   if (!mounted || !open || !data) return null;
 
@@ -68,7 +68,7 @@ export default function ConfigureResultModal({
     <div
       className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) onCloseAction();
       }}
     >
       <div
@@ -102,7 +102,7 @@ export default function ConfigureResultModal({
               : "Configurado com sucesso ✅"
             : isBlocked
               ? "Muitas tentativas seguidas"
-              : "Falha ao configurar"}
+              : "Não foi possível concluir"}
         </h2>
 
         {isSuccess ? (
@@ -111,8 +111,8 @@ export default function ConfigureResultModal({
               <div className="p-3 bg-amber-500/10 rounded-xl border border-amber-500/20">
                 <p className="text-xs text-amber-500 font-medium">
                   {data.suggestSecondary
-                    ? "Você já tinha reconfigurado esse aplicativo recentemente com a rota Principal. Se o problema ainda não sumiu, da próxima vez reconfigure escolhendo a rota Secundária."
-                    : "Você já tinha reconfigurado esse aplicativo recentemente — essa ação faz exatamente a mesma coisa de novo."}
+                    ? "Se ainda não resolver, tente novamente escolhendo a outra opção de configuração."
+                    : "Você já tinha feito essa ação recentemente — agora ela não muda mais nada."}
                 </p>
               </div>
             )}
@@ -132,7 +132,7 @@ export default function ConfigureResultModal({
 
             {data.isReconfigure && (
               <p className="text-sm text-muted-foreground">
-                Se o problema continuar, desligue o modem da tomada por 5 minutos, depois a TV, e teste de novo.
+                Se o problema continuar, desligue a TV e o modem por alguns minutos e tente de novo.
               </p>
             )}
 
@@ -142,19 +142,27 @@ export default function ConfigureResultModal({
           </div>
         ) : (
           <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">{data.errorMessage}</p>
+            <p className="text-sm text-muted-foreground">{data.errorMessage || "Não foi possível concluir agora. Tente novamente em instantes."}</p>
             {data.suggestSecondary && (
               <p className="text-xs text-amber-500 font-medium">
-                Essa tentativa usou a rota Principal. Se tentar de novo, escolha a rota Secundária — ela troca o servidor de conexão usado pelo app.
+                Se quiser tentar novamente, use a outra opção de configuração.
               </p>
             )}
+          </div>
+        )}
+
+        {isBlocked && (
+          <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-left">
+            <p className="text-xs text-amber-500 font-medium">
+              Aguarde alguns minutos antes de tentar de novo. Se preferir, feche esta janela e volte mais tarde.
+            </p>
           </div>
         )}
 
         <div className="mt-5 flex flex-col items-center gap-3">
           {(isSuccess || isBlocked || data.escalate) && <SupportLink supportPhone={supportPhone} />}
           <button
-            onClick={onClose}
+            onClick={onCloseAction}
             className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-md transition-colors"
           >
             Entendi
