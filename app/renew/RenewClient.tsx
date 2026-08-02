@@ -3538,9 +3538,17 @@ export default function RenewClient() {
                 <span>+</span> Adicionar aplicativo
               </button>
             </div>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 max-w-xl">
-              Aqui você pode corrigir um aplicativo, atualizar dados já salvos, pedir configuração ou abrir as instruções passo a passo. Se aparecer o botão <strong className="text-foreground">Atualizar</strong>, ele serve só para conferir a validade sem refazer a configuração.
-            </p>
+            <div className="mt-1.5 space-y-2 text-xs sm:text-sm text-muted-foreground">
+              <p>
+                Atualize seu cadastro, clique em <strong className="text-foreground">+ Adicionar aplicativo</strong> e selecione o app que você usa na Smart TV, celular ou outro dispositivo. Se quiser dividir o ponto e configurar mais um acesso, adicione o aplicativo, escolha o dispositivo e siga as instruções da tela.
+              </p>
+              <p>
+                Aplicativos com a tag <span className="inline-flex items-center rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-bold text-amber-600">⚡ Configuração automática</span> são configurados direto aqui no Portal: basta preencher os dados e concluir.
+              </p>
+              <p>
+                Aplicativos <span className="inline-flex items-center rounded-md bg-sky-500/10 px-1.5 py-0.5 text-[11px] font-bold text-sky-600">Pagos</span> costumam ter melhor desempenho e normalmente usam licença anual. Depois de inserir os dados, você pode usar o botão <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-bold text-emerald-600">Atualizar</span> para conferir a validade. Se estiver perto do vencimento, você pode renovar por aqui no portal ou direto no site do desenvolvedor.
+              </p>
+            </div>
           </div>
 
           <div className="space-y-4">
