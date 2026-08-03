@@ -229,20 +229,9 @@ export function RankingCard({
                 (Math.max(item.executado - item.previsto, 0) / scale) * 100;
               const isOver =
                 item.executado > item.previsto && item.previsto > 0;
-              const pctOfTarget =
-                item.previsto > 0
-                  ? Math.round((item.executado / item.previsto) * 100)
-                  : item.executado > 0
-                    ? 100
-                    : 0;
-              const tooltip = `Previsto: ${fmt(item.previsto)} · Executado: ${fmt(item.executado)}${
-                isOver
-                  ? ` · Desvio: +${fmt(item.executado - item.previsto)}`
-                  : ""
-              }`;
 
               return (
-                <div key={item.label} className="group" title={tooltip}>
+                <div key={item.label} className="group">
                   {/* Row */}
                   <div className="flex items-center gap-3 mb-1.5">
                     {/* Rank badge */}
@@ -278,14 +267,20 @@ export function RankingCard({
                       </span>
                     </div>
 
-                    {/* % da meta */}
-                    <span
-                      className={`text-[11px] font-medium tabular-nums flex-shrink-0 ${
-                        isOver ? "text-amber-500" : "text-muted-foreground"
-                      }`}
-                    >
-                      {pctOfTarget}%
-                    </span>
+                    {/* Previsto (título) + Executado ao lado, valor total embaixo */}
+                    <div className="flex-shrink-0 text-right">
+                      <div className="text-[10px] text-muted-foreground whitespace-nowrap">
+                        Previsto{" "}
+                        <span className={isOver ? "text-amber-500" : undefined}>
+                          (- Executado: {fmt(item.executado)})
+                        </span>
+                      </div>
+                      <span
+                        className={`text-[13px] font-medium tabular-nums ${c.value}`}
+                      >
+                        {fmt(item.previsto)}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Progress bar: preenchimento leve até a meta, amarelo se ultrapassar */}
