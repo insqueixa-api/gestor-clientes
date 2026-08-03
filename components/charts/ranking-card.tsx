@@ -38,7 +38,10 @@ const fmtBRL = (v: number) =>
     v,
   );
 
-const OVERFLOW_COLOR = "#f59e0b"; // amber-500 — mesmo tom usado pra "ajuste"/desvio
+// Mesma paleta do card "Evolução Consolidada" (components/charts/evolucao-client.tsx):
+// previsto = cinza esmaecido (só contexto), executado = cor cheia, desvio = âmbar do "Ajustes".
+const PREVISTO_COLOR = "rgba(15,23,42,0.45)";
+const OVERFLOW_COLOR = "#b45309"; // amber-700 — mesmo tom do "Ajustes" no gráfico
 
 const accents: Record<
   AccentColor,
@@ -46,6 +49,7 @@ const accents: Record<
     bar: string; // gradient para a barra
     barLight: string; // tom leve pro preenchimento de progresso
     barBg: string; // fundo da barra (track)
+    execColor: string; // cor cheia do "Executado" (igual ao gráfico de evolução)
     rank: string; // cor do número de rank
     rankBg: string; // fundo do badge de rank
     dot: string; // cor do dot decorativo
@@ -57,6 +61,7 @@ const accents: Record<
     bar: "#075985",
     barLight: "#38bdf8",
     barBg: "bg-sky-500/20",
+    execColor: "#0284c7",
     rank: "text-sky-500",
     rankBg: "bg-sky-500/10",
     dot: "bg-sky-400",
@@ -67,6 +72,7 @@ const accents: Record<
     bar: "#065f46",
     barLight: "#34d399",
     barBg: "bg-emerald-500/20",
+    execColor: "#059669",
     rank: "text-emerald-500",
     rankBg: "bg-emerald-500/10",
     dot: "bg-emerald-400",
@@ -77,6 +83,7 @@ const accents: Record<
     bar: "#5b21b6",
     barLight: "#a78bfa",
     barBg: "bg-violet-500/20",
+    execColor: "#7c3aed",
     rank: "text-violet-500",
     rankBg: "bg-violet-500/10",
     dot: "bg-violet-400",
@@ -87,6 +94,7 @@ const accents: Record<
     bar: "#9f1239",
     barLight: "#fb7185",
     barBg: "bg-rose-500/20",
+    execColor: "#e11d48",
     rank: "text-rose-500",
     rankBg: "bg-rose-500/10",
     dot: "bg-rose-400",
@@ -97,6 +105,7 @@ const accents: Record<
     bar: "#92400e",
     barLight: "#fbbf24",
     barBg: "bg-amber-500/20",
+    execColor: "#d97706",
     rank: "text-amber-500",
     rankBg: "bg-amber-500/10",
     dot: "bg-amber-400",
@@ -107,6 +116,7 @@ const accents: Record<
     bar: "#4338ca",
     barLight: "#818cf8",
     barBg: "bg-indigo-500/20",
+    execColor: "#4f46e5",
     rank: "text-indigo-500",
     rankBg: "bg-indigo-500/10",
     dot: "bg-indigo-400",
@@ -267,20 +277,21 @@ export function RankingCard({
                       </span>
                     </div>
 
-                    {/* Previsto (título) + Executado ao lado, valor total embaixo */}
-                    <div className="flex-shrink-0 text-right">
-                      <div className="text-[10px] text-muted-foreground whitespace-nowrap">
-                        Previsto{" "}
-                        <span className={isOver ? "text-amber-500" : undefined}>
-                          (- Executado: {fmt(item.executado)})
-                        </span>
-                      </div>
-                      <span
-                        className={`text-[13px] font-medium tabular-nums ${c.value}`}
-                      >
-                        {fmt(item.previsto)}
+                    {/* Previsto (esmaecido) x Executado (cor cheia / âmbar se estourar) */}
+                    <span className="text-[12px] tabular-nums flex-shrink-0 whitespace-nowrap">
+                      <span style={{ color: PREVISTO_COLOR }}>
+                        (Previsto: {fmt(item.previsto)} -{" "}
                       </span>
-                    </div>
+                      <span
+                        className="font-medium"
+                        style={{
+                          color: isOver ? OVERFLOW_COLOR : c.execColor,
+                        }}
+                      >
+                        Executado: {fmt(item.executado)}
+                      </span>
+                      <span style={{ color: PREVISTO_COLOR }}>)</span>
+                    </span>
                   </div>
 
                   {/* Progress bar: preenchimento leve até a meta, amarelo se ultrapassar */}
